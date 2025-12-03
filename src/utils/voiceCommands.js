@@ -81,8 +81,31 @@ export const processVoiceCommand = (transcript, navigate) => {
     }
 
     if (command.includes('nouveau devis')) {
-        navigate('/devis/new');
-        return 'Création d\'un nouveau devis';
+        let remainingText = command.replace('nouveau devis', '').trim();
+        const data = { clientName: '', notes: '' };
+
+        // Check for "pour" or "client" to find client name
+        // Example: "Nouveau devis pour Martin peinture"
+        const clientMatch = remainingText.match(/(?:pour|client)\s+([^\s]+)(.*)/);
+
+        if (clientMatch) {
+            data.clientName = clientMatch[1]; // The word after "pour"
+            data.notes = clientMatch[2].trim(); // Everything else is notes/description
+        } else {
+            // If no "pour", maybe the whole text is notes? Or just open empty.
+            // Let's assume if they say "Nouveau devis peinture", "peinture" is notes.
+            if (remainingText) {
+                data.notes = remainingText;
+            }
+        }
+
+        // Capitalize client name
+        if (data.clientName) {
+            data.clientName = data.clientName.charAt(0).toUpperCase() + data.clientName.slice(1);
+        }
+
+        navigate('/devis/new', { state: { voiceData: data } });
+        return `Nouveau devis${data.clientName ? ` pour ${data.clientName}` : ''}`;
     }
 
     return null;

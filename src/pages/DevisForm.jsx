@@ -59,7 +59,40 @@ const DevisForm = () => {
 
     useEffect(() => {
         if (user) {
-            fetchClients();
+            fetchClients().then((loadedClients) => {
+                // Handle Voice Data AFTER clients are loaded
+                if (location.state?.voiceData) {
+                    const { clientName, notes } = location.state.voiceData;
+
+                    if (clientName && loadedClients) {
+                        // Fuzzy search for client
+                        const foundClient = loadedClients.find(c =>
+                            c.name.toLowerCase().includes(clientName.toLowerCase())
+                        );
+
+                        if (foundClient) {
+                            setFormData(prev => ({
+                                ...prev,
+                                client_id: foundClient.id,
+                                notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
+                            }));
+                            toast.success(`Client ${foundClient.name} sélectionné`);
+                        } else {
+                            toast.warning(`Client "${clientName}" non trouvé`);
+                        }
+                    }
+
+                    if (notes && !clientName) {
+                        setFormData(prev => ({
+                            ...prev,
+                            notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
+                        }));
+                    }
+
+                    // Clear state
+                    window.history.replaceState({}, document.title);
+                }
+            });
             fetchUserProfile();
             if (isEditing) {
                 fetchDevis();
@@ -79,6 +112,7 @@ const DevisForm = () => {
     const fetchClients = async () => {
         const { data } = await supabase.from('clients').select('*'); // Fetch all fields for PDF
         setClients(data || []);
+        return data || [];
     };
 
     const fetchDevis = async () => {
