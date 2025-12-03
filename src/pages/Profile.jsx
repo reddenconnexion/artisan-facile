@@ -1,0 +1,299 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../utils/supabase';
+import { toast } from 'sonner';
+import { Save, Building, MapPin, Phone, FileText } from 'lucide-react';
+
+const Profile = () => {
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        company_name: '',
+        full_name: '',
+        email: '',
+        professional_email: '',
+        website: '',
+        logo_url: '',
+        phone: '',
+        address: '',
+        city: '',
+        postal_code: '',
+        siret: ''
+    });
+
+    useEffect(() => {
+        if (user) {
+            getProfile();
+        }
+    }, [user]);
+
+    const getProfile = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error) throw error;
+
+            if (data) {
+                setFormData({
+                    company_name: data.company_name || '',
+                    full_name: data.full_name || '',
+                    email: user.email || '',
+                    professional_email: data.professional_email || '',
+                    website: data.website || '',
+                    logo_url: data.logo_url || '',
+                    phone: data.phone || '',
+                    address: data.address || '',
+                    city: data.city || '',
+                    postal_code: data.postal_code || '',
+                    siret: data.siret || ''
+                });
+            }
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            toast.error('Erreur lors du chargement du profil');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLogoUpload = async (e) => {
+        try {
+            setLoading(true);
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('logos')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
+            const publicUrl = data.publicUrl;
+
+            setFormData(prev => ({ ...prev, logo_url: publicUrl }));
+            toast.success('Logo uploadé avec succès');
+        } catch (error) {
+            console.error('Error uploading logo:', error);
+            toast.error('Erreur lors de l\'upload du logo');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateProfile = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    company_name: formData.company_name,
+                    full_name: formData.full_name,
+                    professional_email: formData.professional_email,
+                    website: formData.website,
+                    logo_url: formData.logo_url,
+                    phone: formData.phone,
+                    address: formData.address,
+                    city: formData.city,
+                    postal_code: formData.postal_code,
+                    siret: formData.siret,
+                    updated_at: new Date(),
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            toast.success('Profil mis à jour avec succès');
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            toast.error('Erreur lors de la mise à jour du profil');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto pb-12">
+            <div className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-900">Paramètres de l'entreprise</h2>
+                <p className="text-gray-500 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
+            </div>
+
+            <form onSubmit={updateProfile} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-8 space-y-8">
+                    {/* Identité */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <Building className="w-5 h-5 mr-2 text-blue-600" />
+                            Identité de l'entreprise
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'entreprise</label>
+                                <input
+                                    type="text"
+                                    name="company_name"
+                                    value={formData.company_name}
+                                    onChange={handleChange}
+                                    placeholder="Ex: Martin Rénovation"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Votre nom complet</label>
+                                <input
+                                    type="text"
+                                    name="full_name"
+                                    value={formData.full_name}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro SIRET</label>
+                                <input
+                                    type="text"
+                                    name="siret"
+                                    value={formData.siret}
+                                    onChange={handleChange}
+                                    placeholder="14 chiffres"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Coordonnées */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <MapPin className="w-5 h-5 mr-2 text-blue-600" />
+                            Coordonnées
+                        </h3>
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                                <input
+                                    type="text"
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code Postal</label>
+                                    <input
+                                        type="text"
+                                        name="postal_code"
+                                        value={formData.postal_code}
+                                        onChange={handleChange}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                                    <input
+                                        type="text"
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleChange}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Contact */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <Phone className="w-5 h-5 mr-2 text-blue-600" />
+                            Contact & Web
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Professionnel (pour les devis)</label>
+                                <input
+                                    type="email"
+                                    name="professional_email"
+                                    value={formData.professional_email}
+                                    onChange={handleChange}
+                                    placeholder="contact@monentreprise.com"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Si vide, l'email de connexion ({formData.email}) sera utilisé.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Site Web</label>
+                                <input
+                                    type="url"
+                                    name="website"
+                                    value={formData.website}
+                                    onChange={handleChange}
+                                    placeholder="https://www.monentreprise.com"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
+                                <div className="flex items-center space-x-4">
+                                    {formData.logo_url && (
+                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded border border-gray-200" />
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleLogoUpload}
+                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                    />
+                                </div>
+                                <input
+                                    type="hidden"
+                                    name="logo_url"
+                                    value={formData.logo_url}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                        <Save className="w-4 h-4 mr-2" />
+                        {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+export default Profile;
