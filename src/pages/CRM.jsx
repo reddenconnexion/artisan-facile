@@ -156,7 +156,7 @@ const CRM = () => {
                                             {column.id !== 'lead' && (
                                                 <button
                                                     onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) - 1].id)}
-                                                    className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                                                    className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
                                                     title="Reculer"
                                                 >
                                                     <ArrowRight className="w-3 h-3 rotate-180" />
@@ -165,7 +165,7 @@ const CRM = () => {
                                             {column.id !== 'lost' && (
                                                 <button
                                                     onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) + 1].id)}
-                                                    className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                                                    className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
                                                     title="Avancer"
                                                 >
                                                     <ArrowRight className="w-3 h-3" />
