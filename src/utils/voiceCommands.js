@@ -33,21 +33,31 @@ export const processVoiceCommand = (transcript, navigate) => {
         const data = { name: '', email: '', phone: '', address: '' };
 
         // Extract Email
-        const emailMatch = remainingText.match(/email\s+([^\s]+)/) || remainingText.match(/mail\s+([^\s]+)/);
+        // Handle "email c'est...", "mail...", and spaces in email (e.g. "martin @ gmail point com")
+        const emailMatch = remainingText.match(/(?:email|mail)(?:\s+c'est)?\s+(.+?)(?=\s+(?:téléphone|tel|adresse|habite)|$)/i);
         if (emailMatch) {
-            data.email = emailMatch[1].replace('arobase', '@').replace('point', '.').toLowerCase(); // Basic voice cleanup
+            let rawEmail = emailMatch[1];
+            // Clean up common voice artifacts in email
+            let cleanEmail = rawEmail
+                .toLowerCase()
+                .replace(/\s+arobase\s+|\s*@\s*/g, '@')
+                .replace(/\s+point\s+|\s*\.\s*/g, '.')
+                .replace(/\s+/g, ''); // Remove all remaining spaces
+
+            data.email = cleanEmail;
             remainingText = remainingText.replace(emailMatch[0], '');
         }
 
         // Extract Phone
-        const phoneMatch = remainingText.match(/téléphone\s+([\d\s]+)/) || remainingText.match(/tel\s+([\d\s]+)/);
+        const phoneMatch = remainingText.match(/(?:téléphone|tel)(?:\s+c'est)?\s+([\d\s\+\.]+)(?=\s+(?:email|mail|adresse|habite)|$)/i);
         if (phoneMatch) {
             data.phone = phoneMatch[1].trim();
             remainingText = remainingText.replace(phoneMatch[0], '');
         }
 
         // Extract Address
-        const addressMatch = remainingText.match(/adresse\s+(.+)/) || remainingText.match(/habite\s+(?:à|au)\s+(.+)/);
+        // Address is often long and contains spaces, so we take everything until the next keyword or end
+        const addressMatch = remainingText.match(/(?:adresse|habite)(?:\s+(?:à|au|aux))?\s+(.+?)(?=\s+(?:email|mail|téléphone|tel)|$)/i);
         if (addressMatch) {
             data.address = addressMatch[1].trim();
             remainingText = remainingText.replace(addressMatch[0], '');
