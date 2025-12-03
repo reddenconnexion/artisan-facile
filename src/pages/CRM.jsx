@@ -146,7 +146,7 @@ const CRM = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex justify-between items-center pt-2 border-t border-gray-50 pointer-events-none">
+                                    <div className="flex justify-between items-center pt-2 border-t border-gray-50">
                                         <span className="text-xs text-gray-400">
                                             {new Date(client.created_at).toLocaleDateString()}
                                         </span>
