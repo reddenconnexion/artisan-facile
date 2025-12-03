@@ -87,12 +87,6 @@ const CRM = () => {
     if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
 
     return (
-    const [focusedColumn, setFocusedColumn] = useState(null);
-    import { Maximize2, Minimize2 } from 'lucide-react'; // Add imports
-
-    // ... (existing code)
-
-    return (
         <div className="h-[calc(100vh-100px)] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4 px-4 shrink-0">
                 <h2 className="text-2xl font-bold text-gray-900">
