@@ -88,16 +88,16 @@ const CRM = () => {
 
     return (
         <div className="h-[calc(100vh-100px)] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-4 px-4 shrink-0">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">
                     Suivi Commercial (CRM)
-                    {focusedColumn && <span className="text-gray-400 text-lg font-normal ml-2">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
+                    {focusedColumn && <span className="text-gray-400 text-lg font-normal ml-2 block md:inline">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto">
                     {focusedColumn && (
                         <button
                             onClick={() => setFocusedColumn(null)}
-                            className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            className="flex-1 md:flex-none flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                         >
                             <Minimize2 className="w-4 h-4 mr-2" />
                             Vue d'ensemble
@@ -105,7 +105,7 @@ const CRM = () => {
                     )}
                     <button
                         onClick={() => navigate('/clients/new')}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="flex-1 md:flex-none flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         Nouveau Prospect
