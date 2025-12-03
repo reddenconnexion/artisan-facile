@@ -77,17 +77,47 @@ export const processVoiceCommand = (transcript, navigate) => {
     }
 
     if (command.includes('rendez-vous') || command.includes('rdv')) {
-        // Try to extract time: "Rendez-vous demain à 14h" or "Rendez-vous chantier à 10h"
-        // This is a simple parser, could be improved with regex
-        const timeMatch = command.match(/(\d{1,2})h(\d{2})?/);
-        const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}` : '';
+        let remainingText = command.replace('rendez-vous', '').replace('rdv', '').trim();
+        const data = { title: '', time: '', clientName: '', location: '' };
 
-        // Extract title (everything after "rendez-vous" excluding time)
-        let title = command.replace('rendez-vous', '').replace('rdv', '').replace(/à\s*\d{1,2}h(\d{2})?/, '').trim();
-        if (!title) title = 'Nouveau RDV';
+        // 1. Extract Time (e.g. "14h", "14h30", "14 heures")
+        const timeMatch = remainingText.match(/(?:à|vers)?\s*(\d{1,2})\s*(?:h|heure|heures)(?:(\d{2}))?/i);
+        if (timeMatch) {
+            data.time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
+            remainingText = remainingText.replace(timeMatch[0], '');
+        }
 
-        navigate('/agenda', { state: { voiceData: { title, time } } });
-        return 'Création du rendez-vous';
+        // 2. Extract Client (e.g. "avec Martin", "client Martin")
+        const clientMatch = remainingText.match(/(?:avec|client)\s+([^\s]+)(?=\s+(?:à|au|aux|lieu|adresse)|$)/i);
+        if (clientMatch) {
+            data.clientName = clientMatch[1];
+            // Capitalize client name
+            data.clientName = data.clientName.charAt(0).toUpperCase() + data.clientName.slice(1);
+            remainingText = remainingText.replace(clientMatch[0], '');
+        }
+
+        // 3. Extract Location (e.g. "à Paris", "au bureau", "adresse 10 rue...")
+        // We look for "à", "au", "aux", "lieu", "adresse" NOT followed by a digit (to avoid confusion with time if regex failed or other numbers)
+        const locationMatch = remainingText.match(/(?:à|au|aux|lieu|adresse)\s+(.+?)(?=\s+(?:avec|client)|$)/i);
+        if (locationMatch) {
+            // Check if it's not a time that slipped through (basic check)
+            if (!/^\d/.test(locationMatch[1])) {
+                data.location = locationMatch[1].trim();
+                remainingText = remainingText.replace(locationMatch[0], '');
+            }
+        }
+
+        // 4. Title is what remains, cleaned up
+        data.title = remainingText.replace(/\s+/g, ' ').trim();
+        if (!data.title) {
+            data.title = data.clientName ? `RDV avec ${data.clientName}` : 'Nouveau RDV';
+        } else {
+            // Capitalize title
+            data.title = data.title.charAt(0).toUpperCase() + data.title.slice(1);
+        }
+
+        navigate('/agenda', { state: { voiceData: data } });
+        return `Création du rendez-vous${data.clientName ? ` avec ${data.clientName}` : ''}`;
     }
 
     if (command.includes('nouveau devis')) {

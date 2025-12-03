@@ -48,8 +48,32 @@ const Agenda = () => {
     // Handle Voice Data
     useEffect(() => {
         if (location.state?.voiceData) {
-            const { title, time } = location.state.voiceData;
-            setNewEvent(prev => ({ ...prev, title: title || '', time: time || '' }));
+            const { title, time, clientName, location: loc } = location.state.voiceData;
+
+            setNewEvent(prev => {
+                const update = { ...prev };
+                if (title) update.title = title;
+                if (time) update.time = time;
+                if (loc) update.location = loc;
+                return update;
+            });
+
+            // If clientName is present, try to find the client ID
+            if (clientName) {
+                // We need to fetch clients if they aren't loaded or just do a quick lookup
+                // Since we are in Agenda, we might not have clients loaded in state.
+                // Let's do a quick fetch.
+                supabase.from('clients').select('id, name').ilike('name', `%${clientName}%`).limit(1)
+                    .then(({ data }) => {
+                        if (data && data.length > 0) {
+                            setNewEvent(prev => ({ ...prev, client_id: data[0].id }));
+                            toast.success(`Client ${data[0].name} associé`);
+                        } else {
+                            toast.warning(`Client "${clientName}" non trouvé`);
+                        }
+                    });
+            }
+
             setShowModal(true);
             // Clear state to prevent reopening on refresh (optional, but good practice)
             window.history.replaceState({}, document.title);
