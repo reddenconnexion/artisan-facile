@@ -14,6 +14,9 @@ export const AuthProvider = ({ children }) => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             setLoading(false);
+        }).catch((error) => {
+            console.error('Error getting session:', error);
+            setLoading(false);
         });
 
         // Listen for changes on auth state (sign in, sign out, etc.)
