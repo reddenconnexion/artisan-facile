@@ -113,7 +113,10 @@ const CRM = () => {
                 </div>
             </div>
 
-            <div className={`flex gap-4 px-4 pb-4 h-full overflow-hidden ${focusedColumn ? '' : 'overflow-x-auto'}`}>
+            <div className={`
+                flex gap-4 px-4 pb-4 h-full 
+                ${focusedColumn ? 'overflow-hidden' : 'flex-col overflow-y-auto md:flex-row md:overflow-x-auto'}
+            `}>
                 {columns.map(column => {
                     if (focusedColumn && focusedColumn !== column.id) return null;
 
@@ -121,8 +124,12 @@ const CRM = () => {
                         <div
                             key={column.id}
                             className={`
-                                flex flex-col rounded-xl border ${column.color} h-full max-h-full transition-all duration-300
-                                ${focusedColumn ? 'w-full max-w-4xl mx-auto' : 'flex-1 min-w-[280px]'}
+                                flex flex-col rounded-xl border ${column.color} transition-all duration-300
+                                ${focusedColumn
+                                    ? 'w-full max-w-4xl mx-auto h-full'
+                                    : 'w-full shrink-0 md:w-80 md:h-full md:max-h-full'
+                                }
+                                ${!focusedColumn && 'min-h-[300px]'} 
                             `}
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, column.id)}
