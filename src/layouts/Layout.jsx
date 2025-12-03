@@ -1,8 +1,8 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-import VoiceCommandBanner from '../components/VoiceCommandBanner';
+import VoiceHelpModal from '../components/VoiceHelpModal';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
@@ -11,6 +11,7 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
   const { signOut } = useAuth();
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
 
@@ -103,17 +104,27 @@ const Layout = () => {
         <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-16">
           <Outlet />
         </main>
-        <VoiceCommandBanner isSidebarCollapsed={isCollapsed} />
+        <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
 
-        {/* Voice Assistant Button */}
-        <button
-          onClick={isListening ? stopListening : startListening}
-          className={`fixed bottom-8 right-8 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-600'
-            } text-white z-50`}
-          title="Assistant Vocal"
-        >
-          <Mic className="w-6 h-6" />
-        </button>
+        {/* Voice Assistant Controls */}
+        <div className="fixed bottom-8 right-8 flex items-center gap-3 z-50">
+          <button
+            onClick={() => setShowVoiceHelp(true)}
+            className="p-3 bg-white text-gray-600 rounded-full shadow-lg hover:bg-gray-50 border border-gray-200 transition-all transform hover:scale-105"
+            title="Aide commandes vocales"
+          >
+            <HelpCircle className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={isListening ? stopListening : startListening}
+            className={`p-4 rounded-full shadow-lg transition-all transform hover:scale-105 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-600'
+              } text-white`}
+            title="Assistant Vocal"
+          >
+            <Mic className="w-6 h-6" />
+          </button>
+        </div>
       </div>
     </div>
   );
