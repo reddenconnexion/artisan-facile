@@ -48,7 +48,13 @@ const Agenda = () => {
     // Handle Voice Data
     useEffect(() => {
         if (location.state?.voiceData) {
-            const { title, time, clientName, location: loc } = location.state.voiceData;
+            const { title, time, clientName, location: loc, dateISO } = location.state.voiceData;
+
+            if (dateISO) {
+                const newDate = new Date(dateISO);
+                setSelectedDate(newDate);
+                setCurrentDate(newDate); // Switch view to that month
+            }
 
             setNewEvent(prev => {
                 const update = { ...prev };

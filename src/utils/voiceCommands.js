@@ -1,3 +1,6 @@
+import { addDays, nextDay, setDate, setMonth, startOfToday, isBefore, addYears, addMonths } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
 export const processVoiceCommand = (transcript, navigate) => {
     const command = transcript.toLowerCase();
     console.log('Processing command:', command);
@@ -78,16 +81,97 @@ export const processVoiceCommand = (transcript, navigate) => {
 
     if (command.includes('rendez-vous') || command.includes('rdv')) {
         let remainingText = command.replace('rendez-vous', '').replace('rdv', '').trim();
-        const data = { title: '', time: '', clientName: '', location: '' };
+        const data = { title: '', time: '', clientName: '', location: '', dateISO: null };
 
-        // 1. Extract Time (e.g. "14h", "14h30", "14 heures")
+        // 1. Extract Date
+        let targetDate = startOfToday();
+        let dateFound = false;
+
+        // Relative dates
+        if (remainingText.includes('après-demain')) {
+            targetDate = addDays(targetDate, 2);
+            remainingText = remainingText.replace('après-demain', '');
+            dateFound = true;
+        } else if (remainingText.includes('demain')) {
+            targetDate = addDays(targetDate, 1);
+            remainingText = remainingText.replace('demain', '');
+            dateFound = true;
+        } else if (remainingText.includes("aujourd'hui")) {
+            // Already today
+            remainingText = remainingText.replace("aujourd'hui", '');
+            dateFound = true;
+        }
+
+        // Days of week (lundi, mardi...)
+        if (!dateFound) {
+            const days = {
+                'dimanche': 0, 'lundi': 1, 'mardi': 2, 'mercredi': 3, 'jeudi': 4, 'vendredi': 5, 'samedi': 6
+            };
+            for (const [dayName, dayIndex] of Object.entries(days)) {
+                if (remainingText.includes(dayName)) {
+                    // Find next occurrence of this day
+                    // If today is Monday and user says "Monday", assume next Monday? Or today?
+                    // Let's use nextDay from date-fns which gives next occurrence
+                    // But we need to handle "ce lundi" vs "lundi prochain". 
+                    // For simplicity, let's just find the next occurrence (or today if it matches and it's early?)
+                    // actually nextDay always returns next occurrence.
+
+                    // Simple logic: use nextDay.
+                    targetDate = nextDay(targetDate, dayIndex);
+                    remainingText = remainingText.replace(dayName, '');
+                    dateFound = true;
+                    break;
+                }
+            }
+        }
+
+        // Absolute dates "le 12", "le 12 janvier"
+        if (!dateFound) {
+            const dateMatch = remainingText.match(/le\s+(\d{1,2})(?:\s+([a-zéû]+))?/i);
+            if (dateMatch) {
+                const day = parseInt(dateMatch[1]);
+                const monthName = dateMatch[2];
+
+                if (monthName) {
+                    const months = {
+                        'janvier': 0, 'février': 1, 'mars': 2, 'avril': 3, 'mai': 4, 'juin': 5,
+                        'juillet': 6, 'août': 7, 'septembre': 8, 'octobre': 9, 'novembre': 10, 'décembre': 11
+                    };
+                    const monthIndex = months[monthName.toLowerCase()];
+                    if (monthIndex !== undefined) {
+                        targetDate = setMonth(targetDate, monthIndex);
+                        targetDate = setDate(targetDate, day);
+
+                        // If date passed, assume next year
+                        if (isBefore(targetDate, startOfToday())) {
+                            targetDate = addYears(targetDate, 1);
+                        }
+                    }
+                } else {
+                    // Just "le 12" -> assume current month, or next month if passed
+                    let tempDate = setDate(targetDate, day);
+                    if (isBefore(tempDate, startOfToday())) {
+                        tempDate = addMonths(tempDate, 1);
+                    }
+                    targetDate = tempDate;
+                }
+                remainingText = remainingText.replace(dateMatch[0], '');
+                dateFound = true;
+            }
+        }
+
+        if (dateFound) {
+            data.dateISO = targetDate.toISOString();
+        }
+
+        // 2. Extract Time (e.g. "14h", "14h30", "14 heures")
         const timeMatch = remainingText.match(/(?:à|vers)?\s*(\d{1,2})\s*(?:h|heure|heures)(?:(\d{2}))?/i);
         if (timeMatch) {
             data.time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
             remainingText = remainingText.replace(timeMatch[0], '');
         }
 
-        // 2. Extract Client (e.g. "avec Martin", "client Martin")
+        // 3. Extract Client (e.g. "avec Martin", "client Martin")
         const clientMatch = remainingText.match(/(?:avec|client)\s+([^\s]+)(?=\s+(?:à|au|aux|lieu|adresse)|$)/i);
         if (clientMatch) {
             data.clientName = clientMatch[1];
@@ -96,7 +180,7 @@ export const processVoiceCommand = (transcript, navigate) => {
             remainingText = remainingText.replace(clientMatch[0], '');
         }
 
-        // 3. Extract Location (e.g. "à Paris", "au bureau", "adresse 10 rue...")
+        // 4. Extract Location (e.g. "à Paris", "au bureau", "adresse 10 rue...")
         // We look for "à", "au", "aux", "lieu", "adresse" NOT followed by a digit (to avoid confusion with time if regex failed or other numbers)
         const locationMatch = remainingText.match(/(?:à|au|aux|lieu|adresse)\s+(.+?)(?=\s+(?:avec|client)|$)/i);
         if (locationMatch) {
@@ -107,7 +191,7 @@ export const processVoiceCommand = (transcript, navigate) => {
             }
         }
 
-        // 4. Title is what remains, cleaned up
+        // 5. Title is what remains, cleaned up
         data.title = remainingText.replace(/\s+/g, ' ').trim();
         if (!data.title) {
             data.title = data.clientName ? `RDV avec ${data.clientName}` : 'Nouveau RDV';
