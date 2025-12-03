@@ -54,22 +54,22 @@ const Agenda = () => {
                 const update = { ...prev };
                 if (title) update.title = title;
                 if (time) update.time = time;
-                if (loc) update.location = loc;
+                if (loc) update.address = loc; // Map location to address
                 return update;
             });
 
-            // If clientName is present, try to find the client ID
+            // If clientName is present, try to find the client
             if (clientName) {
-                // We need to fetch clients if they aren't loaded or just do a quick lookup
-                // Since we are in Agenda, we might not have clients loaded in state.
-                // Let's do a quick fetch.
                 supabase.from('clients').select('id, name').ilike('name', `%${clientName}%`).limit(1)
                     .then(({ data }) => {
                         if (data && data.length > 0) {
-                            setNewEvent(prev => ({ ...prev, client_id: data[0].id }));
+                            // The events table uses client_name, not client_id
+                            setNewEvent(prev => ({ ...prev, client_name: data[0].name }));
                             toast.success(`Client ${data[0].name} associé`);
                         } else {
-                            toast.warning(`Client "${clientName}" non trouvé`);
+                            // If not found, just use the spoken name
+                            setNewEvent(prev => ({ ...prev, client_name: clientName }));
+                            toast.warning(`Client "${clientName}" non trouvé dans la base, mais ajouté au RDV`);
                         }
                     });
             }
