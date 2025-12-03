@@ -23,6 +23,7 @@ const ProtectedRoute = ({ children }) => {
 };
 
 import Profile from './pages/Profile';
+import ClientPortal from './pages/portal/ClientPortal';
 
 function App() {
   return (
@@ -31,6 +32,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          <Route path="/p/:token" element={<ClientPortal />} />
 
           <Route path="/" element={
             <ProtectedRoute>

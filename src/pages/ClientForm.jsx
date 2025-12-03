@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic } from 'lucide-react';
+import { ArrowLeft, Save, Mic, Globe } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -23,7 +23,8 @@ const ClientForm = () => {
         phone: '',
         address: '',
         notes: '',
-        status: 'lead'
+        status: 'lead',
+        portal_token: null
     });
 
     // Handle Voice Data from Navigation
@@ -100,7 +101,8 @@ const ClientForm = () => {
                     address: data.address || '',
                     address: data.address || '',
                     notes: data.notes || '',
-                    status: data.status || 'lead'
+                    status: data.status || 'lead',
+                    portal_token: data.portal_token
                 });
             }
         } catch (error) {
@@ -153,16 +155,32 @@ const ClientForm = () => {
 
     return (
         <div className="max-w-2xl mx-auto">
-            <div className="flex items-center mb-6">
-                <button
-                    onClick={() => navigate('/clients')}
-                    className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-                >
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
-                <h2 className="text-2xl font-bold text-gray-900">
-                    {isEditing ? 'Modifier le client' : 'Nouveau client'}
-                </h2>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                    <button
+                        onClick={() => navigate('/clients')}
+                        className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {isEditing ? 'Modifier le client' : 'Nouveau client'}
+                    </h2>
+                </div>
+                {isEditing && formData.portal_token && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const url = `${window.location.origin}/p/${formData.portal_token}`;
+                            navigator.clipboard.writeText(url);
+                            toast.success('Lien du portail copié !');
+                        }}
+                        className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                    >
+                        <Globe className="w-4 h-4 mr-2" />
+                        Partager l'espace client
+                    </button>
+                )}
             </div>
 
             <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
