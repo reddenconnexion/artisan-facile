@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, FileText, Mic } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, FileText, Mic, FileCheck, Download } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
