@@ -23,11 +23,14 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
 const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [stats, setStats] = useState({
-        turnover: 0,
-        clientCount: 0,
-        pendingQuotes: 0,
-        recentActivity: []
+    const [stats, setStats] = useState(() => {
+        const cached = localStorage.getItem('dashboard_stats');
+        return cached ? JSON.parse(cached) : {
+            turnover: 0,
+            clientCount: 0,
+            pendingQuotes: 0,
+            recentActivity: []
+        };
     });
     const [loading, setLoading] = useState(true);
 
@@ -99,14 +102,18 @@ const Dashboard = () => {
                 }))
             ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
-            setStats({
+            const newStats = {
                 turnover,
                 clientCount: clientCount || 0,
                 pendingQuotes: pendingQuotes || 0,
                 recentActivity: activities
-            });
+            };
+
+            setStats(newStats);
+            localStorage.setItem('dashboard_stats', JSON.stringify(newStats));
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
+            // If error (e.g. offline), we keep the existing state (which might be from localStorage)
         } finally {
             setLoading(false);
         }

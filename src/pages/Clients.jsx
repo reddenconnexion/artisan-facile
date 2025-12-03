@@ -8,7 +8,10 @@ import { toast } from 'sonner';
 const Clients = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [clients, setClients] = useState([]);
+    const [clients, setClients] = useState(() => {
+        const cached = localStorage.getItem('clients_list');
+        return cached ? JSON.parse(cached) : [];
+    });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -26,9 +29,11 @@ const Clients = () => {
                 .order('name');
 
             if (error) throw error;
-            setClients(data || []);
+            const newClients = data || [];
+            setClients(newClients);
+            localStorage.setItem('clients_list', JSON.stringify(newClients));
         } catch (error) {
-            toast.error('Erreur lors du chargement des clients');
+            // toast.error('Erreur lors du chargement des clients'); // Avoid spamming toast if offline
             console.error('Error fetching clients:', error);
         } finally {
             setLoading(false);
