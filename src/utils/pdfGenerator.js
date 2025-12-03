@@ -155,6 +155,20 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false) 
         doc.text(splitNotes, 14, finalY + 36);
     }
 
+    // Signature
+    if (devis.signature) {
+        const signatureY = finalY + 50;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Bon pour accord :", 140, signatureY);
+        doc.text(`Signé le ${new Date(devis.date).toLocaleDateString()}`, 140, signatureY + 5);
+        try {
+            doc.addImage(devis.signature, 'PNG', 140, signatureY + 10, 50, 25);
+        } catch (e) {
+            console.warn("Could not add signature to PDF", e);
+        }
+    }
+
     // Pied de page
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
