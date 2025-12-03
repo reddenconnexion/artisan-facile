@@ -44,7 +44,24 @@ const ClientForm = () => {
     // Handle Dictation
     useEffect(() => {
         if (transcript && activeField) {
-            setFormData(prev => ({ ...prev, [activeField]: transcript }));
+            let value = transcript;
+
+            if (activeField === 'email') {
+                value = value.toLowerCase()
+                    .replace(/\s+arobase\s+|\s*@\s*/g, '@')
+                    .replace(/\s+point\s+|\s*\.\s*/g, '.')
+                    .replace(/\s+/g, '');
+            } else if (activeField === 'phone') {
+                // Keep digits, spaces, +, and .
+                // Maybe clean up if needed, but raw transcript is usually okay for phone if spoken clearly
+            } else if (activeField === 'name' || activeField === 'address') {
+                // Capitalize first letter
+                if (value.length > 0) {
+                    value = value.charAt(0).toUpperCase() + value.slice(1);
+                }
+            }
+
+            setFormData(prev => ({ ...prev, [activeField]: value }));
         }
     }, [transcript, activeField]);
 
@@ -149,9 +166,19 @@ const ClientForm = () => {
 
             <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
                 <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Nom complet / Entreprise *
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            Nom complet / Entreprise *
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => toggleDictation('name')}
+                            className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'name' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                            title="Dicter"
+                        >
+                            <Mic className="w-4 h-4" />
+                        </button>
+                    </div>
                     <input
                         type="text"
                         id="name"
@@ -184,9 +211,19 @@ const ClientForm = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                            Email
-                        </label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                Email
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => toggleDictation('email')}
+                                className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'email' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                title="Dicter"
+                            >
+                                <Mic className="w-4 h-4" />
+                            </button>
+                        </div>
                         <input
                             type="email"
                             id="email"
@@ -197,9 +234,19 @@ const ClientForm = () => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                            Téléphone
-                        </label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                                Téléphone
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => toggleDictation('phone')}
+                                className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'phone' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                title="Dicter"
+                            >
+                                <Mic className="w-4 h-4" />
+                            </button>
+                        </div>
                         <input
                             type="tel"
                             id="phone"
@@ -212,9 +259,19 @@ const ClientForm = () => {
                 </div>
 
                 <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                        Adresse
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                            Adresse
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => toggleDictation('address')}
+                            className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'address' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                            title="Dicter"
+                        >
+                            <Mic className="w-4 h-4" />
+                        </button>
+                    </div>
                     <textarea
                         id="address"
                         name="address"
