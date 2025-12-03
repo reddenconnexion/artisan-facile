@@ -28,7 +28,7 @@ const Agenda = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
-    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', address: '' });
+    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', address: '', date: '' });
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -61,6 +61,7 @@ const Agenda = () => {
                 if (title) update.title = title;
                 if (time) update.time = time;
                 if (loc) update.address = loc; // Map location to address
+                if (dateISO) update.date = dateISO.split('T')[0]; // Set date for input
                 return update;
             });
 
@@ -166,17 +167,24 @@ const Agenda = () => {
 
     const handleAddEvent = async (e) => {
         e.preventDefault();
-        if (!newEvent.title || !newEvent.time) {
-            toast.error('Veuillez remplir le titre et l\'heure');
+        if (!newEvent.title || !newEvent.time || !newEvent.date) {
+            toast.error('Veuillez remplir le titre, la date et l\'heure');
             return;
         }
 
         try {
             const eventData = {
                 ...newEvent,
-                date: selectedDate.toISOString(),
+                // Use the date from the input, ensuring it's treated as the correct day
+                date: new Date(newEvent.date).toISOString(),
                 user_id: user.id
             };
+            // Remove the date string property before sending if needed, but spread handles it. 
+            // Actually we need to make sure we don't send 'date' string if schema expects timestamp, 
+            // but supabase handles ISO string fine for timestamp columns usually.
+            // However, we are sending 'date' property which IS the column name.
+            // The issue is newEvent.date is "YYYY-MM-DD", but we want ISO timestamp.
+            // We just overwrote it above with `date: new Date(newEvent.date).toISOString()`.
 
             if (editingEvent) {
                 const { error } = await supabase
@@ -188,7 +196,7 @@ const Agenda = () => {
 
                 setEvents(events.map(ev =>
                     ev.id === editingEvent.id
-                        ? { ...ev, ...newEvent, date: selectedDate }
+                        ? { ...ev, ...newEvent, date: new Date(newEvent.date) }
                         : ev
                 ));
                 toast.success('Rendez-vous modifié avec succès');
@@ -209,7 +217,7 @@ const Agenda = () => {
 
             setShowModal(false);
             setEditingEvent(null);
-            setNewEvent({ title: '', time: '', client_name: '', address: '' });
+            setNewEvent({ title: '', time: '', client_name: '', address: '', date: '' });
         } catch (error) {
             toast.error('Erreur lors de la sauvegarde du rendez-vous');
             console.error('Error saving event:', error);
@@ -222,7 +230,8 @@ const Agenda = () => {
             title: event.title,
             time: event.time,
             client_name: event.client_name || '',
-            address: event.address || ''
+            address: event.address || '',
+            date: format(event.date, 'yyyy-MM-dd')
         });
         setShowModal(true);
     };
@@ -248,7 +257,13 @@ const Agenda = () => {
 
     const openNewEventModal = () => {
         setEditingEvent(null);
-        setNewEvent({ title: '', time: '', client_name: '', address: '' });
+        setNewEvent({
+            title: '',
+            time: '',
+            client_name: '',
+            address: '',
+            date: format(selectedDate, 'yyyy-MM-dd')
+        });
         setShowModal(true);
     };
 
@@ -407,6 +422,16 @@ const Agenda = () => {
                                     value={newEvent.title}
                                     onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
                                     placeholder="Ex: Chantier M. Dupont"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={newEvent.date}
+                                    onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
                                 />
                             </div>
                             <div>
