@@ -28,10 +28,14 @@ const ClientForm = () => {
     // Handle Voice Data from Navigation
     useEffect(() => {
         if (location.state?.voiceData) {
-            const { name } = location.state.voiceData;
-            if (name) {
-                setFormData(prev => ({ ...prev, name }));
-            }
+            const { name, email, phone, address } = location.state.voiceData;
+            setFormData(prev => ({
+                ...prev,
+                name: name || prev.name,
+                email: email || prev.email,
+                phone: phone || prev.phone,
+                address: address || prev.address
+            }));
             // Clear state
             window.history.replaceState({}, document.title);
         }
