@@ -103,7 +103,7 @@ const Layout = () => {
         <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-16">
           <Outlet />
         </main>
-        <VoiceCommandBanner />
+        <VoiceCommandBanner isSidebarCollapsed={isCollapsed} />
 
         {/* Voice Assistant Button */}
         <button

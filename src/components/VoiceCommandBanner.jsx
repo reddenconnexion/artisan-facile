@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Mic } from 'lucide-react';
 
-const VoiceCommandBanner = () => {
+const VoiceCommandBanner = ({ isSidebarCollapsed }) => {
     const [isMinimized, setIsMinimized] = useState(false);
 
     const commands = [
@@ -16,7 +16,7 @@ const VoiceCommandBanner = () => {
     ];
 
     return (
-        <div className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 ${isMinimized ? 'h-10' : 'h-12'} bg-gray-900 text-white shadow-lg border-t border-gray-800`}>
+        <div className={`fixed bottom-0 right-0 z-40 transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'} ${isMinimized ? 'h-10' : 'h-12'} bg-gray-900 text-white shadow-lg border-t border-gray-800`}>
             {/* Toggle Button */}
             <button
                 onClick={() => setIsMinimized(!isMinimized)}
