@@ -25,9 +25,14 @@ const ProtectedRoute = ({ children }) => {
 import Profile from './pages/Profile';
 import ClientPortal from './pages/portal/ClientPortal';
 
+import ReloadPrompt from './components/ReloadPrompt';
+import OfflineBanner from './components/OfflineBanner';
+
 function App() {
   return (
     <AuthProvider>
+      <ReloadPrompt />
+      <OfflineBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
