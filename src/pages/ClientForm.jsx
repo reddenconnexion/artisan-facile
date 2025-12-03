@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { useVoice } from '../hooks/useVoice';
+import ProjectPhotos from '../components/ProjectPhotos';
 
 const ClientForm = () => {
     const navigate = useNavigate();
@@ -324,6 +325,8 @@ const ClientForm = () => {
                     </button>
                 </div>
             </form>
+
+            {isEditing && <ProjectPhotos clientId={id} />}
         </div>
     );
 };
