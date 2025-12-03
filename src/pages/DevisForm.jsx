@@ -285,244 +285,248 @@ const DevisForm = () => {
     return (
         <div className="max-w-4xl mx-auto pb-12">
             <div className="flex items-center justify-between mb-6">
-                <div className="max-w-4xl mx-auto space-y-6">
-                    <div className="flex items-center justify-between">
-                        <button
-                            onClick={() => navigate('/devis')}
-                            className="flex items-center text-gray-600 hover:text-gray-900"
-                        >
-                            <ArrowLeft className="w-5 h-5 mr-2" />
-                            Retour
-                        </button>
-                        <div className="flex gap-3">
-                            {id && (
-                                <>
-                                    <button
-                                        onClick={() => setShowSignatureModal(true)}
-                                        className={`flex items-center px-4 py-2 rounded-lg transition-colors ${signature || formData.status === 'accepted'
-                                                ? 'bg-green-100 text-green-700 cursor-default'
-                                                : 'bg-purple-600 text-white hover:bg-purple-700'
-                                            }`}
-                                        disabled={!!signature || formData.status === 'accepted'}
-                                    >
-                                        {signature || formData.status === 'accepted' ? (
-                                            <>
-                                                <FileCheck className="w-4 h-4 mr-2" />
-                                                Signé
-                                            </>
-                                        ) : (
-                                            <>
-                                                <PenTool className="w-4 h-4 mr-2" />
-                                                Faire signer
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={handleDownloadPDF}
-                                        className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        PDF
-                                    </button>
-                                </>
-                            )}
-
+                <button
+                    onClick={() => navigate('/devis')}
+                    className="flex items-center text-gray-600 hover:text-gray-900"
+                >
+                    <ArrowLeft className="w-5 h-5 mr-2" />
+                    Retour
+                </button>
+                <div className="flex gap-3">
+                    {id && (
+                        <>
                             <button
-                                type="button"
-                                onClick={() => handleDownloadPDF(formData.status === 'accepted')}
-                                className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                onClick={() => setShowSignatureModal(true)}
+                                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${signature || formData.status === 'accepted'
+                                    ? 'bg-green-100 text-green-700 cursor-default'
+                                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                                    }`}
+                                disabled={!!signature || formData.status === 'accepted'}
+                            >
+                                {signature || formData.status === 'accepted' ? (
+                                    <>
+                                        <FileCheck className="w-4 h-4 mr-2" />
+                                        Signé
+                                    </>
+                                ) : (
+                                    <>
+                                        <PenTool className="w-4 h-4 mr-2" />
+                                        Faire signer
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleDownloadPDF}
+                                className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                             >
                                 <Download className="w-4 h-4 mr-2" />
-                                {formData.status === 'accepted' ? 'Télécharger Facture' : 'Télécharger Devis'}
+                                PDF
                             </button>
-                            <button
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                <Save className="w-4 h-4 mr-2" />
-                                {loading ? 'Enregistrement...' : 'Enregistrer'}
-                            </button>
-                        </div >
-                    </div >
+                        </>
+                    )}
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
-                        {/* En-tête Devis */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-sm font-medium text-gray-700">Client</label>
-                                    {formData.client_id && (
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate(`/clients/${formData.client_id}`)}
-                                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                        >
-                                            Voir la fiche client
-                                        </button>
-                                    )}
-                                </div>
-                                <select
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={formData.client_id}
-                                    onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                                >
-                                    <option value="">Sélectionner un client</option>
-                                    {clients.map(client => (
-                                        <option key={client.id} value={client.id}>{client.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
-                                    <input
-                                        type="date"
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        value={formData.date}
-                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
-                                    <input
-                                        type="date"
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        value={formData.valid_until}
-                                        onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                    <button
+                        type="button"
+                        onClick={() => handleDownloadPDF(formData.status === 'accepted')}
+                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        {formData.status === 'accepted' ? 'Télécharger Facture' : 'Télécharger Devis'}
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        <Save className="w-4 h-4 mr-2" />
+                        {loading ? 'Enregistrement...' : 'Enregistrer'}
+                    </button>
+                </div >
+            </div >
 
-                        {/* Lignes du devis */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails des prestations</h3>
-                            <div className="space-y-4">
-                                {formData.items.map((item, index) => (
-                                    <div key={item.id} className="flex gap-4 items-start">
-                                        <div className="flex-1 relative">
-                                            <input
-                                                type="text"
-                                                placeholder="Description"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
-                                                value={item.description}
-                                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleDictation(`item-description-${index}`)}
-                                                className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                                title="Dicter"
-                                            >
-                                                <Mic className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <div className="w-24">
-                                            <input
-                                                type="number"
-                                                placeholder="Qté"
-                                                min="1"
-                                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                                value={item.quantity}
-                                                onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                        <div className="w-32">
-                                            <input
-                                                type="number"
-                                                placeholder="Prix U."
-                                                min="0"
-                                                step="0.01"
-                                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                                value={item.price}
-                                                onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                        <div className="w-32 py-2 text-right font-medium text-gray-900">
-                                            {(item.quantity * item.price).toFixed(2)} €
-                                        </div>
-                                        <button
-                                            onClick={() => removeItem(item.id)}
-                                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={addItem}
-                                className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
-                            >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Ajouter une ligne
-                            </button>
-                        </div>
-
-                        {/* Totaux */}
-                        <div className="flex justify-end pt-6 border-t border-gray-100">
-                            <div className="w-64 space-y-3">
-                                <div className="flex items-center justify-end mb-4">
-                                    <input
-                                        type="checkbox"
-                                        id="include_tva"
-                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        checked={formData.include_tva}
-                                        onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
-                                    />
-                                    <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
-                                        Appliquer la TVA (20%)
-                                    </label>
-                                </div>
-                                <div className="flex justify-between text-gray-600">
-                                    <span>Total HT</span>
-                                    <span>{subtotal.toFixed(2)} €</span>
-                                </div>
-                                {formData.include_tva && (
-                                    <div className="flex justify-between text-gray-600">
-                                        <span>TVA (20%)</span>
-                                        <span>{tva.toFixed(2)} €</span>
-                                    </div>
-                                )}
-                                {!formData.include_tva && (
-                                    <div className="text-xs text-gray-500 text-right italic">
-                                        TVA non applicable, art. 293 B du CGI
-                                    </div>
-                                )}
-                                <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                    <span>Total TTC</span>
-                                    <span>{total.toFixed(2)} €</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Notes */}
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+                {/* En-tête Devis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Client</label>
+                            {formData.client_id && (
                                 <button
                                     type="button"
-                                    onClick={() => toggleDictation('notes')}
-                                    className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                    title="Dicter"
+                                    onClick={() => navigate(`/clients/${formData.client_id}`)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                 >
-                                    <Mic className="w-4 h-4" />
+                                    Voir la fiche client
                                 </button>
-                            </div>
-                            <textarea
-                                rows={3}
+                            )}
+                        </div>
+                        <select
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            value={formData.client_id}
+                            onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                        >
+                            <option value="">Sélectionner un client</option>
+                            {clients.map(client => (
+                                <option key={client.id} value={client.id}>{client.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
+                            <input
+                                type="date"
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Conditions de paiement, validité du devis..."
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                value={formData.date}
+                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
+                            <input
+                                type="date"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                value={formData.valid_until}
+                                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
                             />
                         </div>
                     </div>
-                </div >
-                );
+                </div>
+
+                {/* Lignes du devis */}
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails des prestations</h3>
+                    <div className="space-y-4">
+                        {formData.items.map((item, index) => (
+                            <div key={item.id} className="flex gap-4 items-start">
+                                <div className="flex-1 relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Description"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
+                                        value={item.description}
+                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleDictation(`item-description-${index}`)}
+                                        className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                        title="Dicter"
+                                    >
+                                        <Mic className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <div className="w-24">
+                                    <input
+                                        type="number"
+                                        placeholder="Qté"
+                                        min="1"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <input
+                                        type="number"
+                                        placeholder="Prix U."
+                                        min="0"
+                                        step="0.01"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                        value={item.price}
+                                        onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="w-32 py-2 text-right font-medium text-gray-900">
+                                    {(item.quantity * item.price).toFixed(2)} €
+                                </div>
+                                <button
+                                    onClick={() => removeItem(item.id)}
+                                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={addItem}
+                        className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Ajouter une ligne
+                    </button>
+                </div>
+
+                {/* Totaux */}
+                <div className="flex justify-end pt-6 border-t border-gray-100">
+                    <div className="w-64 space-y-3">
+                        <div className="flex items-center justify-end mb-4">
+                            <input
+                                type="checkbox"
+                                id="include_tva"
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                checked={formData.include_tva}
+                                onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
+                            />
+                            <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
+                                Appliquer la TVA (20%)
+                            </label>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                            <span>Total HT</span>
+                            <span>{subtotal.toFixed(2)} €</span>
+                        </div>
+                        {formData.include_tva && (
+                            <div className="flex justify-between text-gray-600">
+                                <span>TVA (20%)</span>
+                                <span>{tva.toFixed(2)} €</span>
+                            </div>
+                        )}
+                        {!formData.include_tva && (
+                            <div className="text-xs text-gray-500 text-right italic">
+                                TVA non applicable, art. 293 B du CGI
+                            </div>
+                        )}
+                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
+                            <span>Total TTC</span>
+                            <span>{total.toFixed(2)} €</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
+                        <button
+                            type="button"
+                            onClick={() => toggleDictation('notes')}
+                            className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                            title="Dicter"
+                        >
+                            <Mic className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <textarea
+                        rows={3}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Conditions de paiement, validité du devis..."
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                </div>
+            </div>
+            {/* Signature Modal */}
+            <SignatureModal
+                isOpen={showSignatureModal}
+                onClose={() => setShowSignatureModal(false)}
+                onSave={handleSignatureSave}
+            />
+        </div>
+    );
 };
 
-                export default DevisForm;
+export default DevisForm;
