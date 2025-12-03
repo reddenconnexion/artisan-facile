@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import VoiceCommandBanner from '../components/VoiceCommandBanner';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
@@ -99,9 +100,10 @@ const Layout = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto relative">
-        <main className="p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-16">
           <Outlet />
         </main>
+        <VoiceCommandBanner />
 
         {/* Voice Assistant Button */}
         <button
