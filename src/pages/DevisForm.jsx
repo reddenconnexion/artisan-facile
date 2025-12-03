@@ -296,7 +296,18 @@ const DevisForm = () => {
                 {/* En-tête Devis */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Client</label>
+                            {formData.client_id && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/clients/${formData.client_id}`)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                    Voir la fiche client
+                                </button>
+                            )}
+                        </div>
                         <select
                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.client_id}

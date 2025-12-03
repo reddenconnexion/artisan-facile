@@ -111,7 +111,17 @@ const DevisList = () => {
                                     #{devis.id}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {devis.client_name || 'Client inconnu'}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (devis.client_id) {
+                                                navigate(`/clients/${devis.client_id}`);
+                                            }
+                                        }}
+                                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                    >
+                                        {devis.client_name || 'Client inconnu'}
+                                    </button>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {new Date(devis.date).toLocaleDateString()}
