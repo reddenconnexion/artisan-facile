@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, TrendingUp, Users, FileCheck } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +26,8 @@ const Dashboard = () => {
     const [stats, setStats] = useState({
         turnover: 0,
         clientCount: 0,
-        pendingQuotes: 0
+        pendingQuotes: 0,
+        recentActivity: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -61,10 +64,46 @@ const Dashboard = () => {
 
             if (pendingError) throw pendingError;
 
+            // 4. Recent Activity
+            // Fetch recent quotes
+            const { data: recentQuotes, error: recentQuotesError } = await supabase
+                .from('quotes')
+                .select('*, clients(name)')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (recentQuotesError) throw recentQuotesError;
+
+            // Fetch recent clients
+            const { data: recentClients, error: recentClientsError } = await supabase
+                .from('clients')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (recentClientsError) throw recentClientsError;
+
+            // Combine and format
+            const activities = [
+                ...(recentQuotes || []).map(q => ({
+                    type: 'quote',
+                    date: q.created_at,
+                    description: `Devis pour ${q.clients?.name || 'Client inconnu'}`,
+                    amount: q.total_ttc
+                })),
+                ...(recentClients || []).map(c => ({
+                    type: 'client',
+                    date: c.created_at,
+                    description: `Nouveau client : ${c.name}`,
+                    amount: null
+                }))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+
             setStats({
                 turnover,
                 clientCount: clientCount || 0,
-                pendingQuotes: pendingQuotes || 0
+                pendingQuotes: pendingQuotes || 0,
+                recentActivity: activities
             });
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
@@ -109,9 +148,33 @@ const Dashboard = () => {
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Activité récente</h3>
-                <div className="text-gray-500 text-center py-8">
-                    {/* Pour l'instant, placeholder. On pourrait charger les derniers devis/clients ici */}
-                    Vos dernières actions apparaîtront ici.
+                <div className="space-y-4">
+                    {stats.recentActivity.length > 0 ? (
+                        stats.recentActivity.map((activity, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+                                        {activity.type === 'quote' ? <FileText className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">{activity.description}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {formatDistanceToNow(new Date(activity.date), { addSuffix: true, locale: fr })}
+                                        </p>
+                                    </div>
+                                </div>
+                                {activity.amount && (
+                                    <span className="text-sm font-semibold text-gray-900">
+                                        {activity.amount.toFixed(2)} €
+                                    </span>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-gray-500 text-center py-8">
+                            Aucune activité récente.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
