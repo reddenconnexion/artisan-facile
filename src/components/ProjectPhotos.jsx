@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2 } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ const ProjectPhotos = ({ clientId }) => {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
 
     useEffect(() => {
         if (clientId && user) {
@@ -178,7 +179,14 @@ const ProjectPhotos = ({ clientId }) => {
                                 alt={photo.category}
                                 className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                    onClick={() => setSelectedPhoto(photo)}
+                                    className="p-2 bg-white text-gray-900 rounded-full hover:bg-gray-100"
+                                    title="Agrandir"
+                                >
+                                    <Maximize2 className="w-5 h-5" />
+                                </button>
                                 <button
                                     onClick={() => handleDelete(photo.id, photo.photo_url)}
                                     className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50"
@@ -189,6 +197,24 @@ const ProjectPhotos = ({ clientId }) => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Fullscreen Modal */}
+            {selectedPhoto && (
+                <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setSelectedPhoto(null)}>
+                    <button
+                        onClick={() => setSelectedPhoto(null)}
+                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10"
+                    >
+                        <X className="w-8 h-8" />
+                    </button>
+                    <img
+                        src={selectedPhoto.photo_url}
+                        alt="Plein écran"
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image
+                    />
                 </div>
             )}
         </div>
