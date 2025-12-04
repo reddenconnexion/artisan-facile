@@ -11,6 +11,7 @@ import DevisForm from './pages/DevisForm';
 import Agenda from './pages/Agenda';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import PriceLibrary from './pages/PriceLibrary';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -52,8 +53,8 @@ function App() {
             <Route path="clients/:id" element={<ClientForm />} />
             <Route path="crm" element={<CRM />} /> {/* Added CRM route */}
             <Route path="devis" element={<DevisList />} />
-            <Route path="devis/new" element={<DevisForm />} />
             <Route path="devis/:id" element={<DevisForm />} />
+            <Route path="library" element={<PriceLibrary />} />
             <Route path="settings" element={<Profile />} />
           </Route>
         </Routes>

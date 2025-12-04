@@ -19,6 +19,18 @@ const DevisForm = () => {
     const [userProfile, setUserProfile] = useState(null);
     const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
+    const [priceLibrary, setPriceLibrary] = useState([]);
+
+    useEffect(() => {
+        if (user) {
+            fetchPriceLibrary();
+        }
+    }, [user]);
+
+    const fetchPriceLibrary = async () => {
+        const { data } = await supabase.from('price_library').select('*');
+        setPriceLibrary(data || []);
+    };
 
     // Handle Dictation
     useEffect(() => {
@@ -403,11 +415,29 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         placeholder="Description"
+                                        list={`library-suggestions-${item.id}`}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
                                         value={item.description}
-                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            updateItem(item.id, 'description', val);
+
+                                            // Check for exact match in library to auto-fill price
+                                            const libraryItem = priceLibrary.find(lib => lib.description === val);
+                                            if (libraryItem) {
+                                                updateItem(item.id, 'price', libraryItem.price);
+                                                // Optional: update unit if you had a unit field in items
+                                            }
+                                        }}
                                         required
                                     />
+                                    <datalist id={`library-suggestions-${item.id}`}>
+                                        {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
+                                            <option key={lib.id} value={lib.description}>
+                                                {lib.price}€
+                                            </option>
+                                        ))}
+                                    </datalist>
                                     <button
                                         type="button"
                                         onClick={() => toggleDictation(`item-description-${index}`)}

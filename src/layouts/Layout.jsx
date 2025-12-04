@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +42,7 @@ const Layout = () => {
     { name: 'Clients', href: '/clients', icon: Users },
     { name: 'CRM / Suivi', href: '/crm', icon: Kanban },
     { name: 'Devis & Factures', href: '/devis', icon: FileText },
+    { name: 'Bibliothèque', href: '/library', icon: BookOpen },
   ];
 
   return (
