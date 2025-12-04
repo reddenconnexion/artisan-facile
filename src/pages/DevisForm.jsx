@@ -161,9 +161,7 @@ const DevisForm = () => {
                     status: data.status || 'draft',
                     include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0) // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
                 });
-                if (data.signature) {
-                    setSignature(data.signature);
-                }
+                setSignature(data.signature || null);
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
@@ -330,8 +328,8 @@ const DevisForm = () => {
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
         } catch (error) {
-            toast.error('Erreur lors de la sauvegarde de la signature');
             console.error('Error saving signature:', error);
+            toast.error('Erreur lors de la sauvegarde de la signature');
         }
     };
 

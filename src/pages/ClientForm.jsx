@@ -103,7 +103,6 @@ const ClientForm = () => {
                     email: data.email || '',
                     phone: data.phone || '',
                     address: data.address || '',
-                    address: data.address || '',
                     notes: data.notes || '',
                     status: data.status || 'lead',
                     portal_token: data.portal_token,
