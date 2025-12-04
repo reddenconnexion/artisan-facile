@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { useVoice } from '../hooks/useVoice';
+import MarginGauge from '../components/MarginGauge';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -63,7 +64,7 @@ const DevisForm = () => {
         date: new Date().toISOString().split('T')[0],
         valid_until: '',
         items: [
-            { id: 1, description: '', quantity: 1, price: 0 }
+            { id: 1, description: '', quantity: 1, price: 0, buying_price: 0, type: 'service' }
         ],
         notes: '',
         status: 'draft',
@@ -73,37 +74,48 @@ const DevisForm = () => {
     useEffect(() => {
         if (user) {
             fetchClients().then((loadedClients) => {
-                // Handle Voice Data AFTER clients are loaded
-                if (location.state?.voiceData) {
-                    const { clientName, notes } = location.state.voiceData;
+                // Handle Navigation State (Client ID or Voice Data)
+                if (location.state) {
+                    const { client_id, voiceData } = location.state;
 
-                    if (clientName && loadedClients) {
-                        // Fuzzy search for client
-                        const foundClient = loadedClients.find(c =>
-                            c.name.toLowerCase().includes(clientName.toLowerCase())
-                        );
-
+                    if (client_id && loadedClients) {
+                        const foundClient = loadedClients.find(c => c.id.toString() === client_id.toString());
                         if (foundClient) {
-                            setFormData(prev => ({
-                                ...prev,
-                                client_id: foundClient.id,
-                                notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
-                            }));
-                            toast.success(`Client ${foundClient.name} sélectionné`);
-                        } else {
-                            toast.warning(`Client "${clientName}" non trouvé`);
+                            setFormData(prev => ({ ...prev, client_id: foundClient.id }));
                         }
                     }
 
-                    if (notes && !clientName) {
-                        setFormData(prev => ({
-                            ...prev,
-                            notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
-                        }));
-                    }
+                    if (voiceData) {
+                        const { clientName, notes } = voiceData;
 
-                    // Clear state
-                    window.history.replaceState({}, document.title);
+                        if (clientName && loadedClients) {
+                            // Fuzzy search for client
+                            const foundClient = loadedClients.find(c =>
+                                c.name.toLowerCase().includes(clientName.toLowerCase())
+                            );
+
+                            if (foundClient) {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    client_id: foundClient.id,
+                                    notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
+                                }));
+                                toast.success(`Client ${foundClient.name} sélectionné`);
+                            } else {
+                                toast.warning(`Client "${clientName}" non trouvé`);
+                            }
+                        }
+
+                        if (notes && !clientName) {
+                            setFormData(prev => ({
+                                ...prev,
+                                notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
+                            }));
+                        }
+
+                        // Clear state
+                        window.history.replaceState({}, document.title);
+                    }
                 }
             });
             fetchUserProfile();
@@ -142,7 +154,7 @@ const DevisForm = () => {
                     client_id: data.client_id || '',
                     date: data.date,
                     valid_until: data.valid_until || '',
-                    items: data.items || [],
+                    items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
                     status: data.status || 'draft',
                     include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0) // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
@@ -157,7 +169,7 @@ const DevisForm = () => {
     const addItem = () => {
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, price: 0 }]
+            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, price: 0, buying_price: 0, type: 'service' }]
         }));
     };
 
@@ -179,12 +191,13 @@ const DevisForm = () => {
 
     const calculateTotal = () => {
         const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const totalCost = formData.items.reduce((sum, item) => sum + (item.quantity * (item.buying_price || 0)), 0);
         const tva = formData.include_tva ? subtotal * 0.20 : 0; // TVA 20% par défaut
         const total = subtotal + tva;
-        return { subtotal, tva, total };
+        return { subtotal, tva, total, totalCost };
     };
 
-    const { subtotal, tva, total } = calculateTotal();
+    const { subtotal, tva, total, totalCost } = calculateTotal();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -410,73 +423,100 @@ const DevisForm = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails des prestations</h3>
                     <div className="space-y-4">
                         {formData.items.map((item, index) => (
-                            <div key={item.id} className="flex gap-4 items-start">
-                                <div className="flex-1 relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Description"
-                                        list={`library-suggestions-${item.id}`}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
-                                        value={item.description}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            updateItem(item.id, 'description', val);
+                            <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
+                                <div className="flex-1 w-full space-y-2">
+                                    <div className="flex gap-2">
+                                        <select
+                                            className="w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
+                                            value={item.type || 'service'}
+                                            onChange={(e) => updateItem(item.id, 'type', e.target.value)}
+                                        >
+                                            <option value="service">Main d'oeuvre</option>
+                                            <option value="material">Matériel</option>
+                                        </select>
+                                        <div className="flex-1 relative">
+                                            <input
+                                                type="text"
+                                                placeholder="Description"
+                                                list={`library-suggestions-${item.id}`}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
+                                                value={item.description}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    updateItem(item.id, 'description', val);
 
-                                            // Check for exact match in library to auto-fill price
-                                            const libraryItem = priceLibrary.find(lib => lib.description === val);
-                                            if (libraryItem) {
-                                                updateItem(item.id, 'price', libraryItem.price);
-                                                // Optional: update unit if you had a unit field in items
-                                            }
-                                        }}
-                                        required
-                                    />
-                                    <datalist id={`library-suggestions-${item.id}`}>
-                                        {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
-                                            <option key={lib.id} value={lib.description}>
-                                                {lib.price}€
-                                            </option>
-                                        ))}
-                                    </datalist>
+                                                    // Check for exact match in library to auto-fill price
+                                                    const libraryItem = priceLibrary.find(lib => lib.description === val);
+                                                    if (libraryItem) {
+                                                        updateItem(item.id, 'price', libraryItem.price);
+                                                        // Optional: update unit if you had a unit field in items
+                                                    }
+                                                }}
+                                                required
+                                            />
+                                            <datalist id={`library-suggestions-${item.id}`}>
+                                                {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
+                                                    <option key={lib.id} value={lib.description}>
+                                                        {lib.price}€
+                                                    </option>
+                                                ))}
+                                            </datalist>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleDictation(`item-description-${index}`)}
+                                                className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                                title="Dicter"
+                                            >
+                                                <Mic className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <span>Coût unitaire (interne) :</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                                            placeholder="0.00"
+                                            value={item.buying_price || ''}
+                                            onChange={(e) => updateItem(item.id, 'buying_price', parseFloat(e.target.value) || 0)}
+                                        />
+                                        <span>€</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <div className="w-20">
+                                        <input
+                                            type="number"
+                                            placeholder="Qté"
+                                            min="1"
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                            value={item.quantity}
+                                            onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="w-28">
+                                        <input
+                                            type="number"
+                                            placeholder="Prix U."
+                                            min="0"
+                                            step="0.01"
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                            value={item.price}
+                                            onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="w-28 py-2 text-right font-medium text-gray-900">
+                                        {(item.quantity * item.price).toFixed(2)} €
+                                    </div>
                                     <button
-                                        type="button"
-                                        onClick={() => toggleDictation(`item-description-${index}`)}
-                                        className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                        title="Dicter"
+                                        onClick={() => removeItem(item.id)}
+                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
                                     >
-                                        <Mic className="w-4 h-4" />
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <div className="w-24">
-                                    <input
-                                        type="number"
-                                        placeholder="Qté"
-                                        min="1"
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                        value={item.quantity}
-                                        onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                    />
-                                </div>
-                                <div className="w-32">
-                                    <input
-                                        type="number"
-                                        placeholder="Prix U."
-                                        min="0"
-                                        step="0.01"
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                        value={item.price}
-                                        onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
-                                    />
-                                </div>
-                                <div className="w-32 py-2 text-right font-medium text-gray-900">
-                                    {(item.quantity * item.price).toFixed(2)} €
-                                </div>
-                                <button
-                                    onClick={() => removeItem(item.id)}
-                                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
                             </div>
                         ))}
                     </div>
@@ -492,37 +532,41 @@ const DevisForm = () => {
 
                 {/* Totaux */}
                 <div className="flex justify-end pt-6 border-t border-gray-100">
-                    <div className="w-64 space-y-3">
-                        <div className="flex items-center justify-end mb-4">
-                            <input
-                                type="checkbox"
-                                id="include_tva"
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                checked={formData.include_tva}
-                                onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
-                            />
-                            <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
-                                Appliquer la TVA (20%)
-                            </label>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                            <span>Total HT</span>
-                            <span>{subtotal.toFixed(2)} €</span>
-                        </div>
-                        {formData.include_tva && (
+                    <div className="w-72 space-y-4">
+                        <MarginGauge totalHT={subtotal} totalCost={totalCost} />
+
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-end mb-4">
+                                <input
+                                    type="checkbox"
+                                    id="include_tva"
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    checked={formData.include_tva}
+                                    onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
+                                />
+                                <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
+                                    Appliquer la TVA (20%)
+                                </label>
+                            </div>
                             <div className="flex justify-between text-gray-600">
-                                <span>TVA (20%)</span>
-                                <span>{tva.toFixed(2)} €</span>
+                                <span>Total HT</span>
+                                <span>{subtotal.toFixed(2)} €</span>
                             </div>
-                        )}
-                        {!formData.include_tva && (
-                            <div className="text-xs text-gray-500 text-right italic">
-                                TVA non applicable, art. 293 B du CGI
+                            {formData.include_tva && (
+                                <div className="flex justify-between text-gray-600">
+                                    <span>TVA (20%)</span>
+                                    <span>{tva.toFixed(2)} €</span>
+                                </div>
+                            )}
+                            {!formData.include_tva && (
+                                <div className="text-xs text-gray-500 text-right italic">
+                                    TVA non applicable, art. 293 B du CGI
+                                </div>
+                            )}
+                            <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
+                                <span>Total TTC</span>
+                                <span>{total.toFixed(2)} €</span>
                             </div>
-                        )}
-                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
-                            <span>Total TTC</span>
-                            <span>{total.toFixed(2)} €</span>
                         </div>
                     </div>
                 </div>
