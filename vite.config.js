@@ -13,7 +13,7 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'offline.html', 'pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
         name: 'Artisan Facile',
         short_name: 'ArtisanFacile',
@@ -24,14 +24,14 @@ export default defineConfig({
         background_color: '#ffffff',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'pwa-192x192.svg',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/svg+xml'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'pwa-512x512.svg',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/svg+xml'
           }
         ]
       },
@@ -40,6 +40,8 @@ export default defineConfig({
         skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/auth/, /supabase/],
+        offlineFallback: '/offline.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
