@@ -18,6 +18,8 @@ const DevisForm = () => {
     const [loading, setLoading] = useState(false);
     const [clients, setClients] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [signature, setSignature] = useState(null);
     const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
     const [priceLibrary, setPriceLibrary] = useState([]);
@@ -159,6 +161,9 @@ const DevisForm = () => {
                     status: data.status || 'draft',
                     include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0) // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
                 });
+                if (data.signature) {
+                    setSignature(data.signature);
+                }
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
@@ -304,6 +309,29 @@ const DevisForm = () => {
         } catch (error) {
             toast.error('Erreur lors de la conversion');
             console.error('Error converting to invoice:', error);
+        }
+    };
+
+    const handleSignatureSave = async (signatureData) => {
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .update({
+                    signature: signatureData,
+                    status: 'accepted',
+                    signed_at: new Date().toISOString()
+                })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setSignature(signatureData);
+            setFormData(prev => ({ ...prev, status: 'accepted' }));
+            setShowSignatureModal(false);
+            toast.success('Devis signé avec succès');
+        } catch (error) {
+            toast.error('Erreur lors de la sauvegarde de la signature');
+            console.error('Error saving signature:', error);
         }
     };
 
