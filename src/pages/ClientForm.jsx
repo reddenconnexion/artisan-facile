@@ -112,7 +112,7 @@ const ClientForm = () => {
         } catch (error) {
             toast.error('Erreur lors du chargement du client');
             console.error('Error fetching client:', error);
-            navigate('/clients');
+            navigate('/app/clients');
         }
     };
 
@@ -148,7 +148,7 @@ const ClientForm = () => {
             if (error) throw error;
 
             toast.success(isEditing ? 'Client modifié avec succès' : 'Client créé avec succès');
-            navigate('/clients');
+            navigate('/app/clients');
         } catch (error) {
             toast.error('Erreur lors de la sauvegarde');
             console.error('Error saving client:', error);
@@ -162,7 +162,7 @@ const ClientForm = () => {
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                     <button
-                        onClick={() => navigate('/clients')}
+                        onClick={() => navigate('/app/clients')}
                         className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
                     >
                         <ArrowLeft className="w-6 h-6" />
@@ -392,7 +392,7 @@ const ClientForm = () => {
                     <div className="flex justify-end pt-4 border-t border-gray-100">
                         <button
                             type="button"
-                            onClick={() => navigate('/clients')}
+                            onClick={() => navigate('/app/clients')}
                             className="px-4 py-2 mr-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
                             Annuler

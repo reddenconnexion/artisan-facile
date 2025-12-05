@@ -165,7 +165,7 @@ const DevisForm = () => {
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
-            navigate('/devis');
+            navigate('/app/devis');
         }
     };
 
@@ -246,7 +246,7 @@ const DevisForm = () => {
             if (error) throw error;
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
-            navigate('/devis');
+            navigate('/app/devis');
         } catch (error) {
             toast.error('Erreur lors de la sauvegarde');
             console.error('Error saving quote:', error);
@@ -337,7 +337,7 @@ const DevisForm = () => {
         <div className="max-w-4xl mx-auto pb-12">
             <div className="flex items-center justify-between mb-6">
                 <button
-                    onClick={() => navigate('/devis')}
+                    onClick={() => navigate('/app/devis')}
                     className="flex items-center text-gray-600 hover:text-gray-900"
                 >
                     <ArrowLeft className="w-5 h-5 mr-2" />
@@ -404,7 +404,7 @@ const DevisForm = () => {
                             {formData.client_id && (
                                 <button
                                     type="button"
-                                    onClick={() => navigate(`/clients/${formData.client_id}`)}
+                                    onClick={() => navigate(`/app/clients/${formData.client_id}`)}
                                     className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                 >
                                     Voir la fiche client

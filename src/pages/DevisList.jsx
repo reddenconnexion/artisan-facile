@@ -67,7 +67,7 @@ const DevisList = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">Devis & Factures</h2>
                 <button
-                    onClick={() => navigate('/devis/new')}
+                    onClick={() => navigate('/app/devis/new')}
                     className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                     <Plus className="w-5 h-5 mr-2" />
@@ -106,7 +106,7 @@ const DevisList = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredDevis.map((devis) => (
-                            <tr key={devis.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${devis.id}`)}>
+                            <tr key={devis.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                                     #{devis.id}
                                 </td>
@@ -115,7 +115,7 @@ const DevisList = () => {
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (devis.client_id) {
-                                                navigate(`/clients/${devis.client_id}`);
+                                                navigate(`/app/clients/${devis.client_id}`);
                                             }
                                         }}
                                         className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
