@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, Image as ImageIcon } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
-import { useGoogleLogin } from '@react-oauth/google';
 
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
@@ -85,158 +84,6 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
-    const googleLogin = useGoogleLogin({
-        scope: 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
-        onSuccess: async (tokenResponse) => {
-            try {
-                setUploading(true);
-                const accessToken = tokenResponse.access_token;
-
-                // Create Picker Session
-                const response = await fetch('https://photospicker.googleapis.com/v1/sessions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) throw new Error('Failed to create picker session');
-
-                const session = await response.json();
-                const pickerUri = session.pickerUri;
-
-                // Open Picker in new window
-                const width = 800;
-                const height = 600;
-                const left = (window.screen.width - width) / 2;
-                const top = (window.screen.height - height) / 2;
-
-                const pickerWindow = window.open(
-                    pickerUri,
-                    'google_photos_picker',
-                    `width=${width},height=${height},top=${top},left=${left}`
-                );
-
-                // Poll for results
-                const pollInterval = setInterval(async () => {
-                    if (pickerWindow.closed) {
-                        clearInterval(pollInterval);
-                        setUploading(false);
-                        return;
-                    }
-
-                    try {
-                        const pollResponse = await fetch(`https://photospicker.googleapis.com/v1/sessions/${session.id}`, {
-                            headers: {
-                                'Authorization': `Bearer ${accessToken}`
-                            }
-                        });
-
-                        if (pollResponse.ok) {
-                            const sessionStatus = await pollResponse.json();
-
-                            if (sessionStatus.mediaItemsSet) {
-                                clearInterval(pollInterval);
-                                pickerWindow.close();
-                                await processSelectedMedia(sessionStatus.id, accessToken);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Polling error:', err);
-                    }
-                }, 2000);
-
-            } catch (error) {
-                console.error('Google Photos Error:', error);
-                toast.error('Erreur avec Google Photos');
-                setUploading(false);
-            }
-        },
-        onError: () => {
-            toast.error('Connexion Google échouée');
-            setUploading(false);
-        }
-    });
-
-    const processSelectedMedia = async (sessionId, accessToken) => {
-        try {
-            // List media items from session
-            const response = await fetch(`https://photospicker.googleapis.com/v1/sessions/${sessionId}/mediaItems`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-
-            if (!response.ok) throw new Error('Failed to fetch media items');
-
-            const data = await response.json();
-            const mediaItems = data.mediaItems || [];
-
-            if (mediaItems.length === 0) {
-                setUploading(false);
-                return;
-            }
-
-            toast.info(`${mediaItems.length} photo(s) sélectionnée(s), téléchargement...`);
-
-            // Process each photo
-            for (const item of mediaItems) {
-                // Fetch the image blob
-                // baseUrl is valid for 60 minutes
-                const imageResponse = await fetch(item.mediaFile.baseUrl);
-                const blob = await imageResponse.blob();
-
-                // Upload to Supabase
-                const fileExt = item.mediaFile.mimeType.split('/')[1] || 'jpg';
-                const fileName = `${user.id}/${clientId}/${Date.now()}_google.${fileExt}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('project-photos')
-                    .upload(fileName, blob, {
-                        contentType: item.mediaFile.mimeType
-                    });
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-photos')
-                    .getPublicUrl(fileName);
-
-                const { data: photoData, error: dbError } = await supabase
-                    .from('project_photos')
-                    .insert([{
-                        user_id: user.id,
-                        client_id: clientId,
-                        photo_url: publicUrl,
-                        category: activeTab,
-                        description: 'Importé depuis Google Photos'
-                    }])
-                    .select()
-                    .single();
-
-                if (dbError) throw dbError;
-
-                setPhotos(prev => [photoData, ...prev]);
-            }
-
-            toast.success('Photos importées avec succès');
-        } catch (error) {
-            console.error('Error processing media:', error);
-            toast.error('Erreur lors du traitement des photos');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleGoogleImport = () => {
-        if (!import.meta.env.VITE_GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
-            toast.error('Configuration Google Photos manquante (Client ID)');
-            return;
-        }
-        googleLogin();
-    };
-
     const handleDelete = async (photoId, photoUrl) => {
         if (!window.confirm('Voulez-vous vraiment supprimer cette photo ?')) return;
 
@@ -298,7 +145,7 @@ const ProjectPhotos = ({ clientId }) => {
             </div>
 
             {/* Upload Area */}
-            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="mb-6">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         {uploading ? (
@@ -307,7 +154,7 @@ const ProjectPhotos = ({ clientId }) => {
                             <Upload className="w-8 h-8 text-gray-400 mb-2" />
                         )}
                         <p className="text-sm text-gray-500">
-                            {uploading ? 'Envoi en cours...' : 'Ajouter une photo'}
+                            {uploading ? 'Envoi en cours...' : 'Cliquez pour ajouter une photo'}
                         </p>
                     </div>
                     <input
@@ -318,19 +165,6 @@ const ProjectPhotos = ({ clientId }) => {
                         disabled={uploading}
                     />
                 </label>
-
-                <button
-                    onClick={handleGoogleImport}
-                    disabled={uploading}
-                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-blue-200 border-dashed rounded-lg cursor-pointer bg-blue-50 hover:bg-blue-100 transition-colors text-blue-700"
-                >
-                    {uploading ? (
-                        <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                    ) : (
-                        <ImageIcon className="w-8 h-8 mb-2" />
-                    )}
-                    <span className="text-sm font-medium">Importer depuis Google Photos</span>
-                </button>
             </div>
 
             {/* Photo Grid */}
