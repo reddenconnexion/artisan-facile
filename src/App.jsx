@@ -12,6 +12,7 @@ import Agenda from './pages/Agenda';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PriceLibrary from './pages/PriceLibrary';
+import LandingPage from './pages/LandingPage';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -36,12 +37,13 @@ function App() {
       <OfflineBanner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
           <Route path="/p/:token" element={<ClientPortal />} />
 
-          <Route path="/" element={
+          <Route path="/app" element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
@@ -51,7 +53,7 @@ function App() {
             <Route path="clients" element={<Clients />} />
             <Route path="clients/new" element={<ClientForm />} />
             <Route path="clients/:id" element={<ClientForm />} />
-            <Route path="crm" element={<CRM />} /> {/* Added CRM route */}
+            <Route path="crm" element={<CRM />} />
             <Route path="devis" element={<DevisList />} />
             <Route path="devis/:id" element={<DevisForm />} />
             <Route path="library" element={<PriceLibrary />} />

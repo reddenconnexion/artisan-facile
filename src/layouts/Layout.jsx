@@ -37,12 +37,12 @@ const Layout = () => {
   };
 
   const navigation = [
-    { name: 'Tableau de bord', href: '/', icon: LayoutDashboard },
-    { name: 'Agenda', href: '/agenda', icon: Calendar },
-    { name: 'Clients', href: '/clients', icon: Users },
-    { name: 'CRM / Suivi', href: '/crm', icon: Kanban },
-    { name: 'Devis & Factures', href: '/devis', icon: FileText },
-    { name: 'Bibliothèque', href: '/library', icon: BookOpen },
+    { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
+    { name: 'Agenda', href: '/app/agenda', icon: Calendar },
+    { name: 'Clients', href: '/app/clients', icon: Users },
+    { name: 'CRM / Suivi', href: '/app/crm', icon: Kanban },
+    { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+    { name: 'Bibliothèque', href: '/app/library', icon: BookOpen },
   ];
 
   return (
@@ -82,7 +82,7 @@ const Layout = () => {
 
         <div className="p-4 border-t border-gray-200 space-y-2">
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/app/settings')}
             title={isCollapsed ? 'Paramètres' : ''}
             className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 ${isCollapsed ? 'justify-center' : ''}`}
           >

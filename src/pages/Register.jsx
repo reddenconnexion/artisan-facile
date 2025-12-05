@@ -19,7 +19,7 @@ const Register = () => {
 
             if (data.session) {
                 toast.success('Inscription réussie ! Vous êtes connecté.');
-                navigate('/');
+                navigate('/app');
             } else {
                 toast.success('Inscription réussie ! Veuillez vérifier votre email pour confirmer votre compte.');
                 navigate('/login');

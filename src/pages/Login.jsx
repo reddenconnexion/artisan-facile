@@ -17,7 +17,7 @@ const Login = () => {
             const { error } = await signIn({ email, password });
             if (error) throw error;
             toast.success('Connexion réussie !');
-            navigate('/');
+            navigate('/app');
         } catch (error) {
             console.error('Login error:', error);
             if (error.message.includes('Email not confirmed')) {
