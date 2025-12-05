@@ -54,7 +54,7 @@ const Clients = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">Mes Clients</h2>
                 <button
-                    onClick={() => navigate('/clients/new')}
+                    onClick={() => navigate('/app/clients/new')}
                     className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                     <Plus className="w-5 h-5 mr-2" />
@@ -118,13 +118,13 @@ const Clients = () => {
 
                         <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end space-x-3">
                             <button
-                                onClick={() => navigate(`/clients/${client.id}`)}
+                                onClick={() => navigate(`/app/clients/${client.id}`)}
                                 className="text-sm font-medium text-blue-600 hover:text-blue-800"
                             >
                                 Voir fiche
                             </button>
                             <button
-                                onClick={() => navigate('/devis/new', { state: { client_id: client.id } })}
+                                onClick={() => navigate('/app/devis/new', { state: { client_id: client.id } })}
                                 className="text-sm font-medium text-blue-600 hover:text-blue-800"
                             >
                                 Créer devis
