@@ -10,9 +10,9 @@ const LandingPage = () => {
         return <div className="flex items-center justify-center h-screen">Chargement...</div>;
     }
 
-    if (user) {
-        return <Navigate to="/app" />;
-    }
+    // if (user) {
+    //     return <Navigate to="/app" />;
+    // }
 
     return (
         <div className="min-h-screen bg-white">
@@ -24,15 +24,26 @@ const LandingPage = () => {
                             <span className="text-2xl font-bold text-blue-600">Artisan Facile</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Link to="/login" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
-                                Se connecter
-                            </Link>
-                            <Link
-                                to="/register"
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                            >
-                                S'inscrire
-                            </Link>
+                            {user ? (
+                                <Link
+                                    to="/app"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                >
+                                    Tableau de bord
+                                </Link>
+                            ) : (
+                                <>
+                                    <Link to="/login" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                                        Se connecter
+                                    </Link>
+                                    <Link
+                                        to="/register"
+                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                    >
+                                        S'inscrire
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -50,19 +61,31 @@ const LandingPage = () => {
                         Gagnez du temps et concentrez-vous sur votre métier.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <Link
-                            to="/register"
-                            className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
-                        >
-                            Commencer gratuitement
-                            <ArrowRight className="ml-2 w-5 h-5" />
-                        </Link>
-                        <Link
-                            to="/login"
-                            className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
-                        >
-                            Déjà un compte ?
-                        </Link>
+                        {user ? (
+                            <Link
+                                to="/app"
+                                className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                            >
+                                Accéder à mon espace
+                                <ArrowRight className="ml-2 w-5 h-5" />
+                            </Link>
+                        ) : (
+                            <>
+                                <Link
+                                    to="/register"
+                                    className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                                >
+                                    Commencer gratuitement
+                                    <ArrowRight className="ml-2 w-5 h-5" />
+                                </Link>
+                                <Link
+                                    to="/login"
+                                    className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
+                                >
+                                    Déjà un compte ?
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Trust Badges / Stats */}
