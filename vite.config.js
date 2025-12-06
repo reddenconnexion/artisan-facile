@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       devOptions: {
         enabled: true
       },
@@ -90,5 +90,8 @@ export default defineConfig({
   ],
   server: {
     host: true
+  },
+  define: {
+    'import.meta.env.PACKAGE_VERSION': JSON.stringify(process.env.npm_package_version)
   }
 })

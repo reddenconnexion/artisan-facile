@@ -98,6 +98,11 @@ const Layout = () => {
             {!isCollapsed && 'Déconnexion'}
           </button>
         </div>
+
+        {/* Version Indicator */}
+        <div className="px-6 py-2 text-xs text-gray-400 border-t border-gray-100 text-center">
+          v{import.meta.env.PACKAGE_VERSION || '0.1.1'}
+        </div>
       </div>
 
       {/* Main Content */}
