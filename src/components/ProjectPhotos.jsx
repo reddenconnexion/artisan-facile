@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect } from 'react';
 import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../utils/supabase';
@@ -12,7 +11,7 @@ const ProjectPhotos = ({ clientId }) => {
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
-    
+
     // Swipe handling
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
@@ -57,8 +56,8 @@ const ProjectPhotos = ({ clientId }) => {
                 try {
                     // 1. Upload to Storage
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `${ user.id } /${clientId}/${ Date.now() }_${ Math.random().toString(36).substr(2, 9) }.${ fileExt } `;
-                    
+                    const fileName = `${user.id}/${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+
                     const { error: uploadError } = await supabase.storage
                         .from('project-photos')
                         .upload(fileName, file);
@@ -86,7 +85,7 @@ const ProjectPhotos = ({ clientId }) => {
                         .single();
 
                     if (dbError) throw dbError;
-                    
+
                     return photoData;
                 } catch (err) {
                     console.error('Error uploading file:', file.name, err);
@@ -96,10 +95,10 @@ const ProjectPhotos = ({ clientId }) => {
 
             const results = await Promise.all(uploadPromises);
             const newPhotos = results.filter(p => p !== null);
-            
+
             if (newPhotos.length > 0) {
                 setPhotos(prev => [...newPhotos, ...prev]);
-                toast.success(`${ newPhotos.length } photo(s) ajoutée(s) avec succès`);
+                toast.success(`${newPhotos.length} photo(s) ajoutée(s) avec succès`);
             } else {
                 toast.error("Aucune photo n'a pu être importée");
             }
@@ -134,12 +133,12 @@ const ProjectPhotos = ({ clientId }) => {
             }
 
             setPhotos(prev => prev.filter(p => p.id !== photoId));
-            
+
             // Close modal if deleted photo was open
             if (selectedPhotoIndex !== null) {
                 setSelectedPhotoIndex(null);
             }
-            
+
             toast.success('Photo supprimée');
         } catch (error) {
             console.error('Error deleting photo:', error);
@@ -184,7 +183,7 @@ const ProjectPhotos = ({ clientId }) => {
 
     const onTouchEnd = () => {
         if (!touchStart || !touchEnd) return;
-        
+
         const distance = touchStart - touchEnd;
         const isLeftSwipe = distance > minSwipeDistance;
         const isRightSwipe = distance < -minSwipeDistance;
@@ -201,7 +200,7 @@ const ProjectPhotos = ({ clientId }) => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (selectedPhotoIndex === null) return;
-            
+
             if (e.key === 'ArrowRight') handleNext();
             if (e.key === 'ArrowLeft') handlePrev();
             if (e.key === 'Escape') setSelectedPhotoIndex(null);
@@ -232,11 +231,10 @@ const ProjectPhotos = ({ clientId }) => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex - 1 py - 2 text - sm font - medium border - b - 2 transition - colors ${
-    activeTab === tab.id
-    ? 'border-blue-600 text-blue-600'
-    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-} `}
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
                     >
                         {tab.label}
                     </button>
@@ -304,7 +302,7 @@ const ProjectPhotos = ({ clientId }) => {
 
             {/* Fullscreen Modal */}
             {selectedPhotoIndex !== null && filteredPhotos[selectedPhotoIndex] && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
                     onClick={() => setSelectedPhotoIndex(null)}
                 >
@@ -325,7 +323,7 @@ const ProjectPhotos = ({ clientId }) => {
                     </button>
 
                     {/* Image Container with Swipe Handlers */}
-                    <div 
+                    <div
                         className="w-full h-full flex items-center justify-center p-4"
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
@@ -359,4 +357,3 @@ const ProjectPhotos = ({ clientId }) => {
 };
 
 export default ProjectPhotos;
-```
