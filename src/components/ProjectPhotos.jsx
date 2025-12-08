@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -324,18 +325,58 @@ const ProjectPhotos = ({ clientId }) => {
 
                     {/* Image Container with Swipe Handlers */}
                     <div
-                        className="w-full h-full flex items-center justify-center p-4"
+                        className="w-full h-full flex items-center justify-center p-4 overflow-hidden"
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
                         onTouchEnd={onTouchEnd}
                         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image area
                     >
-                        <img
-                            src={filteredPhotos[selectedPhotoIndex].photo_url}
-                            alt="Plein écran"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl select-none"
-                            draggable="false"
-                        />
+                        <TransformWrapper
+                            initialScale={1}
+                            minScale={0.5}
+                            maxScale={4}
+                            centerOnInit={true}
+                        >
+                            {({ zoomIn, zoomOut, resetTransform }) => (
+                                <React.Fragment>
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50 bg-black/50 rounded-full px-4 py-2 backdrop-blur-sm">
+                                        <button
+                                            onClick={() => zoomOut()}
+                                            className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                            title="Dézoomer"
+                                        >
+                                            <ZoomOut className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => resetTransform()}
+                                            className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                            title="Réinitialiser"
+                                        >
+                                            <RotateCcw className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => zoomIn()}
+                                            className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                            title="Zoomer"
+                                        >
+                                            <ZoomIn className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <TransformComponent
+                                        wrapperClass="!w-full !h-full flex items-center justify-center"
+                                        contentClass="!w-full !h-full flex items-center justify-center"
+                                    >
+                                        <img
+                                            src={filteredPhotos[selectedPhotoIndex].photo_url}
+                                            alt="Plein écran"
+                                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl select-none"
+                                            draggable="false"
+                                        />
+                                    </TransformComponent>
+                                </React.Fragment>
+                            )}
+                        </TransformWrapper>
                     </div>
 
                     {/* Next Button */}
