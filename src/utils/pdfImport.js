@@ -87,58 +87,84 @@ export const parseQuoteItems = (text) => {
     const lines = text.split('\n');
     let notes = '';
 
-    // Regex to detect a line with a price at the end
-    // Matches: Description potentially with digits ... Price (with optional currency)
-    // We look for the last number in the line.
+    // Regex strategies to detect items
+    // Strategy 1: "Description ... Quantity ... Unit Price ... Total"
+    // Capture: (Description) (Quantity) (Unit Price) (Total)
+    // Looking for: Something, then a number, then a number (price), then end or another number (total)
 
-    // Example: "Peinture murale 25.00 €" -> Desc: Peinture murale, Price: 25.00
-    // Example: "Peinture 10m2 x 50€ = 500€" -> matches 500. This is tricky.
+    // Pattern: Description ending with space, then number (qty), "x" or space, number (price), optional "€"
+    const complexItemRegex = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:x|unites?|u)?\s*([\d\s.,]+)(?:€|EUR)?\s*([\d\s.,]+)?(?:€|EUR)?$/i;
 
-    // Simpler approach:
-    // If a line ends with a number (and optional currency), treat the rest as description.
-
-    const moneyRegex = /([\d\s.,]+)(?:€|EUR|euros?)$/i;
-    // Or just a number at the end
-    const numberEndRegex = /([\d.,]+)\s*$/;
+    // Strategy 2: "Description ... Price" (Quantity assumed 1)
+    const simpleItemRegex = /^(.+?)\s+([\d\s.,]+)(?:€|EUR)?$/i;
 
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        // Skip obvious headers/footers and totals already calculated
-        if (/page \d/i.test(trimmed)) continue;
+        // Skip obvious headers/footers
+        if (/page \d|devis n°|facture n°|date:|client :/i.test(trimmed)) continue;
 
-        // Exclude redundant info (totals, headers) from notes
-        if (/total|tva|montant|facture|devis|net à payer|bon pour accord|signature|siret|intracom|r\.c\.s/i.test(trimmed)) {
+        // Skip totals and legal jargon
+        if (/total|tva|montant|net à payer|bon pour accord|signature|siret|intracom|r\.c\.s|conditions/i.test(trimmed)) {
             continue;
         }
 
-        let match = trimmed.match(moneyRegex) || trimmed.match(numberEndRegex);
-
+        // Try complex strategy first (Qty + Price)
+        let match = trimmed.match(complexItemRegex);
         if (match) {
-            // Found a price-like ending
-            const priceStr = match[1].replace(/\s/g, '').replace(',', '.');
+            const description = match[1].trim();
+            const qtyStr = match[2].replace(',', '.');
+            const priceStr = match[3].replace(/\s/g, '').replace(',', '.');
+
+            const quantity = parseFloat(qtyStr);
+            const price = parseFloat(priceStr);
+
+            if (!isNaN(quantity) && !isNaN(price)) {
+                items.push({
+                    id: Date.now() + Math.random(),
+                    description: description,
+                    quantity: quantity,
+                    price: price, // Unit price
+                    type: 'service'
+                });
+                continue;
+            }
+        }
+
+        // Try simple strategy (Price only, assume qty 1)
+        match = trimmed.match(simpleItemRegex);
+        if (match) {
+            // Check if "price" looks like a real price (contains digits)
+            const priceStr = match[2].replace(/\s/g, '').replace(',', '.');
             const price = parseFloat(priceStr);
 
             if (!isNaN(price) && price > 0) {
-                // Determine description
-                const description = trimmed.substring(0, match.index).trim();
-
-                if (description.length > 3) {
+                // Double check description isn't just a date or nonsense
+                if (match[1].length > 2) {
                     items.push({
                         id: Date.now() + Math.random(),
-                        description: description,
-                        quantity: 1, // Default to 1
+                        description: match[1].trim(),
+                        quantity: 1,
                         price: price,
-                        type: 'service' // Default
+                        type: 'service'
                     });
                     continue;
                 }
             }
         }
 
-        // If no Item detected, add to notes
-        notes += trimmed + '\n';
+        // If no Item regex matched, treat as Description/Note line
+        // Avoid adding very short numbers or symbols
+        if (trimmed.length > 2 && !/^[\d.,€]+$/.test(trimmed)) {
+            notes += trimmed + '\n';
+        }
+    }
+
+    // Post-processing: If we found no items, maybe the parser was too strict?
+    // Start simpler fallback: just looking for lines ending in numbers.
+    if (items.length === 0 && lines.length > 0) {
+        // Fallback logic could go here if needed
     }
 
     return { items, notes };
