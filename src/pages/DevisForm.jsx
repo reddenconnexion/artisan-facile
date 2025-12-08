@@ -785,6 +785,7 @@ const DevisForm = () => {
                             <option value="accepted">Accepté / Signé</option>
                             <option value="refused">Refusé</option>
                             <option value="billed">Facturé</option>
+                            <option value="paid">Payé</option>
                             <option value="cancelled">Annulé</option>
                         </select>
                     </div>

@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 
+import ActionableDashboard from '../components/ActionableDashboard';
+
 const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center justify-between">
@@ -43,10 +45,11 @@ const Dashboard = () => {
     const fetchStats = async () => {
         try {
             // 1. Chiffre d'affaires (Total HT des devis acceptés/facturés)
+            // Including 'paid' status in turnover calculation
             const { data: acceptedQuotes, error: quotesError } = await supabase
                 .from('quotes')
                 .select('total_ht')
-                .eq('status', 'accepted');
+                .in('status', ['accepted', 'billed', 'paid']);
 
             if (quotesError) throw quotesError;
 
@@ -59,11 +62,11 @@ const Dashboard = () => {
 
             if (clientsError) throw clientsError;
 
-            // 3. Devis en attente (draft)
+            // 3. Devis en attente (draft or sent)
             const { count: pendingQuotes, error: pendingError } = await supabase
                 .from('quotes')
                 .select('*', { count: 'exact', head: true })
-                .eq('status', 'draft');
+                .in('status', ['draft', 'sent']);
 
             if (pendingError) throw pendingError;
 
@@ -131,6 +134,8 @@ const Dashboard = () => {
                     Nouveau Devis
                 </button>
             </div>
+
+            <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
