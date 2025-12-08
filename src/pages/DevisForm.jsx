@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link, Send } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link, Send, MoreVertical, Printer } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ const DevisForm = () => {
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
     const [priceLibrary, setPriceLibrary] = useState([]);
     const [showReviewMenu, setShowReviewMenu] = useState(false);
+    const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [emailPreview, setEmailPreview] = useState(null);
@@ -535,98 +536,12 @@ const DevisForm = () => {
                     <ArrowLeft className="w-5 h-5 mr-2" />
                     Retour
                 </button>
-                <div className="flex gap-3">
-                    {id && formData.public_token && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const url = `${window.location.origin}/q/${formData.public_token}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success('Lien de signature copié !');
-                            }}
-                            className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
-                            title="Copier le lien de signature"
-                        >
-                            <Link className="w-4 h-4 mr-2" />
-                            Lien
-                        </button>
-                    )}
-                    {id && (
-                        <>
-                            <button
-                                onClick={() => setShowSignatureModal(true)}
-                                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${signature || formData.status === 'accepted'
-                                    ? 'bg-green-100 text-green-700 cursor-default'
-                                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                                    }`}
-                                disabled={!!signature || formData.status === 'accepted'}
-                            >
-                                {signature || formData.status === 'accepted' ? (
-                                    <>
-                                        <FileCheck className="w-4 h-4 mr-2" />
-                                        Signé
-                                    </>
-                                ) : (
-                                    <>
-                                        <PenTool className="w-4 h-4 mr-2" />
-                                        Faire signer
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={handleDownloadPDF}
-                                className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                                <Download className="w-4 h-4 mr-2" />
-                                PDF
-                            </button>
-                        </>
-                    )}
-
-                    {formData.status === 'accepted' && (
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowReviewMenu(!showReviewMenu)}
-                                className="flex items-center px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition-colors"
-                            >
-                                <Star className="w-4 h-4 mr-2" />
-                                Demander un avis
-                            </button>
-
-                            {showReviewMenu && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
-                                    <div className="p-1">
-                                        <button
-                                            onClick={() => handleReviewAction('copy')}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
-                                        >
-                                            <Copy className="w-4 h-4 mr-2 text-gray-400" />
-                                            Copier le lien
-                                        </button>
-                                        <button
-                                            onClick={() => handleReviewAction('email')}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
-                                        >
-                                            <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                                            Envoyer par email
-                                        </button>
-                                        <button
-                                            onClick={() => handleReviewAction('open')}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
-                                        >
-                                            <ExternalLink className="w-4 h-4 mr-2 text-gray-400" />
-                                            Ouvrir le lien
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
+                <div className="flex gap-2">
+                    {/* Primary Actions */}
                     <button
                         type="button"
                         onClick={handleSendQuoteEmail}
-                        className="flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                        className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
                         title="Envoyer par email"
                     >
                         <Send className="w-4 h-4 mr-2" />
@@ -634,48 +549,106 @@ const DevisForm = () => {
                     </button>
 
                     <button
-                        type="button"
-                        onClick={handlePreview}
-                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 bg-amber-50"
-                    >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Aperçu
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => handleDownloadPDF(formData.status === 'accepted')}
-                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        {formData.status === 'accepted' ? 'Télécharger Facture' : 'Télécharger Devis'}
-                    </button>
-
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept=".pdf"
-                        onChange={handleImportFile}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={importing}
-                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                        title="Importer depuis un PDF"
-                    >
-                        {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                        Importer
-                    </button>
-                    <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                     >
                         <Save className="w-4 h-4 mr-2" />
-                        {loading ? 'Enregistrement...' : 'Enregistrer'}
+                        {loading ? '...' : 'Enregistrer'}
                     </button>
+
+                    {/* More Actions Dropdown */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowActionsMenu(!showActionsMenu)}
+                            className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            title="Plus d'actions"
+                        >
+                            <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </button>
+
+                        {showActionsMenu && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                                {/* Mobile only Send button */}
+                                <button
+                                    onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
+                                    className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Send className="w-4 h-4 mr-3 text-blue-600" />
+                                    Envoyer le devis
+                                </button>
+
+                                {id && formData.public_token && (
+                                    <button
+                                        onClick={() => {
+                                            const url = `${window.location.origin}/q/${formData.public_token}`;
+                                            navigator.clipboard.writeText(url);
+                                            toast.success('Lien de signature copié !');
+                                            setShowActionsMenu(false);
+                                        }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <Link className="w-4 h-4 mr-3 text-gray-400" />
+                                        Copier le lien public
+                                    </button>
+                                )}
+
+                                {id && !signature && formData.status !== 'accepted' && (
+                                    <button
+                                        onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <PenTool className="w-4 h-4 mr-3 text-purple-600" />
+                                        Faire signer sur l'appareil
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={() => { handlePreview(); setShowActionsMenu(false); }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Eye className="w-4 h-4 mr-3 text-gray-400" />
+                                    Aperçu PDF
+                                </button>
+
+                                <button
+                                    onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Download className="w-4 h-4 mr-3 text-gray-400" />
+                                    Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
+                                </button>
+
+                                <div className="border-t border-gray-100 my-1"></div>
+
+                                {formData.status === 'accepted' && (
+                                    <button
+                                        onClick={() => { setShowReviewMenu(!showReviewMenu); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <Star className="w-4 h-4 mr-3 text-yellow-500" />
+                                        Demander un avis
+                                    </button>
+                                )}
+
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".pdf"
+                                    onChange={handleImportFile}
+                                />
+                                <button
+                                    onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
+                                    disabled={importing}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
+                                    Importer un PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div >
             </div >
 
