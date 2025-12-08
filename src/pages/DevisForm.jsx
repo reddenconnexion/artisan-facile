@@ -1,13 +1,14 @@
+```javascript
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link, Send, MoreVertical, Printer } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { useVoice } from '../hooks/useVoice';
-import MarginGauge from '../components/MarginGauge';
+import MarginGauge from '../components/MarginGauge'; // Import MarginGauge
 import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
 import { getTradeConfig } from '../constants/trades';
 
@@ -113,7 +114,7 @@ const DevisForm = () => {
                                     client_id: foundClient.id,
                                     notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
                                 }));
-                                toast.success(`Client ${foundClient.name} sélectionné`);
+                                toast.success(`Client ${ foundClient.name } sélectionné`);
                             } else {
                                 toast.warning(`Client "${clientName}" non trouvé`);
                             }
@@ -260,32 +261,32 @@ const DevisForm = () => {
             return;
         }
 
-        const signatureLink = `${window.location.origin}/q/${formData.public_token}`;
+        const signatureLink = `${ window.location.origin } /q/${ formData.public_token } `;
         const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
 
-        const subject = encodeURIComponent(`Devis ${id} - ${formData.title || 'Projet'} - ${companyName}`);
+        const subject = encodeURIComponent(`Devis ${ id } - ${ formData.title || 'Projet' } - ${ companyName } `);
 
         const bodyLines = [
-            `Bonjour ${selectedClient.name},`,
+            `Bonjour ${ selectedClient.name }, `,
             ``,
-            `Veuillez trouver ci-joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
+            `Veuillez trouver ci - joint notre proposition pour ${ formData.title ? 'le projet "' + formData.title + '"' : 'votre projet' }.`,
             ``,
-            `Vous pouvez consulter le détail et signer ce devis directement en ligne en cliquant sur le lien ci-dessous (ou en le copiant dans votre navigateur) :`,
-            `${signatureLink}`,
+            `Vous pouvez consulter le détail et signer ce devis directement en ligne en cliquant sur le lien ci - dessous(ou en le copiant dans votre navigateur) : `,
+            `${ signatureLink } `,
             ``,
             `Nous restons à votre disposition pour toute question.`,
             ``,
-            `Cordialement,`,
-            `${companyName}`,
+            `Cordialement, `,
+            `${ companyName } `,
             ``,
-            `---`,
-            `${userProfile?.full_name || ''}`,
-            `${userProfile?.address || ''}`,
-            `${userProfile?.postal_code || ''} ${userProfile?.city || ''}`,
-            `Tél : ${userProfile?.phone || ''}`,
-            `Email : ${userProfile?.professional_email || userProfile?.email || ''}`,
-            `Web : ${userProfile?.website || ''}`,
-            `SIRET : ${userProfile?.siret || ''}`
+            `-- - `,
+            `${ userProfile?.full_name || '' } `,
+            `${ userProfile?.address || '' } `,
+            `${ userProfile?.postal_code || '' } ${ userProfile?.city || '' } `,
+            `Tél: ${ userProfile?.phone || '' } `,
+            `Email: ${ userProfile?.professional_email || userProfile?.email || '' } `,
+            `Web: ${ userProfile?.website || '' } `,
+            `SIRET: ${ userProfile?.siret || '' } `
         ].filter(line => line.trim() !== ''); // Clean empty lines if data is missing
 
         const body = bodyLines.join('\n'); // Keep raw for editing in textarea
@@ -296,7 +297,7 @@ const DevisForm = () => {
             // In the modal we want readable text. 
             // The previous code did encodeURIComponent immediately. 
             // Let's store readable strings here and encode only when clicking Send.
-            rawSubject: `Devis ${id} - ${formData.title || 'Projet'} - ${companyName}`,
+            rawSubject: `Devis ${ id } - ${ formData.title || 'Projet' } - ${ companyName } `,
             rawBody: bodyLines.join('\n')
         });
     };
@@ -304,7 +305,7 @@ const DevisForm = () => {
     const handleConfirmSendEmail = (subject, body) => {
         if (!emailPreview) return;
 
-        const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const mailtoUrl = `mailto:${ emailPreview.email }?subject = ${ encodeURIComponent(subject) }& body=${ encodeURIComponent(body) } `;
         window.location.href = mailtoUrl;
         toast.success('Application de messagerie ouverte');
         setEmailPreview(null);
@@ -400,7 +401,7 @@ const DevisForm = () => {
             const depositAmount = (total * percentage) / 100;
             const depositItem = {
                 id: Date.now(),
-                description: `Acompte de ${percentage}% sur devis n°${id} - ${formData.title}`,
+                description: `Acompte de ${ percentage }% sur devis n°${ id } - ${ formData.title } `,
                 quantity: 1,
                 unit: 'forfait',
                 price: depositAmount,
@@ -413,783 +414,804 @@ const DevisForm = () => {
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
                 title: `Facture d'Acompte - ${formData.title}`,
-                date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Directly billed
-                items: [depositItem],
-                total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
+date: new Date().toISOString().split('T')[0],
+    status: 'billed', // Directly billed
+        items: [depositItem],
+            total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
                 total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
-                total_ttc: depositAmount,
-                parent_id: id,
-                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}`
+                    total_ttc: depositAmount,
+                        parent_id: id,
+                            notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}`
             };
 
-            // Recalculate strict HT/TVA based on item price which is TTC if include_tva is true? 
-            // The logic in local calculateTotal is: price * qty = HT? No, logic depends on simple app. 
-            // In calculateTotal: total = subtotal + tva. 
-            // subtotal = sum(qty * price). 
-            // So if `depositAmount` is the target TTC, and include_tva is true (20%), then price should be HT.
+// Recalculate strict HT/TVA based on item price which is TTC if include_tva is true? 
+// The logic in local calculateTotal is: price * qty = HT? No, logic depends on simple app. 
+// In calculateTotal: total = subtotal + tva. 
+// subtotal = sum(qty * price). 
+// So if `depositAmount` is the target TTC, and include_tva is true (20%), then price should be HT.
 
-            if (formData.include_tva) {
-                // If we want the final line to be 'depositAmount', and that is TTC.
-                // price = depositAmount / 1.2
-                depositItem.price = depositAmount / 1.2;
-                depositData.total_ht = depositItem.price;
-                depositData.total_tva = depositAmount - depositItem.price;
-                depositData.total_ttc = depositAmount;
-            } else {
-                depositItem.price = depositAmount;
-                depositData.total_ht = depositAmount;
-                depositData.total_tva = 0;
-                depositData.total_ttc = depositAmount;
-            }
+if (formData.include_tva) {
+    // If we want the final line to be 'depositAmount', and that is TTC.
+    // price = depositAmount / 1.2
+    depositItem.price = depositAmount / 1.2;
+    depositData.total_ht = depositItem.price;
+    depositData.total_tva = depositAmount - depositItem.price;
+    depositData.total_ttc = depositAmount;
+} else {
+    depositItem.price = depositAmount;
+    depositData.total_ht = depositAmount;
+    depositData.total_tva = 0;
+    depositData.total_ttc = depositAmount;
+}
 
-            const { data, error } = await supabase
-                .from('quotes')
-                .insert([depositData])
-                .select()
-                .single();
+const { data, error } = await supabase
+    .from('quotes')
+    .insert([depositData])
+    .select()
+    .single();
 
-            if (error) throw error;
+if (error) throw error;
 
-            toast.success("Facture d'acompte créée !");
-            navigate(`/app/devis/${data.id}`);
-            setShowActionsMenu(false);
+toast.success("Facture d'acompte créée !");
+navigate(`/app/devis/${data.id}`);
+setShowActionsMenu(false);
 
         } catch (error) {
-            console.error('Error creating deposit:', error);
-            toast.error("Erreur lors de la création de l'acompte");
-        } finally {
-            setLoading(false);
-        }
+    console.error('Error creating deposit:', error);
+    toast.error("Erreur lors de la création de l'acompte");
+} finally {
+    setLoading(false);
+}
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
+const handleDelete = async () => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        toast.success('Devis supprimé avec succès');
+        navigate('/app/devis');
+    } catch (error) {
+        console.error('Error deleting quote:', error);
+        toast.error('Erreur lors de la suppression');
+    }
+};
+
+const handleDownloadPDF = (isInvoice = false) => {
+    try {
+        if (!formData.client_id) {
+            toast.error('Veuillez sélectionner un client pour générer le PDF');
             return;
         }
 
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .delete()
-                .eq('id', id);
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
 
-            if (error) throw error;
-
-            toast.success('Devis supprimé avec succès');
-            navigate('/app/devis');
-        } catch (error) {
-            console.error('Error deleting quote:', error);
-            toast.error('Erreur lors de la suppression');
-        }
-    };
-
-    const handleDownloadPDF = (isInvoice = false) => {
-        try {
-            if (!formData.client_id) {
-                toast.error('Veuillez sélectionner un client pour générer le PDF');
-                return;
-            }
-
-            const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-
-            if (!selectedClient) {
-                console.error('Client not found for ID:', formData.client_id);
-                toast.error('Erreur : Client introuvable');
-                return;
-            }
-
-            const devisData = {
-                id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
-                items: formData.items.map(i => ({
-                    ...i,
-                    quantity: parseFloat(i.quantity) || 0,
-                    price: parseFloat(i.price) || 0,
-                    buying_price: parseFloat(i.buying_price) || 0
-                })),
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                include_tva: formData.include_tva
-            };
-
-            console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
-            generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
-            toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            toast.error('Erreur lors de la génération du PDF : ' + error.message);
-        }
-    };
-
-    const handleConvertToInvoice = async () => {
-        if (!window.confirm('Voulez-vous convertir ce devis en facture ? Cela changera son statut en "Accepté".')) {
+        if (!selectedClient) {
+            console.error('Client not found for ID:', formData.client_id);
+            toast.error('Erreur : Client introuvable');
             return;
         }
 
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .update({ status: 'accepted' })
-                .eq('id', id);
+        const devisData = {
+            id: isEditing ? id : 'PROVISOIRE',
+            ...formData,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0,
+                buying_price: parseFloat(i.buying_price) || 0
+            })),
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva
+        };
 
-            if (error) throw error;
+        console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
+        generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
+        toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast.error('Erreur lors de la génération du PDF : ' + error.message);
+    }
+};
 
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
-            toast.success('Devis converti en facture');
-            handleDownloadPDF(true); // Auto-generate invoice PDF
-        } catch (error) {
-            toast.error('Erreur lors de la conversion');
-            console.error('Error converting to invoice:', error);
+const handleConvertToInvoice = async () => {
+    if (!window.confirm('Voulez-vous convertir ce devis en facture ? Cela changera son statut en "Accepté".')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .update({ status: 'accepted' })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        setFormData(prev => ({ ...prev, status: 'accepted' }));
+        toast.success('Devis converti en facture');
+        handleDownloadPDF(true); // Auto-generate invoice PDF
+    } catch (error) {
+        toast.error('Erreur lors de la conversion');
+        console.error('Error converting to invoice:', error);
+    }
+};
+
+const handleSignatureSave = async (signatureData) => {
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .update({
+                signature: signatureData,
+                status: 'accepted',
+                signed_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        setSignature(signatureData);
+        setFormData(prev => ({ ...prev, status: 'accepted' }));
+        setShowSignatureModal(false);
+        toast.success('Devis signé avec succès');
+    } catch (error) {
+        console.error('Error saving signature:', error);
+        toast.error('Erreur lors de la sauvegarde de la signature');
+    }
+};
+
+
+const handleReviewAction = (action) => {
+    const reviewUrl = userProfile?.google_review_url;
+    if (!reviewUrl) {
+        toast.error("Veuillez d'abord configurer votre lien Google Avis dans votre profil");
+        navigate('/app/settings');
+        return;
+    }
+
+    switch (action) {
+        case 'copy':
+            navigator.clipboard.writeText(reviewUrl);
+            toast.success('Lien copié dans le presse-papier');
+            break;
+        case 'open':
+            window.open(reviewUrl, '_blank');
+            break;
+        case 'email':
+            const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
+            const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            break;
+    }
+    setShowReviewMenu(false);
+};
+
+// Updated Handle Import to support File Upload + Extraction
+const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+        toast.error('Seuls les fichiers PDF sont supportés');
+        return;
+    }
+
+    try {
+        setImporting(true);
+        toast.message('Traitement du PDF en cours...');
+
+        // 1. Upload File to Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('quote_files')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('quote_files')
+            .getPublicUrl(filePath);
+
+        toast.success("Fichier PDF stocké avec succès !");
+
+        // 2. Extract Text (for data filling)
+        const text = await extractTextFromPDF(file);
+        const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+
+        // Update Form Data
+        setFormData(prev => ({
+            ...prev,
+            original_pdf_url: publicUrl, // Save the URL!
+            items: newItems.length > 0 ? newItems : prev.items, // Replace items if found, else keep default
+            notes: extraNotes ? prev.notes + '\n' + extraNotes : prev.notes
+        }));
+
+        if (newItems.length > 0) {
+            toast.success(`${newItems.length} éléments détectés. Mode PDF Authentique activé.`);
+        } else {
+            toast.info("Aucun élément chiffré détecté, mais le PDF est joint.");
         }
-    };
 
-    const handleSignatureSave = async (signatureData) => {
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .update({
-                    signature: signatureData,
-                    status: 'accepted',
-                    signed_at: new Date().toISOString()
-                })
-                .eq('id', id);
+    } catch (error) {
+        console.error('Import error:', error);
+        toast.error("Erreur lors de l'import : " + error.message);
+    } finally {
+        setImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+};
 
-            if (error) throw error;
-
-            setSignature(signatureData);
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
-            setShowSignatureModal(false);
-            toast.success('Devis signé avec succès');
-        } catch (error) {
-            console.error('Error saving signature:', error);
-            toast.error('Erreur lors de la sauvegarde de la signature');
-        }
-    };
-
-
-    const handleReviewAction = (action) => {
-        const reviewUrl = userProfile?.google_review_url;
-        if (!reviewUrl) {
-            toast.error("Veuillez d'abord configurer votre lien Google Avis dans votre profil");
-            navigate('/app/settings');
-            return;
-        }
-
-        switch (action) {
-            case 'copy':
-                navigator.clipboard.writeText(reviewUrl);
-                toast.success('Lien copié dans le presse-papier');
-                break;
-            case 'open':
-                window.open(reviewUrl, '_blank');
-                break;
-            case 'email':
-                const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
-                const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
-                window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                break;
-        }
-        setShowReviewMenu(false);
-    };
-
-    // Updated Handle Import to support File Upload + Extraction
-    const handleImportFile = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (file.type !== 'application/pdf') {
-            toast.error('Seuls les fichiers PDF sont supportés');
-            return;
-        }
-
-        try {
-            setImporting(true);
-            toast.message('Traitement du PDF en cours...');
-
-            // 1. Upload File to Supabase Storage
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${user.id}/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('quote_files')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('quote_files')
-                .getPublicUrl(filePath);
-
-            toast.success("Fichier PDF stocké avec succès !");
-
-            // 2. Extract Text (for data filling)
-            const text = await extractTextFromPDF(file);
-            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
-
-            // Update Form Data
-            setFormData(prev => ({
-                ...prev,
-                original_pdf_url: publicUrl, // Save the URL!
-                items: newItems.length > 0 ? newItems : prev.items, // Replace items if found, else keep default
-                notes: extraNotes ? prev.notes + '\n' + extraNotes : prev.notes
-            }));
-
-            if (newItems.length > 0) {
-                toast.success(`${newItems.length} éléments détectés. Mode PDF Authentique activé.`);
-            } else {
-                toast.info("Aucun élément chiffré détecté, mais le PDF est joint.");
-            }
-
-        } catch (error) {
-            console.error('Import error:', error);
-            toast.error("Erreur lors de l'import : " + error.message);
-        } finally {
-            setImporting(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto pb-12">
-            <div className="flex items-center justify-between mb-6">
+return (
+    <div className="max-w-4xl mx-auto pb-12">
+        <div className="flex items-center justify-between mb-6">
+            <button
+                onClick={() => navigate('/app/devis')}
+                className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Retour
+            </button>
+            <div className="flex gap-2">
+                {/* Primary Actions */}
                 <button
-                    onClick={() => navigate('/app/devis')}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
+                    type="button"
+                    onClick={handleSendQuoteEmail}
+                    className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                    title="Envoyer par email"
                 >
-                    <ArrowLeft className="w-5 h-5 mr-2" />
-                    Retour
+                    <Send className="w-4 h-4 mr-2" />
+                    Envoyer
                 </button>
-                <div className="flex gap-2">
-                    {/* Primary Actions */}
+
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                >
+                    <Save className="w-4 h-4 mr-2" />
+                    {loading ? '...' : 'Enregistrer'}
+                </button>
+
+                {/* More Actions Dropdown */}
+                <div className="relative">
                     <button
-                        type="button"
-                        onClick={handleSendQuoteEmail}
-                        className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
-                        title="Envoyer par email"
+                        onClick={() => setShowActionsMenu(!showActionsMenu)}
+                        className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="Plus d'actions"
                     >
-                        <Send className="w-4 h-4 mr-2" />
-                        Envoyer
+                        <MoreVertical className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
-                    >
-                        <Save className="w-4 h-4 mr-2" />
-                        {loading ? '...' : 'Enregistrer'}
-                    </button>
+                    {showActionsMenu && (
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                            {/* Mobile only Send button */}
+                            <button
+                                onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
+                                className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Send className="w-4 h-4 mr-3 text-blue-600" />
+                                Envoyer le devis
+                            </button>
 
-                    {/* More Actions Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowActionsMenu(!showActionsMenu)}
-                            className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            title="Plus d'actions"
-                        >
-                            <MoreVertical className="w-5 h-5 text-gray-600" />
-                        </button>
-
-                        {showActionsMenu && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
-                                {/* Mobile only Send button */}
+                            {id && formData.public_token && (
                                 <button
-                                    onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
-                                    className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Send className="w-4 h-4 mr-3 text-blue-600" />
-                                    Envoyer le devis
-                                </button>
-
-                                {id && formData.public_token && (
-                                    <button
-                                        onClick={() => {
-                                            const url = `${window.location.origin}/q/${formData.public_token}`;
-                                            navigator.clipboard.writeText(url);
-                                            toast.success('Lien de signature copié !');
-                                            setShowActionsMenu(false);
-                                        }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <Link className="w-4 h-4 mr-3 text-gray-400" />
-                                        Copier le lien public
-                                    </button>
-                                )}
-
-                                {id && !signature && formData.status !== 'accepted' && (
-                                    <button
-                                        onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <PenTool className="w-4 h-4 mr-3 text-purple-600" />
-                                        Faire signer sur l'appareil
-                                    </button>
-                                )}
-
-                                <button
-                                    onClick={() => { handlePreview(); setShowActionsMenu(false); }}
+                                    onClick={() => {
+                                        const url = `${window.location.origin}/q/${formData.public_token}`;
+                                        navigator.clipboard.writeText(url);
+                                        toast.success('Lien de signature copié !');
+                                        setShowActionsMenu(false);
+                                    }}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
-                                    <Eye className="w-4 h-4 mr-3 text-gray-400" />
-                                    Aperçu PDF
+                                    <Link className="w-4 h-4 mr-3 text-gray-400" />
+                                    Copier le lien public
                                 </button>
+                            )}
 
+                            {id && !signature && formData.status !== 'accepted' && (
                                 <button
-                                    onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
+                                    onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
-                                    <Download className="w-4 h-4 mr-3 text-gray-400" />
-                                    Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
+                                    <PenTool className="w-4 h-4 mr-3 text-purple-600" />
+                                    Faire signer sur l'appareil
                                 </button>
+                            )}
 
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && (
-                                    <button
-                                        onClick={handleCreateDeposit}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
-                                    >
-                                        <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
-                                        Générer Facture d'Acompte
-                                    </button>
-                                )}
+                            <button
+                                onClick={() => { handlePreview(); setShowActionsMenu(false); }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Eye className="w-4 h-4 mr-3 text-gray-400" />
+                                Aperçu PDF
+                            </button>
 
-                                {id && id !== 'new' && (
-                                    <>
-                                        <div className="border-t border-gray-100 my-1"></div>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-3" />
-                                            Supprimer
-                                        </button>
-                                    </>
-                                )}
+                            <button
+                                onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Download className="w-4 h-4 mr-3 text-gray-400" />
+                                Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
+                            </button>
 
-                                <div className="border-t border-gray-100 my-1"></div>
-
-                                {formData.status === 'accepted' && (
-                                    <button
-                                        onClick={() => { setShowReviewMenu(!showReviewMenu); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <Star className="w-4 h-4 mr-3 text-yellow-500" />
-                                        Demander un avis
-                                    </button>
-                                )}
-
+                            {id && (formData.status === 'accepted' || formData.status === 'sent') && (
                                 <button
-                                    onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
-                                    disabled={importing}
+                                    onClick={handleCreateDeposit}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
+                                >
+                                    <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
+                                    Générer Facture d'Acompte
+                                </button>
+                            )}
+
+                            {id && id !== 'new' && (
+                                <>
+                                    <div className="border-t border-gray-100 my-1"></div>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-3" />
+                                        Supprimer
+                                    </button>
+                                </>
+                            )}
+
+                            <div className="border-t border-gray-100 my-1"></div>
+
+                            {formData.status === 'accepted' && (
+                                <button
+                                    onClick={() => { setShowReviewMenu(!showReviewMenu); setShowActionsMenu(false); }}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
-                                    {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
-                                    Importer un PDF
+                                    <Star className="w-4 h-4 mr-3 text-yellow-500" />
+                                    Demander un avis
                                 </button>
+                            )}
 
-                            </div>
-                        )}
-                    </div>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept=".pdf"
-                        onChange={handleImportFile}
-                    />
-                </div >
+                            <button
+                                onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
+                                disabled={importing}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
+                                Importer un PDF
+                            </button>
+
+                        </div>
+                    )}
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".pdf"
+                    onChange={handleImportFile}
+                />
             </div >
+        </div >
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
-                {/* En-tête Devis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Client</label>
-                            {formData.client_id && (
-                                <button
-                                    type="button"
-                                    onClick={() => navigate(`/app/clients/${formData.client_id}`)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                >
-                                    Voir la fiche client
-                                </button>
-                            )}
-                        </div>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4"
-                            value={formData.client_id}
-                            onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                        >
-                            <option value="">Sélectionner un client</option>
-                            {clients.map(client => (
-                                <option key={client.id} value={client.id}>{client.name}</option>
-                            ))}
-                        </select>
-
-                        <div className="mb-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
-                            <input
-                                type="text"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Ex: Rénovation Salle de Bain"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
-                            <input
-                                type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
-                            <input
-                                type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                value={formData.valid_until}
-                                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté / Signé</option>
-                            <option value="refused">Refusé</option>
-                            <option value="billed">Facturé</option>
-                            <option value="paid">Payé</option>
-                            <option value="cancelled">Annulé</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Lignes du devis */}
-                <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
-                    </h3>
-                    <div className="space-y-4">
-                        {formData.items.map((item, index) => (
-                            <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
-                                <div className="flex-1 w-full space-y-2">
-                                    <div className="flex gap-2">
-                                        <select
-                                            className="w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
-                                            value={item.type || 'service'}
-                                            onChange={(e) => updateItem(item.id, 'type', e.target.value)}
-                                        >
-                                            <option value="service">Main d'oeuvre</option>
-                                            <option value="material">Matériel</option>
-                                        </select>
-                                        <div className="flex-1 relative">
-                                            <input
-                                                type="text"
-                                                placeholder="Description"
-                                                list={`library-suggestions-${item.id}`}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
-                                                value={item.description}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    updateItem(item.id, 'description', val);
-
-                                                    // Check for exact match in library to auto-fill price
-                                                    const libraryItem = priceLibrary.find(lib => lib.description === val);
-                                                    if (libraryItem) {
-                                                        updateItem(item.id, 'price', libraryItem.price);
-                                                        // Optional: update unit if you had a unit field in items
-                                                    }
-                                                }}
-                                                required
-                                            />
-                                            <datalist id={`library-suggestions-${item.id}`}>
-                                                {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
-                                                    <option key={lib.id} value={lib.description}>
-                                                        {lib.price}€
-                                                    </option>
-                                                ))}
-                                            </datalist>
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleDictation(`item-description-${index}`)}
-                                                className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                                title="Dicter"
-                                            >
-                                                <Mic className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <span>Coût unitaire (interne) :</span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
-                                            placeholder="0.00"
-                                            value={item.buying_price || ''}
-                                            onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
-                                        />
-                                        <span>€</span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    <div className="w-20">
-                                        <input
-                                            type="number"
-                                            placeholder="Qté"
-                                            min="1"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                            value={item.quantity}
-                                            onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="w-28">
-                                        <input
-                                            type="number"
-                                            placeholder="Prix U."
-                                            min="0"
-                                            step="0.01"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                            value={item.price}
-                                            onChange={(e) => updateItem(item.id, 'price', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="w-28 py-2 text-right font-medium text-gray-900">
-                                        {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
-                                    </div>
-                                    <button
-                                        onClick={() => removeItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={addItem}
-                        className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Ajouter une ligne
-                    </button>
-                </div>
-
-                {/* Totaux */}
-                <div className="flex justify-end pt-6 border-t border-gray-100">
-                    <div className="w-72 space-y-4">
-                        <MarginGauge totalHT={subtotal} totalCost={totalCost} />
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-end mb-4">
-                                <input
-                                    type="checkbox"
-                                    id="include_tva"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    checked={formData.include_tva}
-                                    onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
-                                />
-                                <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
-                                    Appliquer la TVA (20%)
-                                </label>
-                            </div>
-                            <div className="flex justify-between text-gray-600">
-                                <span>Total HT</span>
-                                <span>{subtotal.toFixed(2)} €</span>
-                            </div>
-                            {formData.include_tva && (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>TVA (20%)</span>
-                                    <span>{tva.toFixed(2)} €</span>
-                                </div>
-                            )}
-                            {!formData.include_tva && (
-                                <div className="text-xs text-gray-500 text-right italic">
-                                    TVA non applicable, art. 293 B du CGI
-                                </div>
-                            )}
-                            <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                <span>Total TTC</span>
-                                <span>{total.toFixed(2)} €</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Notes */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+            {/* En-tête Devis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                     <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
-                        <button
-                            type="button"
-                            onClick={() => toggleDictation('notes')}
-                            className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                            title="Dicter"
-                        >
-                            <Mic className="w-4 h-4" />
-                        </button>
+                        <label className="block text-sm font-medium text-gray-700">Client</label>
+                        {formData.client_id && (
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/app/clients/${formData.client_id}`)}
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                                Voir la fiche client
+                            </button>
+                        )}
                     </div>
-                    <textarea
-                        rows={3}
+                    <select
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4"
+                        value={formData.client_id}
+                        onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                    >
+                        <option value="">Sélectionner un client</option>
+                        {clients.map(client => (
+                            <option key={client.id} value={client.id}>{client.name}</option>
+                        ))}
+                    </select>
+
+                    <div className="mb-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
+                        <input
+                            type="text"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Ex: Rénovation Salle de Bain"
+                            value={formData.title}
+                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
+                        <input
+                            type="date"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
+                        <input
+                            type="date"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            value={formData.valid_until}
+                            onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select
                         className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Conditions de paiement, validité du devis..."
-                        value={formData.notes}
-                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    />
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                        <option value="draft">Brouillon</option>
+                        <option value="sent">Envoyé</option>
+                        <option value="accepted">Accepté / Signé</option>
+                        <option value="refused">Refusé</option>
+                        <option value="billed">Facturé</option>
+                        <option value="paid">Payé</option>
+                        <option value="cancelled">Annulé</option>
+                    </select>
                 </div>
             </div>
-            {/* Signature Modal */}
-            <SignatureModal
-                isOpen={showSignatureModal}
-                onClose={() => setShowSignatureModal(false)}
-                onSave={handleSignatureSave}
-            />
 
-            {/* Preview Modal */}
-            {
-                previewUrl && (
-                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
-                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                                <h3 className="font-semibold text-lg text-gray-800 flex items-center">
-                                    <Eye className="w-5 h-5 mr-2 text-blue-600" />
-                                    Prévisualisation du document
-                                </h3>
+            {/* Lignes du devis */}
+            <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
+                </h3>
+                <div className="space-y-4">
+                    {formData.items.map((item, index) => (
+                        <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
+                            <div className="flex-1 w-full space-y-2">
+                                <div className="flex gap-2">
+                                    <select
+                                        className="w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
+                                        value={item.type || 'service'}
+                                        onChange={(e) => updateItem(item.id, 'type', e.target.value)}
+                                    >
+                                        <option value="service">Main d'oeuvre</option>
+                                        <option value="material">Matériel</option>
+                                    </select>
+                                    <div className="flex-1 relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Description"
+                                            list={`library-suggestions-${item.id}`}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
+                                            value={item.description}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                updateItem(item.id, 'description', val);
+
+                                                // Check for exact match in library to auto-fill price
+                                                const libraryItem = priceLibrary.find(lib => lib.description === val);
+                                                if (libraryItem) {
+                                                    updateItem(item.id, 'price', libraryItem.price);
+                                                    // Optional: update unit if you had a unit field in items
+                                                }
+                                            }}
+                                            required
+                                        />
+                                        <datalist id={`library-suggestions-${item.id}`}>
+                                            {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
+                                                <option key={lib.id} value={lib.description}>
+                                                    {lib.price}€
+                                                </option>
+                                            ))}
+                                        </datalist>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleDictation(`item-description-${index}`)}
+                                            className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                            title="Dicter"
+                                        >
+                                            <Mic className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span>Coût unitaire (interne) :</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                                        placeholder="0.00"
+                                        value={item.buying_price || ''}
+                                        onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
+                                    />
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <div className="w-20">
+                                    <input
+                                        type="number"
+                                        placeholder="Qté"
+                                        min="1"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                                    />
+                                </div>
+                                <div className="w-28">
+                                    <input
+                                        type="number"
+                                        placeholder="Prix U."
+                                        min="0"
+                                        step="0.01"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                        value={item.price}
+                                        onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                                    />
+                                </div>
+                                <div className="w-28 py-2 text-right font-medium text-gray-900">
+                                    {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
+                                </div>
                                 <button
-                                    onClick={() => setPreviewUrl(null)}
-                                    className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
+                                    onClick={() => removeItem(item.id)}
+                                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
                                 >
-                                    <X className="w-6 h-6" />
+                                    <Trash2 className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
-                                <iframe
-                                    src={previewUrl}
-                                    className="w-full h-full border-none"
-                                    title="Aperçu PDF"
+                        </div>
+                    ))}
+                </div>
+
+                <button
+                    onClick={addItem}
+                    className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+                >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Ajouter une ligne
+                </button>
+            </div>
+
+            {/* Totaux */}
+            <div className="flex justify-end pt-6 border-t border-gray-100">
+                <div className="w-72 space-y-4">
+                    <MarginGauge totalHT={subtotal} totalCost={totalCost} />
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-end mb-4">
+                            <input
+                                type="checkbox"
+                                id="include_tva"
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                checked={formData.include_tva}
+                                onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
+                            />
+                            <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
+                                Appliquer la TVA (20%)
+                            </label>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                            <span>Total HT</span>
+                            <span>{subtotal.toFixed(2)} €</span>
+                        </div>
+                        {formData.include_tva && (
+                            <div className="flex justify-between text-gray-600">
+                                <span>TVA (20%)</span>
+                                <span>{tva.toFixed(2)} €</span>
+                            </div>
+                        )}
+                        {!formData.include_tva && (
+                            <div className="text-xs text-gray-500 text-right italic">
+                                TVA non applicable, art. 293 B du CGI
+                            </div>
+                        )}
+                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
+                            <span>Total TTC</span>
+                            <span>{total.toFixed(2)} €</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
+                    <button
+                        type="button"
+                        onClick={() => toggleDictation('notes')}
+                        className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                        title="Dicter"
+                    >
+                        <Mic className="w-4 h-4" />
+                    </button>
+                </div>
+                <textarea
+                    rows={3}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Conditions de paiement, validité du devis..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+            </div>
+        </div>
+        {/* Signature Modal */}
+        <SignatureModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            onSave={handleSignatureSave}
+        />
+
+        {/* Preview Modal */}
+        {
+            previewUrl && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                            <h3 className="font-semibold text-lg text-gray-800 flex items-center">
+                                <Eye className="w-5 h-5 mr-2 text-blue-600" />
+                                Prévisualisation du document
+                            </h3>
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full border-none"
+                                title="Aperçu PDF"
+                            />
+                        </div>
+                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                            >
+                                Fermer
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleDownloadPDF(formData.status === 'accepted');
+                                    setPreviewUrl(null);
+                                }}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Télécharger
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        {/* Email Preview Modal */}
+        {
+            emailPreview && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                                <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                                Prévisualisation de l'email
+                            </h3>
+                            <button
+                                onClick={() => setEmailPreview(null)}
+                                className="p-1 hover:bg-gray-100 rounded-full"
+                            >
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={emailPreview.email}
+                                    className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
                                 />
                             </div>
-                            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
-                                <button
-                                    onClick={() => setPreviewUrl(null)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                                >
-                                    Fermer
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        handleDownloadPDF(formData.status === 'accepted');
-                                        setPreviewUrl(null);
-                                    }}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-                                >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Télécharger
-                                </button>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
+                                <input
+                                    type="text"
+                                    value={emailPreview.rawSubject}
+                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
                             </div>
                         </div>
-                    </div>
-                )
-            }
 
-            {/* Email Preview Modal */}
-            {
-                emailPreview && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                                    Prévisualisation de l'email
-                                </h3>
-                                <button
-                                    onClick={() => setEmailPreview(null)}
-                                    className="p-1 hover:bg-gray-100 rounded-full"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
+                        {/* Profitability Tracking (Only for active jobs) */}
+                        {id && (formData.status === 'accepted' || formData.status === 'billed') && (
+                            <MarginGauge
+                                quoteId={id}
+                                items={formData.items}
+                                userId={user.id}
+                            />
+                        )}
 
-                            <div className="p-6 space-y-4 overflow-y-auto">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={emailPreview.email}
-                                        className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
-                                    <input
-                                        type="text"
-                                        value={emailPreview.rawSubject}
-                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                    <textarea
-                                        value={emailPreview.rawBody}
-                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
-                                        rows={12}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between">
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(`Objet: ${emailPreview.rawSubject}\n\n${emailPreview.rawBody}`);
-                                        toast.success('Contenu copié dans le presse-papier');
-                                    }}
-                                    className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                                >
-                                    <Copy className="w-4 h-4 mr-2" />
-                                    Copier
-                                </button>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setEmailPreview(null)}
-                                        className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-                                    >
-                                        <Send className="w-4 h-4 mr-2" />
-                                        Ouvrir ma messagerie
-                                    </button>
-                                </div>
-                            </div>
+                        {/* Notes Section */}
+                        <div className="mt-8">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Notes / Conditions
+                            </label>
+                            <textarea
+                                value={formData.notes || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                                rows={4}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Conditions de paiement, validité du devis, etc."
+                            />
                         </div>
                     </div>
-                )
-            }
+                </div>
+
+                {/* PDF Viewer */}
+        {showPreview && (
+            <div className="hidden lg:block w-1/2 h-full border-l border-gray-200 bg-gray-50 p-6 overflow-y-auto">
+                <div className="sticky top-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Eye className="w-5 h-5 mr-2 text-gray-500" />
+                        Aperçu en temps réel
+                    </h3>
+                    <div className="bg-white shadow-xl rounded-sm min-h-[800px] p-8 transform scale-95 origin-top-left w-full">
+                        {/* This would be the actual PDF preview component - simpler placeholder for now or reuse existing logic */}
+                        <div className="border border-gray-100 p-8 h-full flex flex-col items-center justify-center text-gray-400">
+                            <FileText className="w-16 h-16 mb-4 opacity-50" />
+                            <p>Aperçu du PDF généré ici...</p>
+                            <button
+                                onClick={() => handleDownloadPDF(false)}
+                                className="mt-4 px-4 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+                            >
+                                Générer et Voir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+
+            {/* Signature Modal */ }
+{
+    showSignatureModal && (
+        <SignatureModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            onSave={handleSignatureSave}
+            clientName={clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client'}
+        />
+    )
+}
         </div >
     );
 };
