@@ -79,7 +79,8 @@ const DevisForm = () => {
         ],
         notes: '',
         status: 'draft',
-        include_tva: true
+        include_tva: true,
+        original_pdf_url: null
     });
 
     useEffect(() => {
@@ -170,7 +171,8 @@ const DevisForm = () => {
                     items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
                     status: data.status || 'draft',
-                    include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0) // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
+                    include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0), // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
+                    original_pdf_url: data.original_pdf_url || null
                 });
                 setSignature(data.signature || null);
             }
@@ -212,41 +214,7 @@ const DevisForm = () => {
     };
 
     const handleImportFile = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (file.type !== 'application/pdf') {
-            toast.error('Seuls les fichiers PDF sont supportés pour le moment');
-            return;
-        }
-
-        try {
-            setImporting(true);
-            const text = await extractTextFromPDF(file);
-            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
-
-            if (newItems.length === 0 && !extraNotes.trim()) {
-                toast.warning("Aucune donnée n'a pu être extraite du PDF");
-                return;
-            }
-
-            setFormData(prev => ({
-                ...prev,
-                items: [
-                    ...prev.items.filter(i => i.description.trim() !== ''), // Keep existing if not empty
-                    ...newItems
-                ],
-                notes: prev.notes + (prev.notes ? '\n\n--- Import PDF ---\n' : '') + extraNotes
-            }));
-
-            toast.success(`${newItems.length} élément(s) importé(s)`);
-        } catch (error) {
-            console.error('Import error:', error);
-            toast.error("Erreur lors de l'import du PDF");
-        } finally {
-            setImporting(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
+        // Redundant definition removed. See new definition below in handling logic.
     };
 
     const handlePreview = () => {
@@ -524,6 +492,65 @@ const DevisForm = () => {
                 break;
         }
         setShowReviewMenu(false);
+    };
+
+    // Updated Handle Import to support File Upload + Extraction
+    const handleImportFile = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            toast.error('Seuls les fichiers PDF sont supportés');
+            return;
+        }
+
+        try {
+            setImporting(true);
+            toast.message('Traitement du PDF en cours...');
+
+            // 1. Upload File to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${user.id}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('quote_files')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('quote_files')
+                .getPublicUrl(filePath);
+
+            toast.success("Fichier PDF stocké avec succès !");
+
+            // 2. Extract Text (for data filling)
+            const text = await extractTextFromPDF(file);
+            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+
+            // Update Form Data
+            setFormData(prev => ({
+                ...prev,
+                original_pdf_url: publicUrl, // Save the URL!
+                items: newItems.length > 0 ? newItems : prev.items, // Replace items if found, else keep default
+                notes: extraNotes ? prev.notes + '\n' + extraNotes : prev.notes
+            }));
+
+            if (newItems.length > 0) {
+                toast.success(`${newItems.length} éléments détectés. Mode PDF Authentique activé.`);
+            } else {
+                toast.info("Aucun élément chiffré détecté, mais le PDF est joint.");
+            }
+
+        } catch (error) {
+            console.error('Import error:', error);
+            toast.error("Erreur lors de l'import : " + error.message);
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     return (
