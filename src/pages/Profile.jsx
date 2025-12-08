@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText } from 'lucide-react';
+import { TRADE_CONFIG } from '../constants/trades';
 
 const Profile = () => {
     // Component for managing artisan profile settings
@@ -21,7 +22,8 @@ const Profile = () => {
         postal_code: '',
 
         siret: '',
-        google_review_url: ''
+        google_review_url: '',
+        trade: 'general'
     });
 
     useEffect(() => {
@@ -55,7 +57,8 @@ const Profile = () => {
                     postal_code: data.postal_code || '',
 
                     siret: data.siret || '',
-                    google_review_url: data.google_review_url || ''
+                    google_review_url: data.google_review_url || '',
+                    trade: data.trade || 'general'
                 });
             }
         } catch (error) {
@@ -114,6 +117,7 @@ const Profile = () => {
 
                     siret: formData.siret,
                     google_review_url: formData.google_review_url,
+                    trade: formData.trade,
                     updated_at: new Date(),
                 })
                 .eq('id', user.id);
@@ -179,6 +183,21 @@ const Profile = () => {
                                     placeholder="14 chiffres"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Métier principal</label>
+                                <select
+                                    name="trade"
+                                    value={formData.trade}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    {Object.entries(TRADE_CONFIG).map(([key, config]) => (
+                                        <option key={key} value={key}>
+                                            {config.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

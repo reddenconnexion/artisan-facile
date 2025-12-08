@@ -9,6 +9,7 @@ import SignatureModal from '../components/SignatureModal';
 import { useVoice } from '../hooks/useVoice';
 import MarginGauge from '../components/MarginGauge';
 import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
+import { getTradeConfig } from '../constants/trades';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -182,10 +183,12 @@ const DevisForm = () => {
         }
     };
 
+    const tradeConfig = getTradeConfig(userProfile?.trade || 'general');
+
     const addItem = () => {
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, price: 0, buying_price: 0, type: 'service' }]
+            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, unit: tradeConfig.defaultUnit, price: 0, buying_price: 0, type: 'service' }]
         }));
     };
 
@@ -789,7 +792,9 @@ const DevisForm = () => {
 
                 {/* Lignes du devis */}
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails des prestations</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
+                    </h3>
                     <div className="space-y-4">
                         {formData.items.map((item, index) => (
                             <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
