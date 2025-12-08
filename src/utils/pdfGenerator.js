@@ -99,19 +99,22 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
 
     // Info Client (Droite, sous le header)
     const clientX = 120;
+    // Adjust Y position if title is present to avoid overlap
+    let clientY = devis.title ? 80 : 75;
+
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.text("Client :", clientX, 75);
+    doc.text("Client :", clientX, clientY);
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(client.name || "Client Inconnu", clientX, 80);
+    doc.text(client.name || "Client Inconnu", clientX, clientY + 5);
 
     if (client.address) {
         const addressLines = doc.splitTextToSize(client.address, 70);
-        doc.text(addressLines, clientX, 85);
+        doc.text(addressLines, clientX, clientY + 10);
     }
     // Email client (optional, maybe below address)
     // if (client.email) doc.text(client.email, clientX, 95);
