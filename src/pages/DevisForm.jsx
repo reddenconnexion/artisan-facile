@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ const DevisForm = () => {
     const [priceLibrary, setPriceLibrary] = useState([]);
     const [showReviewMenu, setShowReviewMenu] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const fileInputRef = React.useRef(null);
 
     useEffect(() => {
@@ -240,6 +241,30 @@ const DevisForm = () => {
             setImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
+    };
+
+    const handlePreview = () => {
+        if (!formData.client_id) {
+            toast.error('Veuillez sélectionner un client');
+            return;
+        }
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
+        if (!selectedClient) {
+            toast.error('Erreur : Client introuvable');
+            return;
+        }
+
+        const devisData = {
+            id: isEditing ? id : 'PROVISOIRE',
+            ...formData,
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva
+        };
+
+        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.status === 'accepted', true);
+        setPreviewUrl(url);
     };
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
@@ -483,6 +508,15 @@ const DevisForm = () => {
                             )}
                         </div>
                     )}
+
+                    <button
+                        type="button"
+                        onClick={handlePreview}
+                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 bg-amber-50"
+                    >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Aperçu
+                    </button>
 
                     <button
                         type="button"
@@ -751,6 +785,51 @@ const DevisForm = () => {
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
             />
+
+            {/* Preview Modal */}
+            {previewUrl && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                            <h3 className="font-semibold text-lg text-gray-800 flex items-center">
+                                <Eye className="w-5 h-5 mr-2 text-blue-600" />
+                                Prévisualisation du document
+                            </h3>
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full border-none"
+                                title="Aperçu PDF"
+                            />
+                        </div>
+                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                            >
+                                Fermer
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleDownloadPDF(formData.status === 'accepted');
+                                    setPreviewUrl(null);
+                                }}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Télécharger
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

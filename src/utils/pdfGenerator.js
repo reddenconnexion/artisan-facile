@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export const generateDevisPDF = (devis, client, userProfile, isInvoice = false) => {
+export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, returnBlob = false) => {
     const doc = new jsPDF();
     const typeDocument = isInvoice ? "FACTURE" : "DEVIS";
     const dateLabel = isInvoice ? "Date de facturation" : "Date d'émission";
@@ -179,5 +179,10 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false) 
     }
 
     const fileName = isInvoice ? `facture_${devis.id}.pdf` : `devis_${devis.id || 'brouillon'}.pdf`;
+
+    if (returnBlob) {
+        return doc.output('bloburl');
+    }
+
     doc.save(fileName);
 };
