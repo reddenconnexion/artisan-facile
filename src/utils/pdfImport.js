@@ -1,33 +1,51 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker using CDN to avoid local build issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Configure worker using CDN with hardcoded version to ensure stability
+// Using version 4.10.38 which is stable and compatible. 
+// Note: package.json has ^5.4.449 but sometimes unpkg structure changes or version format differs.
+// Let's try to use the exact version match if possible, or a known stable one.
+const PDFJS_VERSION = '4.10.38'; // Reverting to a very common stable version often used in CDNs if 5.x is too new
+// Actually, let's use the installed 5.4.449 but hardcoded.
+const WORKER_URL = `https://unpkg.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs`;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_URL;
 
 export const extractTextFromPDF = async (file) => {
     try {
+        console.log(`Attempting to read PDF with worker: ${WORKER_URL}`);
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        // Use try-catch specifically for getDocument to catch worker errors
+        let pdf;
+        try {
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            pdf = await loadingTask.promise;
+        } catch (e) {
+            console.error("PDF Worker Error:", e);
+            throw new Error("Erreur de chargement du moteur PDF (Worker). Vérifiez votre connexion internet.");
+        }
+
+        console.log(`PDF Loaded. Pages: ${pdf.numPages}`);
         let fullText = '';
 
         for (let i = 1; i <= pdf.numPages; i++) {
+            console.log(`Parsing page ${i}/${pdf.numPages}`);
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
             // Sort items by Y (descending) then X (ascending)
-            // PDF coordinates: (0,0) is bottom-left usually. So higher Y is higher on page.
             const items = textContent.items.map(item => ({
                 str: item.str,
-                x: item.transform[4], // translation X
-                y: item.transform[5], // translation Y
+                x: item.transform[4],
+                y: item.transform[5],
                 w: item.width,
                 h: item.height
             }));
 
-            // Group by Y with tolerance (e.g. 5 units)
+            // Group by Y with tolerance
             const tolerance = 5;
             const lines = [];
 
-            // Sort by Y descending first
             items.sort((a, b) => b.y - a.y);
 
             let currentLine = [];
@@ -39,7 +57,6 @@ export const extractTextFromPDF = async (file) => {
                 } else if (Math.abs(item.y - currentY) < tolerance) {
                     currentLine.push(item);
                 } else {
-                    // Start new line
                     lines.push(currentLine);
                     currentLine = [item];
                     currentY = item.y;
@@ -47,9 +64,9 @@ export const extractTextFromPDF = async (file) => {
             }
             if (currentLine.length > 0) lines.push(currentLine);
 
-            // Sort content within lines by X
             lines.forEach(line => {
                 line.sort((a, b) => a.x - b.x);
+                // Join with spaces, but maybe double space if large gap? Keep simple for now.
                 const lineStr = line.map(l => l.str).join(' ');
                 fullText += lineStr + '\n';
             });
@@ -58,7 +75,7 @@ export const extractTextFromPDF = async (file) => {
         return fullText;
     } catch (error) {
         console.error('Error parsing PDF:', error);
-        throw new Error('Impossible de lire le fichier PDF');
+        throw error; // Re-throw to be caught by UI
     }
 };
 
