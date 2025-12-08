@@ -100,7 +100,8 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     // Info Client (Droite, sous le header)
     const clientX = 120;
     // Adjust Y position if title is present to avoid overlap
-    let clientY = devis.title ? 80 : 75;
+    // Previous value of 80 was insufficient; increasing to 95 to be safe
+    let clientY = devis.title ? 95 : 75;
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
