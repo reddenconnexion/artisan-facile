@@ -88,11 +88,11 @@ export const parseQuoteItems = (text) => {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        // Skip obvious headers/footers
+        // Skip obvious headers/footers and totals already calculated
         if (/page \d/i.test(trimmed)) continue;
-        if (/total|tva|montant|facture|devis/i.test(trimmed)) {
-            // Add to notes, likely important context
-            notes += trimmed + '\n';
+
+        // Exclude redundant info (totals, headers) from notes
+        if (/total|tva|montant|facture|devis|net à payer|bon pour accord|signature|siret|intracom|r\.c\.s/i.test(trimmed)) {
             continue;
         }
 
