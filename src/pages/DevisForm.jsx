@@ -631,13 +631,6 @@ const DevisForm = () => {
                                     </button>
                                 )}
 
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    accept=".pdf"
-                                    onChange={handleImportFile}
-                                />
                                 <button
                                     onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
                                     disabled={importing}
@@ -646,9 +639,17 @@ const DevisForm = () => {
                                     {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
                                     Importer un PDF
                                 </button>
+
                             </div>
                         )}
                     </div>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".pdf"
+                        onChange={handleImportFile}
+                    />
                 </div >
             </div >
 
@@ -956,83 +957,85 @@ const DevisForm = () => {
             }
 
             {/* Email Preview Modal */}
-            {emailPreview && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                                Prévisualisation de l'email
-                            </h3>
-                            <button
-                                onClick={() => setEmailPreview(null)}
-                                className="p-1 hover:bg-gray-100 rounded-full"
-                            >
-                                <X className="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-4 overflow-y-auto">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={emailPreview.email}
-                                    className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
-                                <input
-                                    type="text"
-                                    value={emailPreview.rawSubject}
-                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                <textarea
-                                    value={emailPreview.rawBody}
-                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
-                                    rows={12}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between">
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(`Objet: ${emailPreview.rawSubject}\n\n${emailPreview.rawBody}`);
-                                    toast.success('Contenu copié dans le presse-papier');
-                                }}
-                                className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                            >
-                                <Copy className="w-4 h-4 mr-2" />
-                                Copier
-                            </button>
-
-                            <div className="flex gap-2">
+            {
+                emailPreview && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                                    <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                                    Prévisualisation de l'email
+                                </h3>
                                 <button
                                     onClick={() => setEmailPreview(null)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg"
+                                    className="p-1 hover:bg-gray-100 rounded-full"
                                 >
-                                    Annuler
+                                    <X className="w-5 h-5 text-gray-500" />
                                 </button>
+                            </div>
+
+                            <div className="p-6 space-y-4 overflow-y-auto">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={emailPreview.email}
+                                        className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
+                                    <input
+                                        type="text"
+                                        value={emailPreview.rawSubject}
+                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                    <textarea
+                                        value={emailPreview.rawBody}
+                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
+                                        rows={12}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between">
                                 <button
-                                    onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                    className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`Objet: ${emailPreview.rawSubject}\n\n${emailPreview.rawBody}`);
+                                        toast.success('Contenu copié dans le presse-papier');
+                                    }}
+                                    className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                                 >
-                                    <Send className="w-4 h-4 mr-2" />
-                                    Ouvrir ma messagerie
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copier
                                 </button>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setEmailPreview(null)}
+                                        className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
+                                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                                    >
+                                        <Send className="w-4 h-4 mr-2" />
+                                        Ouvrir ma messagerie
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 };
