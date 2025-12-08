@@ -1,71 +1,45 @@
-const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+import * as pdfjsLib from 'pdfjs-dist';
+import { toast } from 'sonner';
 
-const loadPdfJs = () => {
-    return new Promise((resolve, reject) => {
-        if (window.pdfjsLib) {
-            resolve(window.pdfjsLib);
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = PDFJS_CDN;
-        script.onload = () => {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-            resolve(window.pdfjsLib);
-        };
-        script.onerror = () => reject(new Error("Failed to load PDF.js from CDN"));
-        document.body.appendChild(script);
-    });
-};
+// Configure worker to use the local file in public folder
+// This avoids all bundler/CDN issues by serving it as a static asset from the same origin.
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export const extractTextFromPDF = async (file) => {
     try {
-        console.log("Starting PDF extraction via CDN injection...");
-        const pdfjs = await loadPdfJs();
-        console.log("PDF.js loaded. Worker set to:", pdfjs.GlobalWorkerOptions.workerSrc);
+        toast.info("Lecture du fichier PDF en cours...");
+        console.log("Initializing PDF read with worker at /pdf.worker.min.mjs");
 
         const arrayBuffer = await file.arrayBuffer();
 
-        // Use default export if available or just the lib
-        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
+        // Load document
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
 
+        loadingTask.onProgress = (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            console.log(`PDF Load Progress: ${percent}%`);
+        };
+
+        const pdf = await loadingTask.promise;
         console.log(`PDF Loaded. Pages: ${pdf.numPages}`);
+        toast.info(`PDF chargé: ${pdf.numPages} pages détectées`);
+
         let fullText = '';
 
-        // ... (Parsing logic remains the same, assuming pdf object structure is compatible)
-        // Note: 3.x API is slightly different? usually getTextContent is stable.
-
         for (let i = 1; i <= pdf.numPages; i++) {
-            // ... parsing logic ...
-            const page = await pdf.getPage(i);
-            // ...
-            // Let's copy the parsing logic to ensure it's inside this scope
-            const textContent = await page.getTextContent();
-
-            // Simple extraction for robustness first
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            fullText += pageText + '\n\n';
-
-            // Advanced extraction (layout aware) - simplified for this "Rescue" version
-            // We can restore the complex one if this basic one works.
-            // Actually, the user needs line separation for the parser to work
-            // So we must keep some structure.
-        }
-
-        // Re-implementing the clever sorting logic here
-        for (let i = 1; i <= pdf.numPages; i++) {
+            // Optional: Limit pages if too many? No, let's try full.
+            // toast.loading(`Analyse page ${i}/${pdf.numPages}...`);
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
+            // Simple robust extraction matching the previous logic
             const items = textContent.items.map(item => ({
                 str: item.str,
                 x: item.transform[4],
                 y: item.transform[5]
             }));
 
-            // Sort by Y descending
+            // Sort by Y descending (top to bottom)
             items.sort((a, b) => b.y - a.y);
 
             const tolerance = 5;
@@ -76,6 +50,7 @@ export const extractTextFromPDF = async (file) => {
             for (const item of items) {
                 if (currentLine.length === 0) {
                     currentLine.push(item);
+                    currentY = item.y; // Initialize currentY for the first item
                 } else if (Math.abs(item.y - currentY) < tolerance) {
                     currentLine.push(item);
                 } else {
@@ -87,15 +62,23 @@ export const extractTextFromPDF = async (file) => {
             if (currentLine.length > 0) lines.push(currentLine);
 
             lines.forEach(line => {
+                // Sort by X (left to right)
                 line.sort((a, b) => a.x - b.x);
                 fullText += line.map(l => l.str).join(' ') + '\n';
             });
         }
 
+        console.log("Text extraction complete. Length:", fullText.length);
+        if (fullText.length < 50) {
+            toast.warning("Peu de texte détecté. C'est peut-être un PDF scanné (image) ?");
+        }
+
         return fullText;
+
     } catch (error) {
-        console.error('Error parsing PDF (CDN method):', error);
-        throw new Error('Impossible de lire le fichier PDF (Méthode CDN)');
+        console.error('Error parsing PDF:', error);
+        toast.error(`Erreur lecture PDF: ${error.message}`);
+        throw error;
     }
 };
 
