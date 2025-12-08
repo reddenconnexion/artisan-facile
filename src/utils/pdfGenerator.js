@@ -74,34 +74,19 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.setFont(undefined, 'bold');
     doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
 
-    if (devis.title) {
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(50, 50, 50);
-        doc.text(devis.title, 14, 82);
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 88);
-        if (!isInvoice && devis.valid_until) {
-            doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 93);
-        }
-    } else {
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 81);
-        if (!isInvoice && devis.valid_until) {
-            doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
-        }
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 81);
+    if (!isInvoice && devis.valid_until) {
+        doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
     }
 
     // Info Client (Droite, sous le header)
     const clientX = 120;
-    // Adjust Y position if title is present to avoid overlap
-    // Previous value of 80 was insufficient; increasing to 95 to be safe
-    let clientY = devis.title ? 95 : 75;
+    const clientY = 75; // Fixed position, title will go below
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -116,6 +101,19 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     if (client.address) {
         const addressLines = doc.splitTextToSize(client.address, 70);
         doc.text(addressLines, clientX, clientY + 10);
+    }
+
+    // Titre / Objet (Juste au dessus du tableau)
+    let tableStartY = 105;
+    if (devis.title) {
+        const titleY = Math.max(95, clientY + 10 + (client.address ? doc.splitTextToSize(client.address, 70).length * 4 : 0) + 10);
+
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(50, 50, 50);
+        doc.text(`Objet : ${devis.title}`, 14, titleY);
+
+        tableStartY = titleY + 8;
     }
     // Email client (optional, maybe below address)
     // if (client.email) doc.text(client.email, clientX, 95);
@@ -135,7 +133,7 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     });
 
     autoTable(doc, {
-        startY: 105,
+        startY: tableStartY,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
