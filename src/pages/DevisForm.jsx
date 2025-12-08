@@ -382,6 +382,27 @@ const DevisForm = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Devis supprimé avec succès');
+            navigate('/app/devis');
+        } catch (error) {
+            console.error('Error deleting quote:', error);
+            toast.error('Erreur lors de la suppression');
+        }
+    };
+
     const handleDownloadPDF = (isInvoice = false) => {
         try {
             if (!formData.client_id) {
@@ -643,6 +664,19 @@ const DevisForm = () => {
                                     <Download className="w-4 h-4 mr-3 text-gray-400" />
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
+
+                                {id && id !== 'new' && (
+                                    <>
+                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <button
+                                            onClick={handleDelete}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-3" />
+                                            Supprimer
+                                        </button>
+                                    </>
+                                )}
 
                                 <div className="border-t border-gray-100 my-1"></div>
 
