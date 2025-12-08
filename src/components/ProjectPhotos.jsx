@@ -13,6 +13,118 @@ const ProjectPhotos = ({ clientId }) => {
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
 
+    // Comparison Mode State
+    const [showComparisonModal, setShowComparisonModal] = useState(false);
+    const [splitBefore, setSplitBefore] = useState(null);
+    const [splitAfter, setSplitAfter] = useState(null);
+    const canvasRef = React.useRef(null);
+
+    const handleGenerateComparison = async () => {
+        if (!splitBefore || !splitAfter || !canvasRef.current) return;
+
+        try {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+
+            // Load images
+            const loadImg = (src) => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // Important for canvas export
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+
+            const [imgBefore, imgAfter] = await Promise.all([
+                loadImg(splitBefore.photo_url),
+                loadImg(splitAfter.photo_url)
+            ]);
+
+            // Set canvas size (e.g., 1200x800 for high quality output)
+            const targetWidth = 1200;
+            const targetHeight = 800; // Aspect ratio can be adjusted
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            // Fill background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+            // Draw Header
+            ctx.fillStyle = '#111827';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('AVANT / APRÈS', targetWidth / 2, 50);
+
+            // Draw Images
+            // Calculate dimensions to fit side-by-side with padding
+            const padding = 20;
+            const imgWidth = (targetWidth - (padding * 3)) / 2;
+            const imgHeight = targetHeight - 100 - padding; // Space for header
+
+            // Helper to draw image cover
+            const drawImageCover = (img, x, y, w, h) => {
+                const imgRatio = img.width / img.height;
+                const targetRatio = w / h;
+                let sx, sy, sw, sh;
+
+                if (imgRatio > targetRatio) {
+                    sh = img.height;
+                    sw = img.height * targetRatio;
+                    sy = 0;
+                    sx = (img.width - sw) / 2;
+                } else {
+                    sw = img.width;
+                    sh = img.width / targetRatio;
+                    sx = 0;
+                    sy = (img.height - sh) / 2;
+                }
+
+                ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+            };
+
+            drawImageCover(imgBefore, padding, 80, imgWidth, imgHeight);
+            drawImageCover(imgAfter, padding + imgWidth + padding, 80, imgWidth, imgHeight);
+
+            // Draw Labels
+            const labelHeight = 40;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+
+            // Before Label
+            ctx.fillRect(padding, 80 + imgHeight - labelHeight, imgWidth, labelHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('AVANT', padding + (imgWidth / 2), 80 + imgHeight - 12);
+
+            // After Label
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(padding + imgWidth + padding, 80 + imgHeight - labelHeight, imgWidth, labelHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('APRÈS', padding + imgWidth + padding + (imgWidth / 2), 80 + imgHeight - 12);
+
+            // Add Logo/Footer if needed
+            ctx.fillStyle = '#6B7280';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Généré par Artisan Facile', targetWidth - padding, targetHeight - 10);
+
+            // Trigger Download
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const link = document.createElement('a');
+            link.download = `comparatif-chantier-${Date.now()}.jpg`;
+            link.href = dataUrl;
+            link.click();
+
+            toast.success("Image générée et téléchargée !");
+            setShowComparisonModal(false);
+
+        } catch (error) {
+            console.error('Error generating comparison:', error);
+            toast.error("Erreur lors de la génération de l'image. Vérifiez votre connexion.");
+        }
+    };
+
     // Swipe handling
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
@@ -300,6 +412,114 @@ const ProjectPhotos = ({ clientId }) => {
                     ))}
                 </div>
             )}
+
+            {/* Comparison Mode Trigger */}
+            <div className="mt-6 border-t border-gray-100 pt-6">
+                <button
+                    onClick={() => setShowComparisonModal(true)}
+                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                    <div className="flex -space-x-2 mr-3">
+                        <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">AV</div>
+                        <div className="w-6 h-6 rounded-full bg-purple-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-purple-600">AP</div>
+                    </div>
+                    Créer un montage Avant / Après
+                </button>
+            </div>
+
+            {/* Comparison Modal */}
+            {showComparisonModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                            <h3 className="text-xl font-bold text-gray-900">Générateur Avant / Après</h3>
+                            <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                                <X className="w-6 h-6 text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-8 flex-1">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Before Column */}
+                                <div>
+                                    <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
+                                        <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center mr-2">1</span>
+                                        Choisir photo AVANT
+                                    </h4>
+                                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                                        {photos.filter(p => p.category === 'before').map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => setSplitBefore(p)}
+                                                className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                            >
+                                                <img src={p.photo_url} className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                        {photos.filter(p => p.category === 'before').length === 0 && (
+                                            <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Avant"</div>
+                                        )}
+                                    </div>
+                                    {splitBefore && (
+                                        <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                            <img src={splitBefore.photo_url} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">AVANT</div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* After Column */}
+                                <div>
+                                    <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
+                                        <span className="w-6 h-6 rounded-full bg-purple-200 text-purple-600 text-xs flex items-center justify-center mr-2">2</span>
+                                        Choisir photo APRÈS
+                                    </h4>
+                                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                                        {photos.filter(p => p.category === 'after' || p.category === 'during').map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => setSplitAfter(p)}
+                                                className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                            >
+                                                <img src={p.photo_url} className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                        {photos.filter(p => p.category === 'after' || p.category === 'during').length === 0 && (
+                                            <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Après"</div>
+                                        )}
+                                    </div>
+                                    {splitAfter && (
+                                        <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                            <img src={splitAfter.photo_url} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">APRÈS</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+                            <button
+                                onClick={() => setShowComparisonModal(false)}
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleGenerateComparison}
+                                disabled={!splitBefore || !splitAfter}
+                                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center font-medium shadow-sm transition-all"
+                            >
+                                <Upload className="w-4 h-4 mr-2" />
+                                Générer et Télécharger
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Generated Image Preview (Hidden Canvas) */}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
 
             {/* Fullscreen Modal */}
             {selectedPhotoIndex !== null && filteredPhotos[selectedPhotoIndex] && (
