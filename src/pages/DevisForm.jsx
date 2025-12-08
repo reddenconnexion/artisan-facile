@@ -385,6 +385,84 @@ const DevisForm = () => {
         }
     };
 
+    const handleCreateDeposit = async () => {
+        const percentageStr = window.prompt("Quel pourcentage d'acompte souhaitez-vous ? (ex: 30)", "30");
+        if (!percentageStr) return;
+
+        const percentage = parseFloat(percentageStr);
+        if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+            toast.error("Pourcentage invalide");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const depositAmount = (total * percentage) / 100;
+            const depositItem = {
+                id: Date.now(),
+                description: `Acompte de ${percentage}% sur devis n°${id} - ${formData.title}`,
+                quantity: 1,
+                unit: 'forfait',
+                price: depositAmount,
+                buying_price: 0,
+                type: 'service'
+            };
+
+            const depositData = {
+                user_id: user.id,
+                client_id: formData.client_id,
+                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+                title: `Facture d'Acompte - ${formData.title}`,
+                date: new Date().toISOString().split('T')[0],
+                status: 'billed', // Directly billed
+                items: [depositItem],
+                total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
+                total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
+                total_ttc: depositAmount,
+                parent_id: id,
+                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}`
+            };
+
+            // Recalculate strict HT/TVA based on item price which is TTC if include_tva is true? 
+            // The logic in local calculateTotal is: price * qty = HT? No, logic depends on simple app. 
+            // In calculateTotal: total = subtotal + tva. 
+            // subtotal = sum(qty * price). 
+            // So if `depositAmount` is the target TTC, and include_tva is true (20%), then price should be HT.
+
+            if (formData.include_tva) {
+                // If we want the final line to be 'depositAmount', and that is TTC.
+                // price = depositAmount / 1.2
+                depositItem.price = depositAmount / 1.2;
+                depositData.total_ht = depositItem.price;
+                depositData.total_tva = depositAmount - depositItem.price;
+                depositData.total_ttc = depositAmount;
+            } else {
+                depositItem.price = depositAmount;
+                depositData.total_ht = depositAmount;
+                depositData.total_tva = 0;
+                depositData.total_ttc = depositAmount;
+            }
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .insert([depositData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            toast.success("Facture d'acompte créée !");
+            navigate(`/app/devis/${data.id}`);
+            setShowActionsMenu(false);
+
+        } catch (error) {
+            console.error('Error creating deposit:', error);
+            toast.error("Erreur lors de la création de l'acompte");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
             return;
@@ -667,6 +745,16 @@ const DevisForm = () => {
                                     <Download className="w-4 h-4 mr-3 text-gray-400" />
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
+
+                                {id && (formData.status === 'accepted' || formData.status === 'sent') && (
+                                    <button
+                                        onClick={handleCreateDeposit}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
+                                    >
+                                        <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
+                                        Générer Facture d'Acompte
+                                    </button>
+                                )}
 
                                 {id && id !== 'new' && (
                                     <>
