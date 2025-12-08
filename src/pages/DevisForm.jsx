@@ -213,9 +213,7 @@ const DevisForm = () => {
         return { subtotal, tva, total, totalCost };
     };
 
-    const handleImportFile = async (event) => {
-        // Redundant definition removed. See new definition below in handling logic.
-    };
+
 
     const handlePreview = () => {
         if (!formData.client_id) {
@@ -750,6 +748,7 @@ const DevisForm = () => {
                             <option value="accepted">Accepté / Signé</option>
                             <option value="refused">Refusé</option>
                             <option value="billed">Facturé</option>
+                            <option value="cancelled">Annulé</option>
                         </select>
                     </div>
                 </div>
