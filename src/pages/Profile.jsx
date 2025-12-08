@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText } from 'lucide-react';
 
 const Profile = () => {
+    // Component for managing artisan profile settings
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -18,7 +19,9 @@ const Profile = () => {
         address: '',
         city: '',
         postal_code: '',
-        siret: ''
+
+        siret: '',
+        google_review_url: ''
     });
 
     useEffect(() => {
@@ -50,7 +53,9 @@ const Profile = () => {
                     address: data.address || '',
                     city: data.city || '',
                     postal_code: data.postal_code || '',
-                    siret: data.siret || ''
+
+                    siret: data.siret || '',
+                    google_review_url: data.google_review_url || ''
                 });
             }
         } catch (error) {
@@ -106,7 +111,9 @@ const Profile = () => {
                     address: formData.address,
                     city: formData.city,
                     postal_code: formData.postal_code,
+
                     siret: formData.siret,
+                    google_review_url: formData.google_review_url,
                     updated_at: new Date(),
                 })
                 .eq('id', user.id);
@@ -257,6 +264,18 @@ const Profile = () => {
                                     placeholder="https://www.monentreprise.com"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Lien Avis Google</label>
+                                <input
+                                    type="url"
+                                    name="google_review_url"
+                                    value={formData.google_review_url}
+                                    onChange={handleChange}
+                                    placeholder="https://g.page/r/..."
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>

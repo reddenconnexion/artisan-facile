@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -23,6 +23,7 @@ const DevisForm = () => {
     const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
     const [priceLibrary, setPriceLibrary] = useState([]);
+    const [showReviewMenu, setShowReviewMenu] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -333,6 +334,32 @@ const DevisForm = () => {
         }
     };
 
+
+    const handleReviewAction = (action) => {
+        const reviewUrl = userProfile?.google_review_url;
+        if (!reviewUrl) {
+            toast.error("Veuillez d'abord configurer votre lien Google Avis dans votre profil");
+            navigate('/app/settings');
+            return;
+        }
+
+        switch (action) {
+            case 'copy':
+                navigator.clipboard.writeText(reviewUrl);
+                toast.success('Lien copié dans le presse-papier');
+                break;
+            case 'open':
+                window.open(reviewUrl, '_blank');
+                break;
+            case 'email':
+                const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
+                const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
+                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                break;
+        }
+        setShowReviewMenu(false);
+    };
+
     return (
         <div className="max-w-4xl mx-auto pb-12">
             <div className="flex items-center justify-between mb-6">
@@ -374,6 +401,46 @@ const DevisForm = () => {
                                 PDF
                             </button>
                         </>
+                    )}
+
+                    {formData.status === 'accepted' && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowReviewMenu(!showReviewMenu)}
+                                className="flex items-center px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition-colors"
+                            >
+                                <Star className="w-4 h-4 mr-2" />
+                                Demander un avis
+                            </button>
+
+                            {showReviewMenu && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
+                                    <div className="p-1">
+                                        <button
+                                            onClick={() => handleReviewAction('copy')}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                                        >
+                                            <Copy className="w-4 h-4 mr-2 text-gray-400" />
+                                            Copier le lien
+                                        </button>
+                                        <button
+                                            onClick={() => handleReviewAction('email')}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                                        >
+                                            <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                                            Envoyer par email
+                                        </button>
+                                        <button
+                                            onClick={() => handleReviewAction('open')}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                                        >
+                                            <ExternalLink className="w-4 h-4 mr-2 text-gray-400" />
+                                            Ouvrir le lien
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     <button
