@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link, Send } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -271,6 +271,43 @@ const DevisForm = () => {
         setPreviewUrl(url);
     };
 
+    const handleSendQuoteEmail = () => {
+        if (!formData.client_id) {
+            toast.error('Veuillez d\'abord sélectionner un client');
+            return;
+        }
+
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
+        if (!selectedClient || !selectedClient.email) {
+            toast.error('Le client sélectionné n\'a pas d\'adresse email');
+            return;
+        }
+
+        const signatureLink = `${window.location.origin}/q/${formData.public_token}`;
+        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+
+        const subject = encodeURIComponent(`Devis ${id} - ${formData.title || 'Projet'} - ${companyName}`);
+
+        const bodyLines = [
+            `Bonjour ${selectedClient.name},`,
+            ``,
+            `Veuillez trouver ci-joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
+            ``,
+            `Vous pouvez consulter le détail et signer ce devis directement en ligne via ce lien sécurisé :`,
+            signatureLink,
+            ``,
+            `Nous restons à votre disposition pour toute question.`,
+            ``,
+            `Cordialement,`,
+            `${companyName}`
+        ];
+
+        const body = encodeURIComponent(bodyLines.join('\n'));
+
+        window.location.href = `mailto:${selectedClient.email}?subject=${subject}&body=${body}`;
+        toast.success('Application de messagerie ouverte');
+    };
+
     const { subtotal, tva, total, totalCost } = calculateTotal();
 
     const handleSubmit = async (e) => {
@@ -528,6 +565,16 @@ const DevisForm = () => {
                             )}
                         </div>
                     )}
+
+                    <button
+                        type="button"
+                        onClick={handleSendQuoteEmail}
+                        className="flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                        title="Envoyer par email"
+                    >
+                        <Send className="w-4 h-4 mr-2" />
+                        Envoyer
+                    </button>
 
                     <button
                         type="button"
