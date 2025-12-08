@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2, Eye, X, Link } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -69,6 +69,7 @@ const DevisForm = () => {
     const [formData, setFormData] = useState({
         client_id: '',
         title: '',
+        public_token: '',
         date: new Date().toISOString().split('T')[0],
         valid_until: '',
         items: [
@@ -161,6 +162,7 @@ const DevisForm = () => {
                 setFormData({
                     client_id: data.client_id || '',
                     title: data.title || '',
+                    public_token: data.public_token || '',
                     date: data.date,
                     valid_until: data.valid_until || '',
                     items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
@@ -440,6 +442,21 @@ const DevisForm = () => {
                     Retour
                 </button>
                 <div className="flex gap-3">
+                    {id && formData.public_token && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const url = `${window.location.origin}/q/${formData.public_token}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success('Lien de signature copié !');
+                            }}
+                            className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                            title="Copier le lien de signature"
+                        >
+                            <Link className="w-4 h-4 mr-2" />
+                            Lien
+                        </button>
+                    )}
                     {id && (
                         <>
                             <button
@@ -801,49 +818,51 @@ const DevisForm = () => {
             />
 
             {/* Preview Modal */}
-            {previewUrl && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                            <h3 className="font-semibold text-lg text-gray-800 flex items-center">
-                                <Eye className="w-5 h-5 mr-2 text-blue-600" />
-                                Prévisualisation du document
-                            </h3>
-                            <button
-                                onClick={() => setPreviewUrl(null)}
-                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
-                            <iframe
-                                src={previewUrl}
-                                className="w-full h-full border-none"
-                                title="Aperçu PDF"
-                            />
-                        </div>
-                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
-                            <button
-                                onClick={() => setPreviewUrl(null)}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                            >
-                                Fermer
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleDownloadPDF(formData.status === 'accepted');
-                                    setPreviewUrl(null);
-                                }}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-                            >
-                                <Download className="w-4 h-4 mr-2" />
-                                Télécharger
-                            </button>
+            {
+                previewUrl && (
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
+                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                                <h3 className="font-semibold text-lg text-gray-800 flex items-center">
+                                    <Eye className="w-5 h-5 mr-2 text-blue-600" />
+                                    Prévisualisation du document
+                                </h3>
+                                <button
+                                    onClick={() => setPreviewUrl(null)}
+                                    className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                            <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
+                                <iframe
+                                    src={previewUrl}
+                                    className="w-full h-full border-none"
+                                    title="Aperçu PDF"
+                                />
+                            </div>
+                            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
+                                <button
+                                    onClick={() => setPreviewUrl(null)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Fermer
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleDownloadPDF(formData.status === 'accepted');
+                                        setPreviewUrl(null);
+                                    }}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Télécharger
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 };

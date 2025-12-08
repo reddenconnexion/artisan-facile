@@ -26,6 +26,7 @@ const ProtectedRoute = ({ children }) => {
 
 import Profile from './pages/Profile';
 import ClientPortal from './pages/portal/ClientPortal';
+import PublicQuote from './pages/PublicQuote';
 
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
@@ -42,6 +43,7 @@ function App() {
           <Route path="/register" element={<Register />} />
 
           <Route path="/p/:token" element={<ClientPortal />} />
+          <Route path="/q/:token" element={<PublicQuote />} />
 
           <Route path="/app" element={
             <ProtectedRoute>
