@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mic, MicOff, User, FileCheck, PenTool, Star, Copy, Mail, ExternalLink, Upload, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { useVoice } from '../hooks/useVoice';
 import MarginGauge from '../components/MarginGauge';
+import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -24,6 +25,8 @@ const DevisForm = () => {
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
     const [priceLibrary, setPriceLibrary] = useState([]);
     const [showReviewMenu, setShowReviewMenu] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const fileInputRef = React.useRef(null);
 
     useEffect(() => {
         if (user) {
@@ -199,6 +202,44 @@ const DevisForm = () => {
         const tva = formData.include_tva ? subtotal * 0.20 : 0; // TVA 20% par défaut
         const total = subtotal + tva;
         return { subtotal, tva, total, totalCost };
+    };
+
+    const handleImportFile = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            toast.error('Seuls les fichiers PDF sont supportés pour le moment');
+            return;
+        }
+
+        try {
+            setImporting(true);
+            const text = await extractTextFromPDF(file);
+            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+
+            if (newItems.length === 0 && !extraNotes.trim()) {
+                toast.warning("Aucune donnée n'a pu être extraite du PDF");
+                return;
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                items: [
+                    ...prev.items.filter(i => i.description.trim() !== ''), // Keep existing if not empty
+                    ...newItems
+                ],
+                notes: prev.notes + (prev.notes ? '\n\n--- Import PDF ---\n' : '') + extraNotes
+            }));
+
+            toast.success(`${newItems.length} élément(s) importé(s)`);
+        } catch (error) {
+            console.error('Import error:', error);
+            toast.error("Erreur lors de l'import du PDF");
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
@@ -451,6 +492,24 @@ const DevisForm = () => {
                         <Download className="w-4 h-4 mr-2" />
                         {formData.status === 'accepted' ? 'Télécharger Facture' : 'Télécharger Devis'}
                     </button>
+
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".pdf"
+                        onChange={handleImportFile}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={importing}
+                        className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        title="Importer depuis un PDF"
+                    >
+                        {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        Importer
+                    </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
@@ -692,7 +751,7 @@ const DevisForm = () => {
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
             />
-        </div>
+        </div >
     );
 };
 
