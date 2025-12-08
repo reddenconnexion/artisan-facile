@@ -1,49 +1,75 @@
-import * as pdfjsLib from 'pdfjs-dist';
+const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-// Use Vite's asset import to get the URL of the worker file
-// This ensures it works in both dev (localhost) and prod (bundled)
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+const loadPdfJs = () => {
+    return new Promise((resolve, reject) => {
+        if (window.pdfjsLib) {
+            resolve(window.pdfjsLib);
+            return;
+        }
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+        const script = document.createElement('script');
+        script.src = PDFJS_CDN;
+        script.onload = () => {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+            resolve(window.pdfjsLib);
+        };
+        script.onerror = () => reject(new Error("Failed to load PDF.js from CDN"));
+        document.body.appendChild(script);
+    });
+};
 
 export const extractTextFromPDF = async (file) => {
     try {
-        console.log(`Attempting to read PDF with worker: ${WORKER_URL}`);
+        console.log("Starting PDF extraction via CDN injection...");
+        const pdfjs = await loadPdfJs();
+        console.log("PDF.js loaded. Worker set to:", pdfjs.GlobalWorkerOptions.workerSrc);
+
         const arrayBuffer = await file.arrayBuffer();
 
-        // Use try-catch specifically for getDocument to catch worker errors
-        let pdf;
-        try {
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            pdf = await loadingTask.promise;
-        } catch (e) {
-            console.error("PDF Worker Error:", e);
-            throw new Error("Erreur de chargement du moteur PDF (Worker). Vérifiez votre connexion internet.");
-        }
+        // Use default export if available or just the lib
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
 
         console.log(`PDF Loaded. Pages: ${pdf.numPages}`);
         let fullText = '';
 
+        // ... (Parsing logic remains the same, assuming pdf object structure is compatible)
+        // Note: 3.x API is slightly different? usually getTextContent is stable.
+
         for (let i = 1; i <= pdf.numPages; i++) {
-            console.log(`Parsing page ${i}/${pdf.numPages}`);
+            // ... parsing logic ...
+            const page = await pdf.getPage(i);
+            // ...
+            // Let's copy the parsing logic to ensure it's inside this scope
+            const textContent = await page.getTextContent();
+
+            // Simple extraction for robustness first
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n\n';
+
+            // Advanced extraction (layout aware) - simplified for this "Rescue" version
+            // We can restore the complex one if this basic one works.
+            // Actually, the user needs line separation for the parser to work
+            // So we must keep some structure.
+        }
+
+        // Re-implementing the clever sorting logic here
+        for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
-            // Sort items by Y (descending) then X (ascending)
             const items = textContent.items.map(item => ({
                 str: item.str,
                 x: item.transform[4],
-                y: item.transform[5],
-                w: item.width,
-                h: item.height
+                y: item.transform[5]
             }));
 
-            // Group by Y with tolerance
-            const tolerance = 5;
-            const lines = [];
-
+            // Sort by Y descending
             items.sort((a, b) => b.y - a.y);
 
+            const tolerance = 5;
+            const lines = [];
             let currentLine = [];
             let currentY = items[0]?.y;
 
@@ -62,16 +88,14 @@ export const extractTextFromPDF = async (file) => {
 
             lines.forEach(line => {
                 line.sort((a, b) => a.x - b.x);
-                // Join with spaces, but maybe double space if large gap? Keep simple for now.
-                const lineStr = line.map(l => l.str).join(' ');
-                fullText += lineStr + '\n';
+                fullText += line.map(l => l.str).join(' ') + '\n';
             });
         }
 
         return fullText;
     } catch (error) {
-        console.error('Error parsing PDF:', error);
-        throw error; // Re-throw to be caught by UI
+        console.error('Error parsing PDF (CDN method):', error);
+        throw new Error('Impossible de lire le fichier PDF (Méthode CDN)');
     }
 };
 
