@@ -133,15 +133,23 @@ const ClientForm = () => {
 
             let error;
             if (isEditing) {
-                const { error: updateError } = await supabase
+                // For updates, we don't need to resend user_id, and we should add updated_at
+                const { user_id, ...updateData } = clientData;
+                const { data, error: updateError } = await supabase
                     .from('clients')
-                    .update(clientData)
-                    .eq('id', id);
+                    .update({ ...updateData, updated_at: new Date() })
+                    .eq('id', id)
+                    .select();
+
+                if (!updateError && (!data || data.length === 0)) {
+                    throw new Error("L'enregistrement a échoué (client introuvable ou permissions insuffisantes).");
+                }
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase
                     .from('clients')
-                    .insert([clientData]);
+                    .insert([clientData])
+                    .select();
                 error = insertError;
             }
 

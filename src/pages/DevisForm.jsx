@@ -202,8 +202,8 @@ const DevisForm = () => {
     };
 
     const calculateTotal = () => {
-        const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-        const totalCost = formData.items.reduce((sum, item) => sum + (item.quantity * (item.buying_price || 0)), 0);
+        const subtotal = formData.items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
+        const totalCost = formData.items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)), 0);
         const tva = formData.include_tva ? subtotal * 0.20 : 0; // TVA 20% par défaut
         const total = subtotal + tva;
         return { subtotal, tva, total, totalCost };
@@ -261,6 +261,12 @@ const DevisForm = () => {
         const devisData = {
             id: isEditing ? id : 'PROVISOIRE',
             ...formData,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0,
+                buying_price: parseFloat(i.buying_price) || 0
+            })),
             total_ht: subtotal,
             total_tva: tva,
             total_ttc: total,
@@ -330,7 +336,12 @@ const DevisForm = () => {
                 title: formData.title,
                 date: formData.date,
                 valid_until: formData.valid_until || null,
-                items: formData.items,
+                items: formData.items.map(i => ({
+                    ...i,
+                    quantity: parseFloat(i.quantity) || 0,
+                    price: parseFloat(i.price) || 0,
+                    buying_price: parseFloat(i.buying_price) || 0
+                })),
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
@@ -340,15 +351,23 @@ const DevisForm = () => {
 
             let error;
             if (isEditing) {
-                const { error: updateError } = await supabase
+                // For updates: exclude user_id, include updated_at
+                const { user_id, ...updateData } = quoteData;
+                const { data, error: updateError } = await supabase
                     .from('quotes')
-                    .update(quoteData)
-                    .eq('id', id);
+                    .update({ ...updateData, updated_at: new Date() })
+                    .eq('id', id)
+                    .select(); // Ensure we get return data to verify
+
+                if (!updateError && (!data || data.length === 0)) {
+                    throw new Error("L'enregistrement a échoué (devis introuvable ou permissions insuffisantes).");
+                }
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase
                     .from('quotes')
-                    .insert([quoteData]);
+                    .insert([quoteData])
+                    .select();
                 error = insertError;
             }
 
@@ -382,6 +401,12 @@ const DevisForm = () => {
             const devisData = {
                 id: isEditing ? id : 'PROVISOIRE',
                 ...formData,
+                items: formData.items.map(i => ({
+                    ...i,
+                    quantity: parseFloat(i.quantity) || 0,
+                    price: parseFloat(i.price) || 0,
+                    buying_price: parseFloat(i.buying_price) || 0
+                })),
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
@@ -744,7 +769,7 @@ const DevisForm = () => {
                                             className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
                                             placeholder="0.00"
                                             value={item.buying_price || ''}
-                                            onChange={(e) => updateItem(item.id, 'buying_price', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
                                         />
                                         <span>€</span>
                                     </div>
@@ -757,7 +782,7 @@ const DevisForm = () => {
                                             min="1"
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
                                             value={item.quantity}
-                                            onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                                         />
                                     </div>
                                     <div className="w-28">
@@ -768,11 +793,11 @@ const DevisForm = () => {
                                             step="0.01"
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
                                             value={item.price}
-                                            onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => updateItem(item.id, 'price', e.target.value)}
                                         />
                                     </div>
                                     <div className="w-28 py-2 text-right font-medium text-gray-900">
-                                        {(item.quantity * item.price).toFixed(2)} €
+                                        {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
                                     </div>
                                     <button
                                         onClick={() => removeItem(item.id)}
