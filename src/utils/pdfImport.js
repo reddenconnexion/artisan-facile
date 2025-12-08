@@ -1,14 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker using CDN with hardcoded version to ensure stability
-// Using version 4.10.38 which is stable and compatible. 
-// Note: package.json has ^5.4.449 but sometimes unpkg structure changes or version format differs.
-// Let's try to use the exact version match if possible, or a known stable one.
-const PDFJS_VERSION = '4.10.38'; // Reverting to a very common stable version often used in CDNs if 5.x is too new
-// Actually, let's use the installed 5.4.449 but hardcoded.
-const WORKER_URL = `https://unpkg.com/pdfjs-dist@5.4.449/build/pdf.worker.min.mjs`;
+// Use Vite's asset import to get the URL of the worker file
+// This ensures it works in both dev (localhost) and prod (bundled)
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_URL;
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export const extractTextFromPDF = async (file) => {
     try {
