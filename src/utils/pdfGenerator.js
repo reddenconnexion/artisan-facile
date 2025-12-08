@@ -178,7 +178,8 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
         doc.text("Bon pour accord :", 140, signatureY);
-        doc.text(`Signé le ${new Date(devis.date).toLocaleDateString()}`, 140, signatureY + 5);
+        const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date();
+        doc.text(`Signé le ${signedDate.toLocaleDateString()}`, 140, signatureY + 5);
         try {
             doc.addImage(devis.signature, 'PNG', 140, signatureY + 10, 50, 25);
         } catch (e) {

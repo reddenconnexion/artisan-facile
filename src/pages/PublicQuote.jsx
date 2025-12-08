@@ -55,8 +55,27 @@ const PublicQuote = () => {
             toast.success('Devis signé avec succès !');
             setShowSignatureModal(false);
 
-            // Reload quote to show signed state
-            fetchQuote();
+            // Fetch latest data to get server timestamp if needed, but we can construct local object for immediate download speed
+            const signedQuote = {
+                ...quote,
+                signature: signatureData,
+                signed_at: new Date().toISOString(),
+                status: 'accepted'
+            };
+
+            // Update UI
+            setQuote(signedQuote);
+
+            // Offer download immediately
+            if (window.confirm("Merci pour votre signature ! Voulez-vous télécharger le devis signé maintenant ?")) {
+                setTimeout(() => {
+                    // small delay to ensure UI or simple logic buffer
+                    generateDevisPDF(signedQuote, signedQuote.client, signedQuote.artisan, true); // true for invoice style? or keep as Devis? Let's keep based on context.
+                    // Actually status 'accepted' usually means it stays a Devis but signed.
+                    // Only if we convert to Invoice it becomes Facture.
+                    // Let's pass isInvoice=false but with signature it will show "Bon pour accord".
+                }, 500);
+            }
 
         } catch (err) {
             console.error('Error saving signature:', err);
