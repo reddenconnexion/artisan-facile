@@ -731,6 +731,20 @@ const DevisForm = () => {
                             />
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                        <select
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        >
+                            <option value="draft">Brouillon</option>
+                            <option value="sent">Envoyé</option>
+                            <option value="accepted">Accepté / Signé</option>
+                            <option value="refused">Refusé</option>
+                            <option value="billed">Facturé</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Lignes du devis */}
