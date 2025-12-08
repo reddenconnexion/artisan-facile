@@ -68,6 +68,7 @@ const DevisForm = () => {
 
     const [formData, setFormData] = useState({
         client_id: '',
+        title: '',
         date: new Date().toISOString().split('T')[0],
         valid_until: '',
         items: [
@@ -159,6 +160,7 @@ const DevisForm = () => {
             if (data) {
                 setFormData({
                     client_id: data.client_id || '',
+                    title: data.title || '',
                     date: data.date,
                     valid_until: data.valid_until || '',
                     items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
@@ -286,6 +288,7 @@ const DevisForm = () => {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: selectedClient ? selectedClient.name : 'Client inconnu',
+                title: formData.title,
                 date: formData.date,
                 valid_until: formData.valid_until || null,
                 items: formData.items,
@@ -572,7 +575,7 @@ const DevisForm = () => {
                             )}
                         </div>
                         <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4"
                             value={formData.client_id}
                             onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
                         >
@@ -581,6 +584,17 @@ const DevisForm = () => {
                                 <option key={client.id} value={client.id}>{client.name}</option>
                             ))}
                         </select>
+
+                        <div className="mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
+                            <input
+                                type="text"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Ex: Rénovation Salle de Bain"
+                                value={formData.title}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            />
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

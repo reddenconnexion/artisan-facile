@@ -74,12 +74,27 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.setFont(undefined, 'bold');
     doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
 
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 81);
-    if (!isInvoice && devis.valid_until) {
-        doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
+    if (devis.title) {
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(50, 50, 50);
+        doc.text(devis.title, 14, 82);
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 88);
+        if (!isInvoice && devis.valid_until) {
+            doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 93);
+        }
+    } else {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 81);
+        if (!isInvoice && devis.valid_until) {
+            doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
+        }
     }
 
     // Info Client (Droite, sous le header)
