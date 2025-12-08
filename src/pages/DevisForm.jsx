@@ -375,6 +375,12 @@ const DevisForm = () => {
                 status: formData.status
             };
 
+            // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
+            if (['draft', 'sent', 'refused'].includes(formData.status)) {
+                quoteData.signature = null;
+                quoteData.signed_at = null;
+            }
+
             let error;
             if (isEditing) {
                 // For updates: exclude user_id, include updated_at
@@ -402,8 +408,8 @@ const DevisForm = () => {
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
             navigate('/app/devis');
         } catch (error) {
-            toast.error('Erreur lors de la sauvegarde');
             console.error('Error saving quote:', error);
+            toast.error('Erreur lors de la sauvegarde : ' + (error.message || error.details || error.hint || 'Erreur inconnue'));
         } finally {
             setLoading(false);
         }
