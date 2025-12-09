@@ -164,24 +164,38 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.text(`${devis.total_ttc.toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
 
     // Notes / Conditions
+    let currentY = finalY + 30;
+
     if (devis.notes) {
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text("Notes / Conditions :", 14, finalY + 30);
+        doc.text("Notes / Conditions :", 14, currentY);
+        currentY += 6;
+
         const splitNotes = doc.splitTextToSize(devis.notes, 180);
-        doc.text(splitNotes, 14, finalY + 36);
+        doc.text(splitNotes, 14, currentY);
+        currentY += (splitNotes.length * 5) + 10; // Adjust Y based on lines
     }
 
     // Signature
     if (devis.signature) {
-        const signatureY = finalY + 50;
+        // Check if signature fits on current page, else add new page
+        if (currentY + 40 > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        const signatureY = currentY + 10;
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        doc.text("Bon pour accord :", 140, signatureY);
+        doc.text("Bon pour accord :", 120, signatureY);
+
         const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date();
-        doc.text(`Signé le ${signedDate.toLocaleDateString()}`, 140, signatureY + 5);
+        doc.text(`Signé le ${signedDate.toLocaleDateString('fr-FR')}`, 120, signatureY + 5);
+
         try {
-            doc.addImage(devis.signature, 'PNG', 140, signatureY + 10, 50, 25);
+            // Position carefully
+            doc.addImage(devis.signature, 'PNG', 120, signatureY + 10, 50, 25);
         } catch (e) {
             console.warn("Could not add signature to PDF", e);
         }
