@@ -1198,6 +1198,19 @@ const DevisForm = () => {
                     </div>
                 </div>
 
+                {/* Signature Display */}
+                {signature && (
+                    <div className="border-t border-gray-100 pt-6 mt-6">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Signature du client</h4>
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 inline-block">
+                            <img src={signature} alt="Signature Client" className="h-24 object-contain" />
+                            <p className="text-xs text-gray-500 mt-2">
+                                Signé le {formData.signed_at ? new Date(formData.signed_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Notes */}
                 <div>
                     <div className="flex justify-between items-center mb-1">
