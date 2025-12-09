@@ -116,7 +116,8 @@ const DevisList = () => {
             </div>
 
             {/* Liste */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Desktop Table View */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hidden md:block">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -165,12 +166,38 @@ const DevisList = () => {
                         ))}
                     </tbody>
                 </table>
-                {filteredDevis.length === 0 && (
-                    <div className="text-center py-12">
-                        <p className="text-gray-500">Aucun devis trouvé.</p>
-                    </div>
-                )}
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+                {filteredDevis.map((devis) => (
+                    <div
+                        key={devis.id}
+                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
+                        onClick={() => navigate(`/app/devis/${devis.id}`)}
+                    >
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">#{devis.id}</span>
+                                <h3 className="font-bold text-gray-900 mt-2">{devis.client_name || 'Client inconnu'}</h3>
+                                <p className="text-xs text-gray-500">{new Date(devis.date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                                <StatusBadge status={devis.status} />
+                                <span className="font-bold text-gray-900 text-lg">
+                                    {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {filteredDevis.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                    <p className="text-gray-500">Aucun devis trouvé.</p>
+                </div>
+            )}
         </div>
     );
 };
