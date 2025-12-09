@@ -1259,43 +1259,26 @@ const DevisForm = () => {
                                     />
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Profitability Tracking (Only for active jobs) */}
-                            {id && (formData.status === 'accepted' || formData.status === 'billed') && (
-                                <MarginGauge
-                                    quoteId={id}
-                                    items={formData.items}
-                                    userId={user.id}
-                                />
-                            )}
-
-                            {/* Notes Section */}
-                            <div className="mt-8">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Notes / Conditions
-                                </label>
-                                <textarea
-                                    value={formData.notes || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                                    rows={4}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Conditions de paiement, validité du devis, etc."
-                                />
-                            </div>
+                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-xl">
+                            <button
+                                type="button"
+                                onClick={() => setEmailPreview(null)}
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
+                                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center"
+                            >
+                                <Send className="w-4 h-4 mr-2" />
+                                Envoyer
+                            </button>
                         </div>
                     </div>
-                )
-            }
-
-            {/* Signature Modal */}
-            {
-                showSignatureModal && (
-                    <SignatureModal
-                        isOpen={showSignatureModal}
-                        onClose={() => setShowSignatureModal(false)}
-                        onSave={handleSignatureSave}
-                        clientName={clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client'}
-                    />
                 )
             }
         </div >
