@@ -57,7 +57,7 @@ const ClientHistory = ({ clientId }) => {
                 <FileText className="w-10 h-10 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500">Aucun devis ou facture pour ce client.</p>
                 <button
-                    onClick={() => navigate('/devis/new', { state: { client_id: clientId } })}
+                    onClick={() => navigate('/app/devis/new', { state: { client_id: clientId } })}
                     className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-800"
                 >
                     Créer un devis
@@ -71,7 +71,7 @@ const ClientHistory = ({ clientId }) => {
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Historique des chantiers</h3>
                 <button
-                    onClick={() => navigate('/devis/new', { state: { client_id: clientId } })}
+                    onClick={() => navigate('/app/devis/new', { state: { client_id: clientId } })}
                     className="text-sm font-medium text-blue-600 hover:text-blue-800"
                 >
                     + Nouveau devis
@@ -105,7 +105,7 @@ const ClientHistory = ({ clientId }) => {
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                     <button
-                                        onClick={() => navigate(`/devis/${item.id}`)}
+                                        onClick={() => navigate(`/app/devis/${item.id}`)}
                                         className="text-gray-400 hover:text-blue-600"
                                     >
                                         <ArrowRight className="w-5 h-5" />

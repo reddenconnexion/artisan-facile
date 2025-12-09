@@ -8,23 +8,23 @@ export const processVoiceCommand = (transcript, navigate) => {
     // Navigation
     if (command.includes('aller à') || command.includes('ouvrir')) {
         if (command.includes('agenda') || command.includes('calendrier')) {
-            navigate('/agenda');
+            navigate('/app/agenda');
             return 'Ouverture de l\'agenda';
         }
         if (command.includes('client')) {
-            navigate('/clients');
+            navigate('/app/clients');
             return 'Ouverture des clients';
         }
         if (command.includes('devis') || command.includes('facture')) {
-            navigate('/devis');
+            navigate('/app/devis');
             return 'Ouverture des devis';
         }
         if (command.includes('crm') || command.includes('suivi')) {
-            navigate('/crm');
+            navigate('/app/crm');
             return 'Ouverture du CRM';
         }
         if (command.includes('accueil') || command.includes('tableau de bord')) {
-            navigate('/');
+            navigate('/app');
             return 'Retour à l\'accueil';
         }
     }
@@ -75,7 +75,7 @@ export const processVoiceCommand = (transcript, navigate) => {
             data.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
         }
 
-        navigate('/clients/new', { state: { voiceData: data } });
+        navigate('/app/clients/new', { state: { voiceData: data } });
         return `Création du client ${data.name}`;
     }
 
@@ -200,7 +200,7 @@ export const processVoiceCommand = (transcript, navigate) => {
             data.title = data.title.charAt(0).toUpperCase() + data.title.slice(1);
         }
 
-        navigate('/agenda', { state: { voiceData: data } });
+        navigate('/app/agenda', { state: { voiceData: data } });
         return `Création du rendez-vous${data.clientName ? ` avec ${data.clientName}` : ''}`;
     }
 
@@ -228,7 +228,7 @@ export const processVoiceCommand = (transcript, navigate) => {
             data.clientName = data.clientName.charAt(0).toUpperCase() + data.clientName.slice(1);
         }
 
-        navigate('/devis/new', { state: { voiceData: data } });
+        navigate('/app/devis/new', { state: { voiceData: data } });
         return `Nouveau devis${data.clientName ? ` pour ${data.clientName}` : ''}`;
     }
 
