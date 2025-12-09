@@ -535,391 +535,390 @@ const ProjectPhotos = ({ clientId }) => {
                     )}
                 </div>
             </div>
-        </div>
 
-            {/* Bulk Actions Bar */ }
-    {
-        selectionMode && (
-            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col sm:flex-row gap-4 items-center justify-between animate-in fade-in slide-in-from-top-4">
-                <div className="flex items-center gap-3">
-                    <span className="font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full text-sm">
-                        {selectedPhotos.size} photo{selectedPhotos.size > 1 ? 's' : ''} sélectionnée{selectedPhotos.size > 1 ? 's' : ''}
-                    </span>
-                    <button
-                        onClick={() => {
-                            if (selectedPhotos.size === filteredPhotos.length) {
-                                setSelectedPhotos(new Set());
-                            } else {
-                                setSelectedPhotos(new Set(filteredPhotos.map(p => p.id)));
-                            }
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                        {selectedPhotos.size === filteredPhotos.length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                    </button>
-                </div>
+            {/* Bulk Actions Bar */}
+            {
+                selectionMode && (
+                    <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col sm:flex-row gap-4 items-center justify-between animate-in fade-in slide-in-from-top-4">
+                        <div className="flex items-center gap-3">
+                            <span className="font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full text-sm">
+                                {selectedPhotos.size} photo{selectedPhotos.size > 1 ? 's' : ''} sélectionnée{selectedPhotos.size > 1 ? 's' : ''}
+                            </span>
+                            <button
+                                onClick={() => {
+                                    if (selectedPhotos.size === filteredPhotos.length) {
+                                        setSelectedPhotos(new Set());
+                                    } else {
+                                        setSelectedPhotos(new Set(filteredPhotos.map(p => p.id)));
+                                    }
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                                {selectedPhotos.size === filteredPhotos.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                            </button>
+                        </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <select
-                        value={moveTargetId}
-                        onChange={(e) => setMoveTargetId(e.target.value)}
-                        className="block w-full sm:w-48 px-3 py-2 bg-white border border-blue-200 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="">Déplacer vers...</option>
-                        <option value="uncategorized">Non classé (Général)</option>
-                        {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                    </select>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <select
+                                value={moveTargetId}
+                                onChange={(e) => setMoveTargetId(e.target.value)}
+                                className="block w-full sm:w-48 px-3 py-2 bg-white border border-blue-200 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Déplacer vers...</option>
+                                <option value="uncategorized">Non classé (Général)</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
 
-                    <button
-                        onClick={handleBulkMove}
-                        disabled={selectedPhotos.size === 0 || !moveTargetId}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        <Move className="w-4 h-4" />
-                        Déplacer
-                    </button>
+                            <button
+                                onClick={handleBulkMove}
+                                disabled={selectedPhotos.size === 0 || !moveTargetId}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                <Move className="w-4 h-4" />
+                                Déplacer
+                            </button>
 
-                    <div className="w-px h-8 bg-blue-200 mx-2 hidden sm:block"></div>
+                            <div className="w-px h-8 bg-blue-200 mx-2 hidden sm:block"></div>
 
-                    <button
-                        onClick={handleBulkDelete}
-                        disabled={selectedPhotos.size === 0}
-                        className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer
-                    </button>
-                </div>
-            </div>
-        )
-    }
-
-    {/* Tabs */ }
-    <div className="flex border-b border-gray-200 mb-6">
-        {tabs.map(tab => (
-            <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-            >
-                {tab.label}
-            </button>
-        ))}
-    </div>
-
-    {/* View/Selection Toggles */ }
-    <div className="flex justify-between items-center mb-4">
-        <button
-            onClick={() => {
-                setSelectionMode(!selectionMode);
-                setSelectedPhotos(new Set());
-            }}
-            className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectionMode
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-50'
-                }`}
-        >
-            <CheckSquare className="w-4 h-4" />
-            {selectionMode ? 'Terminer la sélection' : 'Sélectionner des photos'}
-        </button>
-    </div>
-
-    {/* Upload Area */ }
-    <div className="mb-6">
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                {uploading ? (
-                    <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                ) : (
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                )}
-                <p className="text-sm text-gray-500">
-                    {uploading ? 'Envoi en cours...' : 'Cliquez pour ajouter des photos'}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Sélection multiple possible</p>
-            </div>
-            <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                multiple // Enable multiple selection
-                onChange={handleFileUpload}
-                disabled={uploading}
-            />
-        </label>
-    </div>
-
-    {/* Photo Grid */ }
-    {
-        filteredPhotos.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 italic">Aucune photo pour cette étape.</p>
-        ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {filteredPhotos.map((photo, index) => (
-                    <div
-                        key={photo.id}
-                        className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border transition-all ${selectedPhotos.has(photo.id)
-                            ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                            : 'border-gray-200'
-                            }`}
-                        onClick={() => {
-                            if (selectionMode) {
-                                toggleSelection(photo.id);
-                            } else {
-                                setSelectedPhotoIndex(index);
-                            }
-                        }}
-                    >
-                        <img
-                            src={photo.photo_url}
-                            alt={photo.category}
-                            className={`w-full h-full object-cover transition-transform duration-300 ${selectionMode && selectedPhotos.has(photo.id) ? 'scale-90' : 'group-hover:scale-105'
-                                }`}
-                        />
-
-                        {/* Selection Checkbox */}
-                        {selectionMode ? (
-                            <div className="absolute top-2 right-2 z-10">
-                                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedPhotos.has(photo.id)
-                                    ? 'bg-blue-500 border-blue-500 text-white'
-                                    : 'bg-white/80 border-gray-400 hover:border-gray-600'
-                                    }`}>
-                                    {selectedPhotos.has(photo.id) && <CheckSquare className="w-4 h-4" />}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedPhotoIndex(index); }}
-                                    className="p-2 bg-white text-gray-900 rounded-full hover:bg-gray-100"
-                                    title="Agrandir"
-                                >
-                                    <Maximize2 className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDelete(photo.id, photo.photo_url); }}
-                                    className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50"
-                                    title="Supprimer"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            </div>
-                        )}
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={selectedPhotos.size === 0}
+                                className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                            </button>
+                        </div>
                     </div>
+                )
+            }
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 mb-6">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        {tab.label}
+                    </button>
                 ))}
             </div>
-        )
-    }
 
-    {/* Comparison Mode Trigger */ }
-    <div className="mt-6 border-t border-gray-100 pt-6">
-        <button
-            onClick={() => setShowComparisonModal(true)}
-            className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors"
-        >
-            <div className="flex -space-x-2 mr-3">
-                <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">AV</div>
-                <div className="w-6 h-6 rounded-full bg-purple-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-purple-600">AP</div>
+            {/* View/Selection Toggles */}
+            <div className="flex justify-between items-center mb-4">
+                <button
+                    onClick={() => {
+                        setSelectionMode(!selectionMode);
+                        setSelectedPhotos(new Set());
+                    }}
+                    className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectionMode
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                >
+                    <CheckSquare className="w-4 h-4" />
+                    {selectionMode ? 'Terminer la sélection' : 'Sélectionner des photos'}
+                </button>
             </div>
-            Créer un montage Avant / Après
-        </button>
-    </div>
 
-    {/* Comparison Modal */ }
-    {
-        showComparisonModal && (
-            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                        <h3 className="text-xl font-bold text-gray-900">Générateur Avant / Après</h3>
-                        <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                            <X className="w-6 h-6 text-gray-500" />
-                        </button>
+            {/* Upload Area */}
+            <div className="mb-6">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        {uploading ? (
+                            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                        ) : (
+                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                        )}
+                        <p className="text-sm text-gray-500">
+                            {uploading ? 'Envoi en cours...' : 'Cliquez pour ajouter des photos'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">Sélection multiple possible</p>
                     </div>
+                    <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        multiple // Enable multiple selection
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                    />
+                </label>
+            </div>
 
-                    <div className="p-6 space-y-8 flex-1">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Before Column */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                                    <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center mr-2">1</span>
-                                    Choisir photo AVANT
-                                </h4>
-                                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
-                                    {photos.filter(p => p.category === 'before').map(p => (
-                                        <div
-                                            key={p.id}
-                                            onClick={() => setSplitBefore(p)}
-                                            className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
-                                        >
-                                            <img src={p.photo_url} className="w-full h-full object-cover" />
+            {/* Photo Grid */}
+            {
+                filteredPhotos.length === 0 ? (
+                    <p className="text-center text-gray-400 py-8 italic">Aucune photo pour cette étape.</p>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {filteredPhotos.map((photo, index) => (
+                            <div
+                                key={photo.id}
+                                className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border transition-all ${selectedPhotos.has(photo.id)
+                                    ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
+                                    : 'border-gray-200'
+                                    }`}
+                                onClick={() => {
+                                    if (selectionMode) {
+                                        toggleSelection(photo.id);
+                                    } else {
+                                        setSelectedPhotoIndex(index);
+                                    }
+                                }}
+                            >
+                                <img
+                                    src={photo.photo_url}
+                                    alt={photo.category}
+                                    className={`w-full h-full object-cover transition-transform duration-300 ${selectionMode && selectedPhotos.has(photo.id) ? 'scale-90' : 'group-hover:scale-105'
+                                        }`}
+                                />
+
+                                {/* Selection Checkbox */}
+                                {selectionMode ? (
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedPhotos.has(photo.id)
+                                            ? 'bg-blue-500 border-blue-500 text-white'
+                                            : 'bg-white/80 border-gray-400 hover:border-gray-600'
+                                            }`}>
+                                            {selectedPhotos.has(photo.id) && <CheckSquare className="w-4 h-4" />}
                                         </div>
-                                    ))}
-                                    {photos.filter(p => p.category === 'before').length === 0 && (
-                                        <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Avant"</div>
-                                    )}
-                                </div>
-                                {splitBefore && (
-                                    <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
-                                        <img src={splitBefore.photo_url} className="w-full h-full object-cover" />
-                                        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">AVANT</div>
+                                    </div>
+                                ) : (
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setSelectedPhotoIndex(index); }}
+                                            className="p-2 bg-white text-gray-900 rounded-full hover:bg-gray-100"
+                                            title="Agrandir"
+                                        >
+                                            <Maximize2 className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(photo.id, photo.photo_url); }}
+                                            className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50"
+                                            title="Supprimer"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
                                     </div>
                                 )}
                             </div>
+                        ))}
+                    </div>
+                )
+            }
 
-                            {/* After Column */}
-                            <div>
-                                <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                                    <span className="w-6 h-6 rounded-full bg-purple-200 text-purple-600 text-xs flex items-center justify-center mr-2">2</span>
-                                    Choisir photo APRÈS
-                                </h4>
-                                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
-                                    {photos.filter(p => p.category === 'after' || p.category === 'during').map(p => (
-                                        <div
-                                            key={p.id}
-                                            onClick={() => setSplitAfter(p)}
-                                            className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
-                                        >
-                                            <img src={p.photo_url} className="w-full h-full object-cover" />
+            {/* Comparison Mode Trigger */}
+            <div className="mt-6 border-t border-gray-100 pt-6">
+                <button
+                    onClick={() => setShowComparisonModal(true)}
+                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                    <div className="flex -space-x-2 mr-3">
+                        <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">AV</div>
+                        <div className="w-6 h-6 rounded-full bg-purple-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-purple-600">AP</div>
+                    </div>
+                    Créer un montage Avant / Après
+                </button>
+            </div>
+
+            {/* Comparison Modal */}
+            {
+                showComparisonModal && (
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                                <h3 className="text-xl font-bold text-gray-900">Générateur Avant / Après</h3>
+                                <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                                    <X className="w-6 h-6 text-gray-500" />
+                                </button>
+                            </div>
+                            {/* Modal content continued below... */}
+                            <div className="p-6 space-y-8 flex-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Before Column */}
+                                    <div>
+                                        <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
+                                            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center mr-2">1</span>
+                                            Choisir photo AVANT
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                                            {photos.filter(p => p.category === 'before').map(p => (
+                                                <div
+                                                    key={p.id}
+                                                    onClick={() => setSplitBefore(p)}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                                >
+                                                    <img src={p.photo_url} className="w-full h-full object-cover" />
+                                                </div>
+                                            ))}
+                                            {photos.filter(p => p.category === 'before').length === 0 && (
+                                                <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Avant"</div>
+                                            )}
                                         </div>
-                                    ))}
-                                    {photos.filter(p => p.category === 'after' || p.category === 'during').length === 0 && (
-                                        <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Après"</div>
-                                    )}
-                                </div>
-                                {splitAfter && (
-                                    <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
-                                        <img src={splitAfter.photo_url} className="w-full h-full object-cover" />
-                                        <div className="absolute bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">APRÈS</div>
+                                        {splitBefore && (
+                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                                <img src={splitBefore.photo_url} className="w-full h-full object-cover" />
+                                                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">AVANT</div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* After Column */}
+                                    <div>
+                                        <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
+                                            <span className="w-6 h-6 rounded-full bg-purple-200 text-purple-600 text-xs flex items-center justify-center mr-2">2</span>
+                                            Choisir photo APRÈS
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                                            {photos.filter(p => p.category === 'after' || p.category === 'during').map(p => (
+                                                <div
+                                                    key={p.id}
+                                                    onClick={() => setSplitAfter(p)}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                                >
+                                                    <img src={p.photo_url} className="w-full h-full object-cover" />
+                                                </div>
+                                            ))}
+                                            {photos.filter(p => p.category === 'after' || p.category === 'during').length === 0 && (
+                                                <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Après"</div>
+                                            )}
+                                        </div>
+                                        {splitAfter && (
+                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                                <img src={splitAfter.photo_url} className="w-full h-full object-cover" />
+                                                <div className="absolute bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">APRÈS</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+                                <button
+                                    onClick={() => setShowComparisonModal(false)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleGenerateComparison}
+                                    disabled={!splitBefore || !splitAfter}
+                                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center font-medium shadow-sm transition-all"
+                                >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Générer et Télécharger
+                                </button>
                             </div>
                         </div>
                     </div>
+                )
+            }
 
-                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
-                        <button
-                            onClick={() => setShowComparisonModal(false)}
-                            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium"
-                        >
-                            Annuler
-                        </button>
-                        <button
-                            onClick={handleGenerateComparison}
-                            disabled={!splitBefore || !splitAfter}
-                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center font-medium shadow-sm transition-all"
-                        >
-                            <Upload className="w-4 h-4 mr-2" />
-                            Générer et Télécharger
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+            {/* Generated Image Preview (Hidden Canvas) */}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-    {/* Generated Image Preview (Hidden Canvas) */ }
-    <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-    {/* Fullscreen Modal */ }
-    {
-        selectedPhotoIndex !== null && filteredPhotos[selectedPhotoIndex] && (
-            <div
-                className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-                onClick={() => setSelectedPhotoIndex(null)}
-            >
-                {/* Close Button */}
-                <button
-                    onClick={() => setSelectedPhotoIndex(null)}
-                    className="absolute top-4 right-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 z-50"
-                >
-                    <X className="w-8 h-8" />
-                </button>
-
-                {/* Previous Button */}
-                <button
-                    onClick={handlePrev}
-                    className="absolute left-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 hidden md:block z-50"
-                >
-                    <ChevronLeft className="w-10 h-10" />
-                </button>
-
-                {/* Image Container with Swipe Handlers */}
-                <div
-                    className="w-full h-full flex items-center justify-center p-4 overflow-hidden"
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
-                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image area
-                >
-                    <TransformWrapper
-                        initialScale={1}
-                        minScale={0.5}
-                        maxScale={4}
-                        centerOnInit={true}
+            {/* Fullscreen Modal */}
+            {
+                selectedPhotoIndex !== null && filteredPhotos[selectedPhotoIndex] && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+                        onClick={() => setSelectedPhotoIndex(null)}
                     >
-                        {({ zoomIn, zoomOut, resetTransform }) => (
-                            <React.Fragment>
-                                <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50 bg-black/50 rounded-full px-4 py-2 backdrop-blur-sm">
-                                    <button
-                                        onClick={() => zoomOut()}
-                                        className="p-1.5 text-white/75 hover:text-white transition-colors"
-                                        title="Dézoomer"
-                                    >
-                                        <ZoomOut className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => resetTransform()}
-                                        className="p-1.5 text-white/75 hover:text-white transition-colors"
-                                        title="Réinitialiser"
-                                    >
-                                        <RotateCcw className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => zoomIn()}
-                                        className="p-1.5 text-white/75 hover:text-white transition-colors"
-                                        title="Zoomer"
-                                    >
-                                        <ZoomIn className="w-5 h-5" />
-                                    </button>
-                                </div>
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setSelectedPhotoIndex(null)}
+                            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 z-50"
+                        >
+                            <X className="w-8 h-8" />
+                        </button>
 
-                                <TransformComponent
-                                    wrapperClass="!w-full !h-full flex items-center justify-center"
-                                    contentClass="!w-full !h-full flex items-center justify-center"
-                                >
-                                    <img
-                                        src={filteredPhotos[selectedPhotoIndex].photo_url}
-                                        alt="Plein écran"
-                                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl select-none"
-                                        draggable="false"
-                                    />
-                                </TransformComponent>
-                            </React.Fragment>
-                        )}
-                    </TransformWrapper>
-                </div>
+                        {/* Previous Button */}
+                        <button
+                            onClick={handlePrev}
+                            className="absolute left-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 hidden md:block z-50"
+                        >
+                            <ChevronLeft className="w-10 h-10" />
+                        </button>
 
-                {/* Next Button */}
-                <button
-                    onClick={handleNext}
-                    className="absolute right-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 hidden md:block z-50"
-                >
-                    <ChevronRight className="w-10 h-10" />
-                </button>
+                        {/* Image Container with Swipe Handlers */}
+                        <div
+                            className="w-full h-full flex items-center justify-center p-4 overflow-hidden"
+                            onTouchStart={onTouchStart}
+                            onTouchMove={onTouchMove}
+                            onTouchEnd={onTouchEnd}
+                            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image area
+                        >
+                            <TransformWrapper
+                                initialScale={1}
+                                minScale={0.5}
+                                maxScale={4}
+                                centerOnInit={true}
+                            >
+                                {({ zoomIn, zoomOut, resetTransform }) => (
+                                    <React.Fragment>
+                                        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50 bg-black/50 rounded-full px-4 py-2 backdrop-blur-sm">
+                                            <button
+                                                onClick={() => zoomOut()}
+                                                className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                                title="Dézoomer"
+                                            >
+                                                <ZoomOut className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => resetTransform()}
+                                                className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                                title="Réinitialiser"
+                                            >
+                                                <RotateCcw className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => zoomIn()}
+                                                className="p-1.5 text-white/75 hover:text-white transition-colors"
+                                                title="Zoomer"
+                                            >
+                                                <ZoomIn className="w-5 h-5" />
+                                            </button>
+                                        </div>
 
-                {/* Counter */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                    {selectedPhotoIndex + 1} / {filteredPhotos.length}
-                </div>
-            </div>
-        )
-    }
+                                        <TransformComponent
+                                            wrapperClass="!w-full !h-full flex items-center justify-center"
+                                            contentClass="!w-full !h-full flex items-center justify-center"
+                                        >
+                                            <img
+                                                src={filteredPhotos[selectedPhotoIndex].photo_url}
+                                                alt="Plein écran"
+                                                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl select-none"
+                                                draggable="false"
+                                            />
+                                        </TransformComponent>
+                                    </React.Fragment>
+                                )}
+                            </TransformWrapper>
+                        </div>
+
+                        {/* Next Button */}
+                        <button
+                            onClick={handleNext}
+                            className="absolute right-4 p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 hidden md:block z-50"
+                        >
+                            <ChevronRight className="w-10 h-10" />
+                        </button>
+
+                        {/* Counter */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                            {selectedPhotoIndex + 1} / {filteredPhotos.length}
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 };
