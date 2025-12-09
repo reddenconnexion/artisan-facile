@@ -37,6 +37,10 @@ const PublicQuote = () => {
 
     const handleDownload = () => {
         if (!quote) return;
+        if (quote.original_pdf_url) {
+            window.open(quote.original_pdf_url, '_blank');
+            return;
+        }
         const isInvoice = quote.status === 'accepted';
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
@@ -182,37 +186,47 @@ const PublicQuote = () => {
                         </div>
                     )}
 
-                    {/* Items Table */}
-                    <div className="overflow-x-auto mb-8">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b-2 border-gray-100">
-                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
-                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
-                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
-                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {quote.items.map((item, idx) => (
-                                    <tr key={idx} className="group hover:bg-gray-50/50">
-                                        <td className="py-4 px-2 text-gray-900 font-medium">
-                                            {item.description}
-                                        </td>
-                                        <td className="py-4 px-2 text-gray-600 text-right">
-                                            {item.quantity}
-                                        </td>
-                                        <td className="py-4 px-2 text-gray-600 text-right">
-                                            {item.price.toFixed(2)} €
-                                        </td>
-                                        <td className="py-4 px-2 text-gray-900 font-medium text-right">
-                                            {(item.quantity * item.price).toFixed(2)} €
-                                        </td>
+                    {/* Content: External PDF or Items Table */}
+                    {quote.original_pdf_url ? (
+                        <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
+                            <iframe
+                                src={quote.original_pdf_url}
+                                className="w-full h-full bg-gray-50"
+                                title="Document du devis"
+                            />
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto mb-8">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-100">
+                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
+                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
+                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
+                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {quote.items.map((item, idx) => (
+                                        <tr key={idx} className="group hover:bg-gray-50/50">
+                                            <td className="py-4 px-2 text-gray-900 font-medium">
+                                                {item.description}
+                                            </td>
+                                            <td className="py-4 px-2 text-gray-600 text-right">
+                                                {item.quantity}
+                                            </td>
+                                            <td className="py-4 px-2 text-gray-600 text-right">
+                                                {item.price.toFixed(2)} €
+                                            </td>
+                                            <td className="py-4 px-2 text-gray-900 font-medium text-right">
+                                                {(item.quantity * item.price).toFixed(2)} €
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Totals */}
                     <div className="border-t border-gray-100 pt-6 flex justify-end">
