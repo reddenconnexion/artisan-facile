@@ -671,6 +671,57 @@ const DevisForm = () => {
         }
     };
 
+    const handleExternalImport = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            toast.error('Seuls les fichiers PDF sont supportés');
+            return;
+        }
+
+        try {
+            setImporting(true);
+            toast.message('Importation du PDF en cours...');
+
+            // 1. Upload File to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${user.id}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('quote_files')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('quote_files')
+                .getPublicUrl(filePath);
+
+            toast.success("PDF importé avec succès !");
+
+            // Update Form Data for External Mode
+            setFormData(prev => ({
+                ...prev,
+                original_pdf_url: publicUrl,
+                is_external: true,
+                // Optional: Try to parse totals if possible, otherwise default to 0
+                manual_total_ht: 0,
+                manual_total_tva: 0,
+                manual_total_ttc: 0
+            }));
+
+        } catch (error) {
+            console.error('External import error:', error);
+            toast.error("Erreur lors de l'import : " + error.message);
+        } finally {
+            setImporting(false);
+            e.target.value = ''; // Reset input
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto pb-12">
             <div className="flex items-center justify-between mb-6">
