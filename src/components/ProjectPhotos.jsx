@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -8,8 +8,12 @@ import { useAuth } from '../context/AuthContext';
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
     const [photos, setPhotos] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [selectedProjectId, setSelectedProjectId] = useState('all'); // 'all', 'uncategorized', or UUID
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [creatingProject, setCreatingProject] = useState(false);
+    const [newProjectName, setNewProjectName] = useState('');
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
 
@@ -134,9 +138,53 @@ const ProjectPhotos = ({ clientId }) => {
 
     useEffect(() => {
         if (clientId && user) {
-            fetchPhotos();
+            Promise.all([fetchPhotos(), fetchProjects()]);
         }
     }, [clientId, user]);
+
+    const fetchProjects = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('client_id', clientId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+            setProjects(data || []);
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+            // Silent fail allowed for projects as table might not exist yet if migration pending
+        }
+    };
+
+    const createProject = async (e) => {
+        e.preventDefault();
+        if (!newProjectName.trim()) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('projects')
+                .insert([{
+                    name: newProjectName.trim(),
+                    client_id: clientId,
+                    user_id: user.id
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setProjects([...projects, data]);
+            setSelectedProjectId(data.id);
+            setNewProjectName('');
+            setCreatingProject(false);
+            toast.success("Chantier créé !");
+        } catch (error) {
+            console.error('Error creating project:', error);
+            toast.error("Erreur lors de la création du chantier");
+        }
+    };
 
     const fetchPhotos = async () => {
         try {
@@ -191,6 +239,7 @@ const ProjectPhotos = ({ clientId }) => {
                                 client_id: clientId,
                                 photo_url: publicUrl,
                                 category: activeTab,
+                                project_id: selectedProjectId === 'all' || selectedProjectId === 'uncategorized' ? null : selectedProjectId,
                                 description: ''
                             }
                         ])
@@ -259,7 +308,15 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
-    const filteredPhotos = photos.filter(p => p.category === activeTab);
+    const filteredPhotos = photos.filter(p => {
+        const matchesCategory = p.category === activeTab;
+        const matchesProject = selectedProjectId === 'all'
+            ? true
+            : selectedProjectId === 'uncategorized'
+                ? p.project_id === null
+                : p.project_id === selectedProjectId;
+        return matchesCategory && matchesProject;
+    });
 
     // Navigation handlers
     const handleNext = (e) => {
@@ -337,6 +394,66 @@ const ProjectPhotos = ({ clientId }) => {
                 <Camera className="w-5 h-5 text-blue-600" />
                 Photos du chantier
             </h3>
+
+            {/* Project Selector */}
+            <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Folder className="w-5 h-5 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Chantier :</span>
+
+                        {!creatingProject ? (
+                            <div className="relative flex-1 sm:flex-none">
+                                <select
+                                    value={selectedProjectId}
+                                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                                    className="block w-full sm:w-64 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="all">Toutes les photos</option>
+                                    <option value="uncategorized">Non classé (Général)</option>
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <form onSubmit={createProject} className="flex gap-2 flex-1 sm:flex-none">
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    placeholder="Nom du chantier..."
+                                    value={newProjectName}
+                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    className="block w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <button
+                                    type="submit"
+                                    className="px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 whitespace-nowrap"
+                                >
+                                    OK
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCreatingProject(false)}
+                                    className="px-3 py-2 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </form>
+                        )}
+                    </div>
+
+                    {!creatingProject && (
+                        <button
+                            onClick={() => setCreatingProject(true)}
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors ml-auto sm:ml-0"
+                        >
+                            <FolderPlus className="w-4 h-4" />
+                            Nouveau chantier
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {/* Tabs */}
             <div className="flex border-b border-gray-200 mb-6">
