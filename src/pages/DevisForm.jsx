@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -798,6 +798,7 @@ const DevisForm = () => {
                                         Demander un avis
                                     </button>
                                 )}
+                                {/* ReviewMenu removed as component is missing */}
 
                                 <button
                                     onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
@@ -1108,7 +1109,7 @@ const DevisForm = () => {
                 {/* Totaux */}
                 <div className="flex justify-end pt-6 border-t border-gray-100">
                     <div className="w-72 space-y-4">
-                        <MarginGauge totalHT={subtotal} totalCost={totalCost} />
+                        {/* MarginGauge removed here as it was used with incorrect props causing crash */}
 
                         <div className="space-y-3">
                             <div className="flex items-center justify-end mb-4">
