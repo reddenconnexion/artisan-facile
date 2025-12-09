@@ -80,7 +80,6 @@ const DevisForm = () => {
         notes: '',
         status: 'draft',
         include_tva: true,
-        include_tva: true,
         original_pdf_url: null,
         is_external: false,
         manual_total_ht: 0,
@@ -176,7 +175,6 @@ const DevisForm = () => {
                     items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
                     status: data.status || 'draft',
-                    include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0), // Heuristic: if TVA > 0, it was included. If both 0, assume included by default or check logic.
                     include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0),
                     original_pdf_url: data.original_pdf_url || null,
                     is_external: data.is_external || false,
@@ -355,10 +353,6 @@ const DevisForm = () => {
                     price: parseFloat(i.price) || 0,
                     buying_price: parseFloat(i.buying_price) || 0
                 })),
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                notes: formData.notes,
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
