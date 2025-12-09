@@ -30,6 +30,8 @@ const DevisList = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const [statusFilter, setStatusFilter] = useState('all');
+
     useEffect(() => {
         if (user) {
             fetchDevis();
@@ -53,10 +55,14 @@ const DevisList = () => {
         }
     };
 
-    const filteredDevis = devisList.filter(devis =>
-        (devis.client_name && devis.client_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        devis.id.toString().includes(searchTerm)
-    );
+    const filteredDevis = devisList.filter(devis => {
+        const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            devis.id.toString().includes(searchTerm);
+
+        const matchesStatus = statusFilter === 'all' || devis.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
 
     if (loading) {
         return <div className="flex justify-center items-center h-64">Chargement...</div>;
@@ -76,7 +82,7 @@ const DevisList = () => {
             </div>
 
             {/* Filtres et Recherche */}
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search className="h-5 w-5 text-gray-400" />
@@ -88,6 +94,24 @@ const DevisList = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                    {['all', 'draft', 'sent', 'accepted', 'billed'].map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => setStatusFilter(status)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${statusFilter === status
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                        >
+                            {status === 'all' && 'Tous'}
+                            {status === 'draft' && 'Brouillons'}
+                            {status === 'sent' && 'Envoyés'}
+                            {status === 'accepted' && 'Signés'}
+                            {status === 'billed' && 'Facturés'}
+                        </button>
+                    ))}
                 </div>
             </div>
 
