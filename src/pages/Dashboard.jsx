@@ -44,14 +44,15 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
         try {
-            // 1. Chiffre d'affaires
-            const { data: acceptedQuotes, error: quotesError } = await supabase
+            // 1. Chiffre d'affaires (Encaissé uniquement)
+            const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
                 .select('total_ht')
-                .in('status', ['accepted', 'billed', 'paid']);
+                .eq('status', 'paid');
 
             if (quotesError) throw quotesError;
-            const turnover = acceptedQuotes.reduce((sum, quote) => sum + (quote.total_ht || 0), 0);
+
+            const turnover = paidQuotes.reduce((sum, quote) => sum + (quote.total_ht || 0), 0);
 
             // 2. Nombre de clients
             const { count: clientCount, error: clientsError } = await supabase
@@ -190,7 +191,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
-                    title="Chiffre d'affaires (HT)"
+                    title="Chiffre d'affaires (Encaissé)"
                     value={loading ? "..." : `${stats.turnover.toFixed(2)} €`}
                     icon={TrendingUp}
                     color="bg-green-500"
