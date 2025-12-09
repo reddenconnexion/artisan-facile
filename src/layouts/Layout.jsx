@@ -15,6 +15,15 @@ const Layout = () => {
   const { signOut } = useAuth();
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
 
+  const navigation = [
+    { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
+    { name: 'Agenda', href: '/app/agenda', icon: Calendar },
+    { name: 'Clients', href: '/app/clients', icon: Users },
+    { name: 'CRM / Suivi', href: '/app/crm', icon: Kanban },
+    { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+    { name: 'Bibliothèque', href: '/app/library', icon: BookOpen },
+  ];
+
   React.useEffect(() => {
     if (transcript) {
       const feedback = processVoiceCommand(transcript, navigate);
