@@ -275,6 +275,10 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         return doc.output('bloburl');
     }
 
+    if (returnType === 'dataurl') {
+        return doc.output('datauristring');
+    }
+
     // Just save if we haven't returned yet.
     doc.save(fileName);
 };

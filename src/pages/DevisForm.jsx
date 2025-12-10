@@ -680,11 +680,12 @@ const DevisForm = () => {
             };
 
             console.log("Generating preview with:", { devisData, selectedClient, userProfile });
-            const url = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, true);
+            // Use 'dataurl' instead of true/bloburl to avoid potential blob revocation or iframe restrictions
+            const url = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'dataurl');
 
             if (url) {
                 setPreviewUrl(url);
-                console.log("Preview URL set:", url);
+                console.log("Preview URL set (DataURI)");
             } else {
                 throw new Error("La génération du PDF n'a retourné aucune URL");
             }
