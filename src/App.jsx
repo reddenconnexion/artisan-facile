@@ -12,7 +12,14 @@ import Agenda from './pages/Agenda';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PriceLibrary from './pages/PriceLibrary';
-import LandingPage from './pages/LandingPage';
+import Maintenance from './pages/Maintenance';
+import LandingPage from './pages/LandingPage'; // Added this import
+import Profile from './pages/Profile';
+import ClientPortal from './pages/portal/ClientPortal';
+import PublicQuote from './pages/PublicQuote';
+
+import ReloadPrompt from './components/ReloadPrompt';
+import OfflineBanner from './components/OfflineBanner';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -23,13 +30,6 @@ const ProtectedRoute = ({ children }) => {
 
   return children;
 };
-
-import Profile from './pages/Profile';
-import ClientPortal from './pages/portal/ClientPortal';
-import PublicQuote from './pages/PublicQuote';
-
-import ReloadPrompt from './components/ReloadPrompt';
-import OfflineBanner from './components/OfflineBanner';
 
 function App() {
   return (
@@ -58,6 +58,7 @@ function App() {
             <Route path="crm" element={<CRM />} />
             <Route path="devis" element={<DevisList />} />
             <Route path="devis/:id" element={<DevisForm />} />
+            <Route path="maintenance" element={<Maintenance />} />
             <Route path="library" element={<PriceLibrary />} />
             <Route path="settings" element={<Profile />} />
           </Route>

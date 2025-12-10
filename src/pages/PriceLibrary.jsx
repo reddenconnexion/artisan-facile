@@ -108,6 +108,7 @@ const PriceLibrary = () => {
             const price = keys['prix'] || keys['price'] || keys['pu'] || keys['prix unitaire'];
             const unit = keys['unité'] || keys['unit'] || keys['u'] || 'unité';
             const category = keys['catégorie'] || keys['category'] || keys['famille'] || '';
+            const barcode = keys['barcode'] || keys['ean'] || keys['ref'] || keys['référence'] || keys['code-barres'] || '';
 
             if (!description || !price) return null;
 
@@ -116,7 +117,8 @@ const PriceLibrary = () => {
                 description: description,
                 price: parseFloat(String(price).replace(',', '.')) || 0,
                 unit: unit,
-                category: category
+                category: category,
+                barcode: barcode
             };
         }).filter(item => item !== null);
 
@@ -247,7 +249,10 @@ const PriceLibrary = () => {
                             ) : (
                                 filteredItems.map((item) => (
                                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 text-gray-900 font-medium">{item.description}</td>
+                                        <td className="px-6 py-4 text-gray-900 font-medium">
+                                            {item.description}
+                                            {item.barcode && <div className="text-xs text-gray-400 font-mono mt-1">Ref: {item.barcode}</div>}
+                                        </td>
                                         <td className="px-6 py-4 text-gray-500">
                                             {item.category && (
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -353,14 +358,26 @@ const PriceLibrary = () => {
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={newItem.category}
-                                    onChange={e => setNewItem({ ...newItem, category: e.target.value })}
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        value={newItem.category}
+                                        onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres / Ref</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        value={newItem.barcode || ''}
+                                        onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
+                                        placeholder="Scan..."
+                                    />
+                                </div>
                             </div>
                             <button
                                 type="submit"
