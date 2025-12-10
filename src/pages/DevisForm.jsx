@@ -293,9 +293,6 @@ const DevisForm = () => {
                 ? `Veuillez trouver ci-joint votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`
                 : `Veuillez trouver ci-joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
             ``,
-            `Vous pouvez consulter le document en ligne via le lien suivant : `,
-            `${signatureLink} `,
-            ``,
             `Nous restons à votre disposition pour toute question.`,
             ``,
             `Cordialement, `,
@@ -327,9 +324,17 @@ const DevisForm = () => {
     const handleConfirmSendEmail = (subject, body) => {
         if (!emailPreview) return;
 
-        const mailtoUrl = `mailto:${emailPreview.email}?subject = ${encodeURIComponent(subject)}& body=${encodeURIComponent(body)} `;
-        window.location.href = mailtoUrl;
-        toast.success('Application de messagerie ouverte');
+        // 1. Download the PDF automatically
+        handleDownloadPDF(formData.type === 'invoice');
+
+        // 2. Open Mail Client after a short delay
+        const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        setTimeout(() => {
+            window.location.href = mailtoUrl;
+            toast.success('PDF téléchargé ! Pensez à le joindre au mail.');
+        }, 800);
+
         setEmailPreview(null);
     };
 
