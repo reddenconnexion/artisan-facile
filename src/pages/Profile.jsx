@@ -23,7 +23,8 @@ const Profile = () => {
 
         siret: '',
         google_review_url: '',
-        trade: 'general'
+        trade: 'general',
+        iban: ''
     });
 
     useEffect(() => {
@@ -58,7 +59,8 @@ const Profile = () => {
 
                     siret: data.siret || '',
                     google_review_url: data.google_review_url || '',
-                    trade: data.trade || 'general'
+                    trade: data.trade || 'general',
+                    iban: data.iban || ''
                 });
             }
         } catch (error) {
@@ -118,6 +120,7 @@ const Profile = () => {
                     siret: formData.siret,
                     google_review_url: formData.google_review_url,
                     trade: formData.trade,
+                    iban: formData.iban,
                     updated_at: new Date(),
                 })
                 .eq('id', user.id);
@@ -295,6 +298,17 @@ const Profile = () => {
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">IBAN (pour factures)</label>
+                                <input
+                                    type="text"
+                                    name="iban"
+                                    value={formData.iban}
+                                    onChange={handleChange}
+                                    placeholder="FR76 ..."
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>

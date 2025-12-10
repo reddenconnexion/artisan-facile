@@ -80,6 +80,7 @@ const DevisForm = () => {
         ],
         notes: '',
         status: 'draft',
+        type: 'quote', // 'quote' or 'invoice'
         include_tva: true,
         original_pdf_url: null,
         is_external: false,
@@ -176,6 +177,7 @@ const DevisForm = () => {
                     items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
                     status: data.status || 'draft',
+                    type: data.type || 'quote',
                     include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0),
                     original_pdf_url: data.original_pdf_url || null,
                     is_external: data.is_external || false,
@@ -359,6 +361,7 @@ const DevisForm = () => {
                 total_ttc: total,
                 notes: formData.notes,
                 status: formData.status,
+                type: formData.type,
                 original_pdf_url: formData.original_pdf_url,
                 is_external: formData.is_external
             };
@@ -433,6 +436,7 @@ const DevisForm = () => {
                 title: `Facture d'Acompte - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
                 status: 'billed', // Directly billed
+                type: 'invoice',
                 items: [depositItem],
                 total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
                 total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
@@ -502,8 +506,9 @@ const DevisForm = () => {
         }
     };
 
-    const handleDownloadPDF = (isInvoice = false) => {
+    const handleDownloadPDF = (forceInvoice = false) => {
         try {
+            const isInvoice = forceInvoice || formData.type === 'invoice';
             if (!formData.client_id) {
                 toast.error('Veuillez sélectionner un client pour générer le PDF');
                 return;
@@ -549,12 +554,14 @@ const DevisForm = () => {
         try {
             const { error } = await supabase
                 .from('quotes')
-                .update({ status: 'accepted' })
+                .update({ status: 'accepted', type: 'invoice' })
                 .eq('id', id);
 
             if (error) throw error;
 
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
+            if (error) throw error;
+
+            setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
             toast.success('Devis converti en facture');
             handleDownloadPDF(true); // Auto-generate invoice PDF
         } catch (error) {
@@ -732,6 +739,31 @@ const DevisForm = () => {
                     <ArrowLeft className="w-5 h-5 mr-2" />
                     Retour
                 </button>
+
+                {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
+                <div className="flex bg-gray-100 p-1 rounded-lg mx-4">
+                    <button
+                        type="button"
+                        onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        Devis
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
+                            ? 'bg-white text-green-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        Facture
+                    </button>
+                </div>
+
                 <div className="flex gap-2">
                     {/* Primary Actions */}
                     <button

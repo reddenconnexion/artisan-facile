@@ -133,7 +133,7 @@ const DevisList = () => {
                         {filteredDevis.map((devis) => (
                             <tr key={devis.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                                    #{devis.id}
+                                    {devis.type === 'invoice' ? 'FAC' : 'DEV'} #{devis.id}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     <button
@@ -178,7 +178,9 @@ const DevisList = () => {
                     >
                         <div className="flex justify-between items-start">
                             <div>
-                                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">#{devis.id}</span>
+                                <span className={`text-xs font-semibold px-2 py-1 rounded ${devis.type === 'invoice' ? 'text-green-600 bg-green-50' : 'text-blue-600 bg-blue-50'}`}>
+                                    {devis.type === 'invoice' ? 'Facture' : 'Devis'} #{devis.id}
+                                </span>
                                 <h3 className="font-bold text-gray-900 mt-2">{devis.client_name || 'Client inconnu'}</h3>
                                 <p className="text-xs text-gray-500">{new Date(devis.date).toLocaleDateString()}</p>
                             </div>

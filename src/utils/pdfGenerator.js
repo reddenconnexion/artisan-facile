@@ -201,6 +201,48 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         }
     }
 
+    // Informations de paiement (IBAN) pour les factures
+    if (isInvoice && userProfile.iban) {
+        let paymentY = currentY + 40;
+        // Check page break
+        if (paymentY + 30 > 280) {
+            doc.addPage();
+            paymentY = 20;
+        } else if (devis.signature && currentY + 80 > 280) {
+            // If signature was present, we might need more space
+            // Logic already handled page break for signature, but let's be safe for Payment info following signature
+            paymentY = Math.max(paymentY, (doc.lastAutoTable?.finalY || 150) + 50 + (devis.signature ? 40 : 0));
+            // Simplify: just put it at the bottom or after signature
+            paymentY = currentY + (devis.signature ? 50 : 20);
+            if (paymentY + 30 > 280) {
+                doc.addPage();
+                paymentY = 20;
+            }
+        }
+
+        // Render IBAN Box
+        doc.setDrawColor(200, 200, 200);
+        doc.setFillColor(248, 250, 252); // Light gray/blue
+        doc.rect(14, paymentY, 180, 25, 'FD');
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("Informations de paiement", 20, paymentY + 8);
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text("Virement bancaire :", 20, paymentY + 16);
+        doc.setFont(undefined, 'bold');
+        doc.text(`IBAN : ${userProfile.iban}`, 55, paymentY + 16);
+
+        // Optional: BIC if we had it, or just generic instruction
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" dans le libellé du virement.`, 20, paymentY + 22);
+    }
+
     // Pied de page
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
