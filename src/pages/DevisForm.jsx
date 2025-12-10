@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2, Calculator } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import MarginGauge from '../components/MarginGauge';
 import { useVoice } from '../hooks/useVoice';
 import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
 import { getTradeConfig } from '../constants/trades';
+import MaterialsCalculator from '../components/MaterialsCalculator';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -31,6 +32,17 @@ const DevisForm = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [emailPreview, setEmailPreview] = useState(null);
     const fileInputRef = React.useRef(null);
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
+
+    const handleCalculatorApply = (quantity) => {
+        if (activeCalculatorItem !== null) {
+            updateItem(activeCalculatorItem, 'quantity', quantity);
+            setShowCalculator(false);
+            setActiveCalculatorItem(null);
+            toast.success('Quantité mise à jour');
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -1186,15 +1198,24 @@ const DevisForm = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 w-full sm:w-auto">
-                                    <div className="w-20">
+                                    <div className="w-20 relative">
                                         <input
                                             type="number"
                                             placeholder="Qté"
-                                            min="1"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                            min="0"
+                                            step="0.01"
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
                                             value={item.quantity}
                                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
+                                            className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200"
+                                            title="Calculatrice Matériaux"
+                                        >
+                                            <Calculator className="w-3 h-3" />
+                                        </button>
                                     </div>
                                     <div className="w-28">
                                         <input
@@ -1306,6 +1327,13 @@ const DevisForm = () => {
                     />
                 </div>
             </div>
+
+            <MaterialsCalculator
+                isOpen={showCalculator}
+                onClose={() => setShowCalculator(false)}
+                onApply={handleCalculatorApply}
+            />
+
             {/* Signature Modal */}
             <SignatureModal
                 isOpen={showSignatureModal}

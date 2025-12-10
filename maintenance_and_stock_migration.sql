@@ -4,7 +4,7 @@ create table if not exists maintenance_contracts (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   user_id uuid references auth.users not null,
-  client_id uuid references clients on delete cascade not null,
+  client_id bigint references clients on delete cascade not null,
   
   equipment_name text not null, -- ex: Chaudière Saunier Duval
   location text, -- ex: Sous-sol

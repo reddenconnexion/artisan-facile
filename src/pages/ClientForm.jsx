@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { useVoice } from '../hooks/useVoice';
 import ProjectPhotos from '../components/ProjectPhotos';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
+import ClientReferences from '../components/ClientReferences';
 
 const ClientForm = () => {
     const navigate = useNavigate();
@@ -216,6 +217,18 @@ const ClientForm = () => {
                     </div>
                     {activeTab === 'contacts' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
                 </button>
+                {isEditing && (
+                    <button
+                        onClick={() => setActiveTab('materials')}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Palette className="w-4 h-4" />
+                            Matériaux
+                        </div>
+                        {activeTab === 'materials' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                    </button>
+                )}
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('history')}
@@ -434,6 +447,12 @@ const ClientForm = () => {
                             {loading ? 'Enregistrement...' : 'Enregistrer les contacts'}
                         </button>
                     </div>
+                </div>
+            )}
+
+            {activeTab === 'materials' && isEditing && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <ClientReferences clientId={id} />
                 </div>
             )}
 
