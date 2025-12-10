@@ -266,7 +266,7 @@ const DevisForm = () => {
         setPreviewUrl(url);
     };
 
-    const handleSendQuoteEmail = () => {
+    const handleSendQuoteEmail = async () => {
         if (!formData.client_id) {
             toast.error('Veuillez d\'abord sélectionner un client');
             return;
@@ -278,63 +278,94 @@ const DevisForm = () => {
             return;
         }
 
-        const signatureLink = `${window.location.origin} /q/${formData.public_token} `;
-        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+        try {
+            toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
 
-        const isInvoice = formData.type === 'invoice';
-        const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id}`;
+            const isInvoice = formData.type === 'invoice';
+            const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id}`;
+            const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
 
-        const subject = encodeURIComponent(`${docRef} - ${formData.title || 'Projet'} - ${companyName} `);
+            // 1. Generate Blob
+            const devisData = {
+                id: isEditing ? id : 'PROVISOIRE',
+                ...formData,
+                items: formData.items.map(i => ({
+                    ...i,
+                    quantity: parseFloat(i.quantity) || 0,
+                    price: parseFloat(i.price) || 0,
+                    buying_price: parseFloat(i.buying_price) || 0
+                })),
+                total_ht: subtotal,
+                total_tva: tva,
+                total_ttc: total,
+                include_tva: formData.include_tva
+            };
+            const blob = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, true);
 
-        const bodyLines = [
-            `Bonjour ${selectedClient.name}, `,
-            ``,
-            isInvoice
-                ? `Veuillez trouver ci-joint votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`
-                : `Veuillez trouver ci-joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
-            ``,
-            `Nous restons à votre disposition pour toute question.`,
-            ``,
-            `Cordialement, `,
-            `${companyName} `,
-            ``,
-            `---`,
-            `${userProfile?.full_name || ''} `,
-            `${userProfile?.address || ''} `,
-            `${userProfile?.postal_code || ''} ${userProfile?.city || ''} `,
-            `Tél: ${userProfile?.phone || ''} `,
-            `Email: ${userProfile?.professional_email || userProfile?.email || ''} `,
-            `Web: ${userProfile?.website || ''} `,
-            `SIRET: ${userProfile?.siret || ''} `
-        ].filter(line => line.trim() !== ''); // Clean empty lines if data is missing
+            // 2. Upload to Supabase Storage
+            const fileName = `${user.id}/${id}_${Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('quote_files')
+                .upload(fileName, blob, {
+                    contentType: 'application/pdf',
+                    upsert: true
+                });
 
-        const body = bodyLines.join('\n'); // Keep raw for editing in textarea
+            if (uploadError) throw uploadError;
 
-        setEmailPreview({
-            email: selectedClient.email,
-            subject, // Already URL safe? No, wait. 
-            // In the modal we want readable text. 
-            // The previous code did encodeURIComponent immediately. 
-            // Let's store readable strings here and encode only when clicking Send.
-            rawSubject: `${docRef} - ${formData.title || 'Projet'} - ${companyName} `,
-            rawBody: bodyLines.join('\n')
-        });
+            // 3. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('quote_files')
+                .getPublicUrl(fileName);
+
+            toast.dismiss('upload-toast');
+            toast.success("Lien du document généré !");
+
+            const bodyLines = [
+                `Bonjour ${selectedClient.name}, `,
+                ``,
+                isInvoice
+                    ? `Veuillez trouver votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`
+                    : `Veuillez trouver notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`,
+                ``,
+                `${publicUrl}`,
+                ``,
+                `Ce document est téléchargeable au format PDF.`,
+                ``,
+                `Nous restons à votre disposition pour toute question.`,
+                ``,
+                `Cordialement, `,
+                `${companyName} `,
+                ``,
+                `---`,
+                `${userProfile?.full_name || ''} `,
+                `${userProfile?.address || ''} `,
+                `${userProfile?.postal_code || ''} ${userProfile?.city || ''} `,
+                `Tél: ${userProfile?.phone || ''} `,
+                `Email: ${userProfile?.professional_email || userProfile?.email || ''} `,
+                `Web: ${userProfile?.website || ''} `,
+                `SIRET: ${userProfile?.siret || ''} `
+            ].filter(line => line.trim() !== '');
+
+            setEmailPreview({
+                email: selectedClient.email,
+                rawSubject: `${docRef} - ${formData.title || 'Projet'} - ${companyName} `,
+                rawBody: bodyLines.join('\n')
+            });
+
+        } catch (error) {
+            console.error(error);
+            toast.dismiss('upload-toast');
+            toast.error("Erreur lors de la préparation du document");
+        }
     };
 
     const handleConfirmSendEmail = (subject, body) => {
         if (!emailPreview) return;
 
-        // 1. Download the PDF automatically
-        handleDownloadPDF(formData.type === 'invoice');
-
-        // 2. Open Mail Client after a short delay
         const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-        setTimeout(() => {
-            window.location.href = mailtoUrl;
-            toast.success('PDF téléchargé ! Pensez à le joindre au mail.');
-        }, 800);
-
+        window.location.href = mailtoUrl;
+        toast.success('Application de messagerie ouverte');
         setEmailPreview(null);
     };
 

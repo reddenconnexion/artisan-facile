@@ -255,7 +255,7 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     const fileName = isInvoice ? `facture_${devis.id}.pdf` : `devis_${devis.id || 'brouillon'}.pdf`;
 
     if (returnBlob) {
-        return doc.output('bloburl');
+        return doc.output('blob');
     }
 
     doc.save(fileName);
