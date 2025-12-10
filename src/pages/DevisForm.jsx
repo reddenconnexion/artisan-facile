@@ -281,14 +281,19 @@ const DevisForm = () => {
         const signatureLink = `${window.location.origin} /q/${formData.public_token} `;
         const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
 
-        const subject = encodeURIComponent(`Devis ${id} - ${formData.title || 'Projet'} - ${companyName} `);
+        const isInvoice = formData.type === 'invoice';
+        const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id}`;
+
+        const subject = encodeURIComponent(`${docRef} - ${formData.title || 'Projet'} - ${companyName} `);
 
         const bodyLines = [
             `Bonjour ${selectedClient.name}, `,
             ``,
-            `Veuillez trouver ci - joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
+            isInvoice
+                ? `Veuillez trouver ci-joint votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`
+                : `Veuillez trouver ci-joint notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
             ``,
-            `Vous pouvez consulter le détail et signer ce devis directement en ligne en cliquant sur le lien ci - dessous(ou en le copiant dans votre navigateur) : `,
+            `Vous pouvez consulter le document en ligne via le lien suivant : `,
             `${signatureLink} `,
             ``,
             `Nous restons à votre disposition pour toute question.`,
@@ -296,7 +301,7 @@ const DevisForm = () => {
             `Cordialement, `,
             `${companyName} `,
             ``,
-            `-- - `,
+            `---`,
             `${userProfile?.full_name || ''} `,
             `${userProfile?.address || ''} `,
             `${userProfile?.postal_code || ''} ${userProfile?.city || ''} `,
@@ -314,7 +319,7 @@ const DevisForm = () => {
             // In the modal we want readable text. 
             // The previous code did encodeURIComponent immediately. 
             // Let's store readable strings here and encode only when clicking Send.
-            rawSubject: `Devis ${id} - ${formData.title || 'Projet'} - ${companyName} `,
+            rawSubject: `${docRef} - ${formData.title || 'Projet'} - ${companyName} `,
             rawBody: bodyLines.join('\n')
         });
     };
@@ -1354,6 +1359,15 @@ const DevisForm = () => {
                                         value={emailPreview.rawSubject}
                                         onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
                                         className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                    <textarea
+                                        rows={12}
+                                        value={emailPreview.rawBody}
+                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                                     />
                                 </div>
                             </div>
