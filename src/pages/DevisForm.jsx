@@ -647,6 +647,12 @@ const DevisForm = () => {
 
     const handlePreview = () => {
         try {
+            if (!userProfile) {
+                toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
+                fetchUserProfile(); // Try to fetch again just in case
+                return;
+            }
+
             if (!formData.client_id) {
                 toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
                 return;
@@ -673,12 +679,19 @@ const DevisForm = () => {
                 include_tva: formData.include_tva
             };
 
+            console.log("Generating preview with:", { devisData, selectedClient, userProfile });
             const url = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, true);
-            setPreviewUrl(url);
+
+            if (url) {
+                setPreviewUrl(url);
+                console.log("Preview URL set:", url);
+            } else {
+                throw new Error("La génération du PDF n'a retourné aucune URL");
+            }
 
         } catch (error) {
             console.error('Error handling preview:', error);
-            toast.error("Impossible de générer l'aperçu PDF");
+            toast.error("Impossible de générer l'aperçu PDF : " + error.message);
         }
     };
 
