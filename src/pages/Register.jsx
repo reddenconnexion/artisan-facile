@@ -106,10 +106,14 @@ const Register = () => {
                             >
                                 <option value="" disabled>Quel est votre corps de métier ?</option>
                                 <option value="plombier">Plombier</option>
-                                <option value="peintre">Peintre</option>
+                                <option value="chauffagiste">Chauffagiste</option>
                                 <option value="electricien">Électricien</option>
+                                <option value="peintre">Peintre</option>
+                                <option value="carreleur">Carreleur</option>
                                 <option value="macon">Maçon</option>
+                                <option value="plaquiste">Plaquiste</option>
                                 <option value="menuisier">Menuisier</option>
+                                <option value="charpentier">Charpentier</option>
                                 <option value="paysagiste">Paysagiste</option>
                                 <option value="multiservice">Multi-services / Bricolage</option>
                                 <option value="autre">Autre (Partir de zéro)</option>

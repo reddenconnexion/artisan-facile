@@ -80,6 +80,50 @@ export const JOB_LIBRARIES = {
         { description: 'Paillage Ecorce de Pin (Sac 50L)', price: 14.00, unit: 'sac', category: 'Plantation' },
         { description: 'Heure de main d\'oeuvre Paysagiste', price: 50.00, unit: 'heure', category: 'Main d\'oeuvre' },
     ],
+    'chauffagiste': [
+        { description: 'Chaudière Gas Condensation 25kW', price: 1800.00, unit: 'unité', category: 'Chauffage' },
+        { description: 'Pompe à Chaleur Air/Eau 8kW', price: 6500.00, unit: 'unité', category: 'Chauffage' },
+        { description: 'Radiateur Acier Blanc HT600 Type 22 (1000W)', price: 150.00, unit: 'unité', category: 'Emetteur' },
+        { description: 'Thermostat Connecté', price: 180.00, unit: 'unité', category: 'Régulation' },
+        { description: 'Entretien Annuel Chaudière Gaz', price: 120.00, unit: 'forfait', category: 'Maintenance' },
+        { description: 'Désembouage Radiateurs (jusqu\'à 8)', price: 450.00, unit: 'forfait', category: 'Maintenance' },
+        { description: 'Tube Cuivre Ø14mm (Barre 2m)', price: 15.50, unit: 'barre', category: 'Tuyauterie' },
+        { description: 'Heure de main d\'oeuvre Chauffagiste', price: 60.00, unit: 'heure', category: 'Main d\'oeuvre' }
+    ],
+    'carreleur': [
+        { description: 'Carrelage Grès Cérame 60x60 (m2)', price: 25.00, unit: 'm2', category: 'Revêtement' },
+        { description: 'Faïence Murale 20x40 (m2)', price: 20.00, unit: 'm2', category: 'Revêtement' },
+        { description: 'Colle Flex (Sac 25kg)', price: 28.00, unit: 'sac', category: 'Consommable' },
+        { description: 'Joint Carrelage Gris (Sac 5kg)', price: 12.00, unit: 'sac', category: 'Consommable' },
+        { description: 'Ragréage Sol (Sac 25kg)', price: 30.00, unit: 'sac', category: 'Préparation' },
+        { description: 'Primaire d\'accrochage (5L)', price: 45.00, unit: 'bidon', category: 'Préparation' },
+        { description: 'Pose Carrelage Sol (m2)', price: 45.00, unit: 'm2', category: 'Main d\'oeuvre' },
+        { description: 'Pose Faïence (m2)', price: 50.00, unit: 'm2', category: 'Main d\'oeuvre' },
+        { description: 'Heure de main d\'oeuvre Carreleur', price: 50.00, unit: 'heure', category: 'Main d\'oeuvre' }
+    ],
+    'plaquiste': [
+        { description: 'Plaque BA13 Standard 250x120', price: 9.50, unit: 'unité', category: 'Plaques' },
+        { description: 'Plaque BA13 Hydrofuge 250x120', price: 16.50, unit: 'unité', category: 'Plaques' },
+        { description: 'Plaque BA13 Phonique 250x120', price: 18.00, unit: 'unité', category: 'Plaques' },
+        { description: 'Montant M48 (3m)', price: 4.80, unit: 'unité', category: 'Ossature' },
+        { description: 'Rail R48 (3m)', price: 4.50, unit: 'unité', category: 'Ossature' },
+        { description: 'Vis Placo 35mm (Boite 1000)', price: 15.00, unit: 'boite', category: 'Consommable' },
+        { description: 'Bande à joint papier (150m)', price: 6.00, unit: 'rouleau', category: 'Consommable' },
+        { description: 'Enduit Joint Prise Rapide (25kg)', price: 25.00, unit: 'sac', category: 'Consommable' },
+        { description: 'Laine de Verre 45mm (Rouleau 15m2)', price: 45.00, unit: 'rouleau', category: 'Isolation' },
+        { description: 'Heure de main d\'oeuvre Plaquiste', price: 50.00, unit: 'heure', category: 'Main d\'oeuvre' }
+    ],
+    'charpentier': [
+        { description: 'Bastaing Sapin 63x175 (4m)', price: 28.00, unit: 'unité', category: 'Bois' },
+        { description: 'Madrier Sapin 75x225 (4m)', price: 45.00, unit: 'unité', category: 'Bois' },
+        { description: 'Chevron Traité 60x80 (4m)', price: 12.00, unit: 'unité', category: 'Bois' },
+        { description: 'Volige 15x150 (Planoc)', price: 9.00, unit: 'm2', category: 'Bois' },
+        { description: 'Liteau 27x40 (ml)', price: 0.80, unit: 'ml', category: 'Bois' },
+        { description: 'Tuile Mécanique Rouge', price: 1.50, unit: 'unité', category: 'Couverture' },
+        { description: 'Écran Sous-Toiture (Rouleau 75m2)', price: 120.00, unit: 'rouleau', category: 'Couverture' },
+        { description: 'Sabot de charpente galva', price: 5.50, unit: 'unité', category: 'Quincaillerie' },
+        { description: 'Heure de main d\'oeuvre Charpentier', price: 55.00, unit: 'heure', category: 'Main d\'oeuvre' }
+    ],
     'multiservice': [
         { description: 'Heure de main d\'oeuvre', price: 45.00, unit: 'heure', category: 'Main d\'oeuvre' },
         { description: 'Forfait Déplacement', price: 40.00, unit: 'forfait', category: 'Déplacement' },
