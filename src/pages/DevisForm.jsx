@@ -248,35 +248,7 @@ const DevisForm = () => {
 
 
 
-    const handlePreview = () => {
-        if (!formData.client_id) {
-            toast.error('Veuillez sélectionner un client');
-            return;
-        }
-        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-        if (!selectedClient) {
-            toast.error('Erreur : Client introuvable');
-            return;
-        }
 
-        const devisData = {
-            id: isEditing ? id : 'PROVISOIRE',
-            ...formData,
-            items: formData.items.map(i => ({
-                ...i,
-                quantity: parseFloat(i.quantity) || 0,
-                price: parseFloat(i.price) || 0,
-                buying_price: parseFloat(i.buying_price) || 0
-            })),
-            total_ht: subtotal,
-            total_tva: tva,
-            total_ttc: total,
-            include_tva: formData.include_tva
-        };
-
-        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice' || formData.status === 'accepted', 'bloburl');
-        setPreviewUrl(url);
-    };
 
     const handleSendQuoteEmail = async () => {
         if (!formData.client_id) {
