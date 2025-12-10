@@ -3,17 +3,63 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
+import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
+import { JOB_LIBRARIES } from '../constants/jobLibraries';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
+
+  // Job Library Hydration Logic
+  React.useEffect(() => {
+    const initLibrary = async () => {
+      if (!user) return;
+
+      const jobType = user.user_metadata?.job_type;
+      // Simple localstorage check to avoid unneccessary DB calls
+      const hasImported = localStorage.getItem(`library_imported_${user.id}`);
+
+      if (jobType && !hasImported && JOB_LIBRARIES[jobType]) {
+        try {
+          // Check if library is effectively empty (safe check before auto-import)
+          const { count, error } = await supabase
+            .from('price_library')
+            .select('*', { count: 'exact', head: true });
+
+          if (!error && count === 0) {
+            // Import default items
+            const itemsToInsert = JOB_LIBRARIES[jobType].map(item => ({
+              ...item,
+              user_id: user.id
+            }));
+
+            const { error: insertError } = await supabase
+              .from('price_library')
+              .insert(itemsToInsert);
+
+            if (!insertError) {
+              toast.success(`Espace configuré pour : ${jobType}. Bibliothèque de prix chargée.`);
+              localStorage.setItem(`library_imported_${user.id}`, 'true');
+            }
+          } else {
+            // Already has data, mark as imported locally to skip next check
+            localStorage.setItem(`library_imported_${user.id}`, 'true');
+          }
+        } catch (err) {
+          console.error("Error hydrating library:", err);
+        }
+      }
+    };
+
+    initLibrary();
+  }, [user]);
 
   const navigation = [
     { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
