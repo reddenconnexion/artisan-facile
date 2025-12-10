@@ -262,7 +262,7 @@ const DevisForm = () => {
             include_tva: formData.include_tva
         };
 
-        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.status === 'accepted', true);
+        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.status === 'accepted', 'bloburl');
         setPreviewUrl(url);
     };
 
@@ -300,7 +300,7 @@ const DevisForm = () => {
                 total_ttc: total,
                 include_tva: formData.include_tva
             };
-            const blob = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, true);
+            const blob = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'blob');
 
             // 2. Upload to Supabase Storage
             const fileName = `${user.id}/${id}_${Date.now()}.pdf`;

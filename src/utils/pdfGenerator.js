@@ -1,7 +1,23 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, returnBlob = false) => {
+export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, returnType = false) => {
+    // ... [existing code]
+
+    // Logic at the end:
+    // If returnType is 'blob' -> return Blob
+    // If returnType is 'bloburl' or true -> return Blob URL (legacy support)
+    // Else check boolean true
+
+    // Simplifying based on usage:
+    // ...
+
+    if (returnType === 'blob') {
+        return doc.output('blob');
+    }
+    if (returnType === 'bloburl' || returnType === true) {
+        return doc.output('bloburl');
+    }
     const doc = new jsPDF();
     const typeDocument = isInvoice ? "FACTURE" : "DEVIS";
     const dateLabel = isInvoice ? "Date de facturation" : "Date d'émission";
@@ -254,9 +270,19 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
 
     const fileName = isInvoice ? `facture_${devis.id}.pdf` : `devis_${devis.id || 'brouillon'}.pdf`;
 
-    if (returnBlob) {
-        return doc.output('blob');
+    if (returnType) {
+        // Fallback for when returnType was used as boolean true in simpler calls
+        // But wait, the logic above handles 'blob' and 'bloburl'. 
+        // If we reach here, returnType is likely false or undefined, so we save.
+        // However, the original code had `if (returnBlob)`. 
+        // We need to return if returnType matches anything we didn't catch or just save.
+        // Actually, let's just remove this block because the checks are done at the top now?
+        // No, the checks at the top return. If we are here, we are saving. 
+        // BUT, what if returnType is `true` (boolean)?
+        // My previous edit added `if (returnType === 'bloburl' || returnType === true)`.
+        // So we are covered. 
     }
 
+    // Just save if we haven't returned yet.
     doc.save(fileName);
 };
