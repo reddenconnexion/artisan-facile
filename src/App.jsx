@@ -17,6 +17,7 @@ import LandingPage from './pages/LandingPage'; // Added this import
 import Profile from './pages/Profile';
 import ClientPortal from './pages/portal/ClientPortal';
 import PublicQuote from './pages/PublicQuote';
+import ActivitySettings from './pages/settings/ActivitySettings';
 
 import MaterialsCalculator from './components/MaterialsCalculator';
 import Rentals from './pages/Rentals';
@@ -64,6 +65,7 @@ function App() {
             <Route path="rentals" element={<Rentals />} />
             <Route path="library" element={<PriceLibrary />} />
             <Route path="settings" element={<Profile />} />
+            <Route path="settings/activity" element={<ActivitySettings />} />
           </Route>
         </Routes>
       </BrowserRouter>

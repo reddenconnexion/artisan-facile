@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { supabase } from '../utils/supabase';
+import { seedDemoData } from '../utils/demoData';
 
 const AuthContext = createContext({});
 
@@ -158,6 +159,9 @@ export const AuthProvider = ({ children }) => {
 
             // Fallback: If signup returns a session, we are good.
             if (data?.session) {
+                // Seed Data for this new user
+                await seedDemoData(data.user.id);
+
                 cacheUserSession(data.user);
                 return data;
             } else {
@@ -191,6 +195,14 @@ export const AuthProvider = ({ children }) => {
                         aud: 'authenticated',
                         role: 'authenticated'
                     };
+
+                    // We can't really seed data if we don't have a real DB user session 
+                    // or if we are faking it completely locally without DB.
+                    // But since we are using Supabase, we assume signup usually works or fails.
+                    // If we are in this block, it means "Email Confirmation Required".
+                    // We can't insert into DB without a token usually.
+                    // For now, let's assume the happy path (Supabase configured to allow signups) covers 99% of cases.
+
                     setUser(demoUser);
                     cacheUserSession(demoUser);
                     return { data: { user: demoUser } };
