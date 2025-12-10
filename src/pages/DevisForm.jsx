@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2, Calculator } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2, Calculator, Layers } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -538,6 +538,80 @@ const DevisForm = () => {
         }
     };
 
+    const handleCreateSituation = async () => {
+        const situationTitle = window.prompt("Intitulé de la situation (ex: Fin des fondations) ?", "Situation de travaux");
+        if (!situationTitle) return;
+
+        const percentageStr = window.prompt("Pourcentage à facturer sur le total TTC ? (ex: 30)", "30");
+        if (!percentageStr) return;
+
+        const percentage = parseFloat(percentageStr);
+        if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
+            toast.error("Pourcentage invalide");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const situationAmount = (total * percentage) / 100;
+            const situationItem = {
+                id: Date.now(),
+                description: `${situationTitle} (${percentage}% sur devis n°${id} - ${formData.title})`,
+                quantity: 1,
+                unit: 'forfait',
+                price: 0, // Calculated below
+                buying_price: 0,
+                type: 'service'
+            };
+
+            const situationData = {
+                user_id: user.id,
+                client_id: formData.client_id,
+                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+                title: `Facture Situation - ${situationTitle}`,
+                date: new Date().toISOString().split('T')[0],
+                status: 'billed', // Default to billed/draft? Usually draft but user flow suggests creating it ready. Let's say draft to allow edit? Deposit generates 'billed'. Let's stick to 'draft' or 'sent'. Billed implies valid invoice.
+                type: 'invoice',
+                items: [situationItem],
+                total_ht: 0,
+                total_tva: 0,
+                total_ttc: 0,
+                parent_id: id,
+                notes: `Facture de situation générée le ${new Date().toLocaleDateString()} depuis devis ${id}`
+            };
+
+            if (formData.include_tva) {
+                situationItem.price = situationAmount / 1.2;
+                situationData.total_ht = situationItem.price;
+                situationData.total_tva = situationAmount - situationItem.price;
+                situationData.total_ttc = situationAmount;
+            } else {
+                situationItem.price = situationAmount;
+                situationData.total_ht = situationAmount;
+                situationData.total_tva = 0;
+                situationData.total_ttc = situationAmount;
+            }
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .insert([situationData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            toast.success("Facture de situation créée !");
+            navigate(`/app/devis/${data.id}`);
+            setShowActionsMenu(false);
+
+        } catch (error) {
+            console.error('Error creating situation:', error);
+            toast.error("Erreur lors de la création de la situation");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
             return;
@@ -901,13 +975,22 @@ const DevisForm = () => {
                                 </button>
 
                                 {id && (formData.status === 'accepted' || formData.status === 'sent') && (
-                                    <button
-                                        onClick={handleCreateDeposit}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
-                                    >
-                                        <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
-                                        Générer Facture d'Acompte
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={handleCreateDeposit}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
+                                        >
+                                            <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
+                                            Générer Facture d'Acompte
+                                        </button>
+                                        <button
+                                            onClick={handleCreateSituation}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-purple-50/50"
+                                        >
+                                            <Layers className="w-4 h-4 mr-3 text-purple-600" />
+                                            Créer Situation de Travaux
+                                        </button>
+                                    </>
                                 )}
 
                                 {id && id !== 'new' && (

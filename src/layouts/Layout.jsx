@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import { supabase } from '../utils/supabase';
@@ -74,6 +74,11 @@ const Layout = () => {
     const jobType = user?.user_metadata?.job_type;
     if (['plombier', 'chauffagiste', 'electricien'].includes(jobType)) {
       nav.splice(3, 0, { name: 'Maintenance', href: '/app/maintenance', icon: Wrench }); // Insert after Clients
+    }
+
+    // Add Rentals for Masonry/Structural/Painters/Landscapers
+    if (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType) {
+      nav.splice(5, 0, { name: 'Locations', href: '/app/rentals', icon: Truck });
     }
 
     return nav;

@@ -1,10 +1,23 @@
 import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 const LandingPage = () => {
-    const { user, loading } = useAuth();
+    const { user, loading, loginAsDemo } = useAuth();
+    const navigate = useNavigate();
+
+    const handleDemoLogin = async () => {
+        try {
+            await loginAsDemo();
+            toast.success("Bienvenue sur la version de démonstration !");
+            navigate('/app');
+        } catch (error) {
+            console.error(error);
+            toast.error("Impossible de créer une session démo.");
+        }
+    };
 
     if (loading) {
         return <div className="flex items-center justify-center h-screen">Chargement...</div>;
@@ -78,12 +91,12 @@ const LandingPage = () => {
                                     Commencer gratuitement
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Link>
-                                <Link
-                                    to="/login"
+                                <button
+                                    onClick={handleDemoLogin}
                                     className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
                                 >
-                                    Déjà un compte ?
-                                </Link>
+                                    Accès Démo (sans inscription)
+                                </button>
                             </>
                         )}
                     </div>
@@ -101,6 +114,23 @@ const LandingPage = () => {
                         <div>
                             <p className="text-3xl font-bold text-gray-900">24/7</p>
                             <p className="text-gray-600">Accessible</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* PDF Preview */}
+                <div className="max-w-5xl mx-auto mt-16 relative z-10">
+                    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 transform rotate-1 hover:rotate-0 transition-transform duration-500">
+                        <img
+                            src="/images/quote_mockup.png"
+                            alt="Exemple de devis professionnel généré par Artisan Facile"
+                            className="w-full h-auto"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+                        <div className="absolute bottom-4 left-4 right-4 text-center">
+                            <span className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium text-gray-800 shadow-sm">
+                                👆 Voici exactement ce que reçoivent vos clients
+                            </span>
                         </div>
                     </div>
                 </div>

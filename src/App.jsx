@@ -18,6 +18,8 @@ import Profile from './pages/Profile';
 import ClientPortal from './pages/portal/ClientPortal';
 import PublicQuote from './pages/PublicQuote';
 
+import MaterialsCalculator from './components/MaterialsCalculator';
+import Rentals from './pages/Rentals';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
 
@@ -59,6 +61,7 @@ function App() {
             <Route path="devis" element={<DevisList />} />
             <Route path="devis/:id" element={<DevisForm />} />
             <Route path="maintenance" element={<Maintenance />} />
+            <Route path="rentals" element={<Rentals />} />
             <Route path="library" element={<PriceLibrary />} />
             <Route path="settings" element={<Profile />} />
           </Route>
