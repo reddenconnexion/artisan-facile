@@ -117,7 +117,7 @@ const ActionableDashboard = ({ user }) => {
                                     <div className="flex items-center">
                                         <div className="w-12 text-center leading-none mr-3">
                                             <span className="block text-xs text-gray-500">{format(parseISO(event.date), 'dd/MM', { locale: fr })}</span>
-                                            <span className="block font-bold text-blue-600">{format(parseISO(event.date), 'HH:mm')}</span>
+                                            <span className="block font-bold text-blue-600">{event.time}</span>
                                         </div>
                                         <div>
                                             <p className="font-medium text-gray-900">{event.title}</p>
