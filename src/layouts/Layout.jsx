@@ -62,23 +62,46 @@ const Layout = () => {
   }, [user]);
 
   const navigation = React.useMemo(() => {
+    // Default settings if not set
+    const jobType = user?.user_metadata?.job_type;
+    const userSettings = user?.user_metadata?.activity_settings || {};
+
+    // Smart defaults equivalent to ActivitySettings.jsx to avoid flickering empty nav
+    const settings = {
+      enable_agenda: userSettings.enable_agenda ?? true,
+      enable_crm: userSettings.enable_crm ?? true,
+      enable_price_library: userSettings.enable_price_library ?? true,
+      enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
+      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType)
+    };
+
     const nav = [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
-      { name: 'Agenda', href: '/app/agenda', icon: Calendar },
-      { name: 'Clients', href: '/app/clients', icon: Users },
-      { name: 'CRM / Suivi', href: '/app/crm', icon: Kanban },
-      { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
-      { name: 'Bibliothèque', href: '/app/library', icon: BookOpen },
     ];
 
-    const jobType = user?.user_metadata?.job_type;
-    if (['plombier', 'chauffagiste', 'electricien'].includes(jobType)) {
-      nav.splice(3, 0, { name: 'Maintenance', href: '/app/maintenance', icon: Wrench }); // Insert after Clients
+    if (settings.enable_agenda) {
+      nav.push({ name: 'Agenda', href: '/app/agenda', icon: Calendar });
     }
 
-    // Add Rentals for Masonry/Structural/Painters/Landscapers
-    if (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType) {
-      nav.splice(5, 0, { name: 'Locations', href: '/app/rentals', icon: Truck });
+    // Clients is always visible (core feature), but CRM (Kanban) is optional
+    nav.push({ name: 'Clients', href: '/app/clients', icon: Users });
+
+    if (settings.enable_crm) {
+      nav.push({ name: 'CRM / Suivi', href: '/app/crm', icon: Kanban });
+    }
+
+    nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });
+
+    if (settings.enable_price_library) {
+      nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
+    }
+
+    if (settings.enable_maintenance) {
+      nav.push({ name: 'Maintenance', href: '/app/maintenance', icon: Wrench });
+    }
+
+    if (settings.enable_rentals) {
+      nav.push({ name: 'Locations', href: '/app/rentals', icon: Truck });
     }
 
     return nav;

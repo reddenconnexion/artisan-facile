@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers } from 'lucide-react';
+import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar } from 'lucide-react';
 
 const ActivitySettings = () => {
     const { user } = useAuth();
@@ -16,7 +16,9 @@ const ActivitySettings = () => {
         enable_deposits: true,
         enable_situations: false,
         enable_signature: true,
-        enable_rentals: false
+        enable_rentals: false,
+        enable_crm: true,
+        enable_agenda: true
     });
 
     useEffect(() => {
@@ -113,7 +115,19 @@ const ActivitySettings = () => {
             key: 'enable_rentals',
             label: 'Suivi Location Matériel',
             description: 'Gérez les locations d\'équipements (échafaudages, mini-pelles...).',
-            icon: ShieldCheck // Using ShieldCheck as placeholder, ideally Truck but imported above
+            icon: ShieldCheck
+        },
+        {
+            key: 'enable_crm',
+            label: 'Gestion Clients (CRM)',
+            description: 'Suivi des fiches clients, historique et notes.',
+            icon: Users
+        },
+        {
+            key: 'enable_agenda',
+            label: 'Agenda Intelligent',
+            description: 'Planification des rendez-vous et chantiers.',
+            icon: Calendar
         }
     ];
 
