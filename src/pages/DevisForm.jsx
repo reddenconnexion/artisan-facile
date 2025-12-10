@@ -262,7 +262,7 @@ const DevisForm = () => {
             include_tva: formData.include_tva
         };
 
-        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.status === 'accepted', 'bloburl');
+        const url = generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice' || formData.status === 'accepted', 'bloburl');
         setPreviewUrl(url);
     };
 
