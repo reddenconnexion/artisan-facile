@@ -1247,12 +1247,36 @@ const DevisForm = () => {
                     </div>
 
                     {formData.original_pdf_url && (
-                        <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[600px]">
-                            <iframe
-                                src={formData.original_pdf_url}
-                                className="w-full h-full"
-                                title="Aperçu PDF"
-                            />
+                        <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[600px] flex flex-col">
+                            <object
+                                data={formData.original_pdf_url}
+                                type="application/pdf"
+                                className="w-full h-full flex-grow"
+                            >
+                                <div className="flex items-center justify-center h-full bg-gray-50 flex-col">
+                                    <p className="text-gray-500 mb-4">L'aperçu n'est pas disponible directement.</p>
+                                    <a
+                                        href={formData.original_pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Ouvrir le PDF
+                                    </a>
+                                </div>
+                            </object>
+                            <div className="p-2 bg-gray-50 text-center text-sm border-t border-gray-200">
+                                <a
+                                    href={formData.original_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 hover:underline flex items-center justify-center gap-2"
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    Ouvrir le document complet dans un nouvel onglet
+                                </a>
+                            </div>
                         </div>
                     )}
 
