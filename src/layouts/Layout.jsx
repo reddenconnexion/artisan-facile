@@ -230,10 +230,7 @@ const Layout = () => {
       {/* Main Container */}
       <div className="flex flex-1 overflow-hidden relative">
 
-        {/* Mobile Header */}
-        <div className="absolute top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-40 flex items-center justify-center px-4 md:hidden">
-          <h1 className="text-xl font-bold text-blue-600">Artisan Facile</h1>
-        </div>
+
 
         {/* Sidebar Overlay for Mobile */}
         {isMobileMenuOpen && (
@@ -307,9 +304,16 @@ const Layout = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden pt-16 md:pt-0">
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
-            <Outlet />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
+          <main className="flex-1 overflow-y-auto">
+            {/* Mobile Header - Scrolls with content */}
+            <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-center px-4 md:hidden flex-shrink-0">
+              <h1 className="text-xl font-bold text-blue-600">Artisan Facile</h1>
+            </div>
+
+            <div className="p-4 md:p-8 pb-24 md:pb-8">
+              <Outlet />
+            </div>
           </main>
 
           <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
