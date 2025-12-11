@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Trash2, Plus, GripVertical, Droplet, Layers } from 'lucide-react';
 import { toast } from 'sonner';
+import { getTradeConfig } from '../constants/trades';
 
 const ClientReferences = ({ clientId }) => {
     const [references, setReferences] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [tradeConfig, setTradeConfig] = useState(null);
     const [newRef, setNewRef] = useState({
-        category: 'peinture',
+        category: '',
         reference: '',
         brand: '',
         location: '',
@@ -16,10 +18,30 @@ const ClientReferences = ({ clientId }) => {
     });
 
     useEffect(() => {
-        if (clientId) {
-            fetchReferences();
-        }
+        const init = async () => {
+            await fetchProfile();
+            if (clientId) await fetchReferences();
+        };
+        init();
     }, [clientId]);
+
+    const fetchProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('profiles').select('trade').eq('id', user.id).single();
+                const tradeKey = data?.trade || 'general';
+                const config = getTradeConfig(tradeKey);
+                setTradeConfig(config);
+                // Set default category
+                if (config.materialCategories && config.materialCategories.length > 0) {
+                    setNewRef(prev => ({ ...prev, category: config.materialCategories[0] }));
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching trade config", e);
+        }
+    };
 
     const fetchReferences = async () => {
         try {
@@ -58,7 +80,7 @@ const ClientReferences = ({ clientId }) => {
             if (error) throw error;
 
             setReferences([data, ...references]);
-            setNewRef({ category: 'peinture', reference: '', brand: '', location: '', notes: '' });
+            setNewRef({ category: tradeConfig?.materialCategories?.[0] || 'autre', reference: '', brand: '', location: '', notes: '' });
             toast.success('Référence ajoutée');
         } catch (error) {
             console.error('Error adding reference:', error);
@@ -94,11 +116,13 @@ const ClientReferences = ({ clientId }) => {
                             value={newRef.category}
                             onChange={e => setNewRef({ ...newRef, category: e.target.value })}
                         >
-                            <option value="peinture">Peinture</option>
-                            <option value="carrelage">Carrelage</option>
-                            <option value="sol_souple">Sol Souple / Parquet</option>
-                            <option value="papier_peint">Papier Peint</option>
-                            <option value="autre">Autre</option>
+                            {tradeConfig?.materialCategories ? (
+                                tradeConfig.materialCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))
+                            ) : (
+                                <option value="autre">Autre</option>
+                            )}
                         </select>
                     </div>
                     <div>
@@ -164,8 +188,8 @@ const ClientReferences = ({ clientId }) => {
                         <div key={ref.id} className="flex items-start justify-between bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
                             <div className="flex items-start space-x-3">
                                 <div className={`p-2 rounded-lg ${ref.category === 'peinture' ? 'bg-pink-50 text-pink-600' :
-                                        ref.category === 'carrelage' ? 'bg-cyan-50 text-cyan-600' :
-                                            'bg-gray-100 text-gray-600'
+                                    ref.category === 'carrelage' ? 'bg-cyan-50 text-cyan-600' :
+                                        'bg-gray-100 text-gray-600'
                                     }`}>
                                     {ref.category === 'peinture' ? <Droplet className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
                                 </div>
