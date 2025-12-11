@@ -930,12 +930,12 @@ const DevisForm = () => {
                     onClick={() => navigate('/app/devis')}
                     className="flex items-center text-gray-600 hover:text-gray-900"
                 >
-                    <ArrowLeft className="w-5 h-5 mr-2" />
-                    Retour
+                    <ArrowLeft className="w-5 h-5 sm:mr-2" />
+                    <span className="hidden sm:inline">Retour</span>
                 </button>
 
                 {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
-                <div className="flex bg-gray-100 p-1 rounded-lg mx-4">
+                <div className="flex bg-gray-100 p-1 rounded-lg mx-2 sm:mx-4">
                     <button
                         type="button"
                         onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
@@ -954,7 +954,7 @@ const DevisForm = () => {
                             : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
-                        Facture
+                        Fac<span className="hidden sm:inline">ture</span>
                     </button>
                 </div>
 
@@ -973,10 +973,10 @@ const DevisForm = () => {
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                        className="flex items-center px-3 sm:px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                     >
-                        <Save className="w-4 h-4 mr-2" />
-                        {loading ? '...' : 'Enregistrer'}
+                        <Save className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">{loading ? '...' : 'Enregistrer'}</span>
                     </button>
 
                     {/* More Actions Dropdown */}
