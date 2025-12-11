@@ -196,10 +196,10 @@ const ClientForm = () => {
                 )}
             </div>
 
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
+            <div className="flex space-x-4 mb-6 border-b border-gray-200 overflow-x-auto pb-0.5">
                 <button
                     onClick={() => setActiveTab('info')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'info' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'info' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4" />
@@ -209,7 +209,7 @@ const ClientForm = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('contacts')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'contacts' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'contacts' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
@@ -220,7 +220,7 @@ const ClientForm = () => {
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('materials')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
                             <Palette className="w-4 h-4" />
@@ -232,7 +232,7 @@ const ClientForm = () => {
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
                             <History className="w-4 h-4" />
