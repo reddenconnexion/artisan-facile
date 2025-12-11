@@ -920,7 +920,7 @@ const DevisForm = () => {
 
         try {
             setImporting(true);
-            toast.message('Importation du PDF en cours...');
+            toast.message('Traitement du PDF en cours...');
 
             // 1. Upload File to Supabase Storage
             const fileExt = file.name.split('.').pop();
@@ -938,14 +938,84 @@ const DevisForm = () => {
                 .from('quote_files')
                 .getPublicUrl(filePath);
 
-            toast.success("PDF importé avec succès !");
+            toast.success("PDF stocké avec succès !");
+
+            // 2. Extract Items for Library
+            try {
+                const text = await extractTextFromPDF(file);
+                const { items: extractedItems } = parseQuoteItems(text);
+
+                if (extractedItems.length > 0) {
+                    // Reuse Upsert Logic
+                    const toInsert = [];
+                    const toUpdate = [];
+                    const seenDescriptions = new Set();
+
+                    const libraryMap = new Map();
+                    if (priceLibrary && priceLibrary.length > 0) {
+                        priceLibrary.forEach(i => {
+                            if (i.description) libraryMap.set(i.description.trim().toLowerCase(), i);
+                        });
+                    }
+
+                    for (const item of extractedItems) {
+                        const desc = item.description?.trim();
+                        if (!desc) continue;
+
+                        const normalizeDesc = desc.toLowerCase();
+                        const price = parseFloat(item.price) || 0;
+
+                        if (seenDescriptions.has(normalizeDesc)) continue;
+                        seenDescriptions.add(normalizeDesc);
+
+                        const existing = libraryMap.get(normalizeDesc);
+
+                        if (existing) {
+                            if (Math.abs((existing.price || 0) - price) > 0.01) {
+                                toUpdate.push({
+                                    ...existing,
+                                    price: price,
+                                    updated_at: new Date()
+                                });
+                            }
+                        } else {
+                            toInsert.push({
+                                user_id: user.id,
+                                description: desc,
+                                price: price,
+                                unit: item.unit || 'u',
+                                type: item.type || 'service'
+                            });
+                        }
+                    }
+
+                    let addedCount = 0;
+                    let updatedCount = 0;
+
+                    if (toInsert.length > 0) {
+                        const { error: insertError } = await supabase.from('price_library').insert(toInsert);
+                        if (!insertError) addedCount = toInsert.length;
+                    }
+                    if (toUpdate.length > 0) {
+                        const { error: updateError } = await supabase.from('price_library').upsert(toUpdate);
+                        if (!updateError) updatedCount = toUpdate.length;
+                    }
+
+                    if (addedCount > 0 || updatedCount > 0) {
+                        toast.success(`Extraction : ${addedCount} articles ajoutés, ${updatedCount} mis à jour en bibliothèque.`);
+                        fetchPriceLibrary();
+                    }
+                }
+            } catch (extractError) {
+                console.error("Extraction error during external import:", extractError);
+                toast.warning("Le PDF est importé, mais l'extraction des articles a échoué.");
+            }
 
             // Update Form Data for External Mode
             setFormData(prev => ({
                 ...prev,
                 original_pdf_url: publicUrl,
                 is_external: true,
-                // Optional: Try to parse totals if possible, otherwise default to 0
                 manual_total_ht: 0,
                 manual_total_tva: 0,
                 manual_total_ttc: 0
