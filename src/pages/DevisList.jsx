@@ -11,6 +11,8 @@ const StatusBadge = ({ status }) => {
         sent: { bg: 'bg-blue-100', text: 'text-blue-700', icon: AlertCircle, label: 'Envoyé' },
         accepted: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle, label: 'Accepté' },
         rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle, label: 'Refusé' },
+        billed: { bg: 'bg-purple-100', text: 'text-purple-700', icon: CheckCircle, label: 'Facturé' },
+        paid: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle, label: 'Payé' },
     };
     const style = styles[status] || styles.draft;
     const Icon = style.icon;
@@ -96,7 +98,7 @@ const DevisList = () => {
                     />
                 </div>
                 <div className="flex bg-gray-100 p-1 rounded-lg">
-                    {['all', 'draft', 'sent', 'accepted', 'billed'].map((status) => (
+                    {['all', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
@@ -110,6 +112,7 @@ const DevisList = () => {
                             {status === 'sent' && 'Envoyés'}
                             {status === 'accepted' && 'Signés'}
                             {status === 'billed' && 'Facturés'}
+                            {status === 'paid' && 'Payés'}
                         </button>
                     ))}
                 </div>
