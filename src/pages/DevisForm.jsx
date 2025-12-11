@@ -424,45 +424,63 @@ const DevisForm = () => {
 
             if (error) throw error;
 
-            // Auto-add items to library
+            // Auto-update/add to library
             try {
-                const newLibraryItems = [];
+                const upsertItems = [];
                 const seenDescriptions = new Set();
 
-                // Retrieve current library descriptions to minimize DB calls (using local state)
-                // Normalize for case-insensitive comparison
-                const existingDescriptions = new Set(priceLibrary.map(i => i?.description?.toLowerCase()).filter(Boolean));
+                // Map description to existing item for quick lookup
+                const libraryMap = new Map();
+                priceLibrary.forEach(i => {
+                    if (i.description) libraryMap.set(i.description.toLowerCase(), i);
+                });
 
                 for (const item of quoteData.items) {
                     const desc = item.description?.trim();
                     if (!desc) continue;
 
                     const normalizeDesc = desc.toLowerCase();
+                    const price = parseFloat(item.price) || 0;
 
-                    if (!existingDescriptions.has(normalizeDesc) && !seenDescriptions.has(normalizeDesc)) {
-                        newLibraryItems.push({
+                    if (seenDescriptions.has(normalizeDesc)) continue;
+                    seenDescriptions.add(normalizeDesc);
+
+                    const existing = libraryMap.get(normalizeDesc);
+
+                    if (existing) {
+                        // Update price if different, or if we want to ensure it's up to date
+                        // Only update if price changed significantly to avoid spam
+                        if (Math.abs((existing.price || 0) - price) > 0.01) {
+                            upsertItems.push({
+                                ...existing,
+                                price: price,
+                                updated_at: new Date()
+                            });
+                        }
+                    } else {
+                        // Insert new
+                        upsertItems.push({
                             user_id: user.id,
-                            description: desc, // Keep original case
-                            price: item.price || 0,
+                            description: desc,
+                            price: price,
                             unit: item.unit || 'u',
                             type: item.type || 'service'
                         });
-                        seenDescriptions.add(normalizeDesc);
                     }
                 }
 
-                if (newLibraryItems.length > 0) {
+                if (upsertItems.length > 0) {
                     const { error: libError } = await supabase
                         .from('price_library')
-                        .insert(newLibraryItems);
+                        .upsert(upsertItems);
 
                     if (!libError) {
-                        toast.success(`${newLibraryItems.length} article(s) ajouté(s) à la bibliothèque`);
+                        toast.success(`Bibliothèque mise à jour (${upsertItems.length} articles)`);
+                        fetchPriceLibrary();
                     }
                 }
             } catch (libErr) {
                 console.error("Auto-add library error", libErr);
-                // Don't block the main success flow
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
