@@ -426,14 +426,17 @@ const DevisForm = () => {
 
             // Auto-update/add to library
             try {
-                const upsertItems = [];
+                const toInsert = [];
+                const toUpdate = [];
                 const seenDescriptions = new Set();
 
                 // Map description to existing item for quick lookup
                 const libraryMap = new Map();
-                priceLibrary.forEach(i => {
-                    if (i.description) libraryMap.set(i.description.toLowerCase(), i);
-                });
+                if (priceLibrary && priceLibrary.length > 0) {
+                    priceLibrary.forEach(i => {
+                        if (i.description) libraryMap.set(i.description.trim().toLowerCase(), i);
+                    });
+                }
 
                 for (const item of quoteData.items) {
                     const desc = item.description?.trim();
@@ -448,10 +451,9 @@ const DevisForm = () => {
                     const existing = libraryMap.get(normalizeDesc);
 
                     if (existing) {
-                        // Update price if different, or if we want to ensure it's up to date
-                        // Only update if price changed significantly to avoid spam
+                        // Update price if different
                         if (Math.abs((existing.price || 0) - price) > 0.01) {
-                            upsertItems.push({
+                            toUpdate.push({
                                 ...existing,
                                 price: price,
                                 updated_at: new Date()
@@ -459,7 +461,7 @@ const DevisForm = () => {
                         }
                     } else {
                         // Insert new
-                        upsertItems.push({
+                        toInsert.push({
                             user_id: user.id,
                             description: desc,
                             price: price,
@@ -469,18 +471,35 @@ const DevisForm = () => {
                     }
                 }
 
-                if (upsertItems.length > 0) {
-                    const { error: libError } = await supabase
-                        .from('price_library')
-                        .upsert(upsertItems);
+                let addedCount = 0;
+                let updatedCount = 0;
 
-                    if (!libError) {
-                        toast.success(`Bibliothèque mise à jour (${upsertItems.length} articles)`);
-                        fetchPriceLibrary();
-                    }
+                if (toInsert.length > 0) {
+                    const { error: insertError } = await supabase
+                        .from('price_library')
+                        .insert(toInsert);
+
+                    if (insertError) throw insertError;
+                    addedCount = toInsert.length;
                 }
+
+                if (toUpdate.length > 0) {
+                    const { error: updateError } = await supabase
+                        .from('price_library')
+                        .upsert(toUpdate);
+
+                    if (updateError) throw updateError;
+                    updatedCount = toUpdate.length;
+                }
+
+                if (addedCount > 0 || updatedCount > 0) {
+                    toast.success(`Bibliothèque : ${addedCount} ajouté(s), ${updatedCount} mis à jour`);
+                    fetchPriceLibrary();
+                }
+
             } catch (libErr) {
                 console.error("Auto-add library error", libErr);
+                toast.error("Erreur sauvegarde bibliothèque : " + (libErr.message || libErr.details));
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
