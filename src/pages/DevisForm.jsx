@@ -424,6 +424,47 @@ const DevisForm = () => {
 
             if (error) throw error;
 
+            // Auto-add items to library
+            try {
+                const newLibraryItems = [];
+                const seenDescriptions = new Set();
+
+                // Retrieve current library descriptions to minimize DB calls (using local state)
+                // Normalize for case-insensitive comparison
+                const existingDescriptions = new Set(priceLibrary.map(i => i?.description?.toLowerCase()).filter(Boolean));
+
+                for (const item of quoteData.items) {
+                    const desc = item.description?.trim();
+                    if (!desc) continue;
+
+                    const normalizeDesc = desc.toLowerCase();
+
+                    if (!existingDescriptions.has(normalizeDesc) && !seenDescriptions.has(normalizeDesc)) {
+                        newLibraryItems.push({
+                            user_id: user.id,
+                            description: desc, // Keep original case
+                            price: item.price || 0,
+                            unit: item.unit || 'u',
+                            type: item.type || 'service'
+                        });
+                        seenDescriptions.add(normalizeDesc);
+                    }
+                }
+
+                if (newLibraryItems.length > 0) {
+                    const { error: libError } = await supabase
+                        .from('price_library')
+                        .insert(newLibraryItems);
+
+                    if (!libError) {
+                        toast.success(`${newLibraryItems.length} article(s) ajouté(s) à la bibliothèque`);
+                    }
+                }
+            } catch (libErr) {
+                console.error("Auto-add library error", libErr);
+                // Don't block the main success flow
+            }
+
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
             navigate('/app/devis');
         } catch (error) {
