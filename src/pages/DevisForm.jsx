@@ -161,7 +161,10 @@ const DevisForm = () => {
             .select('*')
             .eq('id', user.id)
             .single();
-        if (data) setUserProfile({ ...data, email: user.email });
+        if (data) {
+            const settings = user.user_metadata?.activity_settings || {};
+            setUserProfile({ ...data, email: user.email, ...settings });
+        }
     };
 
     const fetchClients = async () => {
@@ -1314,14 +1317,16 @@ const DevisForm = () => {
                                             value={item.quantity}
                                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
-                                            className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200"
-                                            title="Calculatrice Matériaux"
-                                        >
-                                            <Calculator className="w-3 h-3" />
-                                        </button>
+                                        {userProfile?.enable_calculator !== false && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
+                                                className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200"
+                                                title="Calculatrice Matériaux"
+                                            >
+                                                <Calculator className="w-3 h-3" />
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="w-28">
                                         <input

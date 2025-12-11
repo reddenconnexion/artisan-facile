@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers } from 'lucide-react';
 import { TRADE_CONFIG } from '../constants/trades';
 
 const Profile = () => {
@@ -352,10 +352,10 @@ const Profile = () => {
                         {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
                     </button>
                 </div>
-            </form>
+            </form >
 
             {/* Zone de Danger / Maintenance */}
-            <div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden">
+            < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
                         ⚠️ Zone de Maintenance
@@ -405,8 +405,8 @@ const Profile = () => {
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

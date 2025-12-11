@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar } from 'lucide-react';
+import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar, Calculator } from 'lucide-react';
 
 const ActivitySettings = () => {
     const { user } = useAuth();
@@ -18,7 +18,8 @@ const ActivitySettings = () => {
         enable_signature: true,
         enable_rentals: false,
         enable_crm: true,
-        enable_agenda: true
+        enable_agenda: true,
+        enable_calculator: true
     });
 
     useEffect(() => {
@@ -128,6 +129,12 @@ const ActivitySettings = () => {
             label: 'Agenda Intelligent',
             description: 'Planification des rendez-vous et chantiers.',
             icon: Calendar
+        },
+        {
+            key: 'enable_calculator',
+            label: 'Calculatrice de Matériaux',
+            description: 'Estimez les quantités de matériaux (ciment, peinture...) directement depuis le devis.',
+            icon: Calculator
         }
     ];
 
