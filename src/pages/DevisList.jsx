@@ -97,12 +97,12 @@ const DevisList = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-lg">
+                <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto">
                     {['all', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${statusFilter === status
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap flex-shrink-0 ${statusFilter === status
                                 ? 'bg-white text-gray-900 shadow-sm'
                                 : 'text-gray-500 hover:text-gray-900'
                                 }`}
