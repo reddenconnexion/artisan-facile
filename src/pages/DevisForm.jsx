@@ -353,6 +353,21 @@ const DevisForm = () => {
         const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.location.href = mailtoUrl;
         toast.success('Application de messagerie ouverte');
+
+        // Log interaction
+        if (formData.client_id) {
+            supabase.from('client_interactions').insert([{
+                user_id: user.id,
+                client_id: formData.client_id,
+                type: 'email',
+                date: new Date(),
+                details: `Envoi document par email`
+            }]).then(({ error }) => {
+                if (error) console.error('Error logging email interaction:', error);
+                else toast.success('Interaction enregistrée dans l\'historique client');
+            });
+        }
+
         setEmailPreview(null);
     };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette } from 'lucide-react';
+import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -114,6 +114,39 @@ const ClientForm = () => {
             toast.error('Erreur lors du chargement du client');
             console.error('Error fetching client:', error);
             navigate('/app/clients');
+        }
+    };
+
+    const handleContactAction = async (type, value) => {
+        if (!value) {
+            toast.error(`Aucun ${type === 'email' ? 'email' : 'numéro'} défini`);
+            return;
+        }
+
+        if (isEditing) {
+            try {
+                const { error } = await supabase.from('client_interactions').insert([{
+                    user_id: user.id,
+                    client_id: id,
+                    type: type,
+                    date: new Date(),
+                    details: 'Action depuis fiche client'
+                }]);
+
+                if (!error && (type === 'call' || type === 'sms')) {
+                    toast.success('Interaction enregistrée');
+                }
+            } catch (err) {
+                console.error('Log interaction error', err);
+            }
+        }
+
+        if (type === 'email') {
+            window.location.href = `mailto:${value}`;
+        } else if (type === 'call') {
+            window.location.href = `tel:${value}`;
+        } else if (type === 'sms') {
+            window.location.href = `sms:${value}`;
         }
     };
 
@@ -292,9 +325,21 @@ const ClientForm = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <div className="flex justify-between items-center mb-1">
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                    Email
-                                </label>
+                                <div className="flex items-center gap-2">
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                        Email
+                                    </label>
+                                    {isEditing && formData.email && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleContactAction('email', formData.email)}
+                                            className="p-1 text-blue-600 hover:bg-blue-50 rounded-full"
+                                            title="Envoyer un email"
+                                        >
+                                            <Mail className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => toggleDictation('email')}
@@ -315,9 +360,31 @@ const ClientForm = () => {
                         </div>
                         <div>
                             <div className="flex justify-between items-center mb-1">
-                                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                                    Téléphone
-                                </label>
+                                <div className="flex items-center gap-2">
+                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                                        Téléphone
+                                    </label>
+                                    {isEditing && formData.phone && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleContactAction('call', formData.phone)}
+                                                className="p-1 text-green-600 hover:bg-green-50 rounded-full"
+                                                title="Appeler"
+                                            >
+                                                <Phone className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleContactAction('sms', formData.phone)}
+                                                className="p-1 text-blue-600 hover:bg-blue-50 rounded-full"
+                                                title="Envoyer un SMS"
+                                            >
+                                                <MessageSquare className="w-4 h-4" />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => toggleDictation('phone')}
