@@ -141,14 +141,14 @@ const Profile = () => {
 
     return (
         <div className="max-w-4xl mx-auto pb-12">
-            <div className="mb-8 flex justify-between items-center">
+            <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Paramètres de l'entreprise</h2>
                     <p className="text-gray-500 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
                 </div>
                 <a
                     href="/app/settings/activity"
-                    className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                    className="flex items-center justify-center w-full md:w-auto px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
                 >
                     <Building className="w-5 h-5 mr-2" />
                     Gérer mon activité (Fonctionnalités)

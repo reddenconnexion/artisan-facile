@@ -231,18 +231,8 @@ const Layout = () => {
       <div className="flex flex-1 overflow-hidden relative">
 
         {/* Mobile Header */}
-        <div className="absolute top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-40 flex items-center justify-between px-4 md:hidden">
+        <div className="absolute top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-40 flex items-center justify-center px-4 md:hidden">
           <h1 className="text-xl font-bold text-blue-600">Artisan Facile</h1>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
         </div>
 
         {/* Sidebar Overlay for Mobile */}
