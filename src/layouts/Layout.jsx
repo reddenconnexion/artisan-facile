@@ -325,7 +325,7 @@ const Layout = () => {
           <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
 
           {/* Voice Assistant Controls */}
-          <div className="fixed bottom-6 right-6 flex items-center gap-3 z-30">
+          <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
               className="p-3 bg-white text-gray-600 rounded-full shadow-lg hover:bg-gray-50 border border-gray-200 transition-all transform hover:scale-105 active:scale-95"
@@ -344,6 +344,39 @@ const Layout = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Bottom Navigation - Amazon Style */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
+        {[
+          { name: 'Accueil', href: '/app', icon: LayoutDashboard },
+          { name: 'Clients', href: '/app/clients', icon: Users },
+          { name: 'Devis', href: '/app/devis', icon: FileText },
+          // Check if Agenda is in navigation (enabled)
+          ...(navigation.find(n => n.name === 'Agenda') ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
+        ].map((item) => {
+          const isActive = location.pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600' : 'text-gray-500'
+                }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{item.name}</span>
+            </Link>
+          );
+        })}
+
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-blue-600' : 'text-gray-500'
+            }`}
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Menu</span>
+        </button>
       </div>
     </div>
   );
