@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar, Calculator } from 'lucide-react';
+import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar, Calculator, LogOut } from 'lucide-react';
 
 const ActivitySettings = () => {
     const { user } = useAuth();
