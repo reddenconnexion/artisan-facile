@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { toast } from 'sonner';
+import { validatePDF } from './validation';
 
 // Configure worker to use the local file in public folder
 // This avoids all bundler/CDN issues by serving it as a static asset from the same origin.
@@ -7,8 +8,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export const extractTextFromPDF = async (file) => {
     try {
+        // SECURITY: Validate PDF file before processing
+        const validation = await validatePDF(file);
+        if (!validation.valid) {
+            toast.error(validation.error);
+            throw new Error(validation.error);
+        }
+
         toast.info("Lecture du fichier PDF en cours...");
-        console.log("Initializing PDF read with worker at /pdf.worker.min.mjs");
 
         const arrayBuffer = await file.arrayBuffer();
 

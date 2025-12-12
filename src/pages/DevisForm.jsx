@@ -340,11 +340,11 @@ const DevisForm = () => {
 
             if (uploadError) throw uploadError;
 
-            // SECURITY FIX: Use Signed URL instead of Public URL
-            // Valid for 1 year (365 days)
+            // SECURITY: Signed URL valid for 7 days (reduced from 1 year)
+            const SIGNED_URL_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
             const { data: { signedUrl } } = await supabase.storage
                 .from('quote_files')
-                .createSignedUrl(fileName, 31536000);
+                .createSignedUrl(fileName, SIGNED_URL_TTL);
 
             if (!signedUrl) throw new Error("Impossible de générer le lien sécurisé");
 
@@ -360,7 +360,7 @@ const DevisForm = () => {
                 ``,
                 `${signedUrl}`,
                 ``,
-                `Ce lien est valable 1 an.`,
+                `Ce lien est valable 7 jours.`,
                 ``,
                 `Ce document est téléchargeable au format PDF.`,
                 ``,

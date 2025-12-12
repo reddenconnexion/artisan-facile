@@ -4,6 +4,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText, Layers } from 'lucide-react';
 import { TRADE_CONFIG } from '../constants/trades';
+import { validateLogo, validateSiret, validateIban, validateEmail, validatePhone } from '../utils/validation';
 
 const Profile = () => {
     // Component for managing artisan profile settings
@@ -77,7 +78,26 @@ const Profile = () => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const fileExt = file.name.split('.').pop();
+            // SECURITY: Validate file before upload
+            const validation = await validateLogo(file);
+            if (!validation.valid) {
+                toast.error(validation.error);
+                return;
+            }
+
+            // Delete old logo if exists
+            if (formData.logo_url) {
+                try {
+                    const oldPath = formData.logo_url.split('/logos/')[1];
+                    if (oldPath) {
+                        await supabase.storage.from('logos').remove([decodeURIComponent(oldPath)]);
+                    }
+                } catch (e) {
+                    console.warn('Could not delete old logo:', e);
+                }
+            }
+
+            const fileExt = file.name.split('.').pop().toLowerCase();
             const fileName = `${user.id}-${Math.random()}.${fileExt}`;
             const filePath = `${fileName}`;
 

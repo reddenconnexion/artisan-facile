@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { FileText, Camera, Download, Phone, Mail, MapPin, Globe } from 'lucide-react';
+import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, Shield, Lock } from 'lucide-react';
 import { generateDevisPDF } from '../../utils/pdfGenerator';
+import { validateEmail } from '../../utils/validation';
+
+// SECURITY: Enable email verification for portal access
+const REQUIRE_EMAIL_VERIFICATION = true;
 
 const ClientPortal = () => {
     const { token } = useParams();
@@ -11,9 +15,78 @@ const ClientPortal = () => {
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('documents'); // 'documents' or 'photos'
 
+    // SECURITY: Email verification state
+    const [isVerified, setIsVerified] = useState(!REQUIRE_EMAIL_VERIFICATION);
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifying, setVerifying] = useState(false);
+    const [verifyError, setVerifyError] = useState('');
+    const [clientEmail, setClientEmail] = useState(''); // Expected email for hint
+
     useEffect(() => {
-        fetchPortalData();
+        if (REQUIRE_EMAIL_VERIFICATION) {
+            // First, get minimal info to show email hint
+            fetchClientEmailHint();
+        } else {
+            fetchPortalData();
+        }
     }, [token]);
+
+    // SECURITY: Fetch only email hint (masked) for verification prompt
+    const fetchClientEmailHint = async () => {
+        try {
+            const { data: portalData, error } = await supabase
+                .rpc('get_portal_data', { token_input: token });
+
+            if (error) throw error;
+            if (!portalData) throw new Error('Lien invalide ou expiré');
+
+            // Store full data but don't expose until verified
+            setData(portalData);
+
+            // Create masked email hint (jo***@example.com)
+            const email = portalData.client?.email || '';
+            if (email) {
+                const [local, domain] = email.split('@');
+                const masked = local.slice(0, 2) + '***@' + domain;
+                setClientEmail(masked);
+            }
+
+            setLoading(false);
+        } catch (err) {
+            console.error('Error fetching portal data:', err);
+            setError(err.message);
+            setLoading(false);
+        }
+    };
+
+    // SECURITY: Verify email matches client
+    const handleEmailVerification = async (e) => {
+        e.preventDefault();
+        setVerifyError('');
+
+        if (!validateEmail(verifyEmail)) {
+            setVerifyError('Veuillez entrer une adresse email valide');
+            return;
+        }
+
+        setVerifying(true);
+
+        try {
+            // Compare with stored client email (case-insensitive)
+            if (data?.client?.email &&
+                verifyEmail.toLowerCase().trim() === data.client.email.toLowerCase().trim()) {
+                setIsVerified(true);
+                // Log access for security audit
+                console.info('Portal access verified for client:', data.client.name);
+            } else {
+                setVerifyError('Cette adresse email ne correspond pas au client associé à ce lien.');
+            }
+        } catch (err) {
+            setVerifyError('Erreur lors de la vérification');
+        } finally {
+            setVerifying(false);
+        }
+    };
 
     const fetchPortalData = async () => {
         try {
@@ -66,6 +139,78 @@ const ClientPortal = () => {
             </div>
         </div>
     );
+
+    // SECURITY: Show email verification screen if required
+    if (REQUIRE_EMAIL_VERIFICATION && !isVerified && data) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Shield className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">Vérification requise</h1>
+                        <p className="text-gray-600">
+                            Pour accéder à votre espace client, veuillez confirmer votre adresse email.
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleEmailVerification} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Votre adresse email
+                            </label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="email"
+                                    value={verifyEmail}
+                                    onChange={(e) => setVerifyEmail(e.target.value)}
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="exemple@email.com"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                            {clientEmail && (
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Indice : {clientEmail}
+                                </p>
+                            )}
+                        </div>
+
+                        {verifyError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-sm text-red-600">{verifyError}</p>
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={verifying}
+                            className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                            {verifying ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                    Vérification...
+                                </>
+                            ) : (
+                                <>
+                                    <Lock className="w-5 h-5 mr-2" />
+                                    Accéder à mon espace
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    <p className="mt-6 text-xs text-center text-gray-500">
+                        Cette vérification protège vos documents et photos de chantier.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     const { client, artisan, quotes, photos } = data;
 

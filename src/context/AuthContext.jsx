@@ -8,6 +8,9 @@ export const useAuth = () => useContext(AuthContext);
 
 const SESSION_CACHE_KEY = 'cached_user_session';
 
+// SECURITY: Reduced cache validity from 30 days to 4 hours
+const SESSION_CACHE_VALIDITY_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 // Helper to cache user session for offline access
 const cacheUserSession = (user) => {
     if (user) {
@@ -26,14 +29,16 @@ const getCachedSession = () => {
         const cached = localStorage.getItem(SESSION_CACHE_KEY);
         if (cached) {
             const { user, cachedAt } = JSON.parse(cached);
-            // Cache is valid for 30 days
-            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-            if (Date.now() - cachedAt < thirtyDays) {
+            // SECURITY: Cache validity reduced to 4 hours for better security
+            if (Date.now() - cachedAt < SESSION_CACHE_VALIDITY_MS) {
                 return user;
             }
+            // Cache expired - remove it
+            localStorage.removeItem(SESSION_CACHE_KEY);
         }
     } catch (e) {
         console.error('Error reading cached session:', e);
+        localStorage.removeItem(SESSION_CACHE_KEY);
     }
     return null;
 };
@@ -132,9 +137,9 @@ export const AuthProvider = ({ children }) => {
             return supabase.auth.signOut();
         },
         loginAsDemo: async () => {
-            // SECURITY FIX: Use a single shared demo account to prevent database saturation
-            const demoEmail = 'demo@artisan-facile.local'; // Fixed email
-            const demoPassword = 'demo-password-123';
+            // SECURITY: Demo credentials from environment variables
+            const demoEmail = import.meta.env.VITE_DEMO_EMAIL || 'demo@artisan-facile.local';
+            const demoPassword = import.meta.env.VITE_DEMO_PASSWORD || 'demo-password-123';
 
             try {
                 // 1. Try to sign in first
