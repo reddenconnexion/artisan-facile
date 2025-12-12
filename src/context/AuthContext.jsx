@@ -132,83 +132,65 @@ export const AuthProvider = ({ children }) => {
             return supabase.auth.signOut();
         },
         loginAsDemo: async () => {
-            const demoEmail = `demo.${Date.now()}@artisan-facile.local`;
+            // SECURITY FIX: Use a single shared demo account to prevent database saturation
+            const demoEmail = 'demo@artisan-facile.local'; // Fixed email
             const demoPassword = 'demo-password-123';
-            // Create a temporary real account
-            const { data, error } = await supabase.auth.signUp({
-                email: demoEmail,
-                password: demoPassword,
-                options: {
-                    data: {
-                        full_name: 'Compte Démo',
-                        job_type: 'peintre' // Default job type for demo
+
+            try {
+                // 1. Try to sign in first
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email: demoEmail,
+                    password: demoPassword
+                });
+
+                if (signInData?.user) {
+                    cacheUserSession(signInData.user);
+                    return { data: signInData };
+                }
+
+                // 2. If sign in fails (likely user doesn't exist), try to sign up ONE time
+                if (signInError && signInError.message.includes('Invalid login credentials')) {
+                    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                        email: demoEmail,
+                        password: demoPassword,
+                        options: {
+                            data: {
+                                full_name: 'Compte Démo Partagé',
+                                job_type: 'peintre'
+                            }
+                        }
+                    });
+
+                    if (signUpError) throw signUpError;
+
+                    if (signUpData?.user) {
+                        // If we just created it, maybe seed data once?
+                        if (signUpData.session) {
+                            await seedDemoData(signUpData.user.id);
+                            cacheUserSession(signUpData.user);
+                        }
+                        return { data: signUpData };
                     }
                 }
-            });
 
-            if (error) throw error;
+                throw signInError || new Error("Échec connexion démo");
 
-            // Auto login logic is handled by onAuthStateChange listener usually, 
-            // but signUp might not sign in immediately if email confirmation is required?
-            // Supabase default is often "confirm email". If so, this might fail.
-            // If email confirmation is off, it logs in.
-            // Let's assume for this environment email confirmation IS OFF or WE CAN SIGN IN.
+            } catch (error) {
+                console.error("Demo login error:", error);
 
-            // Actually, if we can't ensure email confirmation is off,
-            // we should try to signInAnonymously if supported, but it's not standard in basic setup.
-
-            // Fallback: If signup returns a session, we are good.
-            if (data?.session) {
-                // Seed Data for this new user
-                await seedDemoData(data.user.id);
-
-                cacheUserSession(data.user);
-                return data;
-            } else {
-                // If no session (email confirmation pending), we can't use this strategy easily 
-                // without disabling email confirm in Supabase Dashboard.
-                // Since I cannot access the dashboard of the user, I have to Hope.
-                // But wait, I can modify `loading` state to "fake" it if needed, but RLS won't work.
-
-                // If we have no session, we might be blocked. 
-                // Let's try to just signIn with the credentials we just made? 
-                // No, if confirm is needed, signIn will fail.
-
-                // However, usually for "local" dev environments or many quick starts, email confirm is off.
-                // Let's hope. If not, I will add a fallback to "Fake Mode".
-
-                if (!data.session && data.user) {
-                    // Created but requires confirmation.
-                    // I will Force-Set the user state to this user to allow UI access, 
-                    // BUT RLS will fail.
-
-                    // BETTER PLAN: Use a Mock User that mimics the structure.
-                    // AND: In Layout or App, show a warning that "Backend features might not work without email confirmation".
-                    // OR: Just stick to the Fake User for safety?
-
-                    // Let's try the Signup. If it returns session, great.
-                    // If not, we set a "demoUser" manually.
-                    const demoUser = {
-                        id: 'demo-local-id',
-                        email: demoEmail,
-                        user_metadata: { full_name: 'Artisan Démo (Local)', job_type: 'peintre' },
-                        aud: 'authenticated',
-                        role: 'authenticated'
-                    };
-
-                    // We can't really seed data if we don't have a real DB user session 
-                    // or if we are faking it completely locally without DB.
-                    // But since we are using Supabase, we assume signup usually works or fails.
-                    // If we are in this block, it means "Email Confirmation Required".
-                    // We can't insert into DB without a token usually.
-                    // For now, let's assume the happy path (Supabase configured to allow signups) covers 99% of cases.
-
-                    setUser(demoUser);
-                    cacheUserSession(demoUser);
-                    return { data: { user: demoUser } };
-                }
+                // Fallback: If strict backend protections prevent sign up, use a fake local user
+                // so the user can at least see the UI (but RLS will fail for data fetching)
+                const fakeUser = {
+                    id: 'demo-local-fallback',
+                    email: demoEmail,
+                    user_metadata: { full_name: 'Mode Démo (Hors Ligne)', job_type: 'peintre' },
+                    aud: 'authenticated',
+                    role: 'authenticated'
+                };
+                setUser(fakeUser);
+                cacheUserSession(fakeUser);
+                return { data: { user: fakeUser } };
             }
-            return { data };
         },
         user,
         isOffline,

@@ -208,6 +208,44 @@ const DevisForm = () => {
         }
     };
 
+    // --- SECURITY FIX: SUPPORT PRIVATE BUCKET ---
+    const [displayPdfUrl, setDisplayPdfUrl] = useState(null);
+
+    useEffect(() => {
+        const loadSignedUrl = async () => {
+            if (formData.original_pdf_url) {
+                const url = formData.original_pdf_url;
+                // If it looks like a supabase storage URL for quote_files, we need to sign it
+                if (url.includes('/quote_files/')) {
+                    try {
+                        // Extract path: everything after '/quote_files/'
+                        // This handles both old public URLs and potential new formats
+                        const path = url.split('/quote_files/')[1];
+                        if (path) {
+                            // Generate a signed URL for display (valid 1 hour)
+                            const { data, error } = await supabase.storage
+                                .from('quote_files')
+                                .createSignedUrl(decodeURIComponent(path), 3600);
+
+                            if (data?.signedUrl) {
+                                setDisplayPdfUrl(data.signedUrl);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error signing URL:", e);
+                    }
+                }
+                // Fallback: use usage as-is (might fail if private, but worth a try or it's external)
+                setDisplayPdfUrl(url);
+            } else {
+                setDisplayPdfUrl(null);
+            }
+        };
+        loadSignedUrl();
+    }, [formData.original_pdf_url]);
+    // ------------------------------------------
+
     const tradeConfig = getTradeConfig(userProfile?.trade || 'general');
 
     const addItem = () => {
@@ -300,13 +338,18 @@ const DevisForm = () => {
 
             if (uploadError) throw uploadError;
 
-            // 3. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
+            if (uploadError) throw uploadError;
+
+            // SECURITY FIX: Use Signed URL instead of Public URL
+            // Valid for 1 year (365 days)
+            const { data: { signedUrl } } = await supabase.storage
                 .from('quote_files')
-                .getPublicUrl(fileName);
+                .createSignedUrl(fileName, 31536000);
+
+            if (!signedUrl) throw new Error("Impossible de générer le lien sécurisé");
 
             toast.dismiss('upload-toast');
-            toast.success("Lien du document généré !");
+            toast.success("Lien sécurisé généré !");
 
             const bodyLines = [
                 `Bonjour ${selectedClient.name}, `,
@@ -315,7 +358,9 @@ const DevisForm = () => {
                     ? `Veuillez trouver votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`
                     : `Veuillez trouver notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`,
                 ``,
-                `${publicUrl}`,
+                `${signedUrl}`,
+                ``,
+                `Ce lien est valable 1 an.`,
                 ``,
                 `Ce document est téléchargeable au format PDF.`,
                 ``,
@@ -732,7 +777,7 @@ const DevisForm = () => {
                 include_tva: formData.include_tva
             };
 
-            console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
+            // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
             generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
             toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
         } catch (error) {
@@ -775,7 +820,7 @@ const DevisForm = () => {
                 include_tva: formData.include_tva
             };
 
-            console.log("Generating preview with:", { devisData, selectedClient, userProfile });
+            // console.log("Generating preview with:", { devisData, selectedClient, userProfile });
             // Use 'bloburl' for better compatibility with iframes
             const url = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
 
@@ -1261,17 +1306,17 @@ const DevisForm = () => {
                         </button>
                     </div>
 
-                    {formData.original_pdf_url && (
+                    {displayPdfUrl && (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[600px] flex flex-col">
                             <object
-                                data={formData.original_pdf_url}
+                                data={displayPdfUrl}
                                 type="application/pdf"
                                 className="w-full h-full flex-grow"
                             >
                                 <div className="flex items-center justify-center h-full bg-gray-50 flex-col">
                                     <p className="text-gray-500 mb-4">L'aperçu n'est pas disponible directement.</p>
                                     <a
-                                        href={formData.original_pdf_url}
+                                        href={displayPdfUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -1283,7 +1328,7 @@ const DevisForm = () => {
                             </object>
                             <div className="p-2 bg-gray-50 text-center text-sm border-t border-gray-200">
                                 <a
-                                    href={formData.original_pdf_url}
+                                    href={displayPdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-800 hover:underline flex items-center justify-center gap-2"
