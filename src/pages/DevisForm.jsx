@@ -573,7 +573,9 @@ const DevisForm = () => {
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
 
             // Check if we switched to Paid
+            console.log('Status check:', { current: formData.status, initial: initialStatus });
             if (formData.status === 'paid' && initialStatus !== 'paid') {
+                console.log('Triggering Review Modal');
                 setShowReviewRequestModal(true);
                 setInitialStatus('paid');
                 // Don't navigate yet, let user see the modal
@@ -1258,9 +1260,9 @@ const DevisForm = () => {
 
                                 <div className="border-t border-gray-100 my-1"></div>
 
-                                {formData.status === 'accepted' && (
+                                {['accepted', 'paid', 'billed'].includes(formData.status) && (
                                     <button
-                                        onClick={() => { setShowReviewMenu(!showReviewMenu); setShowActionsMenu(false); }}
+                                        onClick={() => { setShowReviewRequestModal(true); setShowActionsMenu(false); }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     >
                                         <Star className="w-4 h-4 mr-3 text-yellow-500" />
