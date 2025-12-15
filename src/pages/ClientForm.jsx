@@ -28,8 +28,6 @@ const ClientForm = () => {
         address: '',
         notes: '',
         status: 'lead',
-        notes: '',
-        status: 'lead',
         type: 'professional',
         siren: '',
         tva_intracom: '',
@@ -112,12 +110,9 @@ const ClientForm = () => {
                     notes: data.notes || '',
                     status: data.status || 'lead',
                     portal_token: data.portal_token,
-                    notes: data.notes || '',
-                    status: data.status || 'lead',
                     type: data.type || 'professional',
                     siren: data.siren || '',
                     tva_intracom: data.tva_intracom || '',
-                    portal_token: data.portal_token,
                     contacts: data.contacts || []
                 });
             }
