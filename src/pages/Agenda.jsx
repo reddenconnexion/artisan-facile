@@ -28,7 +28,7 @@ const Agenda = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
-    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', date: '' });
+    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '' });
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -232,6 +232,7 @@ const Agenda = () => {
             client_name: event.client_name || '',
             client_id: event.client_id || null,
             address: event.address || '',
+            details: event.details || '',
             date: format(event.date, 'yyyy-MM-dd')
         });
         setShowModal(true);
@@ -264,6 +265,7 @@ const Agenda = () => {
             client_name: '',
             client_id: null,
             address: '',
+            details: '',
             date: format(selectedDate, 'yyyy-MM-dd')
         });
         setShowModal(true);
@@ -475,6 +477,16 @@ const Agenda = () => {
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={newEvent.address}
                                     onChange={e => setNewEvent({ ...newEvent, address: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Détails (Optionnel)</label>
+                                <textarea
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    rows="3"
+                                    value={newEvent.details}
+                                    onChange={e => setNewEvent({ ...newEvent, details: e.target.value })}
+                                    placeholder="Notes sur l'intervention..."
                                 />
                             </div>
                             <div className="flex justify-end space-x-3 pt-4">

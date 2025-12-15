@@ -142,6 +142,11 @@ const ClientHistory = ({ clientId }) => {
                                     <p className="text-sm text-gray-600 mt-0.5">
                                         {event.time} {event.address ? `- ${event.address}` : ''}
                                     </p>
+                                    {event.details && (
+                                        <p className="text-xs text-gray-500 mt-1 italic">
+                                            {event.details}
+                                        </p>
+                                    )}
                                 </div>
                             </li>
                         ))}
