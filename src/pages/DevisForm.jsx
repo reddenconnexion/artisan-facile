@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
+import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
 import { useVoice } from '../hooks/useVoice';
 import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
@@ -34,6 +35,8 @@ const DevisForm = () => {
     const fileInputRef = React.useRef(null);
     const [showCalculator, setShowCalculator] = useState(false);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
+    const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
+    const [initialStatus, setInitialStatus] = useState('draft');
 
     const handleCalculatorApply = (quantity) => {
         if (activeCalculatorItem !== null) {
@@ -98,7 +101,9 @@ const DevisForm = () => {
         is_external: false,
         manual_total_ht: 0,
         manual_total_tva: 0,
-        manual_total_ttc: 0
+        manual_total_ttc: 0,
+        operation_category: 'service',
+        vat_on_debits: false
     });
 
     useEffect(() => {
@@ -198,9 +203,12 @@ const DevisForm = () => {
                     is_external: data.is_external || false,
                     manual_total_ht: data.is_external ? data.total_ht : 0,
                     manual_total_tva: data.is_external ? data.total_tva : 0,
-                    manual_total_ttc: data.is_external ? data.total_ttc : 0
+                    manual_total_ttc: data.is_external ? data.total_ttc : 0,
+                    operation_category: data.operation_category || 'service',
+                    vat_on_debits: data.vat_on_debits === true
                 });
                 setSignature(data.signature || null);
+                setInitialStatus(data.status || 'draft');
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
@@ -325,7 +333,7 @@ const DevisForm = () => {
                 total_ttc: total,
                 include_tva: formData.include_tva
             };
-            const blob = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'blob');
+            const blob = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'blob');
 
             // 2. Upload to Supabase Storage
             const fileName = `${user.id}/${id}_${Date.now()}.pdf`;
@@ -563,7 +571,15 @@ const DevisForm = () => {
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
-            navigate('/app/devis');
+
+            // Check if we switched to Paid
+            if (formData.status === 'paid' && initialStatus !== 'paid') {
+                setShowReviewRequestModal(true);
+                setInitialStatus('paid');
+                // Don't navigate yet, let user see the modal
+            } else {
+                navigate('/app/devis');
+            }
         } catch (error) {
             console.error('Error saving quote:', error);
             toast.error('Erreur lors de la sauvegarde : ' + (error.message || error.details || error.hint || 'Erreur inconnue'));
@@ -746,7 +762,7 @@ const DevisForm = () => {
         }
     };
 
-    const handleDownloadPDF = (forceInvoice = false) => {
+    const handleDownloadPDF = async (forceInvoice = false) => {
         try {
             const isInvoice = forceInvoice || formData.type === 'invoice';
             if (!formData.client_id) {
@@ -778,7 +794,7 @@ const DevisForm = () => {
             };
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
-            generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
+            await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
             toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
         } catch (error) {
             console.error('Error generating PDF:', error);
@@ -786,7 +802,7 @@ const DevisForm = () => {
         }
     };
 
-    const handlePreview = () => {
+    const handlePreview = async () => {
         try {
             if (!userProfile) {
                 toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
@@ -822,7 +838,7 @@ const DevisForm = () => {
 
             // console.log("Generating preview with:", { devisData, selectedClient, userProfile });
             // Use 'bloburl' for better compatibility with iframes
-            const url = generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
+            const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
 
             if (url) {
                 setPreviewUrl(url);
@@ -854,7 +870,7 @@ const DevisForm = () => {
 
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
             toast.success('Devis converti en facture');
-            handleDownloadPDF(true); // Auto-generate invoice PDF
+            await handleDownloadPDF(true); // Auto-generate invoice PDF
         } catch (error) {
             toast.error('Erreur lors de la conversion');
             console.error('Error converting to invoice:', error);
@@ -1467,6 +1483,31 @@ const DevisForm = () => {
                             <option value="cancelled">Annulé</option>
                         </select>
                     </div>
+                    {/* Factur-X Options */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
+                        <select
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2"
+                            value={formData.operation_category}
+                            onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
+                        >
+                            <option value="service">Prestation de services</option>
+                            <option value="goods">Livraison de biens</option>
+                            <option value="mixed">Mixte</option>
+                        </select>
+                        <div className="flex items-center gap-2 mt-2">
+                            <input
+                                type="checkbox"
+                                id="vat_on_debits"
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                checked={formData.vat_on_debits}
+                                onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
+                            />
+                            <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
+                                Option TVA sur les débits
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Lignes du devis */}
@@ -1682,6 +1723,16 @@ const DevisForm = () => {
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
+            />
+
+            <ReviewRequestModal
+                isOpen={showReviewRequestModal}
+                onClose={() => {
+                    setShowReviewRequestModal(false);
+                    navigate('/app/devis');
+                }}
+                client={clients.find(c => c.id == formData.client_id)}
+                userProfile={userProfile}
             />
 
             {/* Preview Modal */}

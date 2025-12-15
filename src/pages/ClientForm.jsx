@@ -28,6 +28,11 @@ const ClientForm = () => {
         address: '',
         notes: '',
         status: 'lead',
+        notes: '',
+        status: 'lead',
+        type: 'professional',
+        siren: '',
+        tva_intracom: '',
         portal_token: null,
         contacts: []
     });
@@ -106,6 +111,12 @@ const ClientForm = () => {
                     address: data.address || '',
                     notes: data.notes || '',
                     status: data.status || 'lead',
+                    portal_token: data.portal_token,
+                    notes: data.notes || '',
+                    status: data.status || 'lead',
+                    type: data.type || 'professional',
+                    siren: data.siren || '',
+                    tva_intracom: data.tva_intracom || '',
                     portal_token: data.portal_token,
                     contacts: data.contacts || []
                 });
@@ -279,6 +290,42 @@ const ClientForm = () => {
             {activeTab === 'info' && (
                 <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
                     <div>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Type de client
+                                </label>
+                                <select
+                                    id="type"
+                                    name="type"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.type}
+                                    onChange={handleChange}
+                                >
+                                    <option value="professional">Professionnel / Entreprise</option>
+                                    <option value="individual">Particulier</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Statut
+                                </label>
+                                <select
+                                    id="status"
+                                    name="status"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                >
+                                    <option value="lead">Prospect</option>
+                                    <option value="contacted">Contacté</option>
+                                    <option value="proposal">Devis en cours</option>
+                                    <option value="signed">Signé</option>
+                                    <option value="lost">Perdu</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div className="flex justify-between items-center mb-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                                 Nom complet / Entreprise *
@@ -303,24 +350,42 @@ const ClientForm = () => {
                         />
                     </div>
 
-                    <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                            Statut
-                        </label>
-                        <select
-                            id="status"
-                            name="status"
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            value={formData.status}
-                            onChange={handleChange}
-                        >
-                            <option value="lead">Prospect</option>
-                            <option value="contacted">Contacté</option>
-                            <option value="proposal">Devis en cours</option>
-                            <option value="signed">Signé</option>
-                            <option value="lost">Perdu</option>
-                        </select>
-                    </div>
+                    {formData.type === 'professional' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label htmlFor="siren" className="block text-sm font-medium text-gray-700 mb-1">
+                                    SIREN (9 chiffres) *
+                                </label>
+                                <input
+                                    type="text"
+                                    id="siren"
+                                    name="siren"
+                                    maxLength={9}
+                                    placeholder="Ex: 123456789"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.siren}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                        setFormData(prev => ({ ...prev, siren: val }));
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="tva_intracom" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Numéro de TVA Intracom.
+                                </label>
+                                <input
+                                    type="text"
+                                    id="tva_intracom"
+                                    name="tva_intracom"
+                                    placeholder="Ex: FR00123456789"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.tva_intracom}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, tva_intracom: e.target.value.toUpperCase() }))}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>

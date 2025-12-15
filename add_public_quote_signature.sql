@@ -54,6 +54,7 @@ END;
 $$;
 
 -- RPC to sign a quote by its public token
+DROP FUNCTION IF EXISTS sign_public_quote(uuid, text);
 CREATE OR REPLACE FUNCTION sign_public_quote(lookup_token UUID, signature_base64 TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql

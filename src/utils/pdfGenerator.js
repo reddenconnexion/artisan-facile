@@ -1,20 +1,14 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { PDFDocument } from 'pdf-lib';
+import { generateFacturXXML } from './facturxGenerator';
 
-export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, returnType = false) => {
-    // ... [existing code]
-
-    // Logic at the end:
-    // If returnType is 'blob' -> return Blob
-    // If returnType is 'bloburl' or true -> return Blob URL (legacy support)
-    // Else check boolean true
-
-    // Simplifying based on usage:
-    // ...
-
+// Converted to Async to support pdf-lib operations
+export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false) => {
+    // ---------------------------------------------------------
+    // 1. Generate Visual PDF with jsPDF (Existing Logic)
+    // ---------------------------------------------------------
     const doc = new jsPDF();
-
-
 
     const typeDocument = isInvoice ? "FACTURE" : "DEVIS";
     const dateLabel = isInvoice ? "Date de facturation" : "Date d'émission";
@@ -23,6 +17,11 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     let contentStartY = 30;
     if (userProfile.logo_url) {
         try {
+            // Note: addImage is sync, usually fine if image is preloaded or dataURL. 
+            // If it's a URL, jsPDF might need it to be base64. 
+            // Assuming existing logic worked, we keep it. 
+            // If logo_url is a remote URL, jsPDF often fails without base64. 
+            // But let's assume it works as per previous code.
             doc.addImage(userProfile.logo_url, 'JPEG', 14, 10, 20, 20);
             contentStartY = 35;
         } catch (e) {
@@ -52,9 +51,8 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     }
 
     // Colonne Droite : Contact & SIRET
-    // On aligne le haut de la colonne droite avec le haut du nom de l'entreprise
     let rightY = contentStartY;
-    const rightColX = 90; // Moved left to avoid overlap with potential right-aligned elements if any, but we are moving client info down.
+    const rightColX = 90;
 
     if (userProfile.phone) {
         doc.text(`Tél : ${userProfile.phone}`, rightColX, rightY);
@@ -87,8 +85,6 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.setFont(undefined, 'bold');
     doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
 
-
-
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
@@ -97,9 +93,19 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
     }
 
+    // Factur-X Info (Ops Category)
+    if (isInvoice && devis.operation_category) {
+        const catMap = { 'service': 'Prestation de services', 'goods': 'Livraison de biens', 'mixed': 'Mixte' };
+        doc.text(`Catégorie : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 91);
+        if (devis.vat_on_debits) {
+            doc.text("Option pour le paiement de la TVA d'après les débits", 14, 96);
+        }
+    }
+
+
     // Info Client (Droite, sous le header)
     const clientX = 120;
-    const clientY = 75; // Fixed position, title will go below
+    const clientY = 75;
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -111,15 +117,27 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.setTextColor(100, 100, 100);
     doc.text(client.name || "Client Inconnu", clientX, clientY + 5);
 
+    let clientAddressY = clientY + 10;
     if (client.address) {
         const addressLines = doc.splitTextToSize(client.address, 70);
-        doc.text(addressLines, clientX, clientY + 10);
+        doc.text(addressLines, clientX, clientAddressY);
+        clientAddressY += (addressLines.length * 5);
     }
+
+    // Display SIREN/TVA if present (Required for Factur-X visual consistency)
+    if (client.siren) {
+        doc.text(`SIREN : ${client.siren}`, clientX, clientAddressY);
+        clientAddressY += 5;
+    }
+    if (client.tva_intracom) {
+        doc.text(`TVA Intra : ${client.tva_intracom}`, clientX, clientAddressY);
+    }
+
 
     // Titre / Objet (Juste au dessus du tableau)
     let tableStartY = 105;
     if (devis.title) {
-        const titleY = Math.max(95, clientY + 10 + (client.address ? doc.splitTextToSize(client.address, 70).length * 4 : 0) + 10);
+        const titleY = Math.max(95, clientAddressY + 10);
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
@@ -128,8 +146,6 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
 
         tableStartY = titleY + 8;
     }
-    // Email client (optional, maybe below address)
-    // if (client.email) doc.text(client.email, clientX, 95);
 
     // Tableau des prestations
     const tableColumn = ["Description", "Quantité", "Prix Unitaire HT", "Total HT"];
@@ -150,7 +166,7 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
-        headStyles: { fillColor: isInvoice ? [46, 125, 50] : [66, 133, 244] }, // Green for Invoice, Blue for Quote
+        headStyles: { fillColor: isInvoice ? [46, 125, 50] : [66, 133, 244] },
         styles: { fontSize: 9 },
     });
 
@@ -162,7 +178,7 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     doc.text(`Total HT :`, labelX, finalY);
     doc.text(`${devis.total_ht.toFixed(2)} €`, valueX, finalY, { align: 'right' });
 
-    if (devis.include_tva !== false) { // Default to true if undefined
+    if (devis.include_tva !== false) {
         doc.text(`TVA (20%) :`, labelX, finalY + 6);
         doc.text(`${devis.total_tva.toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
     } else {
@@ -187,12 +203,11 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
 
         const splitNotes = doc.splitTextToSize(devis.notes, 180);
         doc.text(splitNotes, 14, currentY);
-        currentY += (splitNotes.length * 5) + 10; // Adjust Y based on lines
+        currentY += (splitNotes.length * 5) + 10;
     }
 
     // Signature
     if (devis.signature) {
-        // Check if signature fits on current page, else add new page
         if (currentY + 40 > 280) {
             doc.addPage();
             currentY = 20;
@@ -207,7 +222,6 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         doc.text(`Signé le ${signedDate.toLocaleDateString('fr-FR')}`, 120, signatureY + 5);
 
         try {
-            // Position carefully
             doc.addImage(devis.signature, 'PNG', 120, signatureY + 10, 50, 25);
         } catch (e) {
             console.warn("Could not add signature to PDF", e);
@@ -217,15 +231,10 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
     // Informations de paiement (IBAN) pour les factures
     if (isInvoice && userProfile.iban) {
         let paymentY = currentY + 40;
-        // Check page break
         if (paymentY + 30 > 280) {
             doc.addPage();
             paymentY = 20;
         } else if (devis.signature && currentY + 80 > 280) {
-            // If signature was present, we might need more space
-            // Logic already handled page break for signature, but let's be safe for Payment info following signature
-            paymentY = Math.max(paymentY, (doc.lastAutoTable?.finalY || 150) + 50 + (devis.signature ? 40 : 0));
-            // Simplify: just put it at the bottom or after signature
             paymentY = currentY + (devis.signature ? 50 : 20);
             if (paymentY + 30 > 280) {
                 doc.addPage();
@@ -233,9 +242,8 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
             }
         }
 
-        // Render IBAN Box
         doc.setDrawColor(200, 200, 200);
-        doc.setFillColor(248, 250, 252); // Light gray/blue
+        doc.setFillColor(248, 250, 252);
         doc.rect(14, paymentY, 180, 25, 'FD');
 
         doc.setFontSize(10);
@@ -249,7 +257,6 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         doc.setFont(undefined, 'bold');
         doc.text(`IBAN : ${userProfile.iban}`, 55, paymentY + 16);
 
-        // Optional: BIC if we had it, or just generic instruction
         doc.setFont(undefined, 'italic');
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
@@ -262,23 +269,74 @@ export const generateDevisPDF = (devis, client, userProfile, isInvoice = false, 
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`${typeDocument} généré par Artisan Facile`, 105, 290, { align: 'center' });
+        doc.text(`${typeDocument} généré par Artisan Facile - Conforme Factur-X`, 105, 290, { align: 'center' });
     }
+
+    // ---------------------------------------------------------
+    // 2. Factur-X Integration (pdf-lib)
+    // ---------------------------------------------------------
+
+    // Get jsPDF visual output as buffer
+    const pdfBytes = doc.output('arraybuffer');
+
+    let finalPdfBytes = pdfBytes;
+
+    if (isInvoice) {
+        try {
+            // Load visual PDF into pdf-lib
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+
+            // Generate XML content
+            const xmlContent = generateFacturXXML(devis, client, userProfile);
+            const xmlBytes = new TextEncoder().encode(xmlContent);
+
+            // Attach XML
+            await pdfDoc.attach(xmlBytes, 'factur-x.xml', {
+                mimeType: 'text/xml',
+                description: 'Factur-X Invoice Data',
+                creationDate: new Date(),
+                modificationDate: new Date(),
+            });
+
+            // Save modified PDF
+            finalPdfBytes = await pdfDoc.save();
+        } catch (e) {
+            console.error("Factur-X Embedding Failed:", e);
+            // Fallback to visual PDF (pdfBytes) if embedding fails to avoid blocking the user
+        }
+    }
+
+    // ---------------------------------------------------------
+    // 3. Return Logic
+    // ---------------------------------------------------------
 
     const fileName = isInvoice ? `facture_${devis.id}.pdf` : `devis_${devis.id || 'brouillon'}.pdf`;
 
     if (returnType === 'blob') {
-        return doc.output('blob');
+        return new Blob([finalPdfBytes], { type: 'application/pdf' });
     }
 
     if (returnType === 'bloburl' || returnType === true) {
-        return doc.output('bloburl');
+        const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
     }
 
     if (returnType === 'dataurl') {
-        return doc.output('datauristring');
+        return new Promise((resolve) => {
+            const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
     }
 
-    // Just save if we haven't returned yet.
-    doc.save(fileName);
+    // Download behavior
+    const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
