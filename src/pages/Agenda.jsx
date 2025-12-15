@@ -28,7 +28,7 @@ const Agenda = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
-    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', address: '', date: '' });
+    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', date: '' });
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -70,8 +70,7 @@ const Agenda = () => {
                 supabase.from('clients').select('id, name').ilike('name', `%${clientName}%`).limit(1)
                     .then(({ data }) => {
                         if (data && data.length > 0) {
-                            // The events table uses client_name, not client_id
-                            setNewEvent(prev => ({ ...prev, client_name: data[0].name }));
+                            setNewEvent(prev => ({ ...prev, client_name: data[0].name, client_id: data[0].id }));
                             toast.success(`Client ${data[0].name} associé`);
                         } else {
                             // If not found, just use the spoken name
@@ -217,7 +216,8 @@ const Agenda = () => {
 
             setShowModal(false);
             setEditingEvent(null);
-            setNewEvent({ title: '', time: '', client_name: '', address: '', date: '' });
+
+            setNewEvent({ title: '', time: '', client_name: '', client_id: null, address: '', date: '' });
         } catch (error) {
             toast.error('Erreur lors de la sauvegarde du rendez-vous');
             console.error('Error saving event:', error);
@@ -230,6 +230,7 @@ const Agenda = () => {
             title: event.title,
             time: event.time,
             client_name: event.client_name || '',
+            client_id: event.client_id || null,
             address: event.address || '',
             date: format(event.date, 'yyyy-MM-dd')
         });
@@ -261,6 +262,7 @@ const Agenda = () => {
             title: '',
             time: '',
             client_name: '',
+            client_id: null,
             address: '',
             date: format(selectedDate, 'yyyy-MM-dd')
         });
@@ -451,6 +453,19 @@ const Agenda = () => {
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={newEvent.client_name}
                                     onChange={e => setNewEvent({ ...newEvent, client_name: e.target.value })}
+                                    onBlur={async () => {
+                                        if (newEvent.client_name) {
+                                            const { data } = await supabase.from('clients').select('id, name').ilike('name', newEvent.client_name).limit(1);
+                                            if (data && data.length > 0) {
+                                                setNewEvent(prev => ({ ...prev, client_name: data[0].name, client_id: data[0].id }));
+                                                toast.success('Client identifié : ' + data[0].name);
+                                            } else {
+                                                setNewEvent(prev => ({ ...prev, client_id: null }));
+                                            }
+                                        } else {
+                                            setNewEvent(prev => ({ ...prev, client_id: null }));
+                                        }
+                                    }}
                                 />
                             </div>
                             <div>

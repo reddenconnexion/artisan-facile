@@ -27,6 +27,7 @@ const ClientHistory = ({ clientId }) => {
     const navigate = useNavigate();
     const [history, setHistory] = useState([]);
     const [interactions, setInteractions] = useState([]);
+    const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -37,7 +38,7 @@ const ClientHistory = ({ clientId }) => {
 
     const fetchHistory = async () => {
         try {
-            const [quotesResult, interactionsResult] = await Promise.all([
+            const [quotesResult, interactionsResult, eventsResult] = await Promise.all([
                 supabase
                     .from('quotes')
                     .select('*')
@@ -47,6 +48,11 @@ const ClientHistory = ({ clientId }) => {
                     .from('client_interactions')
                     .select('*')
                     .eq('client_id', clientId)
+                    .order('date', { ascending: false }),
+                supabase
+                    .from('events')
+                    .select('*')
+                    .eq('client_id', clientId)
                     .order('date', { ascending: false })
             ]);
 
@@ -54,8 +60,17 @@ const ClientHistory = ({ clientId }) => {
             // Catch error for interactions quietly in case table is brand new for user
             const loadedInteractions = interactionsResult.data || [];
 
+            // Try to fetch events if the column exists, otherwise ignore (for backward compat during migration)
+            let loadedEvents = [];
+            if (eventsResult.data) {
+                loadedEvents = eventsResult.data;
+            } else if (eventsResult.error && eventsResult.error.code !== '42703') { // 42703 is undefined_column
+                console.error('Error fetching events:', eventsResult.error);
+            }
+
             setHistory(quotesResult.data || []);
             setInteractions(loadedInteractions);
+            setEvents(loadedEvents);
         } catch (error) {
             console.error('Error fetching client history:', error);
         } finally {
@@ -101,6 +116,39 @@ const ClientHistory = ({ clientId }) => {
                             {lastContact.details ? ` - ${lastContact.details}` : ''}
                         </p>
                     </div>
+                </div>
+            )}
+
+
+
+            {/* Interventions (Events) List */}
+            {events.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-medium text-sm text-gray-700 flex justify-between items-center">
+                        <span>Historique des interventions</span>
+                    </div>
+                    <ul className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                        {events.map(event => (
+                            <li key={event.id} className="px-4 py-3 flex items-start space-x-3 hover:bg-gray-50">
+                                <div className="mt-0.5 flex-shrink-0">
+                                    <Calendar className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                            {event.title}
+                                        </p>
+                                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                            {new Date(event.date).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-0.5">
+                                        {event.time} {event.address ? `- ${event.address}` : ''}
+                                    </p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             )}
 
