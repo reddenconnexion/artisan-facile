@@ -194,7 +194,7 @@ const DevisForm = () => {
                     public_token: data.public_token || '',
                     date: data.date,
                     valid_until: data.valid_until || '',
-                    items: data.items.map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
+                    items: (data.items || []).map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
                     status: data.status || 'draft',
                     type: data.type || 'quote',
