@@ -60,13 +60,10 @@ const ClientHistory = ({ clientId }) => {
             // Catch error for interactions quietly in case table is brand new for user
             const loadedInteractions = interactionsResult.data || [];
 
-            // Try to fetch events if the column exists, otherwise ignore (for backward compat during migration)
-            let loadedEvents = [];
-            if (eventsResult.data) {
-                loadedEvents = eventsResult.data;
-            } else if (eventsResult.error && eventsResult.error.code !== '42703') { // 42703 is undefined_column
+            if (eventsResult.error) {
                 console.error('Error fetching events:', eventsResult.error);
             }
+            const loadedEvents = eventsResult.data || [];
 
             setHistory(quotesResult.data || []);
             setInteractions(loadedInteractions);
