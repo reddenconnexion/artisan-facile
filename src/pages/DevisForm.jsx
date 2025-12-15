@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Save, ArrowLeft, FileText, Download, Mail, Send, Eye, Link, PenTool, MoreVertical, X, Star, FileCheck, Upload, Mic, Loader2, Calculator, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -263,11 +263,23 @@ const DevisForm = () => {
         }));
     };
 
-    const removeItem = (itemId) => {
+    const removeItem = (id) => {
         setFormData(prev => ({
             ...prev,
-            items: prev.items.filter(item => item.id !== itemId)
+            items: prev.items.filter(item => item.id !== id)
         }));
+    };
+
+    const moveItem = (index, direction) => {
+        setFormData(prev => {
+            const newItems = [...prev.items];
+            if (direction === 'up' && index > 0) {
+                [newItems[index], newItems[index - 1]] = [newItems[index - 1], newItems[index]];
+            } else if (direction === 'down' && index < newItems.length - 1) {
+                [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+            }
+            return { ...prev, items: newItems };
+        });
     };
 
     const updateItem = (itemId, field, value) => {
@@ -315,7 +327,7 @@ const DevisForm = () => {
             toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
 
             const isInvoice = formData.type === 'invoice';
-            const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id}`;
+            const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id} `;
             const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
 
             // 1. Generate Blob
@@ -1616,6 +1628,26 @@ const DevisForm = () => {
                                     </div>
                                     <div className="w-28 py-2 text-right font-medium text-gray-900">
                                         {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => moveItem(index, 'up')}
+                                            disabled={index === 0}
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                            title="Monter"
+                                        >
+                                            <ArrowUp className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveItem(index, 'down')}
+                                            disabled={index === formData.items.length - 1}
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                            title="Descendre"
+                                        >
+                                            <ArrowDown className="w-4 h-4" />
+                                        </button>
                                     </div>
                                     <button
                                         onClick={() => removeItem(item.id)}
