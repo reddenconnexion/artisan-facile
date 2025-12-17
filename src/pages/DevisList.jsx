@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -28,11 +28,19 @@ const StatusBadge = ({ status }) => {
 const DevisList = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const location = useLocation();
     const [devisList, setDevisList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
+
+    // Reset filter if location state changes (optional, but good if navigating from dashboard again)
+    useEffect(() => {
+        if (location.state?.filter) {
+            setStatusFilter(location.state.filter);
+        }
+    }, [location.state]);
 
     useEffect(() => {
         if (user) {
@@ -61,7 +69,8 @@ const DevisList = () => {
         const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
             devis.id.toString().includes(searchTerm);
 
-        const matchesStatus = statusFilter === 'all' || devis.status === statusFilter;
+        const matchesStatus = statusFilter === 'all' ||
+            (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) : devis.status === statusFilter);
 
         return matchesSearch && matchesStatus;
     });
@@ -98,7 +107,7 @@ const DevisList = () => {
                     />
                 </div>
                 <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto">
-                    {['all', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
+                    {['all', 'pending', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
@@ -108,6 +117,7 @@ const DevisList = () => {
                                 }`}
                         >
                             {status === 'all' && 'Tous'}
+                            {status === 'pending' && 'En attente'}
                             {status === 'draft' && 'Brouillons'}
                             {status === 'sent' && 'Envoyés'}
                             {status === 'accepted' && 'Signés'}

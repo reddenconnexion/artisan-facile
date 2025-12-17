@@ -8,8 +8,11 @@ import { useAuth } from '../context/AuthContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 
-const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
+    <div
+        className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+        onClick={onClick}
+    >
         <div className="flex items-center justify-between">
             <div>
                 <p className="text-sm font-medium text-gray-500">{title}</p>
@@ -370,6 +373,7 @@ const Dashboard = () => {
                     value={loading ? "..." : stats.pendingQuotes}
                     icon={FileCheck}
                     color="bg-orange-500"
+                    onClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
                 />
             </div>
 
