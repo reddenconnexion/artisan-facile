@@ -29,7 +29,7 @@ const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
 // Reusable Rich Card for standard metrics with gauges + charts
 const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, colorHex, stats, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, type = "value", onValueClick }) => {
     const [showChart, setShowChart] = useState(false);
-    const [period, setPeriod] = useState('week');
+    const [period, setPeriod] = useState('month');
 
     // Stats shape: { week: {value, max, chart}, month: {value, max, chart}, year: {value, max, chart} }
 
