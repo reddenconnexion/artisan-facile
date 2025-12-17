@@ -26,6 +26,28 @@ const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     </div>
 );
 
+// Simple Bar helper
+const RevenueBar = ({ label, value, max, color, period, onClick }) => {
+    const percentage = max > 0 ? (value / max) * 100 : 0;
+    return (
+        <div
+            className="flex flex-col gap-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => onClick(period)}
+        >
+            <div className="flex justify-between text-sm font-medium text-gray-700">
+                <span>{label}</span>
+                <span>{value.toFixed(0)} €</span>
+            </div>
+            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div
+                    className={`h-full ${color} rounded-full transition-all duration-500 ease-out`}
+                    style={{ width: `${Math.max(percentage, 2)}%` }} // Min width for visibility
+                />
+            </div>
+        </div>
+    );
+};
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -33,10 +55,6 @@ const Dashboard = () => {
         const cached = localStorage.getItem('dashboard_stats');
         return cached ? JSON.parse(cached) : {
             turnover: 0,
-            turnoverYear: 0,
-            turnoverMonth: 0,
-            turnoverWeek: 0,
-            clientCount: 0,
             turnoverYear: 0,
             turnoverMonth: 0,
             turnoverWeek: 0,
@@ -282,27 +300,7 @@ const Dashboard = () => {
 
     const [selectedPeriod, setSelectedPeriod] = useState(null); // 'week', 'month', 'year'
 
-    // Simple Bar helper
-    const RevenueBar = ({ label, value, max, color, period }) => {
-        const percentage = max > 0 ? (value / max) * 100 : 0;
-        return (
-            <div
-                className="flex flex-col gap-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => setSelectedPeriod(period)}
-            >
-                <div className="flex justify-between text-sm font-medium text-gray-700">
-                    <span>{label}</span>
-                    <span>{value.toFixed(0)} €</span>
-                </div>
-                <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full ${color} rounded-full transition-all duration-500 ease-out`}
-                        style={{ width: `${Math.max(percentage, 2)}%` }} // Min width for visibility
-                    />
-                </div>
-            </div>
-        );
-    };
+
 
 
 
@@ -396,6 +394,7 @@ const Dashboard = () => {
                                 max={stats.turnoverMonth * 1.5 || 1000}
                                 color="bg-green-400"
                                 period="week"
+                                onClick={setSelectedPeriod}
                             />
                             <RevenueBar
                                 label="Ce Mois"
@@ -403,6 +402,7 @@ const Dashboard = () => {
                                 max={stats.turnoverYear * 0.5 || 5000}
                                 color="bg-green-500"
                                 period="month"
+                                onClick={setSelectedPeriod}
                             />
                             <RevenueBar
                                 label="Cette Année"
@@ -410,6 +410,7 @@ const Dashboard = () => {
                                 max={stats.turnoverYear * 1.2 || 10000}
                                 color="bg-green-600"
                                 period="year"
+                                onClick={setSelectedPeriod}
                             />
                         </div>
                     ) : (
