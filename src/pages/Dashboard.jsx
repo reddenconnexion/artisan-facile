@@ -50,7 +50,7 @@ const Dashboard = () => {
             // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status')
+                .select('total_ttc, date, created_at, status, id, clients(name)')
                 .in('status', ['paid', 'accepted', 'billed']); // Include accepted/billed as revenue if paid flow not fully used
 
             if (quotesError) throw quotesError;
@@ -70,6 +70,13 @@ const Dashboard = () => {
             let turnoverMonth = 0;
             let turnoverYear = 0;
 
+            // Store details for interactive view
+            const details = {
+                week: [],
+                month: [],
+                year: []
+            };
+
             paidQuotes.forEach(quote => {
                 const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date || quote.created_at);
@@ -78,14 +85,21 @@ const Dashboard = () => {
 
                 if (qDate >= currentYearStart) {
                     turnoverYear += amount;
+                    details.year.push(quote);
                     if (qDate >= currentMonthStart) {
                         turnoverMonth += amount;
+                        details.month.push(quote);
                         if (qDate >= currentWeekStart) {
                             turnoverWeek += amount;
+                            details.week.push(quote);
                         }
                     }
                 }
             });
+
+            // Fetch names for details if needed (already fetched for recent but full list might be needed)
+            // Optimization: We can just fetch names in the initial query or fetch on click.
+            // Let's modify initial query to include client name for better UX in details.
 
             // 2. Nombre de clients
             const { count: clientCount, error: clientsError } = await supabase
@@ -161,6 +175,7 @@ const Dashboard = () => {
                 turnoverWeek,
                 turnoverMonth,
                 turnoverYear,
+                details, // Save details lists
                 clientCount: clientCount || 0,
                 pendingQuotes: pendingQuotes || 0,
                 recentActivity: activities
@@ -210,11 +225,16 @@ const Dashboard = () => {
         };
     }, [user]);
 
+    const [selectedPeriod, setSelectedPeriod] = useState(null); // 'week', 'month', 'year'
+
     // Simple Bar helper
-    const RevenueBar = ({ label, value, max, color }) => {
+    const RevenueBar = ({ label, value, max, color, period }) => {
         const percentage = max > 0 ? (value / max) * 100 : 0;
         return (
-            <div className="flex flex-col gap-1 w-full">
+            <div
+                className="flex flex-col gap-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setSelectedPeriod(period)}
+            >
                 <div className="flex justify-between text-sm font-medium text-gray-700">
                     <span>{label}</span>
                     <span>{value.toFixed(0)} €</span>
@@ -230,7 +250,48 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* Modal for details */}
+            {selectedPeriod && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPeriod(null)}>
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Détails : {selectedPeriod === 'week' ? 'Cette Semaine' : selectedPeriod === 'month' ? 'Ce Mois' : 'Cette Année'}</h3>
+                            <button onClick={() => setSelectedPeriod(null)} className="p-1 hover:bg-gray-100 rounded-full">
+                                <Plus className="w-5 h-5 rotate-45" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto p-4 space-y-3">
+                            {stats.details && stats.details[selectedPeriod] && stats.details[selectedPeriod].length > 0 ? (
+                                stats.details[selectedPeriod].map(quote => (
+                                    <div key={quote.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                        <div>
+                                            <div className="font-medium text-gray-900">{quote.clients?.name || `Devis #${quote.id}`}</div>
+                                            <div className="text-xs text-gray-500">
+                                                {new Date(quote.date || quote.created_at).toLocaleDateString()} -
+                                                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${quote.status === 'paid' ? 'bg-green-100 text-green-700' :
+                                                    quote.status === 'billed' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                    {quote.status === 'paid' ? 'Payé' : quote.status === 'billed' ? 'Facturé' : 'Signé'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-gray-900">
+                                            {quote.total_ttc?.toFixed(2)} €
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-gray-500 py-4">Aucun élément pour cette période.</p>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 text-right font-bold text-lg">
+                            Total: {stats[`turnover${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}`]?.toFixed(2)} €
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Tableau de bord</h2>
                 <button
@@ -265,18 +326,21 @@ const Dashboard = () => {
                             value={stats.turnoverWeek || 0}
                             max={stats.turnoverMonth * 1.5 || 1000} // Scale relatively
                             color="bg-green-400"
+                            period="week"
                         />
                         <RevenueBar
                             label="Ce Mois"
                             value={stats.turnoverMonth || 0}
                             max={stats.turnoverYear * 0.5 || 5000} // Scale relatively
                             color="bg-green-500"
+                            period="month"
                         />
                         <RevenueBar
                             label="Cette Année"
                             value={stats.turnoverYear || 0}
                             max={stats.turnoverYear * 1.2 || 10000} // Self scale roughly
                             color="bg-green-600"
+                            period="year"
                         />
                     </div>
                 </div>
