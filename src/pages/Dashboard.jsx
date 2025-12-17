@@ -29,6 +29,9 @@ const Dashboard = () => {
         const cached = localStorage.getItem('dashboard_stats');
         return cached ? JSON.parse(cached) : {
             turnover: 0,
+            turnoverYear: 0,
+            turnoverMonth: 0,
+            turnoverWeek: 0,
             clientCount: 0,
             pendingQuotes: 0,
             recentActivity: []
@@ -47,8 +50,8 @@ const Dashboard = () => {
             // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ht, date')
-                .eq('status', 'paid');
+                .select('total_ttc, date, status')
+                .in('status', ['paid', 'accepted', 'billed']); // Include accepted/billed as revenue if paid flow not fully used
 
             if (quotesError) throw quotesError;
 
@@ -68,7 +71,7 @@ const Dashboard = () => {
             let turnoverYear = 0;
 
             paidQuotes.forEach(quote => {
-                const amount = quote.total_ht || 0;
+                const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date);
 
                 turnover += amount;
@@ -246,9 +249,9 @@ const Dashboard = () => {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires ({new Date().getFullYear()})</p>
+                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires Global</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">
-                                {loading ? "..." : `${stats.turnoverYear?.toFixed(2) || '0.00'} €`}
+                                {loading ? "..." : `${stats.turnover?.toFixed(2) || '0.00'} €`}
                             </p>
                         </div>
                         <div className="p-3 rounded-lg bg-green-500">
