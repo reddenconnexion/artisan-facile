@@ -26,6 +26,78 @@ const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     </div>
 );
 
+// Reusable Rich Card for standard metrics with gauges + charts
+const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, colorHex, stats, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, type = "value" }) => {
+    const [showChart, setShowChart] = useState(false);
+    const [period, setPeriod] = useState('year');
+
+    // Stats shape: { week: {value, max, chart}, month: {value, max, chart}, year: {value, max, chart} }
+
+    const currentData = stats[period];
+    const displayValue = showChart ? currentData?.value : mainValue;
+    const tooltipFormatter = chartFormatter || formatValue;
+
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <p className="text-sm font-medium text-gray-500">
+                        {showChart ? `${title} (${period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'})` : title}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                        {typeof displayValue === 'number' ? formatValue(displayValue) : displayValue}
+                    </p>
+                    {subText && !showChart && <p className="text-xs text-gray-400 mt-1">{subText}</p>}
+                </div>
+                <button
+                    onClick={(e) => { e.stopPropagation(); setShowChart(!showChart); }}
+                    className={`p-3 rounded-lg transition-colors shadow-sm ${showChart ? 'bg-gray-100 text-gray-600' : `${colorClass} text-white hover:opacity-90`}`}
+                    title={showChart ? "Retour" : "Voir les graphiques"}
+                >
+                    {showChart ? <ArrowLeft className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
+                </button>
+            </div>
+
+            {!showChart ? (
+                <div className="space-y-4 pt-2 border-t border-gray-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <RevenueBar label="Cette Semaine" value={stats.week.value} max={stats.week.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('week')} period="week" />
+                    <RevenueBar label="Ce Mois" value={stats.month.value} max={stats.month.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('month')} period="month" />
+                    <RevenueBar label="Cette Année" value={stats.year.value} max={stats.year.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('year')} period="year" />
+                </div>
+            ) : (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        {['week', 'month', 'year'].map(p => (
+                            <button key={p} onClick={() => setPeriod(p)} className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${period === p ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                                {p === 'week' ? 'Sem' : p === 'month' ? 'Mois' : 'An'}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="h-[120px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={stats[period]?.chart || []}>
+                                <defs>
+                                    <linearGradient id={`grad${title.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={colorHex} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={colorHex} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10 }} interval={period === 'month' ? 6 : 0} />
+                                <Tooltip
+                                    contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
+                                    formatter={(val) => [tooltipFormatter(val), '']}
+                                    labelStyle={{ display: 'none' }}
+                                />
+                                <Area type="monotone" dataKey="value" stroke={colorHex} strokeWidth={2} fillOpacity={1} fill={`url(#grad${title.replace(/[^a-zA-Z0-9]/g, '')})`} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+        </div >
+    );
+};
+
 // Simple Bar helper
 const RevenueBar = ({ label, value, max, color, period, onClick }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -53,19 +125,22 @@ const Dashboard = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState(() => {
         const cached = localStorage.getItem('dashboard_stats');
+        // Structure for metrics: {value: 0, max: 0, chart: [] }
+        const emptyMetric = {
+            week: { value: 0, max: 1, chart: [] },
+            month: { value: 0, max: 1, chart: [] },
+            year: { value: 0, max: 1, chart: [] }
+        };
+
         return cached ? JSON.parse(cached) : {
-            turnover: 0,
-            turnoverYear: 0,
-            turnoverMonth: 0,
-            turnoverWeek: 0,
+            revenue: { ...emptyMetric },
+            quotes: { ...emptyMetric },
+            conversion: { ...emptyMetric },
             clientCount: 0,
-            pendingQuotes: 0,
-            recentActivity: [],
-            charts: { week: [], month: [], year: [] }
+            pendingQuotesCount: 0,
+            recentActivity: []
         };
     });
-    const [showChart, setShowChart] = useState(false);
-    const [chartPeriod, setChartPeriod] = useState('year');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -76,97 +151,177 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
         try {
-            // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
-            const { data: paidQuotes, error: quotesError } = await supabase
+            // 1. Fetch ALL quotes for calculations
+            const { data: allQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id')
-                .eq('status', 'paid');
+                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at');
 
             if (quotesError) throw quotesError;
 
+            // Date references
             const now = new Date();
-            // Fix for Sunday (0) to be treated as end of week (7) for calc, or just use date-fns startOfWeek if available (it is imported!)
-            // We have: import { startOfWeek } from 'date-fns';
-            // Let's use it for reliability.
-            const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-
-            const currentYear = new Date().getFullYear();
-            const currentMonthStart = new Date(currentYear, new Date().getMonth(), 1);
+            const currentYear = now.getFullYear();
+            const currentMonthStart = new Date(currentYear, now.getMonth(), 1);
+            const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
             const currentYearStart = new Date(currentYear, 0, 1);
+            const daysInMonth = getDaysInMonth(now);
 
-            let turnover = 0;
-            let turnoverWeek = 0;
-            let turnoverMonth = 0;
-            let turnoverYear = 0;
+            // Helpers for chart init
+            const initChart = (type) => {
+                if (type === 'year') return new Array(12).fill(0);
+                if (type === 'month') return new Array(daysInMonth).fill(0);
+                if (type === 'week') return new Array(7).fill(0);
+                return [];
+            }
 
-            // Store details for interactive view
-            const details = {
-                week: [],
-                month: [],
-                year: []
+            const formatChartPoints = (data, timeframe) => {
+                const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+                return data.map((val, i) => ({
+                    name: timeframe === 'year' ? monthNames[i] : timeframe === 'month' ? `${i + 1}` : weekDays[i],
+                    value: val
+                }));
+            }
+
+            // Metric Accumulators
+            const metrics = {
+                revenue: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } },
+                quotes: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } }, // Value of created quotes
+                conversion: {
+                    week: { signed: 0, total: 0 },
+                    month: { signed: 0, total: 0 },
+                    year: { signed: 0, total: 0 },
+                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } // Will store % rate
+                }
             };
 
-            // Index of counted quote IDs to check for duplication/parent-child relationships
-            const countedParentIds = new Set(
-                paidQuotes
-                    .filter(q => q.type !== 'invoice') // Assuming non-invoices are quotes
-                    .map(q => q.id)
-            );
+            const countedParentIds = new Set(allQuotes.filter(q => q.type !== 'invoice').map(q => q.id));
 
-            // Prepare Chart Data
-            // 1. Year (Monthly breakdown) - existing logic
-            const yearData = new Array(12).fill(0);
-            // 2. Month (Daily breakdown)
-            const daysInMonth = getDaysInMonth(new Date());
-            const monthData = new Array(daysInMonth).fill(0);
-            // 3. Week (Daily breakdown Mon-Sun)
-            const weekData = new Array(7).fill(0);
-
-            paidQuotes.forEach(quote => {
-                // Prevent double counting (same logic as before)
-                if (quote.type === 'invoice' && quote.parent_id && countedParentIds.has(quote.parent_id)) {
-                    return;
-                }
-
+            allQuotes.forEach(quote => {
                 const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date || quote.created_at);
 
-                // Global totals logic
-                turnover += amount;
+                // Normalize status
+                const status = (quote.status || '').toLowerCase();
+                const type = (quote.type || 'quote').toLowerCase();
 
-                // Year Logic (Current Year)
-                if (qDate.getFullYear() === currentYear) {
-                    turnoverYear += amount;
-                    yearData[qDate.getMonth()] += amount;
-                    details.year.push(quote);
+                // Check if it's an "Effective Quote" (Standard Quote OR Direct Invoice)
+                // A Direct Invoice (invoice with no parent) counts as a "Converted Quote" (Sold instantly)
+                const isDirectInvoice = type === 'invoice' && !quote.parent_id;
+                const isStandardQuote = type !== 'invoice';
+                const isActivity = isStandardQuote || isDirectInvoice;
 
-                    // Month Logic (Current Month)
-                    if (qDate >= currentMonthStart && qDate.getMonth() === new Date().getMonth()) {
-                        turnoverMonth += amount;
-                        monthData[getDate(qDate) - 1] += amount; // 1-indexed date to 0-indexed array
-                        details.month.push(quote);
+                // --- REVENUE CALC (Paid only) ---
+                // Supabase status 'paid' is reliable
+                if (status === 'paid') {
+                    // Check duplicate invoice logic (Invoice that HAS a parent quote)
+                    // If it has a parent, the parent might have been counted as 'signed', but Revenue is strictly 'cash in'.
+                    // We count Revenue if it's a paid item (Invoice or Deposit).
+                    // But we must avoid double counting if we had partial invoices? 
+                    // For now, keep existing logic: exclude invoice if parent exists AND parent is in the list?
+                    // Actually simplest: Count ALL paid invoices.
+                    // But wait, the previous logic was: exclude invoice if parent_id is in the list.
+                    // This was to avoid counting Quote Total + Invoice Total if both are in `paidQuotes`.
+                    // But quotes usually don't stay 'paid' if they are converted to invoices?
+                    // Let's stick to safe logic:
+                    const isDuplicate = type === 'invoice' && quote.parent_id && countedParentIds.has(quote.parent_id);
+                    if (!isDuplicate) {
+                        metrics.revenue.total += amount;
+                        if (qDate.getFullYear() === currentYear) {
+                            metrics.revenue.year += amount;
+                            metrics.revenue.charts.year[qDate.getMonth()] += amount;
+                            if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
+                                metrics.revenue.month += amount;
+                                metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
+                                if (qDate >= currentWeekStart) {
+                                    metrics.revenue.week += amount;
+                                    metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount;
+                                }
+                            }
+                        }
+                    }
+                }
 
-                        // Week Logic (Current Week)
-                        if (qDate >= currentWeekStart) {
-                            turnoverWeek += amount;
-                            // getDay: 0 (Sun) to 6 (Sat). We want 0 (Mon) to 6 (Sun).
-                            // Sun(0) -> 6. Mon(1) -> 0.
-                            const dayIndex = (getDay(qDate) + 6) % 7;
-                            weekData[dayIndex] += amount;
-                            details.week.push(quote);
+                // --- QUOTES/CONVERSION ACTIVITY ---
+                if (isActivity) {
+                    if (qDate.getFullYear() === currentYear) {
+                        metrics.quotes.year += amount;
+                        metrics.quotes.charts.year[qDate.getMonth()] += amount;
+
+                        // Conversion Logic
+                        // If Direct Invoice -> Automatically Signed (100% success)
+                        // If Standard Quote -> Check status
+                        const isSigned = isDirectInvoice ||
+                            status === 'accepted' ||
+                            status === 'paid' ||
+                            status === 'billed' ||
+                            !!quote.signed_at;
+
+                        if (isSigned) {
+                            metrics.conversion.year.signed++;
+                            metrics.conversion.charts.year[qDate.getMonth()]++; // Chart shows volume of signatures
+                        }
+
+                        metrics.conversion.year.total++;
+
+                        if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
+                            metrics.quotes.month += amount;
+                            metrics.quotes.charts.month[getDate(qDate) - 1] += amount;
+
+                            metrics.conversion.month.total++;
+                            if (isSigned) {
+                                metrics.conversion.month.signed++;
+                                metrics.conversion.charts.month[getDate(qDate) - 1]++;
+                            }
+
+                            if (qDate >= currentWeekStart) {
+                                metrics.quotes.week += amount;
+                                metrics.quotes.charts.week[(getDay(qDate) + 6) % 7] += amount;
+
+                                metrics.conversion.week.total++;
+                                if (isSigned) {
+                                    metrics.conversion.week.signed++;
+                                    metrics.conversion.charts.week[(getDay(qDate) + 6) % 7]++;
+                                }
+                            }
                         }
                     }
                 }
             });
 
-            // Format Charts
-            const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+            // Conversion Rates Calculation
+            const calcRate = (signed, total) => total > 0 ? (signed / total) * 100 : 0;
+            const convStats = {
+                week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
+                month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
+                year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
+            };
 
-            const charts = {
-                year: yearData.map((val, i) => ({ name: monthNames[i], value: val })),
-                month: monthData.map((val, i) => ({ name: `${i + 1}`, value: val })),
-                week: weekData.map((val, i) => ({ name: weekDays[i], value: val }))
+            // Transform conversion charts to simple signed count for now (easier visual) or smooth rate?
+            // Let's stick to signed COUNT for the chart to show activity, but display RATE in main text.
+            // Or better: show the Rate trend? A rate of 0 or 100 per day is spiky.
+            // Let's map conversion charts to "Success Rate" if needed, but "Signed Count" is safer.
+            // Actually, let's use the COUNT of signed quotes for the graph. It correlates with conversion success.
+
+            // Construct Final Stats Object
+            const buildMetricObject = (metricData, maxRef) => ({
+                week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week') },
+                month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month') },
+                year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year') },
+            });
+
+            const newStats = {
+                revenue: buildMetricObject(metrics.revenue, metrics.revenue),
+                quotes: buildMetricObject(metrics.quotes, metrics.quotes), // Volume of quotes
+                conversion: {
+                    week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
+                    month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
+                    year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
+                },
+                clientCount,
+                pendingQuotesCount: pendingQuotes || 0,
+                recentActivity: activities,
+                charts: {} // Legacy clean up
             };
 
             // Fetch names for details if needed (already fetched for recent but full list might be needed)
@@ -241,18 +396,6 @@ const Dashboard = () => {
                     amount: null
                 }))
             ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10); // Show top 10 mixed
-
-            const newStats = {
-                turnover,
-                turnoverWeek,
-                turnoverMonth,
-                turnoverYear,
-                details, // Save details lists
-                clientCount: clientCount || 0,
-                pendingQuotes: pendingQuotes || 0,
-                recentActivity: activities,
-                charts
-            };
 
             setStats(newStats);
             localStorage.setItem('dashboard_stats', JSON.stringify(newStats));
@@ -361,144 +504,43 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Revenue Card - Interactive */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1 flex flex-col justify-between transition-all duration-300">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">
-                                {showChart ? `CA ${chartPeriod === 'week' ? 'Semaine' : chartPeriod === 'month' ? 'Mensuel' : 'Annuel'}` : "Chiffre d'affaires Global"}
-                            </p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                {loading ? "..." :
-                                    showChart
-                                        ? `${stats[`turnover${chartPeriod.charAt(0).toUpperCase() + chartPeriod.slice(1)}`]?.toFixed(2) || '0.00'} €`
-                                        : `${stats.turnover?.toFixed(2) || '0.00'} €`
-                                }
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setShowChart(!showChart)}
-                            className={`p-3 rounded-lg transition-colors ${showChart ? 'bg-gray-100 text-gray-600' : 'bg-green-500 text-white hover:bg-green-600'}`}
-                            title={showChart ? "Voir les jauges" : "Voir les graphiques"}
-                        >
-                            {showChart ? <ArrowLeft className="w-6 h-6" /> : <BarChart3 className="w-6 h-6" />}
-                        </button>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <RichStatCard
+                        title="Chiffre d'affaires"
+                        mainValue={`${stats.revenue.year.value.toFixed(0)} €`}
+                        subText="Global (Encaissé)"
+                        stats={stats.revenue}
+                        icon={TrendingUp}
+                        colorClass="bg-green-500"
+                        colorHex="#10B981"
+                        formatValue={(v) => `${v.toFixed(0)} €`}
+                    />
 
-                    {!showChart ? (
-                        /* Gauges View */
-                        <div className="space-y-4 pt-2 border-t border-gray-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <RevenueBar
-                                label="Cette Semaine"
-                                value={stats.turnoverWeek || 0}
-                                max={stats.turnoverMonth * 1.5 || 1000}
-                                color="bg-green-400"
-                                period="week"
-                                onClick={setSelectedPeriod}
-                            />
-                            <RevenueBar
-                                label="Ce Mois"
-                                value={stats.turnoverMonth || 0}
-                                max={stats.turnoverYear * 0.5 || 5000}
-                                color="bg-green-500"
-                                period="month"
-                                onClick={setSelectedPeriod}
-                            />
-                            <RevenueBar
-                                label="Cette Année"
-                                value={stats.turnoverYear || 0}
-                                max={stats.turnoverYear * 1.2 || 10000}
-                                color="bg-green-600"
-                                period="year"
-                                onClick={setSelectedPeriod}
-                            />
-                        </div>
-                    ) : (
-                        /* Chart View */
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="flex bg-gray-100 p-1 rounded-lg">
-                                {['week', 'month', 'year'].map(period => (
-                                    <button
-                                        key={period}
-                                        onClick={() => setChartPeriod(period)}
-                                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${chartPeriod === period ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                                            }`}
-                                    >
-                                        {period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="h-[120px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={stats.charts?.[chartPeriod] || []}>
-                                        <defs>
-                                            <linearGradient id="colorRevenueGraph" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis
-                                            dataKey="name"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: '#9CA3AF', fontSize: 10 }}
-                                            interval={chartPeriod === 'month' ? 6 : 0} // Skip labels on month view
-                                        />
-                                        <Tooltip
-                                            contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
-                                            formatter={(value) => [`${value} €`, '']}
-                                            labelStyle={{ display: 'none' }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="value"
-                                            stroke="#10B981"
-                                            strokeWidth={2}
-                                            fillOpacity={1}
-                                            fill="url(#colorRevenueGraph)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    )}
+                    <RichStatCard
+                        title="Volume de Devis"
+                        mainValue={`${stats.quotes.year.value.toFixed(0)} €`}
+                        subText={`${stats.pendingQuotesCount} en attente`}
+                        stats={stats.quotes}
+                        icon={FileCheck}
+                        colorClass="bg-orange-500"
+                        colorHex="#F97316"
+                        formatValue={(v) => `${v.toFixed(0)} €`}
+                    />
+
+                    <RichStatCard
+                        title="Taux de conversion"
+                        mainValue={`${stats.conversion.year.value.toFixed(1)} %`}
+                        subText="Devis signés / Total"
+                        stats={stats.conversion}
+                        icon={BarChart3}
+                        colorClass="bg-blue-500"
+                        colorHex="#3B82F6"
+                        formatValue={(v) => `${v.toFixed(1)} %`}
+                        chartFormatter={(v) => `${v} Signé(s)`}
+                    />
                 </div>
 
-                <StatCard
-                    title="Clients Actifs"
-                    value={loading ? "..." : stats.clientCount}
-                    icon={Users}
-                    color="bg-blue-500"
-                />
-                <StatCard
-                    title="Devis en attente"
-                    value={loading ? "..." : stats.pendingQuotes}
-                    icon={FileCheck}
-                    color="bg-orange-500"
-                    onClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
-                />
-                {/* Reusing existing logic but in a smaller card or just keep them... actually we have 3 cols, so maybe add a 3rd small card or keep grid balanced. 
-                    Previously we had 3 items: Revenue (expanded), Clients, Pending. 
-                    Now Revenue is full width (3 cols). Clients and Pending occupy 1 col each? 
-                    Let's put Clients and Pending in a row of 3 with maybe another stat or just 2.
-                    Let's try: Chart (Full Width) then Row below with 3 cards: Clients, Pending, and maybe 'Devis Signés' or 'Total Global'.
-                    Actually, let's keep it simple: Chart is big, then compact stats below.
-                 */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Taux de conversion</p>
-                        <div className="flex items-end gap-2 mt-1">
-                            <p className="text-2xl font-bold text-gray-900">
-                                {stats.recentActivity.filter(a => a.type === 'signature').length > 0 ?
-                                    Math.round((stats.recentActivity.filter(a => a.type === 'signature').length / Math.max(stats.recentActivity.filter(a => a.type === 'quote').length, 1)) * 100)
-                                    : 0}%
-                            </p>
-                        </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-purple-100 w-fit mt-auto">
-                        <TrendingUp className="w-6 h-6 text-purple-600" />
-                    </div>
-                </div>
+
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
