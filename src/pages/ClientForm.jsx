@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -219,20 +219,40 @@ const ClientForm = () => {
                         {isEditing ? 'Modifier le client' : 'Nouveau client'}
                     </h2>
                 </div>
-                {isEditing && formData.portal_token && (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const url = `${window.location.origin}/p/${formData.portal_token}`;
-                            navigator.clipboard.writeText(url);
-                            toast.success('Lien du portail copié !');
-                        }}
-                        className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-                    >
-                        <Globe className="w-4 h-4 mr-2" />
-                        Partager l'espace client
-                    </button>
-                )}
+                <div className="flex gap-2">
+                    {isEditing && (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/app/agenda', {
+                                state: {
+                                    prefill: {
+                                        client_id: id,
+                                        client_name: formData.name,
+                                        address: formData.address
+                                    }
+                                }
+                            })}
+                            className="flex items-center px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100"
+                        >
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Nouveau RDV
+                        </button>
+                    )}
+                    {isEditing && formData.portal_token && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const url = `${window.location.origin}/p/${formData.portal_token}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success('Lien du portail copié !');
+                            }}
+                            className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                        >
+                            <Globe className="w-4 h-4 mr-2" />
+                            Partager l'espace client
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="flex space-x-4 mb-6 border-b border-gray-200 overflow-x-auto pb-0.5">

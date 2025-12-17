@@ -45,7 +45,7 @@ const Agenda = () => {
         }
     }, [user, currentDate]);
 
-    // Handle Voice Data
+    // Handle Voice Data or Direct Prefill from Client Form
     useEffect(() => {
         if (location.state?.voiceData) {
             const { title, time, clientName, location: loc, dateISO } = location.state.voiceData;
@@ -81,7 +81,20 @@ const Agenda = () => {
             }
 
             setShowModal(true);
-            // Clear state to prevent reopening on refresh (optional, but good practice)
+            // Clear state to prevent reopening on refresh
+            window.history.replaceState({}, document.title);
+        } else if (location.state?.prefill) {
+            // Handle direct prefill (e.g. from ClientForm)
+            const { client_id, client_name, address } = location.state.prefill;
+            setNewEvent(prev => ({
+                ...prev,
+                client_id: client_id,
+                client_name: client_name,
+                address: address || '',
+                date: format(new Date(), 'yyyy-MM-dd'), // Default to today
+                time: '09:00' // Default time
+            }));
+            setShowModal(true);
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
