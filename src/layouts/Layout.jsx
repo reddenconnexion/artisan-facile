@@ -87,7 +87,7 @@ const Layout = () => {
     nav.push({ name: 'Clients', href: '/app/clients', icon: Users });
 
     if (settings.enable_crm) {
-      nav.push({ name: 'CRM / Suivi', href: '/app/crm', icon: Kanban });
+      nav.push({ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban });
     }
 
     nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });

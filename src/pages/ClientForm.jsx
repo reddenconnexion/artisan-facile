@@ -332,11 +332,11 @@ const ClientForm = () => {
                                     value={formData.status}
                                     onChange={handleChange}
                                 >
-                                    <option value="lead">Prospect</option>
-                                    <option value="contacted">Contacté</option>
-                                    <option value="proposal">Devis en cours</option>
-                                    <option value="signed">Signé</option>
-                                    <option value="lost">Perdu</option>
+                                    <option value="lead">Demande / A Contacter</option>
+                                    <option value="contacted">Visite / Devis à faire</option>
+                                    <option value="proposal">Devis Envoyé</option>
+                                    <option value="signed">Signé / En Cours</option>
+                                    <option value="lost">Perdu / Sans suite</option>
                                 </select>
                             </div>
                         </div>

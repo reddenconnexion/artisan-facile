@@ -13,11 +13,11 @@ const CRM = () => {
     const [focusedColumn, setFocusedColumn] = useState(null);
 
     const columns = [
-        { id: 'lead', title: 'Prospects', color: 'bg-gray-100 border-gray-200' },
-        { id: 'contacted', title: 'Contactés', color: 'bg-blue-50 border-blue-100' },
-        { id: 'proposal', title: 'Devis en cours', color: 'bg-yellow-50 border-yellow-100' },
-        { id: 'signed', title: 'Signés', color: 'bg-green-50 border-green-100' },
-        { id: 'lost', title: 'Perdus', color: 'bg-red-50 border-red-100' }
+        { id: 'lead', title: 'Demandes / A Contacter', color: 'bg-gray-100 border-gray-200' },
+        { id: 'contacted', title: 'Visite / Devis à faire', color: 'bg-blue-50 border-blue-100' },
+        { id: 'proposal', title: 'Devis Envoyé', color: 'bg-yellow-50 border-yellow-100' },
+        { id: 'signed', title: 'Signé / En Cours', color: 'bg-green-50 border-green-100' },
+        { id: 'lost', title: 'Perdu / Sans suite', color: 'bg-red-50 border-red-100' }
     ];
 
     useEffect(() => {
@@ -36,7 +36,7 @@ const CRM = () => {
             if (error) throw error;
             setClients(data || []);
         } catch (error) {
-            toast.error('Erreur lors du chargement des données CRM');
+            toast.error('Erreur lors du chargement des données Suivi');
             console.error('Error fetching CRM data:', error);
         } finally {
             setLoading(false);
@@ -90,7 +90,7 @@ const CRM = () => {
         <div className="h-[calc(100vh-100px)] overflow-hidden flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">
-                    Suivi Commercial (CRM)
+                    Suivi des Chantiers
                     {focusedColumn && <span className="text-gray-400 text-lg font-normal ml-2 block md:inline">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
                 </h2>
                 <div className="flex gap-2 w-full md:w-auto">
@@ -108,7 +108,7 @@ const CRM = () => {
                         className="flex-1 md:flex-none flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                         <Plus className="w-5 h-5 mr-2" />
-                        Nouveau Prospect
+                        Nouveau Projet
                     </button>
                 </div>
             </div>
