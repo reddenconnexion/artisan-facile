@@ -27,14 +27,14 @@ const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
 );
 
 // Reusable Rich Card for standard metrics with gauges + charts
-const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, colorHex, stats, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, type = "value" }) => {
+const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, colorHex, stats, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, type = "value", onValueClick }) => {
     const [showChart, setShowChart] = useState(false);
-    const [period, setPeriod] = useState('year');
+    const [period, setPeriod] = useState('week');
 
     // Stats shape: { week: {value, max, chart}, month: {value, max, chart}, year: {value, max, chart} }
 
     const currentData = stats[period];
-    const displayValue = showChart ? currentData?.value : mainValue;
+    const displayValue = currentData?.value;
     const tooltipFormatter = chartFormatter || formatValue;
 
     return (
@@ -42,9 +42,13 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
             <div className="flex items-center justify-between mb-4">
                 <div>
                     <p className="text-sm font-medium text-gray-500">
-                        {showChart ? `${title} (${period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'})` : title}
+                        {title} <span className="text-xs text-gray-400 font-normal">({period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'})</span>
                     </p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                    <p
+                        className={`text-2xl font-bold text-gray-900 mt-1 ${onValueClick ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                        onClick={() => onValueClick && onValueClick(period)}
+                        title={onValueClick ? "Voir le détail" : ""}
+                    >
                         {typeof displayValue === 'number' ? formatValue(displayValue) : displayValue}
                     </p>
                     {subText && !showChart && <p className="text-xs text-gray-400 mt-1">{subText}</p>}
@@ -197,13 +201,14 @@ const Dashboard = () => {
 
             // Metric Accumulators
             const metrics = {
-                revenue: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } },
-                quotes: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } }, // Value of created quotes
+                revenue: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } },
+                quotes: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } }, // Value of created quotes
                 conversion: {
                     week: { signed: 0, total: 0 },
                     month: { signed: 0, total: 0 },
                     year: { signed: 0, total: 0 },
-                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') } // Will store % rate
+                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, // Will store % rate
+                    details: { week: [], month: [], year: [] }
                 }
             };
 
@@ -242,12 +247,17 @@ const Dashboard = () => {
                         if (qDate.getFullYear() === currentYear) {
                             metrics.revenue.year += amount;
                             metrics.revenue.charts.year[qDate.getMonth()] += amount;
+                            metrics.revenue.details.year.push(quote);
+
                             if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
                                 metrics.revenue.month += amount;
                                 metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
+                                metrics.revenue.details.month.push(quote);
+
                                 if (qDate >= currentWeekStart) {
                                     metrics.revenue.week += amount;
                                     metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount;
+                                    metrics.revenue.details.week.push(quote);
                                 }
                             }
                         }
@@ -408,7 +418,11 @@ const Dashboard = () => {
                 clientCount,
                 pendingQuotesCount: pendingQuotes || 0,
                 recentActivity: activities,
-                details: { week: [], month: [], year: [] }
+                details: {
+                    week: metrics.revenue.details.week, // Default to Revenue details for now in the shared view
+                    month: metrics.revenue.details.month,
+                    year: metrics.revenue.details.year
+                }
             };
 
             setStats(newStats);
@@ -520,18 +534,17 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <RichStatCard
                     title="Chiffre d'affaires"
-                    mainValue={`${stats.revenue.year.value.toFixed(0)} €`}
                     subText="Global (Encaissé)"
                     stats={stats.revenue}
                     icon={TrendingUp}
                     colorClass="bg-green-500"
                     colorHex="#10B981"
                     formatValue={(v) => `${v.toFixed(0)} €`}
+                    onValueClick={(p) => setSelectedPeriod(p)}
                 />
 
                 <RichStatCard
                     title="Volume de Devis"
-                    mainValue={`${stats.quotes.year.value.toFixed(0)} €`}
                     subText={`${stats.pendingQuotesCount} en attente`}
                     stats={stats.quotes}
                     icon={FileCheck}
@@ -542,7 +555,6 @@ const Dashboard = () => {
 
                 <RichStatCard
                     title="Taux de conversion"
-                    mainValue={`${stats.conversion.year.value.toFixed(1)} %`}
                     subText="Devis signés / Total"
                     stats={stats.conversion}
                     icon={BarChart3}
