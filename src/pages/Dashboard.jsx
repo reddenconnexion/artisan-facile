@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, startOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -50,7 +50,7 @@ const Dashboard = () => {
             // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, status')
+                .select('total_ttc, date, created_at, status')
                 .in('status', ['paid', 'accepted', 'billed']); // Include accepted/billed as revenue if paid flow not fully used
 
             if (quotesError) throw quotesError;
@@ -72,7 +72,7 @@ const Dashboard = () => {
 
             paidQuotes.forEach(quote => {
                 const amount = quote.total_ttc || 0;
-                const qDate = new Date(quote.date);
+                const qDate = new Date(quote.date || quote.created_at);
 
                 turnover += amount;
 
