@@ -322,19 +322,7 @@ const Dashboard = () => {
                 year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year') },
             });
 
-            const newStats = {
-                revenue: buildMetricObject(metrics.revenue, metrics.revenue),
-                quotes: buildMetricObject(metrics.quotes, metrics.quotes), // Volume of quotes
-                conversion: {
-                    week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
-                    month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
-                    year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
-                },
-                clientCount,
-                pendingQuotesCount: pendingQuotes || 0,
-                recentActivity: activities,
-                charts: {} // Legacy clean up
-            };
+
 
             // Fetch names for details if needed (already fetched for recent but full list might be needed)
             // Optimization: We can just fetch names in the initial query or fetch on click.
@@ -408,6 +396,20 @@ const Dashboard = () => {
                     amount: null
                 }))
             ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10); // Show top 10 mixed
+
+            const newStats = {
+                revenue: buildMetricObject(metrics.revenue, metrics.revenue),
+                quotes: buildMetricObject(metrics.quotes, metrics.quotes),
+                conversion: {
+                    week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
+                    month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
+                    year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
+                },
+                clientCount,
+                pendingQuotesCount: pendingQuotes || 0,
+                recentActivity: activities,
+                details: { week: [], month: [], year: [] }
+            };
 
             setStats(newStats);
             localStorage.setItem('dashboard_stats', JSON.stringify(newStats));
@@ -516,42 +518,39 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <RichStatCard
-                        title="Chiffre d'affaires"
-                        mainValue={`${stats.revenue.year.value.toFixed(0)} €`}
-                        subText="Global (Encaissé)"
-                        stats={stats.revenue}
-                        icon={TrendingUp}
-                        colorClass="bg-green-500"
-                        colorHex="#10B981"
-                        formatValue={(v) => `${v.toFixed(0)} €`}
-                    />
+                <RichStatCard
+                    title="Chiffre d'affaires"
+                    mainValue={`${stats.revenue.year.value.toFixed(0)} €`}
+                    subText="Global (Encaissé)"
+                    stats={stats.revenue}
+                    icon={TrendingUp}
+                    colorClass="bg-green-500"
+                    colorHex="#10B981"
+                    formatValue={(v) => `${v.toFixed(0)} €`}
+                />
 
-                    <RichStatCard
-                        title="Volume de Devis"
-                        mainValue={`${stats.quotes.year.value.toFixed(0)} €`}
-                        subText={`${stats.pendingQuotesCount} en attente`}
-                        stats={stats.quotes}
-                        icon={FileCheck}
-                        colorClass="bg-orange-500"
-                        colorHex="#F97316"
-                        formatValue={(v) => `${v.toFixed(0)} €`}
-                    />
+                <RichStatCard
+                    title="Volume de Devis"
+                    mainValue={`${stats.quotes.year.value.toFixed(0)} €`}
+                    subText={`${stats.pendingQuotesCount} en attente`}
+                    stats={stats.quotes}
+                    icon={FileCheck}
+                    colorClass="bg-orange-500"
+                    colorHex="#F97316"
+                    formatValue={(v) => `${v.toFixed(0)} €`}
+                />
 
-                    <RichStatCard
-                        title="Taux de conversion"
-                        mainValue={`${stats.conversion.year.value.toFixed(1)} %`}
-                        subText="Devis signés / Total"
-                        stats={stats.conversion}
-                        icon={BarChart3}
-                        colorClass="bg-blue-500"
-                        colorHex="#3B82F6"
-                        formatValue={(v) => `${v.toFixed(1)} %`}
-                        chartFormatter={(v) => `${v} Signé(s)`}
-                    />
-                </div>
-
+                <RichStatCard
+                    title="Taux de conversion"
+                    mainValue={`${stats.conversion.year.value.toFixed(1)} %`}
+                    subText="Devis signés / Total"
+                    stats={stats.conversion}
+                    icon={BarChart3}
+                    colorClass="bg-blue-500"
+                    colorHex="#3B82F6"
+                    formatValue={(v) => `${v.toFixed(1)} %`}
+                    chartFormatter={(v) => `${v} Signé(s)`}
+                />
 
             </div>
 
@@ -591,7 +590,7 @@ const Dashboard = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
