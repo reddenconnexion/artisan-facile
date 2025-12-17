@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -36,8 +37,13 @@ const Dashboard = () => {
             turnoverMonth: 0,
             turnoverWeek: 0,
             clientCount: 0,
+            turnoverYear: 0,
+            turnoverMonth: 0,
+            turnoverWeek: 0,
+            clientCount: 0,
             pendingQuotes: 0,
-            recentActivity: []
+            recentActivity: [],
+            chartData: []
         };
     });
     const [loading, setLoading] = useState(true);
@@ -87,10 +93,11 @@ const Dashboard = () => {
                     .map(q => q.id)
             );
 
+            // Prepare Chart Data (Monthly for current year)
+            const monthlyRevenue = new Array(12).fill(0);
+
             paidQuotes.forEach(quote => {
-                // Prevent double counting: 
-                // If this is an invoice (e.g. deposit/acompte) and it belongs to a Quote that is already in our list (Signed/Accepted), 
-                // we skip adding this specific invoice amount because the Parent Quote Total already accounts for the full project value.
+                // Prevent double counting (same logic as before)
                 if (quote.type === 'invoice' && quote.parent_id && countedParentIds.has(quote.parent_id)) {
                     return;
                 }
@@ -98,6 +105,11 @@ const Dashboard = () => {
                 const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date || quote.created_at);
 
+                if (qDate.getFullYear() === currentYear) {
+                    monthlyRevenue[qDate.getMonth()] += amount;
+                }
+
+                // Global totals logic
                 turnover += amount;
 
                 if (qDate >= currentYearStart) {
@@ -113,6 +125,12 @@ const Dashboard = () => {
                     }
                 }
             });
+
+            const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const chartData = monthlyRevenue.map((amount, index) => ({
+                name: monthNames[index],
+                value: amount
+            }));
 
             // Fetch names for details if needed (already fetched for recent but full list might be needed)
             // Optimization: We can just fetch names in the initial query or fetch on click.
@@ -195,7 +213,8 @@ const Dashboard = () => {
                 details, // Save details lists
                 clientCount: clientCount || 0,
                 pendingQuotes: pendingQuotes || 0,
-                recentActivity: activities
+                recentActivity: activities,
+                chartData
             };
 
             setStats(newStats);
@@ -323,42 +342,78 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Revenue Card - Expanded */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1">
-                    <div className="flex items-center justify-between mb-4">
+                {/* Revenue Card - Expanded with Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires Global</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                {loading ? "..." : `${stats.turnover?.toFixed(2) || '0.00'} €`}
-                            </p>
+                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires {new Date().getFullYear()}</p>
+                            <div className="flex items-baseline gap-2 mt-1">
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {loading ? "..." : `${stats.turnoverYear?.toFixed(2) || '0.00'} €`}
+                                </p>
+                                <span className="text-sm text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                                    Encaissement
+                                </span>
+                            </div>
                         </div>
-                        <div className="p-3 rounded-lg bg-green-500">
-                            <TrendingUp className="w-6 h-6 text-white" />
+                        <div className="flex gap-2 mt-4 md:mt-0">
+                            {/* Mini stats for quick context */}
+                            <div className="text-right px-4 border-r border-gray-100">
+                                <p className="text-xs text-gray-500">Ce mois</p>
+                                <p className="font-bold text-gray-900">{stats.turnoverMonth?.toFixed(0)} €</p>
+                            </div>
+                            <div className="text-right pl-4">
+                                <p className="text-xs text-gray-500">Global</p>
+                                <p className="font-bold text-gray-900">{stats.turnover?.toFixed(0)} €</p>
+                            </div>
                         </div>
                     </div>
-                    {/* Visual Breakdown */}
-                    <div className="space-y-4 pt-2 border-t border-gray-50">
-                        <RevenueBar
-                            label="Cette Semaine"
-                            value={stats.turnoverWeek || 0}
-                            max={stats.turnoverMonth * 1.5 || 1000} // Scale relatively
-                            color="bg-green-400"
-                            period="week"
-                        />
-                        <RevenueBar
-                            label="Ce Mois"
-                            value={stats.turnoverMonth || 0}
-                            max={stats.turnoverYear * 0.5 || 5000} // Scale relatively
-                            color="bg-green-500"
-                            period="month"
-                        />
-                        <RevenueBar
-                            label="Cette Année"
-                            value={stats.turnoverYear || 0}
-                            max={stats.turnoverYear * 1.2 || 10000} // Self scale roughly
-                            color="bg-green-600"
-                            period="year"
-                        />
+
+                    {/* Chart Area */}
+                    <div className="h-[300px] w-full mt-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                                    tickFormatter={(value) => `${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}€`}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: '#fff',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                    }}
+                                    itemStyle={{ color: '#059669', fontWeight: 600 }}
+                                    formatter={(value) => [`${value.toFixed(2)} €`, 'CA']}
+                                    labelStyle={{ color: '#6B7280', marginBottom: '0.25rem' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#10B981"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorRevenue)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
 
@@ -375,6 +430,28 @@ const Dashboard = () => {
                     color="bg-orange-500"
                     onClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
                 />
+                {/* Reusing existing logic but in a smaller card or just keep them... actually we have 3 cols, so maybe add a 3rd small card or keep grid balanced. 
+                    Previously we had 3 items: Revenue (expanded), Clients, Pending. 
+                    Now Revenue is full width (3 cols). Clients and Pending occupy 1 col each? 
+                    Let's put Clients and Pending in a row of 3 with maybe another stat or just 2.
+                    Let's try: Chart (Full Width) then Row below with 3 cards: Clients, Pending, and maybe 'Devis Signés' or 'Total Global'.
+                    Actually, let's keep it simple: Chart is big, then compact stats below.
+                 */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">Taux de conversion</p>
+                        <div className="flex items-end gap-2 mt-1">
+                            <p className="text-2xl font-bold text-gray-900">
+                                {stats.recentActivity.filter(a => a.type === 'signature').length > 0 ?
+                                    Math.round((stats.recentActivity.filter(a => a.type === 'signature').length / Math.max(stats.recentActivity.filter(a => a.type === 'quote').length, 1)) * 100)
+                                    : 0}%
+                            </p>
+                        </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-purple-100 w-fit mt-auto">
+                        <TrendingUp className="w-6 h-6 text-purple-600" />
+                    </div>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
