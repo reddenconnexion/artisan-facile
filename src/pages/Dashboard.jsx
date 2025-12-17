@@ -50,7 +50,7 @@ const Dashboard = () => {
             // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name)')
+                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id')
                 .in('status', ['paid', 'accepted', 'billed']); // Include accepted/billed as revenue if paid flow not fully used
 
             if (quotesError) throw quotesError;
@@ -77,7 +77,21 @@ const Dashboard = () => {
                 year: []
             };
 
+            // Index of counted quote IDs to check for duplication/parent-child relationships
+            const countedParentIds = new Set(
+                paidQuotes
+                    .filter(q => q.type !== 'invoice') // Assuming non-invoices are quotes
+                    .map(q => q.id)
+            );
+
             paidQuotes.forEach(quote => {
+                // Prevent double counting: 
+                // If this is an invoice (e.g. deposit/acompte) and it belongs to a Quote that is already in our list (Signed/Accepted), 
+                // we skip adding this specific invoice amount because the Parent Quote Total already accounts for the full project value.
+                if (quote.type === 'invoice' && quote.parent_id && countedParentIds.has(quote.parent_id)) {
+                    return;
+                }
+
                 const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date || quote.created_at);
 
