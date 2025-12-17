@@ -44,15 +44,45 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
         try {
-            // 1. Chiffre d'affaires (Encaissé uniquement)
+            // 1. Chiffre d'affaires (Encaissé uniquement) - Fetch date to calculate periods
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ht')
+                .select('total_ht, date')
                 .eq('status', 'paid');
 
             if (quotesError) throw quotesError;
 
-            const turnover = paidQuotes.reduce((sum, quote) => sum + (quote.total_ht || 0), 0);
+            const now = new Date();
+            // Fix for Sunday (0) to be treated as end of week (7) for calc, or just use date-fns startOfWeek if available (it is imported!)
+            // We have: import { startOfWeek } from 'date-fns';
+            // Let's use it for reliability.
+            const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+
+            const currentYear = new Date().getFullYear();
+            const currentMonthStart = new Date(currentYear, new Date().getMonth(), 1);
+            const currentYearStart = new Date(currentYear, 0, 1);
+
+            let turnover = 0;
+            let turnoverWeek = 0;
+            let turnoverMonth = 0;
+            let turnoverYear = 0;
+
+            paidQuotes.forEach(quote => {
+                const amount = quote.total_ht || 0;
+                const qDate = new Date(quote.date);
+
+                turnover += amount;
+
+                if (qDate >= currentYearStart) {
+                    turnoverYear += amount;
+                    if (qDate >= currentMonthStart) {
+                        turnoverMonth += amount;
+                        if (qDate >= currentWeekStart) {
+                            turnoverWeek += amount;
+                        }
+                    }
+                }
+            });
 
             // 2. Nombre de clients
             const { count: clientCount, error: clientsError } = await supabase
@@ -125,6 +155,9 @@ const Dashboard = () => {
 
             const newStats = {
                 turnover,
+                turnoverWeek,
+                turnoverMonth,
+                turnoverYear,
                 clientCount: clientCount || 0,
                 pendingQuotes: pendingQuotes || 0,
                 recentActivity: activities
@@ -174,6 +207,25 @@ const Dashboard = () => {
         };
     }, [user]);
 
+    // Simple Bar helper
+    const RevenueBar = ({ label, value, max, color }) => {
+        const percentage = max > 0 ? (value / max) * 100 : 0;
+        return (
+            <div className="flex flex-col gap-1 w-full">
+                <div className="flex justify-between text-sm font-medium text-gray-700">
+                    <span>{label}</span>
+                    <span>{value.toFixed(0)} €</span>
+                </div>
+                <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full ${color} rounded-full transition-all duration-500 ease-out`}
+                        style={{ width: `${Math.max(percentage, 2)}%` }} // Min width for visibility
+                    />
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -190,12 +242,42 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard
-                    title="Chiffre d'affaires (Encaissé)"
-                    value={loading ? "..." : `${stats.turnover.toFixed(2)} €`}
-                    icon={TrendingUp}
-                    color="bg-green-500"
-                />
+                {/* Revenue Card - Expanded */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires ({new Date().getFullYear()})</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
+                                {loading ? "..." : `${stats.turnoverYear?.toFixed(2) || '0.00'} €`}
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-green-500">
+                            <TrendingUp className="w-6 h-6 text-white" />
+                        </div>
+                    </div>
+                    {/* Visual Breakdown */}
+                    <div className="space-y-4 pt-2 border-t border-gray-50">
+                        <RevenueBar
+                            label="Cette Semaine"
+                            value={stats.turnoverWeek || 0}
+                            max={stats.turnoverMonth * 1.5 || 1000} // Scale relatively
+                            color="bg-green-400"
+                        />
+                        <RevenueBar
+                            label="Ce Mois"
+                            value={stats.turnoverMonth || 0}
+                            max={stats.turnoverYear * 0.5 || 5000} // Scale relatively
+                            color="bg-green-500"
+                        />
+                        <RevenueBar
+                            label="Cette Année"
+                            value={stats.turnoverYear || 0}
+                            max={stats.turnoverYear * 1.2 || 10000} // Self scale roughly
+                            color="bg-green-600"
+                        />
+                    </div>
+                </div>
+
                 <StatCard
                     title="Clients Actifs"
                     value={loading ? "..." : stats.clientCount}

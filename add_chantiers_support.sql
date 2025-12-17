@@ -14,3 +14,23 @@ add column if not exists project_id bigint references projects(id) on delete set
 -- Add index for performance
 create index if not exists idx_project_photos_project_id on project_photos(project_id);
 create index if not exists idx_projects_client_id on projects(client_id);
+
+-- Enable RLS
+alter table projects enable row level security;
+
+-- RLS Policies
+create policy "Users can view their own projects"
+  on projects for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own projects"
+  on projects for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own projects"
+  on projects for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own projects"
+  on projects for delete
+  using (auth.uid() = user_id);
