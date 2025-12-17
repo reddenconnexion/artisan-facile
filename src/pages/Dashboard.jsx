@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatDistanceToNow, startOfWeek } from 'date-fns';
+import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -43,9 +43,11 @@ const Dashboard = () => {
             clientCount: 0,
             pendingQuotes: 0,
             recentActivity: [],
-            chartData: []
+            charts: { week: [], month: [], year: [] }
         };
     });
+    const [showChart, setShowChart] = useState(false);
+    const [chartPeriod, setChartPeriod] = useState('year');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -93,8 +95,14 @@ const Dashboard = () => {
                     .map(q => q.id)
             );
 
-            // Prepare Chart Data (Monthly for current year)
-            const monthlyRevenue = new Array(12).fill(0);
+            // Prepare Chart Data
+            // 1. Year (Monthly breakdown) - existing logic
+            const yearData = new Array(12).fill(0);
+            // 2. Month (Daily breakdown)
+            const daysInMonth = getDaysInMonth(new Date());
+            const monthData = new Array(daysInMonth).fill(0);
+            // 3. Week (Daily breakdown Mon-Sun)
+            const weekData = new Array(7).fill(0);
 
             paidQuotes.forEach(quote => {
                 // Prevent double counting (same logic as before)
@@ -105,32 +113,43 @@ const Dashboard = () => {
                 const amount = quote.total_ttc || 0;
                 const qDate = new Date(quote.date || quote.created_at);
 
-                if (qDate.getFullYear() === currentYear) {
-                    monthlyRevenue[qDate.getMonth()] += amount;
-                }
-
                 // Global totals logic
                 turnover += amount;
 
-                if (qDate >= currentYearStart) {
+                // Year Logic (Current Year)
+                if (qDate.getFullYear() === currentYear) {
                     turnoverYear += amount;
+                    yearData[qDate.getMonth()] += amount;
                     details.year.push(quote);
-                    if (qDate >= currentMonthStart) {
+
+                    // Month Logic (Current Month)
+                    if (qDate >= currentMonthStart && qDate.getMonth() === new Date().getMonth()) {
                         turnoverMonth += amount;
+                        monthData[getDate(qDate) - 1] += amount; // 1-indexed date to 0-indexed array
                         details.month.push(quote);
+
+                        // Week Logic (Current Week)
                         if (qDate >= currentWeekStart) {
                             turnoverWeek += amount;
+                            // getDay: 0 (Sun) to 6 (Sat). We want 0 (Mon) to 6 (Sun).
+                            // Sun(0) -> 6. Mon(1) -> 0.
+                            const dayIndex = (getDay(qDate) + 6) % 7;
+                            weekData[dayIndex] += amount;
                             details.week.push(quote);
                         }
                     }
                 }
             });
 
+            // Format Charts
             const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const chartData = monthlyRevenue.map((amount, index) => ({
-                name: monthNames[index],
-                value: amount
-            }));
+            const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+            const charts = {
+                year: yearData.map((val, i) => ({ name: monthNames[i], value: val })),
+                month: monthData.map((val, i) => ({ name: `${i + 1}`, value: val })),
+                week: weekData.map((val, i) => ({ name: weekDays[i], value: val }))
+            };
 
             // Fetch names for details if needed (already fetched for recent but full list might be needed)
             // Optimization: We can just fetch names in the initial query or fetch on click.
@@ -214,7 +233,7 @@ const Dashboard = () => {
                 clientCount: clientCount || 0,
                 pendingQuotes: pendingQuotes || 0,
                 recentActivity: activities,
-                chartData
+                charts
             };
 
             setStats(newStats);
@@ -344,23 +363,33 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Revenue Card - Compact with Gauges & Mini Graph */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1 flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Chiffre d'affaires Global</p>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">
-                                    {loading ? "..." : `${stats.turnover?.toFixed(2) || '0.00'} €`}
-                                </p>
-                            </div>
-                            <div className="p-3 rounded-lg bg-green-500">
-                                <TrendingUp className="w-6 h-6 text-white" />
-                            </div>
+                {/* Revenue Card - Interactive */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1 flex flex-col justify-between transition-all duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">
+                                {showChart ? `CA ${chartPeriod === 'week' ? 'Semaine' : chartPeriod === 'month' ? 'Mensuel' : 'Annuel'}` : "Chiffre d'affaires Global"}
+                            </p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
+                                {loading ? "..." :
+                                    showChart
+                                        ? `${stats[`turnover${chartPeriod.charAt(0).toUpperCase() + chartPeriod.slice(1)}`]?.toFixed(2) || '0.00'} €`
+                                        : `${stats.turnover?.toFixed(2) || '0.00'} €`
+                                }
+                            </p>
                         </div>
+                        <button
+                            onClick={() => setShowChart(!showChart)}
+                            className={`p-3 rounded-lg transition-colors ${showChart ? 'bg-gray-100 text-gray-600' : 'bg-green-500 text-white hover:bg-green-600'}`}
+                            title={showChart ? "Voir les jauges" : "Voir les graphiques"}
+                        >
+                            {showChart ? <ArrowLeft className="w-6 h-6" /> : <BarChart3 className="w-6 h-6" />}
+                        </button>
+                    </div>
 
-                        {/* Gauges (Restored) */}
-                        <div className="space-y-4 pt-2 border-t border-gray-50 mb-6">
+                    {!showChart ? (
+                        /* Gauges View */
+                        <div className="space-y-4 pt-2 border-t border-gray-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <RevenueBar
                                 label="Cette Semaine"
                                 value={stats.turnoverWeek || 0}
@@ -383,35 +412,55 @@ const Dashboard = () => {
                                 period="year"
                             />
                         </div>
-                    </div>
-
-                    {/* Chart Area (Compact) */}
-                    <div className="h-[120px] w-full mt-2">
-                        <p className="text-xs text-gray-400 mb-2">Évolution Annuelle</p>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats.chartData}>
-                                <defs>
-                                    <linearGradient id="colorRevenueSmall" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <Tooltip
-                                    contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
-                                    formatter={(value) => [`${value} €`, '']}
-                                    labelStyle={{ display: 'none' }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="value"
-                                    stroke="#10B981"
-                                    strokeWidth={2}
-                                    fillOpacity={1}
-                                    fill="url(#colorRevenueSmall)"
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+                    ) : (
+                        /* Chart View */
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                                {['week', 'month', 'year'].map(period => (
+                                    <button
+                                        key={period}
+                                        onClick={() => setChartPeriod(period)}
+                                        className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${chartPeriod === period ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                    >
+                                        {period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="h-[120px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={stats.charts?.[chartPeriod] || []}>
+                                        <defs>
+                                            <linearGradient id="colorRevenueGraph" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                                            interval={chartPeriod === 'month' ? 6 : 0} // Skip labels on month view
+                                        />
+                                        <Tooltip
+                                            contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
+                                            formatter={(value) => [`${value} €`, '']}
+                                            labelStyle={{ display: 'none' }}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="value"
+                                            stroke="#10B981"
+                                            strokeWidth={2}
+                                            fillOpacity={1}
+                                            fill="url(#colorRevenueGraph)"
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <StatCard
