@@ -124,21 +124,33 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [stats, setStats] = useState(() => {
-        const cached = localStorage.getItem('dashboard_stats');
-        // Structure for metrics: {value: 0, max: 0, chart: [] }
-        const emptyMetric = {
+        const getEmptyMetric = () => ({
             week: { value: 0, max: 1, chart: [] },
             month: { value: 0, max: 1, chart: [] },
             year: { value: 0, max: 1, chart: [] }
-        };
+        });
 
-        return cached ? JSON.parse(cached) : {
-            revenue: { ...emptyMetric },
-            quotes: { ...emptyMetric },
-            conversion: { ...emptyMetric },
+        try {
+            const cached = localStorage.getItem('dashboard_stats');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // Simple validation to check if legacy structure
+                if (parsed.revenue && parsed.revenue.year) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.error("Error parsing dashboard cache", e);
+        }
+
+        return {
+            revenue: getEmptyMetric(),
+            quotes: getEmptyMetric(),
+            conversion: getEmptyMetric(),
             clientCount: 0,
             pendingQuotesCount: 0,
-            recentActivity: []
+            recentActivity: [],
+            details: { week: [], month: [], year: [] }
         };
     });
     const [loading, setLoading] = useState(true);
