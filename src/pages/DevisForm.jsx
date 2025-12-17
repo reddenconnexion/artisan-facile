@@ -312,6 +312,11 @@ const DevisForm = () => {
 
 
     const handleSendQuoteEmail = async () => {
+        if (!isEditing) {
+            toast.error("Veuillez d'abord enregistrer le devis pour l'envoyer");
+            return;
+        }
+
         if (!formData.client_id) {
             toast.error('Veuillez d\'abord sélectionner un client');
             return;
@@ -326,13 +331,28 @@ const DevisForm = () => {
         try {
             toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
 
+            // Ensure public_token exists
+            let token = formData.public_token;
+            if (!token) {
+                token = crypto.randomUUID();
+                const { error: tokenError } = await supabase
+                    .from('quotes')
+                    .update({ public_token: token })
+                    .eq('id', id);
+
+                if (tokenError) throw tokenError;
+
+                setFormData(prev => ({ ...prev, public_token: token }));
+            }
+
+            const publicUrl = `${window.location.origin}/q/${token}`;
             const isInvoice = formData.type === 'invoice';
             const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id} `;
             const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
 
-            // 1. Generate Blob
+            // Still generate PDF for direct access (optional, but good backup)
             const devisData = {
-                id: isEditing ? id : 'PROVISOIRE',
+                id: id,
                 ...formData,
                 items: formData.items.map(i => ({
                     ...i,
@@ -345,28 +365,9 @@ const DevisForm = () => {
                 total_ttc: total,
                 include_tva: formData.include_tva
             };
-            const blob = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'blob');
 
-            // 2. Upload to Supabase Storage
-            const fileName = `${user.id}/${id}_${Date.now()}.pdf`;
-            const { error: uploadError } = await supabase.storage
-                .from('quote_files')
-                .upload(fileName, blob, {
-                    contentType: 'application/pdf',
-                    upsert: true
-                });
-
-            if (uploadError) throw uploadError;
-
-            if (uploadError) throw uploadError;
-
-            // SECURITY FIX: Use Signed URL instead of Public URL
-            // Valid for 1 year (365 days)
-            const { data: { signedUrl } } = await supabase.storage
-                .from('quote_files')
-                .createSignedUrl(fileName, 31536000);
-
-            if (!signedUrl) throw new Error("Impossible de générer le lien sécurisé");
+            // We can skip PDF upload if we trust the public link, but let's keep it simply as a backup link or just rely on public portal which has download button.
+            // Simplified: Just send Public Link.
 
             toast.dismiss('upload-toast');
             toast.success("Lien sécurisé généré !");
@@ -375,14 +376,11 @@ const DevisForm = () => {
                 `Bonjour ${selectedClient.name}, `,
                 ``,
                 isInvoice
-                    ? `Veuillez trouver votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`
-                    : `Veuillez trouver notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'} via le lien sécurisé ci-dessous :`,
+                    ? `Veuillez trouver votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`
+                    : `Veuillez trouver notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
                 ``,
-                `${signedUrl}`,
-                ``,
-                `Ce lien est valable 1 an.`,
-                ``,
-                `Ce document est téléchargeable au format PDF.`,
+                `Vous pouvez consulter, télécharger et signer le document en ligne via ce lien sécurisé :`,
+                `${publicUrl}`,
                 ``,
                 `Nous restons à votre disposition pour toute question.`,
                 ``,
