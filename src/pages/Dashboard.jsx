@@ -285,6 +285,8 @@ const Dashboard = () => {
         );
     };
 
+
+
     return (
         <div className="space-y-6 relative">
             {/* Modal for details */}
@@ -342,75 +344,70 @@ const Dashboard = () => {
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Revenue Card - Expanded with Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-3">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Chiffre d'affaires {new Date().getFullYear()}</p>
-                            <div className="flex items-baseline gap-2 mt-1">
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {loading ? "..." : `${stats.turnoverYear?.toFixed(2) || '0.00'} €`}
+                {/* Revenue Card - Compact with Gauges & Mini Graph */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1 flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <p className="text-sm font-medium text-gray-500">Chiffre d'affaires Global</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">
+                                    {loading ? "..." : `${stats.turnover?.toFixed(2) || '0.00'} €`}
                                 </p>
-                                <span className="text-sm text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                                    Encaissement
-                                </span>
+                            </div>
+                            <div className="p-3 rounded-lg bg-green-500">
+                                <TrendingUp className="w-6 h-6 text-white" />
                             </div>
                         </div>
-                        <div className="flex gap-2 mt-4 md:mt-0">
-                            {/* Mini stats for quick context */}
-                            <div className="text-right px-4 border-r border-gray-100">
-                                <p className="text-xs text-gray-500">Ce mois</p>
-                                <p className="font-bold text-gray-900">{stats.turnoverMonth?.toFixed(0)} €</p>
-                            </div>
-                            <div className="text-right pl-4">
-                                <p className="text-xs text-gray-500">Global</p>
-                                <p className="font-bold text-gray-900">{stats.turnover?.toFixed(0)} €</p>
-                            </div>
+
+                        {/* Gauges (Restored) */}
+                        <div className="space-y-4 pt-2 border-t border-gray-50 mb-6">
+                            <RevenueBar
+                                label="Cette Semaine"
+                                value={stats.turnoverWeek || 0}
+                                max={stats.turnoverMonth * 1.5 || 1000}
+                                color="bg-green-400"
+                                period="week"
+                            />
+                            <RevenueBar
+                                label="Ce Mois"
+                                value={stats.turnoverMonth || 0}
+                                max={stats.turnoverYear * 0.5 || 5000}
+                                color="bg-green-500"
+                                period="month"
+                            />
+                            <RevenueBar
+                                label="Cette Année"
+                                value={stats.turnoverYear || 0}
+                                max={stats.turnoverYear * 1.2 || 10000}
+                                color="bg-green-600"
+                                period="year"
+                            />
                         </div>
                     </div>
 
-                    {/* Chart Area */}
-                    <div className="h-[300px] w-full mt-4">
+                    {/* Chart Area (Compact) */}
+                    <div className="h-[120px] w-full mt-2">
+                        <p className="text-xs text-gray-400 mb-2">Évolution Annuelle</p>
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <AreaChart data={stats.chartData}>
                                 <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                                    <linearGradient id="colorRevenueSmall" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
                                         <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis
-                                    dataKey="name"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#9CA3AF', fontSize: 12 }}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#9CA3AF', fontSize: 12 }}
-                                    tickFormatter={(value) => `${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}€`}
-                                />
                                 <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: '#fff',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                    }}
-                                    itemStyle={{ color: '#059669', fontWeight: 600 }}
-                                    formatter={(value) => [`${value.toFixed(2)} €`, 'CA']}
-                                    labelStyle={{ color: '#6B7280', marginBottom: '0.25rem' }}
+                                    contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
+                                    formatter={(value) => [`${value} €`, '']}
+                                    labelStyle={{ display: 'none' }}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="value"
                                     stroke="#10B981"
-                                    strokeWidth={3}
+                                    strokeWidth={2}
                                     fillOpacity={1}
-                                    fill="url(#colorRevenue)"
+                                    fill="url(#colorRevenueSmall)"
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
