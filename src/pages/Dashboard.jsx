@@ -51,7 +51,7 @@ const Dashboard = () => {
             const { data: paidQuotes, error: quotesError } = await supabase
                 .from('quotes')
                 .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id')
-                .in('status', ['paid', 'accepted', 'billed']); // Include accepted/billed as revenue if paid flow not fully used
+                .eq('status', 'paid');
 
             if (quotesError) throw quotesError;
 
