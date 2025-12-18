@@ -212,7 +212,9 @@ const Dashboard = () => {
                 }
             };
 
-            const countedParentIds = new Set(allQuotes.filter(q => q.type !== 'invoice').map(q => q.id));
+            // Create a set of PAID quote IDs to avoid double counting
+            // We only consider an invoice a duplicate if its parent quote is ALREADY counted as paid.
+            const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
 
             allQuotes.forEach(quote => {
                 const amount = quote.total_ttc || 0;
@@ -232,16 +234,9 @@ const Dashboard = () => {
                 // Supabase status 'paid' is reliable
                 if (status === 'paid') {
                     // Check duplicate invoice logic (Invoice that HAS a parent quote)
-                    // If it has a parent, the parent might have been counted as 'signed', but Revenue is strictly 'cash in'.
-                    // We count Revenue if it's a paid item (Invoice or Deposit).
-                    // But we must avoid double counting if we had partial invoices? 
-                    // For now, keep existing logic: exclude invoice if parent exists AND parent is in the list?
-                    // Actually simplest: Count ALL paid invoices.
-                    // But wait, the previous logic was: exclude invoice if parent_id is in the list.
-                    // This was to avoid counting Quote Total + Invoice Total if both are in `paidQuotes`.
-                    // But quotes usually don't stay 'paid' if they are converted to invoices?
-                    // Let's stick to safe logic:
-                    const isDuplicate = type === 'invoice' && quote.parent_id && countedParentIds.has(quote.parent_id);
+                    // If the parent quote is also 'paid', we prioritize the quote (or just count one of them)
+                    // If the parent quote is 'accepted' (not paid), we MUST count the invoice.
+                    const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
                     if (!isDuplicate) {
                         metrics.revenue.total += amount;
                         if (qDate.getFullYear() === currentYear) {
