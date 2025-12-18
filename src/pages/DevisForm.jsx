@@ -753,6 +753,7 @@ const DevisForm = () => {
         }
     };
 
+
     const handleCreateClosingInvoice = async () => {
         if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
             return;
@@ -763,11 +764,17 @@ const DevisForm = () => {
             // 1. Fetch existing deposits/situations linked to this quote
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
-                .select('id, title, date, total_ht, total_ttc, type')
+                .select('id, title, date, total_ht, total_ttc, type, status')
                 .eq('parent_id', id)
                 .neq('status', 'cancelled'); // Ignore cancelled
 
             if (fetchError) throw fetchError;
+
+            // Filter out self (previous closing invoices)
+            const deposits = (linkedInvoices || []).filter(inv =>
+                inv.type === 'invoice' &&
+                !inv.title?.toLowerCase().includes('clôture')
+            );
 
             // 2. Prepare items: Copy original items
             let finalItems = formData.items.map(item => ({
@@ -778,19 +785,19 @@ const DevisForm = () => {
                 buying_price: parseFloat(item.buying_price) || 0
             }));
 
-            // 3. Add deduction lines for each linked invoice (Acomptes)
-            // Filter only invoices (deposits are type='invoice', parent_id=this_id)
-            const deposits = linkedInvoices || [];
-
-            const deductionItems = deposits.map(inv => ({
-                id: Date.now() + Math.random(),
-                description: `Déduction ${inv.title || 'Acompte'} du ${new Date(inv.date).toLocaleDateString("fr-FR")}`,
-                quantity: 1,
-                unit: 'forfait',
-                price: -Math.abs(inv.total_ht), // Negative Price HT
-                buying_price: 0,
-                type: 'service'
-            }));
+            // 3. Add deduction lines
+            const deductionItems = deposits.map(inv => {
+                const amountHT = parseFloat(inv.total_ht) || 0;
+                return {
+                    id: Date.now() + Math.random(),
+                    description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
+                    quantity: 1,
+                    unit: 'forfait',
+                    price: -Math.abs(amountHT), // Negative Price HT
+                    buying_price: 0,
+                    type: 'service'
+                };
+            });
 
             finalItems = [...finalItems, ...deductionItems];
 
@@ -800,23 +807,27 @@ const DevisForm = () => {
             const total = subtotal + tva;
 
             // Create Invoice Data
+            const clientName = (clients && clients.length > 0)
+                ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
+                : 'Client';
+
             const invoiceData = {
                 user_id: user.id,
                 client_id: formData.client_id,
-                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: `Facture de Clôture - ${formData.title}`,
+                client_name: clientName,
+                title: `Facture de Clôture - ${formData.title || 'Projet'}`,
                 date: new Date().toISOString().split('T')[0],
-                status: 'draft', // Draft to let user verify
+                status: 'draft',
                 type: 'invoice',
                 items: finalItems,
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
                 parent_id: id,
-                notes: formData.notes + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`,
+                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`,
                 include_tva: formData.include_tva,
-                operation_category: formData.operation_category,
-                vat_on_debits: formData.vat_on_debits
+                operation_category: formData.operation_category || 'service',
+                vat_on_debits: formData.vat_on_debits || false
             };
 
             const { data, error } = await supabase
@@ -833,7 +844,7 @@ const DevisForm = () => {
 
         } catch (error) {
             console.error('Error creating closing invoice:', error);
-            toast.error("Erreur lors de la création de la facture de clôture");
+            toast.error("Erreur génération facture : " + (error.message || error.details || "Erreur inconnue"));
         } finally {
             setLoading(false);
         }
