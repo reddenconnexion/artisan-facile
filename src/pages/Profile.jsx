@@ -299,11 +299,17 @@ const Profile = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Site Web</label>
                                 <input
-                                    type="url"
+                                    type="text"
                                     name="website"
                                     value={formData.website}
                                     onChange={handleChange}
-                                    placeholder="https://www.monentreprise.com"
+                                    onBlur={(e) => {
+                                        let val = e.target.value.trim();
+                                        if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                                            setFormData(prev => ({ ...prev, website: 'https://' + val }));
+                                        }
+                                    }}
+                                    placeholder="monentreprise.com"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
