@@ -263,6 +263,28 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" dans le libellé du virement.`, 20, paymentY + 22);
     }
 
+    // Mention "ACQUITTÉE" si payée
+    if (isInvoice && devis.status === 'paid') {
+        doc.setTextColor(220, 38, 38); // Red color
+        doc.setFontSize(30);
+        doc.setFont(undefined, 'bold');
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.5 }));
+
+        // Rotate text logic (manual approximation as standard jsPDF rotate is tricky without context, usually use angle arg in text)
+        // doc.text(text, x, y, options: {angle: 45})
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.text("ACQUITTÉE", pageWidth / 2, pageHeight / 2, {
+            align: 'center',
+            angle: 45,
+            renderingMode: 'fill'
+        });
+
+        doc.restoreGraphicsState();
+    }
+
     // Pied de page
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
