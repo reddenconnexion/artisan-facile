@@ -825,7 +825,6 @@ const DevisForm = () => {
                 total_ttc: total,
                 parent_id: id,
                 notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`,
-                include_tva: formData.include_tva,
                 operation_category: formData.operation_category || 'service',
                 vat_on_debits: formData.vat_on_debits || false
             };
