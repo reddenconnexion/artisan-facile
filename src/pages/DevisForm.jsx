@@ -753,6 +753,92 @@ const DevisForm = () => {
         }
     };
 
+    const handleCreateClosingInvoice = async () => {
+        if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Fetch existing deposits/situations linked to this quote
+            const { data: linkedInvoices, error: fetchError } = await supabase
+                .from('quotes')
+                .select('id, title, date, total_ht, total_ttc, type')
+                .eq('parent_id', id)
+                .neq('status', 'cancelled'); // Ignore cancelled
+
+            if (fetchError) throw fetchError;
+
+            // 2. Prepare items: Copy original items
+            let finalItems = formData.items.map(item => ({
+                ...item,
+                id: Date.now() + Math.random(), // New IDs to avoid conflict
+                quantity: parseFloat(item.quantity) || 0,
+                price: parseFloat(item.price) || 0,
+                buying_price: parseFloat(item.buying_price) || 0
+            }));
+
+            // 3. Add deduction lines for each linked invoice (Acomptes)
+            // Filter only invoices (deposits are type='invoice', parent_id=this_id)
+            const deposits = linkedInvoices || [];
+
+            const deductionItems = deposits.map(inv => ({
+                id: Date.now() + Math.random(),
+                description: `Déduction ${inv.title || 'Acompte'} du ${new Date(inv.date).toLocaleDateString("fr-FR")}`,
+                quantity: 1,
+                unit: 'forfait',
+                price: -Math.abs(inv.total_ht), // Negative Price HT
+                buying_price: 0,
+                type: 'service'
+            }));
+
+            finalItems = [...finalItems, ...deductionItems];
+
+            // 4. Calculate totals
+            const subtotal = finalItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const tva = formData.include_tva ? subtotal * 0.20 : 0;
+            const total = subtotal + tva;
+
+            // Create Invoice Data
+            const invoiceData = {
+                user_id: user.id,
+                client_id: formData.client_id,
+                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+                title: `Facture de Clôture - ${formData.title}`,
+                date: new Date().toISOString().split('T')[0],
+                status: 'draft', // Draft to let user verify
+                type: 'invoice',
+                items: finalItems,
+                total_ht: subtotal,
+                total_tva: tva,
+                total_ttc: total,
+                parent_id: id,
+                notes: formData.notes + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`,
+                include_tva: formData.include_tva,
+                operation_category: formData.operation_category,
+                vat_on_debits: formData.vat_on_debits
+            };
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .insert([invoiceData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            toast.success("Facture de clôture générée !");
+            navigate(`/app/devis/${data.id}`);
+            setShowActionsMenu(false);
+
+        } catch (error) {
+            console.error('Error creating closing invoice:', error);
+            toast.error("Erreur lors de la création de la facture de clôture");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
             return;
@@ -1251,6 +1337,13 @@ const DevisForm = () => {
                                         >
                                             <Layers className="w-4 h-4 mr-3 text-purple-600" />
                                             Créer Situation de Travaux
+                                        </button>
+                                        <button
+                                            onClick={handleCreateClosingInvoice}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-green-50/50"
+                                        >
+                                            <Check className="w-4 h-4 mr-3 text-green-600" />
+                                            Générer Facture de Clôture
                                         </button>
                                     </>
                                 )}
