@@ -41,7 +41,7 @@ const PublicQuote = () => {
             window.open(quote.original_pdf_url, '_blank');
             return;
         }
-        const isInvoice = quote.status === 'accepted';
+        const isInvoice = quote.type === 'invoice' || quote.status === 'paid';
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
 
