@@ -375,40 +375,35 @@ const DevisForm = () => {
             const isDeposit = (formData.title || '').toLowerCase().includes('acompte');
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
-            const bodyLines = [
-                `Bonjour ${selectedClient.name}, `,
-                ``,
-                isInvoice
-                    ? `Veuillez trouver votre facture pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`
-                    : `Veuillez trouver notre proposition pour ${formData.title ? 'le projet "' + formData.title + '"' : 'votre projet'}.`,
-                ``,
-                `Vous pouvez consulter, télécharger et signer le document en ligne via ce lien sécurisé :`,
-                `${publicUrl}`,
-                ``,
-                ...(showReviewRequest ? [
-                    `Votre satisfaction est notre priorité. Si vous avez apprécié notre travail, n'hésitez pas à nous laisser un avis sur Google via ce lien, cela nous aide énormément :`,
-                    `${userProfile.google_review_url}`,
-                    ``
-                ] : []),
-                `Nous restons à votre disposition pour toute question.`,
-                ``,
-                `Cordialement, `,
-                `${companyName} `,
-                ``,
-                `---`,
-                `${userProfile?.full_name || ''} `,
-                `${userProfile?.address || ''} `,
-                `${userProfile?.postal_code || ''} ${userProfile?.city || ''} `,
-                `Tél: ${userProfile?.phone || ''} `,
-                `Email: ${userProfile?.professional_email || userProfile?.email || ''} `,
-                `Web: ${userProfile?.website || ''} `,
-                `SIRET: ${userProfile?.siret || ''} `
-            ].filter(line => line.trim() !== '');
+            // Template Construction
+            const subjectPrefix = isInvoice ? '🧾 Facture' : '📄 Proposition';
+            const subject = `${subjectPrefix} : ${formData.title || 'Votre projet'} - ${companyName}`;
+
+            const introduction = isInvoice
+                ? `Bonjour ${selectedClient.name},\n\nVoici la facture correspondant à votre projet "${formData.title || 'Travaux'}".`
+                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, j'ai le plaisir de vous transmettre ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
+
+            const callToAction = `👉 Vous pouvez consulter, télécharger et signer le document via ce lien sécurisé :\n${publicUrl}`;
+
+            const reviewSection = showReviewRequest
+                ? `\n⭐⭐⭐⭐⭐\nVotre satisfaction est ma priorité.\nSi vous avez apprécié le travail réalisé, un petit avis Google prend 30 secondes et m'aide énormément :\n${userProfile.google_review_url}`
+                : '';
+
+            const politeClosing = `Je reste à votre entière disposition pour toute question.\n\nBien cordialement,`;
+
+            const signatureBlock = [
+                `${companyName}`,
+                `${userProfile?.full_name || ''}`,
+                `${userProfile?.phone || ''}`,
+                `${userProfile?.website || ''}`
+            ].filter(Boolean).join('\n');
+
+            const body = `${introduction}\n\n${callToAction}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
 
             setEmailPreview({
                 email: selectedClient.email,
-                rawSubject: `${docRef} - ${formData.title || 'Projet'} - ${companyName} `,
-                rawBody: bodyLines.join('\n')
+                rawSubject: subject,
+                rawBody: body
             });
 
         } catch (error) {
