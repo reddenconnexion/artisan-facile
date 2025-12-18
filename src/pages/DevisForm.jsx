@@ -383,7 +383,8 @@ const DevisForm = () => {
                 ? `Bonjour ${selectedClient.name},\n\nVoici la facture correspondant à votre projet "${formData.title || 'Travaux'}".`
                 : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, j'ai le plaisir de vous transmettre ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
 
-            const callToAction = `👉 Vous pouvez consulter, télécharger et signer le document via ce lien sécurisé :\n${publicUrl}`;
+            const actionText = isInvoice ? 'consulter et télécharger' : 'consulter, télécharger et signer';
+            const callToAction = `👉 Vous pouvez ${actionText} le document via ce lien sécurisé :\n${publicUrl}`;
 
             const reviewSection = showReviewRequest
                 ? `\n⭐⭐⭐⭐⭐\nVotre satisfaction est ma priorité.\nSi vous avez apprécié le travail réalisé, un petit avis Google prend 30 secondes et m'aide énormément :\n${userProfile.google_review_url}`
