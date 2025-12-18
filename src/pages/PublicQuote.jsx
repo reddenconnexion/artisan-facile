@@ -117,7 +117,14 @@ const PublicQuote = () => {
             <div className="max-w-4xl mx-auto space-y-6">
 
                 {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
+                    {quote.status === 'paid' && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
+                            <div className="border-4 border-red-600 text-red-600 font-bold text-5xl md:text-7xl p-4 rounded-lg -rotate-12 opacity-25 uppercase tracking-widest">
+                                ACQUITTÉE
+                            </div>
+                        </div>
+                    )}
                     <div className="p-6 sm:p-8 md:flex justify-between items-start gap-6 bg-gradient-to-r from-blue-600/5 to-transparent">
                         <div className="flex gap-5">
                             {artisan.logo_url && (
@@ -251,7 +258,7 @@ const PublicQuote = () => {
                     </div>
 
                     {/* Notes */}
-                    {quote.notes && (
+                    {quote.notes && quote.status !== 'paid' && (
                         <div className="mt-8 pt-8 border-t border-gray-100">
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
                             <p className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
@@ -272,7 +279,7 @@ const PublicQuote = () => {
                             Télécharger PDF
                         </button>
 
-                        {!isSigned ? (
+                        {!isSigned && quote.type !== 'invoice' && quote.status !== 'paid' ? (
                             <button
                                 onClick={() => setShowSignatureModal(true)}
                                 className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
@@ -280,10 +287,19 @@ const PublicQuote = () => {
                                 <PenTool className="w-5 h-5 mr-2" />
                                 Signer le devis
                             </button>
-                        ) : (
+                        ) : null}
+
+                        {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
                                 <FileCheck className="w-5 h-5 mr-2" />
                                 Devis signé le {new Date(quote.signed_at || new Date()).toLocaleDateString()}
+                            </div>
+                        )}
+
+                        {quote.status === 'paid' && (
+                            <div className="flex items-center justify-center px-8 py-3 bg-red-100 text-red-800 font-bold rounded-xl border border-red-200 cursor-default">
+                                <FileCheck className="w-5 h-5 mr-2" />
+                                FACTURE ACQUITTÉE
                             </div>
                         )}
                     </div>
