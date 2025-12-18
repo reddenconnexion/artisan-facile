@@ -217,8 +217,11 @@ const Dashboard = () => {
             const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
 
             allQuotes.forEach(quote => {
-                const amount = quote.total_ttc || 0;
-                const qDate = new Date(quote.date || quote.created_at);
+                const amount = parseFloat(quote.total_ttc) || 0;
+                // Ensure date is valid, fallback to created_at, fallback to now
+                const qDate = new Date(quote.date || quote.created_at || new Date());
+
+                if (isNaN(qDate.getTime())) return; // Skip invalid dates
 
                 // Normalize status
                 const status = (quote.status || '').toLowerCase();
