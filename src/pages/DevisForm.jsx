@@ -1578,15 +1578,17 @@ const DevisForm = () => {
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
-                            <input
-                                type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                value={formData.valid_until}
-                                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                            />
-                        </div>
+                        {formData.type !== 'invoice' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
+                                <input
+                                    type="date"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.valid_until}
+                                    onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                                />
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>

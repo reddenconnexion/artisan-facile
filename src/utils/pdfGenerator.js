@@ -195,7 +195,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Notes / Conditions
     let currentY = finalY + 30;
 
-    if (devis.notes) {
+    // Notes / Conditions (Masqué si payé car souvent ce sont des conditions de règlement)
+    if (devis.notes && devis.status !== 'paid') {
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text("Notes / Conditions :", 14, currentY);
@@ -206,8 +207,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         currentY += (splitNotes.length * 5) + 10;
     }
 
-    // Signature
-    if (devis.signature) {
+    // Signature (Masqué si payé, "Bon pour accord" n'a plus de sens sur une quittance)
+    if (devis.signature && devis.status !== 'paid') {
         if (currentY + 40 > 280) {
             doc.addPage();
             currentY = 20;
@@ -228,8 +229,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
     }
 
-    // Informations de paiement (IBAN) pour les factures
-    if (isInvoice && userProfile.iban) {
+    // Informations de paiement (IBAN) pour les factures NON ACQUITTÉES (car inutile sinon)
+    if (isInvoice && userProfile.iban && devis.status !== 'paid') {
         let paymentY = currentY + 40;
         if (paymentY + 30 > 280) {
             doc.addPage();
