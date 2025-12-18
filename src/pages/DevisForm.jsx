@@ -372,6 +372,9 @@ const DevisForm = () => {
             toast.dismiss('upload-toast');
             toast.success("Lien sécurisé généré !");
 
+            const isDeposit = (formData.title || '').toLowerCase().includes('acompte');
+            const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
+
             const bodyLines = [
                 `Bonjour ${selectedClient.name}, `,
                 ``,
@@ -382,6 +385,11 @@ const DevisForm = () => {
                 `Vous pouvez consulter, télécharger et signer le document en ligne via ce lien sécurisé :`,
                 `${publicUrl}`,
                 ``,
+                ...(showReviewRequest ? [
+                    `Votre satisfaction est notre priorité. Si vous avez apprécié notre travail, n'hésitez pas à nous laisser un avis sur Google via ce lien, cela nous aide énormément :`,
+                    `${userProfile.google_review_url}`,
+                    ``
+                ] : []),
                 `Nous restons à votre disposition pour toute question.`,
                 ``,
                 `Cordialement, `,
