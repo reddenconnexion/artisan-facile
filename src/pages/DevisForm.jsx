@@ -38,6 +38,7 @@ const DevisForm = () => {
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
     const [initialStatus, setInitialStatus] = useState('draft');
     const [focusedInput, setFocusedInput] = useState(null);
+    const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
 
     const handleCalculatorApply = (quantity) => {
         if (activeCalculatorItem !== null) {
@@ -1664,7 +1665,14 @@ const DevisForm = () => {
                                                         updateItem(item.id, 'price', libraryItem.price);
                                                     }
                                                 }}
-                                                onFocus={() => setFocusedInput(`item-${item.id}`)}
+                                                onFocus={(e) => {
+                                                    if (window.innerWidth < 1024) {
+                                                        e.target.blur();
+                                                        setFullScreenEditItem(item.id);
+                                                    } else {
+                                                        setFocusedInput(`item-${item.id}`);
+                                                    }
+                                                }}
                                                 onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                                                 required
                                             />
@@ -2015,6 +2023,92 @@ const DevisForm = () => {
                     </div>
                 )
             }
+            {/* Full Screen Description Editor (Mobile) */}
+            {fullScreenEditItem && (
+                (() => {
+                    const item = formData.items.find(i => i.id === fullScreenEditItem);
+                    if (!item) {
+                        // reset if item not found (e.g. deleted)
+                        if (fullScreenEditItem) setFullScreenEditItem(null);
+                        return null;
+                    }
+                    const itemIndex = formData.items.findIndex(i => i.id === item.id);
+
+                    return (
+                        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
+                                <button
+                                    onClick={() => setFullScreenEditItem(null)}
+                                    className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
+                                >
+                                    <ArrowLeft className="w-6 h-6" />
+                                </button>
+                                <h3 className="font-semibold text-lg">Description</h3>
+                                <button
+                                    onClick={() => setFullScreenEditItem(null)}
+                                    className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
+                                >
+                                    Valider
+                                </button>
+                            </div>
+
+                            {/* Suggestions Area (Sticky under header) */}
+                            {(() => {
+                                const matches = priceLibrary.filter(lib =>
+                                    lib.description.toLowerCase().includes((item.description || '').toLowerCase())
+                                ).slice(0, 10);
+
+                                if (matches.length > 0) {
+                                    return (
+                                        <div className="bg-blue-50/50 border-b border-blue-100 overflow-x-auto">
+                                            <div className="flex p-3 gap-3">
+                                                {matches.map(lib => (
+                                                    <button
+                                                        key={lib.id}
+                                                        onClick={() => {
+                                                            updateItem(item.id, 'description', lib.description);
+                                                            updateItem(item.id, 'price', lib.price);
+                                                        }}
+                                                        className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
+                                                    >
+                                                        <div className="font-medium text-blue-900 truncate">{lib.description}</div>
+                                                        <div className="text-blue-500 text-xs">{lib.price} €</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            {/* Text Area */}
+                            <div className="flex-1 p-4 relative bg-white">
+                                <textarea
+                                    className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
+                                    placeholder="Saisissez la description détaillée..."
+                                    value={item.description}
+                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                    autoFocus
+                                />
+
+                                {/* Dictation Button Floating */}
+                                <button
+                                    type="button"
+                                    onClick={() => toggleDictation(`item-description-${itemIndex}`)}
+                                    className={`absolute bottom-8 right-6 p-4 rounded-full shadow-xl transition-all active:scale-95 ${isListening && activeField === `item-description-${itemIndex}`
+                                            ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        }`}
+                                >
+                                    <Mic className="w-6 h-6" />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()
+            )}
         </div >
     );
 };
