@@ -37,6 +37,7 @@ const DevisForm = () => {
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
     const [initialStatus, setInitialStatus] = useState('draft');
+    const [focusedInput, setFocusedInput] = useState(null);
 
     const handleCalculatorApply = (quantity) => {
         if (activeCalculatorItem !== null) {
@@ -1638,9 +1639,9 @@ const DevisForm = () => {
                         {formData.items.map((item, index) => (
                             <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
                                 <div className="flex-1 w-full space-y-2">
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2">
                                         <select
-                                            className="w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
+                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
                                             value={item.type || 'service'}
                                             onChange={(e) => updateItem(item.id, 'type', e.target.value)}
                                         >
@@ -1648,32 +1649,56 @@ const DevisForm = () => {
                                             <option value="material">Matériel</option>
                                         </select>
                                         <div className="flex-1 relative">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 placeholder="Description"
-                                                list={`library-suggestions-${item.id}`}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8"
+                                                rows={3}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm"
                                                 value={item.description}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     updateItem(item.id, 'description', val);
 
-                                                    // Check for exact match in library to auto-fill price
+                                                    // Auto-price logic (Exact Match)
                                                     const libraryItem = priceLibrary.find(lib => lib.description === val);
                                                     if (libraryItem) {
                                                         updateItem(item.id, 'price', libraryItem.price);
-                                                        // Optional: update unit if you had a unit field in items
                                                     }
                                                 }}
+                                                onFocus={() => setFocusedInput(`item-${item.id}`)}
+                                                onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                                                 required
                                             />
-                                            <datalist id={`library-suggestions-${item.id}`}>
-                                                {Array.isArray(priceLibrary) && priceLibrary.map(lib => (
-                                                    <option key={lib.id} value={lib.description}>
-                                                        {lib.price}€
-                                                    </option>
-                                                ))}
-                                            </datalist>
+
+                                            {/* Custom Suggestions (Price Library) */}
+                                            {focusedInput === `item-${item.id}` && item.description && item.description.length > 1 && !priceLibrary.some(p => p.description === item.description) && (
+                                                (() => {
+                                                    const matches = priceLibrary.filter(lib =>
+                                                        lib.description.toLowerCase().includes(item.description.toLowerCase())
+                                                    ).slice(0, 5);
+
+                                                    if (matches.length === 0) return null;
+
+                                                    return (
+                                                        <div className="absolute z-20 w-full bg-white border border-gray-200 shadow-lg rounded-b-lg mt-1 overflow-hidden">
+                                                            {matches.map(lib => (
+                                                                <button
+                                                                    key={lib.id}
+                                                                    type="button"
+                                                                    className="block w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                                                                    onClick={() => {
+                                                                        updateItem(item.id, 'description', lib.description);
+                                                                        updateItem(item.id, 'price', lib.price);
+                                                                    }}
+                                                                >
+                                                                    <span className="font-medium text-gray-900">{lib.description}</span>
+                                                                    <span className="text-gray-500 ml-2 text-xs">{lib.price} €</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()
+                                            )}
+
                                             <button
                                                 type="button"
                                                 onClick={() => toggleDictation(`item-description-${index}`)}
