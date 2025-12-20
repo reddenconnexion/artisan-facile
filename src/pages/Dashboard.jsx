@@ -462,8 +462,20 @@ const Dashboard = () => {
             )
             .subscribe();
 
+        const clientsSubscription = supabase
+            .channel('dashboard-clients')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'clients' },
+                () => {
+                    fetchStats();
+                }
+            )
+            .subscribe();
+
         return () => {
             supabase.removeChannel(subscription);
+            supabase.removeChannel(clientsSubscription);
         };
     }, [user]);
 

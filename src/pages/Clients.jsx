@@ -18,6 +18,22 @@ const Clients = () => {
     useEffect(() => {
         if (user) {
             fetchClients();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('clients_list_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'clients' },
+                    (payload) => {
+                        fetchClients();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user]);
 

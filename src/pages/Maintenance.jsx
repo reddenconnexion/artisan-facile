@@ -17,6 +17,22 @@ const Maintenance = () => {
     useEffect(() => {
         if (user) {
             fetchContracts();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('maintenance_contracts_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'maintenance_contracts' },
+                    () => {
+                        fetchContracts();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user]);
 
@@ -179,8 +195,8 @@ const Maintenance = () => {
                                         <td className="px-6 py-4">
                                             {nextDate ? (
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isLate ? 'bg-red-100 text-red-800' :
-                                                        isDueSoon ? 'bg-orange-100 text-orange-800' :
-                                                            'bg-green-100 text-green-800'
+                                                    isDueSoon ? 'bg-orange-100 text-orange-800' :
+                                                        'bg-green-100 text-green-800'
                                                     }`}>
                                                     {format(nextDate, 'dd MMM yyyy', { locale: fr })}
                                                 </span>

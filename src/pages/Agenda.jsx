@@ -42,6 +42,22 @@ const Agenda = () => {
     useEffect(() => {
         if (user) {
             fetchEvents();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('events_list_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'events' },
+                    () => {
+                        fetchEvents(); // Refresh events on any change
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user, currentDate]);
 

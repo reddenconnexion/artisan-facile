@@ -23,6 +23,22 @@ const CRM = () => {
     useEffect(() => {
         if (user) {
             fetchClients();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('crm_clients_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'clients' },
+                    () => {
+                        fetchClients();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user]);
 

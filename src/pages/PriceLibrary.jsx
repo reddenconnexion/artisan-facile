@@ -26,6 +26,22 @@ const PriceLibrary = () => {
     useEffect(() => {
         if (user) {
             fetchItems();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('price_library_changes')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'price_library' },
+                    () => {
+                        fetchItems();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user]);
 

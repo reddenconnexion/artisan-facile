@@ -144,6 +144,34 @@ const ProjectPhotos = ({ clientId }) => {
     useEffect(() => {
         if (clientId && user) {
             Promise.all([fetchPhotos(), fetchProjects()]);
+
+            // Realtime subscriptions
+            const photosSubscription = supabase
+                .channel('project_photos_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id=eq.${clientId}` },
+                    (payload) => {
+                        fetchPhotos();
+                    }
+                )
+                .subscribe();
+
+            const projectsSubscription = supabase
+                .channel('projects_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'projects', filter: `client_id=eq.${clientId}` },
+                    (payload) => {
+                        fetchProjects();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(photosSubscription);
+                supabase.removeChannel(projectsSubscription);
+            };
         }
     }, [clientId, user]);
 

@@ -45,6 +45,23 @@ const DevisList = () => {
     useEffect(() => {
         if (user) {
             fetchDevis();
+
+            // Realtime subscription
+            const subscription = supabase
+                .channel('quotes_list_subscription')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'quotes' },
+                    (payload) => {
+                        // Optimistic update or simple refetch
+                        fetchDevis();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [user]);
 
