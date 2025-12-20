@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,30 @@ const Clients = () => {
     });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeMenu, setActiveMenu] = useState(null);
+
+    const handleDeleteClient = async (clientId) => {
+        if (!window.confirm('Voulez-vous vraiment supprimer ce client ? Cette action est irréversible.')) {
+            setActiveMenu(null);
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('clients')
+                .delete()
+                .eq('id', clientId);
+
+            if (error) throw error;
+            toast.success('Client supprimé avec succès');
+            // The realtime subscription will update the list automatically
+        } catch (error) {
+            console.error('Error deleting client:', error);
+            toast.error('Erreur lors de la suppression du client');
+        } finally {
+            setActiveMenu(null);
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -95,7 +119,7 @@ const Clients = () => {
             {/* Liste des clients */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredClients.map((client) => (
-                    <div key={client.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                    <div key={client.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow relative">
                         <div className="flex justify-between items-start">
                             <div className="flex items-center space-x-3">
                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
@@ -106,9 +130,35 @@ const Clients = () => {
                                     <p className="text-sm text-gray-500">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
                                 </div>
                             </div>
-                            <button className="text-gray-400 hover:text-gray-600">
-                                <MoreVertical className="w-5 h-5" />
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setActiveMenu(activeMenu === client.id ? null : client.id)}
+                                    className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 transition-colors"
+                                >
+                                    <MoreVertical className="w-5 h-5" />
+                                </button>
+                                {activeMenu === client.id && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-10 py-1">
+                                        <button
+                                            onClick={() => {
+                                                navigate(`/app/clients/${client.id}`);
+                                                setActiveMenu(null);
+                                            }}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <Edit className="w-4 h-4 mr-2" />
+                                            Modifier / Voir
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteClient(client.id)}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Supprimer
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="mt-6 space-y-3">
@@ -150,12 +200,24 @@ const Clients = () => {
                 ))}
             </div>
 
-            {filteredClients.length === 0 && (
-                <div className="text-center py-12">
-                    <p className="text-gray-500">Aucun client trouvé.</p>
-                </div>
-            )}
-        </div>
+            {/* Click outside to close menu */}
+            {
+                activeMenu && (
+                    <div
+                        className="fixed inset-0 z-0"
+                        onClick={() => setActiveMenu(null)}
+                    ></div>
+                )
+            }
+
+            {
+                filteredClients.length === 0 && (
+                    <div className="text-center py-12">
+                        <p className="text-gray-500">Aucun client trouvé.</p>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
