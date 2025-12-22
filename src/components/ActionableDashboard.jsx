@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, isAfter, isBefore, addDays, parseISO } from 'date-fns';
+import { format, isAfter, isBefore, addDays, parseISO, startOfDay, addHours } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const ActionableDashboard = ({ user }) => {
@@ -28,15 +28,31 @@ const ActionableDashboard = ({ user }) => {
             const threeDaysFromNow = addDays(now, 3);
             const sevenDaysAgo = addDays(now, -7);
 
-            // 1. Upcoming Events (Next 3 days)
-            const { data: events } = await supabase
+            // 1. Upcoming Events (fetch wider range to catch today's events stored around midnight UTC)
+            // Strategy: Get events from yesterday to +3 days, then filter precisely in JS
+            const { data: rawEvents } = await supabase
                 .from('events')
                 .select('*')
                 .eq('user_id', user.id)
-                .gte('date', now.toISOString())
+                .gte('date', addDays(now, -1).toISOString())
                 .lte('date', threeDaysFromNow.toISOString())
-                .order('date', { ascending: true })
-                .limit(3);
+                .order('date', { ascending: true });
+
+            // Process events to find "Next or Current"
+            // We assume 1h duration by default if not specified
+            const processedEvents = (rawEvents || [])
+                .map(event => {
+                    // Reconstruct exact date time from stored date + stored time string
+                    const d = new Date(event.date);
+                    const [hours, minutes] = (event.time || '00:00').split(':');
+                    d.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+                    const endTime = addHours(d, 1); // Assume 1h duration
+                    return { ...event, startDateTime: d, endDateTime: endTime };
+                })
+                .filter(event => isAfter(event.endDateTime, now)) // Keep if not finished yet
+                .sort((a, b) => a.startDateTime - b.startDateTime) // Sort by start time
+                .slice(0, 3); // Take top 3
 
             // 2. Quotes to follow up (Sent > 7 days ago)
             const { data: overdueQuotes } = await supabase
@@ -78,7 +94,7 @@ const ActionableDashboard = ({ user }) => {
             }
 
             setActionItems({
-                upcomingEvents: events || [],
+                upcomingEvents: processedEvents || [],
                 overdueQuotes: overdueQuotes || [],
                 pendingInvoices: pendingInvoices || [],
                 draftQuotes: draftQuotes || [],
@@ -155,20 +171,45 @@ const ActionableDashboard = ({ user }) => {
                             <Calendar className="w-3 h-3 mr-1" /> Prochains RDV
                         </h4>
                         <div className="space-y-2">
-                            {actionItems.upcomingEvents.map(event => (
-                                <div key={event.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-blue-100 shadow-sm">
-                                    <div className="flex items-center">
-                                        <div className="w-12 text-center leading-none mr-3">
-                                            <span className="block text-xs text-gray-500">{format(parseISO(event.date), 'dd/MM', { locale: fr })}</span>
-                                            <span className="block font-bold text-blue-600">{event.time}</span>
+                            {actionItems.upcomingEvents.map((event, idx) => {
+                                const isNext = idx === 0; // The first one is the "Current/Next" one
+                                return (
+                                    <div key={event.id} className={`flex items-center justify-between text-sm bg-white p-2 rounded border shadow-sm ${isNext ? 'border-blue-300 ring-1 ring-blue-100' : 'border-blue-100'}`}>
+                                        <div className="flex items-center flex-1">
+                                            <div className="w-12 text-center leading-none mr-3 flex-shrink-0">
+                                                <span className="block text-xs text-gray-500">{format(event.startDateTime, 'dd/MM', { locale: fr })}</span>
+                                                <span className="block font-bold text-blue-600">{event.time}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-medium text-gray-900 truncate">{event.title}</p>
+                                                {event.address && <p className="text-xs text-gray-500 truncate">{event.address}</p>}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-gray-900">{event.title}</p>
-                                            {event.address && <p className="text-xs text-gray-500 truncate max-w-[200px]">{event.address}</p>}
-                                        </div>
+                                        {isNext && event.address && (
+                                            <div className="flex gap-1 ml-2">
+                                                <a
+                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center shadow-sm"
+                                                    title="Google Maps"
+                                                >
+                                                    <Navigation className="w-4 h-4" />
+                                                </a>
+                                                <a
+                                                    href={`https://waze.com/ul?q=${encodeURIComponent(event.address)}&navigate=yes`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-2 bg-blue-400 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center justify-center shadow-sm"
+                                                    title="Waze"
+                                                >
+                                                    <Car className="w-4 h-4" />
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
