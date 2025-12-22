@@ -66,12 +66,16 @@ const LandingPage = () => {
             <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-blue-50 to-white">
                 <div className="max-w-7xl mx-auto text-center">
                     <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight mb-8">
-                        Gérez votre activité d'artisan <br />
-                        <span className="text-blue-600">en toute simplicité</span>
+                        Ne perdez plus d'argent. <br />
+                        <span className="text-blue-600">Gagnez du temps pour vos chantiers.</span>
                     </h1>
                     <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto mb-10">
-                        La solution tout-en-un pour créer vos devis, gérer vos factures et suivre vos chantiers.
-                        Gagnez du temps et concentrez-vous sur votre métier.
+                        Artisan Facile est l'outil qui rentabilise votre activité.
+                        <span className="block mt-2 font-semibold text-gray-900">
+                            💰 Augmentez votre Chiffre d'Affaires de +15%
+                            <span className="mx-2 hidden sm:inline">•</span>
+                            ⏳ Économisez 5h/semaine de gestion
+                        </span>
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         {user ? (
@@ -136,8 +140,76 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section className="py-20 bg-white">
+            {/* Why Choose Us - ROI Section */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+                            Pourquoi les artisans gagnent plus avec nous ?
+                        </h2>
+                        <p className="mt-4 text-xl text-gray-600">
+                            Des résultats concrets sur votre quotidien et votre compte en banque.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                        {/* Money Benefit */}
+                        <div className="bg-blue-50 rounded-2xl p-8 border border-blue-100 relative overflow-hidden group hover:shadow-lg transition-all">
+                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Zap className="w-48 h-48 text-blue-600" />
+                            </div>
+                            <div className="relative z-10">
+                                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">RENTABILITÉ</span>
+                                <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                                    + 15% de Chiffre d'Affaires
+                                </h3>
+                                <p className="text-lg text-gray-700 mb-6">
+                                    Ne laissez plus aucuns devis sans réponse. Avec les <strong>relances automatiques</strong> et des devis ultra-professionnels, vous signez plus de chantiers.
+                                </p>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center text-gray-600">
+                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                        Relances de factures impayées automatisées
+                                    </li>
+                                    <li className="flex items-center text-gray-600">
+                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                        Devis signés en ligne instantanément
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Time Benefit */}
+                        <div className="bg-green-50 rounded-2xl p-8 border border-green-100 relative overflow-hidden group hover:shadow-lg transition-all">
+                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Calendar className="w-48 h-48 text-green-600" />
+                            </div>
+                            <div className="relative z-10">
+                                <span className="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold mb-4">TEMPS LIBRE</span>
+                                <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                                    5 Heures gagnées par semaine
+                                </h3>
+                                <p className="text-lg text-gray-700 mb-6">
+                                    Fini l'administratif le soir et le week-end. Créez vos devis dans votre camion en <strong>moins de 2 minutes</strong> grâce à la bibliothèque de prix.
+                                </p>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center text-gray-600">
+                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                        Bibliothèque d'ouvrages pré-remplie
+                                    </li>
+                                    <li className="flex items-center text-gray-600">
+                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                        Transformation Devis → Facture en 1 clic
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Features Grid Header (Existing Start) */}
+            <section className="py-20 bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
@@ -150,24 +222,24 @@ const LandingPage = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {/* Feature 1 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
+                        <div className="p-8 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group border border-gray-100">
                             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
                                 <FileText className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Devis & Factures</h3>
+                            <h3 className="text-xl font-bold text-gray-900 mb-3">Devis en 2 minutes</h3>
                             <p className="text-gray-600">
-                                Créez des documents professionnels en quelques clics. Transformez vos devis en factures instantanément.
+                                Créez des documents pro sur place. Impressionnez vos clients par votre réactivité et bloquez le chantier immédiatement.
                             </p>
                         </div>
 
                         {/* Feature 2 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
+                        <div className="p-8 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group border border-gray-100">
                             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors">
                                 <Users className="w-6 h-6 text-green-600 group-hover:text-white transition-colors" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Gestion Clients (CRM)</h3>
+                            <h3 className="text-xl font-bold text-gray-900 mb-3">Fini les impayés</h3>
                             <p className="text-gray-600">
-                                Centralisez les informations de vos clients. Historique des chantiers, coordonnées et notes personnelles.
+                                Suivez qui vous doit de l'argent en temps réel. Un tableau de bord clair pour relancer au bon moment.
                             </p>
                         </div>
 
