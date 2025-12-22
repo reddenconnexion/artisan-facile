@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -26,7 +27,7 @@ const ProjectPhotos = ({ clientId }) => {
     // Bulk Actions State
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState(new Set());
-    const [moveTargetId, setMoveTargetId] = useState('');
+
 
     const handleGenerateComparison = async () => {
         if (!splitBefore || !splitAfter || !canvasRef.current) return;
@@ -116,7 +117,7 @@ const ProjectPhotos = ({ clientId }) => {
             // Trigger Download
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             const link = document.createElement('a');
-            link.download = `comparatif-chantier-${Date.now()}.jpg`;
+            link.download = `comparatif - chantier - ${Date.now()}.jpg`;
             link.href = dataUrl;
             link.click();
 
@@ -133,6 +134,13 @@ const ProjectPhotos = ({ clientId }) => {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
 
+    // Move Modal State
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [photosToMove, setPhotosToMove] = useState(new Set());
+    const [moveTargetId, setMoveTargetId] = useState('');
+    const [newMoveProjectName, setNewMoveProjectName] = useState('');
+    const [isCreatingInMove, setIsCreatingInMove] = useState(false);
+
     // Minimum swipe distance (in px)
     const minSwipeDistance = 50;
 
@@ -145,7 +153,7 @@ const ProjectPhotos = ({ clientId }) => {
                 .channel('project_photos_subscription')
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id=eq.${clientId}` },
+                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id = eq.${clientId} ` },
                     (payload) => {
                         fetchPhotos();
                     }
@@ -156,7 +164,7 @@ const ProjectPhotos = ({ clientId }) => {
                 .channel('projects_subscription')
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'projects', filter: `client_id=eq.${clientId}` },
+                    { event: '*', schema: 'public', table: 'projects', filter: `client_id = eq.${clientId} ` },
                     (payload) => {
                         fetchProjects();
                     }
@@ -245,7 +253,7 @@ const ProjectPhotos = ({ clientId }) => {
                 try {
                     // 1. Upload to Storage
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `${user.id}/${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+                    const fileName = `${user.id} /${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt} `;
 
                     const { error: uploadError } = await supabase.storage
                         .from('project-photos')
@@ -349,47 +357,90 @@ const ProjectPhotos = ({ clientId }) => {
         });
     };
 
-    const handleBulkMove = async () => {
-        if (selectedPhotos.size === 0) return;
-        if (!moveTargetId) {
-            toast.error("Veuillez choisir un chantier de destination");
-            return;
+    const openMoveModal = (photoId = null) => {
+        if (photoId) {
+            setPhotosToMove(new Set([photoId]));
+        } else {
+            // Bulk mode
+            if (selectedPhotos.size === 0) return;
+            setPhotosToMove(selectedPhotos);
         }
+        setMoveTargetId('');
+        setIsCreatingInMove(false);
+        setNewMoveProjectName('');
+        setShowMoveModal(true);
+    };
+
+    const handleConfirmMove = async () => {
+        if (photosToMove.size === 0) return;
+
+        let targetId = moveTargetId;
 
         try {
+            // Create project on the fly if needed
+            if (isCreatingInMove) {
+                if (!newMoveProjectName.trim()) {
+                    toast.error("Veuillez donner un nom au dossier");
+                    return;
+                }
+                const { data: newProject, error: createError } = await supabase
+                    .from('projects')
+                    .insert([{
+                        name: newMoveProjectName.trim(),
+                        client_id: clientId,
+                        user_id: user.id
+                    }])
+                    .select()
+                    .single();
+
+                if (createError) throw createError;
+
+                targetId = newProject.id;
+                // Update local projects list
+                setProjects(prev => [...prev, newProject]);
+                toast.success(`Dossier "${newProject.name}" créé`);
+            } else {
+                if (!targetId) {
+                    toast.error("Veuillez choisir un dossier");
+                    return;
+                }
+            }
+
             const updates = {
-                project_id: moveTargetId === 'uncategorized' ? null : moveTargetId
+                project_id: targetId === 'uncategorized' ? null : targetId
             };
 
             const { error } = await supabase
                 .from('project_photos')
                 .update(updates)
-                .in('id', Array.from(selectedPhotos));
+                .in('id', Array.from(photosToMove));
 
             if (error) throw error;
 
-            toast.success(`${selectedPhotos.size} photo(s) déplacée(s)`);
+            toast.success(`${photosToMove.size} photo(s) déplacée(s)`);
 
             // Update local state
             setPhotos(prev => prev.map(p =>
-                selectedPhotos.has(p.id)
+                photosToMove.has(p.id)
                     ? { ...p, ...updates }
                     : p
             ));
 
-            // Reset selection
+            // Reset
+            setPhotosToMove(new Set());
             setSelectedPhotos(new Set());
             setSelectionMode(false);
-            setMoveTargetId('');
+            setShowMoveModal(false);
+
         } catch (error) {
             console.error('Error moving photos:', error);
-            toast.error("Erreur lors du déplacement des photos");
+            toast.error("Erreur lors du déplacement");
         }
     };
 
     const handleBulkDelete = async () => {
         if (selectedPhotos.size === 0) return;
-        if (!window.confirm(`Voulez-vous vraiment supprimer ces ${selectedPhotos.size} photos ?`)) return;
+        if (!window.confirm(`Voulez - vous vraiment supprimer ces ${selectedPhotos.size} photos ? `)) return;
 
         try {
             // Delete from DB
@@ -582,25 +633,13 @@ const ProjectPhotos = ({ clientId }) => {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                            <select
-                                value={moveTargetId}
-                                onChange={(e) => setMoveTargetId(e.target.value)}
-                                className="block w-full sm:w-48 px-3 py-2 bg-white border border-blue-200 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Déplacer vers...</option>
-                                <option value="uncategorized">Non classé (Général)</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-
                             <button
-                                onClick={handleBulkMove}
-                                disabled={selectedPhotos.size === 0 || !moveTargetId}
+                                onClick={() => openMoveModal()}
+                                disabled={selectedPhotos.size === 0}
                                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                <Move className="w-4 h-4" />
-                                Déplacer
+                                <FolderInput className="w-4 h-4" />
+                                Déplacer vers...
                             </button>
 
                             <div className="w-px h-8 bg-blue-200 mx-2 hidden sm:block"></div>
@@ -624,10 +663,10 @@ const ProjectPhotos = ({ clientId }) => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                        className={`flex - 1 py - 2 text - sm font - medium border - b - 2 transition - colors ${activeTab === tab.id
                             ? 'border-blue-600 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                            } `}
                     >
                         {tab.label}
                     </button>
@@ -641,10 +680,10 @@ const ProjectPhotos = ({ clientId }) => {
                         setSelectionMode(!selectionMode);
                         setSelectedPhotos(new Set());
                     }}
-                    className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectionMode
+                    className={`text - sm font - medium flex items - center gap - 2 px - 3 py - 2 rounded - lg transition - colors ${selectionMode
                         ? 'bg-blue-100 text-blue-700'
                         : 'text-gray-600 hover:bg-gray-50'
-                        }`}
+                        } `}
                 >
                     <CheckSquare className="w-4 h-4" />
                     {selectionMode ? 'Terminer la sélection' : 'Sélectionner des photos'}
@@ -685,10 +724,10 @@ const ProjectPhotos = ({ clientId }) => {
                         {filteredPhotos.map((photo, index) => (
                             <div
                                 key={photo.id}
-                                className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border transition-all ${selectedPhotos.has(photo.id)
+                                className={`relative group aspect - square rounded - lg overflow - hidden bg - gray - 100 border transition - all ${selectedPhotos.has(photo.id)
                                     ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
                                     : 'border-gray-200'
-                                    }`}
+                                    } `}
                                 onClick={() => {
                                     if (selectionMode) {
                                         toggleSelection(photo.id);
@@ -700,17 +739,17 @@ const ProjectPhotos = ({ clientId }) => {
                                 <img
                                     src={photo.photo_url}
                                     alt={photo.category}
-                                    className={`w-full h-full object-cover transition-transform duration-300 ${selectionMode && selectedPhotos.has(photo.id) ? 'scale-90' : 'group-hover:scale-105'
-                                        }`}
+                                    className={`w - full h - full object - cover transition - transform duration - 300 ${selectionMode && selectedPhotos.has(photo.id) ? 'scale-90' : 'group-hover:scale-105'
+                                        } `}
                                 />
 
                                 {/* Selection Checkbox */}
                                 {selectionMode ? (
                                     <div className="absolute top-2 right-2 z-10">
-                                        <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedPhotos.has(photo.id)
+                                        <div className={`w - 6 h - 6 rounded border - 2 flex items - center justify - center transition - colors ${selectedPhotos.has(photo.id)
                                             ? 'bg-blue-500 border-blue-500 text-white'
                                             : 'bg-white/80 border-gray-400 hover:border-gray-600'
-                                            }`}>
+                                            } `}>
                                             {selectedPhotos.has(photo.id) && <CheckSquare className="w-4 h-4" />}
                                         </div>
                                     </div>
@@ -722,6 +761,13 @@ const ProjectPhotos = ({ clientId }) => {
                                             title="Agrandir"
                                         >
                                             <Maximize2 className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openMoveModal(photo.id); }}
+                                            className="p-2 bg-white text-blue-600 rounded-full hover:bg-blue-50"
+                                            title="Déplacer dans un dossier"
+                                        >
+                                            <FolderInput className="w-5 h-5" />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDelete(photo.id, photo.photo_url); }}
@@ -777,7 +823,7 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitBefore(p)}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                                    className={`aspect - square rounded border - 2 overflow - hidden cursor - pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
@@ -805,7 +851,7 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitAfter(p)}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'}`}
+                                                    className={`aspect - square rounded border - 2 overflow - hidden cursor - pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
@@ -847,6 +893,88 @@ const ProjectPhotos = ({ clientId }) => {
 
             {/* Generated Image Preview (Hidden Canvas) */}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {/* Move Modal */}
+            {showMoveModal && (
+                <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowMoveModal(false)}>
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FolderInput className="w-5 h-5 text-blue-600" />
+                                Déplacer {photosToMove.size} photo(s)
+                            </h3>
+                            <button onClick={() => setShowMoveModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Choisir le dossier de destination :</label>
+
+                                {!isCreatingInMove ? (
+                                    <select
+                                        value={moveTargetId}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'new_folder_action') {
+                                                setIsCreatingInMove(true);
+                                                setMoveTargetId('');
+                                            } else {
+                                                setMoveTargetId(e.target.value);
+                                            }
+                                        }}
+                                        className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">-- Choisir un dossier --</option>
+                                        <option value="new_folder_action" className="font-bold text-blue-600">+ Nouveau Dossier...</option>
+                                        <option disabled>──────────</option>
+                                        <option value="uncategorized">Non classé (Général)</option>
+                                        {projects.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <FolderPlus className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                value={newMoveProjectName}
+                                                onChange={e => setNewMoveProjectName(e.target.value)}
+                                                placeholder="Nom du nouveau dossier..."
+                                                className="block w-full pl-9 pr-3 py-2 border border-blue-500 ring-1 ring-blue-500 rounded-lg focus:outline-none"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => setIsCreatingInMove(false)}
+                                            className="px-3 text-gray-500 hover:bg-gray-100 rounded-lg"
+                                            title="Annuler création"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                <button
+                                    onClick={() => setShowMoveModal(false)}
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleConfirmMove}
+                                    className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
+                                >
+                                    Déplacer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Fullscreen Modal */}
             {
