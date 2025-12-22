@@ -99,18 +99,13 @@ const ProjectPhotos = ({ clientId }) => {
             const labelHeight = 40;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
 
-            // Before Label
-            ctx.fillRect(padding, 80 + imgHeight - labelHeight, imgWidth, labelHeight);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('AVANT', padding + (imgWidth / 2), 80 + imgHeight - 12);
+            // Before Label removed
+
 
             // After Label
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            ctx.fillRect(padding + imgWidth + padding, 80 + imgHeight - labelHeight, imgWidth, labelHeight);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText('APRÈS', padding + imgWidth + padding + (imgWidth / 2), 80 + imgHeight - 12);
+            // Removed redundant label logic as requested by user
+            // Original code drew an overlay again
+
 
             // Add Logo/Footer if needed
             ctx.fillStyle = '#6B7280';
