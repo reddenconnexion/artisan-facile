@@ -29,13 +29,13 @@ const ActionableDashboard = ({ user }) => {
             const sevenDaysAgo = addDays(now, -7);
 
             // 1. Upcoming Events (fetch wider range to catch today's events stored around midnight UTC)
-            // Strategy: Get events from yesterday to +3 days, then filter precisely in JS
+            // Strategy: Get events from yesterday to +7 days to be safe
             const { data: rawEvents } = await supabase
                 .from('events')
                 .select('*')
                 .eq('user_id', user.id)
-                .gte('date', addDays(now, -1).toISOString())
-                .lte('date', threeDaysFromNow.toISOString())
+                .gte('date', format(addDays(now, -1), 'yyyy-MM-dd'))
+                .lte('date', format(addDays(now, 7), 'yyyy-MM-dd'))
                 .order('date', { ascending: true });
 
             // Process events to find "Next or Current"
