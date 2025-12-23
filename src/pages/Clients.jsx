@@ -92,7 +92,7 @@ const Clients = () => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900">Mes Clients</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mes Clients</h2>
                 <button
                     onClick={() => navigate('/app/clients/new')}
                     className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -110,7 +110,7 @@ const Clients = () => {
                 <input
                     type="text"
                     placeholder="Rechercher un client..."
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -119,15 +119,15 @@ const Clients = () => {
             {/* Liste des clients */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredClients.map((client) => (
-                    <div key={client.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow relative">
+                    <div key={client.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 hover:shadow-md transition-shadow relative">
                         <div className="flex justify-between items-start">
                             <div className="flex items-center space-x-3">
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
                                     {client.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{client.name}</h3>
-                                    <p className="text-sm text-gray-500">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{client.name}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
                                 </div>
                             </div>
                             <div className="relative">
@@ -138,20 +138,20 @@ const Clients = () => {
                                     <MoreVertical className="w-5 h-5" />
                                 </button>
                                 {activeMenu === client.id && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-10 py-1">
+                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-10 py-1">
                                         <button
                                             onClick={() => {
                                                 navigate(`/app/clients/${client.id}`);
                                                 setActiveMenu(null);
                                             }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                                         >
                                             <Edit className="w-4 h-4 mr-2" />
                                             Modifier / Voir
                                         </button>
                                         <button
                                             onClick={() => handleDeleteClient(client.id)}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                                         >
                                             <Trash2 className="w-4 h-4 mr-2" />
                                             Supprimer
@@ -163,35 +163,35 @@ const Clients = () => {
 
                         <div className="mt-6 space-y-3">
                             {client.email && (
-                                <div className="flex items-center text-gray-600">
-                                    <Mail className="w-4 h-4 mr-3 text-gray-400" />
+                                <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <Mail className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                                     <span className="text-sm">{client.email}</span>
                                 </div>
                             )}
                             {client.phone && (
-                                <div className="flex items-center text-gray-600">
-                                    <Phone className="w-4 h-4 mr-3 text-gray-400" />
+                                <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <Phone className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                                     <span className="text-sm">{client.phone}</span>
                                 </div>
                             )}
                             {client.address && (
-                                <div className="flex items-center text-gray-600">
-                                    <MapPin className="w-4 h-4 mr-3 text-gray-400" />
+                                <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <MapPin className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                                     <span className="text-sm">{client.address}</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end space-x-3">
+                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end space-x-3">
                             <button
                                 onClick={() => navigate(`/app/clients/${client.id}`)}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                             >
                                 Voir fiche
                             </button>
                             <button
                                 onClick={() => navigate('/app/devis/new', { state: { client_id: client.id } })}
-                                className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                             >
                                 Créer devis
                             </button>
