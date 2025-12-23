@@ -109,8 +109,8 @@ const ActionableDashboard = ({ user }) => {
     };
 
     if (loading) return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
             <div className="space-y-3">
                 <div className="h-16 bg-gray-100 rounded"></div>
                 <div className="h-16 bg-gray-100 rounded"></div>
@@ -123,13 +123,13 @@ const ActionableDashboard = ({ user }) => {
     if (!hasItems) return null; // Or show "All good!" message
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                    <CheckCircle className="w-5 h-5 mr-2 text-blue-600" />
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+                <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
                     Actions Prioritaires
                 </h3>
-                <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
                     To-Do
                 </span>
             </div>
@@ -137,24 +137,24 @@ const ActionableDashboard = ({ user }) => {
             <div className="divide-y divide-gray-100">
                 {/* 0. Maintenance Alerts */}
                 {actionItems.maintenanceAlerts && actionItems.maintenanceAlerts.length > 0 && (
-                    <div className="p-4 bg-orange-50/50">
-                        <h4 className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-3 flex items-center">
+                    <div className="p-4 bg-orange-50/50 dark:bg-orange-900/10">
+                        <h4 className="text-xs font-bold text-orange-800 dark:text-orange-300 uppercase tracking-wider mb-3 flex items-center">
                             <Wrench className="w-3 h-3 mr-1" /> Entretiens à prévoir
                         </h4>
                         <div className="space-y-2">
                             {actionItems.maintenanceAlerts.map(contract => (
-                                <div key={contract.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-orange-100 shadow-sm">
+                                <div key={contract.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-orange-100 dark:border-orange-900/30 shadow-sm">
                                     <div className="flex items-center">
                                         <div>
-                                            <p className="font-medium text-gray-900">{contract.clients?.name}</p>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="font-medium text-gray-900 dark:text-white">{contract.clients?.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 {contract.equipment_name} - {format(parseISO(contract.next_maintenance_date), 'dd MMMM', { locale: fr })}
                                             </p>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => navigate('/app/maintenance')}
-                                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                                     >
                                         Voir
                                     </button>
@@ -166,23 +166,23 @@ const ActionableDashboard = ({ user }) => {
 
                 {/* 1. Events */}
                 {actionItems.upcomingEvents.length > 0 && (
-                    <div className="p-4 bg-blue-50/30">
-                        <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center">
+                    <div className="p-4 bg-blue-50/30 dark:bg-blue-900/10">
+                        <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-3 flex items-center">
                             <Calendar className="w-3 h-3 mr-1" /> Prochains RDV
                         </h4>
                         <div className="space-y-2">
                             {actionItems.upcomingEvents.map((event, idx) => {
                                 const isNext = idx === 0; // The first one is the "Current/Next" one
                                 return (
-                                    <div key={event.id} className={`flex items-center justify-between text-sm bg-white p-2 rounded border shadow-sm ${isNext ? 'border-blue-300 ring-1 ring-blue-100' : 'border-blue-100'}`}>
+                                    <div key={event.id} className={`flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border shadow-sm ${isNext ? 'border-blue-300 dark:border-blue-700 ring-1 ring-blue-100 dark:ring-blue-900/50' : 'border-blue-100 dark:border-blue-900/30'}`}>
                                         <div className="flex items-center flex-1">
                                             <div className="w-12 text-center leading-none mr-3 flex-shrink-0">
-                                                <span className="block text-xs text-gray-500">{format(event.startDateTime, 'dd/MM', { locale: fr })}</span>
-                                                <span className="block font-bold text-blue-600">{event.time}</span>
+                                                <span className="block text-xs text-gray-500 dark:text-gray-400">{format(event.startDateTime, 'dd/MM', { locale: fr })}</span>
+                                                <span className="block font-bold text-blue-600 dark:text-blue-400">{event.time}</span>
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="font-medium text-gray-900 truncate">{event.title}</p>
-                                                {event.address && <p className="text-xs text-gray-500 truncate">{event.address}</p>}
+                                                <p className="font-medium text-gray-900 dark:text-white truncate">{event.title}</p>
+                                                {event.address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{event.address}</p>}
                                             </div>
                                         </div>
                                         {isNext && event.address && (
@@ -216,8 +216,8 @@ const ActionableDashboard = ({ user }) => {
 
                 {/* 2. Overdue Quotes */}
                 {actionItems.overdueQuotes.length > 0 && (
-                    <div className="p-4 bg-amber-50/30">
-                        <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-3 flex items-center">
+                    <div className="p-4 bg-amber-50/30 dark:bg-amber-900/10">
+                        <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider mb-3 flex items-center">
                             <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
                         </h4>
                         <div className="space-y-2">
@@ -225,11 +225,11 @@ const ActionableDashboard = ({ user }) => {
                                 <div
                                     key={quote.id}
                                     onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                    className="flex items-center justify-between text-sm bg-white p-2 rounded border border-amber-100 shadow-sm cursor-pointer hover:bg-amber-50 transition-colors"
+                                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                                 >
                                     <div>
-                                        <p className="font-medium text-gray-900">{quote.client_name || quote.clients?.name || 'Client'}</p>
-                                        <p className="text-xs text-gray-500">
+                                        <p className="font-medium text-gray-900 dark:text-white">{quote.client_name || quote.clients?.name || 'Client'}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
                                             Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {quote.total_ttc}€
                                         </p>
                                     </div>
@@ -242,8 +242,8 @@ const ActionableDashboard = ({ user }) => {
 
                 {/* 3. Pending Invoices */}
                 {actionItems.pendingInvoices.length > 0 && (
-                    <div className="p-4 bg-green-50/30">
-                        <h4 className="text-xs font-bold text-green-800 uppercase tracking-wider mb-3 flex items-center">
+                    <div className="p-4 bg-green-50/30 dark:bg-green-900/10">
+                        <h4 className="text-xs font-bold text-green-800 dark:text-green-300 uppercase tracking-wider mb-3 flex items-center">
                             <FileText className="w-3 h-3 mr-1" /> Factures en attente
                         </h4>
                         <div className="space-y-2">
@@ -251,15 +251,15 @@ const ActionableDashboard = ({ user }) => {
                                 <div
                                     key={quote.id}
                                     onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                    className="flex items-center justify-between text-sm bg-white p-2 rounded border border-green-100 shadow-sm cursor-pointer hover:bg-green-50 transition-colors"
+                                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-green-100 dark:border-green-900/30 shadow-sm cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
                                 >
                                     <div>
-                                        <p className="font-medium text-gray-900">{quote.client_name || quote.clients?.name || 'Client'}</p>
-                                        <p className="text-xs text-gray-500">
+                                        <p className="font-medium text-gray-900 dark:text-white">{quote.client_name || quote.clients?.name || 'Client'}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
                                             Facturé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })}
                                         </p>
                                     </div>
-                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                                    <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
                                         {quote.total_ttc} €
                                     </span>
                                 </div>
@@ -270,8 +270,8 @@ const ActionableDashboard = ({ user }) => {
 
                 {/* 4. Drafts */}
                 {actionItems.draftQuotes.length > 0 && (
-                    <div className="p-4">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    <div className="p-4 bg-white dark:bg-gray-900">
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                             Brouillons à finir
                         </h4>
                         <div className="space-y-2">
@@ -279,13 +279,13 @@ const ActionableDashboard = ({ user }) => {
                                 <div
                                     key={quote.id}
                                     onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                    className="flex items-center justify-between text-sm hover:bg-gray-50 p-2 rounded cursor-pointer transition-colors"
+                                    className="flex items-center justify-between text-sm hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded cursor-pointer transition-colors"
                                 >
                                     <div className="flex items-center">
-                                        <div className="w-2 h-2 bg-gray-300 rounded-full mr-3"></div>
+                                        <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full mr-3"></div>
                                         <div>
-                                            <p className="text-gray-900">{quote.title || 'Devis sans titre'}</p>
-                                            <p className="text-xs text-gray-500">{quote.client_name || quote.clients?.name}</p>
+                                            <p className="text-gray-900 dark:text-white">{quote.title || 'Devis sans titre'}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{quote.client_name || quote.clients?.name}</p>
                                         </div>
                                     </div>
                                     <ArrowRight className="w-3 h-3 text-gray-300" />
@@ -297,7 +297,7 @@ const ActionableDashboard = ({ user }) => {
             </div>
 
             {(actionItems.overdueQuotes.length > 0 || actionItems.pendingInvoices.length > 0) && (
-                <div className="px-6 py-3 bg-gray-50 text-xs text-center text-gray-500 border-t border-gray-100">
+                <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-center text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
                     💡 Astuce : Passez une facture à "Payé" pour l'archiver.
                 </div>
             )}
