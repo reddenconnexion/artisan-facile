@@ -633,14 +633,14 @@ const ProjectPhotos = ({ clientId }) => {
     if (loading) return <div className="text-center py-4 text-gray-500">Chargement des photos...</div>;
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mt-6 transition-colors">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 mt-6 transition-colors">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Photos du chantier
             </h3>
 
             {/* Project Selector */}
-            <div className="mb-6 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div className="mb-6 bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-100 dark:border-gray-800">
                 <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Folder className="w-5 h-5 text-gray-500 dark:text-gray-400" />
@@ -651,7 +651,7 @@ const ProjectPhotos = ({ clientId }) => {
                                 <select
                                     value={selectedProjectId}
                                     onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="all">Toutes les photos ({totalPhotos})</option>
                                     <option value="uncategorized">Non classé ({projectCounts['uncategorized'] || 0})</option>
@@ -780,7 +780,7 @@ const ProjectPhotos = ({ clientId }) => {
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                             ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                            : 'border-transparent text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700'}`}
                     >
                         {tab.label}
                     </button>
@@ -795,8 +795,8 @@ const ProjectPhotos = ({ clientId }) => {
                         setSelectedPhotos(new Set());
                     }}
                     className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectionMode
-                        ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 >
                     <CheckSquare className="w-4 h-4" />
                     {selectionMode ? 'Terminer la sélection' : 'Sélectionner des photos'}
@@ -806,7 +806,7 @@ const ProjectPhotos = ({ clientId }) => {
             {/* Upload Area */}
             <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Option 1: Select Files */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 cursor-not-allowed' : 'bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500'}`}>
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 cursor-not-allowed' : 'bg-gray-50 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-600'}`}>
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
                     ) : (
@@ -827,7 +827,7 @@ const ProjectPhotos = ({ clientId }) => {
                 </label>
 
                 {/* Option 2: Camera */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-600'}`}>
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700'}`}>
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                     ) : (
@@ -857,9 +857,9 @@ const ProjectPhotos = ({ clientId }) => {
                         {filteredPhotos.map((photo, index) => (
                             <div
                                 key={photo.id}
-                                className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border transition-all ${selectedPhotos.has(photo.id)
+                                className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-black border transition-all ${selectedPhotos.has(photo.id)
                                     ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                                    : 'border-gray-200'}`}
+                                    : 'border-gray-200 dark:border-gray-800'}`}
                                 onClick={() => {
                                     if (selectionMode) {
                                         toggleSelection(photo.id);
@@ -925,14 +925,14 @@ const ProjectPhotos = ({ clientId }) => {
             }
 
             {/* Comparison Mode Trigger */}
-            <div className="mt-6 border-t border-gray-100 pt-6">
+            <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6">
                 <button
                     onClick={() => setShowComparisonModal(true)}
-                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors"
+                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
                 >
                     <div className="flex -space-x-2 mr-3">
-                        <div className="w-6 h-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-600">AV</div>
-                        <div className="w-6 h-6 rounded-full bg-purple-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-purple-600">AP</div>
+                        <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-700 border-2 border-white dark:border-gray-600 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">AV</div>
+                        <div className="w-6 h-6 rounded-full bg-purple-200 dark:bg-purple-800 border-2 border-white dark:border-gray-600 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-200">AP</div>
                     </div>
                     Créer un montage Avant / Après
                 </button>
@@ -942,11 +942,11 @@ const ProjectPhotos = ({ clientId }) => {
             {
                 showComparisonModal && (
                     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
-                            <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                                <h3 className="text-xl font-bold text-gray-900">Générateur Avant / Après</h3>
-                                <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                                    <X className="w-6 h-6 text-gray-500" />
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10 transition-colors">
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Générateur Avant / Après</h3>
+                                <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400">
+                                    <X className="w-6 h-6" />
                                 </button>
                             </div>
                             {/* Modal content continued below... */}
@@ -954,8 +954,8 @@ const ProjectPhotos = ({ clientId }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {/* Before Column */}
                                     <div>
-                                        <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                                            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center mr-2">1</span>
+                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
+                                            <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs flex items-center justify-center mr-2">1</span>
                                             Choisir photo AVANT
                                         </h4>
                                         <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
@@ -963,17 +963,17 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitBefore(p)}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100 dark:ring-purple-900' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
                                             ))}
                                             {photos.filter(p => p.category === 'before').length === 0 && (
-                                                <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Avant"</div>
+                                                <div className="col-span-3 text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">Aucune photo "Avant"</div>
                                             )}
                                         </div>
                                         {splitBefore && (
-                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video relative">
                                                 <img src={splitBefore.photo_url} className="w-full h-full object-cover" />
                                                 <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">AVANT</div>
                                             </div>
@@ -982,8 +982,8 @@ const ProjectPhotos = ({ clientId }) => {
 
                                     {/* After Column */}
                                     <div>
-                                        <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                                            <span className="w-6 h-6 rounded-full bg-purple-200 text-purple-600 text-xs flex items-center justify-center mr-2">2</span>
+                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
+                                            <span className="w-6 h-6 rounded-full bg-purple-200 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 text-xs flex items-center justify-center mr-2">2</span>
                                             Choisir photo APRÈS
                                         </h4>
                                         <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
@@ -991,17 +991,17 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitAfter(p)}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100 dark:ring-purple-900' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
                                             ))}
                                             {photos.filter(p => p.category === 'after' || p.category === 'during').length === 0 && (
-                                                <div className="col-span-3 text-sm text-gray-400 italic text-center py-4">Aucune photo "Après"</div>
+                                                <div className="col-span-3 text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">Aucune photo "Après"</div>
                                             )}
                                         </div>
                                         {splitAfter && (
-                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 aspect-video relative">
+                                            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video relative">
                                                 <img src={splitAfter.photo_url} className="w-full h-full object-cover" />
                                                 <div className="absolute bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">APRÈS</div>
                                             </div>
@@ -1010,10 +1010,10 @@ const ProjectPhotos = ({ clientId }) => {
                                 </div>
                             </div>
 
-                            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+                            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 sticky bottom-0">
                                 <button
                                     onClick={() => setShowComparisonModal(false)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm font-medium"
                                 >
                                     Annuler
                                 </button>

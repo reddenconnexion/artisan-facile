@@ -205,7 +205,7 @@ const Layout = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors duration-200">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden transition-colors duration-200">
       <Toaster position="top-right" richColors theme={isDarkMode ? 'dark' : 'light'} />
 
       {/* Demo Banner */}
@@ -265,7 +265,7 @@ const Layout = () => {
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           className={`fixed md:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-            } md:translate-x-0 transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col ${isCollapsed ? 'md:w-20' : 'md:w-64'
+            } md:translate-x-0 transition-all duration-300 ease-in-out bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col ${isCollapsed ? 'md:w-20' : 'md:w-64'
             } w-64`}
         >
           {/* Desktop Header / Logo */}
@@ -294,8 +294,8 @@ const Layout = () => {
                   key={item.name}
                   to={item.href}
                   className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                     } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                 >
                   <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
@@ -305,11 +305,11 @@ const Layout = () => {
             })}
           </nav>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
             {/* Dark Mode Toggle Button */}
             <button
               onClick={toggleDarkMode}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
               title={isDarkMode ? "Passer en mode clair" : "Passer en mode sombre"}
             >
               {isDarkMode ? (
@@ -322,14 +322,14 @@ const Layout = () => {
 
             <button
               onClick={() => navigate('/app/settings')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
             >
               <Settings className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
               {(!isCollapsed || isMobileMenuOpen) && 'Paramètres'}
             </button>
             <button
               onClick={handleLogout}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
             >
               <LogOut className={`w-5 h-5 flex-shrink-0 text-red-400 dark:text-red-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
               {(!isCollapsed || isMobileMenuOpen) && 'Déconnexion'}
@@ -375,7 +375,7 @@ const Layout = () => {
       </div>
 
       {/* Mobile Bottom Navigation - Amazon Style */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
         {[
           { name: 'Accueil', href: '/app', icon: LayoutDashboard },
           { name: 'Clients', href: '/app/clients', icon: Users },
