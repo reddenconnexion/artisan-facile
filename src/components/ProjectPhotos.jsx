@@ -467,7 +467,24 @@ const ProjectPhotos = ({ clientId }) => {
 
             // Debug feedback for user
             const targetName = targetId === 'uncategorized' ? 'Non classé' : projects.find(p => p.id == targetId)?.name || 'Dossier inconnu';
-            toast.loading(`Déplacement vers "${targetName}" en cours...`, { id: 'move-toast' });
+
+            // Check ownership for debug
+            const samplePhoto = photos.find(p => photosToMove.has(p.id));
+            const isOwner = samplePhoto && samplePhoto.user_id === user.id;
+
+            console.log('Move Debug:', {
+                userId: user.id,
+                photoOwner: samplePhoto?.user_id,
+                idsToMove: Array.from(photosToMove),
+                targetId,
+                isOwner
+            });
+
+            if (!isOwner) {
+                toast.error(`Attention: Vous n'êtes pas propriétaire de cette photo (User: ${user.id?.slice(0, 5)}... vs Owner: ${samplePhoto?.user_id?.slice(0, 5)}...)`);
+            }
+
+            toast.loading(`Déplacement vers "${targetName}"...`, { id: 'move-toast' });
 
             const { data: updatedData, error } = await supabase
                 .from('project_photos')
@@ -476,6 +493,7 @@ const ProjectPhotos = ({ clientId }) => {
                 .select();
 
             if (error) {
+                console.error("Supabase Update Error:", error);
                 toast.dismiss('move-toast');
                 throw error;
             }
@@ -499,7 +517,9 @@ const ProjectPhotos = ({ clientId }) => {
                 }));
             } else {
                 toast.dismiss('move-toast');
-                toast.error("Aucune modification effectuée par la base de données.");
+                // Construct a more detailed error
+                const msg = isOwner ? "Échec DB (Propriétaire OK). Vérifiez les droits." : "Échec DB: Vous n'êtes pas le propriétaire.";
+                toast.error(msg);
             }
 
             await fetchPhotos(); // Force refresh from server to ensure persistence
