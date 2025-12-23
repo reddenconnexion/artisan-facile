@@ -622,6 +622,14 @@ const ProjectPhotos = ({ clientId }) => {
         { id: 'after', label: 'Après' }
     ];
 
+    // Calculate photo counts per project
+    const projectCounts = photos.reduce((acc, p) => {
+        const key = p.project_id ? String(p.project_id) : 'uncategorized';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+    const totalPhotos = photos.length;
+
     if (loading) return <div className="text-center py-4 text-gray-500">Chargement des photos...</div>;
 
     return (
@@ -639,16 +647,16 @@ const ProjectPhotos = ({ clientId }) => {
                         <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Chantier :</span>
 
                         {!creatingProject ? (
-                            <div className="relative flex-1 sm:flex-none flex items-center gap-2">
+                            <div className="relative flex-1 sm:flex-none flex items-center gap-2 min-w-0">
                                 <select
                                     value={selectedProjectId}
                                     onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="block w-full sm:w-64 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                                 >
-                                    <option value="all">Toutes les photos</option>
-                                    <option value="uncategorized">Non classé (Général)</option>
+                                    <option value="all">Toutes les photos ({totalPhotos})</option>
+                                    <option value="uncategorized">Non classé ({projectCounts['uncategorized'] || 0})</option>
                                     {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                        <option key={p.id} value={p.id}>{p.name} ({projectCounts[String(p.id)] || 0})</option>
                                     ))}
                                 </select>
                                 {selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized' && (
@@ -665,17 +673,16 @@ const ProjectPhotos = ({ clientId }) => {
 
                                                 toast.success("Dossier supprimé");
                                                 setSelectedProjectId('all');
-                                                // Realtime will handle list update, or force fetch:
                                                 fetchProjects();
                                             } catch (err) {
                                                 console.error("Error deleting project:", err);
                                                 toast.error("Impossible de supprimer le dossier");
                                             }
                                         }}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md text-xs font-medium"
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md text-xs font-medium flex-shrink-0"
                                         title="Supprimer ce dossier"
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 )}
                             </div>
