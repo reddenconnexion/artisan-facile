@@ -828,6 +828,16 @@ const ProjectPhotos = ({ clientId }) => {
                                     className={`w-full h-full object-cover transition-transform duration-300 ${selectionMode && selectedPhotos.has(photo.id) ? 'scale-90' : 'group-hover:scale-105'}`}
                                 />
 
+                                {/* Project Badge */}
+                                <div className="absolute top-2 left-2 pointer-events-none">
+                                    <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Folder className="w-3 h-3" />
+                                        {photo.project_id
+                                            ? (projects.find(p => p.id === photo.project_id)?.name || 'Dossier inconnu')
+                                            : 'Non classé'}
+                                    </div>
+                                </div>
+
                                 {/* Selection Checkbox */}
                                 {selectionMode ? (
                                     <div className="absolute top-2 right-2 z-10">
