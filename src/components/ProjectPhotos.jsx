@@ -461,70 +461,53 @@ const ProjectPhotos = ({ clientId }) => {
                     return;
                 }
             }
-            const updates = {
+            // Strategy: COPY + DELETE (Workaround for missing UPDATE RLS policy)
+            // 1. Prepare new rows with updated project_id
+            const photosToCopy = photos.filter(p => photosToMove.has(p.id));
+            const newRows = photosToCopy.map(p => ({
+                user_id: p.user_id,
+                client_id: p.client_id,
+                photo_url: p.photo_url,
+                category: p.category, // Keep same category
+                description: p.description,
+                created_at: p.created_at, // Preserve timestamp
                 project_id: targetId === 'uncategorized' ? null : targetId
-            };
+            }));
 
-            // Debug feedback for user
-            const targetName = targetId === 'uncategorized' ? 'Non classé' : projects.find(p => p.id == targetId)?.name || 'Dossier inconnu';
-
-            // Check ownership for debug
-            const samplePhoto = photos.find(p => photosToMove.has(p.id));
-            const isOwner = samplePhoto && samplePhoto.user_id === user.id;
-
-            console.log('Move Debug:', {
-                userId: user.id,
-                photoOwner: samplePhoto?.user_id,
-                idsToMove: Array.from(photosToMove),
-                targetId,
-                isOwner
-            });
-
-            if (!isOwner) {
-                toast.error(`Attention: Vous n'êtes pas propriétaire de cette photo (User: ${user.id?.slice(0, 5)}... vs Owner: ${samplePhoto?.user_id?.slice(0, 5)}...)`);
-            }
-
-            toast.loading(`Déplacement vers "${targetName}"...`, { id: 'move-toast' });
-
-            const { data: updatedData, error } = await supabase
+            // 2. Insert new rows
+            const { data: insertedData, error: insertError } = await supabase
                 .from('project_photos')
-                .update(updates)
-                .in('id', Array.from(photosToMove))
+                .insert(newRows)
                 .select();
 
-            if (error) {
-                console.error("Supabase Update Error:", error);
+            if (insertError) {
+                console.error("Move (Copy) Error:", insertError);
                 toast.dismiss('move-toast');
-                throw error;
+                throw insertError;
             }
 
-            if (updatedData && updatedData.length > 0) {
-                // Verify update
-                const expectedProjectId = targetId === 'uncategorized' ? null : targetId;
-                const actualProjectId = updatedData[0].project_id;
+            // 3. Delete old rows
+            if (insertedData && insertedData.length > 0) {
+                const { error: deleteError } = await supabase
+                    .from('project_photos')
+                    .delete()
+                    .in('id', Array.from(photosToMove));
 
-                // Loose comparison for ID string/int mismatch
-                if (actualProjectId != expectedProjectId) {
-                    toast.error(`Erreur: La modification semble avoir échoué. (Attendu: ${expectedProjectId}, Reçu: ${actualProjectId})`, { id: 'move-toast', duration: 5000 });
+                if (deleteError) {
+                    // Start of an inconsistent state (new copied, old not deleted) - rare
+                    console.error("Move (Delete old) Error:", deleteError);
+                    toast.error("Attention: Copie réussie mais suppression des originaux échouée.");
                 } else {
-                    toast.success(`${updatedData.length} photo(s) déplacée(s) vers ${targetName}`, { id: 'move-toast' });
+                    toast.success(`${insertedData.length} photo(s) déplacée(s) vers ${targetName}`, { id: 'move-toast' });
                 }
-
-                // Update local state with confirmed data
-                setPhotos(prev => prev.map(p => {
-                    const updated = updatedData.find(u => u.id === p.id);
-                    return updated ? updated : p;
-                }));
             } else {
-                toast.dismiss('move-toast');
-                // Construct a more detailed error
-                const msg = isOwner ? "Échec DB (Propriétaire OK). Vérifiez les droits." : "Échec DB: Vous n'êtes pas le propriétaire.";
-                toast.error(msg);
+                toast.error("Erreur lors de la copie des photos.", { id: 'move-toast' });
             }
 
-            await fetchPhotos(); // Force refresh from server to ensure persistence
+            // Force refresh is essential here as IDs have changed
+            await fetchPhotos();
 
-            // Reset
+            // Reset UI
             setPhotosToMove(new Set());
             setSelectedPhotos(new Set());
             setSelectionMode(false);
@@ -532,7 +515,8 @@ const ProjectPhotos = ({ clientId }) => {
 
         } catch (error) {
             console.error('Error moving photos:', error);
-            toast.error("Erreur lors du déplacement");
+            // toast.dismiss('move-toast'); // Already handled or error toast shown
+            toast.error("Erreur lors du déplacement (Check console)");
         }
     };
 
