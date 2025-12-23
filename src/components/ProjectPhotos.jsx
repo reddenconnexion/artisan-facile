@@ -633,25 +633,25 @@ const ProjectPhotos = ({ clientId }) => {
     if (loading) return <div className="text-center py-4 text-gray-500">Chargement des photos...</div>;
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-blue-600" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mt-6 transition-colors">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Photos du chantier
             </h3>
 
             {/* Project Selector */}
-            <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+            <div className="mb-6 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Folder className="w-5 h-5 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Chantier :</span>
+                        <Folder className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Chantier :</span>
 
                         {!creatingProject ? (
                             <div className="relative flex-1 sm:flex-none flex items-center gap-2 min-w-0">
                                 <select
                                     value={selectedProjectId}
                                     onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="all">Toutes les photos ({totalPhotos})</option>
                                     <option value="uncategorized">Non classé ({projectCounts['uncategorized'] || 0})</option>
@@ -779,8 +779,8 @@ const ProjectPhotos = ({ clientId }) => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'}`}
                     >
                         {tab.label}
                     </button>
@@ -795,8 +795,8 @@ const ProjectPhotos = ({ clientId }) => {
                         setSelectedPhotos(new Set());
                     }}
                     className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectionMode
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50'}`}
+                        ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                 >
                     <CheckSquare className="w-4 h-4" />
                     {selectionMode ? 'Terminer la sélection' : 'Sélectionner des photos'}
@@ -806,14 +806,14 @@ const ProjectPhotos = ({ clientId }) => {
             {/* Upload Area */}
             <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Option 1: Select Files */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'bg-gray-50 border-gray-300 hover:bg-gray-100 hover:border-gray-400'}`}>
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 cursor-not-allowed' : 'bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500'}`}>
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
                     ) : (
                         <div className="flex flex-col items-center">
-                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                            <p className="text-sm font-medium text-gray-600">Importer des photos</p>
-                            <p className="text-xs text-gray-400 mt-1">Depuis la galerie ou dossier</p>
+                            <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Importer des photos</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Depuis la galerie ou dossier</p>
                         </div>
                     )}
                     <input
@@ -827,7 +827,7 @@ const ProjectPhotos = ({ clientId }) => {
                 </label>
 
                 {/* Option 2: Camera */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 border-blue-100 cursor-not-allowed' : 'bg-blue-50/50 border-blue-200 hover:bg-blue-100/50 hover:border-blue-300'}`}>
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-600'}`}>
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                     ) : (
@@ -1037,20 +1037,20 @@ const ProjectPhotos = ({ clientId }) => {
             {/* Move Modal */}
             {showMoveModal && (
                 <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 dark:border dark:border-gray-700" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <FolderInput className="w-5 h-5 text-blue-600" />
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <FolderInput className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 Déplacer {photosToMove.size} photo(s)
                             </h3>
-                            <button onClick={() => setShowMoveModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setShowMoveModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Choisir le dossier de destination :</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choisir le dossier de destination :</label>
 
                                 {!isCreatingInMove ? (
                                     <select
@@ -1063,10 +1063,10 @@ const ProjectPhotos = ({ clientId }) => {
                                                 setMoveTargetId(e.target.value);
                                             }
                                         }}
-                                        className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="">-- Choisir un dossier --</option>
-                                        <option value="new_folder_action" className="font-bold text-blue-600">+ Nouveau Dossier...</option>
+                                        <option value="new_folder_action" className="font-bold text-blue-600 dark:text-blue-400">+ Nouveau Dossier...</option>
                                         <option disabled>──────────</option>
                                         <option value="uncategorized">Non classé (Général)</option>
                                         {projects.map(p => (
@@ -1097,10 +1097,10 @@ const ProjectPhotos = ({ clientId }) => {
                                 )}
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                                 <button
                                     onClick={() => setShowMoveModal(false)}
-                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+                                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
                                 >
                                     Annuler
                                 </button>

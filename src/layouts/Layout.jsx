@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import { supabase } from '../utils/supabase';
@@ -16,6 +16,28 @@ const Layout = () => {
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
+
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = React.useState(() => {
+    // Check local storage or system preference
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   // Job Library Hydration Logic
   React.useEffect(() => {
@@ -183,12 +205,12 @@ const Layout = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      <Toaster position="top-right" richColors />
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors duration-200">
+      <Toaster position="top-right" richColors theme={isDarkMode ? 'dark' : 'light'} />
 
       {/* Demo Banner */}
       {isDemo && (
-        <div className="h-10 bg-indigo-600 text-white flex-shrink-0 z-[60] flex items-center justify-center text-sm px-4 shadow-md">
+        <div className="h-10 bg-indigo-600 dark:bg-indigo-800 text-white flex-shrink-0 z-[60] flex items-center justify-center text-sm px-4 shadow-md">
           <span className="truncate mr-2">Vous êtes en mode Démo. Vos données sont temporaires.</span>
           <button
             onClick={() => setShowConvertModal(true)}
@@ -203,23 +225,23 @@ const Layout = () => {
       {/* Convert Modal */}
       {showConvertModal && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200">
-            <h2 className="text-xl font-bold mb-4">Sauvegarder mon travail</h2>
-            <p className="text-gray-600 mb-6 text-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200">
+            <h2 className="text-xl font-bold mb-4 dark:text-white">Sauvegarder mon travail</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm">
               Transformez ce compte démo en compte réel pour conserver vos devis et clients.
               Entrez simplement vos vrais identifiants.
             </p>
             <form onSubmit={handleConvertAccount} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Votre Email réel</label>
-                <input type="email" name="email" required className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="jean@artisan.fr" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre Email réel</label>
+                <input type="email" name="email" required className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2" placeholder="jean@artisan.fr" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Choisir un mot de passe</label>
-                <input type="password" name="password" required className="w-full border border-gray-300 rounded-lg px-3 py-2" minLength={6} placeholder="******" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Choisir un mot de passe</label>
+                <input type="password" name="password" required className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2" minLength={6} placeholder="******" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowConvertModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Annuler</button>
+                <button type="button" onClick={() => setShowConvertModal(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Annuler</button>
                 <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">Sauvegarder</button>
               </div>
             </form>
@@ -229,8 +251,6 @@ const Layout = () => {
 
       {/* Main Container */}
       <div className="flex flex-1 overflow-hidden relative">
-
-
 
         {/* Sidebar Overlay for Mobile */}
         {isMobileMenuOpen && (
@@ -245,7 +265,7 @@ const Layout = () => {
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           className={`fixed md:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-            } md:translate-x-0 transition-all duration-300 ease-in-out bg-white border-r border-gray-200 flex flex-col ${isCollapsed ? 'md:w-20' : 'md:w-64'
+            } md:translate-x-0 transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col ${isCollapsed ? 'md:w-20' : 'md:w-64'
             } w-64`}
         >
           {/* Desktop Header / Logo */}
@@ -254,14 +274,14 @@ const Layout = () => {
               <div className="bg-blue-600 p-2 rounded-lg">
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
-              {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-gray-900 whitespace-nowrap">Artisan Facile</h1>}
+              {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">Artisan Facile</h1>}
             </div>
           </div>
 
           {/* Mobile Sidebar Header */}
-          <div className="md:hidden p-4 border-b border-gray-100 flex items-center justify-between">
-            <span className="font-bold text-lg">Menu</span>
-            <button onClick={() => setIsMobileMenuOpen(false)}>
+          <div className="md:hidden p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <span className="font-bold text-lg dark:text-white">Menu</span>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="dark:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -274,30 +294,44 @@ const Layout = () => {
                   key={item.name}
                   to={item.href}
                   className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                     } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                 >
-                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
                   {(!isCollapsed || isMobileMenuOpen) && <span>{item.name}</span>}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="p-4 border-t border-gray-200 space-y-2">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            {/* Dark Mode Toggle Button */}
+            <button
+              onClick={toggleDarkMode}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              title={isDarkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+            >
+              {isDarkMode ? (
+                <Sun className={`w-5 h-5 flex-shrink-0 text-yellow-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              ) : (
+                <Moon className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              )}
+              {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode Clair' : 'Mode Sombre')}
+            </button>
+
             <button
               onClick={() => navigate('/app/settings')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
             >
-              <Settings className={`w-5 h-5 flex-shrink-0 text-gray-400 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              <Settings className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
               {(!isCollapsed || isMobileMenuOpen) && 'Paramètres'}
             </button>
             <button
               onClick={handleLogout}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
             >
-              <LogOut className={`w-5 h-5 flex-shrink-0 text-red-400 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              <LogOut className={`w-5 h-5 flex-shrink-0 text-red-400 dark:text-red-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
               {(!isCollapsed || isMobileMenuOpen) && 'Déconnexion'}
             </button>
           </div>
@@ -307,8 +341,8 @@ const Layout = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
           <main className="flex-1 overflow-y-auto">
             {/* Mobile Header - Scrolls with content */}
-            <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-center px-4 md:hidden flex-shrink-0">
-              <h1 className="text-xl font-bold text-blue-600">Artisan Facile</h1>
+            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center px-4 md:hidden flex-shrink-0">
+              <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
             </div>
 
             <div className="p-4 md:p-8 pb-24 md:pb-8">
@@ -322,7 +356,7 @@ const Layout = () => {
           <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
-              className="p-3 bg-white text-gray-600 rounded-full shadow-lg hover:bg-gray-50 border border-gray-200 transition-all transform hover:scale-105 active:scale-95"
+              className="p-3 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-all transform hover:scale-105 active:scale-95"
               title="Aide commandes vocales"
             >
               <HelpCircle className="w-5 h-5 md:w-6 md:h-6" />
@@ -330,7 +364,7 @@ const Layout = () => {
 
             <button
               onClick={isListening ? stopListening : startListening}
-              className={`p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-600'
+              className={`p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-600 dark:bg-blue-500'
                 } text-white`}
               title="Assistant Vocal"
             >
@@ -341,7 +375,7 @@ const Layout = () => {
       </div>
 
       {/* Mobile Bottom Navigation - Amazon Style */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
         {[
           { name: 'Accueil', href: '/app', icon: LayoutDashboard },
           { name: 'Clients', href: '/app/clients', icon: Users },
@@ -354,7 +388,7 @@ const Layout = () => {
             <Link
               key={item.name}
               to={item.href}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600' : 'text-gray-500'
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
                 }`}
             >
               <item.icon className="w-5 h-5" />
@@ -365,7 +399,7 @@ const Layout = () => {
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-blue-600' : 'text-gray-500'
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
             }`}
         >
           <Menu className="w-5 h-5" />
