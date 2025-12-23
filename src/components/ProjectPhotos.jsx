@@ -466,21 +466,32 @@ const ProjectPhotos = ({ clientId }) => {
                 project_id: targetId === 'uncategorized' ? null : targetId
             };
 
-            const { error } = await supabase
+            const { data: updatedData, error } = await supabase
                 .from('project_photos')
                 .update(updates)
-                .in('id', Array.from(photosToMove));
+                .in('id', Array.from(photosToMove))
+                .select();
 
             if (error) throw error;
 
-            toast.success(`${photosToMove.size} photo(s) déplacée(s)`);
+            if (updatedData && updatedData.length > 0) {
+                const projectName = targetId === 'uncategorized' ? 'Non classé' : projects.find(p => p.id === targetId)?.name || 'le dossier';
+                toast.success(`${updatedData.length} photo(s) déplacée(s) vers ${projectName}`);
 
-            // Update local state
-            setPhotos(prev => prev.map(p =>
-                photosToMove.has(p.id)
-                    ? { ...p, ...updates }
-                    : p
-            ));
+                // Update local state with confirmed data
+                setPhotos(prev => prev.map(p => {
+                    const updated = updatedData.find(u => u.id === p.id);
+                    return updated ? updated : p;
+                }));
+            } else {
+                // Fallback if select() returns nothing but no error (rare)
+                toast.success(`${photosToMove.size} photo(s) déplacée(s)`);
+                setPhotos(prev => prev.map(p =>
+                    photosToMove.has(p.id)
+                        ? { ...p, ...updates }
+                        : p
+                ));
+            }
 
             fetchPhotos(); // Force refresh from server to ensure persistence
 
