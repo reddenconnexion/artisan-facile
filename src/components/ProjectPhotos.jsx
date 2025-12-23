@@ -143,6 +143,17 @@ const ProjectPhotos = ({ clientId }) => {
                     .from('project-photos')
                     .getPublicUrl(fileName);
 
+                // Determine target project
+                let targetProjectId = null;
+                if (selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized') {
+                    targetProjectId = selectedProjectId;
+                } else if (splitBefore?.project_id && splitBefore.project_id === splitAfter?.project_id) {
+                    // If both photos are from the same project, put the result there
+                    targetProjectId = splitBefore.project_id;
+                }
+
+                const targetCategory = activeTab === 'before' ? 'after' : activeTab;
+
                 // 3. Save to Database
                 const { error: dbError } = await supabase
                     .from('project_photos')
@@ -150,8 +161,8 @@ const ProjectPhotos = ({ clientId }) => {
                         user_id: user.id,
                         client_id: clientId,
                         photo_url: publicUrl,
-                        category: activeTab === 'before' ? 'after' : activeTab, // Defaults to current tab unless it's 'before', then forces 'after' for logic
-                        project_id: selectedProjectId === 'all' || selectedProjectId === 'uncategorized' ? null : selectedProjectId,
+                        category: targetCategory,
+                        project_id: targetProjectId,
                         description: 'Montage Avant / Après'
                     }]);
 
@@ -160,6 +171,8 @@ const ProjectPhotos = ({ clientId }) => {
                     toast.error("Erreur lors de l'enregistrement");
                 } else {
                     toast.success("Montage sauvegardé dans la galerie !");
+                    setActiveTab(targetCategory); // Switch to the tab where the photo was saved
+                    fetchPhotos(); // Refresh list
                 }
 
             }, 'image/jpeg', 0.9);
@@ -195,7 +208,7 @@ const ProjectPhotos = ({ clientId }) => {
                 .channel('project_photos_subscription')
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id = eq.${clientId} ` },
+                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id=eq.${clientId}` },
                     (payload) => {
                         fetchPhotos();
                     }
@@ -206,7 +219,7 @@ const ProjectPhotos = ({ clientId }) => {
                 .channel('projects_subscription')
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'projects', filter: `client_id = eq.${clientId} ` },
+                    { event: '*', schema: 'public', table: 'projects', filter: `client_id=eq.${clientId}` },
                     (payload) => {
                         fetchProjects();
                     }
@@ -295,7 +308,7 @@ const ProjectPhotos = ({ clientId }) => {
                 try {
                     // 1. Upload to Storage
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `${user.id} /${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt} `;
+                    const fileName = `${user.id}/${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
                     const { error: uploadError } = await supabase.storage
                         .from('project-photos')
@@ -438,6 +451,7 @@ const ProjectPhotos = ({ clientId }) => {
                 if (createError) throw createError;
 
                 targetId = newProject.id;
+
                 // Update local projects list
                 setProjects(prev => [...prev, newProject]);
                 toast.success(`Dossier "${newProject.name}" créé`);
@@ -467,6 +481,8 @@ const ProjectPhotos = ({ clientId }) => {
                     ? { ...p, ...updates }
                     : p
             ));
+
+            fetchPhotos(); // Force refresh from server to ensure persistence
 
             // Reset
             setPhotosToMove(new Set());
