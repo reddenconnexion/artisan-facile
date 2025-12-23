@@ -465,13 +465,13 @@ const ProjectPhotos = ({ clientId }) => {
             // 1. Prepare new rows with updated project_id
             const photosToCopy = photos.filter(p => photosToMove.has(p.id));
             const newRows = photosToCopy.map(p => ({
-                user_id: p.user_id,
+                user_id: user.id, // Explicitly use current user ID to satisfy RLS
                 client_id: p.client_id,
                 photo_url: p.photo_url,
-                category: p.category, // Keep same category
+                category: p.category,
                 description: p.description,
                 created_at: p.created_at, // Preserve timestamp
-                project_id: targetId === 'uncategorized' ? null : targetId
+                project_id: targetId === 'uncategorized' ? null : parseInt(targetId)
             }));
 
             // 2. Insert new rows
@@ -482,8 +482,7 @@ const ProjectPhotos = ({ clientId }) => {
 
             if (insertError) {
                 console.error("Move (Copy) Error:", insertError);
-                toast.dismiss('move-toast');
-                throw insertError;
+                throw new Error("Erreur Copie: " + insertError.message);
             }
 
             // 3. Delete old rows
@@ -515,8 +514,8 @@ const ProjectPhotos = ({ clientId }) => {
 
         } catch (error) {
             console.error('Error moving photos:', error);
-            // toast.dismiss('move-toast'); // Already handled or error toast shown
-            toast.error("Erreur lors du déplacement (Check console)");
+            const msg = error.message || "Erreur inconnue";
+            toast.error(msg, { duration: 5000 });
         }
     };
 
