@@ -1195,6 +1195,34 @@ const ProjectPhotos = ({ clientId }) => {
                             </TransformWrapper>
                         </div>
 
+                        {/* Mobile Action Bar (Move / Delete) */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 z-50">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Close fullscreen only if needed or just keep it open?
+                                    // Usually easier to close it or handle z-indexes.
+                                    // Let's close fullscreen for move to avoid z-index hell with invalid stacking.
+                                    setSelectedPhotoIndex(null);
+                                    openMoveModal(filteredPhotos[selectedPhotoIndex].id);
+                                }}
+                                className="bg-white/10 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/20 border border-white/20 shadow-lg"
+                                title="Déplacer vers un dossier"
+                            >
+                                <FolderInput className="w-6 h-6" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(filteredPhotos[selectedPhotoIndex].id, filteredPhotos[selectedPhotoIndex].photo_url);
+                                }}
+                                className="bg-red-500/20 backdrop-blur-md p-3 rounded-full text-red-100 hover:bg-red-500/40 border border-red-500/30 shadow-lg"
+                                title="Supprimer la photo"
+                            >
+                                <Trash2 className="w-6 h-6" />
+                            </button>
+                        </div>
+
                         {/* Next Button */}
                         <button
                             onClick={handleNext}
@@ -1207,7 +1235,7 @@ const ProjectPhotos = ({ clientId }) => {
                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
                             {selectedPhotoIndex + 1} / {filteredPhotos.length}
                         </div>
-                    </div>
+                    </div >
                 )
             }
         </div >
