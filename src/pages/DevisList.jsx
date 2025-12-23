@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 
 const StatusBadge = ({ status }) => {
     const styles = {
-        draft: { bg: 'bg-gray-100', text: 'text-gray-700', icon: Clock, label: 'Brouillon' },
-        sent: { bg: 'bg-blue-100', text: 'text-blue-700', icon: AlertCircle, label: 'Envoyé' },
-        accepted: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle, label: 'Accepté' },
-        rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle, label: 'Refusé' },
-        billed: { bg: 'bg-purple-100', text: 'text-purple-700', icon: CheckCircle, label: 'Facturé' },
-        paid: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle, label: 'Payé' },
+        draft: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-700 dark:text-gray-300', icon: Clock, label: 'Brouillon' },
+        sent: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: AlertCircle, label: 'Envoyé' },
+        accepted: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', icon: CheckCircle, label: 'Accepté' },
+        rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: AlertCircle, label: 'Refusé' },
+        billed: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', icon: CheckCircle, label: 'Facturé' },
+        paid: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: CheckCircle, label: 'Payé' },
     };
     const style = styles[status] || styles.draft;
     const Icon = style.icon;
@@ -99,7 +99,7 @@ const DevisList = () => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900">Devis & Factures</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Devis & Factures</h2>
                 <button
                     onClick={() => navigate('/app/devis/new')}
                     className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -118,19 +118,19 @@ const DevisList = () => {
                     <input
                         type="text"
                         placeholder="Rechercher un devis, un client..."
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto">
+                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto">
                     {['all', 'pending', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
                             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap flex-shrink-0 ${statusFilter === status
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                         >
                             {status === 'all' && 'Tous'}
@@ -147,25 +147,25 @@ const DevisList = () => {
 
             {/* Liste */}
             {/* Desktop Table View */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hidden md:block">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                    <thead className="bg-gray-50 dark:bg-gray-800/50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Numéro</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant TTC</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Numéro</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Montant TTC</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</th>
                             <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                         {filteredDevis.map((devis) => (
-                            <tr key={devis.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                            <tr key={devis.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
                                     {devis.type === 'invoice' ? 'FAC' : 'DEV'} #{devis.id}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -173,15 +173,15 @@ const DevisList = () => {
                                                 navigate(`/app/clients/${devis.client_id}`);
                                             }
                                         }}
-                                        className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
                                     >
                                         {devis.client_name || 'Client inconnu'}
                                     </button>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                     {new Date(devis.date).toLocaleDateString()}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
                                     {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -203,20 +203,20 @@ const DevisList = () => {
                 {filteredDevis.map((devis) => (
                     <div
                         key={devis.id}
-                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
+                        className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
                         onClick={() => navigate(`/app/devis/${devis.id}`)}
                     >
                         <div className="flex justify-between items-start">
                             <div>
-                                <span className={`text-xs font-semibold px-2 py-1 rounded ${devis.type === 'invoice' ? 'text-green-600 bg-green-50' : 'text-blue-600 bg-blue-50'}`}>
+                                <span className={`text-xs font-semibold px-2 py-1 rounded ${devis.type === 'invoice' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'}`}>
                                     {devis.type === 'invoice' ? 'Facture' : 'Devis'} #{devis.id}
                                 </span>
-                                <h3 className="font-bold text-gray-900 mt-2">{devis.client_name || 'Client inconnu'}</h3>
-                                <p className="text-xs text-gray-500">{new Date(devis.date).toLocaleDateString()}</p>
+                                <h3 className="font-bold text-gray-900 dark:text-white mt-2">{devis.client_name || 'Client inconnu'}</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(devis.date).toLocaleDateString()}</p>
                             </div>
                             <div className="flex flex-col items-end gap-2">
                                 <StatusBadge status={devis.status} />
-                                <span className="font-bold text-gray-900 text-lg">
+                                <span className="font-bold text-gray-900 dark:text-white text-lg">
                                     {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                 </span>
                             </div>
@@ -226,8 +226,8 @@ const DevisList = () => {
             </div>
 
             {filteredDevis.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                    <p className="text-gray-500">Aucun devis trouvé.</p>
+                <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-gray-500 dark:text-gray-400">Aucun devis trouvé.</p>
                 </div>
             )}
         </div>
