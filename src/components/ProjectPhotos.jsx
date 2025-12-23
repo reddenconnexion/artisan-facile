@@ -550,7 +550,7 @@ const ProjectPhotos = ({ clientId }) => {
             ? true
             : selectedProjectId === 'uncategorized'
                 ? p.project_id === null
-                : p.project_id === selectedProjectId;
+                : String(p.project_id) === String(selectedProjectId);
         return matchesCategory && matchesProject;
     });
 
@@ -639,7 +639,7 @@ const ProjectPhotos = ({ clientId }) => {
                         <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Chantier :</span>
 
                         {!creatingProject ? (
-                            <div className="relative flex-1 sm:flex-none">
+                            <div className="relative flex-1 sm:flex-none flex items-center gap-2">
                                 <select
                                     value={selectedProjectId}
                                     onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -651,6 +651,33 @@ const ProjectPhotos = ({ clientId }) => {
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
+                                {selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized' && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm("Voulez-vous vraiment supprimer ce dossier ? Les photos seront marquées comme 'Non classé'.")) return;
+                                            try {
+                                                const { error } = await supabase
+                                                    .from('projects')
+                                                    .delete()
+                                                    .match({ id: parseInt(selectedProjectId) });
+
+                                                if (error) throw error;
+
+                                                toast.success("Dossier supprimé");
+                                                setSelectedProjectId('all');
+                                                // Realtime will handle list update, or force fetch:
+                                                fetchProjects();
+                                            } catch (err) {
+                                                console.error("Error deleting project:", err);
+                                                toast.error("Impossible de supprimer le dossier");
+                                            }
+                                        }}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md text-xs font-medium"
+                                        title="Supprimer ce dossier"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <form onSubmit={createProject} className="flex gap-2 flex-1 sm:flex-none">
