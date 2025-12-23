@@ -461,10 +461,13 @@ const ProjectPhotos = ({ clientId }) => {
                     return;
                 }
             }
-
             const updates = {
                 project_id: targetId === 'uncategorized' ? null : targetId
             };
+
+            // Debug feedback for user
+            const targetName = targetId === 'uncategorized' ? 'Non classé' : projects.find(p => p.id == targetId)?.name || 'Dossier inconnu';
+            toast.loading(`Déplacement vers "${targetName}" en cours...`, { id: 'move-toast' });
 
             const { data: updatedData, error } = await supabase
                 .from('project_photos')
@@ -472,11 +475,22 @@ const ProjectPhotos = ({ clientId }) => {
                 .in('id', Array.from(photosToMove))
                 .select();
 
-            if (error) throw error;
+            if (error) {
+                toast.dismiss('move-toast');
+                throw error;
+            }
 
             if (updatedData && updatedData.length > 0) {
-                const projectName = targetId === 'uncategorized' ? 'Non classé' : projects.find(p => p.id === targetId)?.name || 'le dossier';
-                toast.success(`${updatedData.length} photo(s) déplacée(s) vers ${projectName}`);
+                // Verify update
+                const expectedProjectId = targetId === 'uncategorized' ? null : targetId;
+                const actualProjectId = updatedData[0].project_id;
+
+                // Loose comparison for ID string/int mismatch
+                if (actualProjectId != expectedProjectId) {
+                    toast.error(`Erreur: La modification semble avoir échoué. (Attendu: ${expectedProjectId}, Reçu: ${actualProjectId})`, { id: 'move-toast', duration: 5000 });
+                } else {
+                    toast.success(`${updatedData.length} photo(s) déplacée(s) vers ${targetName}`, { id: 'move-toast' });
+                }
 
                 // Update local state with confirmed data
                 setPhotos(prev => prev.map(p => {
@@ -484,16 +498,11 @@ const ProjectPhotos = ({ clientId }) => {
                     return updated ? updated : p;
                 }));
             } else {
-                // Fallback if select() returns nothing but no error (rare)
-                toast.success(`${photosToMove.size} photo(s) déplacée(s)`);
-                setPhotos(prev => prev.map(p =>
-                    photosToMove.has(p.id)
-                        ? { ...p, ...updates }
-                        : p
-                ));
+                toast.dismiss('move-toast');
+                toast.error("Aucune modification effectuée par la base de données.");
             }
 
-            fetchPhotos(); // Force refresh from server to ensure persistence
+            await fetchPhotos(); // Force refresh from server to ensure persistence
 
             // Reset
             setPhotosToMove(new Set());
