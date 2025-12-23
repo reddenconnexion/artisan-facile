@@ -11,13 +11,13 @@ import ActionableDashboard from '../components/ActionableDashboard';
 
 const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
     <div
-        className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+        className={`bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
         onClick={onClick}
     >
         <div className="flex items-center justify-between">
             <div>
-                <p className="text-sm font-medium text-gray-500">{title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
             </div>
             <div className={`p-3 rounded-lg ${color}`}>
                 <Icon className="w-6 h-6 text-white" />
@@ -38,14 +38,14 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
     const tooltipFormatter = chartFormatter || formatValue;
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between transition-all duration-300">
+        <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between transition-all duration-300">
             <div className="flex items-center justify-between mb-4">
                 <div>
-                    <p className="text-sm font-medium text-gray-500">
-                        {title} <span className="text-xs text-gray-400 font-normal">({period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'})</span>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        {title} <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({period === 'week' ? 'Sem' : period === 'month' ? 'Mois' : 'An'})</span>
                     </p>
                     <p
-                        className={`text-2xl font-bold text-gray-900 mt-1 ${onValueClick ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                        className={`text-2xl font-bold text-gray-900 dark:text-white mt-1 ${onValueClick ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors' : ''}`}
                         onClick={() => onValueClick && onValueClick(period)}
                         title={onValueClick ? "Voir le détail" : ""}
                     >
@@ -55,7 +55,7 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
                 </div>
                 <button
                     onClick={(e) => { e.stopPropagation(); setShowChart(!showChart); }}
-                    className={`p-3 rounded-lg transition-colors shadow-sm ${showChart ? 'bg-gray-100 text-gray-600' : `${colorClass} text-white hover:opacity-90`}`}
+                    className={`p-3 rounded-lg transition-colors shadow-sm ${showChart ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : `${colorClass} text-white hover:opacity-90`}`}
                     title={showChart ? "Retour" : "Voir les graphiques"}
                 >
                     {showChart ? <ArrowLeft className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
@@ -63,16 +63,16 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
             </div>
 
             {!showChart ? (
-                <div className="space-y-4 pt-2 border-t border-gray-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-4 pt-2 border-t border-gray-50 dark:border-gray-800 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <RevenueBar label="Cette Semaine" value={stats.week.value} max={stats.week.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('week')} period="week" />
                     <RevenueBar label="Ce Mois" value={stats.month.value} max={stats.month.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('month')} period="month" />
                     <RevenueBar label="Cette Année" value={stats.year.value} max={stats.year.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('year')} period="year" />
                 </div>
             ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                         {['week', 'month', 'year'].map(p => (
-                            <button key={p} onClick={() => setPeriod(p)} className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${period === p ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                            <button key={p} onClick={() => setPeriod(p)} className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${period === p ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
                                 {p === 'week' ? 'Sem' : p === 'month' ? 'Mois' : 'An'}
                             </button>
                         ))}
@@ -110,11 +110,11 @@ const RevenueBar = ({ label, value, max, color, period, onClick }) => {
             className="flex flex-col gap-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onClick(period)}
         >
-            <div className="flex justify-between text-sm font-medium text-gray-700">
+            <div className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
                 <span>{label}</span>
                 <span>{value.toFixed(0)} €</span>
             </div>
-            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div
                     className={`h-full ${color} rounded-full transition-all duration-500 ease-out`}
                     style={{ width: `${Math.max(percentage, 2)}%` }} // Min width for visibility
@@ -490,20 +490,20 @@ const Dashboard = () => {
             {/* Modal for details */}
             {selectedPeriod && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPeriod(null)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center text-gray-900 dark:text-white">
                             <h3 className="font-bold text-lg">Détails : {selectedPeriod === 'week' ? 'Cette Semaine' : selectedPeriod === 'month' ? 'Ce Mois' : 'Cette Année'}</h3>
-                            <button onClick={() => setSelectedPeriod(null)} className="p-1 hover:bg-gray-100 rounded-full">
+                            <button onClick={() => setSelectedPeriod(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
                                 <Plus className="w-5 h-5 rotate-45" />
                             </button>
                         </div>
                         <div className="overflow-y-auto p-4 space-y-3">
                             {stats.details && stats.details[selectedPeriod] && stats.details[selectedPeriod].length > 0 ? (
                                 stats.details[selectedPeriod].map(quote => (
-                                    <div key={quote.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div key={quote.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
                                         <div>
-                                            <div className="font-medium text-gray-900">{quote.clients?.name || `Devis #${quote.id}`}</div>
-                                            <div className="text-xs text-gray-500">
+                                            <div className="font-medium text-gray-900 dark:text-white">{quote.clients?.name || `Devis #${quote.id}`}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
                                                 {new Date(quote.date || quote.created_at).toLocaleDateString()} -
                                                 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${quote.status === 'paid' ? 'bg-green-100 text-green-700' :
                                                     quote.status === 'billed' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
@@ -512,16 +512,16 @@ const Dashboard = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="font-bold text-gray-900">
+                                        <div className="font-bold text-gray-900 dark:text-white">
                                             {quote.total_ttc?.toFixed(2)} €
                                         </div>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-center text-gray-500 py-4">Aucun élément pour cette période.</p>
+                                <p className="text-center text-gray-500 dark:text-gray-400 py-4">Aucun élément pour cette période.</p>
                             )}
                         </div>
-                        <div className="p-4 border-t border-gray-100 bg-gray-50 text-right font-bold text-lg">
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right font-bold text-lg text-gray-900 dark:text-white">
                             Total: {stats[`turnover${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}`]?.toFixed(2)} €
                         </div>
                     </div>
@@ -529,7 +529,7 @@ const Dashboard = () => {
             )}
 
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Tableau de bord</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Tableau de bord</h2>
                 <button
                     onClick={() => navigate('/app/devis/new')}
                     className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -576,30 +576,30 @@ const Dashboard = () => {
 
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Activité récente</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>
                 <div className="space-y-4">
                     {stats.recentActivity.length > 0 ? (
                         stats.recentActivity.map((activity, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 text-blue-600' :
-                                        activity.type === 'signature' ? 'bg-purple-100 text-purple-600' :
-                                            'bg-green-100 text-green-600'
+                                    <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                        activity.type === 'signature' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                                            'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                         }`}>
                                         {activity.type === 'quote' ? <FileText className="w-4 h-4" /> :
                                             activity.type === 'signature' ? <PenTool className="w-4 h-4" /> :
                                                 <Users className="w-4 h-4" />}
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">{activity.description}</p>
-                                        <p className="text-xs text-gray-500">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.description}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
                                             {formatDistanceToNow(new Date(activity.date), { addSuffix: true, locale: fr })}
                                         </p>
                                     </div>
                                 </div>
                                 {activity.amount && (
-                                    <span className="text-sm font-semibold text-gray-900">
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
                                         {activity.amount.toFixed(2)} €
                                     </span>
                                 )}
