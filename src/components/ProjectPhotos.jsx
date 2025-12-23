@@ -689,24 +689,44 @@ const ProjectPhotos = ({ clientId }) => {
             </div>
 
             {/* Upload Area */}
-            <div className="mb-6">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        {uploading ? (
-                            <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                        ) : (
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Option 1: Select Files */}
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'bg-gray-50 border-gray-300 hover:bg-gray-100 hover:border-gray-400'}`}>
+                    {uploading ? (
+                        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                    ) : (
+                        <div className="flex flex-col items-center">
                             <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                        )}
-                        <p className="text-sm text-gray-500">
-                            {uploading ? 'Envoi en cours...' : 'Cliquez pour ajouter des photos'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">Sélection multiple possible</p>
-                    </div>
+                            <p className="text-sm font-medium text-gray-600">Importer des photos</p>
+                            <p className="text-xs text-gray-400 mt-1">Depuis la galerie ou dossier</p>
+                        </div>
+                    )}
                     <input
                         type="file"
                         className="hidden"
                         accept="image/*"
-                        multiple // Enable multiple selection
+                        multiple
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                    />
+                </label>
+
+                {/* Option 2: Camera */}
+                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 border-blue-100 cursor-not-allowed' : 'bg-blue-50/50 border-blue-200 hover:bg-blue-100/50 hover:border-blue-300'}`}>
+                    {uploading ? (
+                        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                    ) : (
+                        <div className="flex flex-col items-center">
+                            <Camera className="w-8 h-8 text-blue-500 mb-2" />
+                            <p className="text-sm font-medium text-blue-700">Prendre une photo</p>
+                            <p className="text-xs text-blue-400 mt-1">Appareil photo direct</p>
+                        </div>
+                    )}
+                    <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        capture="environment"
                         onChange={handleFileUpload}
                         disabled={uploading}
                     />
