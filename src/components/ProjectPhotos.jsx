@@ -121,7 +121,49 @@ const ProjectPhotos = ({ clientId }) => {
             link.href = dataUrl;
             link.click();
 
-            toast.success("Image générée et téléchargée !");
+            // Save to Gallery
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                const fileName = `${user.id}/${clientId}/comparison_${Date.now()}.jpg`;
+
+                // 1. Upload to Storage
+                const { error: uploadError } = await supabase.storage
+                    .from('project-photos')
+                    .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+                if (uploadError) {
+                    console.error('Error saving comparison:', uploadError);
+                    toast.error("Erreur lors de la sauvegarde dans la galerie");
+                    return;
+                }
+
+                // 2. Get Public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('project-photos')
+                    .getPublicUrl(fileName);
+
+                // 3. Save to Database
+                const { error: dbError } = await supabase
+                    .from('project_photos')
+                    .insert([{
+                        user_id: user.id,
+                        client_id: clientId,
+                        photo_url: publicUrl,
+                        category: activeTab === 'before' ? 'after' : activeTab, // Defaults to current tab unless it's 'before', then forces 'after' for logic
+                        project_id: selectedProjectId === 'all' || selectedProjectId === 'uncategorized' ? null : selectedProjectId,
+                        description: 'Montage Avant / Après'
+                    }]);
+
+                if (dbError) {
+                    console.error('Error saving comparison to DB:', dbError);
+                    toast.error("Erreur lors de l'enregistrement");
+                } else {
+                    toast.success("Montage sauvegardé dans la galerie !");
+                }
+
+            }, 'image/jpeg', 0.9);
+
             setShowComparisonModal(false);
 
         } catch (error) {
@@ -838,7 +880,7 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitBefore(p)}
-                                                    className={`aspect - square rounded border - 2 overflow - hidden cursor - pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
@@ -866,7 +908,7 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div
                                                     key={p.id}
                                                     onClick={() => setSplitAfter(p)}
-                                                    className={`aspect - square rounded border - 2 overflow - hidden cursor - pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
+                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100' : 'border-transparent'} `}
                                                 >
                                                     <img src={p.photo_url} className="w-full h-full object-cover" />
                                                 </div>
