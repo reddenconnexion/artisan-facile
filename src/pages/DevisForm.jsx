@@ -12,6 +12,7 @@ import { useVoice } from '../hooks/useVoice';
 import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
+import ClientSelector from '../components/ClientSelector';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -1544,16 +1545,14 @@ const DevisForm = () => {
                                 </button>
                             )}
                         </div>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4"
-                            value={formData.client_id}
-                            onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                        >
-                            <option value="">Sélectionner un client</option>
-                            {clients.map(client => (
-                                <option key={client.id} value={client.id}>{client.name}</option>
-                            ))}
-                        </select>
+                        <div className="mb-4">
+                            <ClientSelector
+                                clients={clients}
+                                selectedClientId={formData.client_id}
+                                onChange={(id) => setFormData({ ...formData, client_id: id })}
+                                onCreateNew={() => navigate('/app/clients/new')}
+                            />
+                        </div>
 
                         <div className="mb-1">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
@@ -2098,8 +2097,8 @@ const DevisForm = () => {
                                     type="button"
                                     onClick={() => toggleDictation(`item-description-${itemIndex}`)}
                                     className={`absolute bottom-8 right-6 p-4 rounded-full shadow-xl transition-all active:scale-95 ${isListening && activeField === `item-description-${itemIndex}`
-                                            ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
-                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
                                         }`}
                                 >
                                     <Mic className="w-6 h-6" />

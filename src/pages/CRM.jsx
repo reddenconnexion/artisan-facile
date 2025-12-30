@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Phone, Mail, Calendar, ArrowRight, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Phone, Mail, Calendar, ArrowRight, Maximize2, Minimize2, Search } from 'lucide-react';
 
 const CRM = () => {
     const navigate = useNavigate();
@@ -11,6 +11,7 @@ const CRM = () => {
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [focusedColumn, setFocusedColumn] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const columns = [
         { id: 'lead', title: 'Demandes / A Contacter', color: 'bg-gray-100 border-gray-200' },
@@ -79,7 +80,16 @@ const CRM = () => {
     };
 
     const getClientsByStatus = (status) => {
-        return clients.filter(client => (client.status || 'lead') === status);
+        return clients.filter(client => {
+            const matchesStatus = (client.status || 'lead') === status;
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = !term || (
+                client.name.toLowerCase().includes(term) ||
+                (client.email && client.email.toLowerCase().includes(term)) ||
+                (client.phone && client.phone.includes(term))
+            );
+            return matchesStatus && matchesSearch;
+        });
     };
 
     const handleDragStart = (e, clientId) => {
@@ -105,26 +115,53 @@ const CRM = () => {
     return (
         <div className="h-[calc(100vh-100px)] overflow-hidden flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                    Suivi des Chantiers
-                    {focusedColumn && <span className="text-gray-400 text-lg font-normal ml-2 block md:inline">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
-                </h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        Suivi des Chantiers
+                        {focusedColumn && <span className="text-gray-400 text-lg font-normal ml-2 block md:inline">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
+                    </h2>
+
+                    {/* Search Bar */}
+                    <div className="relative hidden md:block w-64">
+                        <input
+                            type="text"
+                            placeholder="Filtrer..."
+                            className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <Search className="absolute left-3 top-2 h-4 w-4 text-gray-400" />
+                    </div>
+                </div>
+
                 <div className="flex gap-2 w-full md:w-auto">
+                    {/* Mobile Search */}
+                    <div className="relative md:hidden flex-1">
+                        <input
+                            type="text"
+                            placeholder="Rechercher..."
+                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    </div>
+
                     {focusedColumn && (
                         <button
                             onClick={() => setFocusedColumn(null)}
                             className="flex-1 md:flex-none flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                         >
                             <Minimize2 className="w-4 h-4 mr-2" />
-                            Vue d'ensemble
+                            <span className="hidden md:inline">Vue d'ensemble</span>
                         </button>
                     )}
                     <button
-                        onClick={() => navigate('/clients/new')}
-                        className="flex-1 md:flex-none flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        onClick={() => navigate('/app/clients/new')}
+                        className="flex-none flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nouveau Projet
+                        <Plus className="w-5 h-5 md:mr-2" />
+                        <span className="hidden md:inline">Nouveau Projet</span>
                     </button>
                 </div>
             </div>
