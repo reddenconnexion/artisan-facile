@@ -443,6 +443,26 @@ const DevisForm = () => {
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
 
+    // Helper to auto-update CRM status
+    const updateClientCRMStatus = async (clientId, quoteStatus) => {
+        if (!clientId) return;
+
+        let newStatus = null;
+        if (quoteStatus === 'sent') newStatus = 'proposal';
+        else if (['accepted', 'signed', 'billed', 'paid'].includes(quoteStatus)) newStatus = 'signed';
+        else if (quoteStatus === 'refused') newStatus = 'lost';
+        else if (quoteStatus === 'draft') newStatus = 'contacted'; // Working on it
+
+        if (newStatus) {
+            try {
+                await supabase.from('clients').update({ status: newStatus }).eq('id', clientId);
+                // removing toast to avoid noise, silent update is better for "magic" feel
+            } catch (err) {
+                console.error("Auto-update CRM error", err);
+            }
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -588,6 +608,9 @@ const DevisForm = () => {
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
+
+            // Update CRM
+            updateClientCRMStatus(formData.client_id, formData.status);
 
             // Check if we switched to Paid
             console.log('Status check:', { current: formData.status, initial: initialStatus });
@@ -983,6 +1006,7 @@ const DevisForm = () => {
 
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
             toast.success('Devis converti en facture');
+            updateClientCRMStatus(formData.client_id, 'accepted');
             await handleDownloadPDF(true); // Auto-generate invoice PDF
         } catch (error) {
             toast.error('Erreur lors de la conversion');
@@ -1005,6 +1029,7 @@ const DevisForm = () => {
 
             setSignature(signatureData);
             setFormData(prev => ({ ...prev, status: 'accepted' }));
+            updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
         } catch (error) {
