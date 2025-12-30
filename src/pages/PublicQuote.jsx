@@ -194,7 +194,7 @@ const PublicQuote = () => {
                     )}
 
                     {/* Content: External PDF or Items Table */}
-                    {quote.original_pdf_url ? (
+                    {(quote.is_external && quote.original_pdf_url) ? (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
                             <iframe
                                 src={quote.original_pdf_url}
