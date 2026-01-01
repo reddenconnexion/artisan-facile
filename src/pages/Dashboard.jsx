@@ -143,8 +143,14 @@ const Dashboard = () => {
                 // Simple validation to check if legacy structure
                 if (parsed.revenue && parsed.revenue.year) {
                     // Backwards compatibility for cached check
+                    // Ensure all metrics have the new 'lastYear' field if invalid
+                    const patchMetric = (m) => ({ ...getEmptyMetric(), ...m, lastYear: m.lastYear || { value: 0, max: 1, chart: [] } });
+
                     return {
                         ...parsed,
+                        revenue: patchMetric(parsed.revenue),
+                        quotes: patchMetric(parsed.quotes),
+                        conversion: patchMetric(parsed.conversion),
                         netIncome: parsed.netIncome || getEmptyMetric()
                     };
                 }
@@ -176,10 +182,10 @@ const Dashboard = () => {
     const fetchStats = async () => {
         try {
             // 1. Fetch ALL quotes for calculations
-            // Added 'items' and 'include_tva' to query for Net Income calc
+            // Removed 'include_tva' (not a column). We will infer tax rate.
             const { data: allQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items, include_tva');
+                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
 
             if (quotesError) throw quotesError;
 
@@ -257,12 +263,20 @@ const Dashboard = () => {
                         // Calculate Net Income (Revenue - Material)
                         let netAmount = amount;
                         if (quote.items && Array.isArray(quote.items)) {
-                            // Calculate Material Cost (HT or TTC depending on context? User sees Revenue in TTC. Material is a cost.)
-                            // We will deduct the Billed Material Amount (TTC) from the Total Billed (TTC)
-                            // This gives the "Service Revenue + Margin" (TTC)
+                            // Recover Tax Rate from totals
+                            // TotalHT from items
+                            const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+
+                            // Determine Ratio (TTC / HT)
+                            // Avoid division by zero
+                            const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
+
                             const materialItems = quote.items.filter(i => i.type === 'material');
                             const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                            const materialTTC = (quote.include_tva !== false) ? materialHT * 1.2 : materialHT;
+
+                            // Apply ratio to Material HT to get Material TTC cost part match
+                            const materialTTC = materialHT * taxRatio;
+
                             netAmount = amount - materialTTC;
                         }
 
