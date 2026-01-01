@@ -669,12 +669,6 @@ const DevisForm = () => {
                 notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}`
             };
 
-            // Recalculate strict HT/TVA based on item price which is TTC if include_tva is true? 
-            // The logic in local calculateTotal is: price * qty = HT? No, logic depends on simple app. 
-            // In calculateTotal: total = subtotal + tva. 
-            // subtotal = sum(qty * price). 
-            // So if `depositAmount` is the target TTC, and include_tva is true (20%), then price should be HT.
-
             if (formData.include_tva) {
                 // If we want the final line to be 'depositAmount', and that is TTC.
                 // price = depositAmount / 1.2
@@ -704,6 +698,87 @@ const DevisForm = () => {
         } catch (error) {
             console.error('Error creating deposit:', error);
             toast.error("Erreur lors de la création de l'acompte");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateMaterialDeposit = async () => {
+        // Calculate total amount for items with type 'material'
+        const materialItems = formData.items.filter(i => i.type === 'material');
+
+        if (materialItems.length === 0) {
+            toast.error("Aucun article de type 'Matériel' trouvé dans ce devis.");
+            return;
+        }
+
+        const materialTotalHT = materialItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
+
+        if (materialTotalHT <= 0) {
+            toast.error("Le montant total du matériel est de 0€.");
+            return;
+        }
+
+        const materialTotalTTC = formData.include_tva ? materialTotalHT * 1.2 : materialTotalHT;
+
+        if (!window.confirm(`Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)}€ TTC) ?`)) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const depositAmount = materialTotalTTC;
+
+            const depositItem = {
+                id: Date.now(),
+                description: `Acompte Matériel (100%) sur devis n°${id} - ${formData.title}`,
+                quantity: 1,
+                unit: 'forfait',
+                price: 0, // Will be set below
+                buying_price: 0,
+                type: 'service'
+            };
+
+            const depositData = {
+                user_id: user.id,
+                client_id: formData.client_id,
+                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+                title: `Facture Acompte Matériel - ${formData.title}`,
+                date: new Date().toISOString().split('T')[0],
+                status: 'billed', // Default to billed as it is a deposit request
+                type: 'invoice',
+                items: [depositItem],
+                parent_id: id,
+                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}`
+            };
+
+            if (formData.include_tva) {
+                depositItem.price = depositAmount / 1.2;
+                depositData.total_ht = depositItem.price;
+                depositData.total_tva = depositAmount - depositItem.price;
+                depositData.total_ttc = depositAmount;
+            } else {
+                depositItem.price = depositAmount;
+                depositData.total_ht = depositAmount;
+                depositData.total_tva = 0;
+                depositData.total_ttc = depositAmount;
+            }
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .insert([depositData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            toast.success("Facture d'acompte matériel créée !");
+            navigate(`/app/devis/${data.id}`);
+            setShowActionsMenu(false);
+
+        } catch (error) {
+            console.error('Error creating material deposit:', error);
+            toast.error("Erreur lors de la création de l'acompte matériel");
         } finally {
             setLoading(false);
         }
@@ -1370,6 +1445,13 @@ const DevisForm = () => {
                                         >
                                             <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
                                             Générer Facture d'Acompte
+                                        </button>
+                                        <button
+                                            onClick={handleCreateMaterialDeposit}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-orange-50/50"
+                                        >
+                                            <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
+                                            Générer Acompte Matériel
                                         </button>
                                         <button
                                             onClick={handleCreateSituation}

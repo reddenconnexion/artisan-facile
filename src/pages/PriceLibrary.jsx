@@ -248,6 +248,7 @@ const PriceLibrary = () => {
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Description</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Catégorie</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Prix Unitaire</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
                             </tr>
                         </thead>
@@ -278,6 +279,17 @@ const PriceLibrary = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right text-gray-900 font-medium">
                                             {item.price.toFixed(2)} € <span className="text-gray-400 text-sm font-normal">/ {item.unit}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {item.type === 'material' ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                                    Matériel
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                    MO
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
@@ -382,18 +394,30 @@ const PriceLibrary = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                         value={newItem.category}
                                         onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                                        placeholder="Ex: Plomberie"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres / Ref</label>
-                                    <input
-                                        type="text"
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <select
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        value={newItem.barcode || ''}
-                                        onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
-                                        placeholder="Scan..."
-                                    />
+                                        value={newItem.type || 'service'}
+                                        onChange={e => setNewItem({ ...newItem, type: e.target.value })}
+                                    >
+                                        <option value="service">Main d'oeuvre</option>
+                                        <option value="material">Matériel</option>
+                                    </select>
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres / Ref</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={newItem.barcode || ''}
+                                    onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
+                                    placeholder="Scan..."
+                                />
                             </div>
                             <button
                                 type="submit"
