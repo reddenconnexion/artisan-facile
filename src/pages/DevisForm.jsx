@@ -666,7 +666,15 @@ const DevisForm = () => {
                 total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
                 total_ttc: depositAmount,
                 parent_id: id,
-                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}`
+                parent_id: id,
+                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}
+
+RÉCAPITULATIF :
+• Montant total du devis : ${total.toFixed(2)} € TTC
+• Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
+• Reste à payer sur devis : ${(total - depositAmount).toFixed(2)} € TTC
+
+Conditions de règlement : Paiement à réception de facture.`
             };
 
             if (formData.include_tva) {
@@ -749,7 +757,15 @@ const DevisForm = () => {
                 type: 'invoice',
                 items: [depositItem],
                 parent_id: id,
-                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}`
+                parent_id: id,
+                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}
+
+RÉCAPITULATIF :
+• Montant total du devis : ${total.toFixed(2)} € TTC
+• Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
+• Reste à payer sur devis : ${(total - depositAmount).toFixed(2)} € TTC
+
+Conditions de règlement : Paiement à réception de facture.`
             };
 
             if (formData.include_tva) {
