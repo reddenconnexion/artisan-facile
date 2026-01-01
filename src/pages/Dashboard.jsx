@@ -140,7 +140,11 @@ const Dashboard = () => {
                 const parsed = JSON.parse(cached);
                 // Simple validation to check if legacy structure
                 if (parsed.revenue && parsed.revenue.year) {
-                    return parsed;
+                    // Backwards compatibility for cached check
+                    return {
+                        ...parsed,
+                        netIncome: parsed.netIncome || getEmptyMetric()
+                    };
                 }
             }
         } catch (e) {
@@ -168,9 +172,10 @@ const Dashboard = () => {
     const fetchStats = async () => {
         try {
             // 1. Fetch ALL quotes for calculations
+            // Added 'items' and 'include_tva' to query for Net Income calc
             const { data: allQuotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at');
+                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items, include_tva');
 
             if (quotesError) throw quotesError;
 
@@ -202,6 +207,7 @@ const Dashboard = () => {
             // Metric Accumulators
             const metrics = {
                 revenue: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } },
+                netIncome: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } },
                 quotes: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } }, // Value of created quotes
                 conversion: {
                     week: { signed: 0, total: 0 },
@@ -233,7 +239,7 @@ const Dashboard = () => {
                 const isStandardQuote = type !== 'invoice';
                 const isActivity = isStandardQuote || isDirectInvoice;
 
-                // --- REVENUE CALC (Paid only) ---
+                // --- REVENUE & NET INCOME CALC (Paid only) ---
                 // Supabase status 'paid' is reliable
                 if (status === 'paid') {
                     // Check duplicate invoice logic (Invoice that HAS a parent quote)
@@ -242,20 +248,45 @@ const Dashboard = () => {
                     const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
                     if (!isDuplicate) {
                         metrics.revenue.total += amount;
+
+                        // Calculate Net Income (Revenue - Material)
+                        let netAmount = amount;
+                        if (quote.items && Array.isArray(quote.items)) {
+                            // Calculate Material Cost (HT or TTC depending on context? User sees Revenue in TTC. Material is a cost.)
+                            // We will deduct the Billed Material Amount (TTC) from the Total Billed (TTC)
+                            // This gives the "Service Revenue + Margin" (TTC)
+                            const materialItems = quote.items.filter(i => i.type === 'material');
+                            const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            const materialTTC = (quote.include_tva !== false) ? materialHT * 1.2 : materialHT;
+                            netAmount = amount - materialTTC;
+                        }
+
                         if (qDate.getFullYear() === currentYear) {
                             metrics.revenue.year += amount;
                             metrics.revenue.charts.year[qDate.getMonth()] += amount;
                             metrics.revenue.details.year.push(quote);
+
+                            metrics.netIncome.year += netAmount;
+                            metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
+                            metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount }); // Show Net amount in details if using this metric but currently details hardcode total_ttc
 
                             if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
                                 metrics.revenue.month += amount;
                                 metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
                                 metrics.revenue.details.month.push(quote);
 
+                                metrics.netIncome.month += netAmount;
+                                metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
+                                metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
+
                                 if (qDate >= currentWeekStart) {
                                     metrics.revenue.week += amount;
                                     metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount;
                                     metrics.revenue.details.week.push(quote);
+
+                                    metrics.netIncome.week += netAmount;
+                                    metrics.netIncome.charts.week[(getDay(qDate) + 6) % 7] += netAmount;
+                                    metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
                                 }
                             }
                         }
@@ -407,6 +438,7 @@ const Dashboard = () => {
 
             const newStats = {
                 revenue: buildMetricObject(metrics.revenue, metrics.revenue),
+                netIncome: buildMetricObject(metrics.netIncome, metrics.netIncome),
                 quotes: buildMetricObject(metrics.quotes, metrics.quotes),
                 conversion: {
                     week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
@@ -549,6 +581,17 @@ const Dashboard = () => {
                     icon={TrendingUp}
                     colorClass="bg-green-500"
                     colorHex="#10B981"
+                    formatValue={(v) => `${v.toFixed(0)} €`}
+                    onValueClick={(p) => setSelectedPeriod(p)}
+                />
+
+                <RichStatCard
+                    title="Résultat Net"
+                    subText="(Hors Matériel)"
+                    stats={stats.netIncome}
+                    icon={TrendingUp}
+                    colorClass="bg-emerald-600"
+                    colorHex="#059669"
                     formatValue={(v) => `${v.toFixed(0)} €`}
                     onValueClick={(p) => setSelectedPeriod(p)}
                 />
