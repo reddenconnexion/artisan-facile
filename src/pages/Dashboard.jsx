@@ -67,13 +67,14 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
                     <RevenueBar label="Cette Semaine" value={stats.week.value} max={stats.week.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('week')} period="week" />
                     <RevenueBar label="Ce Mois" value={stats.month.value} max={stats.month.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('month')} period="month" />
                     <RevenueBar label="Cette Année" value={stats.year.value} max={stats.year.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('year')} period="year" />
+                    <RevenueBar label="L'Année dernière" value={stats.lastYear?.value || 0} max={stats.lastYear?.max || 1} color={colorClass} onClick={() => setShowChart(true) || setPeriod('lastYear')} period="lastYear" />
                 </div>
             ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                        {['week', 'month', 'year'].map(p => (
+                        {['week', 'month', 'year', 'lastYear'].map(p => (
                             <button key={p} onClick={() => setPeriod(p)} className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${period === p ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                                {p === 'week' ? 'Sem' : p === 'month' ? 'Mois' : 'An'}
+                                {p === 'week' ? 'Sem' : p === 'month' ? 'Mois' : p === 'year' ? 'An' : 'An-1'}
                             </button>
                         ))}
                     </div>
@@ -131,7 +132,8 @@ const Dashboard = () => {
         const getEmptyMetric = () => ({
             week: { value: 0, max: 1, chart: [] },
             month: { value: 0, max: 1, chart: [] },
-            year: { value: 0, max: 1, chart: [] }
+            year: { value: 0, max: 1, chart: [] },
+            lastYear: { value: 0, max: 1, chart: [] }
         });
 
         try {
@@ -158,7 +160,9 @@ const Dashboard = () => {
             clientCount: 0,
             pendingQuotesCount: 0,
             recentActivity: [],
-            details: { week: [], month: [], year: [] }
+            pendingQuotesCount: 0,
+            recentActivity: [],
+            details: { week: [], month: [], year: [], lastYear: [] }
         };
     });
     const [loading, setLoading] = useState(true);
@@ -206,15 +210,16 @@ const Dashboard = () => {
 
             // Metric Accumulators
             const metrics = {
-                revenue: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } },
-                netIncome: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } },
-                quotes: { week: 0, month: 0, year: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, details: { week: [], month: [], year: [] } }, // Value of created quotes
+                revenue: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } },
+                netIncome: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } },
+                quotes: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } }, // Value of created quotes
                 conversion: {
                     week: { signed: 0, total: 0 },
                     month: { signed: 0, total: 0 },
                     year: { signed: 0, total: 0 },
-                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year') }, // Will store % rate
-                    details: { week: [], month: [], year: [] }
+                    lastYear: { signed: 0, total: 0 },
+                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, // Will store % rate
+                    details: { week: [], month: [], year: [], lastYear: [] }
                 }
             };
 
@@ -289,6 +294,14 @@ const Dashboard = () => {
                                     metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
                                 }
                             }
+                        } else if (qDate.getFullYear() === currentYear - 1) {
+                            metrics.revenue.lastYear += amount;
+                            metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
+                            metrics.revenue.details.lastYear.push(quote);
+
+                            metrics.netIncome.lastYear += netAmount;
+                            metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
+                            metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
                         }
                     }
                 }
@@ -336,6 +349,21 @@ const Dashboard = () => {
                                 }
                             }
                         }
+                    } else if (qDate.getFullYear() === currentYear - 1) {
+                        metrics.quotes.lastYear += amount;
+                        metrics.quotes.charts.lastYear[qDate.getMonth()] += amount;
+
+                        const isSigned = isDirectInvoice ||
+                            status === 'accepted' ||
+                            status === 'paid' ||
+                            status === 'billed' ||
+                            !!quote.signed_at;
+
+                        if (isSigned) {
+                            metrics.conversion.lastYear.signed++;
+                            metrics.conversion.charts.lastYear[qDate.getMonth()]++;
+                        }
+                        metrics.conversion.lastYear.total++;
                     }
                 }
             });
@@ -346,6 +374,7 @@ const Dashboard = () => {
                 week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
                 month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
                 year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
+                lastYear: calcRate(metrics.conversion.lastYear.signed, metrics.conversion.lastYear.total),
             };
 
             // Transform conversion charts to simple signed count for now (easier visual) or smooth rate?
@@ -359,6 +388,7 @@ const Dashboard = () => {
                 week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week') },
                 month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month') },
                 year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year') },
+                lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year') },
             });
 
 
@@ -444,6 +474,7 @@ const Dashboard = () => {
                     week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
                     month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
                     year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
+                    lastYear: { value: convStats.lastYear, max: 100, chart: formatChartPoints(metrics.conversion.charts.lastYear, 'year') },
                 },
                 clientCount,
                 pendingQuotesCount: pendingQuotes || 0,
@@ -451,7 +482,8 @@ const Dashboard = () => {
                 details: {
                     week: metrics.revenue.details.week, // Default to Revenue details for now in the shared view
                     month: metrics.revenue.details.month,
-                    year: metrics.revenue.details.year
+                    year: metrics.revenue.details.year,
+                    lastYear: metrics.revenue.details.lastYear
                 }
             };
 
@@ -524,7 +556,7 @@ const Dashboard = () => {
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPeriod(null)}>
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center text-gray-900 dark:text-white">
-                            <h3 className="font-bold text-lg">Détails : {selectedPeriod === 'week' ? 'Cette Semaine' : selectedPeriod === 'month' ? 'Ce Mois' : 'Cette Année'}</h3>
+                            <h3 className="font-bold text-lg">Détails : {selectedPeriod === 'week' ? 'Cette Semaine' : selectedPeriod === 'month' ? 'Ce Mois' : selectedPeriod === 'year' ? 'Cette Année' : 'L\'Année dernière'}</h3>
                             <button onClick={() => setSelectedPeriod(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
                                 <Plus className="w-5 h-5 rotate-45" />
                             </button>
