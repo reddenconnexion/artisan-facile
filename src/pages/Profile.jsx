@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell } from 'lucide-react';
+import { getNotificationTopic } from '../utils/notifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
 const Profile = () => {
@@ -370,6 +371,38 @@ const Profile = () => {
                     </button>
                 </div>
             </form >
+
+            {/* Notifications Mobile */}
+            <div className="mt-8 bg-blue-50 rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                        <Bell className="w-5 h-5 mr-2" />
+                        Notifications Mobile
+                    </h3>
+                    <p className="text-sm text-blue-800 mb-4">
+                        Pour recevoir une notification sur votre téléphone lorsqu'un devis est signé :
+                    </p>
+                    <ol className="list-decimal list-inside text-sm text-blue-800 space-y-2 mb-6">
+                        <li>Téléchargez l'application gratuite <strong>Ntfy</strong> (Android / iOS)</li>
+                        <li>Ajoutez un abonnement au sujet suivant :</li>
+                    </ol>
+                    <div className="bg-white p-4 rounded-lg border border-blue-200 flex items-center justify-between">
+                        <code className="text-blue-600 font-mono font-bold select-all">
+                            {getNotificationTopic(user?.id)}
+                        </code>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                navigator.clipboard.writeText(getNotificationTopic(user?.id));
+                                toast.success('Sujet copié !');
+                            }}
+                            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                        >
+                            Copier
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Zone de Danger / Maintenance */}
             < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >

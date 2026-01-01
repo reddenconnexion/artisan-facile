@@ -5,6 +5,7 @@ import { FileCheck, Download, Loader2, Phone, Mail, MapPin, Globe, PenTool } fro
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { toast } from 'sonner';
+import { sendNotification } from '../utils/notifications';
 
 const PublicQuote = () => {
     const { token } = useParams();
@@ -45,6 +46,8 @@ const PublicQuote = () => {
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
 
+
+
     const handleSignatureSave = async (signatureData) => {
         try {
             setSavingSignature(true);
@@ -58,6 +61,15 @@ const PublicQuote = () => {
 
             toast.success('Devis signé avec succès !');
             setShowSignatureModal(false);
+
+            // Send notification to artisan
+            if (quote.artisan?.id) {
+                await sendNotification(
+                    quote.artisan.id,
+                    `Le devis N°${quote.id} pour ${quote.client.name} a été signé !`,
+                    `Nouveau Devis Signé - ${quote.client.name}`
+                );
+            }
 
             // Fetch latest data to get server timestamp if needed, but we can construct local object for immediate download speed
             const signedQuote = {
