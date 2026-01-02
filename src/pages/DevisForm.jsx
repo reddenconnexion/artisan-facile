@@ -1799,10 +1799,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     const val = e.target.value;
                                                     updateItem(item.id, 'description', val);
 
+                                                    // Auto-detect type
+                                                    if (val.toLowerCase().match(/fourniture|matériel|materiel|pièce|consommable/)) {
+                                                        const currentType = item.type || 'service';
+                                                        if (currentType === 'service') {
+                                                            updateItem(item.id, 'type', 'material');
+                                                        }
+                                                    }
+
                                                     // Auto-price logic (Exact Match)
                                                     const libraryItem = priceLibrary.find(lib => lib.description === val);
                                                     if (libraryItem) {
                                                         updateItem(item.id, 'price', libraryItem.price);
+                                                        // Also sync type from library if it exists
+                                                        if (libraryItem.type) {
+                                                            updateItem(item.id, 'type', libraryItem.type);
+                                                        }
                                                     }
                                                 }}
                                                 onFocus={(e) => {

@@ -141,12 +141,19 @@ export const parseQuoteItems = (text) => {
             const price = parseFloat(priceStr);
 
             if (!isNaN(quantity) && !isNaN(price)) {
+                // Auto-detect type based on keywords
+                const descLower = description.toLowerCase();
+                let type = 'service';
+                if (descLower.includes('fourniture') || descLower.includes('matériel') || descLower.includes('materiel') || descLower.includes('pièce') || descLower.includes('consommable')) {
+                    type = 'material';
+                }
+
                 items.push({
                     id: Date.now() + Math.random(),
                     description: description,
                     quantity: quantity,
                     price: price, // Unit price
-                    type: 'service'
+                    type: type
                 });
                 continue;
             }
@@ -167,7 +174,7 @@ export const parseQuoteItems = (text) => {
                         description: match[1].trim(),
                         quantity: 1,
                         price: price,
-                        type: 'service'
+                        type: (match[1].toLowerCase().match(/fourniture|matériel|materiel|pièce|consommable/)) ? 'material' : 'service'
                     });
                     continue;
                 }
