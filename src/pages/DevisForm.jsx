@@ -2021,6 +2021,25 @@ Conditions de règlement : Paiement à réception de facture.`
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     />
+                    {/* Auto-calculate Material Deposit Hint */}
+                    {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+                            <div className="mt-0.5"><Star className="w-4 h-4" /></div>
+                            <div>
+                                <strong>Note automatique : Acompte Matériel</strong><br />
+                                Le devis contient du matériel. Une mention sera ajoutée automatiquement au PDF :<br />
+                                <span className="italic opacity-80">
+                                    "Un acompte correspondant à la totalité du matériel (
+                                    {(() => {
+                                        const mItems = formData.items.filter(i => i.type === 'material');
+                                        const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                                        const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
+                                        return mTTC.toFixed(2);
+                                    })()} € TTC) est requis à la signature."
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
