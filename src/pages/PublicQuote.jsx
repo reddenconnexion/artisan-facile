@@ -206,6 +206,7 @@ const PublicQuote = () => {
                     )}
 
                     {/* Content: External PDF or Items Table */}
+                    {/* Content: External PDF or Items Table */}
                     {(quote.is_external && quote.original_pdf_url) ? (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
                             <iframe
@@ -215,35 +216,53 @@ const PublicQuote = () => {
                             />
                         </div>
                     ) : (
-                        <div className="overflow-x-auto mb-8">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b-2 border-gray-100">
-                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
-                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
-                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
-                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {quote.items.map((item, idx) => (
-                                        <tr key={idx} className="group hover:bg-gray-50/50">
-                                            <td className="py-4 px-2 text-gray-900 font-medium">
-                                                {item.description}
-                                            </td>
-                                            <td className="py-4 px-2 text-gray-600 text-right">
-                                                {item.quantity}
-                                            </td>
-                                            <td className="py-4 px-2 text-gray-600 text-right">
-                                                {item.price.toFixed(2)} €
-                                            </td>
-                                            <td className="py-4 px-2 text-gray-900 font-medium text-right">
-                                                {(item.quantity * item.price).toFixed(2)} €
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="mb-8 space-y-8">
+                            {/* Helper to render Table */}
+                            {(() => {
+                                const renderTable = (items, title, colorClass) => (
+                                    <div className="overflow-x-auto">
+                                        {title && <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</h4>}
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`border-b-2 ${colorClass || 'border-gray-100'}`}>
+                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
+                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
+                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
+                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {items.map((item, idx) => (
+                                                    <tr key={idx} className="group hover:bg-gray-50/50">
+                                                        <td className="py-4 px-2 text-gray-900 font-medium">
+                                                            {item.description}
+                                                        </td>
+                                                        <td className="py-4 px-2 text-gray-600 text-right">
+                                                            {item.quantity}
+                                                        </td>
+                                                        <td className="py-4 px-2 text-gray-600 text-right">
+                                                            {item.price.toFixed(2)} €
+                                                        </td>
+                                                        <td className="py-4 px-2 text-gray-900 font-medium text-right">
+                                                            {(item.quantity * item.price).toFixed(2)} €
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+
+                                const services = quote.items.filter(i => i.type === 'service' || !i.type);
+                                const materials = quote.items.filter(i => i.type === 'material');
+
+                                return (
+                                    <>
+                                        {services.length > 0 && renderTable(services, materials.length > 0 ? "Main d'Oeuvre & Prestations" : null, 'border-blue-100')}
+                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-orange-100')}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
 
@@ -269,13 +288,32 @@ const PublicQuote = () => {
                         </div>
                     </div>
 
-                    {/* Notes */}
-                    {quote.notes && quote.status !== 'paid' && (
+                    {/* Notes with Auto Calculation */}
+                    {(quote.notes || (quote.type !== 'invoice' && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
                         <div className="mt-8 pt-8 border-t border-gray-100">
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
-                            <p className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
+                            <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
                                 {quote.notes}
-                            </p>
+                                {quote.type !== 'invoice' && quote.items.some(i => i.type === 'material') && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200/50">
+                                        <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
+                                        Montant des fournitures : {(() => {
+                                            const mItems = quote.items.filter(i => i.type === 'material');
+                                            const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                                            // Infer tax applied if total_ttc > total_ht globally (simplified check)
+                                            // Or use a strict rule. Assuming standard 1.2 if VAT enabled.
+                                            // PublicQuote doesn't have 'include_tva' flag easily accessible if it's not in DB distinct column (it is in formData).
+                                            // Wait, quote object has fields. Let's check quote struct.
+                                            // Ideally we infer from total_tva > 0.
+                                            const hasTva = quote.total_tva > 0;
+                                            const mTTC = hasTva ? mHT * 1.2 : mHT;
+                                            return mTTC.toFixed(2);
+                                        })()} € TTC.<br />
+                                        Un acompte correspondant à la totalité du matériel est requis à la signature.<br />
+                                        Une facture d'acompte vous sera envoyée dès validation du devis.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
