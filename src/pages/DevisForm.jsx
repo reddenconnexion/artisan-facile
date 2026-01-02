@@ -737,7 +737,6 @@ const DevisForm = () => {
                 total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
                 total_ttc: depositAmount,
                 parent_id: id,
-                parent_id: id,
                 notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}
 
 RÉCAPITULATIF :
@@ -827,7 +826,6 @@ Conditions de règlement : Paiement à réception de facture.`
                 status: 'billed', // Default to billed as it is a deposit request
                 type: 'invoice',
                 items: [depositItem],
-                parent_id: id,
                 parent_id: id,
                 notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}
 

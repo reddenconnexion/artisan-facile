@@ -38,7 +38,7 @@ export default defineConfig({
       workbox: {
         clientsClaim: true,
         skipWaiting: true,
-        maximumFileSizeToCacheInBytes: 3000000,
+        maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/auth/, /supabase/],
@@ -102,7 +102,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          pdfjs: ['pdfjs-dist']
+          pdfjs: ['pdfjs-dist'],
+          mammoth: ['mammoth']
         }
       }
     }

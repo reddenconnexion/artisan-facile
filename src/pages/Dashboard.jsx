@@ -166,8 +166,7 @@ const Dashboard = () => {
             clientCount: 0,
             pendingQuotesCount: 0,
             recentActivity: [],
-            pendingQuotesCount: 0,
-            recentActivity: [],
+
             details: { week: [], month: [], year: [], lastYear: [] }
         };
     });
