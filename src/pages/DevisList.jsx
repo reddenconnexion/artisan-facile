@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +32,7 @@ const DevisList = () => {
     const [devisList, setDevisList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const importInputRef = React.useRef(null);
 
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
 
@@ -41,6 +42,17 @@ const DevisList = () => {
             setStatusFilter(location.state.filter);
         }
     }, [location.state]);
+
+    const handleImportClick = () => {
+        importInputRef.current?.click();
+    };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            navigate('/app/devis/new', { state: { importFile: file } });
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -100,13 +112,29 @@ const DevisList = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Devis & Factures</h2>
-                <button
-                    onClick={() => navigate('/app/devis/new')}
-                    className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Nouveau Devis
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleImportClick}
+                        className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        <Upload className="w-5 h-5 mr-2" />
+                        Importer (PDF / Word)
+                    </button>
+                    <button
+                        onClick={() => navigate('/app/devis/new')}
+                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Nouveau Devis
+                    </button>
+                </div>
+                <input
+                    type="file"
+                    ref={importInputRef}
+                    onChange={handleFileChange}
+                    accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                />
             </div>
 
             {/* Filtres et Recherche */}

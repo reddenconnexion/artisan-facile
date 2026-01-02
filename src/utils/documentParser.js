@@ -1,8 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
 import { toast } from 'sonner';
 
 // Configure worker to use the local file in public folder
-// This avoids all bundler/CDN issues by serving it as a static asset from the same origin.
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export const extractTextFromPDF = async (file) => {
@@ -27,8 +27,6 @@ export const extractTextFromPDF = async (file) => {
         let fullText = '';
 
         for (let i = 1; i <= pdf.numPages; i++) {
-            // Optional: Limit pages if too many? No, let's try full.
-            // toast.loading(`Analyse page ${i}/${pdf.numPages}...`);
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
@@ -78,6 +76,28 @@ export const extractTextFromPDF = async (file) => {
     } catch (error) {
         console.error('Error parsing PDF:', error);
         toast.error(`Erreur lecture PDF: ${error.message}`);
+        throw error;
+    }
+};
+
+export const extractTextFromDocx = async (file) => {
+    try {
+        toast.info("Lecture du fichier Word/GDocs en cours...");
+        const arrayBuffer = await file.arrayBuffer();
+
+        const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+        const text = result.value;
+        const messages = result.messages;
+
+        if (messages.length > 0) {
+            console.warn("Mammoth messages:", messages);
+        }
+
+        console.log("Docx text length:", text.length);
+        return text;
+    } catch (error) {
+        console.error('Error parsing Docx:', error);
+        toast.error(`Erreur lecture fichier: ${error.message}`);
         throw error;
     }
 };
@@ -159,12 +179,6 @@ export const parseQuoteItems = (text) => {
         if (trimmed.length > 2 && !/^[\d.,€]+$/.test(trimmed)) {
             notes += trimmed + '\n';
         }
-    }
-
-    // Post-processing: If we found no items, maybe the parser was too strict?
-    // Start simpler fallback: just looking for lines ending in numbers.
-    if (items.length === 0 && lines.length > 0) {
-        // Fallback logic could go here if needed
     }
 
     return { items, notes };

@@ -9,7 +9,7 @@ import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
 import { useVoice } from '../hooks/useVoice';
-import { extractTextFromPDF, parseQuoteItems } from '../utils/pdfImport';
+import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems } from '../utils/documentParser';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -112,9 +112,9 @@ const DevisForm = () => {
     useEffect(() => {
         if (user) {
             fetchClients().then((loadedClients) => {
-                // Handle Navigation State (Client ID or Voice Data)
+                // Handle Navigation State (Client ID or Voice Data or Import File)
                 if (location.state) {
-                    const { client_id, voiceData } = location.state;
+                    const { client_id, voiceData, importFile } = location.state;
 
                     if (client_id && loadedClients) {
                         const foundClient = loadedClients.find(c => c.id.toString() === client_id.toString());
@@ -150,10 +150,14 @@ const DevisForm = () => {
                                 notes: notes ? (prev.notes ? prev.notes + '\n' + notes : notes) : prev.notes
                             }));
                         }
-
-                        // Clear state
-                        window.history.replaceState({}, document.title);
                     }
+
+                    if (importFile) {
+                        processImportedFile(importFile);
+                    }
+
+                    // Clear state to avoid re-triggering on refresh, but keep client selection if valid
+                    // window.history.replaceState({}, document.title); // Removed aggressive clearing to ensure stability during render
                 }
             });
             fetchUserProfile();
@@ -162,6 +166,73 @@ const DevisForm = () => {
             }
         }
     }, [user, id]);
+
+    // Reusable function to process imported file
+    const processImportedFile = async (file) => {
+        if (!file) return;
+
+        const isPdf = file.type === 'application/pdf';
+        const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx');
+
+        if (!isPdf && !isDocx) {
+            toast.error('Seuls les fichiers PDF et Word (.docx) sont supportés');
+            return;
+        }
+
+        try {
+            setImporting(true);
+            toast.message('Traitement du fichier en cours...');
+
+            // 1. Upload File to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${user.id}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('quote_files')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('quote_files')
+                .getPublicUrl(filePath);
+
+            toast.success("Fichier importé avec succès !");
+
+            // 2. Extract Text (for data filling)
+            let text = '';
+            if (isPdf) {
+                text = await extractTextFromPDF(file);
+            } else if (isDocx) {
+                text = await extractTextFromDocx(file);
+            }
+
+            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+
+            // Update Form Data
+            setFormData(prev => ({
+                ...prev,
+                original_pdf_url: publicUrl,
+                items: newItems.length > 0 ? newItems : prev.items,
+                notes: extraNotes ? (prev.notes ? prev.notes + '\n' + extraNotes : extraNotes) : prev.notes
+            }));
+
+            if (newItems.length > 0) {
+                toast.success(`${newItems.length} éléments détectés. Mode Conversion activé.`);
+            } else {
+                toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
+            }
+
+        } catch (error) {
+            console.error('Import error:', error);
+            toast.error("Erreur lors de l'import : " + error.message);
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     const fetchUserProfile = async () => {
         const { data } = await supabase
@@ -1156,61 +1227,10 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     // Updated Handle Import to support File Upload + Extraction
-    const handleImportFile = async (event) => {
+    const handleImportFile = (event) => {
         const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (file.type !== 'application/pdf') {
-            toast.error('Seuls les fichiers PDF sont supportés');
-            return;
-        }
-
-        try {
-            setImporting(true);
-            toast.message('Traitement du PDF en cours...');
-
-            // 1. Upload File to Supabase Storage
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${user.id}/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('quote_files')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('quote_files')
-                .getPublicUrl(filePath);
-
-            toast.success("Fichier PDF stocké avec succès !");
-
-            // 2. Extract Text (for data filling)
-            const text = await extractTextFromPDF(file);
-            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
-
-            // Update Form Data
-            setFormData(prev => ({
-                ...prev,
-                original_pdf_url: publicUrl, // Save the URL!
-                items: newItems.length > 0 ? newItems : prev.items, // Replace items if found, else keep default
-                notes: extraNotes ? prev.notes + '\n' + extraNotes : prev.notes
-            }));
-
-            if (newItems.length > 0) {
-                toast.success(`${newItems.length} éléments détectés. Mode PDF Authentique activé.`);
-            } else {
-                toast.info("Aucun élément chiffré détecté, mais le PDF est joint.");
-            }
-
-        } catch (error) {
-            console.error('Import error:', error);
-            toast.error("Erreur lors de l'import : " + error.message);
-        } finally {
-            setImporting(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
+        if (file) {
+            processImportedFile(file);
         }
     };
 
@@ -1518,7 +1538,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                     {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
-                                    Importer un PDF (Conversion)
+                                    Importer (PDF / Word)
                                 </button>
 
                                 <button
@@ -1526,7 +1546,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                     <FileText className="w-4 h-4 mr-3 text-purple-600" />
-                                    Importer PDF Externe (Brut)
+                                    Importer Externe (Brut)
                                 </button>
 
                             </div>
@@ -1536,14 +1556,14 @@ Conditions de règlement : Paiement à réception de facture.`
                         type="file"
                         ref={fileInputRef}
                         className="hidden"
-                        accept="application/pdf"
+                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={handleImportFile}
                     />
                     <input
                         type="file"
                         id="external-pdf-input"
                         className="hidden"
-                        accept="application/pdf"
+                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={handleExternalImport}
                     />
                 </div>
