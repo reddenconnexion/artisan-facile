@@ -148,34 +148,74 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         tableStartY = titleY + 8;
     }
 
-    // Tableau des prestations
+    // ---------------------------------------------------------
+    // Tableau des prestations (Séparé Main d'oeuvre / Matériel)
+    // ---------------------------------------------------------
+
+    const services = devis.items.filter(i => i.type === 'service' || !i.type); // Default to service if undefined
+    const materials = devis.items.filter(i => i.type === 'material');
+
     const tableColumn = ["Description", "Quantité", "Prix Unitaire HT", "Total HT"];
-    const tableRows = [];
 
-    devis.items.forEach(item => {
-        const itemData = [
-            item.description,
-            item.quantity,
-            `${item.price.toFixed(2)} €`,
-            `${(item.quantity * item.price).toFixed(2)} €`
-        ];
-        tableRows.push(itemData);
-    });
+    // Track current Y position for multiple tables
+    let currentTableY = tableStartY;
 
-    autoTable(doc, {
-        startY: tableStartY,
-        head: [tableColumn],
-        body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: isInvoice ? [46, 125, 50] : [66, 133, 244] },
-        styles: { fontSize: 9 },
-    });
+    // Helper to generate rows
+    const generateRows = (items) => items.map(item => [
+        item.description,
+        item.quantity,
+        `${item.price.toFixed(2)} €`,
+        `${(item.quantity * item.price).toFixed(2)} €`
+    ]);
+
+    // 1. Table Main d'Oeuvre
+    if (services.length > 0) {
+        // Section Title
+        if (materials.length > 0) { // Only show header if we have both types, or always? User asked for clear separation.
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text("MAIN D'OEUVRE & PRESTATIONS", 14, currentTableY - 2);
+        }
+
+        autoTable(doc, {
+            startY: currentTableY,
+            head: [tableColumn],
+            body: generateRows(services),
+            theme: 'grid',
+            headStyles: { fillColor: isInvoice ? [46, 125, 50] : [66, 133, 244] },
+            styles: { fontSize: 9 },
+        });
+
+        currentTableY = doc.lastAutoTable.finalY + 10;
+    }
+
+    // 2. Table Matériel
+    if (materials.length > 0) {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(100, 100, 100);
+        doc.text("MATÉRIEL & FOURNITURES", 14, services.length > 0 ? currentTableY - 2 : currentTableY - 2); // Title
+
+        autoTable(doc, {
+            startY: currentTableY,
+            head: [tableColumn],
+            body: generateRows(materials),
+            theme: 'grid',
+            headStyles: { fillColor: [120, 144, 156] }, // Blue Grey
+            styles: { fontSize: 9 },
+        });
+
+        currentTableY = doc.lastAutoTable.finalY + 10;
+    }
 
     // Totaux
-    const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : 150;
+    const finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
     const labelX = 130;
     const valueX = 195;
 
+    doc.setFont(undefined, 'normal');
+    // ... Totals rendering ...
     doc.text(`Total HT :`, labelX, finalY);
     doc.text(`${devis.total_ht.toFixed(2)} €`, valueX, finalY, { align: 'right' });
 
@@ -193,17 +233,30 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.text(`Total TTC :`, labelX, finalY + 14);
     doc.text(`${devis.total_ttc.toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
 
-    // Notes / Conditions
+    // Notes / Conditions (Calcul Automatique Acompte Matériel)
     let currentY = finalY + 30;
 
-    // Notes / Conditions (Masqué si payé car souvent ce sont des conditions de règlement)
-    if (devis.notes && devis.status !== 'paid') {
+    let allNotes = devis.notes || '';
+
+    // Automatic Material Deposit Note for Quotes
+    if (!isInvoice && materials.length > 0) {
+        const materialHT = materials.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        // Calculate VAT part for materials (assuming standard rate if global is enabled)
+        const materialTTC = devis.include_tva !== false ? materialHT * 1.2 : materialHT;
+
+        const depositNote = `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${materialTTC.toFixed(2)} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.\nUne facture d'acompte vous sera envoyée dès validation du devis.`;
+
+        allNotes += depositNote;
+    }
+
+    // Notes / Conditions Display
+    if (allNotes && devis.status !== 'paid') {
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text("Notes / Conditions :", 14, currentY);
         currentY += 6;
 
-        const splitNotes = doc.splitTextToSize(devis.notes, 180);
+        const splitNotes = doc.splitTextToSize(allNotes, 180);
         doc.text(splitNotes, 14, currentY);
         currentY += (splitNotes.length * 5) + 10;
     }
