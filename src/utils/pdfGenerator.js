@@ -249,14 +249,24 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         allNotes += depositNote;
     }
 
+
+
     // Notes / Conditions Display
     if (allNotes && devis.status !== 'paid') {
+        const splitNotes = doc.splitTextToSize(allNotes, 180);
+        const notesHeight = splitNotes.length * 5 + 15;
+
+        // Check if notes fit on current page
+        if (currentY + notesHeight > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text("Notes / Conditions :", 14, currentY);
         currentY += 6;
 
-        const splitNotes = doc.splitTextToSize(allNotes, 180);
         doc.text(splitNotes, 14, currentY);
         currentY += (splitNotes.length * 5) + 10;
     }
