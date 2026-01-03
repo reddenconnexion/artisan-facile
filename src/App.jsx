@@ -18,6 +18,7 @@ import Profile from './pages/Profile';
 import ClientPortal from './pages/portal/ClientPortal';
 import PublicQuote from './pages/PublicQuote';
 import ActivitySettings from './pages/settings/ActivitySettings';
+import Inventory from './pages/Inventory'; // Added Inventory Import
 
 import MaterialsCalculator from './components/MaterialsCalculator';
 import Rentals from './pages/Rentals';
@@ -64,6 +65,7 @@ function App() {
             <Route path="maintenance" element={<Maintenance />} />
             <Route path="rentals" element={<Rentals />} />
             <Route path="library" element={<PriceLibrary />} />
+            <Route path="inventory" element={<Inventory />} />
             <Route path="settings" element={<Profile />} />
             <Route path="settings/activity" element={<ActivitySettings />} />
           </Route>
