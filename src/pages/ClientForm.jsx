@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar } from 'lucide-react';
+import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -156,6 +156,26 @@ const ClientForm = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm('Voulez-vous vraiment supprimer ce client ? Cette action est irréversible.')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('clients')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            toast.success('Client supprimé avec succès');
+            navigate('/app/clients');
+        } catch (error) {
+            console.error('Error deleting client:', error);
+            toast.error('Erreur lors de la suppression du client');
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -250,6 +270,17 @@ const ClientForm = () => {
                         >
                             <Globe className="w-4 h-4 mr-2" />
                             Partager l'espace client
+                        </button>
+                    )}
+                    {isEditing && (
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 ml-2"
+                            title="Supprimer le client"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Supprimer
                         </button>
                     )}
                 </div>
