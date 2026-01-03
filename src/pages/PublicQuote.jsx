@@ -42,7 +42,7 @@ const PublicQuote = () => {
             window.open(quote.original_pdf_url, '_blank');
             return;
         }
-        const isInvoice = quote.type === 'invoice' || quote.status === 'paid';
+        const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
 
@@ -123,6 +123,7 @@ const PublicQuote = () => {
 
     const { artisan, client } = quote;
     const isSigned = quote.status === 'accepted';
+    const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
@@ -173,7 +174,7 @@ const PublicQuote = () => {
                         <div className="mt-6 md:mt-0 text-right">
                             <div className="inline-flex flex-col items-end">
                                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                                    {isSigned ? 'Facture N°' : 'Devis N°'}
+                                    {isSigned || isInvoiceView ? 'Facture N°' : 'Devis N°'}
                                 </span>
                                 <span className="text-2xl font-bold text-gray-900">
                                     {quote.id}
@@ -289,12 +290,12 @@ const PublicQuote = () => {
                     </div>
 
                     {/* Notes with Auto Calculation */}
-                    {(quote.notes || (quote.type !== 'invoice' && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
+                    {(quote.notes || (!isInvoiceView && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
                         <div className="mt-8 pt-8 border-t border-gray-100">
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
                             <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
                                 {quote.notes}
-                                {quote.type !== 'invoice' && quote.items.some(i => i.type === 'material') && (
+                                {!isInvoiceView && quote.items.some(i => i.type === 'material') && (
                                     <div className="mt-4 pt-4 border-t border-gray-200/50">
                                         <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
                                         Montant des fournitures : {(() => {
@@ -329,7 +330,7 @@ const PublicQuote = () => {
                             Télécharger PDF
                         </button>
 
-                        {!isSigned && quote.type !== 'invoice' && quote.status !== 'paid' ? (
+                        {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
                             <button
                                 onClick={() => setShowSignatureModal(true)}
                                 className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
