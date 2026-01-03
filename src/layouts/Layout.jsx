@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Package } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import { supabase } from '../utils/supabase';
@@ -116,7 +116,7 @@ const Layout = () => {
 
     if (settings.enable_price_library) {
       nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
-      nav.push({ name: 'Stock', href: '/app/inventory', icon: Package });
+      nav.push({ name: 'Stock', href: '/app/inventory', icon: Box });
     }
 
     if (settings.enable_maintenance) {
@@ -382,7 +382,7 @@ const Layout = () => {
           { name: 'Clients', href: '/app/clients', icon: Users },
           { name: 'Devis', href: '/app/devis', icon: FileText },
           // Check if Stock is enabled
-          ...(navigation.find(n => n.name === 'Stock') ? [{ name: 'Stock', href: '/app/inventory', icon: Package }] : []),
+          ...(navigation.find(n => n.name === 'Stock') ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
           // Check if Agenda is enabled
           ...(navigation.find(n => n.name === 'Agenda') ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
         ].map((item) => {
