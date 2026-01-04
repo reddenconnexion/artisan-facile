@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
-    Package, Camera, Search, AlertTriangle, Plus, Minus,
-    Save, X, BrainCircuit, Loader2, Settings, ScanBarcode
+    Package, Search, AlertTriangle, Plus, Minus,
+    X, ScanBarcode, ExternalLink
 } from 'lucide-react';
 import { useZxing } from 'react-zxing';
-import { analyzeStockImage } from '../utils/aiScanner';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -43,21 +42,12 @@ const Inventory = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     // UI States
-    const [showScanModal, setShowScanModal] = useState(false); // AI Modal
     const [showBarcodeModal, setShowBarcodeModal] = useState(false); // Barcode Modal
     const [showNewItemModal, setShowNewItemModal] = useState(false); // Create Item Modal
 
     // Barcode State
     const [scannedBarcode, setScannedBarcode] = useState(null);
     const [newItemData, setNewItemData] = useState({ description: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
-
-    // AI/Scan State
-    const [scanImage, setScanImage] = useState(null);
-    const [scanResult, setScanResult] = useState(null);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
-    const [showKeyInput, setShowKeyInput] = useState(false);
-    const fileInputRef = useRef(null);
 
     useEffect(() => {
         if (user) {
@@ -115,7 +105,7 @@ const Inventory = () => {
 
         const existingItem = items.find(i => i.barcode === barcode);
         if (existingItem) {
-            toast.success(`Article trouvé : ${existingItem.description}`);
+            toast.success(`Article trouvé: ${existingItem.description} `);
             // Highlight or scroll to item? For now just notify
             // Maybe open a quick edit modal for this item?
             // Let's filter the list to show this item
@@ -151,81 +141,6 @@ const Inventory = () => {
         }
     };
 
-    // --- AI SCANNER LOGIC (Legacy/Alternative) ---
-
-    const handleImageSelect = (e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => setScanImage(reader.result);
-            reader.readAsDataURL(file);
-            analyzeImage(file);
-        }
-    };
-
-    const analyzeImage = async (file) => {
-        setIsAnalyzing(true);
-        setScanResult(null);
-        try {
-            const results = await analyzeStockImage(file, apiKey);
-            setScanResult(results.map(r => ({ ...r, selected: true })));
-            if (!apiKey) {
-                toast.info("Mode Démo Gemini", { duration: 3000 });
-            }
-        } catch (error) {
-            toast.error("Analyse échouée : " + error.message);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-    const handleSaveScan = async () => {
-        if (!scanResult) return;
-        const toImport = scanResult.filter(r => r.selected);
-        let importedCount = 0;
-        let updatedCount = 0;
-
-        try {
-            for (const item of toImport) {
-                const existing = items.find(i => i.description.toLowerCase().includes(item.description.toLowerCase()));
-
-                if (existing) {
-                    await supabase.from('price_library')
-                        .update({
-                            stock_quantity: (existing.stock_quantity || 0) + (item.quantity || 1),
-                            last_stock_update: new Date()
-                        })
-                        .eq('id', existing.id);
-                    updatedCount++;
-                } else {
-                    await supabase.from('price_library').insert({
-                        user_id: user.id,
-                        description: item.description,
-                        stock_quantity: item.quantity || 1,
-                        category: item.category || 'Vrac',
-                        type: 'material',
-                        price: 0
-                    });
-                    importedCount++;
-                }
-            }
-            toast.success(`${importedCount} nouveaux, ${updatedCount} mis à jour.`);
-            setShowScanModal(false);
-            setScanImage(null);
-            setScanResult(null);
-            fetchStock();
-        } catch (e) {
-            toast.error("Erreur sauvegarde scan");
-        }
-    };
-
-    const saveApiKey = (key) => {
-        setApiKey(key);
-        localStorage.setItem('gemini_api_key', key);
-        setShowKeyInput(false);
-        toast.success("Clé API enregistrée");
-    };
-
     // --- RENDER ---
 
     const lowStockItems = items.filter(i => (i.stock_quantity || 0) <= (i.min_stock_alert || 5));
@@ -254,14 +169,17 @@ const Inventory = () => {
                         <ScanBarcode className="w-5 h-5 mr-2" />
                         Scanner Code-Barre
                     </button>
-                    <button
-                        onClick={() => setShowScanModal(true)}
+                    <a
+                        href="https://lens.google.com/"
+                        target="_blank"
+                        rel="noreferrer"
                         className="flex items-center px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
-                        title="Scan Intelligent via Photo"
+                        title="Ouvrir Google Lens pour identifier un objet"
                     >
-                        <BrainCircuit className="w-5 h-5 mr-2 text-purple-600" />
-                        <span className="hidden md:inline">Scan IA</span>
-                    </button>
+                        <ExternalLink className="w-5 h-5 mr-2 text-gray-500" />
+                        <span className="hidden md:inline">Identifier (Google Lens)</span>
+                        <span className="md:hidden">Lens</span>
+                    </a>
                 </div>
             </div>
 
@@ -359,128 +277,6 @@ const Inventory = () => {
                                 Créer l'article
                             </button>
                             <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500">Annuler</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* AI Scan Modal (Existing) */}
-            {showScanModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <BrainCircuit className="w-6 h-6 text-purple-600" />
-                                Assistant Stock IA
-                            </h2>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setShowKeyInput(!showKeyInput)} className="p-2 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-lg">
-                                    <Settings className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => setShowScanModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            {showKeyInput && (
-                                <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Clé API Google Gemini (Vision)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="password"
-                                            placeholder="AIzaSy..."
-                                            className="flex-1 px-3 py-2 border rounded-lg"
-                                            value={apiKey}
-                                            onChange={(e) => setApiKey(e.target.value)}
-                                        />
-                                        <button
-                                            onClick={() => saveApiKey(apiKey)}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-                                        >
-                                            Sauvegarder
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">La clé est stockée localement sur votre appareil. Laissez vide pour essayer le mode démo.</p>
-                                </div>
-                            )}
-
-                            {!scanImage ? (
-                                <div
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="border-3 border-dashed border-gray-300 rounded-2xl h-64 flex flex-col items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-all group"
-                                >
-                                    <div className="p-4 bg-white rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform">
-                                        <Camera className="w-8 h-8 text-purple-600" />
-                                    </div>
-                                    <p className="font-semibold text-gray-700">Prendre une photo ou importer</p>
-                                    <p className="text-sm text-gray-400 mt-1">L'IA analysera le contenu automatiquement</p>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        onChange={handleImageSelect}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="relative rounded-xl overflow-hidden h-48 bg-black flex justify-center">
-                                        <img src={scanImage} alt="Scan" className="h-full object-contain" />
-                                        {isAnalyzing && (
-                                            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm">
-                                                <Loader2 className="w-10 h-10 animate-spin mb-3 text-purple-400" />
-                                                <p className="font-medium animate-pulse">Analyse de l'image en cours...</p>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {scanResult && (
-                                        <div className="animate-in fade-in slide-in-from-bottom-4">
-                                            <h3 className="font-bold text-gray-900 mb-3">Articles détectés :</h3>
-                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                                                {scanResult.map((item, idx) => (
-                                                    <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-300 transition-colors">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={item.selected}
-                                                            onChange={(e) => {
-                                                                const newRes = [...scanResult];
-                                                                newRes[idx].selected = e.target.checked;
-                                                                setScanResult(newRes);
-                                                            }}
-                                                            className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 mr-3"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <p className="font-medium text-gray-900">{item.description}</p>
-                                                            <p className="text-xs text-gray-500">{item.category}</p>
-                                                        </div>
-                                                        <div className="bg-white px-3 py-1 rounded-md border text-sm font-bold shadow-sm">
-                                                            x{item.quantity}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <button
-                                                onClick={handleSaveScan}
-                                                className="w-full mt-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-all"
-                                            >
-                                                <Save className="w-5 h-5 mr-2" />
-                                                Valider et Ajouter au Stock
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {!isAnalyzing && !scanResult && (
-                                        <button onClick={() => setScanImage(null)} className="w-full text-center text-gray-500 hover:text-gray-900 text-sm">
-                                            Recommencer
-                                        </button>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
