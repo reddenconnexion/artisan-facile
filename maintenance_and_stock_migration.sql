@@ -21,6 +21,7 @@ create table if not exists maintenance_contracts (
 -- Ajouter le support des codes-barres à la bibliothèque de prix
 alter table price_library 
 add column if not exists barcode text,
+add column if not exists reference text,
 add column if not exists stock_quantity int default 0,
 add column if not exists min_stock_alert int default 5;
 

@@ -54,7 +54,7 @@ const Inventory = () => {
 
     // Barcode State
     const [scannedBarcode, setScannedBarcode] = useState(null);
-    const [newItemData, setNewItemData] = useState({ id: null, description: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
+    const [newItemData, setNewItemData] = useState({ id: null, description: '', reference: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
 
     useEffect(() => {
         if (user) {
@@ -120,6 +120,7 @@ const Inventory = () => {
         setNewItemData({
             id: item.id,
             description: item.description,
+            reference: item.reference || '',
             category: item.category || 'Vrac',
             stock_quantity: item.stock_quantity || 0,
             barcode: item.barcode || ''
@@ -148,22 +149,38 @@ const Inventory = () => {
             toast("Article inconnu, création...", { icon: <Plus className="w-4 h-4" /> });
 
             // Initialize with blank description first
-            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode: scannedCode });
+            setNewItemData({ id: null, description: '', reference: '', category: 'Matériel', stock_quantity: 1, barcode: scannedCode });
             setShowNewItemModal(true);
 
             // Try to fetch info from OpenProductsFacts (OpenFoodFacts ecosystem for general products)
             try {
                 toast.info("Recherche d'informations en ligne...");
+                // Note: using openfoodfacts as fallback or openproductsfacts
                 const response = await fetch(`https://world.openproductsfacts.org/api/v0/product/${scannedCode}.json`);
                 const data = await response.json();
 
                 if (data.status === 1 && data.product) {
-                    const productName = data.product.product_name_fr || data.product.product_name || data.product.generic_name;
-                    const brands = data.product.brands;
+                    const p = data.product;
+                    const productName = p.product_name_fr || p.product_name || p.generic_name;
+                    const brands = p.brands;
+
+                    // Try to find a reference (MPN or common key)
+                    // keys: "emb_codes", "manufacturing_places", "labels", etc. 
+                    // OpenProductsFacts is inconsistent. We check if there is a 'model', 'mpn' or just use brand.
+                    // Actually, often the 'product_name' contains the ref.
+
+                    let foundRef = '';
+                    // Some common fields in JSON for non-food
+                    if (p.model) foundRef = p.model;
+                    else if (p.mpn) foundRef = p.mpn;
 
                     if (productName) {
                         const fullName = brands ? `${brands} - ${productName}` : productName;
-                        setNewItemData(prev => ({ ...prev, description: fullName }));
+                        setNewItemData(prev => ({
+                            ...prev,
+                            description: fullName,
+                            reference: foundRef
+                        }));
                         toast.success("Informations trouvées !");
                     }
                 }
@@ -182,6 +199,7 @@ const Inventory = () => {
                 // UPDATE
                 const { error } = await supabase.from('price_library').update({
                     description: newItemData.description,
+                    reference: newItemData.reference,
                     category: newItemData.category,
                     stock_quantity: newItemData.stock_quantity,
                     barcode: newItemData.barcode,
@@ -195,6 +213,7 @@ const Inventory = () => {
                 const { error } = await supabase.from('price_library').insert({
                     user_id: user.id,
                     description: newItemData.description,
+                    reference: newItemData.reference,
                     category: newItemData.category,
                     stock_quantity: newItemData.stock_quantity,
                     barcode: newItemData.barcode,
@@ -218,6 +237,7 @@ const Inventory = () => {
     const lowStockItems = items.filter(i => (i.stock_quantity || 0) <= (i.min_stock_alert || 5));
     const filteredItems = items.filter(i =>
         i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (i.reference && i.reference.toLowerCase().includes(searchTerm.toLowerCase())) ||
         i.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (i.barcode && i.barcode.includes(searchTerm))
     );
@@ -237,7 +257,7 @@ const Inventory = () => {
                     <button
                         onClick={() => {
                             setScannedBarcode(null);
-                            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
+                            setNewItemData({ id: null, description: '', reference: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
                             setShowNewItemModal(true);
                         }}
                         className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700 transition-all font-medium"
@@ -283,7 +303,7 @@ const Inventory = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                     type="text"
-                    placeholder="Rechercher (Nom, Categorie, Code-barre)..."
+                    placeholder="Rechercher (Nom, Réf, Categorie, Code-barre)..."
                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -316,17 +336,30 @@ const Inventory = () => {
                             {newItemData.id ? "Modifier l'article" : (scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article')}
                         </h3>
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
-                                <input
-                                    type="text"
-                                    disabled={!!scannedBarcode} // Only disabled if freshly scanned new item to compel user to use it? Actually allow edit if needed, but keeping it locked for safety on scan is ok.
-                                    value={newItemData.barcode}
-                                    onChange={e => setNewItemData({ ...newItemData, barcode: e.target.value })}
-                                    className={`w-full px-3 py-2 rounded-lg font-mono ${scannedBarcode ? 'bg-gray-100 text-gray-500' : 'border border-gray-300'}`}
-                                    placeholder="Scanner ou laisser vide"
-                                />
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
+                                    <input
+                                        type="text"
+                                        disabled={!!scannedBarcode && !newItemData.id}
+                                        value={newItemData.barcode}
+                                        onChange={e => setNewItemData({ ...newItemData, barcode: e.target.value })}
+                                        className={`w-full px-3 py-2 rounded-lg font-mono text-sm ${scannedBarcode && !newItemData.id ? 'bg-gray-100 text-gray-500' : 'border border-gray-300'}`}
+                                        placeholder="Scan..."
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Référence</label>
+                                    <input
+                                        type="text"
+                                        value={newItemData.reference}
+                                        onChange={e => setNewItemData({ ...newItemData, reference: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                        placeholder="Ex: REF-123"
+                                    />
+                                </div>
                             </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                 <input
@@ -388,6 +421,7 @@ const Inventory = () => {
                         <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-200 transition-all">
                             <div className="flex-1 min-w-0 pr-4 cursor-pointer" onClick={() => handleEditItem(item)}>
                                 <h3 className="font-semibold text-gray-900 truncate flex items-center gap-2">
+                                    {item.reference && <span className="text-gray-500 font-mono text-xs mr-1">[{item.reference}]</span>}
                                     {item.description}
                                 </h3>
                                 <div className="flex items-center gap-2 mt-1">
