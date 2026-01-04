@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Package, Search, AlertTriangle, Plus, Minus,
-    X, ScanBarcode, ExternalLink
+    X, ScanBarcode, ExternalLink, Trash2, Edit3
 } from 'lucide-react';
 import { useZxing } from 'react-zxing';
 
@@ -14,7 +14,14 @@ const BarcodeScanner = ({ onResult, onError, onClose }) => {
             onResult(result.getText());
         },
         onError(error) {
-            // Ignore mostly, or log debug
+            // console.debug(error); // Keep console clean, uncomment for debug
+        },
+        constraints: {
+            video: {
+                facingMode: 'environment', // Use back camera
+                width: { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 480, ideal: 720, max: 1080 }
+            }
         }
     });
 
@@ -43,11 +50,11 @@ const Inventory = () => {
 
     // UI States
     const [showBarcodeModal, setShowBarcodeModal] = useState(false); // Barcode Modal
-    const [showNewItemModal, setShowNewItemModal] = useState(false); // Create Item Modal
+    const [showNewItemModal, setShowNewItemModal] = useState(false); // Create/Edit Item Modal
 
     // Barcode State
     const [scannedBarcode, setScannedBarcode] = useState(null);
-    const [newItemData, setNewItemData] = useState({ description: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
+    const [newItemData, setNewItemData] = useState({ id: null, description: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
 
     useEffect(() => {
         if (user) {
@@ -97,6 +104,30 @@ const Inventory = () => {
         }
     };
 
+    const handleDeleteItem = async (id) => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet article du stock ?")) return;
+        try {
+            const { error } = await supabase.from('price_library').delete().eq('id', id);
+            if (error) throw error;
+            setItems(items.filter(i => i.id !== id));
+            toast.success("Article supprimé");
+        } catch (e) {
+            toast.error("Erreur lors de la suppression");
+        }
+    };
+
+    const handleEditItem = (item) => {
+        setNewItemData({
+            id: item.id,
+            description: item.description,
+            category: item.category || 'Vrac',
+            stock_quantity: item.stock_quantity || 0,
+            barcode: item.barcode || ''
+        });
+        setScannedBarcode(null); // Reset scan mode
+        setShowNewItemModal(true);
+    };
+
     // --- BARCODE LOGIC ---
 
     const handleBarcodeDetected = (barcode) => {
@@ -106,38 +137,50 @@ const Inventory = () => {
         const existingItem = items.find(i => i.barcode === barcode);
         if (existingItem) {
             toast.success(`Article trouvé: ${existingItem.description} `);
-            // Highlight or scroll to item? For now just notify
-            // Maybe open a quick edit modal for this item?
-            // Let's filter the list to show this item
             setSearchTerm(existingItem.description); // Simple hack to find it
         } else {
             // New Item
-            setNewItemData({ description: '', category: 'Matériel', stock_quantity: 1, barcode });
+            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode });
             setShowNewItemModal(true);
         }
     };
 
-    const handleCreateItem = async () => {
+    const handleSaveItem = async () => {
         if (!newItemData.description) return toast.error("Description requise");
 
         try {
-            const { error } = await supabase.from('price_library').insert({
-                user_id: user.id,
-                description: newItemData.description,
-                category: newItemData.category,
-                stock_quantity: newItemData.stock_quantity,
-                barcode: newItemData.barcode,
-                type: 'material',
-                price: 0
-            });
+            if (newItemData.id) {
+                // UPDATE
+                const { error } = await supabase.from('price_library').update({
+                    description: newItemData.description,
+                    category: newItemData.category,
+                    stock_quantity: newItemData.stock_quantity,
+                    barcode: newItemData.barcode,
+                    last_stock_update: new Date()
+                }).eq('id', newItemData.id);
 
-            if (error) throw error;
-            toast.success("Article créé avec succès");
+                if (error) throw error;
+                toast.success("Article modifié");
+            } else {
+                // CREATE
+                const { error } = await supabase.from('price_library').insert({
+                    user_id: user.id,
+                    description: newItemData.description,
+                    category: newItemData.category,
+                    stock_quantity: newItemData.stock_quantity,
+                    barcode: newItemData.barcode,
+                    type: 'material',
+                    price: 0
+                });
+
+                if (error) throw error;
+                toast.success("Article créé");
+            }
             setShowNewItemModal(false);
             fetchStock();
         } catch (e) {
             console.error(e);
-            toast.error("Erreur création article");
+            toast.error("Erreur lors de la sauvegarde");
         }
     };
 
@@ -165,7 +208,7 @@ const Inventory = () => {
                     <button
                         onClick={() => {
                             setScannedBarcode(null);
-                            setNewItemData({ description: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
+                            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
                             setShowNewItemModal(true);
                         }}
                         className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700 transition-all font-medium"
@@ -236,19 +279,19 @@ const Inventory = () => {
                 </div>
             )}
 
-            {/* New Item Modal (from Barcode or Manual) */}
+            {/* New/Edit Item Modal */}
             {showNewItemModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                         <h3 className="text-lg font-bold mb-4">
-                            {scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article'}
+                            {newItemData.id ? "Modifier l'article" : (scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article')}
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre (Optionnel)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
                                 <input
                                     type="text"
-                                    disabled={!!scannedBarcode}
+                                    disabled={!!scannedBarcode} // Only disabled if freshly scanned new item to compel user to use it? Actually allow edit if needed, but keeping it locked for safety on scan is ok.
                                     value={newItemData.barcode}
                                     onChange={e => setNewItemData({ ...newItemData, barcode: e.target.value })}
                                     className={`w-full px-3 py-2 rounded-lg font-mono ${scannedBarcode ? 'bg-gray-100 text-gray-500' : 'border border-gray-300'}`}
@@ -292,8 +335,8 @@ const Inventory = () => {
                                 </div>
                             </div>
 
-                            <button onClick={handleCreateItem} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2">
-                                Créer l'article
+                            <button onClick={handleSaveItem} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2">
+                                {newItemData.id ? "Modifier" : "Créer l'article"}
                             </button>
                             <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500">Annuler</button>
                         </div>
@@ -314,8 +357,10 @@ const Inventory = () => {
                 ) : (
                     filteredItems.map(item => (
                         <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-200 transition-all">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h3 className="font-semibold text-gray-900 truncate">{item.description}</h3>
+                            <div className="flex-1 min-w-0 pr-4 cursor-pointer" onClick={() => handleEditItem(item)}>
+                                <h3 className="font-semibold text-gray-900 truncate flex items-center gap-2">
+                                    {item.description}
+                                </h3>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{item.category || 'Non classé'}</span>
                                     {item.barcode && <span className="text-xs text-gray-400 font-mono bg-blue-50 px-1 rounded flex items-center"><ScanBarcode className="w-3 h-3 mr-1" />{item.barcode}</span>}
@@ -323,6 +368,24 @@ const Inventory = () => {
                             </div>
 
                             <div className="flex items-center gap-4">
+                                {/* Actions Edit/Delete on Desktop (or always) */}
+                                <div className="flex items-center gap-1 mr-2">
+                                    <button
+                                        onClick={() => handleEditItem(item)}
+                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Modifier"
+                                    >
+                                        <Edit3 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteItem(item.id)}
+                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Supprimer"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+
                                 <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
                                     <button
                                         onClick={() => updateStock(item.id, (item.stock_quantity || 0) - 1)}
