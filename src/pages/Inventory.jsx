@@ -194,41 +194,61 @@ const Inventory = () => {
     const handleSaveItem = async () => {
         if (!newItemData.description) return toast.error("Description requise");
 
-        try {
+        const saveToDb = async (data) => {
             if (newItemData.id) {
                 // UPDATE
                 const { error } = await supabase.from('price_library').update({
-                    description: newItemData.description,
-                    reference: newItemData.reference,
-                    category: newItemData.category,
-                    stock_quantity: newItemData.stock_quantity,
-                    barcode: newItemData.barcode,
+                    description: data.description,
+                    reference: data.reference,
+                    category: data.category,
+                    stock_quantity: data.stock_quantity,
+                    barcode: data.barcode,
                     last_stock_update: new Date()
                 }).eq('id', newItemData.id);
-
                 if (error) throw error;
                 toast.success("Article modifié");
             } else {
                 // CREATE
                 const { error } = await supabase.from('price_library').insert({
                     user_id: user.id,
-                    description: newItemData.description,
-                    reference: newItemData.reference,
-                    category: newItemData.category,
-                    stock_quantity: newItemData.stock_quantity,
-                    barcode: newItemData.barcode,
+                    description: data.description,
+                    reference: data.reference,
+                    category: data.category,
+                    stock_quantity: data.stock_quantity,
+                    barcode: data.barcode,
                     type: 'material',
                     price: 0
                 });
-
                 if (error) throw error;
                 toast.success("Article créé");
             }
+        };
+
+        try {
+            await saveToDb(newItemData);
             setShowNewItemModal(false);
             fetchStock();
         } catch (e) {
-            console.error(e);
-            toast.error("Erreur lors de la sauvegarde");
+            console.error("Save error:", e);
+            // Check for missing column error (Postgres 42703) or generic message
+            if (e.code === '42703' || (e.message && e.message.includes('reference'))) {
+                try {
+                    console.log("Retrying without reference...");
+                    const fallbackData = { ...newItemData };
+                    delete fallbackData.reference;
+
+                    await saveToDb(fallbackData); // Retry without reference
+
+                    setShowNewItemModal(false);
+                    fetchStock();
+                    toast.warning("Article sauvegardé, mais la 'Référence' n'a pas pu être stockée (Mettez à jour votre base de données).");
+                    return;
+                } catch (retryError) {
+                    toast.error("Erreur sauvegarde : " + retryError.message);
+                }
+            } else {
+                toast.error("Erreur : " + e.message);
+            }
         }
     };
 
