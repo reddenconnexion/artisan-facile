@@ -4,18 +4,54 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Package, Camera, Search, AlertTriangle, Plus, Minus,
-    Save, X, BrainCircuit, Loader2, Settings
+    Save, X, BrainCircuit, Loader2, Settings, ScanBarcode
 } from 'lucide-react';
+import { useZxing } from 'react-zxing';
 import { analyzeStockImage } from '../utils/aiScanner';
+
+const BarcodeScanner = ({ onResult, onError, onClose }) => {
+    const { ref } = useZxing({
+        onDecodeResult(result) {
+            onResult(result.getText());
+        },
+        onError(error) {
+            // Ignore mostly, or log debug
+        }
+    });
+
+    return (
+        <div className="relative bg-black rounded-2xl overflow-hidden h-64 md:h-80 flex flex-col items-center justify-center">
+            <video ref={ref} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="relative z-10 w-64 h-32 border-2 border-red-500/50 rounded-lg animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.5)]"></div>
+            <p className="relative z-10 mt-4 text-white font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+                Placez le code-barre dans le cadre
+            </p>
+            <button
+                onClick={onClose}
+                className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-white hover:bg-black/70"
+            >
+                <X className="w-5 h-5" />
+            </button>
+        </div>
+    );
+};
 
 const Inventory = () => {
     const { user } = useAuth();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showScanModal, setShowScanModal] = useState(false);
 
-    // Scan State
+    // UI States
+    const [showScanModal, setShowScanModal] = useState(false); // AI Modal
+    const [showBarcodeModal, setShowBarcodeModal] = useState(false); // Barcode Modal
+    const [showNewItemModal, setShowNewItemModal] = useState(false); // Create Item Modal
+
+    // Barcode State
+    const [scannedBarcode, setScannedBarcode] = useState(null);
+    const [newItemData, setNewItemData] = useState({ description: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
+
+    // AI/Scan State
     const [scanImage, setScanImage] = useState(null);
     const [scanResult, setScanResult] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -39,18 +75,16 @@ const Inventory = () => {
     const fetchStock = async () => {
         setLoading(true);
         try {
-            // Fetch only materials or assumed materials
             const { data, error } = await supabase
                 .from('price_library')
                 .select('*')
-                .or('type.eq.material,type.is.null') // Assume null might be material too
-                .order('stock_quantity', { ascending: true }); // Low stock first
+                .or('type.eq.material,type.is.null')
+                .order('stock_quantity', { ascending: true });
 
             if (error) throw error;
             setItems(data || []);
         } catch (error) {
             console.error('Error fetching stock:', error);
-            // toast.error('Erreur chargement stock'); // Silent fail is better if column missing
         } finally {
             setLoading(false);
         }
@@ -59,7 +93,6 @@ const Inventory = () => {
     const updateStock = async (id, newQuantity) => {
         if (newQuantity < 0) return;
         try {
-            // Optimistic update
             setItems(items.map(i => i.id === id ? { ...i, stock_quantity: newQuantity } : i));
 
             const { error } = await supabase
@@ -70,11 +103,55 @@ const Inventory = () => {
             if (error) throw error;
         } catch (error) {
             toast.error("Erreur mise à jour stock");
-            fetchStock(); // Revert
+            fetchStock();
         }
     };
 
-    // --- AI SCANNER LOGIC ---
+    // --- BARCODE LOGIC ---
+
+    const handleBarcodeDetected = (barcode) => {
+        setShowBarcodeModal(false);
+        setScannedBarcode(barcode);
+
+        const existingItem = items.find(i => i.barcode === barcode);
+        if (existingItem) {
+            toast.success(`Article trouvé : ${existingItem.description}`);
+            // Highlight or scroll to item? For now just notify
+            // Maybe open a quick edit modal for this item?
+            // Let's filter the list to show this item
+            setSearchTerm(existingItem.description); // Simple hack to find it
+        } else {
+            // New Item
+            setNewItemData({ description: '', category: 'Matériel', stock_quantity: 1, barcode });
+            setShowNewItemModal(true);
+        }
+    };
+
+    const handleCreateItem = async () => {
+        if (!newItemData.description) return toast.error("Description requise");
+
+        try {
+            const { error } = await supabase.from('price_library').insert({
+                user_id: user.id,
+                description: newItemData.description,
+                category: newItemData.category,
+                stock_quantity: newItemData.stock_quantity,
+                barcode: newItemData.barcode,
+                type: 'material',
+                price: 0
+            });
+
+            if (error) throw error;
+            toast.success("Article créé avec succès");
+            setShowNewItemModal(false);
+            fetchStock();
+        } catch (e) {
+            console.error(e);
+            toast.error("Erreur création article");
+        }
+    };
+
+    // --- AI SCANNER LOGIC (Legacy/Alternative) ---
 
     const handleImageSelect = (e) => {
         const file = e.target.files?.[0];
@@ -91,9 +168,9 @@ const Inventory = () => {
         setScanResult(null);
         try {
             const results = await analyzeStockImage(file, apiKey);
-            setScanResult(results.map(r => ({ ...r, selected: true }))); // Default all selected
+            setScanResult(results.map(r => ({ ...r, selected: true })));
             if (!apiKey) {
-                toast.info("Mode Démo : Résultats simulés. Ajoutez une clé API Gemini pour de vrais résultats !", { duration: 5000 });
+                toast.info("Mode Démo Gemini", { duration: 3000 });
             }
         } catch (error) {
             toast.error("Analyse échouée : " + error.message);
@@ -105,18 +182,14 @@ const Inventory = () => {
     const handleSaveScan = async () => {
         if (!scanResult) return;
         const toImport = scanResult.filter(r => r.selected);
-
         let importedCount = 0;
         let updatedCount = 0;
 
         try {
             for (const item of toImport) {
-                // Check if exists by roughly matching description
-                // Note: In real app, we'd use embedding search or exact barcode match
                 const existing = items.find(i => i.description.toLowerCase().includes(item.description.toLowerCase()));
 
                 if (existing) {
-                    // Update stock
                     await supabase.from('price_library')
                         .update({
                             stock_quantity: (existing.stock_quantity || 0) + (item.quantity || 1),
@@ -125,14 +198,13 @@ const Inventory = () => {
                         .eq('id', existing.id);
                     updatedCount++;
                 } else {
-                    // Start Create new
                     await supabase.from('price_library').insert({
                         user_id: user.id,
                         description: item.description,
                         stock_quantity: item.quantity || 1,
                         category: item.category || 'Vrac',
                         type: 'material',
-                        price: 0 // Needs pricing later
+                        price: 0
                     });
                     importedCount++;
                 }
@@ -143,7 +215,6 @@ const Inventory = () => {
             setScanResult(null);
             fetchStock();
         } catch (e) {
-            console.error(e);
             toast.error("Erreur sauvegarde scan");
         }
     };
@@ -158,11 +229,10 @@ const Inventory = () => {
     // --- RENDER ---
 
     const lowStockItems = items.filter(i => (i.stock_quantity || 0) <= (i.min_stock_alert || 5));
-    const normalItems = items.filter(i => (i.stock_quantity || 0) > (i.min_stock_alert || 5));
-
     const filteredItems = items.filter(i =>
         i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        i.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        i.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (i.barcode && i.barcode.includes(searchTerm))
     );
 
     return (
@@ -176,23 +246,33 @@ const Inventory = () => {
                     <p className="text-gray-500">Suivez vos matériaux et scannez vos arrivages</p>
                 </div>
 
-                <button
-                    onClick={() => setShowScanModal(true)}
-                    className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
-                >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Scan Intelligent (IA)
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowBarcodeModal(true)}
+                        className="flex items-center px-4 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all font-medium"
+                    >
+                        <ScanBarcode className="w-5 h-5 mr-2" />
+                        Scanner Code-Barre
+                    </button>
+                    <button
+                        onClick={() => setShowScanModal(true)}
+                        className="flex items-center px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
+                        title="Scan Intelligent via Photo"
+                    >
+                        <BrainCircuit className="w-5 h-5 mr-2 text-purple-600" />
+                        <span className="hidden md:inline">Scan IA</span>
+                    </button>
+                </div>
             </div>
 
             {/* Stats / Alerts */}
             {lowStockItems.length > 0 && (
-                <div className="mb-8 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start">
+                <div className="mb-8 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start animate-in slide-in-from-top-2">
                     <AlertTriangle className="w-5 h-5 text-orange-600 mr-3 mt-0.5" />
                     <div className="flex-1">
                         <h3 className="font-semibold text-orange-800">Alerte Stock Faible</h3>
                         <p className="text-sm text-orange-700 mt-1">
-                            {lowStockItems.length} articles sont sous le seuil d'alerte. Pensez à réapprovisionner.
+                            {lowStockItems.length} articles sont sous le seuil d'alerte.
                         </p>
                     </div>
                 </div>
@@ -203,14 +283,88 @@ const Inventory = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                     type="text"
-                    placeholder="Rechercher dans le stock..."
+                    placeholder="Rechercher (Nom, Categorie, Code-barre)..."
                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
 
-            {/* Scan Modal */}
+            {/* Barcode Modal */}
+            {showBarcodeModal && (
+                <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+                    <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden">
+                        <div className="p-4 border-b flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Scanner un article</h3>
+                            <button onClick={() => setShowBarcodeModal(false)}><X className="w-6 h-6" /></button>
+                        </div>
+                        <div className="p-4">
+                            <BarcodeScanner
+                                onResult={handleBarcodeDetected}
+                                onClose={() => setShowBarcodeModal(false)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* New Item Modal (from Barcode) */}
+            {showNewItemModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                        <h3 className="text-lg font-bold mb-4">Nouvel Article Détecté</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
+                                <input type="text" disabled value={newItemData.barcode} className="w-full px-3 py-2 bg-gray-100 rounded-lg font-mono" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <input
+                                    type="text"
+                                    value={newItemData.description}
+                                    onChange={e => setNewItemData({ ...newItemData, description: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ex: Disjoncteur 16A..."
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                                    <select
+                                        value={newItemData.category}
+                                        onChange={e => setNewItemData({ ...newItemData, category: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                    >
+                                        <option>Matériel</option>
+                                        <option>Consommable</option>
+                                        <option>Outillage</option>
+                                        <option>Vrac</option>
+                                    </select>
+                                </div>
+                                <div className="w-24">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Qté</label>
+                                    <input
+                                        type="number"
+                                        value={newItemData.stock_quantity}
+                                        onChange={e => setNewItemData({ ...newItemData, stock_quantity: parseInt(e.target.value) || 0 })}
+                                        className="w-full px-3 py-2 border rounded-lg"
+                                    />
+                                </div>
+                            </div>
+
+                            <button onClick={handleCreateItem} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2">
+                                Créer l'article
+                            </button>
+                            <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500">Annuler</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* AI Scan Modal (Existing) */}
             {showScanModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -231,7 +385,7 @@ const Inventory = () => {
 
                         <div className="p-6">
                             {showKeyInput && (
-                                <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200 animate-in slide-in-from-top-2">
+                                <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Clé API Google Gemini (Vision)</label>
                                     <div className="flex gap-2">
                                         <input
@@ -339,8 +493,8 @@ const Inventory = () => {
                 ) : filteredItems.length === 0 ? (
                     <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
                         <Package className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                        <p className="text-gray-500">Votre stock est vide ou non défini.</p>
-                        <p className="text-sm text-gray-400">Utilisez le scan ou la bibliothèque pour initialiser.</p>
+                        <p className="text-gray-500">Votre stock est vide ou aucun résultat.</p>
+                        <p className="text-sm text-gray-400">Utilisez le scan Code-Barre pour commencer.</p>
                     </div>
                 ) : (
                     filteredItems.map(item => (
@@ -349,7 +503,7 @@ const Inventory = () => {
                                 <h3 className="font-semibold text-gray-900 truncate">{item.description}</h3>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{item.category || 'Non classé'}</span>
-                                    {item.barcode && <span className="text-xs text-gray-400 font-mono">#{item.barcode}</span>}
+                                    {item.barcode && <span className="text-xs text-gray-400 font-mono bg-blue-50 px-1 rounded flex items-center"><ScanBarcode className="w-3 h-3 mr-1" />{item.barcode}</span>}
                                 </div>
                             </div>
 
