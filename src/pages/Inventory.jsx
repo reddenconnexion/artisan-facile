@@ -76,7 +76,7 @@ const Inventory = () => {
                 .from('price_library')
                 .select('*')
                 .or('type.eq.material,type.is.null')
-                .order('stock_quantity', { ascending: true });
+                .order('stock_quantity', { ascending: false });
 
             if (error) throw error;
             setItems(data || []);
@@ -164,15 +164,30 @@ const Inventory = () => {
                     const productName = p.product_name_fr || p.product_name || p.generic_name;
                     const brands = p.brands;
 
-                    // Try to find a reference (MPN or common key)
-                    // keys: "emb_codes", "manufacturing_places", "labels", etc. 
-                    // OpenProductsFacts is inconsistent. We check if there is a 'model', 'mpn' or just use brand.
-                    // Actually, often the 'product_name' contains the ref.
+                    // 1. Try explicit fields
+                    let foundRef = p.model || p.mpn || '';
 
-                    let foundRef = '';
-                    // Some common fields in JSON for non-food
-                    if (p.model) foundRef = p.model;
-                    else if (p.mpn) foundRef = p.mpn;
+                    // 2. Fallback: Smart extract from name if explicit ref missing
+                    // Look for patterns like "REF123", "A9C20", etc. (Mixed Alpha+Num, >3 chars)
+                    if (!foundRef && productName) {
+                        const words = productName.split(/[\s()\[\]]+/); // Split by space or brackets
+                        for (const w of words) {
+                            const cleanW = w.trim().toUpperCase();
+                            // Must contain at least 1 digit, 1 letter, length > 3
+                            // Exclude common units (16A, 230V, 500ML, etc.)
+                            if (cleanW.length > 3 && /[0-9]/.test(cleanW) && /[A-Z]/.test(cleanW)) {
+                                if (!cleanW.match(/^([0-9]+(V|A|W|HZ|ML|L|KG|G|MM|CM|M))$/)) {
+                                    foundRef = cleanW;
+                                    // Don't break immediately, sometimes the last word is better? 
+                                    // Actually refs like "Legrand 04566" -> 04566 is numeric only.
+                                    // Let's stick to AlphaNum for now to avoid false positive like "x10".
+                                    break;
+                                }
+                            }
+                            // Also check for pure numeric refs often used by Legrand/Hager if 5-6 digits?
+                            // Risk of confusing with quantity/dimensions. Let's keep it safe: AlphaNum only or explicit.
+                        }
+                    }
 
                     if (productName) {
                         const fullName = brands ? `${brands} - ${productName}` : productName;
@@ -181,7 +196,12 @@ const Inventory = () => {
                             description: fullName,
                             reference: foundRef
                         }));
-                        toast.success("Informations trouvées !");
+
+                        if (foundRef) {
+                            toast.success(`Infos trouvées (Réf: ${foundRef}) !`);
+                        } else {
+                            toast.success("Nom du produit trouvé !");
+                        }
                     }
                 }
             } catch (error) {
