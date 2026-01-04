@@ -130,18 +130,47 @@ const Inventory = () => {
 
     // --- BARCODE LOGIC ---
 
-    const handleBarcodeDetected = (barcode) => {
+    const handleBarcodeDetected = async (barcode) => {
+        const scannedCode = barcode.trim();
         setShowBarcodeModal(false);
-        setScannedBarcode(barcode);
+        setScannedBarcode(scannedCode);
 
-        const existingItem = items.find(i => i.barcode === barcode);
+        // Robust comparison: check if database barcode includes scanned one or vice versa, or exact match
+        // Often scanners might read EAN-13 vs UPC-A (extra 0).
+        // For now, strict trim match is safest for unique ID.
+        const existingItem = items.find(i => i.barcode && i.barcode.trim() === scannedCode);
+
         if (existingItem) {
-            toast.success(`Article trouvé: ${existingItem.description} `);
-            setSearchTerm(existingItem.description); // Simple hack to find it
+            toast.success(`Article trouvé : ${existingItem.description}`);
+            setSearchTerm(existingItem.description); // Filter list to show it
         } else {
             // New Item
-            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode });
+            toast("Article inconnu, création...", { icon: <Plus className="w-4 h-4" /> });
+
+            // Initialize with blank description first
+            setNewItemData({ id: null, description: '', category: 'Matériel', stock_quantity: 1, barcode: scannedCode });
             setShowNewItemModal(true);
+
+            // Try to fetch info from OpenProductsFacts (OpenFoodFacts ecosystem for general products)
+            try {
+                toast.info("Recherche d'informations en ligne...");
+                const response = await fetch(`https://world.openproductsfacts.org/api/v0/product/${scannedCode}.json`);
+                const data = await response.json();
+
+                if (data.status === 1 && data.product) {
+                    const productName = data.product.product_name_fr || data.product.product_name || data.product.generic_name;
+                    const brands = data.product.brands;
+
+                    if (productName) {
+                        const fullName = brands ? `${brands} - ${productName}` : productName;
+                        setNewItemData(prev => ({ ...prev, description: fullName }));
+                        toast.success("Informations trouvées !");
+                    }
+                }
+            } catch (error) {
+                console.log("Erreur recherche produit en ligne", error);
+                // Silent fail, user will type manual
+            }
         }
     };
 
