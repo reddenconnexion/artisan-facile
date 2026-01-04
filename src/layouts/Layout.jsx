@@ -381,8 +381,6 @@ const Layout = () => {
           { name: 'Accueil', href: '/app', icon: LayoutDashboard },
           { name: 'Clients', href: '/app/clients', icon: Users },
           { name: 'Devis', href: '/app/devis', icon: FileText },
-          // Check if Stock is enabled
-          ...(navigation.find(n => n.name === 'Stock') ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
           // Check if Agenda is enabled
           ...(navigation.find(n => n.name === 'Agenda') ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
         ].map((item) => {
