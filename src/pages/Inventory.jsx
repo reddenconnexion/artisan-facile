@@ -163,11 +163,22 @@ const Inventory = () => {
 
                 <div className="flex gap-3">
                     <button
+                        onClick={() => {
+                            setScannedBarcode(null);
+                            setNewItemData({ description: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
+                            setShowNewItemModal(true);
+                        }}
+                        className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700 transition-all font-medium"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        <span className="hidden md:inline">Ajouter</span>
+                    </button>
+                    <button
                         onClick={() => setShowBarcodeModal(true)}
                         className="flex items-center px-4 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all font-medium"
                     >
                         <ScanBarcode className="w-5 h-5 mr-2" />
-                        Scanner Code-Barre
+                        <span className="hidden md:inline">Scanner</span>
                     </button>
                     <a
                         href="https://lens.google.com/"
@@ -176,9 +187,8 @@ const Inventory = () => {
                         className="flex items-center px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
                         title="Ouvrir Google Lens pour identifier un objet"
                     >
-                        <ExternalLink className="w-5 h-5 mr-2 text-gray-500" />
-                        <span className="hidden md:inline">Identifier (Google Lens)</span>
-                        <span className="md:hidden">Lens</span>
+                        <ExternalLink className="w-5 h-5 md:mr-2 text-gray-500" />
+                        <span className="hidden md:inline">Lens</span>
                     </a>
                 </div>
             </div>
@@ -226,15 +236,24 @@ const Inventory = () => {
                 </div>
             )}
 
-            {/* New Item Modal (from Barcode) */}
+            {/* New Item Modal (from Barcode or Manual) */}
             {showNewItemModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-                        <h3 className="text-lg font-bold mb-4">Nouvel Article Détecté</h3>
+                        <h3 className="text-lg font-bold mb-4">
+                            {scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article'}
+                        </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
-                                <input type="text" disabled value={newItemData.barcode} className="w-full px-3 py-2 bg-gray-100 rounded-lg font-mono" />
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre (Optionnel)</label>
+                                <input
+                                    type="text"
+                                    disabled={!!scannedBarcode}
+                                    value={newItemData.barcode}
+                                    onChange={e => setNewItemData({ ...newItemData, barcode: e.target.value })}
+                                    className={`w-full px-3 py-2 rounded-lg font-mono ${scannedBarcode ? 'bg-gray-100 text-gray-500' : 'border border-gray-300'}`}
+                                    placeholder="Scanner ou laisser vide"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
