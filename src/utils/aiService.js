@@ -55,8 +55,8 @@ export const generateQuoteItems = async (userDescription) => {
         let responseData;
 
         if (provider === 'gemini') {
-            // Using gemini-1.5-flash-latest for best compatibility
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+            // Using gemini-2.0-flash (Standard for 2026)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
