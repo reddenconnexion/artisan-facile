@@ -55,9 +55,8 @@ export const generateQuoteItems = async (userDescription) => {
         let responseData;
 
         if (provider === 'gemini') {
-            // --- GOOGLE GEMINI API ---
-            // Using gemini-1.5-flash for better speed/cost/availability
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // Using gemini-1.5-flash-latest for best compatibility
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -72,7 +71,8 @@ export const generateQuoteItems = async (userDescription) => {
 
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error?.message || "Erreur Gemini API");
+                console.error("Gemini API Error Details:", errData);
+                throw new Error(`Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}`);
             }
 
             const data = await response.json();
