@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { generateQuoteItems } from '../utils/aiService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
@@ -40,6 +41,47 @@ const DevisForm = () => {
     const [initialStatus, setInitialStatus] = useState('draft');
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
+
+    // AI Assistant State
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+
+    const handleAIGenerate = async () => {
+        if (!aiPrompt.trim()) return;
+
+        setAiLoading(true);
+        try {
+            const items = await generateQuoteItems(aiPrompt);
+            if (items && items.length > 0) {
+                const newItems = items.map(item => ({
+                    id: Date.now() + Math.random(),
+                    description: item.description,
+                    quantity: parseFloat(item.quantity) || 1,
+                    unit: item.unit || 'u',
+                    price: parseFloat(item.price) || 0,
+                    buying_price: 0,
+                    type: item.type || 'service'
+                }));
+
+                setFormData(prev => ({
+                    ...prev,
+                    items: [...prev.items, ...newItems]
+                }));
+
+                toast.success(`${newItems.length} lignes générées !`);
+                setShowAIModal(false);
+                setAiPrompt('');
+            } else {
+                toast.warning("L'IA n'a pas généré de lignes valides.");
+            }
+        } catch (error) {
+            console.error("AI Error:", error);
+            toast.error(error.message);
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     const handleCalculatorApply = (quantity) => {
         if (activeCalculatorItem !== null) {
@@ -714,6 +756,10 @@ const DevisForm = () => {
         try {
             setLoading(true);
             const depositAmount = (total * percentage) / 100;
+
+            // Ask user if this deposit is for materials (to exclude from Net Result)
+            const isForMaterial = window.confirm("Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nSi OUI, il sera comptabilisé comme 'Matériel' et n'augmentera pas artificiellement votre Résultat Net.\nSi NON, il sera considéré comme du Service (Marge 100%).");
+
             const depositItem = {
                 id: Date.now(),
                 description: `Acompte de ${percentage}% sur devis n°${id} - ${formData.title} `,
@@ -721,7 +767,7 @@ const DevisForm = () => {
                 unit: 'forfait',
                 price: depositAmount,
                 buying_price: 0,
-                type: 'service'
+                type: isForMaterial ? 'material' : 'service'
             };
 
             const depositData = {
@@ -1950,14 +1996,77 @@ Conditions de règlement : Paiement à réception de facture.`
                         ))}
                     </div>
 
-                    <button
-                        onClick={addItem}
-                        className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Ajouter une ligne
-                    </button>
+                    <div className="mt-4 flex gap-4">
+                        <button
+                            onClick={addItem}
+                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+                        >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Ajouter une ligne
+                        </button>
+
+                        <button
+                            onClick={() => setShowAIModal(true)}
+                            className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all"
+                        >
+                            <Sparkles className="w-3 h-3 mr-2" />
+                            Assistant Magic
+                        </button>
+                    </div>
                 </div>
+
+                {/* AI Modal */}
+                {showAIModal && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div className="p-6 bg-gradient-to-r from-purple-600 to-indigo-600">
+                                <h3 className="text-xl font-bold text-white flex items-center">
+                                    <Sparkles className="w-6 h-6 mr-3" />
+                                    Assistant Intelligent
+                                </h3>
+                                <p className="text-purple-100 text-sm mt-1">
+                                    Décrivez les travaux et l'IA générera le devis pour vous.
+                                </p>
+                            </div>
+
+                            <div className="p-6">
+                                <textarea
+                                    className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                                    placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    autoFocus
+                                />
+
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setShowAIModal(false)}
+                                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={handleAIGenerate}
+                                        disabled={aiLoading || !aiPrompt.trim()}
+                                        className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
+                                    >
+                                        {aiLoading ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Génération...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-4 h-4 mr-2" />
+                                                Générer
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Totaux */}
                 <div className="flex justify-end pt-6 border-t border-gray-100">
@@ -2195,91 +2304,93 @@ Conditions de règlement : Paiement à réception de facture.`
                 )
             }
             {/* Full Screen Description Editor (Mobile) */}
-            {fullScreenEditItem && (
-                (() => {
-                    const item = formData.items.find(i => i.id === fullScreenEditItem);
-                    if (!item) {
-                        // reset if item not found (e.g. deleted)
-                        if (fullScreenEditItem) setFullScreenEditItem(null);
-                        return null;
-                    }
-                    const itemIndex = formData.items.findIndex(i => i.id === item.id);
+            {
+                fullScreenEditItem && (
+                    (() => {
+                        const item = formData.items.find(i => i.id === fullScreenEditItem);
+                        if (!item) {
+                            // reset if item not found (e.g. deleted)
+                            if (fullScreenEditItem) setFullScreenEditItem(null);
+                            return null;
+                        }
+                        const itemIndex = formData.items.findIndex(i => i.id === item.id);
 
-                    return (
-                        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
-                            {/* Header */}
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
-                                <button
-                                    onClick={() => setFullScreenEditItem(null)}
-                                    className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
-                                >
-                                    <ArrowLeft className="w-6 h-6" />
-                                </button>
-                                <h3 className="font-semibold text-lg">Description</h3>
-                                <button
-                                    onClick={() => setFullScreenEditItem(null)}
-                                    className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
-                                >
-                                    Valider
-                                </button>
-                            </div>
+                        return (
+                            <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
+                                {/* Header */}
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
+                                    <button
+                                        onClick={() => setFullScreenEditItem(null)}
+                                        className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
+                                    >
+                                        <ArrowLeft className="w-6 h-6" />
+                                    </button>
+                                    <h3 className="font-semibold text-lg">Description</h3>
+                                    <button
+                                        onClick={() => setFullScreenEditItem(null)}
+                                        className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
+                                    >
+                                        Valider
+                                    </button>
+                                </div>
 
-                            {/* Suggestions Area (Sticky under header) */}
-                            {(() => {
-                                const matches = priceLibrary.filter(lib =>
-                                    lib.description.toLowerCase().includes((item.description || '').toLowerCase())
-                                ).slice(0, 10);
+                                {/* Suggestions Area (Sticky under header) */}
+                                {(() => {
+                                    const matches = priceLibrary.filter(lib =>
+                                        lib.description.toLowerCase().includes((item.description || '').toLowerCase())
+                                    ).slice(0, 10);
 
-                                if (matches.length > 0) {
-                                    return (
-                                        <div className="bg-blue-50/50 border-b border-blue-100 overflow-x-auto">
-                                            <div className="flex p-3 gap-3">
-                                                {matches.map(lib => (
-                                                    <button
-                                                        key={lib.id}
-                                                        onClick={() => {
-                                                            updateItem(item.id, 'description', lib.description);
-                                                            updateItem(item.id, 'price', lib.price);
-                                                        }}
-                                                        className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
-                                                    >
-                                                        <div className="font-medium text-blue-900 truncate">{lib.description}</div>
-                                                        <div className="text-blue-500 text-xs">{lib.price} €</div>
-                                                    </button>
-                                                ))}
+                                    if (matches.length > 0) {
+                                        return (
+                                            <div className="bg-blue-50/50 border-b border-blue-100 overflow-x-auto">
+                                                <div className="flex p-3 gap-3">
+                                                    {matches.map(lib => (
+                                                        <button
+                                                            key={lib.id}
+                                                            onClick={() => {
+                                                                updateItem(item.id, 'description', lib.description);
+                                                                updateItem(item.id, 'price', lib.price);
+                                                            }}
+                                                            className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
+                                                        >
+                                                            <div className="font-medium text-blue-900 truncate">{lib.description}</div>
+                                                            <div className="text-blue-500 text-xs">{lib.price} €</div>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
+                                        );
+                                    }
+                                    return null;
+                                })()}
 
-                            {/* Text Area */}
-                            <div className="flex-1 p-4 relative bg-white">
-                                <textarea
-                                    className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
-                                    placeholder="Saisissez la description détaillée..."
-                                    value={item.description}
-                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                    autoFocus
-                                />
+                                {/* Text Area */}
+                                <div className="flex-1 p-4 relative bg-white">
+                                    <textarea
+                                        className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
+                                        placeholder="Saisissez la description détaillée..."
+                                        value={item.description}
+                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                        autoFocus
+                                    />
 
-                                {/* Dictation Button Floating */}
-                                <button
-                                    type="button"
-                                    onClick={() => toggleDictation(`item-description-${itemIndex}`)}
-                                    className={`absolute bottom-8 right-6 p-4 rounded-full shadow-xl transition-all active:scale-95 ${isListening && activeField === `item-description-${itemIndex}`
-                                        ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
-                                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                                        }`}
-                                >
-                                    <Mic className="w-6 h-6" />
-                                </button>
+                                    {/* Dictation Button Floating */}
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleDictation(`item-description-${itemIndex}`)}
+                                        className={`absolute bottom-8 right-6 p-4 rounded-full shadow-xl transition-all active:scale-95 ${isListening && activeField === `item-description-${itemIndex}`
+                                            ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            }`}
+                                    >
+                                        <Mic className="w-6 h-6" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    );
-                })()
-            )}
+                        );
+                    })()
+                )
+            }
         </div >
     );
 };

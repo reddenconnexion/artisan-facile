@@ -61,7 +61,8 @@ const Profile = () => {
                     siret: data.siret || '',
                     google_review_url: data.google_review_url || '',
                     trade: data.trade || 'general',
-                    iban: data.iban || ''
+                    iban: data.iban || '',
+                    openai_api_key: localStorage.getItem('openai_api_key') || ''
                 });
             }
         } catch (error) {
@@ -400,6 +401,46 @@ const Profile = () => {
                         >
                             Copier
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* AI Settings */}
+            <div className="mt-8 bg-purple-50 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
+                        <span className="mr-2">✨</span>
+                        Intelligence Artificielle
+                    </h3>
+                    <p className="text-sm text-purple-800 mb-6">
+                        Configurez votre clé API pour activer les fonctionnalités d'assistant intelligent (génération de devis automatique, etc.).
+                    </p>
+
+                    <div className="max-w-md">
+                        <label className="block text-sm font-medium text-purple-900 mb-2">Clé API (OpenAI / Compatible)</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="password"
+                                placeholder="sk-..."
+                                className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                value={formData.openai_api_key || ''}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, openai_api_key: e.target.value });
+                                    // Also save immediately to local storage for generic service access
+                                    localStorage.setItem('openai_api_key', e.target.value);
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => toast.success("Clé sauvegardée localement")}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                            >
+                                Sauvegarder
+                            </button>
+                        </div>
+                        <p className="mt-2 text-xs text-purple-600">
+                            La clé est stockée uniquement sur votre appareil.
+                        </p>
                     </div>
                 </div>
             </div>
