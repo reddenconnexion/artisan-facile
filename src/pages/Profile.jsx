@@ -65,7 +65,14 @@ const Profile = () => {
                     openai_api_key: localStorage.getItem('openai_api_key') || '',
                     ai_provider: localStorage.getItem('ai_provider') || 'openai',
                     ai_hourly_rate: localStorage.getItem('ai_hourly_rate') || '',
-                    ai_travel_fee: localStorage.getItem('ai_travel_fee') || '',
+                    // Zones
+                    zone1_radius: localStorage.getItem('zone1_radius') || '',
+                    zone1_price: localStorage.getItem('zone1_price') || '',
+                    zone2_radius: localStorage.getItem('zone2_radius') || '',
+                    zone2_price: localStorage.getItem('zone2_price') || '',
+                    zone3_radius: localStorage.getItem('zone3_radius') || '',
+                    zone3_price: localStorage.getItem('zone3_price') || '',
+
                     ai_instructions: localStorage.getItem('ai_instructions') || ''
                 });
             }
@@ -481,66 +488,121 @@ const Profile = () => {
                         <div className="pt-4 border-t border-purple-100">
                             <h4 className="text-sm font-semibold text-purple-900 mb-3">Personnalisation du contexte</h4>
 
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-purple-800 mb-1">Taux Horaire Moyen (€/h)</label>
-                                    <input
-                                        type="number"
-                                        placeholder="ex: 50"
-                                        className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
-                                        value={formData.ai_hourly_rate || ''}
-                                        onChange={(e) => {
-                                            setFormData({ ...formData, ai_hourly_rate: e.target.value });
-                                            localStorage.setItem('ai_hourly_rate', e.target.value);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-purple-800 mb-1">Frais Déplacement (€)</label>
-                                    <input
-                                        type="number"
-                                        placeholder="ex: 30"
-                                        className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
-                                        value={formData.ai_travel_fee || ''}
-                                        onChange={(e) => {
-                                            setFormData({ ...formData, ai_travel_fee: e.target.value });
-                                            localStorage.setItem('ai_travel_fee', e.target.value);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
                             <div>
-                                <label className="block text-xs font-medium text-purple-800 mb-1">Instructions Spéciales pour l'IA</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Ex: Ne touche jamais à l'électricité. Ajoute toujours 10% de marge sur les matériaux. Je suis plombier spécialisé..."
-                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
-                                    value={formData.ai_instructions || ''}
+                                <label className="block text-xs font-medium text-purple-800 mb-1">Taux Horaire Moyen (€/h)</label>
+                                <input
+                                    type="number"
+                                    placeholder="ex: 50"
+                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                    value={formData.ai_hourly_rate || ''}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, ai_instructions: e.target.value });
-                                        localStorage.setItem('ai_instructions', e.target.value);
+                                        setFormData({ ...formData, ai_hourly_rate: e.target.value });
+                                        localStorage.setItem('ai_hourly_rate', e.target.value);
                                     }}
                                 />
                             </div>
                         </div>
+
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-purple-800 mb-2">Zones de Déplacement (Auto-calculé)</label>
+                            <div className="space-y-2">
+                                {[1, 2, 3].map((zoneIndex) => {
+                                    const radiusKey = `zone${zoneIndex}_radius`;
+                                    const priceKey = `zone${zoneIndex}_price`;
+                                    return (
+                                        <div key={zoneIndex} className="flex gap-2 items-center">
+                                            <span className="text-xs text-purple-600 w-12 font-medium">Zone {zoneIndex}</span>
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="number"
+                                                    placeholder="km"
+                                                    className="w-full pl-3 pr-8 py-1.5 border border-purple-200 rounded-md text-sm"
+                                                    value={formData[radiusKey] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData(prev => ({ ...prev, [radiusKey]: val }));
+                                                        localStorage.setItem(radiusKey, val);
+                                                    }}
+                                                />
+                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400">km</span>
+                                            </div>
+                                            <span className="text-gray-400 text-xs">→</span>
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="number"
+                                                    placeholder="€"
+                                                    className="w-full pl-3 pr-6 py-1.5 border border-purple-200 rounded-md text-sm"
+                                                    value={formData[priceKey] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData(prev => ({ ...prev, [priceKey]: val }));
+                                                        localStorage.setItem(priceKey, val);
+                                                    }}
+                                                />
+                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-[10px] text-purple-600 mt-1">
+                                Laissez vide pour désactiver une zone. Le calcul se fera automatiquement selon l'adresse du client.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-purple-800 mb-1">Instructions Spéciales pour l'IA</label>
+                            <textarea
+                                rows={3}
+                                placeholder="Ex: Ne touche jamais à l'électricité. Ajoute toujours 10% de marge sur les matériaux. Je suis plombier spécialisé..."
+                                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
+                                value={formData.ai_instructions || ''}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, ai_instructions: e.target.value });
+                                    localStorage.setItem('ai_instructions', e.target.value);
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Zone de Danger / Maintenance */}
-                < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
-                    <div className="p-8">
-                        <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
-                            ⚠️ Zone de Maintenance
-                        </h3>
-                        <p className="text-sm text-red-700 mb-6">
-                            Si vous rencontrez des problèmes de mise à jour ou d'affichage, utilisez ces options.
-                        </p>
+            {/* Zone de Danger / Maintenance */}
+            < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
+                        ⚠️ Zone de Maintenance
+                    </h3>
+                    <p className="text-sm text-red-700 mb-6">
+                        Si vous rencontrez des problèmes de mise à jour ou d'affichage, utilisez ces options.
+                    </p>
 
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <button
-                                type="button"
-                                onClick={async () => {
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if ('serviceWorker' in navigator) {
+                                    const registrations = await navigator.serviceWorker.getRegistrations();
+                                    for (const registration of registrations) {
+                                        await registration.unregister();
+                                    }
+                                }
+                                window.location.reload();
+                            }}
+                            className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
+                        >
+                            Forcer la mise à jour (Recharger)
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if (window.confirm('Attention : Cela va effacer les données en mémoire locale et recharger l\'application. Vos données sur le serveur ne seront pas effacées. Continuer ?')) {
+                                    localStorage.clear();
+                                    if ('caches' in window) {
+                                        const cacheNames = await caches.keys();
+                                        await Promise.all(cacheNames.map(name => caches.delete(name)));
+                                    }
                                     if ('serviceWorker' in navigator) {
                                         const registrations = await navigator.serviceWorker.getRegistrations();
                                         for (const registration of registrations) {
@@ -548,35 +610,12 @@ const Profile = () => {
                                         }
                                     }
                                     window.location.reload();
-                                }}
-                                className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
-                            >
-                                Forcer la mise à jour (Recharger)
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    if (window.confirm('Attention : Cela va effacer les données en mémoire locale et recharger l\'application. Vos données sur le serveur ne seront pas effacées. Continuer ?')) {
-                                        localStorage.clear();
-                                        if ('caches' in window) {
-                                            const cacheNames = await caches.keys();
-                                            await Promise.all(cacheNames.map(name => caches.delete(name)));
-                                        }
-                                        if ('serviceWorker' in navigator) {
-                                            const registrations = await navigator.serviceWorker.getRegistrations();
-                                            for (const registration of registrations) {
-                                                await registration.unregister();
-                                            }
-                                        }
-                                        window.location.reload();
-                                    }
-                                }}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors"
-                            >
-                                Réinitialiser l'application
-                            </button>
-                        </div>
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors"
+                        >
+                            Réinitialiser l'application
+                        </button>
                     </div>
                 </div>
             </div>

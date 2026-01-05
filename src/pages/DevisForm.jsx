@@ -14,6 +14,7 @@ import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems } from '../uti
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
+import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -145,6 +146,82 @@ const DevisForm = () => {
             setActiveField(field);
             resetTranscript();
             startListening();
+        }
+    };
+
+    const handleClientChange = async (clientId) => {
+        setFormData(prev => ({ ...prev, client_id: clientId }));
+        if (!clientId) return;
+
+        const client = clients.find(c => c.id.toString() === clientId.toString());
+        if (!client || !userProfile) return;
+
+        // Auto-calculate travel fee if zones are configured
+        const hasZones = [1, 2, 3].some(i => localStorage.getItem(`zone${i}_radius`));
+        if (!hasZones) return;
+
+        // Check addresses
+        const clientAddress = [client.address, client.postal_code, client.city].filter(Boolean).join(', ');
+        const artisanAddress = [userProfile.address, userProfile.postal_code, userProfile.city].filter(Boolean).join(', ');
+
+        if (!client.address || !userProfile.address) {
+            console.log("Missing address for travel calculation");
+            return;
+        }
+
+        const toastId = toast.loading("Calcul des frais de déplacement...");
+
+        try {
+            const clientCoords = await getCoordinates(clientAddress);
+            const artisanCoords = await getCoordinates(artisanAddress);
+
+            if (clientCoords && artisanCoords) {
+                const distance = calculateDistance(artisanCoords, clientCoords);
+
+                const zones = [];
+                for (let i = 1; i <= 3; i++) {
+                    const radius = parseFloat(localStorage.getItem(`zone${i}_radius`));
+                    const price = parseFloat(localStorage.getItem(`zone${i}_price`));
+                    if (!isNaN(radius) && !isNaN(price)) {
+                        zones.push({ radius, price });
+                    }
+                }
+
+                const fee = getZoneFee(distance, zones);
+
+                if (fee > 0) {
+                    setFormData(prev => {
+                        const existingItemIndex = prev.items.findIndex(item => item.description.toLowerCase().includes('frais de déplacement'));
+
+                        let newItems = [...prev.items];
+                        const feeItem = {
+                            description: `Frais de déplacement (${Math.round(distance)}km)`,
+                            quantity: 1,
+                            price: fee,
+                            buying_price: 0,
+                            type: 'service'
+                        };
+
+                        if (existingItemIndex >= 0) {
+                            newItems[existingItemIndex] = { ...newItems[existingItemIndex], ...feeItem };
+                            toast.success(`Frais de déplacement mis à jour: ${fee}€ (${Math.round(distance)}km)`, { id: toastId });
+                        } else {
+                            // Insert before first service item or at end? Typically generic fees are at start or end. Let's append.
+                            newItems.push({ ...feeItem, id: Date.now() });
+                            toast.success(`Frais de déplacement ajoutés: ${fee}€ (${Math.round(distance)}km)`, { id: toastId });
+                        }
+
+                        return { ...prev, items: newItems };
+                    });
+                } else {
+                    toast.info(`Aucun frais de zone applicable (${Math.round(distance)}km)`, { id: toastId });
+                }
+            } else {
+                toast.error("Impossible de géolocaliser les adresses.", { id: toastId });
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Erreur calcul déplacement", { id: toastId });
         }
     };
 
@@ -1755,7 +1832,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <ClientSelector
                                 clients={clients}
                                 selectedClientId={formData.client_id}
-                                onChange={(id) => setFormData({ ...formData, client_id: id })}
+                                onChange={handleClientChange}
                                 onCreateNew={() => navigate('/app/clients/new')}
                             />
                         </div>
