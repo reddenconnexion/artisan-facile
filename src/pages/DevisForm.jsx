@@ -64,7 +64,14 @@ const DevisForm = () => {
 
         setAiLoading(true);
         try {
-            const items = await generateQuoteItems(aiPrompt);
+            // Retrieve context from localStorage
+            const context = {
+                hourly_rate: localStorage.getItem('ai_hourly_rate'),
+                travel_fee: localStorage.getItem('ai_travel_fee'),
+                instructions: localStorage.getItem('ai_instructions')
+            };
+
+            const items = await generateQuoteItems(aiPrompt, context);
             if (items && items.length > 0) {
                 const newItems = items.map(item => ({
                     id: Date.now() + Math.random(),

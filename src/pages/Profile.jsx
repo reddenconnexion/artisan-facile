@@ -63,7 +63,10 @@ const Profile = () => {
                     trade: data.trade || 'general',
                     iban: data.iban || '',
                     openai_api_key: localStorage.getItem('openai_api_key') || '',
-                    ai_provider: localStorage.getItem('ai_provider') || 'openai'
+                    ai_provider: localStorage.getItem('ai_provider') || 'openai',
+                    ai_hourly_rate: localStorage.getItem('ai_hourly_rate') || '',
+                    ai_travel_fee: localStorage.getItem('ai_travel_fee') || '',
+                    ai_instructions: localStorage.getItem('ai_instructions') || ''
                 });
             }
         } catch (error) {
@@ -473,50 +476,71 @@ const Profile = () => {
                                     Sauvegarder
                                 </button>
                             </div>
-                            <p className="mt-2 text-xs text-purple-600">
-                                La clé est stockée uniquement sur votre appareil.
-                            </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-purple-100">
+                            <h4 className="text-sm font-semibold text-purple-900 mb-3">Personnalisation du contexte</h4>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-purple-800 mb-1">Taux Horaire Moyen (€/h)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="ex: 50"
+                                        className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                        value={formData.ai_hourly_rate || ''}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, ai_hourly_rate: e.target.value });
+                                            localStorage.setItem('ai_hourly_rate', e.target.value);
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-purple-800 mb-1">Frais Déplacement (€)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="ex: 30"
+                                        className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                        value={formData.ai_travel_fee || ''}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, ai_travel_fee: e.target.value });
+                                            localStorage.setItem('ai_travel_fee', e.target.value);
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-purple-800 mb-1">Instructions Spéciales pour l'IA</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Ex: Ne touche jamais à l'électricité. Ajoute toujours 10% de marge sur les matériaux. Je suis plombier spécialisé..."
+                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
+                                    value={formData.ai_instructions || ''}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, ai_instructions: e.target.value });
+                                        localStorage.setItem('ai_instructions', e.target.value);
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Zone de Danger / Maintenance */}
-            < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
-                <div className="p-8">
-                    <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
-                        ⚠️ Zone de Maintenance
-                    </h3>
-                    <p className="text-sm text-red-700 mb-6">
-                        Si vous rencontrez des problèmes de mise à jour ou d'affichage, utilisez ces options.
-                    </p>
+                {/* Zone de Danger / Maintenance */}
+                < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
+                    <div className="p-8">
+                        <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
+                            ⚠️ Zone de Maintenance
+                        </h3>
+                        <p className="text-sm text-red-700 mb-6">
+                            Si vous rencontrez des problèmes de mise à jour ou d'affichage, utilisez ces options.
+                        </p>
 
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                if ('serviceWorker' in navigator) {
-                                    const registrations = await navigator.serviceWorker.getRegistrations();
-                                    for (const registration of registrations) {
-                                        await registration.unregister();
-                                    }
-                                }
-                                window.location.reload();
-                            }}
-                            className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
-                        >
-                            Forcer la mise à jour (Recharger)
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                if (window.confirm('Attention : Cela va effacer les données en mémoire locale et recharger l\'application. Vos données sur le serveur ne seront pas effacées. Continuer ?')) {
-                                    localStorage.clear();
-                                    if ('caches' in window) {
-                                        const cacheNames = await caches.keys();
-                                        await Promise.all(cacheNames.map(name => caches.delete(name)));
-                                    }
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <button
+                                type="button"
+                                onClick={async () => {
                                     if ('serviceWorker' in navigator) {
                                         const registrations = await navigator.serviceWorker.getRegistrations();
                                         for (const registration of registrations) {
@@ -524,16 +548,39 @@ const Profile = () => {
                                         }
                                     }
                                     window.location.reload();
-                                }
-                            }}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors"
-                        >
-                            Réinitialiser l'application
-                        </button>
+                                }}
+                                className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
+                            >
+                                Forcer la mise à jour (Recharger)
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (window.confirm('Attention : Cela va effacer les données en mémoire locale et recharger l\'application. Vos données sur le serveur ne seront pas effacées. Continuer ?')) {
+                                        localStorage.clear();
+                                        if ('caches' in window) {
+                                            const cacheNames = await caches.keys();
+                                            await Promise.all(cacheNames.map(name => caches.delete(name)));
+                                        }
+                                        if ('serviceWorker' in navigator) {
+                                            const registrations = await navigator.serviceWorker.getRegistrations();
+                                            for (const registration of registrations) {
+                                                await registration.unregister();
+                                            }
+                                        }
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors"
+                            >
+                                Réinitialiser l'application
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 

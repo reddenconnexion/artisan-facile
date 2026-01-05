@@ -19,15 +19,21 @@ export const getApiKey = () => {
 /**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work (e.g., "Rénovation sdb 5m2")
+ * @param {object} context - Optional context (hourly_rate, travel_fee, instructions)
  * @returns {Promise<Array>} - Array of items { description, quantity, price, type, unit }
  */
-export const generateQuoteItems = async (userDescription) => {
+export const generateQuoteItems = async (userDescription, context = {}) => {
     const apiKey = getApiKey();
     const provider = getProvider();
 
     if (!apiKey) {
         throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
     }
+
+    let constraints = "";
+    if (context.hourly_rate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${context.hourly_rate}€/h.\n`;
+    if (context.travel_fee) constraints += `- Ajoute (si pertinent) une ligne de frais de déplacement de ${context.travel_fee}€.\n`;
+    if (context.instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${context.instructions}\n`;
 
     const systemPrompt = `
     Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
@@ -38,6 +44,10 @@ export const generateQuoteItems = async (userDescription) => {
     2. Estime des prix réalistes du marché français (en Euros HT).
     3. Pour chaque ligne, détermine le type: 'service' (Main d'oeuvre) ou 'material' (Matériel).
     4. Sois précis mais concis dans les descriptions.
+    
+    ${constraints}
+    
+    FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
     
     FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
     [
