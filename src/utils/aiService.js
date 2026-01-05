@@ -8,6 +8,10 @@ export const saveApiKey = (apiKey) => {
     localStorage.setItem('openai_api_key', apiKey);
 };
 
+export const getProvider = () => {
+    return localStorage.getItem('ai_provider') || 'openai';
+};
+
 export const getApiKey = () => {
     return localStorage.getItem('openai_api_key');
 };
@@ -19,6 +23,8 @@ export const getApiKey = () => {
  */
 export const generateQuoteItems = async (userDescription) => {
     const apiKey = getApiKey();
+    const provider = getProvider();
+
     if (!apiKey) {
         throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
     }
@@ -46,34 +52,73 @@ export const generateQuoteItems = async (userDescription) => {
     `;
 
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: "gpt-3.5-turbo", // Or gpt-4o if available/preferred
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: `Génère le devis pour : "${userDescription}"` }
-                ],
-                temperature: 0.7
-            })
-        });
+        let responseData;
 
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error?.message || "Erreur de connexion à l'IA");
+        if (provider === 'gemini') {
+            // --- GOOGLE GEMINI API ---
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: `${systemPrompt}\n\nDESCRIPTION UTILISATEUR: "${userDescription}"`
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "Erreur Gemini API");
+            }
+
+            const data = await response.json();
+            const textRef = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!textRef) throw new Error("Réponse Gemini vide");
+            responseData = textRef;
+
+        } else {
+            // --- OPENAI API (Default) ---
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-3.5-turbo",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `Génère le devis pour : "${userDescription}"` }
+                    ],
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "Erreur OpenAI API");
+            }
+
+            const data = await response.json();
+            responseData = data.choices[0].message.content;
         }
 
-        const data = await response.json();
-        const content = data.choices[0].message.content;
+        // Clean up markdown if AI adds it (Gemini often does)
+        const jsonString = responseData
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
 
-        // Clean up markdown if AI adds it
-        const jsonString = content.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        return JSON.parse(jsonString);
+        // Attempt to parse
+        try {
+            return JSON.parse(jsonString);
+        } catch (parseError) {
+            console.error("JSON Parse Error:", parseError, "Raw:", jsonString);
+            throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+        }
 
     } catch (error) {
         console.error("AI Service Error:", error);

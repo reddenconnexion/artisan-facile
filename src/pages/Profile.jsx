@@ -62,7 +62,8 @@ const Profile = () => {
                     google_review_url: data.google_review_url || '',
                     trade: data.trade || 'general',
                     iban: data.iban || '',
-                    openai_api_key: localStorage.getItem('openai_api_key') || ''
+                    openai_api_key: localStorage.getItem('openai_api_key') || '',
+                    ai_provider: localStorage.getItem('ai_provider') || 'openai'
                 });
             }
         } catch (error) {
@@ -416,31 +417,66 @@ const Profile = () => {
                         Configurez votre clé API pour activer les fonctionnalités d'assistant intelligent (génération de devis automatique, etc.).
                     </p>
 
-                    <div className="max-w-md">
-                        <label className="block text-sm font-medium text-purple-900 mb-2">Clé API (OpenAI / Compatible)</label>
-                        <div className="flex gap-2">
-                            <input
-                                type="password"
-                                placeholder="sk-..."
-                                className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                                value={formData.openai_api_key || ''}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, openai_api_key: e.target.value });
-                                    // Also save immediately to local storage for generic service access
-                                    localStorage.setItem('openai_api_key', e.target.value);
-                                }}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => toast.success("Clé sauvegardée localement")}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                            >
-                                Sauvegarder
-                            </button>
+                    <div className="max-w-md space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-purple-900 mb-2">Fournisseur d'IA</label>
+                            <div className="flex gap-2 p-1 bg-purple-100 rounded-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData({ ...formData, ai_provider: 'openai' });
+                                        localStorage.setItem('ai_provider', 'openai');
+                                    }}
+                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${(!formData.ai_provider || formData.ai_provider === 'openai')
+                                        ? 'bg-white text-purple-700 shadow-sm'
+                                        : 'text-purple-600 hover:text-purple-800'
+                                        }`}
+                                >
+                                    OpenAI (GPT)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData({ ...formData, ai_provider: 'gemini' });
+                                        localStorage.setItem('ai_provider', 'gemini');
+                                    }}
+                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${formData.ai_provider === 'gemini'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-purple-600 hover:text-purple-800'
+                                        }`}
+                                >
+                                    Google Gemini
+                                </button>
+                            </div>
                         </div>
-                        <p className="mt-2 text-xs text-purple-600">
-                            La clé est stockée uniquement sur votre appareil.
-                        </p>
+
+                        <div>
+                            <label className="block text-sm font-medium text-purple-900 mb-2">
+                                Clé API ({(!formData.ai_provider || formData.ai_provider === 'openai') ? 'OpenAI' : 'Gemini'})
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="password"
+                                    placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
+                                    className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    value={formData.openai_api_key || ''}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, openai_api_key: e.target.value });
+                                        localStorage.setItem('openai_api_key', e.target.value);
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => toast.success("Clé sauvegardée localement")}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                >
+                                    Sauvegarder
+                                </button>
+                            </div>
+                            <p className="mt-2 text-xs text-purple-600">
+                                La clé est stockée uniquement sur votre appareil.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
