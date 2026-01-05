@@ -106,11 +106,19 @@ export const generateQuoteItems = async (userDescription) => {
             responseData = data.choices[0].message.content;
         }
 
-        // Clean up markdown if AI adds it (Gemini often does)
-        const jsonString = responseData
-            .replace(/```json/g, '')
-            .replace(/```/g, '')
-            .trim();
+        // Robust JSON extraction
+        let jsonString = responseData.trim();
+        const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
+
+        if (jsonMatch) {
+            jsonString = jsonMatch[0];
+        } else {
+            // Fallback cleanup if no array brackets found (unlikely for a list)
+            jsonString = jsonString
+                .replace(/```json/g, '')
+                .replace(/```/g, '')
+                .trim();
+        }
 
         // Attempt to parse
         try {
