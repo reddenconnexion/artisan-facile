@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -46,6 +46,18 @@ const DevisForm = () => {
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+
+    // Voice Dictation for AI (reusing hook from line 29)
+
+    useEffect(() => {
+        if (transcript && showAIModal) {
+            setAiPrompt(prev => {
+                const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
+                return prev + spacer + transcript;
+            });
+            resetTranscript();
+        }
+    }, [transcript, showAIModal]);
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) return;
@@ -2037,6 +2049,24 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setAiPrompt(e.target.value)}
                                     autoFocus
                                 />
+                                <button
+                                    type="button"
+                                    onClick={isListening ? stopListening : startListening}
+                                    className={`absolute bottom-5 right-5 p-2 rounded-full shadow-md transition-all ${isListening
+                                        ? 'bg-red-100 text-red-600 animate-pulse'
+                                        : 'bg-white text-gray-400 hover:text-purple-600'
+                                        }`}
+                                    title="Dicter"
+                                >
+                                    {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                                </button>
+
+                                <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
+                                    <span>
+                                        {isListening ? "Écoute en cours..." : "Cliquez sur le micro pour dicter"}
+                                    </span>
+                                    <span>{aiPrompt.length} caractères</span>
+                                </div>
 
                                 <div className="mt-6 flex justify-end gap-3">
                                     <button
