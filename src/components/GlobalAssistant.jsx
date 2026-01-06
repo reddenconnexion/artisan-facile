@@ -137,7 +137,7 @@ const GlobalAssistant = () => {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 z-50 p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all animate-in fade-in zoom-in duration-300 group"
+                className="fixed bottom-20 md:bottom-6 right-6 z-50 p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all animate-in fade-in zoom-in duration-300 group"
                 title="Assistant Magic"
             >
                 <Sparkles className="w-6 h-6 animate-pulse" />

@@ -2145,16 +2145,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             Ajouter une ligne
                         </button>
 
-                        <button
-                            onClick={() => {
-                                setVoiceContext('quote_item');
-                                setShowSmartVoice(true);
-                            }}
-                            className="flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                        >
-                            <Sparkles className="w-4 h-4 mr-1" />
-                            Dictée Intelligente
-                        </button>
+
 
                         <button
                             onClick={() => setShowAIModal(true)}
@@ -2188,21 +2179,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setAiPrompt(e.target.value)}
                                     autoFocus
                                 />
-                                <button
-                                    type="button"
-                                    onClick={isListening ? stopListening : startListening}
-                                    className={`absolute bottom-5 right-5 p-2 rounded-full shadow-md transition-all ${isListening
-                                        ? 'bg-red-100 text-red-600 animate-pulse'
-                                        : 'bg-white text-gray-400 hover:text-purple-600'
-                                        }`}
-                                    title="Dicter"
-                                >
-                                    {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                                </button>
-
                                 <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
                                     <span>
-                                        {isListening ? "Écoute en cours..." : "Cliquez sur le micro pour dicter"}
+                                        Décrivez les travaux ci-dessus.
                                     </span>
                                     <span>{aiPrompt.length} caractères</span>
                                 </div>
