@@ -70,8 +70,8 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
         let responseData;
 
         if (provider === 'gemini') {
-            // Using gemini-1.5-flash-001 (Stable)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${apiKey}`;
+            // Using gemini-1.5-flash (Stable)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -218,8 +218,8 @@ export const processAssistantIntent = async (userText, context = {}) => {
         let jsonResponse = "";
 
         if (provider === 'gemini') {
-            // Using gemini-1.5-flash-001 (Stable)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${apiKey}`;
+            // Using gemini-1.5-flash (Stable)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
