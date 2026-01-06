@@ -2152,7 +2152,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all"
                         >
                             <Sparkles className="w-3 h-3 mr-2" />
-                            Assistant Magic
+                            Assistant Devis IA
                         </button>
                     </div>
                 </div>
