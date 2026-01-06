@@ -134,6 +134,9 @@ const PriceLibrary = () => {
 
             if (!description || !price) return null;
 
+            // Exclude acomptes as requested
+            if (description.toLowerCase().includes('acompte')) return null;
+
             return {
                 user_id: user.id,
                 description: description,
@@ -238,10 +241,13 @@ const PriceLibrary = () => {
         }
     };
 
-    const filteredItems = items.filter(item =>
-        item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredItems = items.filter(item => {
+        // Exclude acomptes
+        if (item.description.toLowerCase().includes('acompte')) return false;
+
+        return item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+    });
 
     return (
         <div className="max-w-6xl mx-auto">
@@ -293,7 +299,6 @@ const PriceLibrary = () => {
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Description</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Catégorie</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Prix Unitaire</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
                             </tr>
                         </thead>
@@ -327,17 +332,6 @@ const PriceLibrary = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right text-gray-900 font-medium">
                                             {item.price.toFixed(2)} € <span className="text-gray-400 text-sm font-normal">/ {item.unit}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {item.type === 'material' ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                                    Matériel
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                                    MO
-                                                </span>
-                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button

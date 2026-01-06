@@ -607,7 +607,11 @@ const DevisForm = () => {
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
             // Template Construction
-            const subjectPrefix = isInvoice ? '🧾 Facture' : '📄 Proposition';
+            // Template Construction
+            let subjectPrefix = isInvoice ? '🧾 Facture' : '📄 Proposition';
+            if (isInvoice && formData.status === 'paid') {
+                subjectPrefix = '🧾 Facture ACQUITTÉE';
+            }
             const subject = `${subjectPrefix} : ${formData.title || 'Votre projet'} - ${companyName}`;
 
             const introduction = isInvoice
