@@ -279,6 +279,15 @@ const Dashboard = () => {
                             netAmount = amount - materialTTC;
                         }
 
+                        // Exclude deposits (acomptes) from Net Income (Resultat Net)
+                        // User request: deposits correspond to material orders and shouldn't appear in net result
+                        const isDeposit = (quote.title && quote.title.toLowerCase().includes('acompte')) ||
+                            (quote.items && quote.items.some(i => i.description.toLowerCase().includes('acompte')));
+
+                        if (isDeposit) {
+                            netAmount = 0;
+                        }
+
                         if (qDate.getFullYear() === currentYear) {
                             metrics.revenue.year += amount;
                             metrics.revenue.charts.year[qDate.getMonth()] += amount;
