@@ -85,6 +85,7 @@ const GlobalAssistant = () => {
         const { error } = await supabase.from('events').insert([{
             user_id: user.id,
             title: data.title || 'Nouveau Rendez-vous',
+            date: data.start_date, // Required by older schema constraint
             start_time: data.start_date,
             end_time: calculateEndTime(data.start_date, data.duration || 60),
             description: data.description || 'Créé par l\'Assistant',
