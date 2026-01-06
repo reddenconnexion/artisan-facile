@@ -7,7 +7,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
-import { processVoiceCommand } from '../utils/voiceCommands';
+
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import GlobalAssistant from '../components/GlobalAssistant';
 
