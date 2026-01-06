@@ -7,7 +7,9 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
+import { processVoiceCommand } from '../utils/voiceCommands';
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
+import GlobalAssistant from '../components/GlobalAssistant';
 
 const Layout = () => {
   const location = useLocation();
@@ -353,8 +355,11 @@ const Layout = () => {
 
           <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
 
-          {/* Voice Assistant Controls */}
-          <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
+
+          <GlobalAssistant />
+
+          {/* Voice Assistant Controls Removed (Replaced by GlobalAssistant) */}
+          {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
               className="p-3 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-all transform hover:scale-105 active:scale-95"
@@ -371,7 +376,7 @@ const Layout = () => {
             >
               <Mic className="w-6 h-6 md:w-6 md:h-6" />
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
 

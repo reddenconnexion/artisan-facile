@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Mic, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { useVoice } from '../hooks/useVoice';
+// import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
+import SmartVoiceModal from '../components/SmartVoiceModal';
 import ProjectPhotos from '../components/ProjectPhotos';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
@@ -17,9 +18,10 @@ const ClientForm = () => {
     const { user } = useAuth();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
-    const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
-    const [activeField, setActiveField] = useState(null);
+
+    // const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice(); // Removed
     const [activeTab, setActiveTab] = useState('info'); // 'info', 'contacts', 'history'
+    const [showVoiceModal, setShowVoiceModal] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -51,39 +53,19 @@ const ClientForm = () => {
         }
     }, [location.state]);
 
-    // Handle Dictation
-    useEffect(() => {
-        if (transcript && activeField) {
-            let value = transcript;
-
-            if (activeField === 'email') {
-                value = value.toLowerCase()
-                    .replace(/\s+arobase\s+|\s*@\s*/g, '@')
-                    .replace(/\s+point\s+|\s*\.\s*/g, '.')
-                    .replace(/\s+/g, '');
-            } else if (activeField === 'phone') {
-                // Keep digits, spaces, +, and .
-                // Maybe clean up if needed, but raw transcript is usually okay for phone if spoken clearly
-            } else if (activeField === 'name' || activeField === 'address') {
-                // Capitalize first letter
-                if (value.length > 0) {
-                    value = value.charAt(0).toUpperCase() + value.slice(1);
-                }
-            }
-
-            setFormData(prev => ({ ...prev, [activeField]: value }));
-        }
-    }, [transcript, activeField]);
-
-    const toggleDictation = (field) => {
-        if (isListening && activeField === field) {
-            stopListening();
-            setActiveField(null);
-        } else {
-            setActiveField(field);
-            resetTranscript();
-            startListening();
-        }
+    // Handle Voice Result from Smart Modal
+    const handleVoiceResult = (data) => {
+        setFormData(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            // Only update if found to avoid erasing existing data accidentally?
+            // Actually, if user dictates, they likely want to fill.
+            // But let's be safe: override if non-empty.
+            email: data.email || prev.email,
+            phone: data.phone || prev.phone,
+            address: data.address || prev.address,
+            notes: data.notes ? (prev.notes ? prev.notes + '\n' + data.notes : data.notes) : prev.notes
+        }));
     };
 
     useEffect(() => {
@@ -227,7 +209,7 @@ const ClientForm = () => {
 
     return (
         <div className="max-w-2xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                 <div className="flex items-center">
                     <button
                         onClick={() => navigate('/app/clients')}
@@ -235,11 +217,19 @@ const ClientForm = () => {
                     >
                         <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                         {isEditing ? 'Modifier le client' : 'Nouveau client'}
                     </h2>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setShowVoiceModal(true)}
+                        className="flex items-center px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg hover:from-indigo-600 hover:to-purple-700 shadow-sm"
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        <span className="hidden sm:inline">IA Assistant</span>
+                    </button>
                     {isEditing && (
                         <button
                             type="button"
@@ -255,7 +245,7 @@ const ClientForm = () => {
                             className="flex items-center px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100"
                         >
                             <Calendar className="w-4 h-4 mr-2" />
-                            Nouveau RDV
+                            <span className="hidden sm:inline">RDV</span>
                         </button>
                     )}
                     {isEditing && formData.portal_token && (
@@ -269,14 +259,14 @@ const ClientForm = () => {
                             className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
                         >
                             <Globe className="w-4 h-4 mr-2" />
-                            Partager l'espace client
+                            <span className="hidden sm:inline">Portail</span>
                         </button>
                     )}
                     {isEditing && (
                         <button
                             type="button"
                             onClick={handleDelete}
-                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 ml-2"
+                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
                             title="Supprimer le client"
                         >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -376,14 +366,6 @@ const ClientForm = () => {
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                                 Nom complet / Entreprise *
                             </label>
-                            <button
-                                type="button"
-                                onClick={() => toggleDictation('name')}
-                                className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'name' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                title="Dicter"
-                            >
-                                <Mic className="w-4 h-4" />
-                            </button>
                         </div>
                         <input
                             type="text"
@@ -451,14 +433,6 @@ const ClientForm = () => {
                                         </button>
                                     )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => toggleDictation('email')}
-                                    className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'email' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                    title="Dicter"
-                                >
-                                    <Mic className="w-4 h-4" />
-                                </button>
                             </div>
                             <input
                                 type="email"
@@ -496,14 +470,6 @@ const ClientForm = () => {
                                         </>
                                     )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => toggleDictation('phone')}
-                                    className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'phone' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                    title="Dicter"
-                                >
-                                    <Mic className="w-4 h-4" />
-                                </button>
                             </div>
                             <input
                                 type="tel"
@@ -544,14 +510,6 @@ const ClientForm = () => {
                                         </a>
                                     </>
                                 )}
-                                <button
-                                    type="button"
-                                    onClick={() => toggleDictation('address')}
-                                    className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'address' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                    title="Dicter"
-                                >
-                                    <Mic className="w-4 h-4" />
-                                </button>
                             </div>
                         </div>
                         <textarea
@@ -569,14 +527,9 @@ const ClientForm = () => {
                             <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
                                 Notes internes
                             </label>
-                            <button
-                                type="button"
-                                onClick={() => toggleDictation('notes')}
-                                className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                                title="Dicter"
-                            >
-                                <Mic className="w-4 h-4" />
-                            </button>
+                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                                Notes internes
+                            </label>
                         </div>
                         <textarea
                             id="notes"
@@ -641,6 +594,13 @@ const ClientForm = () => {
             )}
 
             {isEditing && <ProjectPhotos clientId={id} />}
+
+            <SmartVoiceModal
+                isOpen={showVoiceModal}
+                onClose={() => setShowVoiceModal(false)}
+                onResult={handleVoiceResult}
+                context="client"
+            />
         </div>
     );
 };

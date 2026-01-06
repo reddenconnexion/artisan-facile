@@ -61,7 +61,7 @@ const ActionableDashboard = ({ user }) => {
                 .eq('user_id', user.id)
                 .eq('status', 'sent')
                 .lt('date', sevenDaysAgo.toISOString()) // Created before 7 days ago
-                .limit(3);
+                .limit(10);
 
             // 3. Pending Invoices (Billed but not Paid)
             const { data: pendingInvoices } = await supabase

@@ -9,7 +9,9 @@ import { generateQuoteItems } from '../utils/aiService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
-import { useVoice } from '../hooks/useVoice';
+
+// import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
+import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
 import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems } from '../utils/documentParser';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
@@ -27,7 +29,9 @@ const DevisForm = () => {
     const [userProfile, setUserProfile] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [signature, setSignature] = useState(null);
-    const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
+
+    const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
+    const [voiceContext, setVoiceContext] = useState(null); // 'quote_item' or 'note'
     const [activeField, setActiveField] = useState(null); // 'notes' or 'item-description-{index}'
     const [priceLibrary, setPriceLibrary] = useState([]);
     const [showReviewMenu, setShowReviewMenu] = useState(false);
@@ -50,15 +54,7 @@ const DevisForm = () => {
 
     // Voice Dictation for AI (reusing hook from line 29)
 
-    useEffect(() => {
-        if (transcript && showAIModal) {
-            setAiPrompt(prev => {
-                const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
-                return prev + spacer + transcript;
-            });
-            resetTranscript();
-        }
-    }, [transcript, showAIModal]);
+
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) return;
@@ -130,30 +126,38 @@ const DevisForm = () => {
         setPriceLibrary(data || []);
     };
 
-    // Handle Dictation
-    useEffect(() => {
-        if (transcript && activeField) {
-            if (activeField === 'notes') {
-                setFormData(prev => ({ ...prev, notes: transcript }));
-            } else if (activeField.startsWith('item-description-')) {
-                const index = parseInt(activeField.split('-')[2]);
-                // Ensure the item exists at the given index before updating
-                if (formData.items[index]) {
-                    updateItem(formData.items[index].id, 'description', transcript);
-                }
+    // Handle Smart Voice Result
+    const handleVoiceResult = (data) => {
+        if (voiceContext === 'quote_item') {
+            // Add new item from voice
+            if (data.description) {
+                setFormData(prev => ({
+                    ...prev,
+                    items: [...prev.items, {
+                        id: Date.now(),
+                        description: data.description,
+                        quantity: data.quantity || 1,
+                        unit: 'u', // default unit or try to parse
+                        price: data.price || 0,
+                        buying_price: 0,
+                        type: 'service' // default
+                    }]
+                }));
+                toast.success('Ligne ajoutée !');
+            } else {
+                toast.warning("Je n'ai pas compris la ligne à ajouter.");
+            }
+        } else if (voiceContext === 'note') {
+            // Append to notes
+            if (data.text || data.notes) {
+                const textToAdd = data.text || data.notes;
+                setFormData(prev => ({
+                    ...prev,
+                    notes: prev.notes ? prev.notes + '\n' + textToAdd : textToAdd
+                }));
             }
         }
-    }, [transcript, activeField]);
-
-    const toggleDictation = (field) => {
-        if (isListening && activeField === field) {
-            stopListening();
-            setActiveField(null);
-        } else {
-            setActiveField(field);
-            resetTranscript();
-            startListening();
-        }
+        setVoiceContext(null);
     };
 
     const handleClientChange = async (clientId) => {
@@ -2026,11 +2030,28 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                             <button
                                                 type="button"
-                                                onClick={() => toggleDictation(`item-description-${index}`)}
-                                                className={`absolute right-2 top-2 p-0.5 rounded-full hover:bg-gray-100 ${isListening && activeField === `item-description-${index}` ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                                                onClick={() => {
+                                                    // For inline editing of existing item, we might need a different context 
+                                                    // or just use generic "update item" logic? 
+                                                    // For now, let's keep it simple: Add New Item via Voice is better supported.
+                                                    // If user wants to replace description, they can type.
+                                                    // Or we can open modal to "Replace Description"?
+                                                    // Let's remove the inline mic for now as per request "replace mic button" 
+                                                    // and rely on the big "Add Item via Voice" button we will add.
+                                                    // OR: Use modal to set description only.
+                                                    // Let's try to map it to "note" context but applied to this item?
+                                                    // Complex. Let's just remove the inline mic to declutter, 
+                                                    // or replace with a small "Sparkles" that opens modal for this specific item?
+                                                    // User said "replace mic button".
+                                                    // Let's replace with a small button that says "IA" or Sparkles icon
+                                                    // and opens modal with context 'item_description_update' -> updateItem?
+                                                    // For MVP "Free AI", adding new lines is the main feature.
+                                                    // I will remove this inline mic to simplify UI as requested.
+                                                }}
+                                                className="hidden" // Hiding inline mic
                                                 title="Dicter"
                                             >
-                                                <Mic className="w-4 h-4" />
+                                                {/* <Mic className="w-4 h-4" /> */}
                                             </button>
                                         </div>
                                     </div>
@@ -2122,6 +2143,17 @@ Conditions de règlement : Paiement à réception de facture.`
                         >
                             <Plus className="w-4 h-4 mr-1" />
                             Ajouter une ligne
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setVoiceContext('quote_item');
+                                setShowSmartVoice(true);
+                            }}
+                            className="flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                        >
+                            <Sparkles className="w-4 h-4 mr-1" />
+                            Dictée Intelligente
                         </button>
 
                         <button
@@ -2265,11 +2297,14 @@ Conditions de règlement : Paiement à réception de facture.`
                         <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
                         <button
                             type="button"
-                            onClick={() => toggleDictation('notes')}
-                            className={`p-1 rounded-full hover:bg-gray-100 ${isListening && activeField === 'notes' ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
-                            title="Dicter"
+                            onClick={() => {
+                                setVoiceContext('note');
+                                setShowSmartVoice(true);
+                            }}
+                            className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700"
+                            title="Dicter une note"
                         >
-                            <Mic className="w-4 h-4" />
+                            <Sparkles className="w-4 h-4" />
                         </button>
                     </div>
                     <textarea
@@ -2300,6 +2335,13 @@ Conditions de règlement : Paiement à réception de facture.`
                     )}
                 </div>
             </div>
+
+            <SmartVoiceModal
+                isOpen={showSmartVoice}
+                onClose={() => setShowSmartVoice(false)}
+                onResult={handleVoiceResult}
+                context={voiceContext}
+            />
 
             <MaterialsCalculator
                 isOpen={showCalculator}
