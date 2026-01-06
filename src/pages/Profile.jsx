@@ -46,6 +46,7 @@ const Profile = () => {
             if (error) throw error;
 
             if (data) {
+                const aiPrefs = data.ai_preferences || {};
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',
@@ -62,18 +63,18 @@ const Profile = () => {
                     google_review_url: data.google_review_url || '',
                     trade: data.trade || 'general',
                     iban: data.iban || '',
-                    openai_api_key: localStorage.getItem('openai_api_key') || '',
-                    ai_provider: localStorage.getItem('ai_provider') || 'openai',
-                    ai_hourly_rate: localStorage.getItem('ai_hourly_rate') || '',
+                    openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
+                    ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
+                    ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
                     // Zones
-                    zone1_radius: localStorage.getItem('zone1_radius') || '',
-                    zone1_price: localStorage.getItem('zone1_price') || '',
-                    zone2_radius: localStorage.getItem('zone2_radius') || '',
-                    zone2_price: localStorage.getItem('zone2_price') || '',
-                    zone3_radius: localStorage.getItem('zone3_radius') || '',
-                    zone3_price: localStorage.getItem('zone3_price') || '',
+                    zone1_radius: aiPrefs.zone1_radius || localStorage.getItem('zone1_radius') || '',
+                    zone1_price: aiPrefs.zone1_price || localStorage.getItem('zone1_price') || '',
+                    zone2_radius: aiPrefs.zone2_radius || localStorage.getItem('zone2_radius') || '',
+                    zone2_price: aiPrefs.zone2_price || localStorage.getItem('zone2_price') || '',
+                    zone3_radius: aiPrefs.zone3_radius || localStorage.getItem('zone3_radius') || '',
+                    zone3_price: aiPrefs.zone3_price || localStorage.getItem('zone3_price') || '',
 
-                    ai_instructions: localStorage.getItem('ai_instructions') || ''
+                    ai_instructions: aiPrefs.ai_instructions || localStorage.getItem('ai_instructions') || ''
                 });
             }
         } catch (error) {
@@ -134,6 +135,21 @@ const Profile = () => {
                     google_review_url: formData.google_review_url,
                     trade: formData.trade,
                     iban: formData.iban,
+
+                    // Save AI prefs to JSONB column
+                    ai_preferences: {
+                        openai_api_key: formData.openai_api_key,
+                        ai_provider: formData.ai_provider,
+                        ai_hourly_rate: formData.ai_hourly_rate,
+                        zone1_radius: formData.zone1_radius,
+                        zone1_price: formData.zone1_price,
+                        zone2_radius: formData.zone2_radius,
+                        zone2_price: formData.zone2_price,
+                        zone3_radius: formData.zone3_radius,
+                        zone3_price: formData.zone3_price,
+                        ai_instructions: formData.ai_instructions
+                    },
+
                     updated_at: new Date(),
                 })
                 .eq('id', user.id);

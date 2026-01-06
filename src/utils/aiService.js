@@ -19,21 +19,29 @@ export const getApiKey = () => {
 /**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work (e.g., "Rénovation sdb 5m2")
- * @param {object} context - Optional context (hourly_rate, travel_fee, instructions)
+ * @param {object} context - Optional context (apiKey, provider, hourlyRate, instructions, etc.)
  * @returns {Promise<Array>} - Array of items { description, quantity, price, type, unit }
  */
 export const generateQuoteItems = async (userDescription, context = {}) => {
-    const apiKey = getApiKey();
-    const provider = getProvider();
+    // Priority: Context > LocalStorage (fallback)
+    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
+    const provider = context.provider || localStorage.getItem('ai_provider') || 'openai';
 
     if (!apiKey) {
         throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
     }
 
     let constraints = "";
-    if (context.hourly_rate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${context.hourly_rate}€/h.\n`;
-    if (context.travel_fee) constraints += `- Ajoute (si pertinent) une ligne de frais de déplacement de ${context.travel_fee}€.\n`;
-    if (context.instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${context.instructions}\n`;
+    // Handle both snake_case (DB) and camelCase (JS)
+    const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
+    const instructions = context.instructions || context.ai_instructions;
+
+    // Note: Travel fee is now handled by zones in handleClientChange, 
+    // so we don't explicitly ask AI to add it to avoid duplicates,
+    // unless explicitly requested in instructions.
+
+    if (hourlyRate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${hourlyRate}€/h.\n`;
+    if (instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
 
     const systemPrompt = `
     Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
@@ -46,8 +54,6 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
     4. Sois précis mais concis dans les descriptions.
     
     ${constraints}
-    
-    FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
     
     FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
     [

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save } from 'lucide-react';
+import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -20,8 +20,11 @@ const PriceLibrary = () => {
         description: '',
         price: '',
         unit: 'unité',
-        category: ''
+        category: '',
+        barcode: '',
+        reference: ''
     });
+    const [editingItem, setEditingItem] = useState(null);
 
     useEffect(() => {
         if (user) {
@@ -124,7 +127,10 @@ const PriceLibrary = () => {
             const price = keys['prix'] || keys['price'] || keys['pu'] || keys['prix unitaire'];
             const unit = keys['unité'] || keys['unit'] || keys['u'] || 'unité';
             const category = keys['catégorie'] || keys['category'] || keys['famille'] || '';
-            const barcode = keys['barcode'] || keys['ean'] || keys['ref'] || keys['référence'] || keys['code-barres'] || '';
+
+            // Separate mapping for Barcode (EAN) and Reference (Manufacturer)
+            const barcode = keys['barcode'] || keys['ean'] || keys['code-barres'] || '';
+            const reference = keys['reference'] || keys['ref'] || keys['référence'] || '';
 
             if (!description || !price) return null;
 
@@ -134,7 +140,8 @@ const PriceLibrary = () => {
                 price: parseFloat(String(price).replace(',', '.')) || 0,
                 unit: unit,
                 category: category,
-                barcode: barcode
+                barcode: barcode,
+                reference: reference
             };
         }).filter(item => item !== null);
 
@@ -159,25 +166,59 @@ const PriceLibrary = () => {
         }
     };
 
+    const handleEdit = (item) => {
+        setNewItem({
+            description: item.description,
+            price: item.price,
+            unit: item.unit,
+            category: item.category || '',
+            type: item.type || 'service',
+            barcode: item.barcode || '',
+            reference: item.reference || ''
+        });
+        setEditingItem(item);
+        setShowAddModal(true);
+    };
+
     const handleAddItem = async (e) => {
         e.preventDefault();
         try {
-            const { error } = await supabase
-                .from('price_library')
-                .insert([{
-                    user_id: user.id,
-                    ...newItem,
-                    price: parseFloat(newItem.price)
-                }]);
+            if (editingItem) {
+                const { error } = await supabase
+                    .from('price_library')
+                    .update({
+                        description: newItem.description,
+                        price: parseFloat(newItem.price),
+                        unit: newItem.unit,
+                        category: newItem.category,
+                        type: newItem.type || 'service',
+                        barcode: newItem.barcode,
+                        reference: newItem.reference
+                    })
+                    .eq('id', editingItem.id);
 
-            if (error) throw error;
+                if (error) throw error;
+                toast.success('Article modifié');
+            } else {
+                const { error } = await supabase
+                    .from('price_library')
+                    .insert([{
+                        user_id: user.id,
+                        ...newItem,
+                        price: parseFloat(newItem.price)
+                    }]);
 
-            toast.success('Article ajouté');
-            setNewItem({ description: '', price: '', unit: 'unité', category: '' });
+                if (error) throw error;
+                toast.success('Article ajouté');
+            }
+
+            setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+            setEditingItem(null);
             setShowAddModal(false);
             fetchItems();
         } catch (error) {
-            toast.error("Erreur lors de l'ajout");
+            console.error(error);
+            toast.error(editingItem ? "Erreur lors de la modification" : "Erreur lors de l'ajout");
         }
     };
 
@@ -218,7 +259,11 @@ const PriceLibrary = () => {
                         Importer (Excel/CSV)
                     </button>
                     <button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={() => {
+                            setEditingItem(null);
+                            setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+                            setShowAddModal(true);
+                        }}
                         className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                         <Plus className="w-4 h-4 mr-2" />
@@ -268,7 +313,10 @@ const PriceLibrary = () => {
                                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 text-gray-900 font-medium">
                                             {item.description}
-                                            {item.barcode && <div className="text-xs text-gray-400 font-mono mt-1">Ref: {item.barcode}</div>}
+                                            <div className="flex flex-col gap-0.5 mt-1">
+                                                {item.reference && <span className="text-xs text-blue-600 font-mono">Réf: {item.reference}</span>}
+                                                {item.barcode && <span className="text-xs text-gray-400 font-mono">EAN: {item.barcode}</span>}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-500">
                                             {item.category && (
@@ -292,6 +340,12 @@ const PriceLibrary = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => handleEdit(item)}
+                                                className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 mr-2"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
                                             <button
                                                 onClick={() => handleDelete(item.id)}
                                                 className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
@@ -348,8 +402,17 @@ const PriceLibrary = () => {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Nouvel Article</h3>
-                            <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <h3 className="text-lg font-bold text-gray-900">
+                                {editingItem ? "Modifier l'article" : "Nouvel Article"}
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowAddModal(false);
+                                    setEditingItem(null);
+                                    setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+                                }}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -409,15 +472,27 @@ const PriceLibrary = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres / Ref</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={newItem.barcode || ''}
-                                    onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
-                                    placeholder="Scan..."
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Référence Fabricant</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        value={newItem.reference || ''}
+                                        onChange={e => setNewItem({ ...newItem, reference: e.target.value })}
+                                        placeholder="Ex: REF-123"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres (EAN)</label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        value={newItem.barcode || ''}
+                                        onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
+                                        placeholder="Scan..."
+                                    />
+                                </div>
                             </div>
                             <button
                                 type="submit"

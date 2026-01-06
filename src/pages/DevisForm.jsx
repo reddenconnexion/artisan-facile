@@ -65,11 +65,18 @@ const DevisForm = () => {
 
         setAiLoading(true);
         try {
-            // Retrieve context from localStorage
+            // Retrieve settings from userProfile (which now includes flattened ai_preferences)
+            // Fallback to localStorage for any missing values during transition
             const context = {
-                hourly_rate: localStorage.getItem('ai_hourly_rate'),
-                travel_fee: localStorage.getItem('ai_travel_fee'),
-                instructions: localStorage.getItem('ai_instructions')
+                apiKey: userProfile?.openai_api_key || localStorage.getItem('openai_api_key'),
+                provider: userProfile?.ai_provider || localStorage.getItem('ai_provider'),
+                hourlyRate: userProfile?.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
+                travelFee: {
+                    zone1: { radius: userProfile?.zone1_radius || localStorage.getItem('zone1_radius'), price: userProfile?.zone1_price || localStorage.getItem('zone1_price') },
+                    zone2: { radius: userProfile?.zone2_radius || localStorage.getItem('zone2_radius'), price: userProfile?.zone2_price || localStorage.getItem('zone2_price') },
+                    zone3: { radius: userProfile?.zone3_radius || localStorage.getItem('zone3_radius'), price: userProfile?.zone3_price || localStorage.getItem('zone3_price') }
+                },
+                instructions: userProfile?.ai_instructions || localStorage.getItem('ai_instructions') || ''
             };
 
             const items = await generateQuoteItems(aiPrompt, context);
@@ -157,7 +164,7 @@ const DevisForm = () => {
         if (!client || !userProfile) return;
 
         // Auto-calculate travel fee if zones are configured
-        const hasZones = [1, 2, 3].some(i => localStorage.getItem(`zone${i}_radius`));
+        const hasZones = [1, 2, 3].some(i => userProfile[`zone${i}_radius`] || localStorage.getItem(`zone${i}_radius`));
         if (!hasZones) return;
 
         // Check addresses
@@ -180,8 +187,8 @@ const DevisForm = () => {
 
                 const zones = [];
                 for (let i = 1; i <= 3; i++) {
-                    const radius = parseFloat(localStorage.getItem(`zone${i}_radius`));
-                    const price = parseFloat(localStorage.getItem(`zone${i}_price`));
+                    const radius = parseFloat(userProfile[`zone${i}_radius`] || localStorage.getItem(`zone${i}_radius`));
+                    const price = parseFloat(userProfile[`zone${i}_price`] || localStorage.getItem(`zone${i}_price`));
                     if (!isNaN(radius) && !isNaN(price)) {
                         zones.push({ radius, price });
                     }
@@ -379,8 +386,20 @@ const DevisForm = () => {
             .eq('id', user.id)
             .single();
         if (data) {
+            // Merge DB preferences into top level if simplified access is needed, 
+            // OR keep them in ai_preferences. 
+            // In Profile.jsx we flattened them for form state.
+            // Here we can keep them in ai_preferences or spread them.
+            // Let's spread ai_preferences into userProfile for easier access in handleAIGenerate
+            const aiPrefs = data.ai_preferences || {};
             const settings = user.user_metadata?.activity_settings || {};
-            setUserProfile({ ...data, email: user.email, ...settings });
+
+            setUserProfile({
+                ...data,
+                ...aiPrefs, // Flatten AI prefs to top level for easy access
+                email: user.email,
+                ...settings
+            });
         }
     };
 
