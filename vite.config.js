@@ -45,7 +45,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
               expiration: {
@@ -54,7 +54,8 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
-              }
+              },
+              networkTimeoutSeconds: 10
             }
           },
           {
