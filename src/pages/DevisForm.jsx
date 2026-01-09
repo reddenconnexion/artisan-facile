@@ -440,7 +440,8 @@ const DevisForm = () => {
                     manual_total_tva: data.is_external ? data.total_tva : 0,
                     manual_total_ttc: data.is_external ? data.total_ttc : 0,
                     operation_category: data.operation_category || 'service',
-                    vat_on_debits: data.vat_on_debits === true
+                    vat_on_debits: data.vat_on_debits === true,
+                    last_followup_at: data.last_followup_at || null
                 });
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
@@ -672,6 +673,20 @@ const DevisForm = () => {
                 if (error) console.error('Error logging email interaction:', error);
                 else toast.success('Interaction enregistrée dans l\'historique client');
             });
+        }
+
+        // Update quote last_followup_at
+        if (id && id !== 'new') {
+            supabase.from('quotes')
+                .update({ last_followup_at: new Date().toISOString() })
+                .eq('id', id)
+                .then(({ error }) => {
+                    if (error) console.error('Error updating follow-up date:', error);
+                    else {
+                        setFormData(prev => ({ ...prev, last_followup_at: new Date().toISOString() }));
+                        toast.success('Date de relance mise à jour');
+                    }
+                });
         }
 
         setEmailPreview(null);
@@ -1912,6 +1927,12 @@ Conditions de règlement : Paiement à réception de facture.`
                             <option value="paid">Payé</option>
                             <option value="cancelled">Annulé</option>
                         </select>
+                        {formData.last_followup_at && (
+                            <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
+                                <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
+                                Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
+                            </p>
+                        )}
                     </div>
                     {/* Factur-X Options */}
                     <div>

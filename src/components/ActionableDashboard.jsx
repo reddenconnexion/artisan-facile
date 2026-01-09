@@ -61,6 +61,7 @@ const ActionableDashboard = ({ user }) => {
                 .eq('user_id', user.id)
                 .eq('status', 'sent')
                 .lt('date', sevenDaysAgo.toISOString()) // Created before 7 days ago
+                .or(`last_followup_at.is.null,last_followup_at.lt.${sevenDaysAgo.toISOString()}`)
                 .limit(10);
 
             // 3. Pending Invoices (Billed but not Paid)
