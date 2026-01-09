@@ -65,8 +65,14 @@ const DevisList = () => {
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'quotes' },
                     (payload) => {
-                        // Optimistic update or simple refetch
-                        fetchDevis();
+                        console.log('Realtime change received:', payload);
+                        if (payload.eventType === 'INSERT') {
+                            setDevisList((prev) => [payload.new, ...prev]);
+                        } else if (payload.eventType === 'UPDATE') {
+                            setDevisList((prev) => prev.map((item) => (item.id === payload.new.id ? payload.new : item)));
+                        } else if (payload.eventType === 'DELETE') {
+                            setDevisList((prev) => prev.filter((item) => item.id !== payload.old.id));
+                        }
                     }
                 )
                 .subscribe();

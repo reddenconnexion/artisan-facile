@@ -61,7 +61,28 @@ const Clients = () => {
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: 'clients' },
-                    () => fetchClients()
+                    (payload) => {
+                        console.log('Realtime change received:', payload);
+                        if (payload.eventType === 'INSERT') {
+                            setClients((prev) => {
+                                const newClients = [...prev, payload.new];
+                                localStorage.setItem('clients_list', JSON.stringify(newClients));
+                                return newClients;
+                            });
+                        } else if (payload.eventType === 'UPDATE') {
+                            setClients((prev) => {
+                                const newClients = prev.map((item) => (item.id === payload.new.id ? payload.new : item));
+                                localStorage.setItem('clients_list', JSON.stringify(newClients));
+                                return newClients;
+                            });
+                        } else if (payload.eventType === 'DELETE') {
+                            setClients((prev) => {
+                                const newClients = prev.filter((item) => item.id !== payload.old.id);
+                                localStorage.setItem('clients_list', JSON.stringify(newClients));
+                                return newClients;
+                            });
+                        }
+                    }
                 )
                 .subscribe();
 

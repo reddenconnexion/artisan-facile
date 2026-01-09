@@ -46,7 +46,7 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
                     </p>
                     <p
                         className={`text-2xl font-bold text-gray-900 dark:text-white mt-1 ${onValueClick ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors' : ''}`}
-                        onClick={() => onValueClick && onValueClick(period)}
+                        onClick={() => onValueClick && onValueClick(period, currentData?.details || [])}
                         title={onValueClick ? "Voir le détail" : ""}
                     >
                         {typeof displayValue === 'number' ? formatValue(displayValue) : displayValue}
@@ -411,10 +411,10 @@ const Dashboard = () => {
 
             // Construct Final Stats Object
             const buildMetricObject = (metricData, maxRef) => ({
-                week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week') },
-                month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month') },
-                year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year') },
-                lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year') },
+                week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week'), details: metricData.details.week },
+                month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month'), details: metricData.details.month },
+                year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year'), details: metricData.details.year },
+                lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year'), details: metricData.details.lastYear },
             });
 
 
@@ -569,7 +569,7 @@ const Dashboard = () => {
         };
     }, [user]);
 
-    const [selectedPeriod, setSelectedPeriod] = useState(null); // 'week', 'month', 'year'
+    const [detailsView, setDetailsView] = useState(null); // { period: 'week'|'month'..., items: [], title: '...' }
 
 
 
@@ -578,19 +578,22 @@ const Dashboard = () => {
     return (
         <div className="space-y-6 relative">
             {/* Modal for details */}
-            {selectedPeriod && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPeriod(null)}>
+            {detailsView && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailsView(null)}>
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center text-gray-900 dark:text-white">
-                            <h3 className="font-bold text-lg">Détails : {selectedPeriod === 'week' ? 'Cette Semaine' : selectedPeriod === 'month' ? 'Ce Mois' : selectedPeriod === 'year' ? 'Cette Année' : 'L\'Année dernière'}</h3>
-                            <button onClick={() => setSelectedPeriod(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                            <h3 className="font-bold text-lg">
+                                Détails : {detailsView.period === 'week' ? 'Cette Semaine' : detailsView.period === 'month' ? 'Ce Mois' : detailsView.period === 'year' ? 'Cette Année' : 'L\'Année dernière'}
+                                {detailsView.title && <span className="text-gray-500 font-normal ml-2">- {detailsView.title}</span>}
+                            </h3>
+                            <button onClick={() => setDetailsView(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
                                 <Plus className="w-5 h-5 rotate-45" />
                             </button>
                         </div>
                         <div className="overflow-y-auto p-4 space-y-3">
-                            {stats.details && stats.details[selectedPeriod] && stats.details[selectedPeriod].length > 0 ? (
-                                stats.details[selectedPeriod].map(quote => (
-                                    <div key={quote.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                            {detailsView.items && detailsView.items.length > 0 ? (
+                                detailsView.items.map(quote => (
+                                    <div key={quote.id + Math.random()} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
                                         <div>
                                             <div className="font-medium text-gray-900 dark:text-white">{quote.clients?.name || `Devis #${quote.id}`}</div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -612,7 +615,7 @@ const Dashboard = () => {
                             )}
                         </div>
                         <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right font-bold text-lg text-gray-900 dark:text-white">
-                            Total: {stats[`turnover${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}`]?.toFixed(2)} €
+                            Total: {detailsView.items?.reduce((sum, item) => sum + (item.total_ttc || 0), 0).toFixed(2)} €
                         </div>
                     </div>
                 </div>
@@ -640,7 +643,7 @@ const Dashboard = () => {
                     colorClass="bg-green-500"
                     colorHex="#10B981"
                     formatValue={(v) => `${v.toFixed(0)} €`}
-                    onValueClick={(p) => setSelectedPeriod(p)}
+                    onValueClick={(p, items) => setDetailsView({ period: p, items, title: 'Chiffre d\'Affaires' })}
                 />
 
                 <RichStatCard
@@ -651,7 +654,7 @@ const Dashboard = () => {
                     colorClass="bg-emerald-600"
                     colorHex="#059669"
                     formatValue={(v) => `${v.toFixed(0)} €`}
-                    onValueClick={(p) => setSelectedPeriod(p)}
+                    onValueClick={(p, items) => setDetailsView({ period: p, items, title: 'Résultat Net' })}
                 />
 
                 <RichStatCard
