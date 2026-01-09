@@ -293,8 +293,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
     }
 
-    // Informations de paiement (IBAN + Wero) pour les factures NON ACQUITTÉES
-    if (isInvoice && devis.status !== 'paid') {
+    // Informations de paiement (IBAN + Wero) pour TOUTES les factures (même acquittées, pour référence)
+    if (isInvoice) {
         // We show this block if there is an IBAN OR if we want to show Wero
         const hasIban = !!userProfile.iban;
         const weroNumber = "07 78 68 69 62"; // Hardcoded as per user request
@@ -343,11 +343,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'bold');
             doc.text(`Tél : ${weroNumber}`, 55, paymentY + lineOffset);
 
-            // Reference info
-            doc.setFont(undefined, 'italic');
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, paymentY + 28);
+            // Reference info - Only if NOT paid
+            if (devis.status !== 'paid') {
+                doc.setFont(undefined, 'italic');
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, paymentY + 28);
+            }
         }
     }
 
