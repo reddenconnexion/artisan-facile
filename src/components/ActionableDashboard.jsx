@@ -109,6 +109,28 @@ const ActionableDashboard = ({ user }) => {
         }
     };
 
+    const handleManualFollowUp = async (e, quoteId) => {
+        e.stopPropagation();
+        const now = new Date().toISOString();
+
+        // Optimistic update
+        setActionItems(prev => ({
+            ...prev,
+            overdueQuotes: prev.overdueQuotes.filter(q => q.id !== quoteId)
+        }));
+
+        const { error } = await supabase
+            .from('quotes')
+            .update({ last_followup_at: now })
+            .eq('id', quoteId);
+
+        if (error) {
+            console.error('Error updating follow-up:', error);
+            // Revert on error (could imply re-fetching, but keeping it simple for now)
+            fetchActionItems();
+        }
+    };
+
     if (loading) return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-pulse">
             <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
@@ -234,7 +256,16 @@ const ActionableDashboard = ({ user }) => {
                                             Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {quote.total_ttc}€
                                         </p>
                                     </div>
-                                    <ArrowRight className="w-4 h-4 text-amber-400" />
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={(e) => handleManualFollowUp(e, quote.id)}
+                                            className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
+                                            title="Marquer comme relancé aujourd'hui"
+                                        >
+                                            Relancé
+                                        </button>
+                                        <ArrowRight className="w-4 h-4 text-amber-400" />
+                                    </div>
                                 </div>
                             ))}
                         </div>
