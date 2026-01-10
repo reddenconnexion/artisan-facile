@@ -293,65 +293,63 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
     }
 
-    // Informations de paiement (IBAN + Wero) pour TOUTES les factures (même acquittées, pour référence)
-    if (isInvoice) {
-        // We show this block if there is an IBAN OR if we want to show Wero
-        const hasIban = !!userProfile.iban;
-        const weroNumber = "07 78 68 69 62"; // Hardcoded as per user request
+    // Informations de paiement (IBAN + Wero) pour TOUTES les factures et DEVIS
+    const hasIban = !!userProfile.iban;
+    const weroNumber = "07 78 68 69 62"; // Hardcoded as per user request
 
-        if (hasIban || weroNumber) {
-            let paymentY = currentY + 40;
-            // Page break logic
-            if (paymentY + 35 > 280) { // Increased height check
+    if (hasIban || weroNumber) {
+        let paymentY = currentY + 40;
+        // Page break logic
+        if (paymentY + 35 > 280) { // Increased height check
+            doc.addPage();
+            paymentY = 20;
+        } else if (devis.signature && currentY + 80 > 280) {
+            paymentY = currentY + (devis.signature ? 50 : 20);
+            if (paymentY + 35 > 280) {
                 doc.addPage();
                 paymentY = 20;
-            } else if (devis.signature && currentY + 80 > 280) {
-                paymentY = currentY + (devis.signature ? 50 : 20);
-                if (paymentY + 35 > 280) {
-                    doc.addPage();
-                    paymentY = 20;
-                }
-            }
-
-            // Box
-            doc.setDrawColor(200, 200, 200);
-            doc.setFillColor(248, 250, 252);
-            doc.rect(14, paymentY, 180, 32, 'FD'); // Increased height from 25 to 32
-
-            // Title
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(0, 0, 0);
-            doc.text("Moyens de paiement acceptés :", 20, paymentY + 8);
-
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'normal');
-
-            let lineOffset = 16;
-
-            // IBAN Line
-            if (hasIban) {
-                doc.text("Virement", 20, paymentY + lineOffset);
-                doc.setFont(undefined, 'bold');
-                doc.text(`IBAN : ${userProfile.iban}`, 55, paymentY + lineOffset);
-                doc.setFont(undefined, 'normal');
-                lineOffset += 6;
-            }
-
-            // Wero Line
-            doc.text("Paylib / Wero", 20, paymentY + lineOffset);
-            doc.setFont(undefined, 'bold');
-            doc.text(`Tél : ${weroNumber}`, 55, paymentY + lineOffset);
-
-            // Reference info - Only if NOT paid
-            if (devis.status !== 'paid') {
-                doc.setFont(undefined, 'italic');
-                doc.setFontSize(8);
-                doc.setTextColor(100, 100, 100);
-                doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, paymentY + 28);
             }
         }
+
+        // Box
+        doc.setDrawColor(200, 200, 200);
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, paymentY, 180, 32, 'FD'); // Increased height from 25 to 32
+
+        // Title
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("Moyens de paiement acceptés :", 20, paymentY + 8);
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+
+        let lineOffset = 16;
+
+        // IBAN Line
+        if (hasIban) {
+            doc.text("Virement", 20, paymentY + lineOffset);
+            doc.setFont(undefined, 'bold');
+            doc.text(`IBAN : ${userProfile.iban}`, 55, paymentY + lineOffset);
+            doc.setFont(undefined, 'normal');
+            lineOffset += 6;
+        }
+
+        // Wero Line
+        doc.text("Paylib / Wero", 20, paymentY + lineOffset);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Tél : ${weroNumber}`, 55, paymentY + lineOffset);
+
+        // Reference info - Only if NOT paid
+        if (devis.status !== 'paid') {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, paymentY + 28);
+        }
     }
+
 
     // Mention "ACQUITTÉE" si payée
     if (isInvoice && devis.status === 'paid') {
