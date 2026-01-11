@@ -241,8 +241,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Automatic Material Deposit Note for Quotes
     if (!isInvoice && materials.length > 0) {
         const materialHT = materials.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        // Calculate VAT part for materials (assuming standard rate if global is enabled)
-        const materialTTC = devis.include_tva !== false ? materialHT * 1.2 : materialHT;
+
+        // Calculate effective VAT rate (infer from totals to support manual adjustments or different rates)
+        let vatRate = 0.20; // Default
+        if (devis.total_ht > 0 && devis.total_tva >= 0) {
+            vatRate = devis.total_tva / devis.total_ht;
+        }
+
+        // Calculate VAT part for materials using effective rate
+        const materialTTC = devis.include_tva !== false ? materialHT * (1 + vatRate) : materialHT;
 
         const depositNote = `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${materialTTC.toFixed(2)} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.\nUne facture d'acompte vous sera envoyée dès validation du devis.`;
 
@@ -293,19 +300,30 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
     }
 
-    // Informations de paiement (IBAN + Wero) pour TOUTES les factures et DEVIS
-    const hasIban = !!userProfile.iban;
+    // Informations de paiement (IBAN + Wero)
+    const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
     const weroNumber = "07 78 68 69 62"; // Hardcoded as per user request
 
     if (hasIban || weroNumber) {
         let paymentY = currentY + 40;
-        // Page break logic
-        if (paymentY + 35 > 280) { // Increased height check
+
+        // Smart Page Break Logic
+        // Calculate required space: Header (8) + IBAN (6) + Wero (6) + Ref (8) + Padding (5) ≈ 35-40
+        const requiredHeight = 45;
+
+        if (paymentY + requiredHeight > 280) {
             doc.addPage();
             paymentY = 20;
-        } else if (devis.signature && currentY + 80 > 280) {
-            paymentY = currentY + (devis.signature ? 50 : 20);
-            if (paymentY + 35 > 280) {
+        } else if (devis.signature && currentY + 90 > 280) { // Check if signature + payment fits
+            // If signature pushes payment off page
+            doc.addPage();
+            paymentY = 20;
+        } else if (devis.signature) {
+            // Signature is present, payment goes below it
+            // Signature is approx 30-40 units high
+            paymentY = currentY + 50;
+
+            if (paymentY + requiredHeight > 280) {
                 doc.addPage();
                 paymentY = 20;
             }
