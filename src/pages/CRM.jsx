@@ -95,7 +95,15 @@ const WorksitePilot = () => {
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
-            setWorksites(data || []);
+
+            // Filter: Keep only QUOTES. 
+            // - Invoices (type='invoice') imply work is done/paid, so they leave the pilot.
+            // - Acomptes are also excluded.
+            const filteredData = (data || []).filter(q =>
+                q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
+            );
+
+            setWorksites(filteredData);
         } catch (error) {
             toast.error('Erreur chargement chantiers');
             console.error('Error fetching worksites:', error);
