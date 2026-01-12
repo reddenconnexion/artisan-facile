@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
-    Calendar, ArrowRight, CheckCircle, Clock, Construction
+    Calendar, ArrowRight, CheckCircle, Hammer, Phone
 } from 'lucide-react';
 
 const WorksitePilot = () => {
@@ -30,7 +30,7 @@ const WorksitePilot = () => {
             id: 'in_progress',
             title: 'En Cours',
             color: 'bg-amber-50 border-amber-100',
-            icon: Construction,
+            icon: Hammer,
             description: 'Chantiers démarrés'
         },
         {
@@ -66,6 +66,7 @@ const WorksitePilot = () => {
 
     // Handle Wheel Zoom
     useEffect(() => {
+        if (loading) return;
         const container = containerRef.current;
         if (!container) return;
 
@@ -80,7 +81,7 @@ const WorksitePilot = () => {
         container.addEventListener('wheel', handleWheel, { passive: false });
         // Clean up
         return () => container.removeEventListener('wheel', handleWheel);
-    }, []);
+    }, [loading]);
 
     const fetchWorksites = async () => {
         try {
@@ -257,7 +258,7 @@ const WorksitePilot = () => {
                                             key={job.id}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, job.id)}
-                                            className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing border-l-4"
+                                            className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing border-l-4"
                                             style={{ borderLeftColor: column.id === 'in_progress' ? '#F59E0B' : column.id === 'completed' ? '#10B981' : '#3B82F6' }}
                                         >
                                             {/* Card Top: Client & Price */}
