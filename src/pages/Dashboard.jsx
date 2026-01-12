@@ -64,10 +64,10 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
 
             {!showChart ? (
                 <div className="space-y-4 pt-2 border-t border-gray-50 dark:border-gray-800 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <RevenueBar label="Cette Semaine" value={stats.week.value} max={stats.week.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('week')} period="week" />
-                    <RevenueBar label="Ce Mois" value={stats.month.value} max={stats.month.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('month')} period="month" />
-                    <RevenueBar label="Cette Année" value={stats.year.value} max={stats.year.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('year')} period="year" />
-                    <RevenueBar label="L'Année dernière" value={stats.lastYear?.value || 0} max={stats.lastYear?.max || 1} color={colorClass} onClick={() => setShowChart(true) || setPeriod('lastYear')} period="lastYear" />
+                    <RevenueBar label="Cette Semaine" value={stats.week.value} max={stats.week.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('week')} period="week" formatter={formatValue} />
+                    <RevenueBar label="Ce Mois" value={stats.month.value} max={stats.month.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('month')} period="month" formatter={formatValue} />
+                    <RevenueBar label="Cette Année" value={stats.year.value} max={stats.year.max} color={colorClass} onClick={() => setShowChart(true) || setPeriod('year')} period="year" formatter={formatValue} />
+                    <RevenueBar label="L'Année dernière" value={stats.lastYear?.value || 0} max={stats.lastYear?.max || 1} color={colorClass} onClick={() => setShowChart(true) || setPeriod('lastYear')} period="lastYear" formatter={formatValue} />
                 </div>
             ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -104,7 +104,7 @@ const RichStatCard = ({ title, mainValue, subText, icon: Icon, colorClass, color
 };
 
 // Simple Bar helper
-const RevenueBar = ({ label, value, max, color, period, onClick }) => {
+const RevenueBar = ({ label, value, max, color, period, onClick, formatter }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
     return (
         <div
@@ -113,7 +113,7 @@ const RevenueBar = ({ label, value, max, color, period, onClick }) => {
         >
             <div className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
                 <span>{label}</span>
-                <span>{value.toFixed(0)} €</span>
+                <span>{formatter ? formatter(value) : `${value.toFixed(0)} €`}</span>
             </div>
             <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div
@@ -665,6 +665,8 @@ const Dashboard = () => {
                     colorClass="bg-orange-500"
                     colorHex="#F97316"
                     formatValue={(v) => `${v.toFixed(0)} €`}
+                    onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
+                    className="cursor-pointer"
                 />
 
                 <RichStatCard
