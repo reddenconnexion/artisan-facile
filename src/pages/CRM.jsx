@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,7 @@ const CRM = () => {
     const [loading, setLoading] = useState(true);
     const [focusedColumn, setFocusedColumn] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef(null);
 
     const columns = [
         { id: 'lead', title: 'Demandes / A Contacter', color: 'bg-gray-100 border-gray-200' },
@@ -42,6 +43,30 @@ const CRM = () => {
             };
         }
     }, [user]);
+
+    // Handle Wheel Zoom
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const handleWheel = (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY * -0.001;
+                setZoomLevel(prev => {
+                    const newZoom = Math.min(Math.max(prev + delta, 0.5), 1);
+                    return newZoom;
+                });
+            }
+        };
+
+        // Passive: false is crucial to preventDefault()
+        container.addEventListener('wheel', handleWheel, { passive: false });
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
 
     const fetchClients = async () => {
         try {
@@ -110,6 +135,16 @@ const CRM = () => {
         }
     };
 
+    const [zoomLevel, setZoomLevel] = useState(1);
+
+    const handleZoomIn = () => {
+        setZoomLevel(prev => Math.min(prev + 0.1, 1));
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+    };
+
     if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
 
     return (
@@ -134,7 +169,30 @@ const CRM = () => {
                     </div>
                 </div>
 
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex gap-2 w-full md:w-auto items-center">
+                    {/* Zoom Controls */}
+                    <div className="hidden md:flex items-center bg-white rounded-lg border border-gray-200 mr-2">
+                        <button
+                            onClick={handleZoomOut}
+                            className="p-1.5 hover:bg-gray-50 text-gray-600 rounded-l-lg disabled:opacity-50"
+                            disabled={zoomLevel <= 0.5}
+                            title="Dézoomer"
+                        >
+                            <Minimize2 className="w-4 h-4" />
+                        </button>
+                        <span className="px-2 text-xs font-medium text-gray-600 w-12 text-center">
+                            {Math.round(zoomLevel * 100)}%
+                        </span>
+                        <button
+                            onClick={handleZoomIn}
+                            className="p-1.5 hover:bg-gray-50 text-gray-600 rounded-r-lg disabled:opacity-50"
+                            disabled={zoomLevel >= 1}
+                            title="Zoomer"
+                        >
+                            <Maximize2 className="w-4 h-4" />
+                        </button>
+                    </div>
+
                     {/* Mobile Search */}
                     <div className="relative md:hidden flex-1">
                         <input
@@ -166,111 +224,113 @@ const CRM = () => {
                 </div>
             </div>
 
-            <div className={`
-                flex gap-4 px-4 pb-4 h-full 
-                ${focusedColumn ? 'overflow-hidden' : 'flex-col overflow-y-auto md:flex-row md:overflow-x-auto'}
-            `}>
-                {columns.map(column => {
-                    if (focusedColumn && focusedColumn !== column.id) return null;
+            <div
+                ref={containerRef}
+                className={`flex gap-4 px-4 pb-4 h-full ${focusedColumn ? 'overflow-hidden' : 'flex-col overflow-y-auto md:flex-row md:overflow-x-auto'}`}
+            >
+                <div className="flex gap-4 h-full" style={{ zoom: zoomLevel }}>
+                    {columns.map(column => {
+                        if (focusedColumn && focusedColumn !== column.id) return null;
 
-                    return (
-                        <div
-                            key={column.id}
-                            className={`
-                                flex flex-col rounded-xl border ${column.color} transition-all duration-300
-                                ${focusedColumn
-                                    ? 'w-full max-w-4xl mx-auto h-full'
-                                    : 'w-full shrink-0 md:w-80 md:h-full md:max-h-full'
-                                }
-                                ${!focusedColumn && 'min-h-[300px]'} 
-                            `}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, column.id)}
-                        >
-                            <div className="p-4 font-semibold text-gray-700 flex justify-between items-center bg-white/50 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
-                                <div className="flex items-center gap-2">
-                                    <span>{column.title}</span>
-                                    <span className="bg-white px-2 py-0.5 rounded-full text-xs text-gray-500 shadow-sm">
-                                        {getClientsByStatus(column.id).length}
-                                    </span>
+                        return (
+                            <div
+                                key={column.id}
+                                className={`
+                                    flex flex-col rounded-xl border ${column.color} transition-all duration-300
+                                    ${focusedColumn
+                                        ? 'w-full max-w-4xl mx-auto h-full'
+                                        : 'w-full shrink-0 md:w-80 md:h-full md:max-h-full'
+                                    }
+                                    ${!focusedColumn && 'min-h-[300px]'} 
+                                `}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, column.id)}
+                            >
+                                <div className="p-4 font-semibold text-gray-700 flex justify-between items-center bg-white/50 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <span>{column.title}</span>
+                                        <span className="bg-white px-2 py-0.5 rounded-full text-xs text-gray-500 shadow-sm">
+                                            {getClientsByStatus(column.id).length}
+                                        </span>
+                                    </div>
+                                    {!focusedColumn && (
+                                        <button
+                                            onClick={() => setFocusedColumn(column.id)}
+                                            className="p-1 hover:bg-white/50 rounded text-gray-400 hover:text-gray-600 transition-colors"
+                                            title="Agrandir cette colonne"
+                                        >
+                                            <Maximize2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
-                                {!focusedColumn && (
-                                    <button
-                                        onClick={() => setFocusedColumn(column.id)}
-                                        className="p-1 hover:bg-white/50 rounded text-gray-400 hover:text-gray-600 transition-colors"
-                                        title="Agrandir cette colonne"
-                                    >
-                                        <Maximize2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
 
-                            <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                                {getClientsByStatus(column.id).map(client => (
-                                    <div
-                                        key={client.id}
-                                        className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing"
-                                        draggable="true"
-                                        onDragStart={(e) => handleDragStart(e, client.id)}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-medium text-gray-900 truncate pr-2 pointer-events-none">{client.name}</h4>
-                                            <button
-                                                onClick={() => navigate(`/clients/${client.id}`)}
-                                                className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                                    {getClientsByStatus(column.id).map(client => (
+                                        <div
+                                            key={client.id}
+                                            className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing"
+                                            draggable="true"
+                                            onDragStart={(e) => handleDragStart(e, client.id)}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-medium text-gray-900 truncate pr-2 pointer-events-none">{client.name}</h4>
+                                                <button
+                                                    onClick={() => navigate(`/clients/${client.id}`)}
+                                                    className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </button>
+                                            </div>
 
-                                        <div className="space-y-1 mb-3 pointer-events-none">
-                                            {client.phone && (
-                                                <div className="flex items-center text-xs text-gray-500">
-                                                    <Phone className="w-3 h-3 mr-1.5" />
-                                                    {client.phone}
-                                                </div>
-                                            )}
-                                            {client.email && (
-                                                <div className="flex items-center text-xs text-gray-500 truncate">
-                                                    <Mail className="w-3 h-3 mr-1.5" />
-                                                    {client.email}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                                            <span className="text-xs text-gray-400">
-                                                {new Date(client.created_at).toLocaleDateString()}
-                                            </span>
-
-                                            {/* Simple Move Actions for MVP - could be Drag & Drop later */}
-                                            <div className="flex gap-1">
-                                                {column.id !== 'lead' && (
-                                                    <button
-                                                        onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) - 1].id)}
-                                                        className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-                                                        title="Reculer"
-                                                    >
-                                                        <ArrowRight className="w-3 h-3 rotate-180" />
-                                                    </button>
+                                            <div className="space-y-1 mb-3 pointer-events-none">
+                                                {client.phone && (
+                                                    <div className="flex items-center text-xs text-gray-500">
+                                                        <Phone className="w-3 h-3 mr-1.5" />
+                                                        {client.phone}
+                                                    </div>
                                                 )}
-                                                {column.id !== 'lost' && (
-                                                    <button
-                                                        onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) + 1].id)}
-                                                        className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-                                                        title="Avancer"
-                                                    >
-                                                        <ArrowRight className="w-3 h-3" />
-                                                    </button>
+                                                {client.email && (
+                                                    <div className="flex items-center text-xs text-gray-500 truncate">
+                                                        <Mail className="w-3 h-3 mr-1.5" />
+                                                        {client.email}
+                                                    </div>
                                                 )}
                                             </div>
+
+                                            <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                                                <span className="text-xs text-gray-400">
+                                                    {new Date(client.created_at).toLocaleDateString()}
+                                                </span>
+
+                                                {/* Simple Move Actions for MVP - could be Drag & Drop later */}
+                                                <div className="flex gap-1">
+                                                    {column.id !== 'lead' && (
+                                                        <button
+                                                            onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) - 1].id)}
+                                                            className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                                                            title="Reculer"
+                                                        >
+                                                            <ArrowRight className="w-3 h-3 rotate-180" />
+                                                        </button>
+                                                    )}
+                                                    {column.id !== 'lost' && (
+                                                        <button
+                                                            onClick={() => updateStatus(client.id, columns[columns.findIndex(c => c.id === column.id) + 1].id)}
+                                                            className="p-2 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                                                            title="Avancer"
+                                                        >
+                                                            <ArrowRight className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
