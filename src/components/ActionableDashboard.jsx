@@ -62,6 +62,7 @@ const ActionableDashboard = ({ user }) => {
                 .eq('status', 'sent')
                 .lt('date', sevenDaysAgo.toISOString()) // Created before 7 days ago
                 .or(`last_followup_at.is.null,last_followup_at.lt.${sevenDaysAgo.toISOString()}`)
+                .order('date', { ascending: true })
                 .limit(10);
 
             // 3. Pending Invoices (Billed but not Paid)
@@ -70,7 +71,8 @@ const ActionableDashboard = ({ user }) => {
                 .select('*, clients(name)')
                 .eq('user_id', user.id)
                 .eq('status', 'billed')
-                .limit(3);
+                .order('date', { ascending: true })
+                .limit(10);
 
             // 4. Drafts (To finish)
             const { data: draftQuotes } = await supabase
