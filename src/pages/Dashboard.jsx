@@ -273,20 +273,27 @@ const Dashboard = () => {
                             const materialItems = quote.items.filter(i => i.type === 'material');
                             const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
+                            // Calculate Deductions (negative price items, e.g. previous deposits) to add back to Net Result
+                            // Because 'amount' (TTC) is reduced by these deductions, but the Net Result should reflect the total service value generated.
+                            const deductionHT = quote.items
+                                .filter(i => (parseFloat(i.price) || 0) < 0)
+                                .reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+
+                            const deductionTTC = deductionHT * taxRatio;
+
                             // Apply ratio to Material HT to get Material TTC cost part match
                             const materialTTC = materialHT * taxRatio;
 
-                            netAmount = amount - materialTTC;
+                            // Net Amount = Realized Revenue (Total) - Material Cost + Deductions (Add back previous deposits to show full value)
+                            // deductionTTC is negative, so subtraction adds it back.
+                            netAmount = amount - materialTTC - deductionTTC;
                         }
 
                         // Exclude deposits (acomptes) from Net Income (Resultat Net)
                         // User request: deposits correspond to material orders and shouldn't appear in net result
-                        // FIX: Ensure Closing Invoices (Factures de Clôture) are INCUDED even if they mention 'acompte' (deduction)
-                        const isClosing = (quote.title && /cl(o|ô)ture/i.test(quote.title));
-                        const isDeposit = !isClosing && (
-                            (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description)))
-                        );
+                        // Refined Logic warning: Identifying a deposit by 'acompte' in items must exclude Duductions (negative price).
+                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
 
                         if (qDate.getFullYear() === currentYear) {
                             metrics.revenue.year += amount;
