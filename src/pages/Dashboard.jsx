@@ -281,8 +281,12 @@ const Dashboard = () => {
 
                         // Exclude deposits (acomptes) from Net Income (Resultat Net)
                         // User request: deposits correspond to material orders and shouldn't appear in net result
-                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description)));
+                        // FIX: Ensure Closing Invoices (Factures de Clôture) are INCUDED even if they mention 'acompte' (deduction)
+                        const isClosing = (quote.title && /cl(o|ô)ture/i.test(quote.title));
+                        const isDeposit = !isClosing && (
+                            (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description)))
+                        );
 
                         if (qDate.getFullYear() === currentYear) {
                             metrics.revenue.year += amount;
