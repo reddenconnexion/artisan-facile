@@ -53,11 +53,29 @@ const Portfolio = () => {
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
-            setMontages(data || []);
+            if (error) {
+                console.error('Portfolio join error:', error);
+
+                // Fallback Query (No Joins)
+                const { data: simpleData, error: simpleError } = await supabase
+                    .from('project_photos')
+                    .select('*')
+                    .ilike('description', '%Montage Avant / Après%')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                if (!simpleError && simpleData) {
+                    setMontages(simpleData);
+                    toast.error(`Affichage limité (Erreur relation: ${error.message})`);
+                } else {
+                    throw error;
+                }
+            } else {
+                setMontages(data || []);
+            }
         } catch (error) {
             console.error('Error fetching portfolio:', error);
-            toast.error("Impossible de charger le portfolio.");
+            toast.error("Impossible de charger le portfolio: " + (error.message || error.details || 'Erreur inconnue'));
         } finally {
             setLoading(false);
         }
