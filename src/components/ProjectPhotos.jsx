@@ -1104,39 +1104,47 @@ const ProjectPhotos = ({ clientId }) => {
                                             )}
                                         </div>
                                         <div className="mt-4 flex flex-col gap-3">
-                                            <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner group">
-                                                <Cropper
-                                                    image={splitBefore.photo_url}
-                                                    crop={cropBefore}
-                                                    zoom={zoomBefore}
-                                                    aspect={570 / 680}
-                                                    onCropChange={setCropBefore}
-                                                    onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsBefore(croppedAreaPixels)}
-                                                    onZoomChange={setZoomBefore}
-                                                    objectFit="contain"
-                                                    showGrid={true}
-                                                    classes={{
-                                                        containerClassName: "rounded-xl",
-                                                        cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                                                <ZoomOut className="w-4 h-4 text-gray-500" />
-                                                <input
-                                                    type="range"
-                                                    value={zoomBefore}
-                                                    min={1}
-                                                    max={3}
-                                                    step={0.1}
-                                                    aria-labelledby="Zoom"
-                                                    onChange={(e) => setZoomBefore(Number(e.target.value))}
-                                                    className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-blue-600"
-                                                />
-                                                <ZoomIn className="w-4 h-4 text-gray-500" />
-                                            </div>
+                                            {splitBefore ? (
+                                                <>
+                                                    <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner group">
+                                                        <Cropper
+                                                            image={splitBefore.photo_url}
+                                                            crop={cropBefore}
+                                                            zoom={zoomBefore}
+                                                            aspect={570 / 680}
+                                                            onCropChange={setCropBefore}
+                                                            onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsBefore(croppedAreaPixels)}
+                                                            onZoomChange={setZoomBefore}
+                                                            objectFit="contain"
+                                                            showGrid={true}
+                                                            classes={{
+                                                                containerClassName: "rounded-xl",
+                                                                cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
+                                                        <ZoomOut className="w-4 h-4 text-gray-500" />
+                                                        <input
+                                                            type="range"
+                                                            value={zoomBefore}
+                                                            min={1}
+                                                            max={3}
+                                                            step={0.1}
+                                                            aria-labelledby="Zoom"
+                                                            onChange={(e) => setZoomBefore(Number(e.target.value))}
+                                                            className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-blue-600"
+                                                        />
+                                                        <ZoomIn className="w-4 h-4 text-gray-500" />
+                                                    </div>
+
+                                                </>
+                                            ) : (
+                                                <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 text-sm">
+                                                    Sélectionnez une photo ci-dessus
+                                                </div>
+                                            )}
                                         </div>
-                                        )}
                                     </div>
 
                                     {/* After Column */}
@@ -1251,86 +1259,88 @@ const ProjectPhotos = ({ clientId }) => {
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
             {/* Move Modal */}
-            {showMoveModal && (
-                <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 dark:border dark:border-gray-700" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <FolderInput className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                Déplacer {photosToMove.size} photo(s)
-                            </h3>
-                            <button onClick={() => setShowMoveModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choisir le dossier de destination :</label>
-
-                                {!isCreatingInMove ? (
-                                    <select
-                                        value={moveTargetId}
-                                        onChange={(e) => {
-                                            if (e.target.value === 'new_folder_action') {
-                                                setIsCreatingInMove(true);
-                                                setMoveTargetId('');
-                                            } else {
-                                                setMoveTargetId(e.target.value);
-                                            }
-                                        }}
-                                        className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">-- Choisir un dossier --</option>
-                                        <option value="new_folder_action" className="font-bold text-blue-600 dark:text-blue-400">+ Nouveau Dossier...</option>
-                                        <option disabled>──────────</option>
-                                        <option value="uncategorized">Non classé (Général)</option>
-                                        {projects.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            <FolderPlus className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                autoFocus
-                                                value={newMoveProjectName}
-                                                onChange={e => setNewMoveProjectName(e.target.value)}
-                                                placeholder="Nom du nouveau dossier..."
-                                                className="block w-full pl-9 pr-3 py-2 border border-blue-500 ring-1 ring-blue-500 rounded-lg focus:outline-none"
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={() => setIsCreatingInMove(false)}
-                                            className="px-3 text-gray-500 hover:bg-gray-100 rounded-lg"
-                                            title="Annuler création"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
+            {
+                showMoveModal && (
+                    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowMoveModal(false)}>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 dark:border dark:border-gray-700" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <FolderInput className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    Déplacer {photosToMove.size} photo(s)
+                                </h3>
+                                <button onClick={() => setShowMoveModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                <button
-                                    onClick={() => setShowMoveModal(false)}
-                                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    onClick={handleConfirmMove}
-                                    className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
-                                >
-                                    Déplacer
-                                </button>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choisir le dossier de destination :</label>
+
+                                    {!isCreatingInMove ? (
+                                        <select
+                                            value={moveTargetId}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'new_folder_action') {
+                                                    setIsCreatingInMove(true);
+                                                    setMoveTargetId('');
+                                                } else {
+                                                    setMoveTargetId(e.target.value);
+                                                }
+                                            }}
+                                            className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                                        >
+                                            <option value="">-- Choisir un dossier --</option>
+                                            <option value="new_folder_action" className="font-bold text-blue-600 dark:text-blue-400">+ Nouveau Dossier...</option>
+                                            <option disabled>──────────</option>
+                                            <option value="uncategorized">Non classé (Général)</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <FolderPlus className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    autoFocus
+                                                    value={newMoveProjectName}
+                                                    onChange={e => setNewMoveProjectName(e.target.value)}
+                                                    placeholder="Nom du nouveau dossier..."
+                                                    className="block w-full pl-9 pr-3 py-2 border border-blue-500 ring-1 ring-blue-500 rounded-lg focus:outline-none"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => setIsCreatingInMove(false)}
+                                                className="px-3 text-gray-500 hover:bg-gray-100 rounded-lg"
+                                                title="Annuler création"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <button
+                                        onClick={() => setShowMoveModal(false)}
+                                        className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmMove}
+                                        className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
+                                    >
+                                        Déplacer
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Fullscreen Modal */}
             {
