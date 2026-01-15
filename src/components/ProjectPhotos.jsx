@@ -302,6 +302,16 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (splitBefore && splitAfter) {
+                generatePreview();
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [splitBefore, splitAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter]);
+
     // Swipe handling
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
