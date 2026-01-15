@@ -22,7 +22,7 @@ const ProjectPhotos = ({ clientId }) => {
     // Comparison Mode State
     const [showComparisonModal, setShowComparisonModal] = useState(false);
     const [splitBefore, setSplitBefore] = useState(null);
-    const [splitBefore, setSplitBefore] = useState(null);
+
     const [splitAfter, setSplitAfter] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null); // LIVE PREVIEW STATE
 
@@ -35,7 +35,7 @@ const ProjectPhotos = ({ clientId }) => {
     const [zoomAfter, setZoomAfter] = useState(1);
     const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
 
-    const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
+
 
     // Debounce for preview generation
     useEffect(() => {
