@@ -256,6 +256,83 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         allNotes += depositNote;
     }
 
+    // --- NEW: Add Before/After Montage to PDF if title matches ---
+    if (isInvoice && devis.title) {
+        try {
+            // Fetch montage if it exists for this project (based on title matching)
+            // Ideally we should have a direct link, but user asked for "title match" or connection.
+            // Let's assume we can fetch by client_id and description filter + title correlation?
+            // Or simpler: fetch ANY "Montage" for this client created recently?
+            // User request: "les montages avant/apres qui sont en rapport avec le nom de la facture."
+            // This implies we need to Query Supabase HERE directly? 
+            // pdfGenerator isn't a component, but we can import supabase.
+
+            // However, doing async fetch inside here is fine as function is async.
+            const { supabase } = await import('./supabase'); // dynamic import to avoid circ dependencies if utils
+
+            // We search in project_photos for this user/client where description contains 'Montage' AND matches quote title keywords?
+            // Actually, user said: "dans la liste des dossiers photos chantier, ajoute automatiquement le titre du devis signé... pour que je puisse y ajouter facilement les photos correspondantes et que le bon montage aille dans la bonne facture"
+            // This suggests the "Project Name" (dossier photo) == "Quote Title".
+
+            // So we look for a project (folder) named exactly like devis.title? Or photos linked to project_id where project.name == devis.title.
+            // In current schema, photos have project_id. Projects have name.
+
+            // Let's Find the Project first.
+            const { data: project } = await supabase
+                .from('projects')
+                .select('id')
+                .eq('name', devis.title) // Assuming title matches project name exactly as per user request
+                .eq('client_id', devis.client_id)
+                .single();
+
+            if (project) {
+                const { data: photos } = await supabase
+                    .from('project_photos')
+                    .select('photo_url')
+                    .eq('project_id', project.id)
+                    .ilike('description', '%Montage Avant / Après%')
+                    .limit(1); // One montage per invoice usually sufficient?
+
+                if (photos && photos.length > 0) {
+                    const montageUrl = photos[0].photo_url;
+                    // Add page for montage
+                    doc.addPage();
+
+                    // Title
+                    doc.setFontSize(16);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text("Montage Avant / Après", 105, 20, { align: 'center' });
+
+                    // Image
+                    // doc.addImage(montageUrl, 'JPEG', x, y, w, h);
+                    // Need to handle async image loading / base64 for jsPDF
+                    // Since we reuse logic, let's try addImage if URL works (depends on Supabase CORS).
+                    // Ideally we fetch blob.
+
+                    try {
+                        const imgBlob = await fetch(montageUrl).then(r => r.blob());
+                        const reader = new FileReader();
+                        const base64data = await new Promise((resolve) => {
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(imgBlob);
+                        });
+
+                        // Fit to page (A4 w=210)
+                        const imgProps = doc.getImageProperties(base64data);
+                        const pdfWidth = 180;
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                        doc.addImage(base64data, 'JPEG', 15, 40, pdfWidth, pdfHeight);
+                    } catch (err) {
+                        console.error("Failed to embed montage", err);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Error auto-adding montage", e);
+        }
+    }
+
 
 
     // Notes / Conditions Display

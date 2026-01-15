@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { supabase } from '../utils/supabase';
@@ -22,7 +22,9 @@ const ProjectPhotos = ({ clientId }) => {
     // Comparison Mode State
     const [showComparisonModal, setShowComparisonModal] = useState(false);
     const [splitBefore, setSplitBefore] = useState(null);
+    const [splitBefore, setSplitBefore] = useState(null);
     const [splitAfter, setSplitAfter] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null); // LIVE PREVIEW STATE
 
     // Crop State
     const [cropBefore, setCropBefore] = useState({ x: 0, y: 0 });
@@ -32,6 +34,18 @@ const ProjectPhotos = ({ clientId }) => {
     const [cropAfter, setCropAfter] = useState({ x: 0, y: 0 });
     const [zoomAfter, setZoomAfter] = useState(1);
     const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
+
+    const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
+
+    // Debounce for preview generation
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (splitBefore && splitAfter && croppedAreaPixelsBefore && croppedAreaPixelsAfter) {
+                generatePreview();
+            }
+        }, 500); // 500ms debounce
+        return () => clearTimeout(timer);
+    }, [splitBefore, splitAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter]);
 
     const canvasRef = React.useRef(null);
 
@@ -207,6 +221,84 @@ const ProjectPhotos = ({ clientId }) => {
         } catch (error) {
             console.error('Error generating comparison:', error);
             toast.error("Erreur lors de la génération de l'image. Vérifiez votre connexion.");
+        }
+    };
+
+    const generatePreview = async () => {
+        if (!splitBefore || !splitAfter || !canvasRef.current) return;
+
+        try {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+
+            // Load images (cached if possible)
+            const loadImg = (src) => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+
+            const [imgBefore, imgAfter] = await Promise.all([
+                loadImg(splitBefore.photo_url),
+                loadImg(splitAfter.photo_url)
+            ]);
+
+            // Preview size (smaller than full export for performance, but same aspect)
+            // Export is 1200x800. Let's use 600x400 for preview
+            const scale = 0.5;
+            const targetWidth = 1200 * scale;
+            const targetHeight = 800 * scale;
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            // Fill background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+            // Draw Header
+            ctx.fillStyle = '#111827';
+            ctx.font = `bold ${36 * scale}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('AVANT / APRÈS', targetWidth / 2, 50 * scale);
+
+            // Draw Images
+            const padding = 20 * scale;
+            const imgWidth = (1200 - 60) / 2 * scale; // Original logic scaled
+            const imgHeight = (800 - 120) * scale; // Approx height
+
+            const drawImageWithCrop = (img, cropData, xPos) => {
+                if (cropData) {
+                    ctx.drawImage(
+                        img,
+                        cropData.x,
+                        cropData.y,
+                        cropData.width,
+                        cropData.height,
+                        xPos,
+                        80 * scale,
+                        imgWidth,
+                        imgHeight
+                    );
+                }
+            };
+
+            drawImageWithCrop(imgBefore, croppedAreaPixelsBefore, padding);
+            drawImageWithCrop(imgAfter, croppedAreaPixelsAfter, padding + imgWidth + padding);
+
+            // Add Logo/Footer
+            ctx.fillStyle = '#6B7280';
+            ctx.font = `${14 * scale}px sans-serif`;
+            ctx.textAlign = 'right';
+            ctx.fillText('Artisan Facile', targetWidth - padding, targetHeight - (10 * scale));
+
+            setPreviewUrl(canvas.toDataURL('image/jpeg', 0.8));
+
+        } catch (error) {
+            console.error('Error generating preview:', error);
         }
     };
 
@@ -1001,36 +1093,39 @@ const ProjectPhotos = ({ clientId }) => {
                                                 <div className="col-span-3 text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">Aucune photo "Avant"</div>
                                             )}
                                         </div>
-                                        {splitBefore && (
-                                            <div className="mt-4 flex flex-col gap-2">
-                                                <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative h-64 bg-gray-100 dark:bg-gray-900">
-                                                    <Cropper
-                                                        image={splitBefore.photo_url}
-                                                        crop={cropBefore}
-                                                        zoom={zoomBefore}
-                                                        aspect={570 / 680}
-                                                        onCropChange={setCropBefore}
-                                                        onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsBefore(croppedAreaPixels)}
-                                                        onZoomChange={setZoomBefore}
-                                                        objectFit="auto-cover"
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2 px-2">
-                                                    <ZoomOut className="w-4 h-4 text-gray-500" />
-                                                    <input
-                                                        type="range"
-                                                        value={zoomBefore}
-                                                        min={1}
-                                                        max={3}
-                                                        step={0.1}
-                                                        aria-labelledby="Zoom"
-                                                        onChange={(e) => setZoomBefore(Number(e.target.value))}
-                                                        className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-purple-600"
-                                                    />
-                                                    <ZoomIn className="w-4 h-4 text-gray-500" />
-                                                </div>
-                                                <div className="text-center text-xs text-gray-500">Ajustez le cadre "Avant"</div>
+                                        <div className="mt-4 flex flex-col gap-3">
+                                            <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner group">
+                                                <Cropper
+                                                    image={splitBefore.photo_url}
+                                                    crop={cropBefore}
+                                                    zoom={zoomBefore}
+                                                    aspect={570 / 680}
+                                                    onCropChange={setCropBefore}
+                                                    onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsBefore(croppedAreaPixels)}
+                                                    onZoomChange={setZoomBefore}
+                                                    objectFit="contain"
+                                                    showGrid={true}
+                                                    classes={{
+                                                        containerClassName: "rounded-xl",
+                                                        cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
+                                                    }}
+                                                />
                                             </div>
+                                            <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
+                                                <ZoomOut className="w-4 h-4 text-gray-500" />
+                                                <input
+                                                    type="range"
+                                                    value={zoomBefore}
+                                                    min={1}
+                                                    max={3}
+                                                    step={0.1}
+                                                    aria-labelledby="Zoom"
+                                                    onChange={(e) => setZoomBefore(Number(e.target.value))}
+                                                    className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-blue-600"
+                                                />
+                                                <ZoomIn className="w-4 h-4 text-gray-500" />
+                                            </div>
+                                        </div>
                                         )}
                                     </div>
 
@@ -1059,8 +1154,8 @@ const ProjectPhotos = ({ clientId }) => {
                                             )}
                                         </div>
                                         {splitAfter && (
-                                            <div className="mt-4 flex flex-col gap-2">
-                                                <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative h-64 bg-gray-100 dark:bg-gray-900">
+                                            <div className="mt-4 flex flex-col gap-3">
+                                                <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner">
                                                     <Cropper
                                                         image={splitAfter.photo_url}
                                                         crop={cropAfter}
@@ -1069,10 +1164,15 @@ const ProjectPhotos = ({ clientId }) => {
                                                         onCropChange={setCropAfter}
                                                         onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsAfter(croppedAreaPixels)}
                                                         onZoomChange={setZoomAfter}
-                                                        objectFit="auto-cover"
+                                                        objectFit="contain"
+                                                        showGrid={true}
+                                                        classes={{
+                                                            containerClassName: "rounded-xl",
+                                                            cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
+                                                        }}
                                                     />
                                                 </div>
-                                                <div className="flex items-center gap-2 px-2">
+                                                <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
                                                     <ZoomOut className="w-4 h-4 text-gray-500" />
                                                     <input
                                                         type="range"
@@ -1082,15 +1182,38 @@ const ProjectPhotos = ({ clientId }) => {
                                                         step={0.1}
                                                         aria-labelledby="Zoom"
                                                         onChange={(e) => setZoomAfter(Number(e.target.value))}
-                                                        className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-purple-600"
+                                                        className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-purple-600"
                                                     />
                                                     <ZoomIn className="w-4 h-4 text-gray-500" />
                                                 </div>
-                                                <div className="text-center text-xs text-gray-500">Ajustez le cadre "Après"</div>
                                             </div>
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Live Preview Section */}
+                                {(splitBefore && splitAfter) && (
+                                    <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 animate-in fade-in slide-in-from-bottom-4">
+                                        <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <ImageIcon className="w-5 h-5 text-blue-600" />
+                                            Aperçu du résultat
+                                        </h4>
+                                        <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex justify-center">
+                                            {previewUrl ? (
+                                                <img
+                                                    src={previewUrl}
+                                                    alt="Aperçu Avant/Après"
+                                                    className="max-w-full max-h-[300px] object-contain rounded shadow-lg bg-white"
+                                                />
+                                            ) : (
+                                                <div className="flex items-center justify-center h-32 text-gray-400 gap-2">
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                    Génération de l'aperçu...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 sticky bottom-0">

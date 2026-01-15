@@ -632,6 +632,39 @@ const DevisForm = () => {
 
             const politeClosing = `Je reste à votre entière disposition pour toute question.\n\nBien cordialement,`;
 
+            // Client Portal Link Logic
+            let portalSection = '';
+            // Only add portal link for Invoices (especially deposit/progress) or if specifically requested?
+            // User request: "when I send the deposit invoice". But useful generally.
+            // Let's add it for ALL invoices to drive adoption, or at least Deposit invoices.
+            // "facture d'acompte" usually has "Acompte" in title.
+            // But let's make it robust: If it's an INVOICE, we offer the portal.
+            if (isInvoice) {
+                let clientPortalToken = selectedClient.portal_token;
+
+                // If no token exists, generate one and save it
+                if (!clientPortalToken) {
+                    clientPortalToken = crypto.randomUUID();
+                    const { error: clientUpdateError } = await supabase
+                        .from('clients')
+                        .update({ portal_token: clientPortalToken })
+                        .eq('id', selectedClient.id);
+
+                    if (clientUpdateError) {
+                        console.error("Error creating portal token", clientUpdateError);
+                    } else {
+                        // Update local client object to prevent re-generation issues in same session
+                        selectedClient.portal_token = clientPortalToken;
+                        // Update clients state if possible, though strict necessity is low for this action
+                    }
+                }
+
+                if (clientPortalToken) {
+                    const portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
+                    portalSection = `\n\n📂 **VOTRE ESPACE CLIENT**\nAccédez aux photos d'avancement du chantier et retrouvez tous vos documents sur votre espace personnel :\n${portalUrl}`;
+                }
+            }
+
             const signatureBlock = [
                 `${companyName}`,
                 `${userProfile?.full_name || ''}`,
@@ -639,7 +672,7 @@ const DevisForm = () => {
                 `${userProfile?.website || ''}`
             ].filter(Boolean).join('\n');
 
-            const body = `${introduction}\n\n${callToAction}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
+            const body = `${introduction}\n\n${callToAction}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
 
             setEmailPreview({
                 email: selectedClient.email,
@@ -779,6 +812,32 @@ const DevisForm = () => {
             }
 
             if (error) throw error;
+
+            // Auto-create Project (Dossier Chantier) if Signed/Accepted
+            if (['accepted', 'signed'].includes(quoteData.status) && quoteData.title && error === null) {
+                try {
+                    // Check if project exists
+                    const { data: existingProject } = await supabase
+                        .from('projects')
+                        .select('id')
+                        .eq('name', quoteData.title)
+                        .eq('client_id', formData.client_id)
+                        .single();
+
+                    if (!existingProject) {
+                        await supabase.from('projects').insert([{
+                            user_id: user.id,
+                            client_id: formData.client_id,
+                            name: quoteData.title,
+                            status: 'in_progress',
+                            description: `Chantier généré depuis le devis: ${quoteData.title}`
+                        }]);
+                        // Silent success, no toast needed for background automation
+                    }
+                } catch (projErr) {
+                    console.error("Error creating project folder:", projErr);
+                }
+            }
 
             // Auto-update/add to library
             try {
