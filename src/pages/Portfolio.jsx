@@ -38,11 +38,10 @@ const Portfolio = () => {
                     client_id,
                     category,
                     clients (
+
                         id,
-                        first_name,
-                        last_name,
-                        company_name,
-                        city
+                        name,
+                        address
                     ),
                     projects (
                         id,
@@ -140,8 +139,8 @@ const Portfolio = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {montages.map((item) => {
-                        const clientName = item.clients?.company_name || `${item.clients?.first_name || ''} ${item.clients?.last_name || ''}`.trim() || 'Client inconnu';
-                        const location = item.clients?.city;
+                        const clientName = item.clients?.name || 'Client inconnu';
+                        const location = item.clients?.address;
                         const projectName = item.projects?.name;
                         const dateDate = new Date(item.created_at).toLocaleDateString('fr-FR');
 
