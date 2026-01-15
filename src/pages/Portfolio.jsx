@@ -138,10 +138,10 @@ const Portfolio = () => {
                                         loading="lazy"
                                     />
                                     {/* Overlay Actions */}
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 pointer-events-none">
                                         <button
                                             onClick={() => handleDownload(item.photo_url, `avant-apres-${clientName.replace(/\s+/g, '-')}-${item.id}.jpg`)}
-                                            className="p-3 bg-white text-gray-900 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-lg"
+                                            className="p-3 bg-white text-gray-900 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-lg pointer-events-auto"
                                             title="Télécharger"
                                         >
                                             <Download className="w-6 h-6" />
@@ -150,7 +150,7 @@ const Portfolio = () => {
                                             href={item.photo_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="p-3 bg-white text-gray-900 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-lg"
+                                            className="p-3 bg-white text-gray-900 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-lg pointer-events-auto"
                                             title="Voir en grand"
                                         >
                                             <ExternalLink className="w-6 h-6" />
