@@ -49,10 +49,6 @@ const Portfolio = () => {
                         name
                     )
                 `)
-                .or('description.ilike.%Avant / Après%,category.eq.before_after')
-                // Note: 'before_after' category might not exist yet, 
-                // previous code saved them as 'after' or whatever tab was active but description was reliable.
-                // Let's rely mainly on description "Montage Avant / Après" based on previous step's ProjectPhotos.jsx
                 .ilike('description', '%Montage Avant / Après%')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
