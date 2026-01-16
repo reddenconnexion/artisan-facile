@@ -613,21 +613,21 @@ const DevisForm = () => {
 
             // Template Construction
             // Template Construction
-            let subjectPrefix = isInvoice ? '🧾 Facture' : '📄 Proposition';
+            let subjectPrefix = isInvoice ? 'Facture' : 'Devis';
             if (isInvoice && formData.status === 'paid') {
-                subjectPrefix = '🧾 Facture ACQUITTÉE';
+                subjectPrefix = 'Facture';
             }
-            const subject = `${subjectPrefix} : ${formData.title || 'Votre projet'} - ${companyName}`;
+            const subject = `${subjectPrefix} N°${formData.id || 'PROVISOIRE'} : ${formData.title || 'Votre projet'} - ${companyName}`;
 
             const introduction = isInvoice
-                ? `Bonjour ${selectedClient.name},\n\nVoici la facture correspondant à votre projet "${formData.title || 'Travaux'}".`
-                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, j'ai le plaisir de vous transmettre ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
+                ? `Bonjour ${selectedClient.name},\n\nVeuillez trouver ci-joint la facture concernant votre projet "${formData.title || 'Travaux'}".`
+                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous prie de trouver ci-joint ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
 
             const actionText = isInvoice ? 'consulter et télécharger' : 'consulter, télécharger et signer';
-            const callToAction = `👉 Vous pouvez ${actionText} le document via ce lien sécurisé :\n${publicUrl}`;
+            const callToAction = `Vous pouvez ${actionText} le document directement via ce lien sécurisé :\n${publicUrl}`;
 
             const reviewSection = showReviewRequest
-                ? `\n⭐⭐⭐⭐⭐\nVotre satisfaction est ma priorité.\nSi vous avez apprécié le travail réalisé, un petit avis Google prend 30 secondes et m'aide énormément :\n${userProfile.google_review_url}`
+                ? `\n\nVotre satisfaction est importante.\nSi vous avez apprécié mon travail, vous pouvez laisser un avis rapide via ce lien :\n${userProfile.google_review_url}`
                 : '';
 
             const politeClosing = `Je reste à votre entière disposition pour toute question.\n\nBien cordialement,`;
@@ -661,7 +661,7 @@ const DevisForm = () => {
 
                 if (clientPortalToken) {
                     const portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
-                    portalSection = `\n\n📂 **VOTRE ESPACE CLIENT**\nAccédez aux photos d'avancement du chantier et retrouvez tous vos documents sur votre espace personnel :\n${portalUrl}`;
+                    portalSection = `\n\nESPACE CLIENT\nRetrouvez tous vos documents et le suivi de chantier sur votre espace personnel :\n${portalUrl}`;
                 }
             }
 
