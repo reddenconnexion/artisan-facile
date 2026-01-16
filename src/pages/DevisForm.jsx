@@ -1317,6 +1317,17 @@ Conditions de règlement : Paiement à réception de facture.`
                 return;
             }
 
+            if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
+                toast.warning("Attention : Votre IBAN n'est pas renseigné dans votre profil.", {
+                    description: "La facture sera générée sans coordonnées bancaires.",
+                    duration: 5000,
+                    action: {
+                        label: 'Configurer',
+                        onClick: () => navigate('/app/profile')
+                    }
+                });
+            }
+
             const devisData = {
                 id: isEditing ? id : 'PROVISOIRE',
                 ...formData,
@@ -1361,6 +1372,12 @@ Conditions de règlement : Paiement à réception de facture.`
             }
 
             const isInvoice = formData.type === 'invoice';
+            if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
+                toast.warning("Attention : Votre IBAN n'est pas renseigné.", {
+                    description: "Pensez à l'ajouter dans votre profil pour qu'il apparaisse sur la facture.",
+                    duration: 4000
+                });
+            }
             const devisData = {
                 id: isEditing ? id : 'PROVISOIRE',
                 ...formData,
@@ -1688,7 +1705,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 )}
 
-                                {id && !signature && formData.status !== 'accepted' && (
+                                {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && (
                                     <button
                                         onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
