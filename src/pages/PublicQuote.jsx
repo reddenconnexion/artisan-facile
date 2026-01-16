@@ -149,6 +149,12 @@ const PublicQuote = () => {
                             )}
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900">{artisan.company_name || artisan.full_name}</h1>
+                                {artisan.address && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {artisan.address}
+                                        {artisan.postal_code || artisan.city ? `, ${artisan.postal_code} ${artisan.city}` : ''}
+                                    </p>
+                                )}
                                 <div className="mt-2 space-y-1 text-sm text-gray-600">
                                     {artisan.phone && (
                                         <div className="flex items-center gap-2">
@@ -319,6 +325,32 @@ const PublicQuote = () => {
                     )}
                 </div>
 
+                {/* Payment Information (Visible for Invoices/Signed Quotes) */}
+                {(isInvoiceView || isSigned) && quote.status !== 'paid' && artisan.iban && (
+                    <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                            <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
+                            Moyens de paiement acceptés
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
+                                <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
+                                    {artisan.iban}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-2 flex items-center">
+                                    Reference à rappeler : <span className="font-bold ml-1">{quote.id}</span>
+                                </p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
+                                <p className="text-slate-900 font-medium">{artisan.phone || '07 78 68 69 62'}</p>
+                                <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Actions Bar */}
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0">
                     <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 justify-end">
@@ -339,6 +371,8 @@ const PublicQuote = () => {
                                 Signer le devis
                             </button>
                         ) : null}
+
+                        {/* Payment Info for Invoices - REMOVED ABSOLUTE BLOCK */}
 
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
