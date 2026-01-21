@@ -49,9 +49,42 @@ const ProjectPhotos = ({ clientId }) => {
 
     const canvasRef = React.useRef(null);
 
+    // Long Press Refs
+    const longPressTimer = React.useRef(null);
+    const longPressTriggered = React.useRef(false);
+
     // Bulk Actions State
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState(new Set());
+
+    // Long Press Handlers
+    const handleGridTouchStart = (photoId) => {
+        longPressTriggered.current = false;
+        longPressTimer.current = setTimeout(() => {
+            longPressTriggered.current = true;
+            setSelectionMode(true);
+            setSelectedPhotos(prev => {
+                const newSet = new Set(prev);
+                newSet.add(photoId); // Always select on long press start
+                return newSet;
+            });
+            if (navigator.vibrate) navigator.vibrate(50);
+        }, 500);
+    };
+
+    const handleGridTouchEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const handleGridTouchMove = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
 
 
     const handleGenerateComparison = async () => {
@@ -989,8 +1022,15 @@ const ProjectPhotos = ({ clientId }) => {
                                 key={photo.id}
                                 className={`relative group aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-black border transition-all ${selectedPhotos.has(photo.id)
                                     ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                                    : 'border-gray-200 dark:border-gray-800'}`}
+                                    : 'border-gray-200 dark:border-gray-800'} touch-manipulation`}
+                                onTouchStart={() => handleGridTouchStart(photo.id)}
+                                onTouchEnd={handleGridTouchEnd}
+                                onTouchMove={handleGridTouchMove}
                                 onClick={() => {
+                                    if (longPressTriggered.current) {
+                                        longPressTriggered.current = false;
+                                        return;
+                                    }
                                     if (selectionMode) {
                                         toggleSelection(photo.id);
                                     } else {
