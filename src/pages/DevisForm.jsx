@@ -52,6 +52,33 @@ const DevisForm = () => {
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
 
+    // Client Presence State
+    const [isClientOnline, setIsClientOnline] = useState(false);
+
+    useEffect(() => {
+        if (!id || id === 'new') return;
+
+        const channel = supabase.channel(`quote_presence:${id}`, {
+            config: {
+                presence: {
+                    key: 'artisan',
+                },
+            },
+        });
+
+        channel
+            .on('presence', { event: 'sync' }, () => {
+                const newState = channel.presenceState();
+                const hasClient = Object.keys(newState).some(k => k === 'client' && newState[k].length > 0);
+                setIsClientOnline(hasClient);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [id]);
+
     // Voice Dictation for AI (reusing hook from line 29)
 
 
@@ -1648,6 +1675,25 @@ Conditions de règlement : Paiement à réception de facture.`
                     >
                         Fac<span className="hidden sm:inline">ture</span>
                     </button>
+                </div>
+
+                {/* Presence Indicator */}
+                <div className="flex flex-col items-center justify-center mr-auto ml-2">
+                    {isClientOnline && (
+                        <div className="flex items-center gap-1 text-green-600 bg-green-50 px-3 py-1 rounded-full text-xs font-bold border border-green-200 animate-pulse transition-all">
+                            <span className="relative flex h-2 w-2 mr-1">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            CLIENT EN LIGNE
+                        </div>
+                    )}
+                    {!isClientOnline && formData.last_viewed_at && (
+                        <div className="flex items-center gap-1 text-gray-400 text-[10px]" title={new Date(formData.last_viewed_at).toLocaleString()}>
+                            <Eye className="w-3 h-3" />
+                            Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex gap-2">

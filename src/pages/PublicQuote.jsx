@@ -17,7 +17,46 @@ const PublicQuote = () => {
 
     useEffect(() => {
         fetchQuote();
+
+        // 1. Join Presence Channel for Realtime "Client Online" status
+        // We use a specific channel per quote
+        if (token) {
+            // Need to fetch quote first to get ID? No, we can use token or subsequent ID. 
+            // Better to use ID, but we might not have it yet.
+            // Let's rely on fetchQuote setting 'quote.id' and then joining?
+            // Or just join 'quote_presence_token:${token}'
+            // The artisan side needs to know the ID.
+            // So we must wait for quote data.
+        }
     }, [token]);
+
+    // Separate effect for presence once quote is loaded
+    useEffect(() => {
+        if (!quote?.id) return;
+
+        const channel = supabase.channel(`quote_presence:${quote.id}`, {
+            config: {
+                presence: {
+                    key: 'client', // Identify as 'client'
+                },
+            },
+        });
+
+        channel
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    // Track presence
+                    await channel.track({
+                        online_at: new Date().toISOString(),
+                        view_token: token
+                    });
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [quote?.id]);
 
     const fetchQuote = async () => {
         try {
