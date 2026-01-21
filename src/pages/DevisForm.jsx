@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -441,7 +441,8 @@ const DevisForm = () => {
                     manual_total_ttc: data.is_external ? data.total_ttc : 0,
                     operation_category: data.operation_category || 'service',
                     vat_on_debits: data.vat_on_debits === true,
-                    last_followup_at: data.last_followup_at || null
+                    last_followup_at: data.last_followup_at || null,
+                    updated_at: data.updated_at || null
                 });
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
@@ -2362,7 +2363,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 inline-block">
                             <img src={signature} alt="Signature Client" className="h-24 object-contain" />
                             <p className="text-xs text-gray-500 mt-2">
-                                Signé le {formData.signed_at ? new Date(formData.signed_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                                Signé le {new Date(formData.signed_at || formData.updated_at || new Date()).toLocaleDateString()}
                             </p>
                         </div>
                     </div>

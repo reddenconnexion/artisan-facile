@@ -367,7 +367,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setTextColor(0, 0, 0);
         doc.text("Bon pour accord :", 120, signatureY);
 
-        const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date();
+        const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
         doc.text(`Signé le ${signedDate.toLocaleDateString('fr-FR')}`, 120, signatureY + 5);
 
         try {

@@ -377,7 +377,7 @@ const PublicQuote = () => {
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
                                 <FileCheck className="w-5 h-5 mr-2" />
-                                Devis signé le {new Date(quote.signed_at || new Date()).toLocaleDateString()}
+                                Devis signé le {new Date(quote.signed_at || quote.updated_at).toLocaleDateString()}
                             </div>
                         )}
 
