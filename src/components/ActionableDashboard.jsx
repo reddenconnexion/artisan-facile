@@ -12,7 +12,8 @@ const ActionableDashboard = ({ user }) => {
         upcomingEvents: [],
         overdueQuotes: [],
         pendingInvoices: [],
-        draftQuotes: []
+        draftQuotes: [],
+        signedQuotes: []
     });
 
     useEffect(() => {
@@ -65,6 +66,15 @@ const ActionableDashboard = ({ user }) => {
                 .order('date', { ascending: true })
                 .limit(10);
 
+            // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
+            const { data: signedQuotes } = await supabase
+                .from('quotes')
+                .select('*, clients(name)')
+                .eq('user_id', user.id)
+                .eq('status', 'accepted')
+                .order('updated_at', { ascending: false });
+
+
             // 3. Pending Invoices (Billed but not Paid)
             const { data: pendingInvoices } = await supabase
                 .from('quotes')
@@ -101,7 +111,8 @@ const ActionableDashboard = ({ user }) => {
                 overdueQuotes: overdueQuotes || [],
                 pendingInvoices: pendingInvoices || [],
                 draftQuotes: draftQuotes || [],
-                maintenanceAlerts: maintenanceAlerts
+                maintenanceAlerts: maintenanceAlerts,
+                signedQuotes: signedQuotes || []
             });
 
         } catch (error) {
@@ -160,7 +171,40 @@ const ActionableDashboard = ({ user }) => {
             </div>
 
             <div className="divide-y divide-gray-100">
-                {/* 0. Maintenance Alerts */}
+                {/* 0. Signed Quotes - HIGH PRIORITY */}
+                {actionItems.signedQuotes && actionItems.signedQuotes.length > 0 && (
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500">
+                        <h4 className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider mb-3 flex items-center">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Devis Signés (À traiter)
+                        </h4>
+                        <div className="space-y-2">
+                            {actionItems.signedQuotes.map(quote => (
+                                <div
+                                    key={quote.id}
+                                    onClick={() => navigate(`/app/devis/${quote.id}`)}
+                                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-3 rounded border border-purple-100 dark:border-purple-900/30 shadow-sm cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors"
+                                >
+                                    <div>
+                                        <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            {quote.client_name || quote.clients?.name || 'Client'}
+                                            <span className="text-xs font-normal text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Signé le {format(parseISO(quote.signed_at || quote.updated_at), 'dd/MM', { locale: fr })}</span>
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            {quote.title} - <span className="font-semibold text-gray-900 dark:text-gray-100">{quote.total_ttc} €</span>
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 shadow-sm">
+                                            Traiter
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 0b. Maintenance Alerts */}
                 {actionItems.maintenanceAlerts && actionItems.maintenanceAlerts.length > 0 && (
                     <div className="p-4 bg-orange-50/50 dark:bg-orange-900/10">
                         <h4 className="text-xs font-bold text-orange-800 dark:text-orange-300 uppercase tracking-wider mb-3 flex items-center">

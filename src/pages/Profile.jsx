@@ -429,6 +429,28 @@ const Profile = () => {
                             Copier
                         </button>
                     </div>
+                    <div className="mt-4">
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const { sendNotification } = await import('../utils/notifications'); // Dynamic import to avoid circular dep if any
+                                try {
+                                    await sendNotification(user?.id, "Ceci est un test de notification !", "Test Artisan Facile");
+                                    toast.success('Notification de test envoyée !');
+                                } catch (e) {
+                                    toast.error('Erreur lors de l\'envoi');
+                                    console.error(e);
+                                }
+                            }}
+                            className="text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded-lg flex items-center w-full sm:w-auto justify-center"
+                        >
+                            <Bell className="w-4 h-4 mr-2" />
+                            Envoyer une notification de test
+                        </button>
+                        <p className="text-xs text-blue-600 mt-2">
+                            Si vous ne recevez rien après avoir cliqué, vérifiez que vous êtes bien abonné au sujet ci-dessus dans l'application ntfy.
+                        </p>
+                    </div>
                 </div>
             </div>
 
