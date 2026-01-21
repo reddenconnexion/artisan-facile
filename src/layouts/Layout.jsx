@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import { supabase } from '../utils/supabase';
@@ -112,6 +112,7 @@ const Layout = () => {
 
     if (settings.enable_crm) {
       nav.push({ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban });
+      nav.push({ name: 'Relances', href: '/app/follow-ups', icon: Send });
     }
 
     nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });

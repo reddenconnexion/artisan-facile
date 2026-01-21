@@ -270,8 +270,105 @@ export const processAssistantIntent = async (userText, context = {}) => {
 
         return JSON.parse(cleanJson);
 
+
     } catch (e) {
         console.error("Assistant Intent Error:", e);
         throw e;
+    }
+};
+
+/**
+ * Generates a follow-up email content using AI.
+ * @param {object} quote - The quote object
+ * @param {object} client - The client object
+ * @param {object} step - The step configuration (label, context)
+ * @param {object} context - User settings/context
+ * @returns {Promise<object>} { subject, body }
+ */
+export const generateFollowUpEmail = async (quote, client, step, context = {}) => {
+    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
+    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
+
+    if (!apiKey) {
+        throw new Error("Clé API manquante.");
+    }
+
+    const companyName = context.companyName || "Votre Artisan";
+    const userName = context.userName || "";
+
+    const systemPrompt = `
+    Tu es un assistant professionnel pour un artisan du bâtiment.
+    Rédige un e-mail de relance pour un devis envoyé.
+    
+    CONTEXTE :
+    - Artisan : ${companyName} ${userName ? `(${userName})` : ''}
+    - Client : ${client.name || 'Client'}
+    - Projet : ${quote.title || 'Travaux'}
+    - Devis N° : ${quote.id}
+    - Date du devis : ${new Date(quote.date).toLocaleDateString('fr-FR')}
+    - Montant : ${quote.total_ttc ? quote.total_ttc + '€' : 'N/A'}
+    
+    OBJECTIF DE LA RELANCE : ${step.label}
+    TON/INSTRUCTIONS SPÉCIFIQUES : ${step.context || "Ton professionnel, courtois et direct."}
+    
+    FORMAT JSON ATTENDU :
+    {
+        "subject": "Objet du mail...",
+        "body": "Corps du mail..."
+    }
+    `;
+
+    try {
+        let jsonResponse = "";
+
+        if (provider === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: systemPrompt
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error?.message || "Erreur Gemini");
+            }
+            const data = await response.json();
+            jsonResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        } else {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-3.5-turbo",
+                    messages: [
+                        { role: "system", content: systemPrompt }
+                    ],
+                    temperature: 0.7
+                })
+            });
+            const data = await response.json();
+            jsonResponse = data.choices[0].message.content;
+        }
+
+        let cleanJson = jsonResponse.trim();
+        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+        if (jsonMatch) cleanJson = jsonMatch[0];
+
+        return JSON.parse(cleanJson);
+
+    } catch (error) {
+        console.error("AI FollowUp Error:", error);
+        throw error;
     }
 };

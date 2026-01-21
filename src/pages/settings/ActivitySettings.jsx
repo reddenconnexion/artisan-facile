@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
 import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar, Calculator, LogOut } from 'lucide-react';
+import FollowUpConfig from '../../components/FollowUpConfig';
 
 const ActivitySettings = () => {
     const { user } = useAuth();
@@ -172,6 +173,8 @@ const ActivitySettings = () => {
                     );
                 })}
             </div>
+
+            <FollowUpConfig />
 
             <div className="mt-8 flex justify-end">
                 <button
