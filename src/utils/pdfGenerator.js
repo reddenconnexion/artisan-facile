@@ -251,7 +251,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Calculate VAT part for materials using effective rate
         const materialTTC = devis.include_tva !== false ? materialHT * (1 + vatRate) : materialHT;
 
-        const depositNote = `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${materialTTC.toFixed(2)} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.\nUne facture d'acompte vous sera envoyée dès validation du devis.`;
+        const depositNote = `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${materialTTC.toFixed(2)} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.`;
 
         allNotes += depositNote;
     }

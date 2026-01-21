@@ -317,7 +317,6 @@ const PublicQuote = () => {
                                             return mTTC.toFixed(2);
                                         })()} € TTC.<br />
                                         Un acompte correspondant à la totalité du matériel est requis à la signature.<br />
-                                        Une facture d'acompte vous sera envoyée dès validation du devis.
                                     </div>
                                 )}
                             </div>
