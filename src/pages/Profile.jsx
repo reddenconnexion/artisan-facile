@@ -383,7 +383,7 @@ const Profile = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
                                 <div className="flex items-center space-x-4">
                                     {formData.logo_url && (
-                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded border border-gray-200" />
+                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-xl border border-gray-200" />
                                     )}
                                     <input
                                         type="file"

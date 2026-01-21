@@ -144,7 +144,7 @@ const PublicQuote = () => {
                                 <img
                                     src={artisan.logo_url}
                                     alt="Logo"
-                                    className="w-20 h-20 object-contain bg-white rounded-lg shadow-sm p-1"
+                                    className="w-20 h-20 object-contain bg-white rounded-3xl shadow-sm p-1"
                                 />
                             )}
                             <div>
