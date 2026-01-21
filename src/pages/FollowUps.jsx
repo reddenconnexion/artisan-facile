@@ -44,8 +44,12 @@ const FollowUps = () => {
             .from('quote_follow_ups')
             .select(`
                 *,
-                quotes (id, title, total_ttc),
-                quotes:quotes (clients (name))
+                quotes (
+                    id,
+                    title,
+                    total_ttc,
+                    clients (name)
+                )
             `)
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
@@ -130,8 +134,8 @@ const FollowUps = () => {
                     <button
                         onClick={() => setActiveTab('due')}
                         className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'due'
-                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         À Relancer ({dueQuotes.length})
@@ -139,8 +143,8 @@ const FollowUps = () => {
                     <button
                         onClick={() => setActiveTab('history')}
                         className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
-                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Historique
