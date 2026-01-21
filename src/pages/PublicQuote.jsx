@@ -341,11 +341,13 @@ const PublicQuote = () => {
                                     Reference à rappeler : <span className="font-bold ml-1">{quote.id}</span>
                                 </p>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                <p className="text-slate-900 font-medium">{artisan.wero_phone || artisan.phone}</p>
-                                <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
-                            </div>
+                            {artisan.wero_phone && (
+                                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
+                                    <p className="text-slate-900 font-medium">{artisan.wero_phone}</p>
+                                    <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
