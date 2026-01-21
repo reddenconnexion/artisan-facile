@@ -624,6 +624,9 @@ const ProjectPhotos = ({ clientId }) => {
                     console.error("Move (Delete old) Error:", deleteError);
                     toast.error("Attention: Copie réussie mais suppression des originaux échouée.");
                 } else {
+                    const targetName = isCreatingInMove
+                        ? newMoveProjectName.trim()
+                        : (projects.find(p => p.id === parseInt(targetId))?.name || 'Dossier cible');
                     toast.success(`${insertedData.length} photo(s) déplacée(s) vers ${targetName}`, { id: 'move-toast' });
                 }
             } else {
