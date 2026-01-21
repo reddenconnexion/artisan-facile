@@ -379,7 +379,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Informations de paiement (IBAN + Wero)
     const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
-    const weroNumber = "07 78 68 69 62"; // Hardcoded as per user request
+    const weroNumber = userProfile.phone;
 
     if (hasIban || weroNumber) {
         let paymentY = currentY + 40;
