@@ -63,6 +63,7 @@ const Profile = () => {
                     google_review_url: data.google_review_url || '',
                     trade: data.trade || 'general',
                     iban: data.iban || '',
+                    wero_phone: data.wero_phone || '',
                     openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
                     ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
                     ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
@@ -135,6 +136,7 @@ const Profile = () => {
                     google_review_url: formData.google_review_url,
                     trade: formData.trade,
                     iban: formData.iban,
+                    wero_phone: formData.wero_phone,
 
                     // Save AI prefs to JSONB column
                     ai_preferences: {
@@ -364,6 +366,18 @@ const Profile = () => {
                                     placeholder="FR76 ..."
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro Wero / Paylib</label>
+                                <input
+                                    type="tel"
+                                    name="wero_phone"
+                                    value={formData.wero_phone}
+                                    onChange={handleChange}
+                                    placeholder="06 00 00 00 00"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Si différent du téléphone de contact. Utile pour les paiements instantanés.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
