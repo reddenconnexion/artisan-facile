@@ -67,12 +67,17 @@ const ActionableDashboard = ({ user }) => {
                 .limit(10);
 
             // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
-            const { data: signedQuotes } = await supabase
+            // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
+            // We fetch quotes that are accepted AND don't have linked invoices (children) yet.
+            const { data: rawSignedQuotes } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients(name), invoices:quotes!parent_id(id, type)')
                 .eq('user_id', user.id)
                 .eq('status', 'accepted')
                 .order('updated_at', { ascending: false });
+
+            // Filter out quotes that already have at least one invoice generated (deposit or final)
+            const signedQuotes = (rawSignedQuotes || []).filter(q => !q.invoices || q.invoices.length === 0);
 
 
             // 3. Pending Invoices (Billed but not Paid)
