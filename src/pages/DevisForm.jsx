@@ -618,7 +618,7 @@ const DevisForm = () => {
             if (isInvoice && formData.status === 'paid') {
                 subjectPrefix = 'Facture';
             }
-            const subject = `${subjectPrefix} N°${formData.id || 'PROVISOIRE'} : ${formData.title || 'Votre projet'} - ${companyName}`;
+            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} : ${formData.title || 'Votre projet'} - ${companyName}`;
 
             const introduction = isInvoice
                 ? `Bonjour ${selectedClient.name},\n\nVeuillez trouver ci-joint la facture concernant votre projet "${formData.title || 'Travaux'}".`
