@@ -363,6 +363,22 @@ const PublicQuote = () => {
                     )}
                 </div>
 
+                {/* Legal Terms Footer (Common) */}
+                <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
+                    <p className="mb-2">
+                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}. Le règlement s'effectue par virement bancaire ou chèque à l'ordre de {artisan.company_name || artisan.full_name}.
+                    </p>
+                    <p className="mb-2">
+                        <strong className="text-gray-500">Pénalités de retard :</strong> Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.
+                    </p>
+                    <p className="mb-2">
+                        <strong className="text-gray-500">Frais de recouvrement (Clients Pros) :</strong> Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).
+                    </p>
+                    <p>
+                        <strong className="text-gray-500">Réserve de propriété :</strong> Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix.
+                    </p>
+                </div>
+
                 {/* Payment Information (Visible for Invoices/Signed Quotes) */}
                 {(isInvoiceView || isSigned) && quote.status !== 'paid' && artisan.iban && (
                     <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">

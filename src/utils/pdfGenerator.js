@@ -381,41 +381,31 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
     const weroNumber = userProfile.wero_phone;
 
+    // Determine content start Y (after Notes/Signature)
+    let elementY = currentY + 40;
+    if (devis.signature && devis.status !== 'paid') {
+        elementY = currentY + 50;
+    }
+
     if (hasIban || weroNumber) {
-        let paymentY = currentY + 40;
+        const boxHeight = 32;
 
-        // Smart Page Break Logic
-        // Calculate required space: Header (8) + IBAN (6) + Wero (6) + Ref (8) + Padding (5) ≈ 35-40
-        const requiredHeight = 45;
-
-        if (paymentY + requiredHeight > 280) {
+        // Check if box fits
+        if (elementY + boxHeight > 285) {
             doc.addPage();
-            paymentY = 20;
-        } else if (devis.signature && currentY + 90 > 280) { // Check if signature + payment fits
-            // If signature pushes payment off page
-            doc.addPage();
-            paymentY = 20;
-        } else if (devis.signature) {
-            // Signature is present, payment goes below it
-            // Signature is approx 30-40 units high
-            paymentY = currentY + 50;
-
-            if (paymentY + requiredHeight > 280) {
-                doc.addPage();
-                paymentY = 20;
-            }
+            elementY = 20;
         }
 
         // Box
         doc.setDrawColor(200, 200, 200);
         doc.setFillColor(248, 250, 252);
-        doc.rect(14, paymentY, 180, 32, 'FD'); // Increased height from 25 to 32
+        doc.rect(14, elementY, 180, boxHeight, 'FD');
 
         // Title
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("Moyens de paiement acceptés :", 20, paymentY + 8);
+        doc.text("Moyens de paiement acceptés :", 20, elementY + 8);
 
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
@@ -424,25 +414,63 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         // IBAN Line
         if (hasIban) {
-            doc.text("Virement", 20, paymentY + lineOffset);
+            doc.text("Virement", 20, elementY + lineOffset);
             doc.setFont(undefined, 'bold');
-            doc.text(`IBAN : ${userProfile.iban}`, 55, paymentY + lineOffset);
+            doc.text(`IBAN : ${userProfile.iban}`, 55, elementY + lineOffset);
             doc.setFont(undefined, 'normal');
             lineOffset += 6;
         }
 
         // Wero Line
-        doc.text("Paylib / Wero", 20, paymentY + lineOffset);
+        doc.text("Paylib / Wero", 20, elementY + lineOffset);
         doc.setFont(undefined, 'bold');
-        doc.text(`Tél : ${weroNumber}`, 55, paymentY + lineOffset);
+        doc.text(`Tél : ${weroNumber}`, 55, elementY + lineOffset);
 
         // Reference info - Only if NOT paid
         if (devis.status !== 'paid') {
             doc.setFont(undefined, 'italic');
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, paymentY + 28);
+            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, elementY + 28);
         }
+
+        elementY += boxHeight + 10;
+    } else {
+        // Just add some spacing if no payment box
+        elementY += 10;
+    }
+
+    // Conditions de règlement & Mentions légales
+    doc.setFontSize(7);
+    doc.setTextColor(110, 110, 110);
+    doc.setFont(undefined, 'normal');
+
+    // Calcule la date d'échance : soit c'est une facture et on a valid_until, soit c'est aujourd'hui (réception)
+    const dueDate = (isInvoice && devis.valid_until)
+        ? new Date(devis.valid_until).toLocaleDateString()
+        : "à réception";
+
+    const legalTerms = [
+        `Règlement : Le paiement est dû ${isInvoice && devis.valid_until ? `le ${dueDate}` : 'à réception de la facture'}. Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${companyName}.`,
+        "Pénalités de retard : Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.",
+        "Frais de recouvrement (Clients Pros) : Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).",
+        "Réserve de propriété : Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix."
+    ];
+
+    for (const term of legalTerms) {
+        // Roughly estimate height: 180 width, ~240 chars per line at size 7? 
+        // Actually size 7 is small. 
+        const splitTerm = doc.splitTextToSize(term, 180);
+        const termHeight = splitTerm.length * 3 + 2; // 3 units per line height
+
+        if (elementY + termHeight > 285) {
+            doc.addPage();
+            elementY = 20;
+        }
+
+        doc.text(splitTerm, 14, elementY);
+
+        elementY += termHeight + 2;
     }
 
 

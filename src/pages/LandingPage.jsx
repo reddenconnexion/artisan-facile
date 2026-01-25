@@ -23,9 +23,9 @@ const LandingPage = () => {
         return <div className="flex items-center justify-center h-screen">Chargement...</div>;
     }
 
-    // if (user) {
-    //     return <Navigate to="/app" />;
-    // }
+    if (user) {
+        return <Navigate to="/app" />;
+    }
 
     return (
         <div className="min-h-screen bg-white">
