@@ -2703,17 +2703,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                         autoFocus
                                     />
 
-                                    {/* Dictation Button Floating */}
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleDictation(`item-description-${itemIndex}`)}
-                                        className={`absolute bottom-8 right-6 p-4 rounded-full shadow-xl transition-all active:scale-95 ${isListening && activeField === `item-description-${itemIndex}`
-                                            ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
-                                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                                            }`}
-                                    >
-                                        <Mic className="w-6 h-6" />
-                                    </button>
                                 </div>
                             </div>
                         );
