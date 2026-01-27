@@ -277,7 +277,8 @@ const WorksitePilot = () => {
                                                         onClick={() => navigate(`/app/devis/${job.id}`)}
                                                         className="text-xs text-blue-600 hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
                                                     >
-                                                        <FileText className="w-3 h-3" /> Devis #{job.id}
+                                                        <FileText className="w-3 h-3 shrink-0" />
+                                                        <span className="truncate">Devis #{job.id} {job.title ? `- ${job.title}` : ''}</span>
                                                     </div>
                                                 </div>
                                                 <span className="font-bold text-gray-700 text-sm">{job.total_ttc} €</span>
