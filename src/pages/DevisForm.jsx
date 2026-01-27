@@ -2049,6 +2049,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <option value="refused">Refusé</option>
                             <option value="billed">Facturé</option>
                             <option value="paid">Payé</option>
+                            <option value="postponed">Reporté</option>
                             <option value="cancelled">Annulé</option>
                         </select>
                         {formData.last_followup_at && (

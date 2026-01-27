@@ -13,6 +13,7 @@ const StatusBadge = ({ status }) => {
         rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: AlertCircle, label: 'Refusé' },
         billed: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', icon: CheckCircle, label: 'Facturé' },
         paid: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: CheckCircle, label: 'Payé' },
+        postponed: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Clock, label: 'Reporté' },
     };
     const style = styles[status] || styles.draft;
     const Icon = style.icon;
@@ -158,7 +159,7 @@ const DevisList = () => {
                     />
                 </div>
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto">
-                    {['all', 'pending', 'draft', 'sent', 'accepted', 'billed', 'paid'].map((status) => (
+                    {['all', 'pending', 'draft', 'sent', 'accepted', 'billed', 'paid', 'postponed'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
@@ -174,6 +175,7 @@ const DevisList = () => {
                             {status === 'accepted' && 'Signés'}
                             {status === 'billed' && 'Facturés'}
                             {status === 'paid' && 'Payés'}
+                            {status === 'postponed' && 'Reportés'}
                         </button>
                     ))}
                 </div>
