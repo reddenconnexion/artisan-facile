@@ -255,11 +255,26 @@ const PublicQuote = () => {
                     {/* Content: External PDF or Items Table */}
                     {(quote.is_external && quote.original_pdf_url) ? (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
-                            <iframe
-                                src={quote.original_pdf_url}
+                            <object
+                                data={quote.original_pdf_url}
+                                type="application/pdf"
                                 className="w-full h-full bg-gray-50"
-                                title="Document du devis"
-                            />
+                            >
+                                <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
+                                    <div className="bg-white p-6 rounded-xl shadow-sm max-w-sm">
+                                        <p className="text-gray-500 mb-4">L'aperçu du document original n'est pas supporté sur cet appareil.</p>
+                                        <a
+                                            href={quote.original_pdf_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center font-medium shadow-sm transition-colors"
+                                        >
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Télécharger le document
+                                        </a>
+                                    </div>
+                                </div>
+                            </object>
                         </div>
                     ) : (
                         <div className="mb-8 space-y-8">

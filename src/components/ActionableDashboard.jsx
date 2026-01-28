@@ -248,7 +248,11 @@ const ActionableDashboard = ({ user }) => {
                             {actionItems.upcomingEvents.map((event, idx) => {
                                 const isNext = idx === 0; // The first one is the "Current/Next" one
                                 return (
-                                    <div key={event.id} className={`flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border shadow-sm ${isNext ? 'border-blue-300 dark:border-blue-700 ring-1 ring-blue-100 dark:ring-blue-900/50' : 'border-blue-100 dark:border-blue-900/30'}`}>
+                                    <div
+                                        key={event.id}
+                                        onClick={() => navigate('/app/agenda', { state: { focusDate: event.date } })}
+                                        className={`flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border shadow-sm transition-colors cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 ${isNext ? 'border-blue-300 dark:border-blue-700 ring-1 ring-blue-100 dark:ring-blue-900/50' : 'border-blue-100 dark:border-blue-900/30'}`}
+                                    >
                                         <div className="flex items-center flex-1">
                                             <div className="w-12 text-center leading-none mr-3 flex-shrink-0">
                                                 <span className="block text-xs text-gray-500 dark:text-gray-400">{format(event.startDateTime, 'dd/MM', { locale: fr })}</span>
@@ -260,7 +264,7 @@ const ActionableDashboard = ({ user }) => {
                                             </div>
                                         </div>
                                         {isNext && event.address && (
-                                            <div className="flex gap-1 ml-2">
+                                            <div className="flex gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
                                                 <a
                                                     href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`}
                                                     target="_blank"

@@ -61,7 +61,7 @@ const Agenda = () => {
         }
     }, [user, currentDate]);
 
-    // Handle Voice Data or Direct Prefill from Client Form
+    // Handle Voice Data, Direct Prefill, or Simple Date Focus
     useEffect(() => {
         if (location.state?.voiceData) {
             const { title, time, clientName, location: loc, dateISO } = location.state.voiceData;
@@ -111,6 +111,12 @@ const Agenda = () => {
                 time: '09:00' // Default time
             }));
             setShowModal(true);
+            window.history.replaceState({}, document.title);
+        } else if (location.state?.focusDate) {
+            // Just jump to date (e.g. from Dashboard)
+            const newDate = new Date(location.state.focusDate);
+            setSelectedDate(newDate);
+            setCurrentDate(newDate);
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);

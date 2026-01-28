@@ -2509,11 +2509,26 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </button>
                             </div>
                             <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
-                                <iframe
-                                    src={previewUrl}
-                                    className="w-full h-full border-none"
-                                    title="Aperçu PDF"
-                                />
+                                <object
+                                    data={previewUrl}
+                                    type="application/pdf"
+                                    className="w-full h-full"
+                                >
+                                    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                                        <div className="bg-white p-6 rounded-xl shadow-sm max-w-sm">
+                                            <p className="text-gray-500 mb-4">L'aperçu intégré n'est pas supporté sur votre appareil.</p>
+                                            <a
+                                                href={previewUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center font-medium shadow-sm transition-colors"
+                                            >
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Ouvrir le PDF
+                                            </a>
+                                        </div>
+                                    </div>
+                                </object>
                             </div>
                             <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
                                 <button
