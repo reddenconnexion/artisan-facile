@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, Loader2, ArrowRight } from 'lucide-react';
+import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, Loader2, ArrowRight, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -100,6 +100,32 @@ const Portfolio = () => {
         }
     };
 
+    const handleDelete = async (item) => {
+        if (!window.confirm('Voulez-vous vraiment supprimer ce montage du portfolio ?')) return;
+
+        try {
+            // 1. Delete from Database
+            const { error: dbError } = await supabase
+                .from('project_photos')
+                .delete()
+                .eq('id', item.id);
+
+            if (dbError) throw dbError;
+
+            // 2. Delete from Storage (Optional but cleaner)
+            const path = item.photo_url.split('/project-photos/')[1];
+            if (path) {
+                await supabase.storage.from('project-photos').remove([path]);
+            }
+
+            setMontages(prev => prev.filter(m => m.id !== item.id));
+            toast.success('Montage supprimé');
+        } catch (error) {
+            console.error('Error deleting montage:', error);
+            toast.error('Erreur lors de la suppression');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -172,6 +198,13 @@ const Portfolio = () => {
                                         >
                                             <ExternalLink className="w-6 h-6" />
                                         </a>
+                                        <button
+                                            onClick={() => handleDelete(item)}
+                                            className="p-3 bg-white text-red-600 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-lg pointer-events-auto"
+                                            title="Supprimer du portfolio"
+                                        >
+                                            <Trash2 className="w-6 h-6" />
+                                        </button>
                                     </div>
                                 </div>
 

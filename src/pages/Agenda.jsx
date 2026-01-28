@@ -388,17 +388,22 @@ const Agenda = () => {
                                             {event.time}
                                         </span>
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="space-y-2 mt-2">
                                         {event.client_name && (
-                                            <div className="flex items-center text-sm text-gray-500">
-                                                <User className="w-4 h-4 mr-2" />
-                                                {event.client_name}
+                                            <div className="flex items-start text-sm text-gray-600">
+                                                <User className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
+                                                <span className="font-medium">{event.client_name}</span>
                                             </div>
                                         )}
                                         {event.address && (
-                                            <div className="flex items-center text-sm text-gray-500">
-                                                <MapPin className="w-4 h-4 mr-2" />
-                                                {event.address}
+                                            <div className="flex items-start text-sm text-gray-500">
+                                                <MapPin className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
+                                                <span>{event.address}</span>
+                                            </div>
+                                        )}
+                                        {event.details && (
+                                            <div className="bg-gray-50 p-2 rounded text-sm text-gray-600 italic whitespace-pre-wrap border border-gray-100 mt-2">
+                                                {event.details}
                                             </div>
                                         )}
                                     </div>

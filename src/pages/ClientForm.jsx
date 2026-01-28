@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -230,6 +230,20 @@ const ClientForm = () => {
                         <Sparkles className="w-4 h-4 mr-2" />
                         <span className="hidden sm:inline">IA Assistant</span>
                     </button>
+                    {isEditing && (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/app/devis/new', {
+                                state: {
+                                    client_id: id
+                                }
+                            })}
+                            className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                        >
+                            <FilePlus className="w-4 h-4 mr-2" />
+                            <span className="hidden sm:inline">Créer devis</span>
+                        </button>
+                    )}
                     {isEditing && (
                         <button
                             type="button"
