@@ -270,8 +270,8 @@ const WorksitePilot = () => {
                                             style={{ borderLeftColor: column.id === 'in_progress' ? '#F59E0B' : column.id === 'completed' ? '#10B981' : '#3B82F6' }}
                                         >
                                             {/* Card Top: Client & Price */}
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
+                                            <div className="flex justify-between items-start mb-2 gap-2">
+                                                <div className="min-w-0 flex-1">
                                                     <h4 className="font-bold text-gray-900 truncate pr-2">{job.clients?.name || 'Client Inconnu'}</h4>
                                                     <div
                                                         onClick={() => navigate(`/app/devis/${job.id}`)}
@@ -281,7 +281,7 @@ const WorksitePilot = () => {
                                                         <span className="truncate">Devis #{job.id} {job.title ? `- ${job.title}` : ''}</span>
                                                     </div>
                                                 </div>
-                                                <span className="font-bold text-gray-700 text-sm">{job.total_ttc} €</span>
+                                                <span className="font-bold text-gray-700 text-sm whitespace-nowrap shrink-0">{Number(job.total_ttc || 0).toFixed(2)} €</span>
                                             </div>
 
                                             {/* Card Middle: Address & Info */}
