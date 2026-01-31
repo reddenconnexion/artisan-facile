@@ -379,7 +379,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Informations de paiement (IBAN + Wero)
     const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
-    const weroNumber = userProfile.wero_phone;
+    const weroNumber = (userProfile.wero_phone && userProfile.wero_phone.trim().length > 0) ? userProfile.wero_phone : null;
 
     // Determine content start Y (after Notes/Signature)
     let elementY = currentY + 40;
@@ -422,9 +422,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
 
         // Wero Line
-        doc.text("Paylib / Wero", 20, elementY + lineOffset);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Tél : ${weroNumber}`, 55, elementY + lineOffset);
+        // Wero Line
+        if (weroNumber && weroNumber.trim().length > 0) {
+            doc.text("Paylib / Wero", 20, elementY + lineOffset);
+            doc.setFont(undefined, 'bold');
+            doc.text(`Tél : ${weroNumber}`, 55, elementY + lineOffset);
+        }
 
         // Reference info - Only if NOT paid
         if (devis.status !== 'paid') {
