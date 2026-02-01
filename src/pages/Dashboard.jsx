@@ -10,31 +10,23 @@ import ActionableDashboard from '../components/ActionableDashboard';
 
 // --- Helper for Stats Calculation (Pure Function) ---
 const calculateStats = (allQuotes, referenceDate) => {
-    // Default safe return structure
-    const getEmptyMetric = () => ({
-        week: 0, month: 0, year: 0, lastYear: 0, total: 0,
-        charts: {
-            week: new Array(7).fill(0),
-            month: new Array(30).fill(0),
-            year: new Array(12).fill(0),
-            lastYear: new Array(12).fill(0)
-        },
-        details: { week: [], month: [], year: [], lastYear: [] }
-    });
+    // Default safe return structure matching buildMetricObject shape
+    const getSafeEmptyMetric = () => {
+        const emptyItem = { value: 0, max: 100, chart: [], details: [] };
+        return {
+            week: { ...emptyItem },
+            month: { ...emptyItem },
+            year: { ...emptyItem },
+            lastYear: { ...emptyItem }
+        };
+    };
 
     if (!allQuotes || !(referenceDate instanceof Date) || isNaN(referenceDate)) {
         return {
-            revenue: getEmptyMetric(),
-            netIncome: getEmptyMetric(),
-            quotes: getEmptyMetric(),
-            conversion: {
-                week: { signed: 0, total: 0 },
-                month: { signed: 0, total: 0 },
-                year: { signed: 0, total: 0 },
-                lastYear: { signed: 0, total: 0 },
-                charts: { week: [], month: [], year: [], lastYear: [] },
-                details: { week: [], month: [], year: [], lastYear: [] }
-            }
+            revenue: getSafeEmptyMetric(),
+            netIncome: getSafeEmptyMetric(),
+            quotes: getSafeEmptyMetric(),
+            conversion: getSafeEmptyMetric()
         };
     }
 
@@ -42,7 +34,8 @@ const calculateStats = (allQuotes, referenceDate) => {
         const daysInMonth = getDaysInMonth(referenceDate);
         const emptyMonthChart = new Array(daysInMonth).fill(0);
 
-        const getInitializedMetric = () => ({
+        // Internal accumulation structure (different from return structure)
+        const getInitializedAccumulator = () => ({
             week: 0, month: 0, year: 0, lastYear: 0, total: 0,
             charts: {
                 week: new Array(7).fill(0),
@@ -54,9 +47,9 @@ const calculateStats = (allQuotes, referenceDate) => {
         });
 
         const metrics = {
-            revenue: getInitializedMetric(),
-            netIncome: getInitializedMetric(),
-            quotes: getInitializedMetric(),
+            revenue: getInitializedAccumulator(),
+            netIncome: getInitializedAccumulator(),
+            quotes: getInitializedAccumulator(),
             conversion: {
                 week: { signed: 0, total: 0 },
                 month: { signed: 0, total: 0 },
@@ -244,7 +237,12 @@ const calculateStats = (allQuotes, referenceDate) => {
 
     } catch (e) {
         console.error("Calculation Error", e);
-        return { revenue: getEmptyMetric(), netIncome: getEmptyMetric(), quotes: getEmptyMetric(), conversion: { week: { value: 0 }, month: { value: 0 }, year: { value: 0 }, lastYear: { value: 0 } } };
+        return {
+            revenue: getSafeEmptyMetric(),
+            netIncome: getSafeEmptyMetric(),
+            quotes: getSafeEmptyMetric(),
+            conversion: getSafeEmptyMetric()
+        };
     }
 };
 
