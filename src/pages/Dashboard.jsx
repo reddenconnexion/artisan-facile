@@ -126,6 +126,7 @@ const RevenueBar = ({ label, value, max, color, period, onClick, formatter }) =>
 };
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [referenceDate, setReferenceDate] = useState(new Date());
     const [allQuotes, setAllQuotes] = useState([]);
     const [clientCount, setClientCount] = useState(0);
