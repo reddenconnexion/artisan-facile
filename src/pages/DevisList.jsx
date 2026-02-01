@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'sonner';
+import { useQuotes } from '../hooks/useDataCache';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -28,16 +26,17 @@ const StatusBadge = ({ status }) => {
 
 const DevisList = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
     const location = useLocation();
-    const [devisList, setDevisList] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+    // Utilisation du cache React Query
+    const { data: devisList = [], isLoading: loading } = useQuotes();
+
     const [searchTerm, setSearchTerm] = useState('');
     const importInputRef = React.useRef(null);
 
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
 
-    // Reset filter if location state changes (optional, but good if navigating from dashboard again)
+    // Reset filter if location state changes
     useEffect(() => {
         if (location.state?.filter) {
             setStatusFilter(location.state.filter);
@@ -52,52 +51,6 @@ const DevisList = () => {
         const file = event.target.files?.[0];
         if (file) {
             navigate('/app/devis/new', { state: { importFile: file } });
-        }
-    };
-
-    useEffect(() => {
-        if (user) {
-            fetchDevis();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('quotes_list_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'quotes' },
-                    (payload) => {
-                        console.log('Realtime change received:', payload);
-                        if (payload.eventType === 'INSERT') {
-                            setDevisList((prev) => [payload.new, ...prev]);
-                        } else if (payload.eventType === 'UPDATE') {
-                            setDevisList((prev) => prev.map((item) => (item.id === payload.new.id ? payload.new : item)));
-                        } else if (payload.eventType === 'DELETE') {
-                            setDevisList((prev) => prev.filter((item) => item.id !== payload.old.id));
-                        }
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
-        }
-    }, [user]);
-
-    const fetchDevis = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('quotes')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setDevisList(data || []);
-        } catch (error) {
-            toast.error('Erreur lors du chargement des devis');
-            console.error('Error fetching quotes:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
