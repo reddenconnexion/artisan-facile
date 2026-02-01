@@ -103,8 +103,18 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // Bibliothèques PDF (très lourdes)
           pdfjs: ['pdfjs-dist'],
-          mammoth: ['mammoth']
+          pdfgen: ['jspdf', 'jspdf-autotable', 'pdf-lib'],
+          mammoth: ['mammoth'],
+          // Graphiques
+          charts: ['recharts'],
+          // Utilitaires
+          dateFns: ['date-fns'],
+          // React Query
+          query: ['@tanstack/react-query'],
+          // Autres
+          xlsx: ['xlsx']
         }
       }
     }

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useClients, useInvalidateCache } from '../hooks/useDataCache';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Clients = () => {
     const { invalidateClients } = useInvalidateCache();
 
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
     const [activeMenu, setActiveMenu] = useState(null);
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('clients_view_mode') || 'grid');
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
@@ -53,7 +55,7 @@ const Clients = () => {
     };
 
     const filteredClients = clients.filter(client => {
-        const term = searchTerm.toLowerCase();
+        const term = debouncedSearch.toLowerCase(); // Utilise la recherche retardée
         return (
             client.name.toLowerCase().includes(term) ||
             (client.email && client.email.toLowerCase().includes(term)) ||

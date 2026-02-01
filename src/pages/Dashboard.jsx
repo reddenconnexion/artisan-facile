@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useDashboardData } from '../hooks/useDataCache';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 
@@ -371,61 +370,15 @@ const RevenueBar = ({ label, value, max, color, onClick, formatter }) => {
 };
 
 const Dashboard = () => {
-    const { user } = useAuth();
     const navigate = useNavigate();
-    const [allQuotes, setAllQuotes] = useState([]);
-    const [clientCount, setClientCount] = useState(0);
-    const [pendingQuotesCount, setPendingQuotesCount] = useState(0);
-    const [recentActivity, setRecentActivity] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [detailsView, setDetailsView] = useState(null);
 
-    useEffect(() => {
-        if (user) fetchRawData();
-    }, [user]);
-
-    const fetchRawData = async () => {
-        setLoading(true);
-        try {
-            const { data: quotes, error: quotesError } = await supabase.from('quotes').select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
-            if (quotesError) throw quotesError;
-            setAllQuotes(quotes || []);
-
-            const { count: cCount } = await supabase.from('clients').select('*', { count: 'exact', head: true });
-            setClientCount(cCount || 0);
-
-            const { count: pQuotes } = await supabase.from('quotes').select('*', { count: 'exact', head: true }).in('status', ['draft', 'sent']);
-            setPendingQuotesCount(pQuotes || 0);
-
-            // Recent Activity
-            const { data: rQuotes } = await supabase.from('quotes').select('*, clients(name)').order('created_at', { ascending: false }).limit(5);
-            const { data: rSignatures } = await supabase.from('quotes').select('*, clients(name)').not('signed_at', 'is', null).order('signed_at', { ascending: false }).limit(5);
-            const { data: rClients } = await supabase.from('clients').select('*').order('created_at', { ascending: false }).limit(5);
-
-            const activities = [
-                ...(rQuotes || []).map(q => ({ type: 'quote', date: q.created_at, description: `Devis créé pour ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),
-                ...(rSignatures || []).map(q => ({ type: 'signature', date: q.signed_at, description: `Devis signé par ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),
-                ...(rClients || []).map(c => ({ type: 'client', date: c.created_at, description: `Nouveau client : ${c.name}`, amount: null }))
-            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
-            setRecentActivity(activities);
-
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Real-time updates
-    useEffect(() => {
-        if (!user) return;
-        const subscription = supabase.channel('dashboard-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => fetchRawData()).subscribe();
-        const clientsSubscription = supabase.channel('dashboard-clients').on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => fetchRawData()).subscribe();
-        return () => {
-            supabase.removeChannel(subscription);
-            supabase.removeChannel(clientsSubscription);
-        };
-    }, [user]);
+    // Utilisation du cache React Query
+    const { data, isLoading: loading } = useDashboardData();
+    const allQuotes = data?.allQuotes || [];
+    const clientCount = data?.clientCount || 0;
+    const pendingQuotesCount = data?.pendingQuotesCount || 0;
+    const recentActivity = data?.recentActivity || [];
 
     return (
         <div className="space-y-6 relative">
