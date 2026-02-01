@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Package, Search, AlertTriangle, Plus, Minus,
     X, ScanBarcode, ExternalLink, Trash2, Edit3
 } from 'lucide-react';
 import { useZxing } from 'react-zxing';
+import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
+import { useDebounce } from '../hooks/useDebounce';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -43,54 +44,32 @@ const BarcodeScanner = ({ onResult, onError, onClose }) => {
 };
 
 const Inventory = () => {
-    const { user } = useAuth();
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Utilisation du cache React Query
+    const { data: items = [], isLoading: loading } = useInventory();
+    const { invalidateInventory } = useInvalidateCache();
+
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 300);
 
     // UI States
-    const [showBarcodeModal, setShowBarcodeModal] = useState(false); // Barcode Modal
-    const [showNewItemModal, setShowNewItemModal] = useState(false); // Create/Edit Item Modal
+    const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+    const [showNewItemModal, setShowNewItemModal] = useState(false);
 
     // Barcode State
     const [scannedBarcode, setScannedBarcode] = useState(null);
     const [newItemData, setNewItemData] = useState({ id: null, description: '', reference: '', category: 'Vrac', stock_quantity: 1, barcode: '' });
 
-    useEffect(() => {
-        if (user) {
-            fetchStock();
-
-            // Sub to changes
-            const sub = supabase
-                .channel('inventory_changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'price_library' }, () => fetchStock())
-                .subscribe();
-            return () => supabase.removeChannel(sub);
-        }
-    }, [user]);
-
-    const fetchStock = async () => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('price_library')
-                .select('*')
-                .or('type.eq.material,type.is.null')
-                .order('stock_quantity', { ascending: false });
-
-            if (error) throw error;
-            setItems(data || []);
-        } catch (error) {
-            console.error('Error fetching stock:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // État local pour les mises à jour optimistes
+    const [localItems, setLocalItems] = useState([]);
+    React.useEffect(() => {
+        setLocalItems(items);
+    }, [items]);
 
     const updateStock = async (id, newQuantity) => {
         if (newQuantity < 0) return;
         try {
-            setItems(items.map(i => i.id === id ? { ...i, stock_quantity: newQuantity } : i));
+            // Mise à jour optimiste
+            setLocalItems(prev => prev.map(i => i.id === id ? { ...i, stock_quantity: newQuantity } : i));
 
             const { error } = await supabase
                 .from('price_library')
@@ -98,9 +77,10 @@ const Inventory = () => {
                 .eq('id', id);
 
             if (error) throw error;
+            invalidateInventory(); // Rafraîchit le cache
         } catch (error) {
             toast.error("Erreur mise à jour stock");
-            fetchStock();
+            invalidateInventory();
         }
     };
 
@@ -109,9 +89,10 @@ const Inventory = () => {
         try {
             const { error } = await supabase.from('price_library').delete().eq('id', id);
             if (error) throw error;
-            setItems(items.filter(i => i.id !== id));
+            setLocalItems(prev => prev.filter(i => i.id !== id));
             toast.success("Article supprimé");
-        } catch (e) {
+            invalidateInventory();
+        } catch (error) {
             toast.error("Erreur lors de la suppression");
         }
     };
@@ -139,7 +120,7 @@ const Inventory = () => {
         // Robust comparison: check if database barcode includes scanned one or vice versa, or exact match
         // Often scanners might read EAN-13 vs UPC-A (extra 0).
         // For now, strict trim match is safest for unique ID.
-        const existingItem = items.find(i => i.barcode && i.barcode.trim() === scannedCode);
+        const existingItem = localItems.find(i => i.barcode && i.barcode.trim() === scannedCode);
 
         if (existingItem) {
             toast.success(`Article trouvé : ${existingItem.description}`);
@@ -274,12 +255,12 @@ const Inventory = () => {
 
     // --- RENDER ---
 
-    const lowStockItems = items.filter(i => (i.stock_quantity || 0) <= (i.min_stock_alert || 5));
-    const filteredItems = items.filter(i =>
-        i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (i.reference && i.reference.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        i.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (i.barcode && i.barcode.includes(searchTerm))
+    const lowStockItems = localItems.filter(i => (i.stock_quantity || 0) <= (i.min_stock_alert || 5));
+    const filteredItems = localItems.filter(i =>
+        i.description.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (i.reference && i.reference.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+        i.category?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (i.barcode && i.barcode.includes(debouncedSearch))
     );
 
     return (

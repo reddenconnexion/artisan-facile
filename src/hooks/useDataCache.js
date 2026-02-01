@@ -132,7 +132,7 @@ export function useUserProfile() {
     });
 }
 
-// Cache de l'inventaire
+// Cache de l'inventaire (matériaux dans price_library)
 export function useInventory() {
     const { user } = useAuth();
 
@@ -140,9 +140,10 @@ export function useInventory() {
         queryKey: ['inventory', user?.id],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('inventory')
+                .from('price_library')
                 .select('*')
-                .order('name');
+                .or('type.eq.material,type.is.null')
+                .order('stock_quantity', { ascending: false });
             if (error) throw error;
             return data || [];
         },
