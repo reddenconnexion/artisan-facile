@@ -2,17 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { useClients, useInvalidateCache } from '../hooks/useDataCache';
 
 const Clients = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
-    const [clients, setClients] = useState(() => {
-        const cached = localStorage.getItem('clients_list');
-        return cached ? JSON.parse(cached) : [];
-    });
-    const [loading, setLoading] = useState(true);
+
+    // Utilisation du cache React Query
+    const { data: clients = [], isLoading: loading } = useClients();
+    const { invalidateClients } = useInvalidateCache();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [activeMenu, setActiveMenu] = useState(null);
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('clients_view_mode') || 'grid');
@@ -44,69 +43,12 @@ const Clients = () => {
 
             if (error) throw error;
             toast.success('Client supprimé avec succès');
+            invalidateClients(); // Rafraîchit le cache
         } catch (error) {
             console.error('Error deleting client:', error);
             toast.error('Erreur lors de la suppression du client');
         } finally {
             setActiveMenu(null);
-        }
-    };
-
-    useEffect(() => {
-        if (user) {
-            fetchClients();
-
-            const subscription = supabase
-                .channel('clients_list_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'clients' },
-                    (payload) => {
-                        console.log('Realtime change received:', payload);
-                        if (payload.eventType === 'INSERT') {
-                            setClients((prev) => {
-                                const newClients = [...prev, payload.new];
-                                localStorage.setItem('clients_list', JSON.stringify(newClients));
-                                return newClients;
-                            });
-                        } else if (payload.eventType === 'UPDATE') {
-                            setClients((prev) => {
-                                const newClients = prev.map((item) => (item.id === payload.new.id ? payload.new : item));
-                                localStorage.setItem('clients_list', JSON.stringify(newClients));
-                                return newClients;
-                            });
-                        } else if (payload.eventType === 'DELETE') {
-                            setClients((prev) => {
-                                const newClients = prev.filter((item) => item.id !== payload.old.id);
-                                localStorage.setItem('clients_list', JSON.stringify(newClients));
-                                return newClients;
-                            });
-                        }
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
-        }
-    }, [user]);
-
-    const fetchClients = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('clients')
-                .select('*')
-                .order('name');
-
-            if (error) throw error;
-            const newClients = data || [];
-            setClients(newClients);
-            localStorage.setItem('clients_list', JSON.stringify(newClients));
-        } catch (error) {
-            console.error('Error fetching clients:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
