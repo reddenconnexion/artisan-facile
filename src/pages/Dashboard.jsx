@@ -220,219 +220,287 @@ const Dashboard = () => {
             week: 0, month: 0, year: 0, lastYear: 0, total: 0,
             charts: {
                 week: new Array(7).fill(0),
-                month: new Array(getDaysInMonth(referenceDate)).fill(0),
+                month: new Array(30).fill(0), // Default safe size
                 year: new Array(12).fill(0),
                 lastYear: new Array(12).fill(0)
             },
             details: { week: [], month: [], year: [], lastYear: [] }
         });
 
-        const metrics = {
-            revenue: getEmptyMetric(),
-            netIncome: getEmptyMetric(),
-            quotes: getEmptyMetric(),
-            conversion: {
-                week: { signed: 0, total: 0 },
-                month: { signed: 0, total: 0 },
-                year: { signed: 0, total: 0 },
-                lastYear: { signed: 0, total: 0 },
-                charts: { week: new Array(7).fill(0), month: new Array(getDaysInMonth(referenceDate)).fill(0), year: new Array(12).fill(0), lastYear: new Array(12).fill(0) },
+        if (!(referenceDate instanceof Date) || isNaN(referenceDate)) {
+            return {
+                revenue: getEmptyMetric(),
+                netIncome: getEmptyMetric(),
+                quotes: getEmptyMetric(),
+                conversion: {
+                    week: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    month: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    year: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    lastYear: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    charts: { week: [], month: [], year: [], lastYear: [] },
+                    details: { week: [], month: [], year: [], lastYear: [] }
+                },
+                clientCount: 0,
+                pendingQuotesCount: 0,
+                recentActivity: [],
                 details: { week: [], month: [], year: [], lastYear: [] }
-            }
-        };
+            };
+        }
 
-        const refYear = referenceDate.getFullYear();
-        const refMonthStart = startOfMonth(referenceDate);
-        const refWeekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
-        const daysInMonth = getDaysInMonth(referenceDate);
+        try {
+            const daysInMonth = getDaysInMonth(referenceDate);
+            const emptyMonthChart = new Array(daysInMonth).fill(0);
 
-        const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
+            const getInitializedMetric = () => ({
+                week: 0, month: 0, year: 0, lastYear: 0, total: 0,
+                charts: {
+                    week: new Array(7).fill(0),
+                    month: [...emptyMonthChart],
+                    year: new Array(12).fill(0),
+                    lastYear: new Array(12).fill(0)
+                },
+                details: { week: [], month: [], year: [], lastYear: [] }
+            });
 
-        const formatChartPoints = (data, timeframe) => {
-            const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-            return data.map((val, i) => ({
-                name: timeframe === 'year' ? monthNames[i] : timeframe === 'month' ? `${i + 1}` : weekDays[i],
-                value: val
-            }));
-        };
+            const metrics = {
+                revenue: getInitializedMetric(),
+                netIncome: getInitializedMetric(),
+                quotes: getInitializedMetric(),
+                conversion: {
+                    week: { signed: 0, total: 0 },
+                    month: { signed: 0, total: 0 },
+                    year: { signed: 0, total: 0 },
+                    lastYear: { signed: 0, total: 0 },
+                    charts: { week: new Array(7).fill(0), month: [...emptyMonthChart], year: new Array(12).fill(0), lastYear: new Array(12).fill(0) },
+                    details: { week: [], month: [], year: [], lastYear: [] }
+                }
+            };
 
-        allQuotes.forEach(quote => {
-            const amount = parseFloat(quote.total_ttc) || 0;
-            const qDate = new Date(quote.date || quote.created_at || new Date());
-            if (isNaN(qDate.getTime())) return;
+            const refYear = referenceDate.getFullYear();
+            const refMonthStart = startOfMonth(referenceDate);
+            const refWeekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
 
-            const status = (quote.status || '').toLowerCase();
-            const type = (quote.type || 'quote').toLowerCase();
-            const isDirectInvoice = type === 'invoice' && !quote.parent_id;
-            const isStandardQuote = type !== 'invoice';
-            const isActivity = isStandardQuote || isDirectInvoice;
+            const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
 
-            // --- REVENUE & NET INCOME ---
-            if (status === 'paid') {
-                const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
-                if (!isDuplicate) {
-                    metrics.revenue.total += amount;
+            const formatChartPoints = (data, timeframe) => {
+                const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+                return (data || []).map((val, i) => ({
+                    name: timeframe === 'year' ? monthNames[i] : timeframe === 'month' ? `${i + 1}` : weekDays[i],
+                    value: val
+                }));
+            };
 
-                    // Net Income Calc
-                    let netAmount = amount;
-                    if (quote.items && Array.isArray(quote.items)) {
-                        const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
-                        const materialItems = quote.items.filter(i => i.type === 'material');
-                        const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const deductionHT = quote.items
-                            .filter(i => (parseFloat(i.price) || 0) < 0)
-                            .reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const deductionTTC = deductionHT * taxRatio;
-                        const materialTTC = materialHT * taxRatio;
-                        netAmount = amount - materialTTC - deductionTTC;
-                    }
+            allQuotes.forEach(quote => {
+                const amount = parseFloat(quote.total_ttc) || 0;
+                const qDate = new Date(quote.date || quote.created_at || new Date());
+                if (isNaN(qDate.getTime())) return;
 
-                    const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                        (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+                const status = (quote.status || '').toLowerCase();
+                const type = (quote.type || 'quote').toLowerCase();
+                const isDirectInvoice = type === 'invoice' && !quote.parent_id;
+                const isStandardQuote = type !== 'invoice';
+                const isActivity = isStandardQuote || isDirectInvoice;
 
-                    // Use referenceDate for buckets
-                    if (qDate.getFullYear() === refYear) {
-                        metrics.revenue.year += amount;
-                        metrics.revenue.charts.year[qDate.getMonth()] += amount;
-                        metrics.revenue.details.year.push(quote);
+                // --- REVENUE & NET INCOME ---
+                if (status === 'paid') {
+                    const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
+                    if (!isDuplicate) {
+                        metrics.revenue.total += amount;
 
-                        if (!isDeposit) {
-                            metrics.netIncome.year += netAmount;
-                            metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
-                            metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
+                        // Net Income Calc
+                        let netAmount = amount;
+                        if (quote.items && Array.isArray(quote.items)) {
+                            const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
+                            const materialItems = quote.items.filter(i => i.type === 'material');
+                            const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            const deductionHT = quote.items
+                                .filter(i => (parseFloat(i.price) || 0) < 0)
+                                .reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            const deductionTTC = deductionHT * taxRatio;
+                            const materialTTC = materialHT * taxRatio;
+                            netAmount = amount - materialTTC - deductionTTC;
                         }
 
-                        // Month bucket: strict month match on referenceDate
-                        if (isSameMonth(qDate, referenceDate)) {
-                            metrics.revenue.month += amount;
-                            metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
-                            metrics.revenue.details.month.push(quote);
+                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+
+                        // Use referenceDate for buckets
+                        if (qDate.getFullYear() === refYear) {
+                            metrics.revenue.year += amount;
+                            metrics.revenue.charts.year[qDate.getMonth()] += amount;
+                            metrics.revenue.details.year.push(quote);
 
                             if (!isDeposit) {
-                                metrics.netIncome.month += netAmount;
-                                metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
-                                metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
+                                metrics.netIncome.year += netAmount;
+                                metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
+                                metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
+                            }
+
+                            // Month bucket: strict month match on referenceDate
+                            if (isSameMonth(qDate, referenceDate)) {
+                                metrics.revenue.month += amount;
+                                if (metrics.revenue.charts.month[getDate(qDate) - 1] !== undefined) {
+                                    metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
+                                }
+                                metrics.revenue.details.month.push(quote);
+
+                                if (!isDeposit) {
+                                    metrics.netIncome.month += netAmount;
+                                    if (metrics.netIncome.charts.month[getDate(qDate) - 1] !== undefined) {
+                                        metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
+                                    }
+                                    metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
+                                }
+                            }
+
+                            // Week bucket: strict week match
+                            // Use date-fns getWeek to compare
+                            const qWeek = getWeek(qDate, { weekStartsOn: 1 });
+                            const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
+                            if (qWeek === refWeek) {
+                                metrics.revenue.week += amount;
+                                const weekDayIndex = (getDay(qDate) + 6) % 7;
+                                metrics.revenue.charts.week[weekDayIndex] += amount;
+                                metrics.revenue.details.week.push(quote);
+
+                                if (!isDeposit) {
+                                    metrics.netIncome.week += netAmount;
+                                    metrics.netIncome.charts.week[weekDayIndex] += netAmount;
+                                    metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
+                                }
+                            }
+
+                        } else if (qDate.getFullYear() === refYear - 1) {
+                            metrics.revenue.lastYear += amount;
+                            metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
+                            metrics.revenue.details.lastYear.push(quote);
+                            if (!isDeposit) {
+                                metrics.netIncome.lastYear += netAmount;
+                                metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
+                                metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
+                            }
+                        }
+                    }
+                }
+
+                // --- CONVERSION ---
+                if (isActivity) {
+                    if (qDate.getFullYear() === refYear) {
+                        metrics.quotes.year += amount;
+                        metrics.quotes.charts.year[qDate.getMonth()] += amount;
+
+                        const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
+
+                        if (isSigned) {
+                            metrics.conversion.year.signed++;
+                            metrics.conversion.charts.year[qDate.getMonth()]++;
+                        }
+                        metrics.conversion.year.total++;
+
+                        if (isSameMonth(qDate, referenceDate)) {
+                            metrics.quotes.month += amount;
+                            if (metrics.quotes.charts.month[getDate(qDate) - 1] !== undefined) {
+                                metrics.quotes.charts.month[getDate(qDate) - 1] += amount;
+                            }
+
+                            metrics.conversion.month.total++;
+                            if (isSigned) {
+                                metrics.conversion.month.signed++;
+                                if (metrics.conversion.charts.month[getDate(qDate) - 1] !== undefined) {
+                                    metrics.conversion.charts.month[getDate(qDate) - 1]++;
+                                }
                             }
                         }
 
-                        // Week bucket: strict week match
-                        // Use date-fns getWeek to compare
                         const qWeek = getWeek(qDate, { weekStartsOn: 1 });
                         const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
                         if (qWeek === refWeek) {
-                            metrics.revenue.week += amount;
-                            metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount; // 0=Mon, 6=Sun
-                            metrics.revenue.details.week.push(quote);
+                            metrics.quotes.week += amount;
+                            const weekDayIndex = (getDay(qDate) + 6) % 7;
+                            metrics.quotes.charts.week[weekDayIndex] += amount;
 
-                            if (!isDeposit) {
-                                metrics.netIncome.week += netAmount;
-                                metrics.netIncome.charts.week[(getDay(qDate) + 6) % 7] += netAmount;
-                                metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
+                            metrics.conversion.week.total++;
+                            if (isSigned) {
+                                metrics.conversion.week.signed++;
+                                metrics.conversion.charts.week[weekDayIndex]++;
                             }
                         }
 
                     } else if (qDate.getFullYear() === refYear - 1) {
-                        metrics.revenue.lastYear += amount;
-                        metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
-                        metrics.revenue.details.lastYear.push(quote);
-                        if (!isDeposit) {
-                            metrics.netIncome.lastYear += netAmount;
-                            metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
-                            metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
+                        metrics.quotes.lastYear += amount;
+                        metrics.quotes.charts.lastYear[qDate.getMonth()] += amount;
+
+                        const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
+                        if (isSigned) {
+                            metrics.conversion.lastYear.signed++;
+                            metrics.conversion.charts.lastYear[qDate.getMonth()]++;
                         }
+                        metrics.conversion.lastYear.total++;
                     }
                 }
-            }
+            });
 
-            // --- CONVERSION ---
-            if (isActivity) {
-                if (qDate.getFullYear() === refYear) {
-                    metrics.quotes.year += amount;
-                    metrics.quotes.charts.year[qDate.getMonth()] += amount;
+            const calcRate = (signed, total) => total > 0 ? (signed / total) * 100 : 0;
+            const convStats = {
+                week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
+                month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
+                year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
+                lastYear: calcRate(metrics.conversion.lastYear.signed, metrics.conversion.lastYear.total),
+            };
 
-                    const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
+            // Safe format helper for empty charts
+            const safeFormat = (chart, type) => formatChartPoints(chart || [], type);
 
-                    if (isSigned) {
-                        metrics.conversion.year.signed++;
-                        metrics.conversion.charts.year[qDate.getMonth()]++;
-                    }
-                    metrics.conversion.year.total++;
+            const buildMetricObject = (metricData, maxRef) => ({
+                week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: safeFormat(metricData.charts.week, 'week'), details: metricData.details.week },
+                month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: safeFormat(metricData.charts.month, 'month'), details: metricData.details.month },
+                year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: safeFormat(metricData.charts.year, 'year'), details: metricData.details.year },
+                lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: safeFormat(metricData.charts.lastYear, 'year'), details: metricData.details.lastYear },
+            });
 
-                    if (isSameMonth(qDate, referenceDate)) {
-                        metrics.quotes.month += amount;
-                        metrics.quotes.charts.month[getDate(qDate) - 1] += amount;
-
-                        metrics.conversion.month.total++;
-                        if (isSigned) {
-                            metrics.conversion.month.signed++;
-                            metrics.conversion.charts.month[getDate(qDate) - 1]++;
-                        }
-                    }
-
-                    const qWeek = getWeek(qDate, { weekStartsOn: 1 });
-                    const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
-                    if (qWeek === refWeek) {
-                        metrics.quotes.week += amount;
-                        metrics.quotes.charts.week[(getDay(qDate) + 6) % 7] += amount;
-
-                        metrics.conversion.week.total++;
-                        if (isSigned) {
-                            metrics.conversion.week.signed++;
-                            metrics.conversion.charts.week[(getDay(qDate) + 6) % 7]++;
-                        }
-                    }
-
-                } else if (qDate.getFullYear() === refYear - 1) {
-                    metrics.quotes.lastYear += amount;
-                    metrics.quotes.charts.lastYear[qDate.getMonth()] += amount;
-
-                    const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
-                    if (isSigned) {
-                        metrics.conversion.lastYear.signed++;
-                        metrics.conversion.charts.lastYear[qDate.getMonth()]++;
-                    }
-                    metrics.conversion.lastYear.total++;
+            return {
+                revenue: buildMetricObject(metrics.revenue, metrics.revenue),
+                netIncome: buildMetricObject(metrics.netIncome, metrics.netIncome),
+                quotes: buildMetricObject(metrics.quotes, metrics.quotes),
+                conversion: {
+                    week: { value: convStats.week, max: 100, chart: safeFormat(metrics.conversion.charts.week, 'week') },
+                    month: { value: convStats.month, max: 100, chart: safeFormat(metrics.conversion.charts.month, 'month') },
+                    year: { value: convStats.year, max: 100, chart: safeFormat(metrics.conversion.charts.year, 'year') },
+                    lastYear: { value: convStats.lastYear, max: 100, chart: safeFormat(metrics.conversion.charts.lastYear, 'year') },
+                },
+                clientCount,
+                pendingQuotesCount,
+                recentActivity,
+                details: {
+                    week: metrics.revenue.details.week,
+                    month: metrics.revenue.details.month,
+                    year: metrics.revenue.details.year,
+                    lastYear: metrics.revenue.details.lastYear
                 }
-            }
-        });
-
-        const calcRate = (signed, total) => total > 0 ? (signed / total) * 100 : 0;
-        const convStats = {
-            week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
-            month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
-            year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
-            lastYear: calcRate(metrics.conversion.lastYear.signed, metrics.conversion.lastYear.total),
-        };
-
-        const buildMetricObject = (metricData, maxRef) => ({
-            week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week'), details: metricData.details.week },
-            month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month'), details: metricData.details.month },
-            year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year'), details: metricData.details.year },
-            lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year'), details: metricData.details.lastYear },
-        });
-
-        return {
-            revenue: buildMetricObject(metrics.revenue, metrics.revenue),
-            netIncome: buildMetricObject(metrics.netIncome, metrics.netIncome),
-            quotes: buildMetricObject(metrics.quotes, metrics.quotes),
-            conversion: {
-                week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
-                month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
-                year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
-                lastYear: { value: convStats.lastYear, max: 100, chart: formatChartPoints(metrics.conversion.charts.lastYear, 'year') },
-            },
-            clientCount,
-            pendingQuotesCount,
-            recentActivity,
-            details: {
-                week: metrics.revenue.details.week,
-                month: metrics.revenue.details.month,
-                year: metrics.revenue.details.year,
-                lastYear: metrics.revenue.details.lastYear
-            }
-        };
+            };
+        } catch (error) {
+            console.error("Dashboard Stats Error:", error);
+            // Return empty safe object
+            return {
+                revenue: getEmptyMetric(),
+                netIncome: getEmptyMetric(),
+                quotes: getEmptyMetric(),
+                conversion: {
+                    week: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    month: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    year: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    lastYear: { signed: 0, total: 0, value: 0, max: 100, chart: [] },
+                    charts: { week: [], month: [], year: [], lastYear: [] },
+                    details: { week: [], month: [], year: [], lastYear: [] }
+                },
+                clientCount: 0,
+                pendingQuotesCount: 0,
+                recentActivity: [],
+                details: { week: [], month: [], year: [], lastYear: [] }
+            };
+        }
     }, [allQuotes, referenceDate, clientCount, pendingQuotesCount, recentActivity]);
 
     const navigateDate = (amount, unit) => {
@@ -493,9 +561,12 @@ const Dashboard = () => {
 
     const [detailsView, setDetailsView] = useState(null); // { period: 'week'|'month'..., items: [], title: '...' }
 
-
-
-
+    let currentWeekNumber = 0;
+    try {
+        currentWeekNumber = getWeek(referenceDate, { weekStartsOn: 1 });
+    } catch (error) {
+        console.error("Week calculation error:", error);
+    }
 
     return (
         <div className="space-y-6 relative">
@@ -505,7 +576,7 @@ const Dashboard = () => {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center text-gray-900 dark:text-white">
                             <h3 className="font-bold text-lg">
-                                Détails : {detailsView.period === 'week' ? `Semaine ${getWeek(referenceDate, { weekStartsOn: 1 })}` : detailsView.period === 'month' ? format(referenceDate, 'MMMM yyyy', { locale: fr }) : detailsView.period === 'year' ? referenceDate.getFullYear() : 'L\'Année dernière'}
+                                Détails : {detailsView.period === 'week' ? `Semaine ${currentWeekNumber}` : detailsView.period === 'month' ? format(referenceDate, 'MMMM yyyy', { locale: fr }) : detailsView.period === 'year' ? referenceDate.getFullYear() : 'L\'Année dernière'}
                                 {detailsView.title && <span className="text-gray-500 font-normal ml-2">- {detailsView.title}</span>}
                             </h3>
                             <button onClick={() => setDetailsView(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
@@ -572,7 +643,7 @@ const Dashboard = () => {
                         <ArrowLeft className="w-4 h-4" />
                     </button>
                     <span className="text-xs font-semibold whitespace-nowrap min-w-[90px] text-center text-gray-500 dark:text-gray-400">
-                        Accès Semaine {getWeek(referenceDate, { weekStartsOn: 1 })}
+                        Accès Semaine {currentWeekNumber}
                     </span>
                     <button onClick={() => navigateDate(1, 'week')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
                         <ArrowLeft className="w-4 h-4 rotate-180" />
