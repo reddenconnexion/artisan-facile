@@ -380,6 +380,18 @@ const Dashboard = () => {
     const pendingQuotesCount = data?.pendingQuotesCount || 0;
     const recentActivity = data?.recentActivity || [];
 
+    // Afficher un écran de chargement
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-500 text-sm">Chargement...</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 relative">
             {detailsView && (
