@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay } from 'date-fns';
+import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -126,412 +126,323 @@ const RevenueBar = ({ label, value, max, color, period, onClick, formatter }) =>
 };
 
 const Dashboard = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const [stats, setStats] = useState(() => {
-        const getEmptyMetric = () => ({
-            week: { value: 0, max: 1, chart: [] },
-            month: { value: 0, max: 1, chart: [] },
-            year: { value: 0, max: 1, chart: [] },
-            lastYear: { value: 0, max: 1, chart: [] }
-        });
+    const [referenceDate, setReferenceDate] = useState(new Date());
+    const [allQuotes, setAllQuotes] = useState([]);
+    const [clientCount, setClientCount] = useState(0);
+    const [pendingQuotesCount, setPendingQuotesCount] = useState(0);
+    const [recentActivity, setRecentActivity] = useState([]);
 
-        try {
-            const cached = localStorage.getItem('dashboard_stats');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                // Simple validation to check if legacy structure
-                if (parsed.revenue && parsed.revenue.year) {
-                    // Backwards compatibility for cached check
-                    // Ensure all metrics have the new 'lastYear' field if invalid
-                    const patchMetric = (m) => ({ ...getEmptyMetric(), ...m, lastYear: m.lastYear || { value: 0, max: 1, chart: [] } });
-
-                    return {
-                        ...parsed,
-                        revenue: patchMetric(parsed.revenue),
-                        quotes: patchMetric(parsed.quotes),
-                        conversion: patchMetric(parsed.conversion),
-                        netIncome: parsed.netIncome || getEmptyMetric()
-                    };
-                }
-            }
-        } catch (e) {
-            console.error("Error parsing dashboard cache", e);
-        }
-
-        return {
-            revenue: getEmptyMetric(),
-            quotes: getEmptyMetric(),
-            conversion: getEmptyMetric(),
-            clientCount: 0,
-            pendingQuotesCount: 0,
-            recentActivity: [],
-
-            details: { week: [], month: [], year: [], lastYear: [] }
-        };
-    });
-    const [loading, setLoading] = useState(true);
-
+    // Data Fetching Effect
     useEffect(() => {
         if (user) {
-            fetchStats();
+            fetchRawData();
         }
     }, [user]);
 
-    const fetchStats = async () => {
+    const fetchRawData = async () => {
+        setLoading(true);
         try {
-            // 1. Fetch ALL quotes for calculations
-            // Removed 'include_tva' (not a column). We will infer tax rate.
-            const { data: allQuotes, error: quotesError } = await supabase
+            // 1. Fetch ALL quotes
+            const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
                 .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
 
             if (quotesError) throw quotesError;
+            setAllQuotes(quotes || []);
 
-            // Date references
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonthStart = new Date(currentYear, now.getMonth(), 1);
-            const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-            const currentYearStart = new Date(currentYear, 0, 1);
-            const daysInMonth = getDaysInMonth(now);
-
-            // Helpers for chart init
-            const initChart = (type) => {
-                if (type === 'year') return new Array(12).fill(0);
-                if (type === 'month') return new Array(daysInMonth).fill(0);
-                if (type === 'week') return new Array(7).fill(0);
-                return [];
-            }
-
-            const formatChartPoints = (data, timeframe) => {
-                const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-                return data.map((val, i) => ({
-                    name: timeframe === 'year' ? monthNames[i] : timeframe === 'month' ? `${i + 1}` : weekDays[i],
-                    value: val
-                }));
-            }
-
-            // Metric Accumulators
-            const metrics = {
-                revenue: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } },
-                netIncome: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } },
-                quotes: { week: 0, month: 0, year: 0, lastYear: 0, total: 0, charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, details: { week: [], month: [], year: [], lastYear: [] } }, // Value of created quotes
-                conversion: {
-                    week: { signed: 0, total: 0 },
-                    month: { signed: 0, total: 0 },
-                    year: { signed: 0, total: 0 },
-                    lastYear: { signed: 0, total: 0 },
-                    charts: { week: initChart('week'), month: initChart('month'), year: initChart('year'), lastYear: initChart('year') }, // Will store % rate
-                    details: { week: [], month: [], year: [], lastYear: [] }
-                }
-            };
-
-            // Create a set of PAID quote IDs to avoid double counting
-            // We only consider an invoice a duplicate if its parent quote is ALREADY counted as paid.
-            const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
-
-            allQuotes.forEach(quote => {
-                const amount = parseFloat(quote.total_ttc) || 0;
-                // Ensure date is valid, fallback to created_at, fallback to now
-                const qDate = new Date(quote.date || quote.created_at || new Date());
-
-                if (isNaN(qDate.getTime())) return; // Skip invalid dates
-
-                // Normalize status
-                const status = (quote.status || '').toLowerCase();
-                const type = (quote.type || 'quote').toLowerCase();
-
-                // Check if it's an "Effective Quote" (Standard Quote OR Direct Invoice)
-                // A Direct Invoice (invoice with no parent) counts as a "Converted Quote" (Sold instantly)
-                const isDirectInvoice = type === 'invoice' && !quote.parent_id;
-                const isStandardQuote = type !== 'invoice';
-                const isActivity = isStandardQuote || isDirectInvoice;
-
-                // --- REVENUE & NET INCOME CALC (Paid only) ---
-                // Supabase status 'paid' is reliable
-                if (status === 'paid') {
-                    // Check duplicate invoice logic (Invoice that HAS a parent quote)
-                    // If the parent quote is also 'paid', we prioritize the quote (or just count one of them)
-                    // If the parent quote is 'accepted' (not paid), we MUST count the invoice.
-                    const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
-                    if (!isDuplicate) {
-                        metrics.revenue.total += amount;
-
-                        // Calculate Net Income (Revenue - Material)
-                        let netAmount = amount;
-                        if (quote.items && Array.isArray(quote.items)) {
-                            // Recover Tax Rate from totals
-                            // TotalHT from items
-                            const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-
-                            // Determine Ratio (TTC / HT)
-                            // Avoid division by zero
-                            const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
-
-                            const materialItems = quote.items.filter(i => i.type === 'material');
-                            const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-
-                            // Calculate Deductions (negative price items, e.g. previous deposits) to add back to Net Result
-                            // Because 'amount' (TTC) is reduced by these deductions, but the Net Result should reflect the total service value generated.
-                            const deductionHT = quote.items
-                                .filter(i => (parseFloat(i.price) || 0) < 0)
-                                .reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-
-                            const deductionTTC = deductionHT * taxRatio;
-
-                            // Apply ratio to Material HT to get Material TTC cost part match
-                            const materialTTC = materialHT * taxRatio;
-
-                            // Net Amount = Realized Revenue (Total) - Material Cost + Deductions (Add back previous deposits to show full value)
-                            // deductionTTC is negative, so subtraction adds it back.
-                            netAmount = amount - materialTTC - deductionTTC;
-                        }
-
-                        // Exclude deposits (acomptes) from Net Income (Resultat Net)
-                        // User request: deposits correspond to material orders and shouldn't appear in net result
-                        // Refined Logic warning: Identifying a deposit by 'acompte' in items must exclude Duductions (negative price).
-                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                            (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
-
-                        if (qDate.getFullYear() === currentYear) {
-                            metrics.revenue.year += amount;
-                            metrics.revenue.charts.year[qDate.getMonth()] += amount;
-                            metrics.revenue.details.year.push(quote);
-
-                            if (!isDeposit) {
-                                metrics.netIncome.year += netAmount;
-                                metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
-                                metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
-                            }
-
-                            if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
-                                metrics.revenue.month += amount;
-                                metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
-                                metrics.revenue.details.month.push(quote);
-
-                                if (!isDeposit) {
-                                    metrics.netIncome.month += netAmount;
-                                    metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
-                                    metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
-                                }
-
-                                if (qDate >= currentWeekStart) {
-                                    metrics.revenue.week += amount;
-                                    metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount;
-                                    metrics.revenue.details.week.push(quote);
-
-                                    if (!isDeposit) {
-                                        metrics.netIncome.week += netAmount;
-                                        metrics.netIncome.charts.week[(getDay(qDate) + 6) % 7] += netAmount;
-                                        metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
-                                    }
-                                }
-                            }
-                        } else if (qDate.getFullYear() === currentYear - 1) {
-                            metrics.revenue.lastYear += amount;
-                            metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
-                            metrics.revenue.details.lastYear.push(quote);
-
-                            if (!isDeposit) {
-                                metrics.netIncome.lastYear += netAmount;
-                                metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
-                                metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
-                            }
-                        }
-                    }
-                }
-
-                // --- QUOTES/CONVERSION ACTIVITY ---
-                if (isActivity) {
-                    if (qDate.getFullYear() === currentYear) {
-                        metrics.quotes.year += amount;
-                        metrics.quotes.charts.year[qDate.getMonth()] += amount;
-
-                        // Conversion Logic
-                        // If Direct Invoice -> Automatically Signed (100% success)
-                        // If Standard Quote -> Check status
-                        const isSigned = isDirectInvoice ||
-                            status === 'accepted' ||
-                            status === 'paid' ||
-                            status === 'billed' ||
-                            !!quote.signed_at;
-
-                        if (isSigned) {
-                            metrics.conversion.year.signed++;
-                            metrics.conversion.charts.year[qDate.getMonth()]++; // Chart shows volume of signatures
-                        }
-
-                        metrics.conversion.year.total++;
-
-                        if (qDate >= currentMonthStart && qDate.getMonth() === now.getMonth()) {
-                            metrics.quotes.month += amount;
-                            metrics.quotes.charts.month[getDate(qDate) - 1] += amount;
-
-                            metrics.conversion.month.total++;
-                            if (isSigned) {
-                                metrics.conversion.month.signed++;
-                                metrics.conversion.charts.month[getDate(qDate) - 1]++;
-                            }
-
-                            if (qDate >= currentWeekStart) {
-                                metrics.quotes.week += amount;
-                                metrics.quotes.charts.week[(getDay(qDate) + 6) % 7] += amount;
-
-                                metrics.conversion.week.total++;
-                                if (isSigned) {
-                                    metrics.conversion.week.signed++;
-                                    metrics.conversion.charts.week[(getDay(qDate) + 6) % 7]++;
-                                }
-                            }
-                        }
-                    } else if (qDate.getFullYear() === currentYear - 1) {
-                        metrics.quotes.lastYear += amount;
-                        metrics.quotes.charts.lastYear[qDate.getMonth()] += amount;
-
-                        const isSigned = isDirectInvoice ||
-                            status === 'accepted' ||
-                            status === 'paid' ||
-                            status === 'billed' ||
-                            !!quote.signed_at;
-
-                        if (isSigned) {
-                            metrics.conversion.lastYear.signed++;
-                            metrics.conversion.charts.lastYear[qDate.getMonth()]++;
-                        }
-                        metrics.conversion.lastYear.total++;
-                    }
-                }
-            });
-
-            // Conversion Rates Calculation
-            const calcRate = (signed, total) => total > 0 ? (signed / total) * 100 : 0;
-            const convStats = {
-                week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
-                month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
-                year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
-                lastYear: calcRate(metrics.conversion.lastYear.signed, metrics.conversion.lastYear.total),
-            };
-
-            // Transform conversion charts to simple signed count for now (easier visual) or smooth rate?
-            // Let's stick to signed COUNT for the chart to show activity, but display RATE in main text.
-            // Or better: show the Rate trend? A rate of 0 or 100 per day is spiky.
-            // Let's map conversion charts to "Success Rate" if needed, but "Signed Count" is safer.
-            // Actually, let's use the COUNT of signed quotes for the graph. It correlates with conversion success.
-
-            // Construct Final Stats Object
-            const buildMetricObject = (metricData, maxRef) => ({
-                week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week'), details: metricData.details.week },
-                month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month'), details: metricData.details.month },
-                year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year'), details: metricData.details.year },
-                lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year'), details: metricData.details.lastYear },
-            });
-
-
-
-            // Fetch names for details if needed (already fetched for recent but full list might be needed)
-            // Optimization: We can just fetch names in the initial query or fetch on click.
-            // Let's modify initial query to include client name for better UX in details.
-
-            // 2. Nombre de clients
-            const { count: clientCount, error: clientsError } = await supabase
+            // 2. Client Count
+            const { count: cCount, error: clientsError } = await supabase
                 .from('clients')
                 .select('*', { count: 'exact', head: true });
+            if (!clientsError) setClientCount(cCount);
 
-            if (clientsError) throw clientsError;
-
-            // 3. Devis en attente
-            const { count: pendingQuotes, error: pendingError } = await supabase
+            // 3. Pending Quotes (Current snapshot, keeps consistency with live data)
+            const { count: pQuotes, error: pendingError } = await supabase
                 .from('quotes')
                 .select('*', { count: 'exact', head: true })
                 .in('status', ['draft', 'sent']);
+            if (!pendingError) setPendingQuotesCount(pQuotes);
 
-            if (pendingError) throw pendingError;
-
-            // 4. Recent Activity
-            // Fetch recent quotes
-            const { data: recentQuotes, error: recentQuotesError } = await supabase
+            // 4. Recent Activity (Global history)
+            const { data: rQuotes, error: rQuotesError } = await supabase
                 .from('quotes')
                 .select('*, clients(name)')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            if (recentQuotesError) throw recentQuotesError;
-
-            // Fetch recent signatures (quotes with signed_at)
-            const { data: recentSignatures, error: recentSignaturesError } = await supabase
+            const { data: rSignatures, error: rSignaturesError } = await supabase
                 .from('quotes')
                 .select('*, clients(name)')
-                .not('signed_at', 'is', null) // Only signed quotes
+                .not('signed_at', 'is', null)
                 .order('signed_at', { ascending: false })
                 .limit(5);
 
-            if (recentSignaturesError) throw recentSignaturesError;
-
-            // Fetch recent clients
-            const { data: recentClients, error: recentClientsError } = await supabase
+            const { data: rClients, error: rClientsError } = await supabase
                 .from('clients')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            if (recentClientsError) throw recentClientsError;
-
-            // Combine and format
             const activities = [
-                // Created quotes
-                ...(recentQuotes || []).map(q => ({
+                ...(rQuotes || []).map(q => ({
                     type: 'quote',
                     date: q.created_at,
                     description: `Devis créé pour ${q.clients?.name || 'Client inconnu'}`,
                     amount: q.total_ttc
                 })),
-                // Signed quotes (distinct event)
-                ...(recentSignatures || []).map(q => ({
+                ...(rSignatures || []).map(q => ({
                     type: 'signature',
                     date: q.signed_at,
                     description: `Devis signé par ${q.clients?.name || 'Client inconnu'}`,
                     amount: q.total_ttc
                 })),
-                // New clients
-                ...(recentClients || []).map(c => ({
+                ...(rClients || []).map(c => ({
                     type: 'client',
                     date: c.created_at,
                     description: `Nouveau client : ${c.name}`,
                     amount: null
                 }))
-            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10); // Show top 10 mixed
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
 
-            const newStats = {
-                revenue: buildMetricObject(metrics.revenue, metrics.revenue),
-                netIncome: buildMetricObject(metrics.netIncome, metrics.netIncome),
-                quotes: buildMetricObject(metrics.quotes, metrics.quotes),
-                conversion: {
-                    week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
-                    month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
-                    year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
-                    lastYear: { value: convStats.lastYear, max: 100, chart: formatChartPoints(metrics.conversion.charts.lastYear, 'year') },
-                },
-                clientCount,
-                pendingQuotesCount: pendingQuotes || 0,
-                recentActivity: activities,
-                details: {
-                    week: metrics.revenue.details.week, // Default to Revenue details for now in the shared view
-                    month: metrics.revenue.details.month,
-                    year: metrics.revenue.details.year,
-                    lastYear: metrics.revenue.details.lastYear
-                }
-            };
+            setRecentActivity(activities);
 
-            setStats(newStats);
-            localStorage.setItem('dashboard_stats', JSON.stringify(newStats));
         } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
+            console.error('Error fetching dashboard data:', error);
         } finally {
             setLoading(false);
         }
     };
+
+    // Stats Calculation Memo
+    const stats = React.useMemo(() => {
+        const getEmptyMetric = () => ({
+            week: 0, month: 0, year: 0, lastYear: 0, total: 0,
+            charts: {
+                week: new Array(7).fill(0),
+                month: new Array(getDaysInMonth(referenceDate)).fill(0),
+                year: new Array(12).fill(0),
+                lastYear: new Array(12).fill(0)
+            },
+            details: { week: [], month: [], year: [], lastYear: [] }
+        });
+
+        const metrics = {
+            revenue: getEmptyMetric(),
+            netIncome: getEmptyMetric(),
+            quotes: getEmptyMetric(),
+            conversion: {
+                week: { signed: 0, total: 0 },
+                month: { signed: 0, total: 0 },
+                year: { signed: 0, total: 0 },
+                lastYear: { signed: 0, total: 0 },
+                charts: { week: new Array(7).fill(0), month: new Array(getDaysInMonth(referenceDate)).fill(0), year: new Array(12).fill(0), lastYear: new Array(12).fill(0) },
+                details: { week: [], month: [], year: [], lastYear: [] }
+            }
+        };
+
+        const refYear = referenceDate.getFullYear();
+        const refMonthStart = startOfMonth(referenceDate);
+        const refWeekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
+        const daysInMonth = getDaysInMonth(referenceDate);
+
+        const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
+
+        const formatChartPoints = (data, timeframe) => {
+            const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+            return data.map((val, i) => ({
+                name: timeframe === 'year' ? monthNames[i] : timeframe === 'month' ? `${i + 1}` : weekDays[i],
+                value: val
+            }));
+        };
+
+        allQuotes.forEach(quote => {
+            const amount = parseFloat(quote.total_ttc) || 0;
+            const qDate = new Date(quote.date || quote.created_at || new Date());
+            if (isNaN(qDate.getTime())) return;
+
+            const status = (quote.status || '').toLowerCase();
+            const type = (quote.type || 'quote').toLowerCase();
+            const isDirectInvoice = type === 'invoice' && !quote.parent_id;
+            const isStandardQuote = type !== 'invoice';
+            const isActivity = isStandardQuote || isDirectInvoice;
+
+            // --- REVENUE & NET INCOME ---
+            if (status === 'paid') {
+                const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
+                if (!isDuplicate) {
+                    metrics.revenue.total += amount;
+
+                    // Net Income Calc
+                    let netAmount = amount;
+                    if (quote.items && Array.isArray(quote.items)) {
+                        const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
+                        const materialItems = quote.items.filter(i => i.type === 'material');
+                        const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        const deductionHT = quote.items
+                            .filter(i => (parseFloat(i.price) || 0) < 0)
+                            .reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        const deductionTTC = deductionHT * taxRatio;
+                        const materialTTC = materialHT * taxRatio;
+                        netAmount = amount - materialTTC - deductionTTC;
+                    }
+
+                    const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                        (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+
+                    // Use referenceDate for buckets
+                    if (qDate.getFullYear() === refYear) {
+                        metrics.revenue.year += amount;
+                        metrics.revenue.charts.year[qDate.getMonth()] += amount;
+                        metrics.revenue.details.year.push(quote);
+
+                        if (!isDeposit) {
+                            metrics.netIncome.year += netAmount;
+                            metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
+                            metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
+                        }
+
+                        // Month bucket: strict month match on referenceDate
+                        if (isSameMonth(qDate, referenceDate)) {
+                            metrics.revenue.month += amount;
+                            metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
+                            metrics.revenue.details.month.push(quote);
+
+                            if (!isDeposit) {
+                                metrics.netIncome.month += netAmount;
+                                metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
+                                metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
+                            }
+                        }
+
+                        // Week bucket: strict week match
+                        // Use date-fns getWeek to compare
+                        const qWeek = getWeek(qDate, { weekStartsOn: 1 });
+                        const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
+                        if (qWeek === refWeek) {
+                            metrics.revenue.week += amount;
+                            metrics.revenue.charts.week[(getDay(qDate) + 6) % 7] += amount; // 0=Mon, 6=Sun
+                            metrics.revenue.details.week.push(quote);
+
+                            if (!isDeposit) {
+                                metrics.netIncome.week += netAmount;
+                                metrics.netIncome.charts.week[(getDay(qDate) + 6) % 7] += netAmount;
+                                metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
+                            }
+                        }
+
+                    } else if (qDate.getFullYear() === refYear - 1) {
+                        metrics.revenue.lastYear += amount;
+                        metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
+                        metrics.revenue.details.lastYear.push(quote);
+                        if (!isDeposit) {
+                            metrics.netIncome.lastYear += netAmount;
+                            metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
+                            metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
+                        }
+                    }
+                }
+            }
+
+            // --- CONVERSION ---
+            if (isActivity) {
+                if (qDate.getFullYear() === refYear) {
+                    metrics.quotes.year += amount;
+                    metrics.quotes.charts.year[qDate.getMonth()] += amount;
+
+                    const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
+
+                    if (isSigned) {
+                        metrics.conversion.year.signed++;
+                        metrics.conversion.charts.year[qDate.getMonth()]++;
+                    }
+                    metrics.conversion.year.total++;
+
+                    if (isSameMonth(qDate, referenceDate)) {
+                        metrics.quotes.month += amount;
+                        metrics.quotes.charts.month[getDate(qDate) - 1] += amount;
+
+                        metrics.conversion.month.total++;
+                        if (isSigned) {
+                            metrics.conversion.month.signed++;
+                            metrics.conversion.charts.month[getDate(qDate) - 1]++;
+                        }
+                    }
+
+                    const qWeek = getWeek(qDate, { weekStartsOn: 1 });
+                    const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
+                    if (qWeek === refWeek) {
+                        metrics.quotes.week += amount;
+                        metrics.quotes.charts.week[(getDay(qDate) + 6) % 7] += amount;
+
+                        metrics.conversion.week.total++;
+                        if (isSigned) {
+                            metrics.conversion.week.signed++;
+                            metrics.conversion.charts.week[(getDay(qDate) + 6) % 7]++;
+                        }
+                    }
+
+                } else if (qDate.getFullYear() === refYear - 1) {
+                    metrics.quotes.lastYear += amount;
+                    metrics.quotes.charts.lastYear[qDate.getMonth()] += amount;
+
+                    const isSigned = isDirectInvoice || status === 'accepted' || status === 'paid' || status === 'billed' || !!quote.signed_at;
+                    if (isSigned) {
+                        metrics.conversion.lastYear.signed++;
+                        metrics.conversion.charts.lastYear[qDate.getMonth()]++;
+                    }
+                    metrics.conversion.lastYear.total++;
+                }
+            }
+        });
+
+        const calcRate = (signed, total) => total > 0 ? (signed / total) * 100 : 0;
+        const convStats = {
+            week: calcRate(metrics.conversion.week.signed, metrics.conversion.week.total),
+            month: calcRate(metrics.conversion.month.signed, metrics.conversion.month.total),
+            year: calcRate(metrics.conversion.year.signed, metrics.conversion.year.total),
+            lastYear: calcRate(metrics.conversion.lastYear.signed, metrics.conversion.lastYear.total),
+        };
+
+        const buildMetricObject = (metricData, maxRef) => ({
+            week: { value: metricData.week, max: maxRef.week * 1.5 || 1000, chart: formatChartPoints(metricData.charts.week, 'week'), details: metricData.details.week },
+            month: { value: metricData.month, max: maxRef.month * 1.2 || 5000, chart: formatChartPoints(metricData.charts.month, 'month'), details: metricData.details.month },
+            year: { value: metricData.year, max: maxRef.year * 1.2 || 10000, chart: formatChartPoints(metricData.charts.year, 'year'), details: metricData.details.year },
+            lastYear: { value: metricData.lastYear, max: maxRef.lastYear * 1.2 || 10000, chart: formatChartPoints(metricData.charts.lastYear, 'year'), details: metricData.details.lastYear },
+        });
+
+        return {
+            revenue: buildMetricObject(metrics.revenue, metrics.revenue),
+            netIncome: buildMetricObject(metrics.netIncome, metrics.netIncome),
+            quotes: buildMetricObject(metrics.quotes, metrics.quotes),
+            conversion: {
+                week: { value: convStats.week, max: 100, chart: formatChartPoints(metrics.conversion.charts.week, 'week') },
+                month: { value: convStats.month, max: 100, chart: formatChartPoints(metrics.conversion.charts.month, 'month') },
+                year: { value: convStats.year, max: 100, chart: formatChartPoints(metrics.conversion.charts.year, 'year') },
+                lastYear: { value: convStats.lastYear, max: 100, chart: formatChartPoints(metrics.conversion.charts.lastYear, 'year') },
+            },
+            clientCount,
+            pendingQuotesCount,
+            recentActivity,
+            details: {
+                week: metrics.revenue.details.week,
+                month: metrics.revenue.details.month,
+                year: metrics.revenue.details.year,
+                lastYear: metrics.revenue.details.lastYear
+            }
+        };
+    }, [allQuotes, referenceDate, clientCount, pendingQuotesCount, recentActivity]);
+
+    const navigateDate = (amount, unit) => {
+        if (unit === 'month') {
+            setReferenceDate(prev => amount > 0 ? addMonths(prev, amount) : subMonths(prev, Math.abs(amount)));
+        } else if (unit === 'week') {
+            setReferenceDate(prev => amount > 0 ? addWeeks(prev, amount) : subWeeks(prev, Math.abs(amount)));
+        }
+    };
+
+    const resetDate = () => setReferenceDate(new Date());
 
     // Real-time updates & Notifications
     useEffect(() => {
@@ -549,11 +460,10 @@ const Dashboard = () => {
                 { event: '*', schema: 'public', table: 'quotes' },
                 (payload) => {
                     console.log('Realtime change:', payload);
-                    fetchStats(); // Refresh stats on any change
+                    fetchRawData(); // Refresh all data
 
                     // Notify on new signature
                     if (payload.eventType === 'UPDATE' && payload.new.status === 'accepted' && payload.old.status !== 'accepted') {
-                        // Check if it's a signature (either via signed_at or status change to accepted)
                         new Notification('Devis Signé !', {
                             body: `Un devis a été accepté pour ${payload.new.total_ttc} €`,
                             icon: '/pwa-192x192.png'
@@ -569,7 +479,7 @@ const Dashboard = () => {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'clients' },
                 () => {
-                    fetchStats();
+                    fetchRawData();
                 }
             )
             .subscribe();
@@ -594,7 +504,7 @@ const Dashboard = () => {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center text-gray-900 dark:text-white">
                             <h3 className="font-bold text-lg">
-                                Détails : {detailsView.period === 'week' ? 'Cette Semaine' : detailsView.period === 'month' ? 'Ce Mois' : detailsView.period === 'year' ? 'Cette Année' : 'L\'Année dernière'}
+                                Détails : {detailsView.period === 'week' ? `Semaine ${getWeek(referenceDate, { weekStartsOn: 1 })}` : detailsView.period === 'month' ? format(referenceDate, 'MMMM yyyy', { locale: fr }) : detailsView.period === 'year' ? referenceDate.getFullYear() : 'L\'Année dernière'}
                                 {detailsView.title && <span className="text-gray-500 font-normal ml-2">- {detailsView.title}</span>}
                             </h3>
                             <button onClick={() => setDetailsView(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
@@ -641,6 +551,38 @@ const Dashboard = () => {
                     <Plus className="w-5 h-5 mr-2" />
                     Nouveau Devis
                 </button>
+            </div>
+
+            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 mb-6 overflow-x-auto">
+                <div className="flex items-center gap-2 p-2 border-r border-gray-100 dark:border-gray-700 mr-2 min-w-fit">
+                    <button onClick={() => navigateDate(-1, 'month')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm font-semibold whitespace-nowrap min-w-[120px] text-center dark:text-gray-200">
+                        {format(referenceDate, 'MMMM yyyy', { locale: fr })}
+                    </span>
+                    <button onClick={() => navigateDate(1, 'month')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                        <ArrowLeft className="w-4 h-4 rotate-180" />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 mr-2 min-w-fit">
+                    <button onClick={() => navigateDate(-1, 'week')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-semibold whitespace-nowrap min-w-[90px] text-center text-gray-500 dark:text-gray-400">
+                        Accès Semaine {getWeek(referenceDate, { weekStartsOn: 1 })}
+                    </span>
+                    <button onClick={() => navigateDate(1, 'week')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                        <ArrowLeft className="w-4 h-4 rotate-180" />
+                    </button>
+                </div>
+
+                <div className="ml-auto flex items-center p-2">
+                    <button onClick={resetDate} className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors text-gray-700 dark:text-gray-300">
+                        Aujourd'hui
+                    </button>
+                </div>
             </div>
 
             <ActionableDashboard user={user} />
