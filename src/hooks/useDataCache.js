@@ -230,6 +230,69 @@ export function useSaveQuote() {
     });
 }
 
+// Cache des données du Dashboard (statistiques)
+export function useDashboardData() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['dashboard', user?.id],
+        queryFn: async () => {
+            // Récupérer les devis avec les données clients
+            const { data: quotes, error: quotesError } = await supabase
+                .from('quotes')
+                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
+            if (quotesError) throw quotesError;
+
+            // Compter les clients
+            const { count: clientCount } = await supabase
+                .from('clients')
+                .select('*', { count: 'exact', head: true });
+
+            // Compter les devis en attente
+            const { count: pendingQuotesCount } = await supabase
+                .from('quotes')
+                .select('*', { count: 'exact', head: true })
+                .in('status', ['draft', 'sent']);
+
+            // Activité récente
+            const { data: rQuotes } = await supabase
+                .from('quotes')
+                .select('*, clients(name)')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const { data: rSignatures } = await supabase
+                .from('quotes')
+                .select('*, clients(name)')
+                .not('signed_at', 'is', null)
+                .order('signed_at', { ascending: false })
+                .limit(5);
+
+            const { data: rClients } = await supabase
+                .from('clients')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const activities = [
+                ...(rQuotes || []).map(q => ({ type: 'quote', date: q.created_at, description: `Devis créé pour ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),
+                ...(rSignatures || []).map(q => ({ type: 'signature', date: q.signed_at, description: `Devis signé par ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),
+                ...(rClients || []).map(c => ({ type: 'client', date: c.created_at, description: `Nouveau client : ${c.name}`, amount: null }))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+
+            return {
+                allQuotes: quotes || [],
+                clientCount: clientCount || 0,
+                pendingQuotesCount: pendingQuotesCount || 0,
+                recentActivity: activities
+            };
+        },
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000, // 2 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes
+    });
+}
+
 // Mutation pour sauvegarder un client
 export function useSaveClient() {
     const queryClient = useQueryClient();

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
+import { useDebounce } from '../hooks/useDebounce';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -32,6 +33,7 @@ const DevisList = () => {
     const { data: devisList = [], isLoading: loading } = useQuotes();
 
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
     const importInputRef = React.useRef(null);
 
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
@@ -55,8 +57,8 @@ const DevisList = () => {
     };
 
     const filteredDevis = devisList.filter(devis => {
-        const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            devis.id.toString().includes(searchTerm);
+        const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+            devis.id.toString().includes(debouncedSearch);
 
         const matchesStatus = statusFilter === 'all' ||
             (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) : devis.status === statusFilter);
