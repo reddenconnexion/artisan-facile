@@ -5,6 +5,7 @@ import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addM
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardData } from '../hooks/useDataCache';
+import { useAuth } from '../context/AuthContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 
@@ -368,6 +369,7 @@ const RevenueBar = ({ label, value, max, color, onClick, formatter }) => {
 };
 
 const Dashboard = () => {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
 
