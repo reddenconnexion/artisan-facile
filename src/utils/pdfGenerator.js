@@ -456,8 +456,76 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         ? new Date(devis.valid_until).toLocaleDateString()
         : "à réception";
 
+    // --- NEW: Fetch Installments Schedule ---
+    let installments = [];
+    if (isInvoice && devis.id) {
+        try {
+            const { supabase } = await import('./supabase');
+            const { data } = await supabase
+                .from('invoice_installments')
+                .select('*')
+                .eq('quote_id', devis.id)
+                .order('due_date', { ascending: true });
+            installments = data || [];
+        } catch (e) {
+            console.warn("Failed to fetch installments", e);
+        }
+    }
+
+    // Render Schedule Table if exists
+    if (installments.length > 0) {
+        if (currentY + (installments.length * 8) + 20 > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("Échéancier de paiement :", 14, currentY);
+
+        const scheduleBody = installments.map(inst => [
+            new Date(inst.due_date).toLocaleDateString(),
+            `${inst.amount.toFixed(2)} €`,
+            inst.status === 'paid' ? 'Payé' : (inst.status === 'partial' ? 'Partiel' : 'En attente')
+        ]);
+
+        autoTable(doc, {
+            startY: currentY + 3,
+            head: [['Date', 'Montant', 'Statut']],
+            body: scheduleBody,
+            theme: 'plain',
+            styles: { fontSize: 9, cellPadding: 1 },
+            headStyles: { fontStyle: 'bold', fillColor: [240, 240, 240] },
+            columnStyles: {
+                0: { cellWidth: 40 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 40 }
+            },
+            margin: { left: 14 }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 15;
+    }
+
+    // Notes / Conditions Display
+    // ... (rest of notes logic) ...
+
+    // Logic: Checks allowed only for installments (Acompte, Solde, or Note mention OR DB Schedule)
+    const isInstallment = isInvoice && (
+        installments.length > 0 ||
+        (devis.title && /acompte|solde|situation|avancement/i.test(devis.title)) ||
+        (devis.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(devis.notes))
+    );
+
+    const checkOrderName = userProfile.full_name || companyName;
+
+    const paymentMethodText = isInstallment
+        ? `Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${checkOrderName}.`
+        : `Le règlement s'effectue par virement bancaire.`;
+
     const legalTerms = [
-        `Règlement : Le paiement est dû ${isInvoice && devis.valid_until ? `le ${dueDate}` : 'à réception de la facture'}. Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${companyName}.`,
+        `Règlement : Le paiement est dû ${isInvoice && devis.valid_until ? `le ${dueDate}` : 'à réception de la facture'}. ${paymentMethodText}`,
         "Pénalités de retard : Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.",
         "Frais de recouvrement (Clients Pros) : Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).",
         "Réserve de propriété : Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix."

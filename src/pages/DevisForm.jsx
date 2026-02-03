@@ -17,6 +17,7 @@ import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
 import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
+import PaymentSchedule from '../components/PaymentSchedule';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -2359,6 +2360,16 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Payment Schedule (Invoices) */}
+                {formData.type === 'invoice' && !formData.is_external && (
+                    <div className="mb-6">
+                        <PaymentSchedule
+                            invoiceId={id}
+                            totalAmount={total}
+                        />
                     </div>
                 )}
 

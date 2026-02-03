@@ -174,3 +174,82 @@ export const recordFollowUp = async (quote, userId, content, method = 'email') =
         }]);
     }
 };
+
+/**
+ * Retrieves overdue installments for a user.
+ * @param {string} userId
+ * @returns {Promise<Array>}
+ */
+export const getOverdueInstallments = async (userId) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+        .from('invoice_installments')
+        .select(`
+            *,
+            quotes!inner (
+                id,
+                client_id,
+                title,
+                clients (name, email)
+            )
+        `)
+        .eq('quotes.user_id', userId)
+        .lt('due_date', today)
+        .neq('status', 'paid');
+
+    if (error) {
+        console.error("Error fetching overdue installments:", error);
+        return [];
+    }
+    return data;
+};
+
+/**
+ * Sends a reminder for a specific installment.
+ * @param {object} installment 
+ * @param {string} userId 
+ */
+export const sendInstallmentReminder = async (installment, userId) => {
+    if (!installment.quotes?.clients?.email) {
+        throw new Error("Email du client introuvable");
+    }
+
+    const client = installment.quotes.clients;
+    const invoice = installment.quotes;
+
+    // Check if installment is actually late or just due
+    const isLate = new Date(installment.due_date) < new Date();
+
+    const subject = `Rappel de paiement : Échéance du ${new Date(installment.due_date).toLocaleDateString()} - ${invoice.title}`;
+    const body = `Bonjour ${client.name},\n\n` +
+        `Sauf erreur de notre part, nous n'avons pas reçu le règlement de l'échéance suivante concernant la facture n°${invoice.id} :\n\n` +
+        `- Date d'échéance : ${new Date(installment.due_date).toLocaleDateString()}\n` +
+        `- Montant attendu : ${installment.amount.toFixed(2)} €\n` +
+        `- Montant restant : ${(installment.amount - (installment.amount_paid || 0)).toFixed(2)} €\n\n` +
+        `Merci de régulariser cette situation dès que possible.\n\n` +
+        `Cordialement,`;
+
+    // Open mail client
+    window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Update reminded count
+    await supabase
+        .from('invoice_installments')
+        .update({
+            reminded_count: (installment.reminded_count || 0) + 1,
+            status: 'late' // Mark as explicitly late if not already
+        })
+        .eq('id', installment.id);
+
+    // Log interaction
+    await supabase.from('client_interactions').insert([{
+        user_id: userId,
+        client_id: invoice.client_id,
+        type: 'email',
+        date: new Date(),
+        details: `Rappel échéance ${installment.amount.toFixed(2)}€ (Date: ${installment.due_date})`
+    }]);
+
+    return true;
+};
