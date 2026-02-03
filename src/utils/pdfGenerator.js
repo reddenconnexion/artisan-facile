@@ -426,7 +426,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         if (weroNumber && weroNumber.trim().length > 0) {
             doc.text("Paylib / Wero", 20, elementY + lineOffset);
             doc.setFont(undefined, 'bold');
-            doc.text(`Tél : ${weroNumber}`, 55, elementY + lineOffset);
+            const weroText = userProfile.full_name
+                ? `Tél : ${weroNumber} (${userProfile.full_name})`
+                : `Tél : ${weroNumber}`;
+            doc.text(weroText, 55, elementY + lineOffset);
         }
 
         // Reference info - Only if NOT paid
