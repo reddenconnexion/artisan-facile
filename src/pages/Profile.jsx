@@ -66,8 +66,8 @@ const Profile = () => {
                     trade: data.trade || 'general',
                     iban: data.iban || '',
                     wero_phone: data.wero_phone || '',
-                    artisan_status: data.artisan_status || 'micro_entreprise',
-                    activity_type: data.activity_type || 'services',
+                    artisan_status: aiPrefs.artisan_status || 'micro_entreprise',
+                    activity_type: aiPrefs.activity_type || 'services',
                     openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
                     ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
                     ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
@@ -141,8 +141,6 @@ const Profile = () => {
                     trade: formData.trade,
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
-                    artisan_status: formData.artisan_status,
-                    activity_type: formData.activity_type,
 
                     // Save AI prefs to JSONB column
                     ai_preferences: {
@@ -155,7 +153,9 @@ const Profile = () => {
                         zone2_price: formData.zone2_price,
                         zone3_radius: formData.zone3_radius,
                         zone3_price: formData.zone3_price,
-                        ai_instructions: formData.ai_instructions
+                        ai_instructions: formData.ai_instructions,
+                        artisan_status: formData.artisan_status,
+                        activity_type: formData.activity_type
                     },
 
                     updated_at: new Date(),
