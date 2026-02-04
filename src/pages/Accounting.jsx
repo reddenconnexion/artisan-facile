@@ -132,13 +132,15 @@ const Accounting = () => {
       .reduce((sum, invoice) => sum + (invoice.total_ht || 0), 0);
   }, [invoices, selectedYear]);
 
+  // Récupération des préférences depuis ai_preferences
+  const artisanStatus = profile?.ai_preferences?.artisan_status || 'micro_entreprise';
+  const activityType = profile?.ai_preferences?.activity_type || 'services';
+
   // Calcul des charges URSSAF
   const calculateCharges = useMemo(() => {
-    if (!profile?.artisan_status || profile.artisan_status !== 'micro_entreprise') {
+    if (artisanStatus !== 'micro_entreprise') {
       return null;
     }
-
-    const activityType = profile.activity_type || 'services';
     const rates = URSSAF_RATES.micro_entreprise;
 
     if (activityType === 'mixte') {
@@ -165,14 +167,12 @@ const Accounting = () => {
       rate: rate,
       ca: periodRevenue
     };
-  }, [profile, periodRevenue, hasAcre, caVente, caServices]);
+  }, [artisanStatus, activityType, periodRevenue, hasAcre, caVente, caServices]);
 
   // Vérification du dépassement de plafond
   const limitStatus = useMemo(() => {
-    if (!profile?.activity_type) return null;
-
-    const activityType = profile.activity_type === 'mixte' ? 'services' : profile.activity_type;
-    const limit = CA_LIMITS[activityType] || CA_LIMITS.services;
+    const limitActivityType = activityType === 'mixte' ? 'services' : activityType;
+    const limit = CA_LIMITS[limitActivityType] || CA_LIMITS.services;
     const percentage = (yearlyRevenue / limit) * 100;
 
     return {
@@ -202,7 +202,7 @@ const Accounting = () => {
     );
   }
 
-  const isMicroEntreprise = profile?.artisan_status === 'micro_entreprise';
+  const isMicroEntreprise = artisanStatus === 'micro_entreprise';
 
   return (
     <div className="max-w-4xl mx-auto pb-12">
@@ -233,38 +233,26 @@ const Accounting = () => {
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Statut juridique</p>
             <p className="font-medium text-gray-900 dark:text-white">
-              {STATUS_LABELS[profile?.artisan_status] || 'Non défini'}
+              {STATUS_LABELS[artisanStatus] || 'Non défini'}
             </p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Type d'activité</p>
             <p className="font-medium text-gray-900 dark:text-white">
-              {ACTIVITY_LABELS[profile?.activity_type] || 'Non défini'}
+              {ACTIVITY_LABELS[activityType] || 'Non défini'}
             </p>
           </div>
         </div>
-
-        {!profile?.artisan_status && (
-          <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start">
-            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-3 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Statut non configuré</p>
-              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                Veuillez configurer votre statut juridique dans les paramètres pour calculer vos charges.
-              </p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Message pour les statuts non micro-entreprise */}
-      {profile?.artisan_status && !isMicroEntreprise && (
+      {!isMicroEntreprise && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6">
           <div className="flex items-start">
             <Info className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-2">
-                Calcul des charges pour {STATUS_LABELS[profile.artisan_status]}
+                Calcul des charges pour {STATUS_LABELS[artisanStatus]}
               </h3>
               <p className="text-blue-800 dark:text-blue-400 mb-4">
                 Pour les statuts autres que micro-entreprise, le calcul des cotisations sociales est plus complexe
@@ -367,7 +355,7 @@ const Accounting = () => {
               Calcul des charges
             </h3>
 
-            {profile?.activity_type === 'mixte' ? (
+            {activityType === 'mixte' ? (
               <div className="space-y-4 mb-6">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Pour une activité mixte, saisissez le CA de chaque type d'activité :
