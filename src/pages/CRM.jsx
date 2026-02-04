@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowRight, CheckCircle, Hammer, Phone,
-    Euro, Box
+    Coins, Box
 } from 'lucide-react';
 
 const WorksitePilot = () => {
@@ -16,10 +16,9 @@ const WorksitePilot = () => {
 
     const columns = [
         {
-            id: 'pending_deposit',
             title: 'Attente Acompte',
             color: 'bg-red-50 border-red-100',
-            icon: Euro,
+            icon: Coins,
             description: 'Devis signé, attente paiement acompte matériel'
         },
         {
