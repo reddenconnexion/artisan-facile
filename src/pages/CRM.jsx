@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowRight, CheckCircle, Hammer, Phone,
-    CreditCard, Package
+    CreditCard, Package, Kanban
 } from 'lucide-react';
 
 const WorksitePilot = () => {
