@@ -82,15 +82,16 @@ const Accounting = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
 
-      if (profileError) throw profileError;
-      setProfile(profileData);
+      if (profileError) console.error('Error fetching profile', profileError);
+      if (profileData) setProfile(profileData);
 
       // Charger tous les documents (avec les items pour le calcul précis)
+      // items est une colonne JSON, pas une relation, donc '*' suffit
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('quotes')
-        .select('*, items(*)')
+        .select('*')
         .eq('user_id', user.id);
 
       if (invoiceError) throw invoiceError;
@@ -98,7 +99,7 @@ const Accounting = () => {
 
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Erreur lors du chargement des données');
+      toast.error('Erreur lors du chargement des données. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
