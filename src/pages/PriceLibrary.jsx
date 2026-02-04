@@ -253,8 +253,8 @@ const PriceLibrary = () => {
         <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Bibliothèque de Prix</h1>
-                    <p className="text-gray-500">Gérez vos ouvrages et tarifs</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bibliothèque de Prix</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Gérez vos ouvrages et tarifs</p>
                 </div>
                 <div className="flex gap-3">
                     <button
