@@ -54,6 +54,7 @@ const Inventory = lazy(() => import('./pages/Inventory'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
 const FollowUps = lazy(() => import('./pages/FollowUps'));
 const Rentals = lazy(() => import('./pages/Rentals'));
+const Accounting = lazy(() => import('./pages/Accounting'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -102,6 +103,7 @@ function App() {
               <Route path="portfolio" element={<Portfolio />} />
               <Route path="settings" element={<Profile />} />
               <Route path="settings/activity" element={<ActivitySettings />} />
+              <Route path="accounting" element={<Accounting />} />
             </Route>
             </Routes>
           </Suspense>
