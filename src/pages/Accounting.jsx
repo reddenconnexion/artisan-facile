@@ -134,7 +134,7 @@ const Accounting = () => {
     } else {
       setManualCa('');
     }
-  }, [selectedYear, selectedPeriod, selectedMonth, selectedQuarter, invoices]);
+  }, [periodRevenue]);
 
   // Calcul du CA annuel
   const yearlyRevenue = useMemo(() => {
