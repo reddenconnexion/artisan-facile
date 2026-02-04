@@ -19,14 +19,14 @@ const WorksitePilot = () => {
             id: 'pending_deposit',
             title: 'Attente Acompte',
             color: 'bg-red-50 border-red-100',
-            icon: CreditCard,
+            icon: FileText,
             description: 'Devis signé, attente paiement acompte matériel'
         },
         {
             id: 'material_order',
             title: 'Commande Matériel',
             color: 'bg-indigo-50 border-indigo-100',
-            icon: Package,
+            icon: CheckCircle,
             description: 'Acompte reçu, matériel à commander/recevoir'
         },
         {
@@ -119,50 +119,53 @@ const WorksitePilot = () => {
                 });
             }
 
-            // Process and Auto-Update Stages
-            const processedData = await Promise.all((data || []).filter(q =>
+            // Process and Auto-Update Stages - TEMPORARILY DISABLED FOR DEBUGGING
+            // const processedData = await Promise.all((data || []).filter(q =>
+            //     q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
+            // ).map(async (q) => {
+            //     // Determine Auto Stage
+            //     let autoStage = q.work_stage;
+            //
+            //     // Check contents
+            //     const hasMaterial = q.items && Array.isArray(q.items) && q.items.some(i => i.type === 'material');
+            //     const deposits = depositsMap[q.id] || [];
+            //     const hasPaidDeposit = deposits.some(d => d.status === 'paid');
+            //
+            //     // Logic:
+            //     // If not started (no stage or early stage), apply automation
+            //     if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order' || autoStage === 'planned') {
+            //         if (hasMaterial) {
+            //             if (hasPaidDeposit) {
+            //                 // If it was pending, move to material order
+            //                 if (!autoStage || autoStage === 'pending_deposit') {
+            //                     autoStage = 'material_order';
+            //                 }
+            //             } else {
+            //                 // No deposit paid yet
+            //                 autoStage = 'pending_deposit';
+            //             }
+            //         } else {
+            //             // No material -> Ready to plan
+            //            if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order') {
+            //                autoStage = 'planned';
+            //            }
+            //         }
+            //     }
+            //
+            //     // If stage changed from DB value, use the calculated one for display
+            //     if (autoStage !== q.work_stage) {
+            //         return { ...q, work_stage: autoStage };
+            //     }
+            //
+            //     return q;
+            // }));
+
+            // SIMPLIFIED FETCH
+            const filteredData = (data || []).filter(q =>
                 q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
-            ).map(async (q) => {
-                // Determine Auto Stage
-                let autoStage = q.work_stage;
+            );
 
-                // Check contents
-                const hasMaterial = q.items && Array.isArray(q.items) && q.items.some(i => i.type === 'material');
-                const deposits = depositsMap[q.id] || [];
-                const hasPaidDeposit = deposits.some(d => d.status === 'paid');
-
-                // Logic:
-                // If not started (no stage or early stage), apply automation
-                if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order' || autoStage === 'planned') {
-                    if (hasMaterial) {
-                        if (hasPaidDeposit) {
-                            // If it was pending, move to material order
-                            if (!autoStage || autoStage === 'pending_deposit') {
-                                autoStage = 'material_order';
-                            }
-                            // If it is material_order, it stays there until manual move (Reception)
-                        } else {
-                            // No deposit paid yet
-                            autoStage = 'pending_deposit';
-                        }
-                    } else {
-                        // No material -> Ready to plan
-                        if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order') {
-                            autoStage = 'planned';
-                        }
-                    }
-                }
-
-                // If stage changed from DB value, use the calculated one for display
-                // We DO NOT update DB here to avoid infinite loops with the subscription
-                if (autoStage !== q.work_stage) {
-                    return { ...q, work_stage: autoStage };
-                }
-
-                return q;
-            }));
-
-            setWorksites(processedData);
+            setWorksites(filteredData);
         } catch (error) {
             toast.error('Erreur chargement chantiers');
             console.error('Error fetching worksites:', error);
