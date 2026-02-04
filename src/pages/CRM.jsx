@@ -245,6 +245,7 @@ const WorksitePilot = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Kanban className="w-8 h-8 text-blue-600" />
                         Pilotage Chantiers
                         {focusedColumn && <span className="text-gray-400 text-lg font-normal">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
                     </h2>

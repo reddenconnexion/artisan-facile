@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil } from 'lucide-react';
+import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -253,8 +253,13 @@ const PriceLibrary = () => {
         <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bibliothèque de Prix</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Gérez vos ouvrages et tarifs</p>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <BookOpen className="w-8 h-8 text-blue-600" />
+                            Bibliothèque de Prix
+                        </h1>
+                        <p className="text-gray-500 dark:text-gray-400">Gérez vos ouvrages et tarifs</p>
+                    </div>
                 </div>
                 <div className="flex gap-3">
                     <button
