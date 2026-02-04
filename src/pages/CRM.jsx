@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowRight, CheckCircle, Hammer, Phone,
-    Coins, Box
+    CreditCard, Package
 } from 'lucide-react';
 
 const WorksitePilot = () => {
@@ -16,16 +16,17 @@ const WorksitePilot = () => {
 
     const columns = [
         {
+            id: 'pending_deposit',
             title: 'Attente Acompte',
             color: 'bg-red-50 border-red-100',
-            icon: Coins,
+            icon: CreditCard,
             description: 'Devis signé, attente paiement acompte matériel'
         },
         {
             id: 'material_order',
             title: 'Commande Matériel',
             color: 'bg-indigo-50 border-indigo-100',
-            icon: Box,
+            icon: Package,
             description: 'Acompte reçu, matériel à commander/recevoir'
         },
         {
@@ -298,7 +299,7 @@ const WorksitePilot = () => {
                                 <div className="p-4 font-semibold text-gray-700 flex justify-between items-center bg-white/60 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
                                     <div className="flex items-center gap-2">
                                         <div className={`p-1.5 rounded-lg ${column.color.split(' ')[0]} bg-opacity-100`}>
-                                            <column.icon className="w-4 h-4 text-gray-700" />
+                                            {column.icon && <column.icon className="w-4 h-4 text-gray-700" />}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
