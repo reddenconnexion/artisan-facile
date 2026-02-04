@@ -87,10 +87,10 @@ const Accounting = () => {
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // Charger tous les documents (comme le Dashboard)
+      // Charger tous les documents (avec les items pour le calcul précis)
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('quotes')
-        .select('*')
+        .select('*, items(*)')
         .eq('user_id', user.id);
 
       if (invoiceError) throw invoiceError;
@@ -104,46 +104,73 @@ const Accounting = () => {
     }
   };
 
-  // Calcul du CA pour la période sélectionnée (factures payées uniquement)
-  const periodRevenue = useMemo(() => {
-    if (!invoices.length) return 0;
+  // Calcul du CA détaillé pour la période sélectionnée (factures payées uniquement)
+  // Retourne { total, services, vente }
+  const periodData = useMemo(() => {
+    if (!invoices.length) return { total: 0, services: 0, vente: 0 };
 
-    return invoices
-      .filter(invoice => {
-        // Filtrer par statut payé (comme le Dashboard)
-        const status = (invoice.status || '').toLowerCase();
-        if (status !== 'paid') return false;
+    const filtered = invoices.filter(invoice => {
+      // Filtrer par statut payé (comme le Dashboard)
+      const status = (invoice.status || '').toLowerCase();
+      // Inclure 'paid' et les factures (type=invoice) non annulées/brouillon (selon logique comptable préférée)
+      // Ici on reste strict : 'paid'
+      if (status !== 'paid') return false;
 
-        const invoiceDate = new Date(invoice.date || invoice.created_at);
-        if (isNaN(invoiceDate.getTime())) return false;
+      const invoiceDate = new Date(invoice.date || invoice.created_at);
+      if (isNaN(invoiceDate.getTime())) return false;
 
-        const invoiceYear = invoiceDate.getFullYear();
-        const invoiceMonth = invoiceDate.getMonth();
+      const invoiceYear = invoiceDate.getFullYear();
+      const invoiceMonth = invoiceDate.getMonth();
 
-        if (invoiceYear !== selectedYear) return false;
+      if (invoiceYear !== selectedYear) return false;
 
-        if (selectedPeriod === 'month') {
-          return invoiceMonth === selectedMonth;
-        } else {
-          const invoiceQuarter = Math.floor(invoiceMonth / 3);
-          return invoiceQuarter === selectedQuarter;
-        }
-      })
-      .reduce((sum, invoice) => {
-        // Utiliser total_ht si disponible, sinon calculer depuis total_ttc (TVA 20%)
-        const amount = invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0);
-        return sum + amount;
-      }, 0);
+      if (selectedPeriod === 'month') {
+        return invoiceMonth === selectedMonth;
+      } else {
+        const invoiceQuarter = Math.floor(invoiceMonth / 3);
+        return invoiceQuarter === selectedQuarter;
+      }
+    });
+
+    let totalService = 0;
+    let totalMaterial = 0;
+
+    filtered.forEach(inv => {
+      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+        inv.items.forEach(item => {
+          const price = parseFloat(item.price) || 0;
+          const qty = parseFloat(item.quantity) || 0;
+          const lineTotal = price * qty;
+
+          // Detection type
+          if (item.type === 'material') {
+            totalMaterial += lineTotal;
+          } else {
+            totalService += lineTotal;
+          }
+        });
+      } else {
+        // Fallback si pas d'items: Tout en service par défaut (ou selon type d'activité du profil ?)
+        // On utilise total_ht
+        const amount = inv.total_ht || (inv.total_ttc ? inv.total_ttc / 1.2 : 0);
+        totalService += amount;
+      }
+    });
+
+    return {
+      total: totalService + totalMaterial,
+      services: totalService,
+      vente: totalMaterial
+    };
+
   }, [invoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
 
-  // Mettre à jour le CA quand la période change
+  // Mettre à jour les champs "Auto-remplis" quand calculés
   useEffect(() => {
-    if (periodRevenue > 0) {
-      setManualCa(periodRevenue.toFixed(2));
-    } else {
-      setManualCa('');
-    }
-  }, [periodRevenue]);
+    setManualCa(periodData.total > 0 ? periodData.total.toFixed(2) : '');
+    setCaServices(periodData.services > 0 ? periodData.services.toFixed(2) : '');
+    setCaVente(periodData.vente > 0 ? periodData.vente.toFixed(2) : '');
+  }, [periodData]);
 
   // Calcul du CA annuel (factures payées uniquement)
   const yearlyRevenue = useMemo(() => {
@@ -161,11 +188,16 @@ const Accounting = () => {
   }, [invoices, selectedYear]);
 
   // Récupération des préférences depuis ai_preferences
+  // Valeurs par défaut si pas encore configurées
   const artisanStatus = profile?.ai_preferences?.artisan_status || 'micro_entreprise';
-  const activityType = profile?.ai_preferences?.activity_type || 'services';
+  const activityType = profile?.ai_preferences?.activity_type || 'mixte'; // Default to Mixte to show both fields if unsure
 
   // CA effectif (manuel ou calculé depuis factures)
-  const effectiveCa = manualCa !== '' ? parseFloat(manualCa) || 0 : periodRevenue;
+  // On utilise les valeurs des inputs (qui sont pré-remplies par useEffect)
+  // Cela permet à l'utilisateur de corriger manuellement si besoin
+  const effectiveCa = manualCa !== '' ? parseFloat(manualCa) || 0 : periodData.total;
+  const effectiveCaService = caServices !== '' ? parseFloat(caServices) || 0 : periodData.services;
+  const effectiveCaVente = caVente !== '' ? parseFloat(caVente) || 0 : periodData.vente;
 
   // Calcul des charges URSSAF
   const calculateCharges = useMemo(() => {
@@ -174,26 +206,28 @@ const Accounting = () => {
     }
     const rates = URSSAF_RATES.micro_entreprise;
 
-    if (activityType === 'mixte') {
+    // Logique pour Activité Mixte (Services + Vente)
+    // OU si l'utilisateur est en "Services" mais a rempli du CA Vente (cas hybride non déclaré mais réel)
+    // On force le mode mixte si on détecte les deux types de CA et que l'activité le permet ou pour affichage
+    const useMixteCalculation = activityType === 'mixte' || (activityType === 'services' && effectiveCaVente > 0) || (activityType === 'vente' && effectiveCaService > 0);
+
+    if (useMixteCalculation) {
       const servicesRate = hasAcre ? rates.mixte.services.acre : rates.mixte.services.normal;
       const venteRate = hasAcre ? rates.mixte.vente.acre : rates.mixte.vente.normal;
 
-      const caServicesNum = parseFloat(caServices) || 0;
-      const caVenteNum = parseFloat(caVente) || 0;
-
-      const chargesServices = caServicesNum * servicesRate;
-      const chargesVente = caVenteNum * venteRate;
+      const chargesServices = effectiveCaService * servicesRate;
+      const chargesVente = effectiveCaVente * venteRate;
 
       return {
         total: chargesServices + chargesVente,
         details: {
-          services: { ca: caServicesNum, rate: servicesRate, charges: chargesServices },
-          vente: { ca: caVenteNum, rate: venteRate, charges: chargesVente }
+          services: { ca: effectiveCaService, rate: servicesRate, charges: chargesServices },
+          vente: { ca: effectiveCaVente, rate: venteRate, charges: chargesVente }
         }
       };
     }
 
-    const rateConfig = rates[activityType];
+    const rateConfig = rates[activityType] || rates.services;
     const rate = hasAcre ? rateConfig.acre : rateConfig.normal;
 
     return {
@@ -201,7 +235,7 @@ const Accounting = () => {
       rate: rate,
       ca: effectiveCa
     };
-  }, [artisanStatus, activityType, effectiveCa, hasAcre, caVente, caServices]);
+  }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
 
   // Vérification du dépassement de plafond
   const limitStatus = useMemo(() => {
@@ -215,7 +249,7 @@ const Accounting = () => {
       isNearLimit: percentage >= 80,
       isOverLimit: percentage >= 100
     };
-  }, [profile, yearlyRevenue]);
+  }, [profile, yearlyRevenue, activityType]);
 
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -255,7 +289,7 @@ const Accounting = () => {
             Votre statut
           </h3>
           <Link
-            to="/app/settings"
+            to="/app/settings/activity"
             className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
           >
             <Settings className="w-4 h-4 mr-1" />
@@ -389,10 +423,12 @@ const Accounting = () => {
               Calcul des charges
             </h3>
 
-            {activityType === 'mixte' ? (
+            {/* Affiche TOUJOURS le mode mixte si détection de items séparés ou si configuré comme tel */}
+            {/* Mais pour simplifier, on affiche le bloc mixte si activityType est mixte OU si on a des données dans les deux colonnes */}
+            {(activityType === 'mixte' || (effectiveCaService > 0 && effectiveCaVente > 0)) ? (
               <div className="space-y-4 mb-6">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Saisissez le CA de chaque type d'activité pour la période :
+                  Le CA est calculé automatiquement d'après vos factures payées. Vous pouvez corriger les montants si nécessaire.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -441,19 +477,19 @@ const Accounting = () => {
                       value={manualCa}
                       onChange={(e) => setManualCa(e.target.value)}
                       className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
-                      placeholder={periodRevenue > 0 ? periodRevenue.toString() : "Saisissez votre CA"}
+                      placeholder={periodData.total > 0 ? periodData.total.toString() : "Saisissez votre CA"}
                     />
                     <span className="absolute right-3 top-2.5 text-gray-400">€</span>
                   </div>
-                  {periodRevenue > 0 && (
+                  {periodData.total > 0 && manualCa !== periodData.total.toFixed(2) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      CA calculé depuis vos factures payées : {formatCurrency(periodRevenue)}
+                      Calculé: {formatCurrency(periodData.total)}
                       <button
                         type="button"
-                        onClick={() => setManualCa(periodRevenue.toString())}
+                        onClick={() => setManualCa(periodData.total.toFixed(2))}
                         className="ml-2 text-blue-600 hover:text-blue-700 underline"
                       >
-                        Utiliser cette valeur
+                        Réinitialiser
                       </button>
                     </p>
                   )}
@@ -535,9 +571,8 @@ const Accounting = () => {
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
                   <div
-                    className={`h-3 rounded-full transition-all ${
-                      limitStatus.isOverLimit ? 'bg-red-500' : limitStatus.isNearLimit ? 'bg-amber-500' : 'bg-green-500'
-                    }`}
+                    className={`h-3 rounded-full transition-all ${limitStatus.isOverLimit ? 'bg-red-500' : limitStatus.isNearLimit ? 'bg-amber-500' : 'bg-green-500'
+                      }`}
                     style={{ width: `${Math.min(limitStatus.percentage, 100)}%` }}
                   ></div>
                 </div>

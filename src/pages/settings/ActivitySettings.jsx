@@ -20,7 +20,8 @@ const ActivitySettings = () => {
         enable_rentals: false,
         enable_crm: true,
         enable_agenda: true,
-        enable_calculator: true
+        enable_calculator: true,
+        enable_accounting: true
     });
 
     useEffect(() => {
@@ -135,6 +136,12 @@ const ActivitySettings = () => {
             key: 'enable_calculator',
             label: 'Calculatrice de Matériaux',
             description: 'Estimez les quantités de matériaux (ciment, peinture...) directement depuis le devis.',
+            icon: Calculator
+        },
+        {
+            key: 'enable_accounting',
+            label: 'Comptabilité & Charges',
+            description: 'Suivi du CA et calcul automatique des charges sociales (URSSAF).',
             icon: Calculator
         }
     ];

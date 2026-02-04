@@ -60,9 +60,7 @@ const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <PageLoader />;
-
   if (!user) return <Navigate to="/login" />;
-
   return children;
 };
 
@@ -75,41 +73,41 @@ function App() {
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            <Route path="/p/:token" element={<ClientPortal />} />
-            <Route path="/q/:token" element={<PublicQuote />} />
+              <Route path="/p/:token" element={<ClientPortal />} />
+              <Route path="/q/:token" element={<PublicQuote />} />
 
-            <Route path="/app" element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Dashboard />} />
-              <Route path="agenda" element={<Agenda />} />
-              <Route path="clients" element={<Clients />} />
-              <Route path="clients/new" element={<ClientForm />} />
-              <Route path="clients/:id" element={<ClientForm />} />
-              <Route path="crm" element={<CRM />} />
-              <Route path="devis" element={<DevisList />} />
-              <Route path="devis/:id" element={<DevisForm />} />
-              <Route path="maintenance" element={<Maintenance />} />
-              <Route path="rentals" element={<Rentals />} />
-              <Route path="library" element={<PriceLibrary />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="follow-ups" element={<FollowUps />} />
-              <Route path="portfolio" element={<Portfolio />} />
-              <Route path="settings" element={<Profile />} />
-              <Route path="settings/activity" element={<ActivitySettings />} />
-              <Route path="accounting" element={<Accounting />} />
-            </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+              <Route path="/app" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Dashboard />} />
+                <Route path="agenda" element={<Agenda />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="clients/new" element={<ClientForm />} />
+                <Route path="clients/:id" element={<ClientForm />} />
+                <Route path="crm" element={<CRM />} />
+                <Route path="devis" element={<DevisList />} />
+                <Route path="devis/:id" element={<DevisForm />} />
+                <Route path="maintenance" element={<Maintenance />} />
+                <Route path="rentals" element={<Rentals />} />
+                <Route path="library" element={<PriceLibrary />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="follow-ups" element={<FollowUps />} />
+                <Route path="portfolio" element={<Portfolio />} />
+                <Route path="settings" element={<Profile />} />
+                <Route path="settings/activity" element={<ActivitySettings />} />
+                <Route path="accounting" element={<Accounting />} />
+              </Route>
+            </Routes >
+          </Suspense >
+        </BrowserRouter >
+      </AuthProvider >
+    </QueryClientProvider >
   );
 }
 
