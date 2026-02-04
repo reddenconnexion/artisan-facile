@@ -87,12 +87,11 @@ const Accounting = () => {
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // Charger tous les documents payés (factures et devis)
+      // Charger tous les documents (comme le Dashboard)
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('quotes')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'paid');
+        .eq('user_id', user.id);
 
       if (invoiceError) throw invoiceError;
       setInvoices(invoiceData || []);
@@ -105,12 +104,16 @@ const Accounting = () => {
     }
   };
 
-  // Calcul du CA pour la période sélectionnée
+  // Calcul du CA pour la période sélectionnée (factures payées uniquement)
   const periodRevenue = useMemo(() => {
     if (!invoices.length) return 0;
 
     return invoices
       .filter(invoice => {
+        // Filtrer par statut payé (comme le Dashboard)
+        const status = (invoice.status || '').toLowerCase();
+        if (status !== 'paid') return false;
+
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         if (isNaN(invoiceDate.getTime())) return false;
 
@@ -142,10 +145,12 @@ const Accounting = () => {
     }
   }, [periodRevenue]);
 
-  // Calcul du CA annuel
+  // Calcul du CA annuel (factures payées uniquement)
   const yearlyRevenue = useMemo(() => {
     return invoices
       .filter(invoice => {
+        const status = (invoice.status || '').toLowerCase();
+        if (status !== 'paid') return false;
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         return !isNaN(invoiceDate.getTime()) && invoiceDate.getFullYear() === selectedYear;
       })
