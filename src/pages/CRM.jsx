@@ -5,26 +5,36 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
-    Calendar, ArrowRight, CheckCircle, Hammer, Phone
+    Calendar, ArrowRight, CheckCircle, Hammer, Phone,
+    Euro, Box
 } from 'lucide-react';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [worksites, setWorksites] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [focusedColumn, setFocusedColumn] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const containerRef = useRef(null);
-    const [zoomLevel, setZoomLevel] = useState(1);
+    const [updating, setUpdating] = useState(false);
 
     const columns = [
+        {
+            id: 'pending_deposit',
+            title: 'Attente Acompte',
+            color: 'bg-red-50 border-red-100',
+            icon: Euro,
+            description: 'Devis signé, attente paiement acompte matériel'
+        },
+        {
+            id: 'material_order',
+            title: 'Commande Matériel',
+            color: 'bg-indigo-50 border-indigo-100',
+            icon: Box,
+            description: 'Acompte reçu, matériel à commander/recevoir'
+        },
         {
             id: 'planned',
             title: 'À Planifier',
             color: 'bg-blue-50 border-blue-100',
             icon: Calendar,
-            description: 'Devis signés, en attente de dates'
+            description: 'Matériel OK, en attente de dates'
         },
         {
             id: 'in_progress',
@@ -46,7 +56,7 @@ const WorksitePilot = () => {
         if (user) {
             fetchWorksites();
 
-            // Realtime subscription on QUOTES
+            // Realtime subscription
             const subscription = supabase
                 .channel('crm_worksite_subscription')
                 .on(
@@ -79,31 +89,80 @@ const WorksitePilot = () => {
         };
 
         container.addEventListener('wheel', handleWheel, { passive: false });
-        // Clean up
         return () => container.removeEventListener('wheel', handleWheel);
     }, [loading]);
 
     const fetchWorksites = async () => {
         try {
-            // Fetch accepted quotes (jobs)
+            // Fetch accepted quotes (jobs) AND their children (invoices/deposits)
             const { data, error } = await supabase
                 .from('quotes')
                 .select('*, clients(*)')
-                // We focus on quotes that are AT LEAST accepted.
-                // Status: accepted, billed, paid. (Draft/Sent are not jobs yet)
                 .in('status', ['accepted', 'billed', 'paid'])
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
 
-            // Filter: Keep only QUOTES. 
-            // - Invoices (type='invoice') imply work is done/paid, so they leave the pilot.
-            // - Acomptes are also excluded.
-            const filteredData = (data || []).filter(q =>
-                q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
-            );
+            // Fetch ALL quotes to find children (deposits) manually since self-join is tricky without explicit FK alias sometimes
+            // Or simple separate query for safety
+            const { data: allQuotes } = await supabase
+                .from('quotes')
+                .select('id, parent_id, status, type, total_ttc');
 
-            setWorksites(filteredData);
+            const depositsMap = {};
+            if (allQuotes) {
+                allQuotes.forEach(q => {
+                    if (q.parent_id && (q.type === 'invoice' || q.status === 'paid')) {
+                        if (!depositsMap[q.parent_id]) depositsMap[q.parent_id] = [];
+                        depositsMap[q.parent_id].push(q);
+                    }
+                });
+            }
+
+            // Process and Auto-Update Stages
+            const processedData = await Promise.all((data || []).filter(q =>
+                q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
+            ).map(async (q) => {
+                // Determine Auto Stage
+                let autoStage = q.work_stage;
+
+                // Check contents
+                const hasMaterial = q.items && Array.isArray(q.items) && q.items.some(i => i.type === 'material');
+                const deposits = depositsMap[q.id] || [];
+                const hasPaidDeposit = deposits.some(d => d.status === 'paid');
+
+                // Logic:
+                // If not started (no stage or early stage), apply automation
+                if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order' || autoStage === 'planned') {
+                    if (hasMaterial) {
+                        if (hasPaidDeposit) {
+                            // If it was pending, move to material order
+                            if (!autoStage || autoStage === 'pending_deposit') {
+                                autoStage = 'material_order';
+                            }
+                            // If it is material_order, it stays there until manual move (Reception)
+                        } else {
+                            // No deposit paid yet
+                            autoStage = 'pending_deposit';
+                        }
+                    } else {
+                        // No material -> Ready to plan
+                        if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order') {
+                            autoStage = 'planned';
+                        }
+                    }
+                }
+
+                // If stage changed from DB value, update it
+                if (autoStage !== q.work_stage) {
+                    await supabase.from('quotes').update({ work_stage: autoStage }).eq('id', q.id);
+                    return { ...q, work_stage: autoStage };
+                }
+
+                return q;
+            }));
+
+            setWorksites(processedData);
         } catch (error) {
             toast.error('Erreur chargement chantiers');
             console.error('Error fetching worksites:', error);
@@ -267,7 +326,14 @@ const WorksitePilot = () => {
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, job.id)}
                                             className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing border-l-4"
-                                            style={{ borderLeftColor: column.id === 'in_progress' ? '#F59E0B' : column.id === 'completed' ? '#10B981' : '#3B82F6' }}
+                                            style={{
+                                                borderLeftColor:
+                                                    column.id === 'in_progress' ? '#F59E0B' :
+                                                        column.id === 'completed' ? '#10B981' :
+                                                            column.id === 'pending_deposit' ? '#EF4444' :
+                                                                column.id === 'material_order' ? '#6366F1' :
+                                                                    '#3B82F6'
+                                            }}
                                         >
                                             {/* Card Top: Client & Price */}
                                             <div className="flex justify-between items-start mb-2 gap-2">
