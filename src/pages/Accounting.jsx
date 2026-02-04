@@ -238,9 +238,62 @@ const Accounting = () => {
     };
   }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
 
+  // Calcul du CA Services annuel pour le plafond mixte
+  const yearlyRevenueServices = useMemo(() => {
+    return invoices
+      .filter(invoice => {
+        const status = (invoice.status || '').toLowerCase();
+        if (status !== 'paid') return false;
+        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        if (isNaN(invoiceDate.getTime()) || invoiceDate.getFullYear() !== selectedYear) return false;
+        return true;
+      })
+      .reduce((sum, invoice) => {
+        // Somme des items service
+        let sDiff = 0;
+        if (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0) {
+          invoice.items.forEach(item => {
+            if (item.type !== 'material') {
+              sDiff += (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
+            }
+          });
+        } else {
+          // Fallback: si ce n'est pas spécifié, on assume tout service SAUF si l'activité est pure vente
+          if (activityType !== 'vente') {
+            sDiff += (invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0));
+          }
+        }
+        return sum + sDiff;
+      }, 0);
+  }, [invoices, selectedYear, activityType]);
+
+
   // Vérification du dépassement de plafond
   const limitStatus = useMemo(() => {
-    const limitActivityType = activityType === 'mixte' ? 'services' : activityType;
+    // Cas Mixte :
+    // 1. Le CA total ne doit pas dépasser 188 700 €
+    // 2. La part Services ne doit pas dépasser 77 700 €
+
+    if (activityType === 'mixte') {
+      const globalLimit = CA_LIMITS.vente; // 188 700
+      const serviceLimit = CA_LIMITS.services; // 77 700
+
+      const globalPercentage = (yearlyRevenue / globalLimit) * 100;
+      const servicePercentage = (yearlyRevenueServices / serviceLimit) * 100;
+
+      // On prend le pire des deux cas pour l'affichage principal
+      const isServiceWorse = servicePercentage > globalPercentage;
+
+      return {
+        limit: isServiceWorse ? serviceLimit : globalLimit,
+        percentage: isServiceWorse ? servicePercentage : globalPercentage,
+        isNearLimit: servicePercentage >= 80 || globalPercentage >= 80,
+        isOverLimit: servicePercentage >= 100 || globalPercentage >= 100,
+        label: isServiceWorse ? "Plafond Services (Mixte)" : "Plafond Global (Mixte)"
+      };
+    }
+
+    const limitActivityType = activityType;
     const limit = CA_LIMITS[limitActivityType] || CA_LIMITS.services;
     const percentage = (yearlyRevenue / limit) * 100;
 
@@ -248,9 +301,10 @@ const Accounting = () => {
       limit,
       percentage,
       isNearLimit: percentage >= 80,
-      isOverLimit: percentage >= 100
+      isOverLimit: percentage >= 100,
+      label: `Plafond ${ACTIVITY_LABELS[activityType] || 'Standard'}`
     };
-  }, [profile, yearlyRevenue, activityType]);
+  }, [profile, yearlyRevenue, yearlyRevenueServices, activityType]);
 
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -554,7 +608,7 @@ const Accounting = () => {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(yearlyRevenue)}</p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Plafond micro-entreprise</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{limitStatus?.label || 'Plafond micro-entreprise'}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(limitStatus?.limit || CA_LIMITS.services)}
                 </p>
