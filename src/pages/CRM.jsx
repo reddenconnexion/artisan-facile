@@ -244,11 +244,11 @@ const WorksitePilot = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         Pilotage Chantiers
                         {focusedColumn && <span className="text-gray-400 text-lg font-normal">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
                     </h2>
-                    <p className="text-sm text-gray-500">Gérez l'avancement de vos travaux signés.</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Gérez l'avancement de vos travaux signés.</p>
                 </div>
 
                 <div className="flex gap-2 w-full md:w-auto items-center">
