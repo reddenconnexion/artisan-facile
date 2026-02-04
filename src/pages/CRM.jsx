@@ -13,6 +13,12 @@ const WorksitePilot = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [updating, setUpdating] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [worksites, setWorksites] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [focusedColumn, setFocusedColumn] = useState(null);
+    const containerRef = useRef(null);
 
     const columns = [
         {
