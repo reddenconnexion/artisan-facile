@@ -73,7 +73,10 @@ const DevisList = () => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Devis & Factures</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-8 h-8 text-blue-600" />
+                    Devis & Factures
+                </h2>
                 <div className="flex gap-2">
                     <button
                         onClick={handleImportClick}

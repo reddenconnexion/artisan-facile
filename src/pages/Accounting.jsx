@@ -330,7 +330,10 @@ const Accounting = () => {
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Comptabilité & Charges URSSAF</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <Calculator className="w-8 h-8 text-blue-600" />
+          Comptabilité & Charges URSSAF
+        </h2>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
           Calculez vos charges sociales à déclarer selon votre statut
         </p>

@@ -247,7 +247,10 @@ const Clients = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mes Clients</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Users className="w-8 h-8 text-blue-600" />
+                        Mes Clients
+                    </h2>
                     <p className="text-sm text-gray-500 mt-1">{clients.length} clients enregistrés</p>
                 </div>
                 <button

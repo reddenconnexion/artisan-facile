@@ -267,7 +267,7 @@ const Inventory = () => {
         <div className="max-w-6xl mx-auto pb-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                         <Package className="w-8 h-8 mr-3 text-blue-600" />
                         Gestion de Stock
                     </h1>

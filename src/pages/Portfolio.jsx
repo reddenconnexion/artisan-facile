@@ -139,7 +139,7 @@ const Portfolio = () => {
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ImageIcon className="w-7 h-7 text-purple-600" />
+                    <ImageIcon className="w-8 h-8 text-blue-600" />
                     Portfolio
                 </h1>
                 <p className="mt-2 text-gray-600 dark:text-gray-400">

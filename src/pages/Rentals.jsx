@@ -135,7 +135,7 @@ const Rentals = () => {
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                         <Truck className="w-8 h-8 mr-3 text-blue-600" />
                         Locations de Matériel
                     </h1>

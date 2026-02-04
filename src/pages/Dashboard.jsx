@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -429,7 +429,10 @@ const Dashboard = () => {
             )}
 
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Tableau de bord</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <LayoutDashboard className="w-8 h-8 text-blue-600" />
+                    Tableau de bord
+                </h2>
                 <button onClick={() => navigate('/app/devis/new')} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     <Plus className="w-5 h-5 mr-2" /> Nouveau Devis
                 </button>

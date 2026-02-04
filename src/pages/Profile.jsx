@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings } from 'lucide-react';
 import { getNotificationTopic } from '../utils/notifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
@@ -180,7 +180,10 @@ const Profile = () => {
         <div className="max-w-4xl mx-auto pb-12">
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Paramètres de l'entreprise</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Settings className="w-8 h-8 text-blue-600" />
+                        Paramètres de l'entreprise
+                    </h2>
                     <p className="text-gray-500 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full md:w-auto">

@@ -95,7 +95,10 @@ const Maintenance = () => {
         <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Suivi Maintenance</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Wrench className="w-8 h-8 text-blue-600" />
+                        Suivi Maintenance
+                    </h1>
                     <p className="text-gray-500">Gérez vos contrats d'entretien et rappels.</p>
                 </div>
                 {/* Add Contract Button could go here (linking to Client Form modal) */}
