@@ -95,6 +95,7 @@ const Layout = () => {
       enable_agenda: userSettings.enable_agenda ?? true,
       enable_crm: userSettings.enable_crm ?? true,
       enable_price_library: userSettings.enable_price_library ?? true,
+      enable_inventory: userSettings.enable_inventory ?? true,
       enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
       enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType)
     };
@@ -124,6 +125,9 @@ const Layout = () => {
 
     if (settings.enable_price_library) {
       nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
+    }
+
+    if (settings.enable_inventory) {
       nav.push({ name: 'Stock', href: '/app/inventory', icon: Box });
     }
 

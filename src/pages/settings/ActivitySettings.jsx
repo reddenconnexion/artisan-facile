@@ -21,7 +21,8 @@ const ActivitySettings = () => {
         enable_crm: true,
         enable_agenda: true,
         enable_calculator: true,
-        enable_accounting: true
+        enable_accounting: true,
+        enable_inventory: true
     });
 
     useEffect(() => {
@@ -89,6 +90,12 @@ const ActivitySettings = () => {
             label: 'Bibliothèque de Prix',
             description: 'Gérez vos ouvrages et matériaux favoris pour créer vos devis plus vite.',
             icon: Briefcase
+        },
+        {
+            key: 'enable_inventory',
+            label: 'Gestion de Stock',
+            description: 'Suivez quantités et valeur de votre stock de matériaux.',
+            icon: Box
         },
         {
             key: 'enable_maintenance',
