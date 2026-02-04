@@ -60,9 +60,12 @@ const Accounting = () => {
   const [hasAcre, setHasAcre] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
+  // CA manuel (pour saisie directe)
+  const [manualCa, setManualCa] = useState('');
+
   // Pour activité mixte
-  const [caVente, setCaVente] = useState(0);
-  const [caServices, setCaServices] = useState(0);
+  const [caVente, setCaVente] = useState('');
+  const [caServices, setCaServices] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -136,6 +139,9 @@ const Accounting = () => {
   const artisanStatus = profile?.ai_preferences?.artisan_status || 'micro_entreprise';
   const activityType = profile?.ai_preferences?.activity_type || 'services';
 
+  // CA effectif (manuel ou calculé depuis factures)
+  const effectiveCa = manualCa !== '' ? parseFloat(manualCa) || 0 : periodRevenue;
+
   // Calcul des charges URSSAF
   const calculateCharges = useMemo(() => {
     if (artisanStatus !== 'micro_entreprise') {
@@ -147,14 +153,17 @@ const Accounting = () => {
       const servicesRate = hasAcre ? rates.mixte.services.acre : rates.mixte.services.normal;
       const venteRate = hasAcre ? rates.mixte.vente.acre : rates.mixte.vente.normal;
 
-      const chargesServices = caServices * servicesRate;
-      const chargesVente = caVente * venteRate;
+      const caServicesNum = parseFloat(caServices) || 0;
+      const caVenteNum = parseFloat(caVente) || 0;
+
+      const chargesServices = caServicesNum * servicesRate;
+      const chargesVente = caVenteNum * venteRate;
 
       return {
         total: chargesServices + chargesVente,
         details: {
-          services: { ca: caServices, rate: servicesRate, charges: chargesServices },
-          vente: { ca: caVente, rate: venteRate, charges: chargesVente }
+          services: { ca: caServicesNum, rate: servicesRate, charges: chargesServices },
+          vente: { ca: caVenteNum, rate: venteRate, charges: chargesVente }
         }
       };
     }
@@ -163,11 +172,11 @@ const Accounting = () => {
     const rate = hasAcre ? rateConfig.acre : rateConfig.normal;
 
     return {
-      total: periodRevenue * rate,
+      total: effectiveCa * rate,
       rate: rate,
-      ca: periodRevenue
+      ca: effectiveCa
     };
-  }, [artisanStatus, activityType, periodRevenue, hasAcre, caVente, caServices]);
+  }, [artisanStatus, activityType, effectiveCa, hasAcre, caVente, caServices]);
 
   // Vérification du dépassement de plafond
   const limitStatus = useMemo(() => {
@@ -358,7 +367,7 @@ const Accounting = () => {
             {activityType === 'mixte' ? (
               <div className="space-y-4 mb-6">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Pour une activité mixte, saisissez le CA de chaque type d'activité :
+                  Saisissez le CA de chaque type d'activité pour la période :
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -369,7 +378,7 @@ const Accounting = () => {
                       <input
                         type="number"
                         value={caServices}
-                        onChange={(e) => setCaServices(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setCaServices(e.target.value)}
                         className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                       />
@@ -385,7 +394,7 @@ const Accounting = () => {
                       <input
                         type="number"
                         value={caVente}
-                        onChange={(e) => setCaVente(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setCaVente(e.target.value)}
                         className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                       />
@@ -396,17 +405,37 @@ const Accounting = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Chiffre d'affaires HT de la période</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(periodRevenue)}</p>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Chiffre d'affaires HT de la période
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={manualCa}
+                      onChange={(e) => setManualCa(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                      placeholder={periodRevenue > 0 ? periodRevenue.toString() : "Saisissez votre CA"}
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-400">€</span>
                   </div>
-                  <Euro className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                  {periodRevenue > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      CA calculé depuis vos factures payées : {formatCurrency(periodRevenue)}
+                      <button
+                        type="button"
+                        onClick={() => setManualCa(periodRevenue.toString())}
+                        className="ml-2 text-blue-600 hover:text-blue-700 underline"
+                      >
+                        Utiliser cette valeur
+                      </button>
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Taux applicable : {hasAcre ? (activityType === 'vente' ? '6.2%' : '10.6%') : (activityType === 'vente' ? '12.3%' : '21.2%')}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Basé sur vos factures payées pour la période sélectionnée
-                </p>
               </div>
             )}
 
