@@ -19,6 +19,7 @@ import ClientSelector from '../components/ClientSelector';
 import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
 import PaymentSchedule from '../components/PaymentSchedule';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
+import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -287,8 +288,33 @@ const DevisForm = () => {
         vat_on_debits: false
     });
 
+    // --- AUTO SAVE LOGIC ---
+    const draftKey = user ? `quote_draft_${id || 'new'}` : null;
+    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading);
+
     useEffect(() => {
         if (user) {
+            // Restore Draft Logic
+            const checkDraft = async () => {
+                const draft = getDraft(draftKey);
+                if (draft) {
+                    // Check DB timestamp if editing
+                    let dbDate = new Date(0);
+                    if (isEditing) {
+                        const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
+                        if (data?.updated_at) dbDate = new Date(data.updated_at);
+                    }
+
+                    const draftDate = new Date(draft._draft_saved_at || 0);
+                    if (draftDate > dbDate) {
+                        const { _draft_saved_at, ...restored } = draft;
+                        setFormData(prev => ({ ...prev, ...restored }));
+                        toast.info("Brouillon récupéré");
+                    }
+                }
+            };
+            checkDraft();
+
             fetchClients().then((loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File)
                 if (location.state) {
@@ -949,6 +975,7 @@ const DevisForm = () => {
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
+            clearAutoSave();
 
             // Update CRM
             updateClientCRMStatus(formData.client_id, formData.status);
