@@ -102,7 +102,6 @@ const Layout = () => {
 
     const nav = [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
-      { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
     ];
 
     if (settings.enable_agenda) {
