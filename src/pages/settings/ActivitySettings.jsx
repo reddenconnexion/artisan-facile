@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, ToggleLeft, ToggleRight, Briefcase, FileText, PenTool, Wrench, ShieldCheck, Layers, Users, Calendar, Calculator, LogOut, Box } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 
 const ActivitySettings = () => {
@@ -89,7 +89,7 @@ const ActivitySettings = () => {
             key: 'enable_price_library',
             label: 'Bibliothèque de Prix',
             description: 'Gérez vos ouvrages et matériaux favoris pour créer vos devis plus vite.',
-            icon: Briefcase
+            icon: Folder
         },
         {
             key: 'enable_inventory',
@@ -113,19 +113,19 @@ const ActivitySettings = () => {
             key: 'enable_situations',
             label: 'Factures de Situation',
             description: 'Facturez à l\'avancement du chantier (ex: 30%, 60%...).',
-            icon: Layers
+            icon: List
         },
         {
             key: 'enable_signature',
             label: 'Signature Électronique',
             description: 'Faites signer vos devis directement sur tablette ou mobile.',
-            icon: PenTool
+            icon: Pen
         },
         {
             key: 'enable_rentals',
             label: 'Suivi Location Matériel',
             description: 'Gérez les locations d\'équipements (échafaudages, mini-pelles...).',
-            icon: ShieldCheck
+            icon: Shield
         },
         {
             key: 'enable_crm',
@@ -181,7 +181,7 @@ const ActivitySettings = () => {
                                 onClick={() => handleToggle(feature.key)}
                                 className={`text-2xl focus:outline-none transition-colors ${isEnabled ? 'text-blue-600' : 'text-gray-300'}`}
                             >
-                                {isEnabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
+                                {isEnabled ? <CheckCircle className="w-8 h-8" /> : <Circle className="w-8 h-8" />}
                             </button>
                         </div>
                     );
