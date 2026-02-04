@@ -153,9 +153,9 @@ const WorksitePilot = () => {
                     }
                 }
 
-                // If stage changed from DB value, update it
+                // If stage changed from DB value, use the calculated one for display
+                // We DO NOT update DB here to avoid infinite loops with the subscription
                 if (autoStage !== q.work_stage) {
-                    await supabase.from('quotes').update({ work_stage: autoStage }).eq('id', q.id);
                     return { ...q, work_stage: autoStage };
                 }
 
