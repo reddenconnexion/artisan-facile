@@ -87,13 +87,12 @@ const Accounting = () => {
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      // Charger les factures payées
+      // Charger tous les documents payés (factures et devis)
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('quotes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'paid')
-        .eq('type', 'invoice');
+        .eq('status', 'paid');
 
       if (invoiceError) throw invoiceError;
       setInvoices(invoiceData || []);
@@ -127,6 +126,15 @@ const Accounting = () => {
       })
       .reduce((sum, invoice) => sum + (invoice.total_ht || 0), 0);
   }, [invoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
+
+  // Mettre à jour le CA quand la période change
+  useEffect(() => {
+    if (periodRevenue > 0) {
+      setManualCa(periodRevenue.toString());
+    } else {
+      setManualCa('');
+    }
+  }, [selectedYear, selectedPeriod, selectedMonth, selectedQuarter, invoices]);
 
   // Calcul du CA annuel
   const yearlyRevenue = useMemo(() => {
