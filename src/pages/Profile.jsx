@@ -25,7 +25,9 @@ const Profile = () => {
         siret: '',
         google_review_url: '',
         trade: 'general',
-        iban: ''
+        iban: '',
+        artisan_status: 'micro_entreprise',
+        activity_type: 'services'
     });
 
     useEffect(() => {
@@ -64,6 +66,8 @@ const Profile = () => {
                     trade: data.trade || 'general',
                     iban: data.iban || '',
                     wero_phone: data.wero_phone || '',
+                    artisan_status: data.artisan_status || 'micro_entreprise',
+                    activity_type: data.activity_type || 'services',
                     openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
                     ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
                     ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
@@ -137,6 +141,8 @@ const Profile = () => {
                     trade: formData.trade,
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
+                    artisan_status: formData.artisan_status,
+                    activity_type: formData.activity_type,
 
                     // Save AI prefs to JSONB column
                     ai_preferences: {
@@ -252,6 +258,38 @@ const Profile = () => {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Statut juridique</label>
+                                <select
+                                    name="artisan_status"
+                                    value={formData.artisan_status}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="micro_entreprise">Micro-entreprise (Auto-entrepreneur)</option>
+                                    <option value="ei">Entreprise Individuelle (EI)</option>
+                                    <option value="eirl">EIRL</option>
+                                    <option value="eurl">EURL</option>
+                                    <option value="sasu">SASU</option>
+                                    <option value="sarl">SARL</option>
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">Utilisé pour le calcul des charges URSSAF</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'activité principale</label>
+                                <select
+                                    name="activity_type"
+                                    value={formData.activity_type}
+                                    onChange={handleChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="services">Prestations de services artisanaux (BIC)</option>
+                                    <option value="vente">Achat/revente de marchandises (BIC)</option>
+                                    <option value="mixte">Activité mixte (Services + Vente)</option>
+                                    <option value="liberal">Profession libérale (BNC)</option>
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">Détermine le taux de cotisations URSSAF applicable</p>
                             </div>
                         </div>
                     </div>
