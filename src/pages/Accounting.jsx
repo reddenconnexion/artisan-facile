@@ -111,7 +111,9 @@ const Accounting = () => {
 
     return invoices
       .filter(invoice => {
-        const invoiceDate = new Date(invoice.date);
+        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        if (isNaN(invoiceDate.getTime())) return false;
+
         const invoiceYear = invoiceDate.getFullYear();
         const invoiceMonth = invoiceDate.getMonth();
 
@@ -124,13 +126,17 @@ const Accounting = () => {
           return invoiceQuarter === selectedQuarter;
         }
       })
-      .reduce((sum, invoice) => sum + (invoice.total_ht || 0), 0);
+      .reduce((sum, invoice) => {
+        // Utiliser total_ht si disponible, sinon calculer depuis total_ttc (TVA 20%)
+        const amount = invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0);
+        return sum + amount;
+      }, 0);
   }, [invoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
 
   // Mettre à jour le CA quand la période change
   useEffect(() => {
     if (periodRevenue > 0) {
-      setManualCa(periodRevenue.toString());
+      setManualCa(periodRevenue.toFixed(2));
     } else {
       setManualCa('');
     }
@@ -139,8 +145,14 @@ const Accounting = () => {
   // Calcul du CA annuel
   const yearlyRevenue = useMemo(() => {
     return invoices
-      .filter(invoice => new Date(invoice.date).getFullYear() === selectedYear)
-      .reduce((sum, invoice) => sum + (invoice.total_ht || 0), 0);
+      .filter(invoice => {
+        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        return !isNaN(invoiceDate.getTime()) && invoiceDate.getFullYear() === selectedYear;
+      })
+      .reduce((sum, invoice) => {
+        const amount = invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0);
+        return sum + amount;
+      }, 0);
   }, [invoices, selectedYear]);
 
   // Récupération des préférences depuis ai_preferences
