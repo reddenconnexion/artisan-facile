@@ -48,6 +48,14 @@ const CA_LIMITS = {
   liberal: 77700
 };
 
+// Seuils Franchise en base de TVA 2024
+// Base: seuil standard. Majoré: seuil de tolérance (passage immédiat si dépassé)
+const VAT_LIMITS = {
+  services: { base: 36800, majore: 39100 },
+  vente: { base: 91900, majore: 101000 },
+  liberal: { base: 36800, majore: 39100 }
+};
+
 const Accounting = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
@@ -305,6 +313,42 @@ const Accounting = () => {
       label: `Plafond ${ACTIVITY_LABELS[activityType] || 'Standard'}`
     };
   }, [profile, yearlyRevenue, yearlyRevenueServices, activityType]);
+
+  // Vérification du seuil de TVA
+  const vatLimitStatus = useMemo(() => {
+    // Logique similaire au plafond CA
+    if (activityType === 'mixte') {
+      const globalLimit = VAT_LIMITS.vente.base;
+      const serviceLimit = VAT_LIMITS.services.base;
+
+      const globalPercentage = (yearlyRevenue / globalLimit) * 100;
+      const servicePercentage = (yearlyRevenueServices / serviceLimit) * 100;
+
+      const isServiceWorse = servicePercentage > globalPercentage;
+
+      return {
+        limit: isServiceWorse ? serviceLimit : globalLimit,
+        percentage: isServiceWorse ? servicePercentage : globalPercentage,
+        isNearLimit: servicePercentage >= 80 || globalPercentage >= 80,
+        isOverLimit: servicePercentage >= 100 || globalPercentage >= 100,
+        label: isServiceWorse ? "Seuil TVA Services (Mixte)" : "Seuil TVA Global (Mixte)",
+        type: isServiceWorse ? 'services' : 'vente'
+      };
+    }
+
+    const limitType = activityType;
+    const limit = VAT_LIMITS[limitType]?.base || VAT_LIMITS.services.base;
+    const percentage = (yearlyRevenue / limit) * 100;
+
+    return {
+      limit,
+      percentage,
+      isNearLimit: percentage >= 80,
+      isOverLimit: percentage >= 100,
+      label: `Seuil TVA ${ACTIVITY_LABELS[activityType] || 'Standard'}`,
+      type: activityType
+    };
+  }, [yearlyRevenue, yearlyRevenueServices, activityType]);
 
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -659,6 +703,74 @@ const Accounting = () => {
                     Vous avez dépassé le plafond de CA micro-entreprise.
                     Si ce dépassement se confirme une seconde année, vous devrez changer de statut.
                     Consultez un expert-comptable pour anticiper ce changement.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Suivi Franchise TVA */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
+              <Euro className="w-5 h-5 mr-2 text-purple-600" />
+              Franchise en base de TVA {selectedYear}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">CA applicable TVA</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(yearlyRevenue)}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{vatLimitStatus?.label || 'Seuil TVA'}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {formatCurrency(vatLimitStatus?.limit || VAT_LIMITS.services.base)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Seuil de base (franchise)</p>
+              </div>
+            </div>
+
+            {/* Barre de progression TVA */}
+            {vatLimitStatus && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-400">Progression vers le seuil TVA</span>
+                  <span className={`font-medium ${vatLimitStatus.isOverLimit ? 'text-purple-600' : vatLimitStatus.isNearLimit ? 'text-purple-600' : 'text-gray-900 dark:text-white'}`}>
+                    {vatLimitStatus.percentage.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full transition-all ${vatLimitStatus.isOverLimit ? 'bg-purple-600' : vatLimitStatus.isNearLimit ? 'bg-purple-500' : 'bg-purple-400'
+                      }`}
+                    style={{ width: `${Math.min(vatLimitStatus.percentage, 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {vatLimitStatus?.isNearLimit && !vatLimitStatus.isOverLimit && (
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-start">
+                <AlertCircle className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-3 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-purple-800 dark:text-purple-300 font-medium">Approche du seuil de TVA</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                    Attention, vous approchez du seuil de franchise en base de TVA.
+                    Si vous le dépassez, vous devrez facturer la TVA dès le 1er jour du mois de dépassement (si seuil majoré) ou l'année suivante (si seuil base dépassé mais &lt; majoré).
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {vatLimitStatus?.isOverLimit && (
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-start">
+                <AlertCircle className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-3 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-purple-800 dark:text-purple-300 font-medium">Seuil de base dépassé</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                    Vous avez dépassé le seuil de franchise en base de TVA.
+                    Vérifiez si vous avez également dépassé le seuil majoré ({formatCurrency(VAT_LIMITS[vatLimitStatus.type]?.majore || 0)}).
+                    Si c'est le cas, vous devez facturer la TVA immédiatement.
                   </p>
                 </div>
               </div>

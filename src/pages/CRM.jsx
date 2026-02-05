@@ -16,7 +16,10 @@ const WorksitePilot = () => {
     const [loading, setLoading] = useState(true);
     const [worksites, setWorksites] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [zoomLevel, setZoomLevel] = useState(1);
+    const [zoomLevel, setZoomLevel] = useState(() => {
+        const saved = localStorage.getItem('crm_zoom_level');
+        return saved ? parseFloat(saved) : 1;
+    });
     const [focusedColumn, setFocusedColumn] = useState(null);
     const containerRef = useRef(null);
 
@@ -57,6 +60,10 @@ const WorksitePilot = () => {
             description: 'Travaux finis, à facturer/archiver'
         }
     ];
+
+    useEffect(() => {
+        localStorage.setItem('crm_zoom_level', zoomLevel.toString());
+    }, [zoomLevel]);
 
     useEffect(() => {
         if (user) {
@@ -358,10 +365,14 @@ const WorksitePilot = () => {
 
                                             {/* Card Middle: Address & Info */}
                                             <div className="space-y-1.5 mb-3">
-                                                {job.clients?.address && (
+                                                {(job.intervention_address || job.clients?.address) && (
                                                     <div className="flex items-start text-xs text-gray-500">
                                                         <MapPin className="w-3 h-3 mr-1.5 mt-0.5 shrink-0" />
-                                                        <span className="line-clamp-2">{job.clients.address} {job.clients.city && `, ${job.clients.city}`}</span>
+                                                        <span className="line-clamp-2">
+                                                            {job.intervention_address
+                                                                ? `${job.intervention_address} ${job.intervention_city || ''} (Chantier)`
+                                                                : `${job.clients.address} ${job.clients.city || ''}`}
+                                                        </span>
                                                     </div>
                                                 )}
                                                 {job.clients?.phone && (
@@ -379,13 +390,40 @@ const WorksitePilot = () => {
                                                 </span>
 
                                                 <div className="flex gap-2">
-                                                    {job.clients?.address && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const address = job.intervention_address
+                                                                ? `${job.intervention_address} ${job.intervention_postal_code || ''} ${job.intervention_city || ''}`
+                                                                : `${job.clients?.address || ''} ${job.clients?.city || ''}`;
+
+                                                            navigate('/app/agenda', {
+                                                                state: {
+                                                                    prefill: {
+                                                                        client_id: job.client_id,
+                                                                        client_name: job.clients?.name,
+                                                                        address: address.trim(),
+                                                                        title: `Intervention ${job.clients?.name} - ${job.title}`
+                                                                    }
+                                                                }
+                                                            });
+                                                        }}
+                                                        className="p-1.5 hover:bg-purple-50 text-purple-600 rounded transition-colors"
+                                                        title="Planifier"
+                                                    >
+                                                        <Calendar className="w-4 h-4" />
+                                                    </button>
+
+                                                    {(job.intervention_address || job.clients?.address) && (
                                                         <a
-                                                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.clients.address + ' ' + (job.clients.city || ''))}`}
+                                                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                                                                job.intervention_address
+                                                                    ? `${job.intervention_address} ${job.intervention_postal_code || ''} ${job.intervention_city || ''}`
+                                                                    : `${job.clients?.address} ${job.clients?.city || ''}`
+                                                            )}`}
                                                             target="_blank"
                                                             rel="noreferrer"
                                                             className="p-1.5 hover:bg-blue-50 text-blue-600 rounded transition-colors"
-                                                            title="GPS"
+                                                            title={job.intervention_address ? "GPS Chantier" : "GPS Client"}
                                                         >
                                                             <MapPin className="w-4 h-4" />
                                                         </a>

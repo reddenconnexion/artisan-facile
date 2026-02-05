@@ -285,8 +285,13 @@ const DevisForm = () => {
         manual_total_ttc: 0,
         operation_category: 'service',
         vat_on_debits: false,
-        has_material_deposit: true
+        has_material_deposit: true,
+        intervention_address: '',
+        intervention_postal_code: '',
+        intervention_city: ''
     });
+
+    const [diffAddress, setDiffAddress] = useState(false);
 
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
@@ -498,8 +503,15 @@ const DevisForm = () => {
                     vat_on_debits: data.vat_on_debits === true,
                     last_followup_at: data.last_followup_at || null,
                     updated_at: data.updated_at || null,
-                    has_material_deposit: data.has_material_deposit !== false
+                    has_material_deposit: data.has_material_deposit !== false,
+                    intervention_address: data.intervention_address || '',
+                    intervention_postal_code: data.intervention_postal_code || '',
+                    intervention_city: data.intervention_city || ''
                 });
+
+                if (data.intervention_address || data.intervention_city) {
+                    setDiffAddress(true);
+                }
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
             }
@@ -839,7 +851,10 @@ const DevisForm = () => {
                 type: formData.type,
                 original_pdf_url: formData.original_pdf_url,
                 is_external: formData.is_external,
-                has_material_deposit: formData.has_material_deposit
+                has_material_deposit: formData.has_material_deposit,
+                intervention_address: formData.intervention_address,
+                intervention_postal_code: formData.intervention_postal_code,
+                intervention_city: formData.intervention_city
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -2046,6 +2061,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             />
                         </div>
+
+
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -2116,6 +2133,63 @@ Conditions de règlement : Paiement à réception de facture.`
                                 Option TVA sur les débits
                             </label>
                         </div>
+                    </div>
+
+                    {/* Intervention Address Toggle - Full Width */}
+                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                        <div className="flex items-center mb-2">
+                            <input
+                                type="checkbox"
+                                id="diffAddress"
+                                checked={diffAddress}
+                                onChange={(e) => setDiffAddress(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="diffAddress" className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                                Adresse d'intervention différente (ex: locataire, chantier secondaire)
+                            </label>
+                        </div>
+
+                        {diffAddress && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 mt-2">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Adresse du chantier
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.intervention_address}
+                                        onChange={(e) => setFormData({ ...formData, intervention_address: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="12 rue des Fleurs"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Code Postal
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.intervention_postal_code}
+                                        onChange={(e) => setFormData({ ...formData, intervention_postal_code: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="75001"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Ville
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.intervention_city}
+                                        onChange={(e) => setFormData({ ...formData, intervention_city: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Paris"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
