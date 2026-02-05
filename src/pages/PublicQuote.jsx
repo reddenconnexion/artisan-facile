@@ -432,7 +432,14 @@ const PublicQuote = () => {
                             {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
                                 <div className="bg-white p-4 rounded-xl border border-slate-200">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                    <p className="text-slate-900 font-medium">{artisan.wero_phone}</p>
+                                    <p className="text-slate-900 font-medium">
+                                        {artisan.wero_phone}
+                                        {(artisan.full_name || artisan.company_name) && (
+                                            <span className="text-slate-500 font-normal text-sm ml-1">
+                                                ({artisan.full_name || artisan.company_name})
+                                            </span>
+                                        )}
+                                    </p>
                                     <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
                                 </div>
                             )}

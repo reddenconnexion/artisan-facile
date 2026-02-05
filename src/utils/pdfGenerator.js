@@ -443,8 +443,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         if (weroNumber && weroNumber.trim().length > 0) {
             doc.text("Paylib / Wero", 20, elementY + lineOffset);
             doc.setFont(undefined, 'bold');
-            const weroText = userProfile.full_name
-                ? `Tél : ${weroNumber} (${userProfile.full_name})`
+            const weroText = (userProfile.full_name || userProfile.company_name)
+                ? `Tél : ${weroNumber} (${userProfile.full_name || userProfile.company_name})`
                 : `Tél : ${weroNumber}`;
             doc.text(weroText, 55, elementY + lineOffset);
         }
