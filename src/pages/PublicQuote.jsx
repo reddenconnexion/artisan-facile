@@ -331,7 +331,7 @@ const PublicQuote = () => {
                                 return (
                                     <>
                                         {services.length > 0 && renderTable(services, materials.length > 0 ? "Main d'Oeuvre & Prestations" : null, 'border-blue-200', 'bg-blue-50/50')}
-                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-orange-200', 'bg-orange-50/50')}
+                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-slate-200', 'bg-slate-50')}
                                     </>
                                 );
                             })()}

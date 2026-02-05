@@ -219,7 +219,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             head: [tableColumn],
             body: generateRows(materials),
             theme: 'grid',
-            headStyles: { fillColor: [249, 115, 22] }, // Orange-500
+            headStyles: { fillColor: [84, 110, 122] }, // Slate-500
             styles: { fontSize: 9 },
         });
 
