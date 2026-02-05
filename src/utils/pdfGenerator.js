@@ -134,6 +134,23 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text(`TVA Intra : ${client.tva_intracom}`, clientX, clientAddressY);
     }
 
+    // Adresse d'intervention (si différente)
+    if (devis.intervention_address) {
+        clientAddressY += 10;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0); // Black for visibility
+        doc.text("Lieu d'intervention :", clientX, clientAddressY);
+
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        clientAddressY += 5;
+
+        const interventionAddr = `${devis.intervention_address} ${devis.intervention_postal_code || ''} ${devis.intervention_city || ''}`;
+        const intLines = doc.splitTextToSize(interventionAddr, 70);
+        doc.text(intLines, clientX, clientAddressY);
+    }
+
 
     // Titre / Objet (Juste au dessus du tableau)
     let tableStartY = 105;
@@ -546,6 +563,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         elementY += termHeight + 2;
     }
+    // Debug: Ensure content is flushed
+    if (elementY > 285) doc.addPage();
 
 
     // Mention "ACQUITTÉE" si payée
