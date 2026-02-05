@@ -200,11 +200,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             head: [tableColumn],
             body: generateRows(services),
             theme: 'grid',
-            headStyles: { fillColor: isInvoice ? [46, 125, 50] : [66, 133, 244] },
+            headStyles: { fillColor: isInvoice ? [46, 125, 50] : [37, 99, 235] }, // Blue-600
             styles: { fontSize: 9 },
         });
 
-        currentTableY = doc.lastAutoTable.finalY + 10;
+        currentTableY = doc.lastAutoTable.finalY + 15; // Increased gap
     }
 
     // 2. Table Matériel
@@ -219,11 +219,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             head: [tableColumn],
             body: generateRows(materials),
             theme: 'grid',
-            headStyles: { fillColor: [120, 144, 156] }, // Blue Grey
+            headStyles: { fillColor: [249, 115, 22] }, // Orange-500
             styles: { fontSize: 9 },
         });
 
-        currentTableY = doc.lastAutoTable.finalY + 10;
+        currentTableY = doc.lastAutoTable.finalY + 15; // Increased gap
     }
 
     // Totaux

@@ -291,12 +291,12 @@ const PublicQuote = () => {
                         <div className="mb-8 space-y-8">
                             {/* Helper to render Table */}
                             {(() => {
-                                const renderTable = (items, title, colorClass) => (
+                                const renderTable = (items, title, borderColor, bgColor) => (
                                     <div className="overflow-x-auto">
                                         {title && <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</h4>}
                                         <table className="w-full text-left border-collapse">
                                             <thead>
-                                                <tr className={`border-b-2 ${colorClass || 'border-gray-100'}`}>
+                                                <tr className={`border-b-2 ${borderColor || 'border-gray-100'} ${bgColor || 'bg-gray-50'}`}>
                                                     <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
                                                     <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
                                                     <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
@@ -330,8 +330,8 @@ const PublicQuote = () => {
 
                                 return (
                                     <>
-                                        {services.length > 0 && renderTable(services, materials.length > 0 ? "Main d'Oeuvre & Prestations" : null, 'border-blue-100')}
-                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-orange-100')}
+                                        {services.length > 0 && renderTable(services, materials.length > 0 ? "Main d'Oeuvre & Prestations" : null, 'border-blue-200', 'bg-blue-50/50')}
+                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-orange-200', 'bg-orange-50/50')}
                                     </>
                                 );
                             })()}
