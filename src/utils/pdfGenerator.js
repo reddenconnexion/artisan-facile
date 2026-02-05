@@ -529,9 +529,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // ... (rest of notes logic) ...
 
     // Logic: Checks allowed only for installments (Acompte, Solde, or Note mention OR DB Schedule)
+    // Logic: Checks allowed only for installments (DB Schedule OR Note mention)
+    // Removed 'acompte|solde' title match as user wants checks ONLY for explicit installments
     const isInstallment = isInvoice && (
         installments.length > 0 ||
-        (devis.title && /acompte|solde|situation|avancement/i.test(devis.title)) ||
         (devis.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(devis.notes))
     );
 

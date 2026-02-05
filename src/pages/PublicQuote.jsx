@@ -392,7 +392,13 @@ const PublicQuote = () => {
                 {/* Legal Terms Footer (Common) */}
                 <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
                     <p className="mb-2">
-                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}. Le règlement s'effectue par virement bancaire ou chèque à l'ordre de {artisan.company_name || artisan.full_name}.
+                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}.
+                        {(() => {
+                            const isInstallment = (quote.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(quote.notes));
+                            return isInstallment
+                                ? ` Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${artisan.company_name || artisan.full_name}.`
+                                : ` Le règlement s'effectue par virement bancaire.`;
+                        })()}
                     </p>
                     <p className="mb-2">
                         <strong className="text-gray-500">Pénalités de retard :</strong> Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.
