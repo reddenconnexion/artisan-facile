@@ -1397,6 +1397,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     price: parseFloat(i.price) || 0,
                     buying_price: parseFloat(i.buying_price) || 0
                 })),
+                total_ht: subtotal,
+                total_tva: tva,
                 total_ttc: total,
                 include_tva: formData.include_tva,
                 has_material_deposit: formData.has_material_deposit
@@ -1445,6 +1447,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     quantity: parseFloat(i.quantity) || 0,
                     price: parseFloat(i.price) || 0
                 })),
+                total_ht: subtotal,
+                total_tva: tva,
                 total_ttc: total,
                 include_tva: formData.include_tva,
                 has_material_deposit: formData.has_material_deposit
