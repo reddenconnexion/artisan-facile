@@ -355,7 +355,7 @@ const PublicQuote = () => {
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
                             <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
                                 {quote.notes}
-                                {!isInvoiceView && quote.items.some(i => i.type === 'material') && (
+                                {!isInvoiceView && quote.items.some(i => i.type === 'material') && quote.has_material_deposit === true && (
                                     <div className="mt-4 pt-4 border-t border-gray-200/50">
                                         <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
                                         Montant des fournitures : {(() => {
