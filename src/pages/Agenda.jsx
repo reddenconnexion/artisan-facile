@@ -101,12 +101,13 @@ const Agenda = () => {
             window.history.replaceState({}, document.title);
         } else if (location.state?.prefill) {
             // Handle direct prefill (e.g. from ClientForm)
-            const { client_id, client_name, address } = location.state.prefill;
+            const { client_id, client_name, address, title } = location.state.prefill;
             setNewEvent(prev => ({
                 ...prev,
                 client_id: client_id,
                 client_name: client_name,
                 address: address || '',
+                title: title || prev.title || '',
                 date: format(new Date(), 'yyyy-MM-dd'), // Default to today
                 time: '09:00' // Default time
             }));
