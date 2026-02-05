@@ -239,7 +239,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let allNotes = devis.notes || '';
 
     // Automatic Material Deposit Note for Quotes
-    if (!isInvoice && materials.length > 0) {
+    if (!isInvoice && materials.length > 0 && devis.has_material_deposit !== false) {
         const materialHT = materials.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
         // Calculate effective VAT rate (infer from totals to support manual adjustments or different rates)

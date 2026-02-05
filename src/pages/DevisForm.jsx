@@ -284,7 +284,8 @@ const DevisForm = () => {
         manual_total_tva: 0,
         manual_total_ttc: 0,
         operation_category: 'service',
-        vat_on_debits: false
+        vat_on_debits: false,
+        has_material_deposit: true
     });
 
     // --- AUTO SAVE LOGIC ---
@@ -496,7 +497,8 @@ const DevisForm = () => {
                     operation_category: data.operation_category || 'service',
                     vat_on_debits: data.vat_on_debits === true,
                     last_followup_at: data.last_followup_at || null,
-                    updated_at: data.updated_at || null
+                    updated_at: data.updated_at || null,
+                    has_material_deposit: data.has_material_deposit !== false
                 });
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
@@ -836,7 +838,8 @@ const DevisForm = () => {
                 status: formData.status,
                 type: formData.type,
                 original_pdf_url: formData.original_pdf_url,
-                is_external: formData.is_external
+                is_external: formData.is_external,
+                has_material_deposit: formData.has_material_deposit
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -2416,6 +2419,18 @@ Conditions de règlement : Paiement à réception de facture.`
                                 />
                                 <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
                                     Appliquer la TVA (20%)
+                                </label>
+                            </div>
+                            <div className="flex items-center justify-end mb-4">
+                                <input
+                                    type="checkbox"
+                                    id="has_material_deposit"
+                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                                    checked={formData.has_material_deposit}
+                                    onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
+                                />
+                                <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900">
+                                    Demander un acompte matériel
                                 </label>
                             </div>
                             <div className="flex justify-between text-gray-600">
