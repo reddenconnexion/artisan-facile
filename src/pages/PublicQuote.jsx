@@ -240,6 +240,17 @@ const PublicQuote = () => {
                         <div className="font-medium text-gray-900 text-lg">{client.name}</div>
                         <div className="text-gray-600 whitespace-pre-line">{client.address}</div>
                         {client.email && <div className="text-gray-600 mt-1">{client.email}</div>}
+
+                        {(quote.intervention_address) && (
+                            <div className="mt-4 pt-3 border-t border-gray-200/50">
+                                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lieu d'intervention</h3>
+                                <div className="text-gray-700">
+                                    {quote.intervention_address}
+                                    {(quote.intervention_postal_code || quote.intervention_city) && <br />}
+                                    {quote.intervention_postal_code} {quote.intervention_city}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Title */}
@@ -394,8 +405,9 @@ const PublicQuote = () => {
                     </p>
                 </div>
 
-                {/* Payment Information (Visible for Invoices/Signed Quotes) */}
-                {(isInvoiceView || isSigned) && quote.status !== 'paid' && artisan.iban && (
+                {/* Payment Information (Visible for Invoices/Signed Quotes OR if IBAN present) */}
+                {/* Logic: PDF shows it always if IBAN exists. Web should match. */}
+                {quote.status !== 'paid' && artisan.iban && (
                     <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
                         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
                             <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
