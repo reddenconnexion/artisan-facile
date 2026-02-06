@@ -549,6 +549,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         "Réserve de propriété : Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix."
     ];
 
+    // Ajout de la mention "Sous réserve de..." pour les devis uniquement
+    if (!isInvoice) {
+        legalTerms.splice(1, 0, "Sous réserve technique : Ce devis est établi sous réserve de bonne faisabilité et de la conformité des réseaux ou supports existants (non visitables avant démontage).");
+    }
+
     for (const term of legalTerms) {
         // Roughly estimate height: 180 width, ~240 chars per line at size 7? 
         // Actually size 7 is small. 

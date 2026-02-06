@@ -1262,6 +1262,48 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
 
+    const handleCreateAvenant = async () => {
+        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `Avenant au devis - ${formData.title}`);
+        if (!avenantTitle) return;
+
+        try {
+            setLoading(true);
+
+            const avenantData = {
+                user_id: user.id,
+                client_id: formData.client_id,
+                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+                title: avenantTitle,
+                date: new Date().toISOString().split('T')[0],
+                status: 'draft',
+                type: 'quote', // It's a quote
+                parent_id: id, // Link to original
+                items: [
+                    { id: Date.now(), description: 'Ajout de travaux...', quantity: 1, buying_price: 0, price: 0, type: 'service' }
+                ],
+                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`
+            };
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .insert([avenantData])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            toast.success("Avenant créé avec succès !");
+            navigate(`/app/devis/${data.id}`);
+            setShowActionsMenu(false);
+
+        } catch (error) {
+            console.error('Error creating avenant:', error);
+            toast.error("Erreur lors de la création de l'avenant");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleCreateClosingInvoice = async () => {
         if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
             return;
@@ -1270,6 +1312,17 @@ Conditions de règlement : Paiement à réception de facture.`
         setLoading(true);
         try {
             // 1. Fetch existing deposits/situations linked to this quote
+            // We need to exclude 'Avenants' (quotes) from deductions, only invoices matter here.
+            // But usually Avenant should be merged into Closing Invoice?
+            // If Avenant is accepted, it should be part of the final bill?
+            // COMPLEXITY: Handling Avenant in Closing Invoice.
+            // For now, let's keep Closing Invoice simple (Original Quote base).
+            // Avenant should probably be billed separately or manually added?
+            // Let's stick to standard flow: Closing Invoice deduces deposits from THIS quote ID.
+            // Check if parent_id query includes Avenants?
+            // parent_id = id checks children. Avenant is a child.
+            // We filter by type='invoice' below, so Avenant (type='quote') won't be deducted. Correct.
+
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
                 .select('id, title, date, total_ht, total_ttc, type, status')
@@ -1283,6 +1336,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 inv.type === 'invoice' &&
                 !inv.title?.toLowerCase().includes('clôture')
             );
+            // ... rest of logic ...
 
             // 2. Prepare items: Copy original items
             let finalItems = formData.items.map(item => ({
@@ -1690,8 +1744,25 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
+    // Verrouillage si Signé/Facturé/Payé/Annulé
+    const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+
     return (
         <div className="max-w-4xl mx-auto pb-12">
+            {isLocked && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                    <div className="p-1 bg-amber-100 rounded-full text-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-semibold text-amber-800">Document Verrouillé</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                            Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
+                            Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
+                        </p>
+                    </div>
+                </div>
+            )}
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={() => navigate('/app/devis')}
@@ -1829,6 +1900,13 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && (formData.status === 'accepted' || formData.status === 'sent') && (
                                     <>
+                                        <button
+                                            onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <FileText className="w-4 h-4 mr-3 text-indigo-600" />
+                                            Créer un avenant
+                                        </button>
                                         <button
                                             onClick={handleCreateDeposit}
                                             className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
@@ -2048,6 +2126,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 selectedClientId={formData.client_id}
                                 onChange={handleClientChange}
                                 onCreateNew={() => navigate('/app/clients/new')}
+                                disabled={isLocked}
                             />
                         </div>
 
@@ -2055,10 +2134,11 @@ Conditions de règlement : Paiement à réception de facture.`
                             <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
                             <input
                                 type="text"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                 placeholder="Ex: Rénovation Salle de Bain"
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                disabled={isLocked}
                             />
                         </div>
 
@@ -2069,9 +2149,10 @@ Conditions de règlement : Paiement à réception de facture.`
                             <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
                             <input
                                 type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                disabled={isLocked}
                             />
                         </div>
                         {formData.type !== 'invoice' && (
@@ -2079,9 +2160,10 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
                                 <input
                                     type="date"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                     value={formData.valid_until}
                                     onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                                    disabled={isLocked}
                                 />
                             </div>
                         )}
@@ -2113,9 +2195,10 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
                         <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
                             value={formData.operation_category}
                             onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
+                            disabled={isLocked}
                         >
                             <option value="service">Prestation de services</option>
                             <option value="goods">Livraison de biens</option>
@@ -2125,9 +2208,10 @@ Conditions de règlement : Paiement à réception de facture.`
                             <input
                                 type="checkbox"
                                 id="vat_on_debits"
-                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
                                 checked={formData.vat_on_debits}
                                 onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
+                                disabled={isLocked}
                             />
                             <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
                                 Option TVA sur les débits
@@ -2143,7 +2227,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                 id="diffAddress"
                                 checked={diffAddress}
                                 onChange={(e) => setDiffAddress(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                                disabled={isLocked}
                             />
                             <label htmlFor="diffAddress" className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                                 Adresse d'intervention différente (ex: locataire, chantier secondaire)
@@ -2160,8 +2245,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_address}
                                         onChange={(e) => setFormData({ ...formData, intervention_address: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                         placeholder="12 rue des Fleurs"
+                                        disabled={isLocked}
                                     />
                                 </div>
                                 <div>
@@ -2172,8 +2258,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_postal_code}
                                         onChange={(e) => setFormData({ ...formData, intervention_postal_code: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                         placeholder="75001"
+                                        disabled={isLocked}
                                     />
                                 </div>
                                 <div>
@@ -2184,8 +2271,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_city}
                                         onChange={(e) => setFormData({ ...formData, intervention_city: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                         placeholder="Paris"
+                                        disabled={isLocked}
                                     />
                                 </div>
                             </div>
@@ -2204,9 +2292,10 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
-                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
+                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
                                             value={item.type || 'service'}
                                             onChange={(e) => updateItem(item.id, 'type', e.target.value)}
+                                            disabled={isLocked}
                                         >
                                             <option value="service">Main d'oeuvre</option>
                                             <option value="material">Matériel</option>
@@ -2249,6 +2338,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 }}
                                                 onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                                                 required
+                                                disabled={isLocked}
                                             />
 
                                             {/* Custom Suggestions (Price Library) */}
@@ -2318,6 +2408,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             placeholder="0.00"
                                             value={item.buying_price || ''}
                                             onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
+                                            disabled={isLocked}
                                         />
                                         <span>€</span>
                                     </div>
@@ -2332,13 +2423,15 @@ Conditions de règlement : Paiement à réception de facture.`
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
                                             value={item.quantity}
                                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                                            disabled={isLocked}
                                         />
                                         {userProfile?.enable_calculator !== false && (
                                             <button
                                                 type="button"
                                                 onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
-                                                className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200"
+                                                className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
                                                 title="Calculatrice Matériaux"
+                                                disabled={isLocked}
                                             >
                                                 <Calculator className="w-3 h-3" />
                                             </button>
@@ -2353,6 +2446,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
                                             value={item.price}
                                             onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                                            disabled={isLocked}
                                         />
                                     </div>
                                     <div className="w-28 py-2 text-right font-medium text-gray-900">
@@ -2362,7 +2456,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <button
                                             type="button"
                                             onClick={() => moveItem(index, 'up')}
-                                            disabled={index === 0}
+                                            disabled={index === 0 || isLocked}
                                             className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
                                             title="Monter"
                                         >
@@ -2371,7 +2465,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <button
                                             type="button"
                                             onClick={() => moveItem(index, 'down')}
-                                            disabled={index === formData.items.length - 1}
+                                            disabled={index === formData.items.length - 1 || isLocked}
                                             className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
                                             title="Descendre"
                                         >
@@ -2380,7 +2474,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                     <button
                                         onClick={() => removeItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30"
+                                        disabled={isLocked}
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>
@@ -2392,7 +2487,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="mt-4 flex gap-4">
                         <button
                             onClick={addItem}
-                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                            disabled={isLocked}
                         >
                             <Plus className="w-4 h-4 mr-1" />
                             Ajouter une ligne
@@ -2402,7 +2498,8 @@ Conditions de règlement : Paiement à réception de facture.`
 
                         <button
                             onClick={() => setShowAIModal(true)}
-                            className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all"
+                            className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                            disabled={isLocked}
                         >
                             <Sparkles className="w-3 h-3 mr-2" />
                             Assistant Devis IA
@@ -2492,6 +2589,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     checked={formData.include_tva}
                                     onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
+                                    disabled={isLocked}
                                 />
                                 <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
                                     Appliquer la TVA (20%)
@@ -2504,6 +2602,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                                     checked={formData.has_material_deposit}
                                     onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
+                                    disabled={isLocked}
                                 />
                                 <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900">
                                     Demander un acompte matériel
@@ -2555,18 +2654,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                 setVoiceContext('note');
                                 setShowSmartVoice(true);
                             }}
-                            className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700"
+                            className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
                             title="Dicter une note"
+                            disabled={isLocked}
                         >
                             <Sparkles className="w-4 h-4" />
                         </button>
                     </div>
                     <textarea
                         rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                         placeholder="Conditions de paiement, validité du devis..."
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        disabled={isLocked}
                     />
                     {/* Auto-calculate Material Deposit Hint */}
                     {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (

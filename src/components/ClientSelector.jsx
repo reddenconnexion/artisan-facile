@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, Mail } from 'lucide-react';
 
-const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew }) => {
+const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
@@ -31,10 +31,11 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew }) =>
     });
 
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className={`relative ${disabled ? 'opacity-60 pointer-events-none' : ''}`} ref={dropdownRef}>
             <div
                 className="w-full relative"
                 onClick={() => {
+                    if (disabled) return;
                     setIsOpen(!isOpen);
                     if (!isOpen) {
                         setTimeout(() => inputRef.current?.focus(), 100);
