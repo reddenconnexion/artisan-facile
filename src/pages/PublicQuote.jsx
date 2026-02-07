@@ -409,7 +409,7 @@ const PublicQuote = () => {
                                             <span>Acompte versé</span>
                                             <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
                                         </div>
-                                        <div className="text-xs text-right text-gray-400 -mt-2 mb-2">(conservé et déduit)</div>
+                                        <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(conservé)</div>
 
                                         {/* Progress Invoices linked to parent */}
                                         {(quote.parent_quote_data?.progress_total > 0) && (

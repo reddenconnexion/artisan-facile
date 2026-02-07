@@ -338,7 +338,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Progress invoices (Situations) already billed on parent quote
         const progressTotal = devis.parent_quote_data?.progress_total || 0;
 
-        const balance = newTotalTTC - deposit - progressTotal;
+        // NEW LOGIC: Do NOT subtract deposit from "Solde" on Amendment. 
+        // Solde = New Total - Progress Invoices.
+        const balance = newTotalTTC - progressTotal;
 
         const leftX = 14;
         const rightValueX = 100;
@@ -349,7 +351,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         if (deposit > 0) {
             doc.text(`Acompte versé :`, leftX, financeY);
-            doc.text(`${deposit.toFixed(2)} € (déduit)`, rightValueX, financeY, { align: 'right' });
+            doc.text(`${deposit.toFixed(2)} € (conservé)`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
         }
 
