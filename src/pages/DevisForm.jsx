@@ -3072,7 +3072,7 @@ Conditions de règlement : Paiement à réception de facture.`
             />
         </div>
     );
-);
+
 };
 
 export default DevisForm;
