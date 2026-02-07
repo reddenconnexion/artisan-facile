@@ -404,12 +404,23 @@ const PublicQuote = () => {
                                             <span>{(quote.parent_quote_data?.total_ttc || 0).toFixed(2)} €</span>
                                         </div>
 
-                                        {/* Acompte / Deposit - Placeholder or actual if we had it. Assuming 0 for now as per PDF generator */}
+                                        {/* Acompte / Deposit */}
                                         <div className="flex justify-between text-gray-600">
                                             <span>Acompte versé</span>
                                             <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
                                         </div>
                                         <div className="text-xs text-right text-gray-400 -mt-2 mb-2">(conservé et déduit)</div>
+
+                                        {/* Progress Invoices linked to parent */}
+                                        {(quote.parent_quote_data?.progress_total > 0) && (
+                                            <>
+                                                <div className="flex justify-between text-gray-600">
+                                                    <span>Situations / Factures émises</span>
+                                                    <span>{(quote.parent_quote_data.progress_total).toFixed(2)} €</span>
+                                                </div>
+                                                <div className="text-xs text-right text-gray-400 -mt-2 mb-2">(déduit)</div>
+                                            </>
+                                        )}
 
                                         <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
                                             <span>Coût Avenant TTC</span>
@@ -417,8 +428,18 @@ const PublicQuote = () => {
                                         </div>
 
                                         <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
-                                            <span>Nouveau Total TTC</span>
-                                            <span>{((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} €</span>
+                                            <span>Nouveau Solde à Régler</span>
+                                            <span>
+                                                {((
+                                                    (quote.parent_quote_data?.total_ttc || 0) +
+                                                    quote.total_ttc -
+                                                    (amendmentDetails.initial_deposit_amount || 0) -
+                                                    (quote.parent_quote_data?.progress_total || 0)
+                                                )).toFixed(2)} €
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-right text-gray-500 mt-1">
+                                            (Total Projet: {((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} € TTC)
                                         </div>
                                     </div>
                                 </div>
