@@ -318,7 +318,7 @@ const DevisForm = () => {
                     if (draftDate > dbDate) {
                         const { _draft_saved_at, ...restored } = draft;
                         setFormData(prev => ({ ...prev, ...restored }));
-                        toast.info("Brouillon récupéré");
+
                     }
                 }
             };
