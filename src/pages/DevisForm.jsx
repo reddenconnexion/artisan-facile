@@ -1282,11 +1282,10 @@ Conditions de règlement : Paiement à réception de facture.`
                 title: avenantTitle,
                 date: new Date().toISOString().split('T')[0],
                 status: 'draft',
-                type: 'quote', // It's a quote
-                parent_id: id, // Link to original
-                items: [
-                    { id: Date.now(), description: 'Ajout de travaux...', quantity: 1, buying_price: 0, price: 0, type: 'service' }
-                ],
+                type: 'amendment', // Correct type
+                parent_id: id, // Keep for lineage if used by situations
+                parent_quote_id: id, // For Amendment logic
+                items: [], // Start empty
                 notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`
             };
 
