@@ -95,17 +95,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 81);
+    doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 85);
     if (!isInvoice && devis.valid_until) {
-        doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 86);
+        doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 90);
     }
 
     // Factur-X Info (Ops Category)
     if (isInvoice && devis.operation_category) {
         const catMap = { 'service': 'Prestation de services', 'goods': 'Livraison de biens', 'mixed': 'Mixte' };
-        doc.text(`Catégorie : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 91);
+        doc.text(`Catégorie : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 95);
         if (devis.vat_on_debits) {
-            doc.text("Option pour le paiement de la TVA d'après les débits", 14, 96);
+            doc.text("Option pour le paiement de la TVA d'après les débits", 14, 100);
         }
     }
 
