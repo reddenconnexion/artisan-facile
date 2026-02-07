@@ -163,6 +163,18 @@ const PublicQuote = () => {
     const { artisan, client } = quote;
     const isSigned = quote.status === 'accepted';
     const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
+    const isAmendment = quote.type === 'amendment';
+
+    let amendmentDetails = {};
+    if (isAmendment && quote.amendment_details) {
+        try {
+            amendmentDetails = typeof quote.amendment_details === 'string'
+                ? JSON.parse(quote.amendment_details)
+                : quote.amendment_details;
+        } catch (e) {
+            console.error("Error parsing amendment details", e);
+        }
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
@@ -263,6 +275,46 @@ const PublicQuote = () => {
                     )}
 
                     {/* Content: External PDF or Items Table */}
+                    {/* Amendment Specific Sections */}
+                    {isAmendment && (
+                        <div className="mb-8 space-y-6">
+                            {/* Constat */}
+                            <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
+                                <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-4">Constat Terrain</h3>
+                                <div className="space-y-3 text-amber-900">
+                                    {amendmentDetails.constat_date && (
+                                        <p><strong>Date du constat :</strong> {new Date(amendmentDetails.constat_date).toLocaleDateString()}</p>
+                                    )}
+                                    {amendmentDetails.constat_description && (
+                                        <p className="whitespace-pre-line">{amendmentDetails.constat_description}</p>
+                                    )}
+                                    {amendmentDetails.constat_reason && (
+                                        <p className="font-medium mt-2">
+                                            → Impossibilité de réaliser la solution initiale pour cause de {amendmentDetails.constat_reason}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Solution */}
+                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-4">Nouvelle Solution Technique</h3>
+                                <div className="space-y-3 text-blue-900">
+                                    {amendmentDetails.solution_description && (
+                                        <p className="whitespace-pre-line">{amendmentDetails.solution_description}</p>
+                                    )}
+
+                                    <div className="mt-4 pt-4 border-t border-blue-200">
+                                        <p><strong>Matériel complémentaire nécessaire :</strong> voir ci-dessous.</p>
+                                        {amendmentDetails.solution_technical_value && (
+                                            <p className="mt-2 text-sm text-blue-800">Plus-value technique : {amendmentDetails.solution_technical_value}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Content: External PDF or Items Table */}
                     {(quote.is_external && quote.original_pdf_url) ? (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
@@ -339,24 +391,57 @@ const PublicQuote = () => {
                     )}
 
                     {/* Totals */}
+                    {/* Totals or Financial Adjustment */}
                     <div className="border-t border-gray-100 pt-6 flex justify-end">
-                        <div className="w-full sm:w-1/2 md:w-1/3 space-y-3">
-                            <div className="flex justify-between text-gray-600">
-                                <span>Total HT</span>
-                                <span>{quote.total_ht.toFixed(2)} €</span>
-                            </div>
-                            {quote.total_tva > 0 ? (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>TVA (20%)</span>
-                                    <span>{quote.total_tva.toFixed(2)} €</span>
+                        <div className="w-full sm:w-1/2 md:w-5/12 space-y-3">
+                            {isAmendment ? (
+                                <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Ajustement Financier</h3>
+
+                                    <div className="space-y-3 text-sm">
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Montant initial TTC</span>
+                                            <span>{(quote.parent_quote_data?.total_ttc || 0).toFixed(2)} €</span>
+                                        </div>
+
+                                        {/* Acompte / Deposit - Placeholder or actual if we had it. Assuming 0 for now as per PDF generator */}
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Acompte versé</span>
+                                            <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
+                                        </div>
+                                        <div className="text-xs text-right text-gray-400 -mt-2 mb-2">(conservé et déduit)</div>
+
+                                        <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
+                                            <span>Coût Avenant TTC</span>
+                                            <span>+{quote.total_ttc.toFixed(2)} €</span>
+                                        </div>
+
+                                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
+                                            <span>Nouveau Total TTC</span>
+                                            <span>{((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} €</span>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
+                                <>
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Total HT</span>
+                                        <span>{quote.total_ht.toFixed(2)} €</span>
+                                    </div>
+                                    {quote.total_tva > 0 ? (
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>TVA (20%)</span>
+                                            <span>{quote.total_tva.toFixed(2)} €</span>
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
+                                    )}
+                                    <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
+                                        <span>Total TTC</span>
+                                        <span>{quote.total_ttc.toFixed(2)} €</span>
+                                    </div>
+                                </>
                             )}
-                            <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                <span>Total TTC</span>
-                                <span>{quote.total_ttc.toFixed(2)} €</span>
-                            </div>
                         </div>
                     </div>
 
