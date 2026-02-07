@@ -1285,8 +1285,11 @@ Conditions de règlement : Paiement à réception de facture.`
                 type: 'amendment', // Correct type
                 parent_id: id, // Keep for lineage if used by situations
                 parent_quote_id: id, // For Amendment logic
-                items: [], // Start empty
-                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`
+                items: [],
+                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
+                total_ht: 0,
+                total_tva: 0,
+                total_ttc: 0
             };
 
             const { data, error } = await supabase
