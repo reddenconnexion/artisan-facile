@@ -37,7 +37,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                             type="date"
                             value={details.constat_date || ''}
                             onChange={(e) => handleChange('constat_date', e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                         />
                     </div>
                     <div>
@@ -49,7 +49,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                             placeholder="Ex: Impossibilité technique, Non-conformité..."
                             value={details.constat_reason || ''}
                             onChange={(e) => handleChange('constat_reason', e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                         />
                     </div>
                 </div>
@@ -63,7 +63,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                         placeholder="Décrivez ce qui a été découvert lors de l'intervention..."
                         value={details.constat_description || ''}
                         onChange={(e) => handleChange('constat_description', e.target.value)}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                     />
                 </div>
             </div>
@@ -84,7 +84,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                         placeholder="Décrivez simplement la nouvelle solution technique..."
                         value={details.solution_description || ''}
                         onChange={(e) => handleChange('solution_description', e.target.value)}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                     />
                 </div>
 
@@ -97,7 +97,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                         placeholder="Ex: Meilleure durabilité, performance accrue..."
                         value={details.solution_technical_value || ''}
                         onChange={(e) => handleChange('solution_technical_value', e.target.value)}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
                     />
                 </div>
             </div>
