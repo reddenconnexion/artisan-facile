@@ -2449,7 +2449,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <input
                                             type="number"
                                             placeholder="Qté"
-                                            min="0"
                                             step="0.01"
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
                                             value={item.quantity}
@@ -2472,7 +2471,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <input
                                             type="number"
                                             placeholder="Prix U."
-                                            min="0"
                                             step="0.01"
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
                                             value={item.price}
