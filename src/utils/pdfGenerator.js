@@ -333,15 +333,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const newTotalTTC = initialTTC + amendmentTTC;
 
         // Try to estimate deposit or assume 0 if not passed
-        const deposit = details?.initial_deposit_amount || 0; // Or fetch?
-        // Note: For now relies on amendment_details.initial_deposit_amount if we added it, 
-        // or we just show 0 and user can handwrite or we update logic later.
-        // User requested: "Acompte versé : XXX €".
-        // Let's assume 0 for now or placeholder if not in details. 
-        // Logic: We haven't added `initial_deposit_amount` to UI yet. 
-        // I will default to 0. 
+        const deposit = details?.initial_deposit_amount || 0;
 
-        const balance = newTotalTTC - deposit;
+        // Progress invoices (Situations) already billed on parent quote
+        const progressTotal = devis.parent_quote_data?.progress_total || 0;
+
+        const balance = newTotalTTC - deposit - progressTotal;
 
         const leftX = 14;
         const rightValueX = 100;
@@ -350,9 +347,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
         financeY += 6;
 
-        doc.text(`Acompte versé :`, leftX, financeY);
-        doc.text(`${deposit.toFixed(2)} € (conservé et déduit)`, rightValueX, financeY, { align: 'right' });
-        financeY += 6;
+        if (deposit > 0) {
+            doc.text(`Acompte versé :`, leftX, financeY);
+            doc.text(`${deposit.toFixed(2)} € (déduit)`, rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+        }
+
+        if (progressTotal > 0) {
+            doc.text(`Situations intermédiaires :`, leftX, financeY);
+            doc.text(`${progressTotal.toFixed(2)} € (déduit)`, rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+        }
 
         doc.setFont(undefined, 'bold');
         doc.text(`Nouveau montant TTC :`, leftX, financeY);

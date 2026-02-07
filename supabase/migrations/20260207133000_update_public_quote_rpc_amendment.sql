@@ -39,7 +39,14 @@ AS $$
       'title', pq.title,
       'total_ht', pq.total_ht,
       'total_tva', pq.total_tva,
-      'total_ttc', pq.total_ttc
+      'total_ttc', pq.total_ttc,
+      'progress_total', (
+        SELECT COALESCE(SUM(total_ttc), 0) 
+        FROM quotes 
+        WHERE parent_id = pq.id 
+        AND type = 'invoice' 
+        AND status != 'cancelled'
+      )
     ) ELSE NULL END,
     'client', jsonb_build_object(
       'name', c.name,
