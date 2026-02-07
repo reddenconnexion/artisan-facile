@@ -1495,7 +1495,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_tva: tva,
                 total_ttc: total,
                 include_tva: formData.include_tva,
-                has_material_deposit: formData.has_material_deposit
+                has_material_deposit: formData.has_material_deposit,
+                amendment_details: formData.amendment_details || {}
             };
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
@@ -1547,7 +1548,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_tva: tva,
                 total_ttc: total,
                 include_tva: formData.include_tva,
-                has_material_deposit: formData.has_material_deposit
+                has_material_deposit: formData.has_material_deposit,
+                amendment_details: formData.amendment_details || {}
             };
 
             const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
@@ -2769,27 +2771,24 @@ Conditions de règlement : Paiement à réception de facture.`
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
-                                    formData.type === 'invoice' ? 'bg-green-100 dark:bg-green-900/30' :
+                                <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${formData.type === 'invoice' ? 'bg-green-100 dark:bg-green-900/30' :
                                     formData.type === 'amendment' ? 'bg-orange-100 dark:bg-orange-900/30' :
-                                    'bg-blue-100 dark:bg-blue-900/30'
-                                }`}>
-                                    <FileText className={`w-4.5 h-4.5 ${
-                                        formData.type === 'invoice' ? 'text-green-600 dark:text-green-400' :
+                                        'bg-blue-100 dark:bg-blue-900/30'
+                                    }`}>
+                                    <FileText className={`w-4.5 h-4.5 ${formData.type === 'invoice' ? 'text-green-600 dark:text-green-400' :
                                         formData.type === 'amendment' ? 'text-orange-600 dark:text-orange-400' :
-                                        'text-blue-600 dark:text-blue-400'
-                                    }`} />
+                                            'text-blue-600 dark:text-blue-400'
+                                        }`} />
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                         <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                                             {formData.title || 'Document sans titre'}
                                         </h3>
-                                        <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                                            formData.type === 'invoice' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${formData.type === 'invoice' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                                             formData.type === 'amendment' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                        }`}>
+                                                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                            }`}>
                                             {formData.type === 'invoice' ? 'Facture' : formData.type === 'amendment' ? 'Avenant' : 'Devis'}
                                         </span>
                                     </div>

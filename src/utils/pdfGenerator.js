@@ -186,7 +186,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         let currentY = tableStartY;
 
         // 2. CONSTAT TERRAIN
-        const details = devis.amendment_details || {};
+        let details = devis.amendment_details || {};
+        if (typeof details === 'string') {
+            try {
+                details = JSON.parse(details);
+            } catch (e) {
+                console.error("Error parsing amendment_details", e);
+                details = {};
+            }
+        }
 
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
