@@ -1,19 +1,16 @@
 -- Update get_public_quote to include amendment details and parent quote data
+-- Uses single-statement SQL (with CTE) to avoid client-side semicolon splitting issues
 CREATE OR REPLACE FUNCTION get_public_quote(lookup_token UUID)
 RETURNS JSONB
-LANGUAGE plpgsql
+LANGUAGE sql
 SECURITY DEFINER
 AS $$
-DECLARE
-  result JSONB;
-BEGIN
-  -- FIRST, update the view timestamp since the quote is being accessed
-  -- (Optional: Do checking if record exists first? No, UPDATE handles 0 rows fine)
-  UPDATE quotes 
-  SET last_viewed_at = NOW() 
-  WHERE public_token = lookup_token;
-
-  -- THEN, select and return the data (including amendment details and parent quote data)
+  WITH view_update AS (
+    UPDATE quotes 
+    SET last_viewed_at = NOW() 
+    WHERE public_token = lookup_token
+    RETURNING id
+  )
   SELECT jsonb_build_object(
     'id', q.id,
     'date', q.date,
@@ -39,7 +36,10 @@ BEGIN
     'parent_quote_data', CASE WHEN pq.id IS NOT NULL THEN jsonb_build_object(
       'id', pq.id,
       'date', pq.date,
-      'title', pq.title
+      'title', pq.title,
+      'total_ht', pq.total_ht,
+      'total_tva', pq.total_tva,
+      'total_ttc', pq.total_ttc
     ) ELSE NULL END,
     'client', jsonb_build_object(
       'name', c.name,
@@ -64,13 +64,10 @@ BEGIN
       'iban', p.iban,
       'wero_phone', p.wero_phone
     )
-  ) INTO result
+  )
   FROM quotes q
   LEFT JOIN quotes pq ON q.parent_quote_id = pq.id
   LEFT JOIN clients c ON q.client_id = c.id
   LEFT JOIN profiles p ON q.user_id = p.id
   WHERE q.public_token = lookup_token;
-
-  RETURN result;
-END;
 $$;

@@ -19,10 +19,11 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
     if (!isOpen || !quote) return null;
 
     const handleItemChange = (itemId, percentage) => {
-        const val = Math.max(0, Math.min(100, parseFloat(percentage) || 0));
+        // Allow negative up to -100 for refunds, effectively
+        const val = Math.max(-100, Math.min(100, parseFloat(percentage) || 0));
         setSelectedItems(prev => {
             const next = { ...prev };
-            if (val > 0) next[itemId] = val;
+            if (val !== 0) next[itemId] = val; // Store if not strictly 0. Negative is allow.
             else delete next[itemId];
             return next;
         });
@@ -42,6 +43,9 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
         if (!isNaN(val) && val > 0 && val <= 100) {
             const newSelection = {};
             quote.items.forEach(item => {
+                // Skip if material item and material deposit is active
+                if (item.type === 'material' && quote.has_material_deposit) return;
+
                 newSelection[item.id] = val;
             });
             setSelectedItems(newSelection);
@@ -62,7 +66,7 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
     const handleSave = () => {
         // Filter and prepare items
         const invoiceItems = quote.items
-            .filter(item => selectedItems[item.id] > 0)
+            .filter(item => selectedItems[item.id] && selectedItems[item.id] !== 0)
             .map(item => {
                 const pct = selectedItems[item.id];
                 const amount = (item.price * item.quantity) * (pct / 100);
@@ -168,6 +172,9 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                 const itemTotal = (item.price * item.quantity);
                                 const itemBilled = itemTotal * (percentage / 100);
 
+                                const isMaterial = item.type === 'material';
+                                const isMaterialDepositPaid = isMaterial && quote.has_material_deposit;
+
                                 return (
                                     <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}>
                                         <td className="py-3 pl-2">
@@ -179,9 +186,17 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                             />
                                         </td>
                                         <td className="py-3 text-sm text-gray-900">
-                                            <div className="font-medium">{item.description}</div>
+                                            <div className="font-medium">
+                                                {item.description}
+                                                {isMaterialDepositPaid && (
+                                                    <span className="ml-2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                        Déjà réglé
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-xs text-gray-500">
                                                 Qté: {item.quantity} | PU: {item.price}€
+                                                {isMaterialDepositPaid && <span className="ml-1 text-xs text-gray-400 italic">(Saisir % négatif pour remboursement)</span>}
                                             </div>
                                         </td>
                                         <td className="py-3 text-right text-sm text-gray-500">
@@ -191,7 +206,8 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                             <div className="flex items-center justify-end gap-2">
                                                 <input
                                                     type="number"
-                                                    min="0" max="100"
+                                                    min={isMaterialDepositPaid ? "-100" : "0"}
+                                                    max="100"
                                                     value={isSelected ? percentage : ''}
                                                     onChange={(e) => handleItemChange(item.id, e.target.value)}
                                                     disabled={!isSelected}
@@ -232,7 +248,7 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                         </button>
                         <button
                             onClick={handleSave}
-                            disabled={totalAmount <= 0}
+                            disabled={Object.keys(selectedItems).length === 0}
                             className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                         >
                             <Check className="w-5 h-5 mr-2" />
