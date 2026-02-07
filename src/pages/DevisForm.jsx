@@ -18,6 +18,7 @@ import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
 import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
 import PaymentSchedule from '../components/PaymentSchedule';
+import AmendmentFields from '../components/AmendmentFields'; // New Component
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 
 const DevisForm = () => {
@@ -854,7 +855,12 @@ const DevisForm = () => {
                 has_material_deposit: formData.has_material_deposit,
                 intervention_address: formData.intervention_address,
                 intervention_postal_code: formData.intervention_postal_code,
-                intervention_city: formData.intervention_city
+                has_material_deposit: formData.has_material_deposit,
+                intervention_address: formData.intervention_address,
+                intervention_postal_code: formData.intervention_postal_code,
+                intervention_city: formData.intervention_city,
+                parent_quote_id: formData.parent_quote_id,
+                amendment_details: formData.amendment_details
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -2281,6 +2287,13 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
 
+                {/* Amendment Configuration Fields */}
+                {formData.type === 'amendment' && (
+                    <div className="mb-8">
+                        <AmendmentFields formData={formData} setFormData={setFormData} />
+                    </div>
+                )}
+
                 {/* Lignes du devis */}
                 <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -2892,7 +2905,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
                         return (
                             <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
-                                {/* Header */}
+                                {/* --- Items Table --- */}
                                 <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
                                     <button
                                         onClick={() => setFullScreenEditItem(null)}

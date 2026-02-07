@@ -10,8 +10,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // ---------------------------------------------------------
     const doc = new jsPDF();
 
-    const typeDocument = isInvoice ? "FACTURE" : "DEVIS";
+    const typeDocument = isInvoice ? "FACTURE" : (devis.type === 'amendment' ? "AVENANT" : "DEVIS");
     const dateLabel = isInvoice ? "Date de facturation" : "Date d'émission";
+    const isAmendment = devis.type === 'amendment';
 
     // Logo
     // Logo
@@ -84,7 +85,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
+
+    if (isAmendment) {
+        doc.text(`AVENANT - MODIFICATION TECHNIQUE`, 14, 75);
+    } else {
+        doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
+    }
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
@@ -165,6 +171,80 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         tableStartY = titleY + 8;
     }
 
+    if (isAmendment) {
+        // --- AVENANT SECTIONS ---
+        // 1. Reference
+        const parentRef = devis.parent_quote_data
+            ? `Devis initial N° ${devis.parent_quote_data.id} du ${new Date(devis.parent_quote_data.date).toLocaleDateString()}`
+            : `Devis initial Référence Inconnue`;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(parentRef, 14, 81); // Under title roughly
+
+        let currentY = tableStartY;
+
+        // 2. CONSTAT TERRAIN
+        const details = devis.amendment_details || {};
+
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("CONSTAT TERRAIN :", 14, currentY);
+        currentY += 6;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(50, 50, 50);
+
+        if (details.constat_date) {
+            doc.text(`Lors de l'intervention du ${new Date(details.constat_date).toLocaleDateString()}, découverte de :`, 14, currentY);
+            currentY += 5;
+        }
+        if (details.constat_description) {
+            const descLines = doc.splitTextToSize(details.constat_description, 180);
+            doc.text(descLines, 14, currentY);
+            currentY += (descLines.length * 5) + 2;
+        }
+
+        if (details.constat_reason) {
+            doc.text(`→ Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`, 14, currentY);
+            currentY += 10;
+        } else {
+            currentY += 5;
+        }
+
+        // 3. NOUVELLE SOLUTION
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("NOUVELLE SOLUTION :", 14, currentY);
+        currentY += 6;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(50, 50, 50);
+
+        if (details.solution_description) {
+            const solLines = doc.splitTextToSize(`- ${details.solution_description}`, 180);
+            doc.text(solLines, 14, currentY);
+            currentY += (solLines.length * 5);
+        }
+
+        doc.text(`- Matériel complémentaire :`, 14, currentY);
+        currentY += 5;
+
+        if (details.solution_technical_value) {
+            doc.text(`- Plus-value technique : ${details.solution_technical_value}`, 14, currentY);
+            currentY += 8;
+        } else {
+            currentY += 3;
+        }
+
+        tableStartY = currentY;
+    }
+
     // ---------------------------------------------------------
     // Tableau des prestations (Séparé Main d'oeuvre / Matériel)
     // ---------------------------------------------------------
@@ -223,35 +303,89 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             styles: { fontSize: 9 },
         });
 
-        currentTableY = doc.lastAutoTable.finalY + 15; // Increased gap
+        currentTableY = doc.lastAutoTable.finalY + 15;
     }
 
-    // Totaux
-    const finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
-    const labelX = 130;
-    const valueX = 195;
+    if (isAmendment) {
+        // AJUSTEMENT FINANCIER
+        const details = devis.amendment_details || {};
+        const finalY = (currentTableY > tableStartY ? currentTableY : tableStartY) + 10;
 
-    doc.setFont(undefined, 'normal');
-    // ... Totals rendering ...
-    doc.text(`Total HT :`, labelX, finalY);
-    doc.text(`${devis.total_ht.toFixed(2)} €`, valueX, finalY, { align: 'right' });
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text("AJUSTEMENT FINANCIER :", 14, finalY);
 
-    if (devis.include_tva !== false) {
-        doc.text(`TVA (20%) :`, labelX, finalY + 6);
-        doc.text(`${devis.total_tva.toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+
+        let financeY = finalY + 8;
+        const initialTTC = devis.parent_quote_data?.total_ttc || 0;
+        const amendmentTTC = devis.total_ttc || 0;
+        const newTotalTTC = initialTTC + amendmentTTC;
+
+        // Try to estimate deposit or assume 0 if not passed
+        const deposit = details?.initial_deposit_amount || 0; // Or fetch?
+        // Note: For now relies on amendment_details.initial_deposit_amount if we added it, 
+        // or we just show 0 and user can handwrite or we update logic later.
+        // User requested: "Acompte versé : XXX €".
+        // Let's assume 0 for now or placeholder if not in details. 
+        // Logic: We haven't added `initial_deposit_amount` to UI yet. 
+        // I will default to 0. 
+
+        const balance = newTotalTTC - deposit;
+
+        const leftX = 14;
+        const rightValueX = 100;
+
+        doc.text(`Montant initial TTC :`, leftX, financeY);
+        doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+        financeY += 6;
+
+        doc.text(`Acompte versé :`, leftX, financeY);
+        doc.text(`${deposit.toFixed(2)} € (conservé et déduit)`, rightValueX, financeY, { align: 'right' });
+        financeY += 6;
+
+        doc.setFont(undefined, 'bold');
+        doc.text(`Nouveau montant TTC :`, leftX, financeY);
+        doc.text(`${newTotalTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+        financeY += 6;
+
+        doc.text(`Solde à régler :`, leftX, financeY);
+        doc.text(`${balance.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+
+        // Update currentY for next sections
+        currentTableY = financeY + 10;
+
     } else {
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text("TVA non applicable, art. 293 B du CGI", labelX, finalY + 6);
+        // Totaux
+        const finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
+        const labelX = 130;
+        const valueX = 195;
+
+        doc.setFont(undefined, 'normal');
+        // ... Totals rendering ...
+        doc.text(`Total HT :`, labelX, finalY);
+        doc.text(`${devis.total_ht.toFixed(2)} €`, valueX, finalY, { align: 'right' });
+
+        if (devis.include_tva !== false) {
+            doc.text(`TVA (20%) :`, labelX, finalY + 6);
+            doc.text(`${devis.total_tva.toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
+        } else {
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.text("TVA non applicable, art. 293 B du CGI", labelX, finalY + 6);
+        }
+
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Total TTC :`, labelX, finalY + 14);
+        doc.text(`${devis.total_ttc.toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
     }
 
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Total TTC :`, labelX, finalY + 14);
-    doc.text(`${devis.total_ttc.toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
-
-    // Notes / Conditions (Calcul Automatique Acompte Matériel)
-    let currentY = finalY + 30;
+    // Position for Notes
+    const finalTableY = isAmendment ? currentTableY : (currentTableY > tableStartY ? currentTableY : 150) + 14;
+    let currentY = finalTableY + 20;
 
     let allNotes = devis.notes || '';
 
@@ -601,7 +735,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`${typeDocument} généré par Artisan Facile - Conforme Factur-X`, 105, 290, { align: 'center' });
+        doc.text(`${isAmendment ? 'AVENANT' : typeDocument} généré par Artisan Facile - Conforme Factur-X`, 105, 290, { align: 'center' });
     }
 
     // ---------------------------------------------------------

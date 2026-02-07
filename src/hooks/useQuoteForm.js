@@ -46,7 +46,10 @@ export function useQuoteForm() {
         manual_total_tva: 0,
         manual_total_ttc: 0,
         operation_category: 'service',
-        vat_on_debits: false
+        vat_on_debits: false,
+        parent_quote_id: null,
+        amendment_details: {},
+        parent_quote_data: null // Pour l'affichage
     });
 
     // Configuration métier
@@ -143,8 +146,23 @@ export function useQuoteForm() {
                     operation_category: data.operation_category || 'service',
                     vat_on_debits: data.vat_on_debits === true,
                     last_followup_at: data.last_followup_at || null,
-                    updated_at: data.updated_at || null
+                    updated_at: data.updated_at || null,
+                    parent_quote_id: data.parent_quote_id || null,
+                    amendment_details: data.amendment_details || {}
                 });
+
+                // Fetch Parent Quote Data if needed
+                if (data.parent_quote_id) {
+                    const { data: parentData } = await supabase
+                        .from('quotes')
+                        .select('id, total_ttc, total_ht, items, date, title')
+                        .eq('id', data.parent_quote_id)
+                        .single();
+                    if (parentData) {
+                        setFormData(prev => ({ ...prev, parent_quote_data: parentData }));
+                    }
+                }
+
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
             }
@@ -304,7 +322,33 @@ export function useQuoteForm() {
         if (user) {
             fetchClients().then((loadedClients) => {
                 if (location.state) {
-                    const { client_id, voiceData } = location.state;
+                    const { client_id, voiceData, parent_quote_id } = location.state;
+
+                    const initAmendment = async () => {
+                        // Initialization for Amendment
+                        if (parent_quote_id) {
+                            const { data: parentQuote } = await supabase
+                                .from('quotes')
+                                .select('*')
+                                .eq('id', parent_quote_id)
+                                .single();
+
+                            if (parentQuote) {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    client_id: parentQuote.client_id,
+                                    title: `Avenant - ${parentQuote.title}`,
+                                    type: 'amendment',
+                                    parent_quote_id: parentQuote.id,
+                                    items: [], // Start empty for amendment (delta)
+                                    status: 'draft',
+                                    parent_quote_data: parentQuote // Store parent data for display
+                                }));
+                                toast.info("Création d'un avenant liée au devis #" + parentQuote.id);
+                            }
+                        }
+                    };
+                    initAmendment();
 
                     if (client_id && loadedClients) {
                         const foundClient = loadedClients.find(c => c.id.toString() === client_id.toString());
