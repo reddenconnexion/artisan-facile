@@ -20,6 +20,7 @@ import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoServi
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
+import { useInvalidateCache } from '../hooks/useDataCache';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -32,6 +33,7 @@ const DevisForm = () => {
     const [userProfile, setUserProfile] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [signature, setSignature] = useState(null);
+    const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
     const [voiceContext, setVoiceContext] = useState(null); // 'quote_item' or 'note'
@@ -999,6 +1001,8 @@ const DevisForm = () => {
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
             clearAutoSave();
+            invalidateQuotes();
+            if (isEditing) invalidateQuote(id);
 
             // Update CRM
             updateClientCRMStatus(formData.client_id, formData.status);
