@@ -295,6 +295,7 @@ const DevisForm = () => {
         intervention_city: ''
     });
 
+    const [showSituationModal, setShowSituationModal] = useState(false);
     const [diffAddress, setDiffAddress] = useState(false);
 
     // --- AUTO SAVE LOGIC ---
