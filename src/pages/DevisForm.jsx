@@ -1210,59 +1210,40 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleCreateSituation = async () => {
-        const situationTitle = window.prompt("Intitulé de la situation (ex: Fin des fondations) ?", "Situation de travaux");
-        if (!situationTitle) return;
+    const handleCreateSituation = () => {
+        setShowSituationModal(true);
+        setShowActionsMenu(false);
+    };
 
-        const percentageStr = window.prompt("Pourcentage à facturer sur le total TTC ? (ex: 30)", "30");
-        if (!percentageStr) return;
-
-        const percentage = parseFloat(percentageStr);
-        if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
-            toast.error("Pourcentage invalide");
-            return;
-        }
-
+    const handleSaveSituation = async (title, situationItems) => {
         try {
             setLoading(true);
-            const situationAmount = (total * percentage) / 100;
-            const situationItem = {
-                id: Date.now(),
-                description: `${situationTitle} (${percentage}% sur devis n°${id} - ${formData.title})`,
-                quantity: 1,
-                unit: 'forfait',
-                price: 0, // Calculated below
-                buying_price: 0,
-                type: 'service'
-            };
+
+            // Calculate totals from items
+            let total_ht = 0;
+            situationItems.forEach(i => total_ht += i.price);
+
+            // Re-calc TVA based on quote settings (or item specific if complex, but assuming global tva boolean for now)
+            // Ideally we check each item type/vat rate if we had that detail. 
+            // For now, simple standard logic as per original code
+            let total_tva = formData.include_tva ? total_ht * 0.20 : 0;
+            let total_ttc = total_ht + total_tva;
 
             const situationData = {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: `Facture Situation - ${situationTitle}`,
+                title: title,
                 date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Default to billed/draft? Usually draft but user flow suggests creating it ready. Let's say draft to allow edit? Deposit generates 'billed'. Let's stick to 'draft' or 'sent'. Billed implies valid invoice.
+                status: 'draft', // Draft to allow verification
                 type: 'invoice',
-                items: [situationItem],
-                total_ht: 0,
-                total_tva: 0,
-                total_ttc: 0,
+                items: situationItems,
+                total_ht: total_ht,
+                total_tva: total_tva,
+                total_ttc: total_ttc,
                 parent_id: id,
                 notes: `Facture de situation générée le ${new Date().toLocaleDateString()} depuis devis ${id}`
             };
-
-            if (formData.include_tva) {
-                situationItem.price = situationAmount / 1.2;
-                situationData.total_ht = situationItem.price;
-                situationData.total_tva = situationAmount - situationItem.price;
-                situationData.total_ttc = situationAmount;
-            } else {
-                situationItem.price = situationAmount;
-                situationData.total_ht = situationAmount;
-                situationData.total_tva = 0;
-                situationData.total_ttc = situationAmount;
-            }
 
             const { data, error } = await supabase
                 .from('quotes')
@@ -1274,7 +1255,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             toast.success("Facture de situation créée !");
             navigate(`/app/devis/${data.id}`);
-            setShowActionsMenu(false);
+            setShowSituationModal(false);
 
         } catch (error) {
             console.error('Error creating situation:', error);
@@ -1283,1807 +1264,1866 @@ Conditions de règlement : Paiement à réception de facture.`
             setLoading(false);
         }
     };
-
-
-    const handleCreateAvenant = async () => {
-        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `Avenant au devis - ${formData.title}`);
-        if (!avenantTitle) return;
-
-        try {
-            setLoading(true);
-
-            const avenantData = {
-                user_id: user.id,
-                client_id: formData.client_id,
-                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: avenantTitle,
-                date: new Date().toISOString().split('T')[0],
-                status: 'draft',
-                type: 'amendment', // Correct type
-                parent_id: id, // Keep for lineage if used by situations
-                parent_quote_id: id, // For Amendment logic
-                items: [],
-                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
-                total_ht: 0,
-                total_tva: 0,
-                total_ttc: 0
-            };
-
-            const { data, error } = await supabase
-                .from('quotes')
-                .insert([avenantData])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            toast.success("Avenant créé avec succès !");
-            navigate(`/app/devis/${data.id}`);
-            setShowActionsMenu(false);
-
-        } catch (error) {
-            console.error('Error creating avenant:', error);
-            toast.error("Erreur lors de la création de l'avenant");
-        } finally {
-            setLoading(false);
-        }
+    setLoading(true);
+    const situationAmount = (total * percentage) / 100;
+    const situationItem = {
+        id: Date.now(),
+        description: `${situationTitle} (${percentage}% sur devis n°${id} - ${formData.title})`,
+        quantity: 1,
+        unit: 'forfait',
+        price: 0, // Calculated below
+        buying_price: 0,
+        type: 'service'
     };
 
-    const handleCreateClosingInvoice = async () => {
-        if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
-            return;
-        }
+    const situationData = {
+        user_id: user.id,
+        client_id: formData.client_id,
+        client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+        title: `Facture Situation - ${situationTitle}`,
+        date: new Date().toISOString().split('T')[0],
+        status: 'billed', // Default to billed/draft? Usually draft but user flow suggests creating it ready. Let's say draft to allow edit? Deposit generates 'billed'. Let's stick to 'draft' or 'sent'. Billed implies valid invoice.
+        type: 'invoice',
+        items: [situationItem],
+        total_ht: 0,
+        total_tva: 0,
+        total_ttc: 0,
+        parent_id: id,
+        notes: `Facture de situation générée le ${new Date().toLocaleDateString()} depuis devis ${id}`
+    };
 
+    if (formData.include_tva) {
+        situationItem.price = situationAmount / 1.2;
+        situationData.total_ht = situationItem.price;
+        situationData.total_tva = situationAmount - situationItem.price;
+        situationData.total_ttc = situationAmount;
+    } else {
+        situationItem.price = situationAmount;
+        situationData.total_ht = situationAmount;
+        situationData.total_tva = 0;
+        situationData.total_ttc = situationAmount;
+    }
+
+    const { data, error } = await supabase
+        .from('quotes')
+        .insert([situationData])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    toast.success("Facture de situation créée !");
+    navigate(`/app/devis/${data.id}`);
+    setShowActionsMenu(false);
+
+} catch (error) {
+    console.error('Error creating situation:', error);
+    toast.error("Erreur lors de la création de la situation");
+} finally {
+    setLoading(false);
+}
+    };
+
+
+const handleCreateAvenant = async () => {
+    const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `Avenant au devis - ${formData.title}`);
+    if (!avenantTitle) return;
+
+    try {
         setLoading(true);
-        try {
-            // 1. Fetch existing deposits/situations linked to this quote
-            // We need to exclude 'Avenants' (quotes) from deductions, only invoices matter here.
-            // But usually Avenant should be merged into Closing Invoice?
-            // If Avenant is accepted, it should be part of the final bill?
-            // COMPLEXITY: Handling Avenant in Closing Invoice.
-            // For now, let's keep Closing Invoice simple (Original Quote base).
-            // Avenant should probably be billed separately or manually added?
-            // Let's stick to standard flow: Closing Invoice deduces deposits from THIS quote ID.
-            // Check if parent_id query includes Avenants?
-            // parent_id = id checks children. Avenant is a child.
-            // We filter by type='invoice' below, so Avenant (type='quote') won't be deducted. Correct.
 
-            const { data: linkedInvoices, error: fetchError } = await supabase
-                .from('quotes')
-                .select('id, title, date, total_ht, total_ttc, type, status')
-                .eq('parent_id', id)
-                .neq('status', 'cancelled'); // Ignore cancelled
+        const avenantData = {
+            user_id: user.id,
+            client_id: formData.client_id,
+            client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
+            title: avenantTitle,
+            date: new Date().toISOString().split('T')[0],
+            status: 'draft',
+            type: 'amendment', // Correct type
+            parent_id: id, // Keep for lineage if used by situations
+            parent_quote_id: id, // For Amendment logic
+            items: [],
+            notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
+            total_ht: 0,
+            total_tva: 0,
+            total_ttc: 0
+        };
 
-            if (fetchError) throw fetchError;
+        const { data, error } = await supabase
+            .from('quotes')
+            .insert([avenantData])
+            .select()
+            .single();
 
-            // Filter out self (previous closing invoices)
-            const deposits = (linkedInvoices || []).filter(inv =>
-                inv.type === 'invoice' &&
-                !inv.title?.toLowerCase().includes('clôture')
-            );
-            // ... rest of logic ...
+        if (error) throw error;
 
-            // 2. Prepare items: Copy original items
-            let finalItems = formData.items.map(item => ({
-                ...item,
-                id: Date.now() + Math.random(), // New IDs to avoid conflict
-                quantity: parseFloat(item.quantity) || 0,
-                price: parseFloat(item.price) || 0,
-                buying_price: parseFloat(item.buying_price) || 0
-            }));
+        toast.success("Avenant créé avec succès !");
+        navigate(`/app/devis/${data.id}`);
+        setShowActionsMenu(false);
 
-            // 3. Add deduction lines
-            const deductionItems = deposits.map(inv => {
-                const amountHT = parseFloat(inv.total_ht) || 0;
-                return {
-                    id: Date.now() + Math.random(),
-                    description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
-                    quantity: 1,
-                    unit: 'forfait',
-                    price: -Math.abs(amountHT), // Negative Price HT
-                    buying_price: 0,
-                    type: 'service'
-                };
+    } catch (error) {
+        console.error('Error creating avenant:', error);
+        toast.error("Erreur lors de la création de l'avenant");
+    } finally {
+        setLoading(false);
+    }
+};
+
+const handleCreateClosingInvoice = async () => {
+    if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
+        return;
+    }
+
+    setLoading(true);
+    try {
+        // 1. Fetch existing deposits/situations linked to this quote
+        // We need to exclude 'Avenants' (quotes) from deductions, only invoices matter here.
+        // But usually Avenant should be merged into Closing Invoice?
+        // If Avenant is accepted, it should be part of the final bill?
+        // COMPLEXITY: Handling Avenant in Closing Invoice.
+        // For now, let's keep Closing Invoice simple (Original Quote base).
+        // Avenant should probably be billed separately or manually added?
+        // Let's stick to standard flow: Closing Invoice deduces deposits from THIS quote ID.
+        // Check if parent_id query includes Avenants?
+        // parent_id = id checks children. Avenant is a child.
+        // We filter by type='invoice' below, so Avenant (type='quote') won't be deducted. Correct.
+
+        const { data: linkedInvoices, error: fetchError } = await supabase
+            .from('quotes')
+            .select('id, title, date, total_ht, total_ttc, type, status')
+            .eq('parent_id', id)
+            .neq('status', 'cancelled'); // Ignore cancelled
+
+        if (fetchError) throw fetchError;
+
+        // Filter out self (previous closing invoices)
+        const deposits = (linkedInvoices || []).filter(inv =>
+            inv.type === 'invoice' &&
+            !inv.title?.toLowerCase().includes('clôture')
+        );
+        // ... rest of logic ...
+
+        // 2. Prepare items: Copy original items
+        let finalItems = formData.items.map(item => ({
+            ...item,
+            id: Date.now() + Math.random(), // New IDs to avoid conflict
+            quantity: parseFloat(item.quantity) || 0,
+            price: parseFloat(item.price) || 0,
+            buying_price: parseFloat(item.buying_price) || 0
+        }));
+
+        // 3. Add deduction lines
+        const deductionItems = deposits.map(inv => {
+            const amountHT = parseFloat(inv.total_ht) || 0;
+            return {
+                id: Date.now() + Math.random(),
+                description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
+                quantity: 1,
+                unit: 'forfait',
+                price: -Math.abs(amountHT), // Negative Price HT
+                buying_price: 0,
+                type: 'service'
+            };
+        });
+
+        finalItems = [...finalItems, ...deductionItems];
+
+        // 4. Calculate totals
+        const subtotal = finalItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const tva = formData.include_tva ? subtotal * 0.20 : 0;
+        const total = subtotal + tva;
+
+        // Create Invoice Data
+        const clientName = (clients && clients.length > 0)
+            ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
+            : 'Client';
+
+        const invoiceData = {
+            user_id: user.id,
+            client_id: formData.client_id,
+            client_name: clientName,
+            title: `Facture de Clôture - ${formData.title || 'Projet'}`,
+            date: new Date().toISOString().split('T')[0],
+            status: 'draft',
+            type: 'invoice',
+            items: finalItems,
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            parent_id: id,
+            notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`
+        };
+
+        const { data, error } = await supabase
+            .from('quotes')
+            .insert([invoiceData])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        toast.success("Facture de clôture générée !");
+        navigate(`/app/devis/${data.id}`);
+        setShowActionsMenu(false);
+
+    } catch (error) {
+        console.error('Error creating closing invoice:', error);
+        toast.error("Erreur génération facture : " + (error.message || error.details || "Erreur inconnue"));
+    } finally {
+        setLoading(false);
+    }
+};
+
+const handleDelete = async () => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        toast.success('Devis supprimé avec succès');
+        navigate('/app/devis');
+    } catch (error) {
+        console.error('Error deleting quote:', error);
+        toast.error('Erreur lors de la suppression');
+    }
+};
+
+const handleDownloadPDF = async (forceInvoice = false) => {
+    try {
+        const isInvoice = forceInvoice || formData.type === 'invoice';
+        if (!formData.client_id) {
+            toast.error('Veuillez sélectionner un client pour générer le PDF');
+            return;
+        }
+
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
+
+        if (!selectedClient) {
+            console.error('Client not found for ID:', formData.client_id);
+            toast.error('Erreur : Client introuvable');
+            return;
+        }
+
+        if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
+            toast.warning("Attention : Votre IBAN n'est pas renseigné dans votre profil.", {
+                description: "La facture sera générée sans coordonnées bancaires.",
+                duration: 5000,
+                action: {
+                    label: 'Configurer',
+                    onClick: () => navigate('/app/profile')
+                }
             });
-
-            finalItems = [...finalItems, ...deductionItems];
-
-            // 4. Calculate totals
-            const subtotal = finalItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            const tva = formData.include_tva ? subtotal * 0.20 : 0;
-            const total = subtotal + tva;
-
-            // Create Invoice Data
-            const clientName = (clients && clients.length > 0)
-                ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
-                : 'Client';
-
-            const invoiceData = {
-                user_id: user.id,
-                client_id: formData.client_id,
-                client_name: clientName,
-                title: `Facture de Clôture - ${formData.title || 'Projet'}`,
-                date: new Date().toISOString().split('T')[0],
-                status: 'draft',
-                type: 'invoice',
-                items: finalItems,
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                parent_id: id,
-                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`
-            };
-
-            const { data, error } = await supabase
-                .from('quotes')
-                .insert([invoiceData])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            toast.success("Facture de clôture générée !");
-            navigate(`/app/devis/${data.id}`);
-            setShowActionsMenu(false);
-
-        } catch (error) {
-            console.error('Error creating closing invoice:', error);
-            toast.error("Erreur génération facture : " + (error.message || error.details || "Erreur inconnue"));
-        } finally {
-            setLoading(false);
         }
-    };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
+        const devisData = {
+            id: isEditing ? id : 'PROVISOIRE',
+            ...formData,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0,
+                buying_price: parseFloat(i.buying_price) || 0
+            })),
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva,
+            has_material_deposit: formData.has_material_deposit,
+            amendment_details: formData.amendment_details || {}
+        };
+
+        // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
+        await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
+        toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast.error('Erreur lors de la génération du PDF : ' + error.message);
+    }
+};
+
+const handlePreview = async () => {
+    try {
+        if (!userProfile) {
+            toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
+            fetchUserProfile();
             return;
         }
 
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
-            toast.success('Devis supprimé avec succès');
-            navigate('/app/devis');
-        } catch (error) {
-            console.error('Error deleting quote:', error);
-            toast.error('Erreur lors de la suppression');
-        }
-    };
-
-    const handleDownloadPDF = async (forceInvoice = false) => {
-        try {
-            const isInvoice = forceInvoice || formData.type === 'invoice';
-            if (!formData.client_id) {
-                toast.error('Veuillez sélectionner un client pour générer le PDF');
-                return;
-            }
-
-            const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-
-            if (!selectedClient) {
-                console.error('Client not found for ID:', formData.client_id);
-                toast.error('Erreur : Client introuvable');
-                return;
-            }
-
-            if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
-                toast.warning("Attention : Votre IBAN n'est pas renseigné dans votre profil.", {
-                    description: "La facture sera générée sans coordonnées bancaires.",
-                    duration: 5000,
-                    action: {
-                        label: 'Configurer',
-                        onClick: () => navigate('/app/profile')
-                    }
-                });
-            }
-
-            const devisData = {
-                id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
-                items: formData.items.map(i => ({
-                    ...i,
-                    quantity: parseFloat(i.quantity) || 0,
-                    price: parseFloat(i.price) || 0,
-                    buying_price: parseFloat(i.buying_price) || 0
-                })),
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                include_tva: formData.include_tva,
-                has_material_deposit: formData.has_material_deposit,
-                amendment_details: formData.amendment_details || {}
-            };
-
-            // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
-            await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
-            toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            toast.error('Erreur lors de la génération du PDF : ' + error.message);
-        }
-    };
-
-    const handlePreview = async () => {
-        try {
-            if (!userProfile) {
-                toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
-                fetchUserProfile();
-                return;
-            }
-
-            if (!formData.client_id) {
-                toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
-                return;
-            }
-
-            const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-            if (!selectedClient) {
-                toast.error('Client introuvable');
-                return;
-            }
-
-            setPreviewLoading(true);
-
-            const isInvoice = formData.type === 'invoice';
-            if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
-                toast.warning("Attention : Votre IBAN n'est pas renseigné.", {
-                    description: "Pensez à l'ajouter dans votre profil pour qu'il apparaisse sur la facture.",
-                    duration: 4000
-                });
-            }
-            const devisData = {
-                id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
-                items: formData.items.map(i => ({
-                    ...i,
-                    quantity: parseFloat(i.quantity) || 0,
-                    price: parseFloat(i.price) || 0
-                })),
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                include_tva: formData.include_tva,
-                has_material_deposit: formData.has_material_deposit,
-                amendment_details: formData.amendment_details || {}
-            };
-
-            const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
-
-            if (url) {
-                setPreviewUrl(url);
-            } else {
-                throw new Error("La génération du PDF n'a retourné aucune URL");
-            }
-
-        } catch (error) {
-            console.error('Error handling preview:', error);
-            toast.error("Impossible de générer l'aperçu PDF : " + error.message);
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
-
-    const handleConvertToInvoice = async () => {
-        if (!window.confirm('Voulez-vous convertir ce devis en facture ? Cela changera son statut en "Accepté".')) {
+        if (!formData.client_id) {
+            toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
             return;
         }
 
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .update({ status: 'accepted', type: 'invoice' })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            if (error) throw error;
-
-            setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
-            toast.success('Devis converti en facture');
-            updateClientCRMStatus(formData.client_id, 'accepted');
-            await handleDownloadPDF(true); // Auto-generate invoice PDF
-        } catch (error) {
-            toast.error('Erreur lors de la conversion');
-            console.error('Error converting to invoice:', error);
-        }
-    };
-
-    const handleSignatureSave = async (signatureData) => {
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .update({
-                    signature: signatureData,
-                    status: 'accepted',
-                    signed_at: new Date().toISOString()
-                })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            setSignature(signatureData);
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
-            updateClientCRMStatus(formData.client_id, 'signed');
-            setShowSignatureModal(false);
-            toast.success('Devis signé avec succès');
-        } catch (error) {
-            console.error('Error saving signature:', error);
-            toast.error('Erreur lors de la sauvegarde de la signature');
-        }
-    };
-
-
-    const handleReviewAction = (action) => {
-        const reviewUrl = userProfile?.google_review_url;
-        if (!reviewUrl) {
-            toast.error("Veuillez d'abord configurer votre lien Google Avis dans votre profil");
-            navigate('/app/settings');
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
+        if (!selectedClient) {
+            toast.error('Client introuvable');
             return;
         }
 
-        switch (action) {
-            case 'copy':
-                navigator.clipboard.writeText(reviewUrl);
-                toast.success('Lien copié dans le presse-papier');
-                break;
-            case 'open':
-                window.open(reviewUrl, '_blank');
-                break;
-            case 'email':
-                const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
-                const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
-                window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                break;
+        setPreviewLoading(true);
+
+        const isInvoice = formData.type === 'invoice';
+        if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
+            toast.warning("Attention : Votre IBAN n'est pas renseigné.", {
+                description: "Pensez à l'ajouter dans votre profil pour qu'il apparaisse sur la facture.",
+                duration: 4000
+            });
         }
-        setShowReviewMenu(false);
-    };
+        const devisData = {
+            id: isEditing ? id : 'PROVISOIRE',
+            ...formData,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0
+            })),
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva,
+            has_material_deposit: formData.has_material_deposit,
+            amendment_details: formData.amendment_details || {}
+        };
 
-    // Updated Handle Import to support File Upload + Extraction
-    const handleImportFile = (event) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            processImportedFile(file);
+        const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
+
+        if (url) {
+            setPreviewUrl(url);
+        } else {
+            throw new Error("La génération du PDF n'a retourné aucune URL");
         }
-    };
 
-    const handleExternalImport = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    } catch (error) {
+        console.error('Error handling preview:', error);
+        toast.error("Impossible de générer l'aperçu PDF : " + error.message);
+    } finally {
+        setPreviewLoading(false);
+    }
+};
 
-        if (file.type !== 'application/pdf') {
-            toast.error('Seuls les fichiers PDF sont supportés');
-            return;
-        }
+const handleConvertToInvoice = async () => {
+    if (!window.confirm('Voulez-vous convertir ce devis en facture ? Cela changera son statut en "Accepté".')) {
+        return;
+    }
 
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .update({ status: 'accepted', type: 'invoice' })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        if (error) throw error;
+
+        setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
+        toast.success('Devis converti en facture');
+        updateClientCRMStatus(formData.client_id, 'accepted');
+        await handleDownloadPDF(true); // Auto-generate invoice PDF
+    } catch (error) {
+        toast.error('Erreur lors de la conversion');
+        console.error('Error converting to invoice:', error);
+    }
+};
+
+const handleSignatureSave = async (signatureData) => {
+    try {
+        const { error } = await supabase
+            .from('quotes')
+            .update({
+                signature: signatureData,
+                status: 'accepted',
+                signed_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        setSignature(signatureData);
+        setFormData(prev => ({ ...prev, status: 'accepted' }));
+        updateClientCRMStatus(formData.client_id, 'signed');
+        setShowSignatureModal(false);
+        toast.success('Devis signé avec succès');
+    } catch (error) {
+        console.error('Error saving signature:', error);
+        toast.error('Erreur lors de la sauvegarde de la signature');
+    }
+};
+
+
+const handleReviewAction = (action) => {
+    const reviewUrl = userProfile?.google_review_url;
+    if (!reviewUrl) {
+        toast.error("Veuillez d'abord configurer votre lien Google Avis dans votre profil");
+        navigate('/app/settings');
+        return;
+    }
+
+    switch (action) {
+        case 'copy':
+            navigator.clipboard.writeText(reviewUrl);
+            toast.success('Lien copié dans le presse-papier');
+            break;
+        case 'open':
+            window.open(reviewUrl, '_blank');
+            break;
+        case 'email':
+            const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
+            const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            break;
+    }
+    setShowReviewMenu(false);
+};
+
+// Updated Handle Import to support File Upload + Extraction
+const handleImportFile = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        processImportedFile(file);
+    }
+};
+
+const handleExternalImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+        toast.error('Seuls les fichiers PDF sont supportés');
+        return;
+    }
+
+    try {
+        setImporting(true);
+        toast.message('Traitement du PDF en cours...');
+
+        // 1. Upload File to Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('quote_files')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('quote_files')
+            .getPublicUrl(filePath);
+
+        toast.success("PDF stocké avec succès !");
+
+        // 2. Extract Items for Library
         try {
-            setImporting(true);
-            toast.message('Traitement du PDF en cours...');
+            const text = await extractTextFromPDF(file);
+            const { items: extractedItems } = parseQuoteItems(text);
 
-            // 1. Upload File to Supabase Storage
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${user.id}/${fileName}`;
+            if (extractedItems.length > 0) {
+                // Reuse Upsert Logic
+                const toInsert = [];
+                const toUpdate = [];
+                const seenDescriptions = new Set();
 
-            const { error: uploadError } = await supabase.storage
-                .from('quote_files')
-                .upload(filePath, file);
+                const libraryMap = new Map();
+                if (priceLibrary && priceLibrary.length > 0) {
+                    priceLibrary.forEach(i => {
+                        if (i.description) libraryMap.set(i.description.trim().toLowerCase(), i);
+                    });
+                }
 
-            if (uploadError) throw uploadError;
+                for (const item of extractedItems) {
+                    const desc = item.description?.trim();
+                    if (!desc) continue;
 
-            // Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('quote_files')
-                .getPublicUrl(filePath);
+                    const normalizeDesc = desc.toLowerCase();
+                    const price = parseFloat(item.price) || 0;
 
-            toast.success("PDF stocké avec succès !");
+                    if (seenDescriptions.has(normalizeDesc)) continue;
+                    seenDescriptions.add(normalizeDesc);
 
-            // 2. Extract Items for Library
-            try {
-                const text = await extractTextFromPDF(file);
-                const { items: extractedItems } = parseQuoteItems(text);
+                    const existing = libraryMap.get(normalizeDesc);
 
-                if (extractedItems.length > 0) {
-                    // Reuse Upsert Logic
-                    const toInsert = [];
-                    const toUpdate = [];
-                    const seenDescriptions = new Set();
-
-                    const libraryMap = new Map();
-                    if (priceLibrary && priceLibrary.length > 0) {
-                        priceLibrary.forEach(i => {
-                            if (i.description) libraryMap.set(i.description.trim().toLowerCase(), i);
-                        });
-                    }
-
-                    for (const item of extractedItems) {
-                        const desc = item.description?.trim();
-                        if (!desc) continue;
-
-                        const normalizeDesc = desc.toLowerCase();
-                        const price = parseFloat(item.price) || 0;
-
-                        if (seenDescriptions.has(normalizeDesc)) continue;
-                        seenDescriptions.add(normalizeDesc);
-
-                        const existing = libraryMap.get(normalizeDesc);
-
-                        if (existing) {
-                            if (Math.abs((existing.price || 0) - price) > 0.01) {
-                                toUpdate.push({
-                                    ...existing,
-                                    price: price,
-                                    updated_at: new Date()
-                                });
-                            }
-                        } else {
-                            toInsert.push({
-                                user_id: user.id,
-                                description: desc,
+                    if (existing) {
+                        if (Math.abs((existing.price || 0) - price) > 0.01) {
+                            toUpdate.push({
+                                ...existing,
                                 price: price,
-                                unit: item.unit || 'u',
-                                type: item.type || 'service'
+                                updated_at: new Date()
                             });
                         }
-                    }
-
-                    let addedCount = 0;
-                    let updatedCount = 0;
-
-                    if (toInsert.length > 0) {
-                        const { error: insertError } = await supabase.from('price_library').insert(toInsert);
-                        if (!insertError) addedCount = toInsert.length;
-                    }
-                    if (toUpdate.length > 0) {
-                        const { error: updateError } = await supabase.from('price_library').upsert(toUpdate);
-                        if (!updateError) updatedCount = toUpdate.length;
-                    }
-
-                    if (addedCount > 0 || updatedCount > 0) {
-                        toast.success(`Extraction : ${addedCount} articles ajoutés, ${updatedCount} mis à jour en bibliothèque.`);
-                        fetchPriceLibrary();
+                    } else {
+                        toInsert.push({
+                            user_id: user.id,
+                            description: desc,
+                            price: price,
+                            unit: item.unit || 'u',
+                            type: item.type || 'service'
+                        });
                     }
                 }
-            } catch (extractError) {
-                console.error("Extraction error during external import:", extractError);
-                toast.warning("Le PDF est importé, mais l'extraction des articles a échoué.");
+
+                let addedCount = 0;
+                let updatedCount = 0;
+
+                if (toInsert.length > 0) {
+                    const { error: insertError } = await supabase.from('price_library').insert(toInsert);
+                    if (!insertError) addedCount = toInsert.length;
+                }
+                if (toUpdate.length > 0) {
+                    const { error: updateError } = await supabase.from('price_library').upsert(toUpdate);
+                    if (!updateError) updatedCount = toUpdate.length;
+                }
+
+                if (addedCount > 0 || updatedCount > 0) {
+                    toast.success(`Extraction : ${addedCount} articles ajoutés, ${updatedCount} mis à jour en bibliothèque.`);
+                    fetchPriceLibrary();
+                }
             }
-
-            // Update Form Data for External Mode
-            setFormData(prev => ({
-                ...prev,
-                original_pdf_url: publicUrl,
-                is_external: true,
-                manual_total_ht: 0,
-                manual_total_tva: 0,
-                manual_total_ttc: 0
-            }));
-
-        } catch (error) {
-            console.error('External import error:', error);
-            toast.error("Erreur lors de l'import : " + error.message);
-        } finally {
-            setImporting(false);
-            e.target.value = ''; // Reset input
+        } catch (extractError) {
+            console.error("Extraction error during external import:", extractError);
+            toast.warning("Le PDF est importé, mais l'extraction des articles a échoué.");
         }
-    };
 
-    // Verrouillage si Signé/Facturé/Payé/Annulé
-    const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+        // Update Form Data for External Mode
+        setFormData(prev => ({
+            ...prev,
+            original_pdf_url: publicUrl,
+            is_external: true,
+            manual_total_ht: 0,
+            manual_total_tva: 0,
+            manual_total_ttc: 0
+        }));
 
-    return (
-        <div className="max-w-4xl mx-auto pb-12">
-            {isLocked && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-                    <div className="p-1 bg-amber-100 rounded-full text-amber-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+    } catch (error) {
+        console.error('External import error:', error);
+        toast.error("Erreur lors de l'import : " + error.message);
+    } finally {
+        setImporting(false);
+        e.target.value = ''; // Reset input
+    }
+};
+
+// Verrouillage si Signé/Facturé/Payé/Annulé
+const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+
+return (
+    <div className="max-w-4xl mx-auto pb-12">
+        {isLocked && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <div className="p-1 bg-amber-100 rounded-full text-amber-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                </div>
+                <div>
+                    <h4 className="text-sm font-semibold text-amber-800">Document Verrouillé</h4>
+                    <p className="text-sm text-amber-700 mt-1">
+                        Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
+                        Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
+                    </p>
+                </div>
+            </div>
+        )}
+        <div className="flex items-center justify-between mb-6">
+            <button
+                onClick={() => navigate('/app/devis')}
+                className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+                <ArrowLeft className="w-5 h-5 sm:mr-2" />
+                <span className="hidden sm:inline">Retour</span>
+            </button>
+
+            {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
+            <div className="flex bg-gray-100 p-1 rounded-lg mx-2 sm:mx-4">
+                <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                >
+                    Devis
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
+                        ? 'bg-white text-green-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                >
+                    Fac<span className="hidden sm:inline">ture</span>
+                </button>
+            </div>
+
+            {/* Presence Indicator */}
+            <div className="flex flex-col items-center justify-center mr-auto ml-2">
+                {isClientOnline && (
+                    <div className="flex items-center gap-1 text-green-600 bg-green-50 px-3 py-1 rounded-full text-xs font-bold border border-green-200 animate-pulse transition-all">
+                        <span className="relative flex h-2 w-2 mr-1">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        CLIENT EN LIGNE
+                    </div>
+                )}
+                {!isClientOnline && formData.last_viewed_at && (
+                    <div className="flex items-center gap-1 text-gray-400 text-[10px]" title={new Date(formData.last_viewed_at).toLocaleString()}>
+                        <Eye className="w-3 h-3" />
+                        Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex gap-2">
+                {/* Primary Actions */}
+                <button
+                    type="button"
+                    onClick={handleSendQuoteEmail}
+                    className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                    title="Envoyer par email"
+                >
+                    <Send className="w-4 h-4 mr-2" />
+                    Envoyer
+                </button>
+
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="flex items-center px-3 sm:px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                >
+                    <Save className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">{loading ? '...' : 'Enregistrer'}</span>
+                </button>
+
+                {/* More Actions Dropdown */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowActionsMenu(!showActionsMenu)}
+                        className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="Plus d'actions"
+                    >
+                        <MoreVertical className="w-5 h-5 text-gray-600" />
+                    </button>
+
+                    {showActionsMenu && (
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                            {/* Mobile only Send button */}
+                            <button
+                                onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
+                                className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Send className="w-4 h-4 mr-3 text-blue-600" />
+                                Envoyer le devis
+                            </button>
+
+                            {id && formData.public_token && (
+                                <button
+                                    onClick={() => {
+                                        const url = `${window.location.origin}/q/${formData.public_token}`;
+                                        navigator.clipboard.writeText(url);
+                                        toast.success('Lien de signature copié !');
+                                        setShowActionsMenu(false);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Link className="w-4 h-4 mr-3 text-gray-400" />
+                                    Copier le lien public
+                                </button>
+                            )}
+
+                            {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && (
+                                <button
+                                    onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <PenTool className="w-4 h-4 mr-3 text-purple-600" />
+                                    Faire signer sur l'appareil
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => { handlePreview(); setShowActionsMenu(false); }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Eye className="w-4 h-4 mr-3 text-gray-400" />
+                                Aperçu PDF
+                            </button>
+
+                            <button
+                                onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Download className="w-4 h-4 mr-3 text-gray-400" />
+                                Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
+                            </button>
+
+                            {id && (formData.status === 'accepted' || formData.status === 'sent') && (
+                                <>
+                                    <button
+                                        onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <FileText className="w-4 h-4 mr-3 text-indigo-600" />
+                                        Créer un avenant
+                                    </button>
+                                    <button
+                                        onClick={handleCreateDeposit}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
+                                    >
+                                        <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
+                                        Générer Facture d'Acompte
+                                    </button>
+                                    <button
+                                        onClick={handleCreateMaterialDeposit}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-orange-50/50"
+                                    >
+                                        <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
+                                        Générer Acompte Matériel
+                                    </button>
+                                    <button
+                                        onClick={handleCreateSituation}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-purple-50/50"
+                                    >
+                                        <Layers className="w-4 h-4 mr-3 text-purple-600" />
+                                        Créer Situation de Travaux
+                                    </button>
+                                    <button
+                                        onClick={handleCreateClosingInvoice}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-green-50/50"
+                                    >
+                                        <Check className="w-4 h-4 mr-3 text-green-600" />
+                                        Générer Facture de Clôture
+                                    </button>
+                                </>
+                            )}
+
+                            {id && id !== 'new' && (
+                                <>
+                                    <div className="border-t border-gray-100 my-1"></div>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-3" />
+                                        Supprimer
+                                    </button>
+                                </>
+                            )}
+
+                            <div className="border-t border-gray-100 my-1"></div>
+
+                            {['accepted', 'paid', 'billed'].includes(formData.status) && (
+                                <button
+                                    onClick={() => { setShowReviewRequestModal(true); setShowActionsMenu(false); }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Star className="w-4 h-4 mr-3 text-yellow-500" />
+                                    Demander un avis
+                                </button>
+                            )}
+                            {/* ReviewMenu removed as component is missing */}
+
+                            <button
+                                onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
+                                disabled={importing}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
+                                Importer (PDF / Word)
+                            </button>
+
+                            <button
+                                onClick={() => { document.getElementById('external-pdf-input')?.click(); setShowActionsMenu(false); }}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <FileText className="w-4 h-4 mr-3 text-purple-600" />
+                                Importer Externe (Brut)
+                            </button>
+
+                        </div>
+                    )}
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={handleImportFile}
+                />
+                <input
+                    type="file"
+                    id="external-pdf-input"
+                    className="hidden"
+                    accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={handleExternalImport}
+                />
+            </div>
+        </div>
+
+        {/* External PDF Mode / Manual Totals */}
+        {formData.is_external ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                        <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                        Document Externe (PDF)
+                    </h3>
+                    <button
+                        onClick={() => setFormData(prev => ({ ...prev, is_external: false, original_pdf_url: null }))}
+                        className="text-sm text-red-600 hover:text-red-800"
+                    >
+                        Supprimer / Revenir au mode standard
+                    </button>
+                </div>
+
+                {displayPdfUrl && (
+                    <div className="mb-8 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-800">
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                                <Eye className="w-4 h-4 text-blue-500" />
+                                Aperçu du document importé
+                            </div>
+                            <a
+                                href={displayPdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                            >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Nouvel onglet
+                            </a>
+                        </div>
+                        <div className="h-[550px] bg-gray-200 dark:bg-gray-950">
+                            <iframe
+                                src={displayPdfUrl}
+                                title="Aperçu document importé"
+                                className="w-full h-full border-0"
+                                style={{ background: '#525659' }}
+                            />
+                        </div>
+                        {/* Mobile fallback */}
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-center sm:hidden">
+                            <a
+                                href={displayPdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Ouvrir le PDF
+                            </a>
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-xl">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Total HT</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                value={formData.manual_total_ht}
+                                onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ht: parseFloat(e.target.value) || 0 }))}
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">€</span>
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <h4 className="text-sm font-semibold text-amber-800">Document Verrouillé</h4>
-                        <p className="text-sm text-amber-700 mt-1">
-                            Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
-                            Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Total TVA</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                value={formData.manual_total_tva}
+                                onChange={(e) => setFormData(prev => ({ ...prev, manual_total_tva: parseFloat(e.target.value) || 0 }))}
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">€</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Total TTC</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="block w-full pl-3 pr-8 py-2 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-blue-50 font-bold text-blue-900"
+                                value={formData.manual_total_ttc}
+                                onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ttc: parseFloat(e.target.value) || 0 }))}
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">€</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p className="mt-2 text-sm text-gray-500 italic">
+                    * Saisissez les montants manuellement car ils ne sont pas calculés automatiquement depuis le PDF.
+                </p>
+            </div>
+        ) : null}
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+            {/* En-tête Devis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Client</label>
+                        {formData.client_id && (
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/app/clients/${formData.client_id}`)}
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                                Voir la fiche client
+                            </button>
+                        )}
+                    </div>
+                    <div className="mb-4">
+                        <ClientSelector
+                            clients={clients}
+                            selectedClientId={formData.client_id}
+                            onChange={handleClientChange}
+                            onCreateNew={() => navigate('/app/clients/new')}
+                            disabled={isLocked}
+                        />
+                    </div>
+
+                    <div className="mb-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
+                        <input
+                            type="text"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            placeholder="Ex: Rénovation Salle de Bain"
+                            value={formData.title}
+                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            disabled={isLocked}
+                        />
+                    </div>
+
+
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
+                        <input
+                            type="date"
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                            disabled={isLocked}
+                        />
+                    </div>
+                    {formData.type !== 'invoice' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
+                            <input
+                                type="date"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                value={formData.valid_until}
+                                onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                                disabled={isLocked}
+                            />
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                        <option value="draft">Brouillon</option>
+                        <option value="sent">Envoyé</option>
+                        <option value="accepted">Accepté / Signé</option>
+                        <option value="refused">Refusé</option>
+                        <option value="billed">Facturé</option>
+                        <option value="paid">Payé</option>
+                        <option value="postponed">Reporté</option>
+                        <option value="cancelled">Annulé</option>
+                    </select>
+                    {formData.last_followup_at && (
+                        <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
+                            Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
+                        </p>
+                    )}
+                </div>
+                {/* Factur-X Options */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
+                    <select
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
+                        value={formData.operation_category}
+                        onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
+                        disabled={isLocked}
+                    >
+                        <option value="service">Prestation de services</option>
+                        <option value="goods">Livraison de biens</option>
+                        <option value="mixed">Mixte</option>
+                    </select>
+                    <div className="flex items-center gap-2 mt-2">
+                        <input
+                            type="checkbox"
+                            id="vat_on_debits"
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                            checked={formData.vat_on_debits}
+                            onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
+                            disabled={isLocked}
+                        />
+                        <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
+                            Option TVA sur les débits
+                        </label>
+                    </div>
+                </div>
+
+                {/* Intervention Address Toggle - Full Width */}
+                <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                    <div className="flex items-center mb-2">
+                        <input
+                            type="checkbox"
+                            id="diffAddress"
+                            checked={diffAddress}
+                            onChange={(e) => setDiffAddress(e.target.checked)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                            disabled={isLocked}
+                        />
+                        <label htmlFor="diffAddress" className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                            Adresse d'intervention différente (ex: locataire, chantier secondaire)
+                        </label>
+                    </div>
+
+                    {diffAddress && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 mt-2">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Adresse du chantier
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.intervention_address}
+                                    onChange={(e) => setFormData({ ...formData, intervention_address: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                    placeholder="12 rue des Fleurs"
+                                    disabled={isLocked}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Code Postal
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.intervention_postal_code}
+                                    onChange={(e) => setFormData({ ...formData, intervention_postal_code: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                    placeholder="75001"
+                                    disabled={isLocked}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Ville
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.intervention_city}
+                                    onChange={(e) => setFormData({ ...formData, intervention_city: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                    placeholder="Paris"
+                                    disabled={isLocked}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Amendment Configuration Fields */}
+            {formData.type === 'amendment' && (
+                <div className="mb-8">
+                    <AmendmentFields formData={formData} setFormData={setFormData} />
+                </div>
+            )}
+
+            {/* Lignes du devis */}
+            <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
+                </h3>
+                <div className="space-y-4">
+                    {formData.items.map((item, index) => (
+                        <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
+                            <div className="flex-1 w-full space-y-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <select
+                                        className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
+                                        value={item.type || 'service'}
+                                        onChange={(e) => updateItem(item.id, 'type', e.target.value)}
+                                        disabled={isLocked}
+                                    >
+                                        <option value="service">Main d'oeuvre</option>
+                                        <option value="material">Matériel</option>
+                                    </select>
+                                    <div className="flex-1 relative">
+                                        <textarea
+                                            placeholder="Description"
+                                            rows={3}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm"
+                                            value={item.description}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                updateItem(item.id, 'description', val);
+
+                                                // Auto-detect type
+                                                if (val.toLowerCase().match(/fourniture|matériel|materiel|pièce|consommable/)) {
+                                                    const currentType = item.type || 'service';
+                                                    if (currentType === 'service') {
+                                                        updateItem(item.id, 'type', 'material');
+                                                    }
+                                                }
+
+                                                // Auto-price logic (Exact Match)
+                                                const libraryItem = priceLibrary.find(lib => lib.description === val);
+                                                if (libraryItem) {
+                                                    updateItem(item.id, 'price', libraryItem.price);
+                                                    // Also sync type from library if it exists
+                                                    if (libraryItem.type) {
+                                                        updateItem(item.id, 'type', libraryItem.type);
+                                                    }
+                                                }
+                                            }}
+                                            onFocus={(e) => {
+                                                if (window.innerWidth < 1024) {
+                                                    e.target.blur();
+                                                    setFullScreenEditItem(item.id);
+                                                } else {
+                                                    setFocusedInput(`item-${item.id}`);
+                                                }
+                                            }}
+                                            onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
+                                            required
+                                            disabled={isLocked}
+                                        />
+
+                                        {/* Custom Suggestions (Price Library) */}
+                                        {focusedInput === `item-${item.id}` && item.description && item.description.length > 1 && !priceLibrary.some(p => p.description === item.description) && (
+                                            (() => {
+                                                const matches = priceLibrary.filter(lib =>
+                                                    lib.description.toLowerCase().includes(item.description.toLowerCase())
+                                                ).slice(0, 5);
+
+                                                if (matches.length === 0) return null;
+
+                                                return (
+                                                    <div className="absolute z-20 w-full bg-white border border-gray-200 shadow-lg rounded-b-lg mt-1 overflow-hidden">
+                                                        {matches.map(lib => (
+                                                            <button
+                                                                key={lib.id}
+                                                                type="button"
+                                                                className="block w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                                                                onClick={() => {
+                                                                    updateItem(item.id, 'description', lib.description);
+                                                                    updateItem(item.id, 'price', lib.price);
+                                                                }}
+                                                            >
+                                                                <span className="font-medium text-gray-900">{lib.description}</span>
+                                                                <span className="text-gray-500 ml-2 text-xs">{lib.price} €</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                // For inline editing of existing item, we might need a different context 
+                                                // or just use generic "update item" logic? 
+                                                // For now, let's keep it simple: Add New Item via Voice is better supported.
+                                                // If user wants to replace description, they can type.
+                                                // Or we can open modal to "Replace Description"?
+                                                // Let's remove the inline mic for now as per request "replace mic button" 
+                                                // and rely on the big "Add Item via Voice" button we will add.
+                                                // OR: Use modal to set description only.
+                                                // Let's try to map it to "note" context but applied to this item?
+                                                // Complex. Let's just remove the inline mic to declutter, 
+                                                // or replace with a small "Sparkles" that opens modal for this specific item?
+                                                // User said "replace mic button".
+                                                // Let's replace with a small button that says "IA" or Sparkles icon
+                                                // and opens modal with context 'item_description_update' -> updateItem?
+                                                // For MVP "Free AI", adding new lines is the main feature.
+                                                // I will remove this inline mic to simplify UI as requested.
+                                            }}
+                                            className="hidden" // Hiding inline mic
+                                            title="Dicter"
+                                        >
+                                            {/* <Mic className="w-4 h-4" /> */}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span>Coût unitaire (interne) :</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                                        placeholder="0.00"
+                                        value={item.buying_price || ''}
+                                        onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
+                                        disabled={isLocked}
+                                    />
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <div className="w-20 relative">
+                                    <input
+                                        type="number"
+                                        placeholder="Qté"
+                                        step="0.01"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                                        disabled={isLocked}
+                                    />
+                                    {userProfile?.enable_calculator !== false && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
+                                            className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
+                                            title="Calculatrice Matériaux"
+                                            disabled={isLocked}
+                                        >
+                                            <Calculator className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="w-28">
+                                    <input
+                                        type="number"
+                                        placeholder="Prix U."
+                                        step="0.01"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                        value={item.price}
+                                        onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                                        disabled={isLocked}
+                                    />
+                                </div>
+                                <div className="w-28 py-2 text-right font-medium text-gray-900">
+                                    {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => moveItem(index, 'up')}
+                                        disabled={index === 0 || isLocked}
+                                        className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        title="Monter"
+                                    >
+                                        <ArrowUp className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => moveItem(index, 'down')}
+                                        disabled={index === formData.items.length - 1 || isLocked}
+                                        className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        title="Descendre"
+                                    >
+                                        <ArrowDown className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={() => removeItem(item.id)}
+                                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30"
+                                    disabled={isLocked}
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-4 flex gap-4">
+                    <button
+                        onClick={addItem}
+                        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        disabled={isLocked}
+                    >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Ajouter une ligne
+                    </button>
+
+
+
+                    <button
+                        onClick={() => setShowAIModal(true)}
+                        className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                        disabled={isLocked}
+                    >
+                        <Sparkles className="w-3 h-3 mr-2" />
+                        Assistant Devis IA
+                    </button>
+                </div>
+            </div>
+
+            {/* AI Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 bg-gradient-to-r from-purple-600 to-indigo-600">
+                            <h3 className="text-xl font-bold text-white flex items-center">
+                                <Sparkles className="w-6 h-6 mr-3" />
+                                Assistant Intelligent
+                            </h3>
+                            <p className="text-purple-100 text-sm mt-1">
+                                Décrivez les travaux et l'IA générera le devis pour vous.
+                            </p>
+                        </div>
+
+                        <div className="p-6">
+                            <textarea
+                                className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                                placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
+                                value={aiPrompt}
+                                onChange={(e) => setAiPrompt(e.target.value)}
+                                autoFocus
+                            />
+                            <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
+                                <span>
+                                    Décrivez les travaux ci-dessus.
+                                </span>
+                                <span>{aiPrompt.length} caractères</span>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowAIModal(false)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleAIGenerate}
+                                    disabled={aiLoading || !aiPrompt.trim()}
+                                    className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
+                                >
+                                    {aiLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Génération...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-4 h-4 mr-2" />
+                                            Générer
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Schedule (Invoices) */}
+            {formData.type === 'invoice' && !formData.is_external && (
+                <div className="mb-6">
+                    <PaymentSchedule
+                        invoiceId={id}
+                        totalAmount={total}
+                    />
+                </div>
+            )}
+
+            {/* Totaux */}
+            <div className="flex justify-end pt-6 border-t border-gray-100">
+                <div className="w-72 space-y-4">
+                    {/* MarginGauge removed here as it was used with incorrect props causing crash */}
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-end mb-4">
+                            <input
+                                type="checkbox"
+                                id="include_tva"
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                checked={formData.include_tva}
+                                onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
+                                disabled={isLocked}
+                            />
+                            <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
+                                Appliquer la TVA (20%)
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-end mb-4">
+                            <input
+                                type="checkbox"
+                                id="has_material_deposit"
+                                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                                checked={formData.has_material_deposit}
+                                onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
+                                disabled={isLocked}
+                            />
+                            <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900">
+                                Demander un acompte matériel
+                            </label>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                            <span>Total HT</span>
+                            <span>{subtotal.toFixed(2)} €</span>
+                        </div>
+                        {formData.include_tva && (
+                            <div className="flex justify-between text-gray-600">
+                                <span>TVA (20%)</span>
+                                <span>{tva.toFixed(2)} €</span>
+                            </div>
+                        )}
+                        {!formData.include_tva && (
+                            <div className="text-xs text-gray-500 text-right italic">
+                                TVA non applicable, art. 293 B du CGI
+                            </div>
+                        )}
+                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
+                            <span>Total TTC</span>
+                            <span>{total.toFixed(2)} €</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Signature Display */}
+            {signature && (
+                <div className="border-t border-gray-100 pt-6 mt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Signature du client</h4>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 inline-block">
+                        <img src={signature} alt="Signature Client" className="h-24 object-contain" />
+                        <p className="text-xs text-gray-500 mt-2">
+                            Signé le {new Date(formData.signed_at || formData.updated_at || new Date()).toLocaleDateString()}
                         </p>
                     </div>
                 </div>
             )}
-            <div className="flex items-center justify-between mb-6">
-                <button
-                    onClick={() => navigate('/app/devis')}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
-                >
-                    <ArrowLeft className="w-5 h-5 sm:mr-2" />
-                    <span className="hidden sm:inline">Retour</span>
-                </button>
 
-                {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
-                <div className="flex bg-gray-100 p-1 rounded-lg mx-2 sm:mx-4">
+            {/* Notes */}
+            <div>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
                     <button
                         type="button"
-                        onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
+                        onClick={() => {
+                            setVoiceContext('note');
+                            setShowSmartVoice(true);
+                        }}
+                        className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
+                        title="Dicter une note"
+                        disabled={isLocked}
                     >
-                        Devis
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
-                            ? 'bg-white text-green-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-900'
-                            }`}
-                    >
-                        Fac<span className="hidden sm:inline">ture</span>
+                        <Sparkles className="w-4 h-4" />
                     </button>
                 </div>
-
-                {/* Presence Indicator */}
-                <div className="flex flex-col items-center justify-center mr-auto ml-2">
-                    {isClientOnline && (
-                        <div className="flex items-center gap-1 text-green-600 bg-green-50 px-3 py-1 rounded-full text-xs font-bold border border-green-200 animate-pulse transition-all">
-                            <span className="relative flex h-2 w-2 mr-1">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                <textarea
+                    rows={3}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="Conditions de paiement, validité du devis..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    disabled={isLocked}
+                />
+                {/* Auto-calculate Material Deposit Hint */}
+                {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+                        <div className="mt-0.5"><Star className="w-4 h-4" /></div>
+                        <div>
+                            <strong>Note automatique : Acompte Matériel</strong><br />
+                            Le devis contient du matériel. Une mention sera ajoutée automatiquement au PDF :<br />
+                            <span className="italic opacity-80">
+                                "Un acompte correspondant à la totalité du matériel (
+                                {(() => {
+                                    const mItems = formData.items.filter(i => i.type === 'material');
+                                    const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                                    const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
+                                    return mTTC.toFixed(2);
+                                })()} € TTC) est requis à la signature."
                             </span>
-                            CLIENT EN LIGNE
                         </div>
-                    )}
-                    {!isClientOnline && formData.last_viewed_at && (
-                        <div className="flex items-center gap-1 text-gray-400 text-[10px]" title={new Date(formData.last_viewed_at).toLocaleString()}>
-                            <Eye className="w-3 h-3" />
-                            Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex gap-2">
-                    {/* Primary Actions */}
-                    <button
-                        type="button"
-                        onClick={handleSendQuoteEmail}
-                        className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
-                        title="Envoyer par email"
-                    >
-                        <Send className="w-4 h-4 mr-2" />
-                        Envoyer
-                    </button>
-
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center px-3 sm:px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
-                    >
-                        <Save className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">{loading ? '...' : 'Enregistrer'}</span>
-                    </button>
-
-                    {/* More Actions Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowActionsMenu(!showActionsMenu)}
-                            className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            title="Plus d'actions"
-                        >
-                            <MoreVertical className="w-5 h-5 text-gray-600" />
-                        </button>
-
-                        {showActionsMenu && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
-                                {/* Mobile only Send button */}
-                                <button
-                                    onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
-                                    className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Send className="w-4 h-4 mr-3 text-blue-600" />
-                                    Envoyer le devis
-                                </button>
-
-                                {id && formData.public_token && (
-                                    <button
-                                        onClick={() => {
-                                            const url = `${window.location.origin}/q/${formData.public_token}`;
-                                            navigator.clipboard.writeText(url);
-                                            toast.success('Lien de signature copié !');
-                                            setShowActionsMenu(false);
-                                        }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <Link className="w-4 h-4 mr-3 text-gray-400" />
-                                        Copier le lien public
-                                    </button>
-                                )}
-
-                                {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && (
-                                    <button
-                                        onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <PenTool className="w-4 h-4 mr-3 text-purple-600" />
-                                        Faire signer sur l'appareil
-                                    </button>
-                                )}
-
-                                <button
-                                    onClick={() => { handlePreview(); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Eye className="w-4 h-4 mr-3 text-gray-400" />
-                                    Aperçu PDF
-                                </button>
-
-                                <button
-                                    onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    <Download className="w-4 h-4 mr-3 text-gray-400" />
-                                    Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
-                                </button>
-
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && (
-                                    <>
-                                        <button
-                                            onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                        >
-                                            <FileText className="w-4 h-4 mr-3 text-indigo-600" />
-                                            Créer un avenant
-                                        </button>
-                                        <button
-                                            onClick={handleCreateDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
-                                        >
-                                            <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
-                                            Générer Facture d'Acompte
-                                        </button>
-                                        <button
-                                            onClick={handleCreateMaterialDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-orange-50/50"
-                                        >
-                                            <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
-                                            Générer Acompte Matériel
-                                        </button>
-                                        <button
-                                            onClick={handleCreateSituation}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-purple-50/50"
-                                        >
-                                            <Layers className="w-4 h-4 mr-3 text-purple-600" />
-                                            Créer Situation de Travaux
-                                        </button>
-                                        <button
-                                            onClick={handleCreateClosingInvoice}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-green-50/50"
-                                        >
-                                            <Check className="w-4 h-4 mr-3 text-green-600" />
-                                            Générer Facture de Clôture
-                                        </button>
-                                    </>
-                                )}
-
-                                {id && id !== 'new' && (
-                                    <>
-                                        <div className="border-t border-gray-100 my-1"></div>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-3" />
-                                            Supprimer
-                                        </button>
-                                    </>
-                                )}
-
-                                <div className="border-t border-gray-100 my-1"></div>
-
-                                {['accepted', 'paid', 'billed'].includes(formData.status) && (
-                                    <button
-                                        onClick={() => { setShowReviewRequestModal(true); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                    >
-                                        <Star className="w-4 h-4 mr-3 text-yellow-500" />
-                                        Demander un avis
-                                    </button>
-                                )}
-                                {/* ReviewMenu removed as component is missing */}
-
-                                <button
-                                    onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
-                                    disabled={importing}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
-                                    Importer (PDF / Word)
-                                </button>
-
-                                <button
-                                    onClick={() => { document.getElementById('external-pdf-input')?.click(); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                    <FileText className="w-4 h-4 mr-3 text-purple-600" />
-                                    Importer Externe (Brut)
-                                </button>
-
-                            </div>
-                        )}
-                    </div>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={handleImportFile}
-                    />
-                    <input
-                        type="file"
-                        id="external-pdf-input"
-                        className="hidden"
-                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={handleExternalImport}
-                    />
-                </div>
-            </div>
-
-            {/* External PDF Mode / Manual Totals */}
-            {formData.is_external ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center">
-                            <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                            Document Externe (PDF)
-                        </h3>
-                        <button
-                            onClick={() => setFormData(prev => ({ ...prev, is_external: false, original_pdf_url: null }))}
-                            className="text-sm text-red-600 hover:text-red-800"
-                        >
-                            Supprimer / Revenir au mode standard
-                        </button>
-                    </div>
-
-                    {displayPdfUrl && (
-                        <div className="mb-8 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-800">
-                            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                                <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-                                    <Eye className="w-4 h-4 text-blue-500" />
-                                    Aperçu du document importé
-                                </div>
-                                <a
-                                    href={displayPdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
-                                >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                    Nouvel onglet
-                                </a>
-                            </div>
-                            <div className="h-[550px] bg-gray-200 dark:bg-gray-950">
-                                <iframe
-                                    src={displayPdfUrl}
-                                    title="Aperçu document importé"
-                                    className="w-full h-full border-0"
-                                    style={{ background: '#525659' }}
-                                />
-                            </div>
-                            {/* Mobile fallback */}
-                            <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-center sm:hidden">
-                                <a
-                                    href={displayPdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    Ouvrir le PDF
-                                </a>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-xl">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total HT</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={formData.manual_total_ht}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ht: parseFloat(e.target.value) || 0 }))}
-                                />
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total TVA</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={formData.manual_total_tva}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, manual_total_tva: parseFloat(e.target.value) || 0 }))}
-                                />
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total TTC</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-blue-50 font-bold text-blue-900"
-                                    value={formData.manual_total_ttc}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ttc: parseFloat(e.target.value) || 0 }))}
-                                />
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500 italic">
-                        * Saisissez les montants manuellement car ils ne sont pas calculés automatiquement depuis le PDF.
-                    </p>
-                </div>
-            ) : null}
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
-                {/* En-tête Devis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Client</label>
-                            {formData.client_id && (
-                                <button
-                                    type="button"
-                                    onClick={() => navigate(`/app/clients/${formData.client_id}`)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                >
-                                    Voir la fiche client
-                                </button>
-                            )}
-                        </div>
-                        <div className="mb-4">
-                            <ClientSelector
-                                clients={clients}
-                                selectedClientId={formData.client_id}
-                                onChange={handleClientChange}
-                                onCreateNew={() => navigate('/app/clients/new')}
-                                disabled={isLocked}
-                            />
-                        </div>
-
-                        <div className="mb-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
-                            <input
-                                type="text"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                placeholder="Ex: Rénovation Salle de Bain"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                disabled={isLocked}
-                            />
-                        </div>
-
-
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
-                            <input
-                                type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                disabled={isLocked}
-                            />
-                        </div>
-                        {formData.type !== 'invoice' && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
-                                <input
-                                    type="date"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                    value={formData.valid_until}
-                                    onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                                    disabled={isLocked}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté / Signé</option>
-                            <option value="refused">Refusé</option>
-                            <option value="billed">Facturé</option>
-                            <option value="paid">Payé</option>
-                            <option value="postponed">Reporté</option>
-                            <option value="cancelled">Annulé</option>
-                        </select>
-                        {formData.last_followup_at && (
-                            <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
-                                <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
-                                Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
-                            </p>
-                        )}
-                    </div>
-                    {/* Factur-X Options */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
-                            value={formData.operation_category}
-                            onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
-                            disabled={isLocked}
-                        >
-                            <option value="service">Prestation de services</option>
-                            <option value="goods">Livraison de biens</option>
-                            <option value="mixed">Mixte</option>
-                        </select>
-                        <div className="flex items-center gap-2 mt-2">
-                            <input
-                                type="checkbox"
-                                id="vat_on_debits"
-                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
-                                checked={formData.vat_on_debits}
-                                onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
-                                disabled={isLocked}
-                            />
-                            <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
-                                Option TVA sur les débits
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Intervention Address Toggle - Full Width */}
-                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
-                        <div className="flex items-center mb-2">
-                            <input
-                                type="checkbox"
-                                id="diffAddress"
-                                checked={diffAddress}
-                                onChange={(e) => setDiffAddress(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
-                                disabled={isLocked}
-                            />
-                            <label htmlFor="diffAddress" className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
-                                Adresse d'intervention différente (ex: locataire, chantier secondaire)
-                            </label>
-                        </div>
-
-                        {diffAddress && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 mt-2">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Adresse du chantier
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.intervention_address}
-                                        onChange={(e) => setFormData({ ...formData, intervention_address: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                        placeholder="12 rue des Fleurs"
-                                        disabled={isLocked}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Code Postal
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.intervention_postal_code}
-                                        onChange={(e) => setFormData({ ...formData, intervention_postal_code: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                        placeholder="75001"
-                                        disabled={isLocked}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Ville
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.intervention_city}
-                                        onChange={(e) => setFormData({ ...formData, intervention_city: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                                        placeholder="Paris"
-                                        disabled={isLocked}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Amendment Configuration Fields */}
-                {formData.type === 'amendment' && (
-                    <div className="mb-8">
-                        <AmendmentFields formData={formData} setFormData={setFormData} />
                     </div>
                 )}
+            </div>
+        </div>
 
-                {/* Lignes du devis */}
-                <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
-                    </h3>
-                    <div className="space-y-4">
-                        {formData.items.map((item, index) => (
-                            <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
-                                <div className="flex-1 w-full space-y-2">
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <select
-                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
-                                            value={item.type || 'service'}
-                                            onChange={(e) => updateItem(item.id, 'type', e.target.value)}
-                                            disabled={isLocked}
-                                        >
-                                            <option value="service">Main d'oeuvre</option>
-                                            <option value="material">Matériel</option>
-                                        </select>
-                                        <div className="flex-1 relative">
-                                            <textarea
-                                                placeholder="Description"
-                                                rows={3}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm"
-                                                value={item.description}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    updateItem(item.id, 'description', val);
+        <SmartVoiceModal
+            isOpen={showSmartVoice}
+            onClose={() => setShowSmartVoice(false)}
+            onResult={handleVoiceResult}
+            context={voiceContext}
+        />
 
-                                                    // Auto-detect type
-                                                    if (val.toLowerCase().match(/fourniture|matériel|materiel|pièce|consommable/)) {
-                                                        const currentType = item.type || 'service';
-                                                        if (currentType === 'service') {
-                                                            updateItem(item.id, 'type', 'material');
-                                                        }
-                                                    }
+        <MaterialsCalculator
+            isOpen={showCalculator}
+            onClose={() => setShowCalculator(false)}
+            onApply={handleCalculatorApply}
+        />
 
-                                                    // Auto-price logic (Exact Match)
-                                                    const libraryItem = priceLibrary.find(lib => lib.description === val);
-                                                    if (libraryItem) {
-                                                        updateItem(item.id, 'price', libraryItem.price);
-                                                        // Also sync type from library if it exists
-                                                        if (libraryItem.type) {
-                                                            updateItem(item.id, 'type', libraryItem.type);
-                                                        }
-                                                    }
-                                                }}
-                                                onFocus={(e) => {
-                                                    if (window.innerWidth < 1024) {
-                                                        e.target.blur();
-                                                        setFullScreenEditItem(item.id);
-                                                    } else {
-                                                        setFocusedInput(`item-${item.id}`);
-                                                    }
-                                                }}
-                                                onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
-                                                required
-                                                disabled={isLocked}
-                                            />
+        {/* Signature Modal */}
+        <SignatureModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            onSave={handleSignatureSave}
+        />
 
-                                            {/* Custom Suggestions (Price Library) */}
-                                            {focusedInput === `item-${item.id}` && item.description && item.description.length > 1 && !priceLibrary.some(p => p.description === item.description) && (
-                                                (() => {
-                                                    const matches = priceLibrary.filter(lib =>
-                                                        lib.description.toLowerCase().includes(item.description.toLowerCase())
-                                                    ).slice(0, 5);
+        <ReviewRequestModal
+            isOpen={showReviewRequestModal}
+            onClose={() => {
+                setShowReviewRequestModal(false);
+                navigate('/app/devis');
+            }}
+            client={clients.find(c => c.id == formData.client_id)}
+            userProfile={userProfile}
+        />
 
-                                                    if (matches.length === 0) return null;
-
-                                                    return (
-                                                        <div className="absolute z-20 w-full bg-white border border-gray-200 shadow-lg rounded-b-lg mt-1 overflow-hidden">
-                                                            {matches.map(lib => (
-                                                                <button
-                                                                    key={lib.id}
-                                                                    type="button"
-                                                                    className="block w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
-                                                                    onClick={() => {
-                                                                        updateItem(item.id, 'description', lib.description);
-                                                                        updateItem(item.id, 'price', lib.price);
-                                                                    }}
-                                                                >
-                                                                    <span className="font-medium text-gray-900">{lib.description}</span>
-                                                                    <span className="text-gray-500 ml-2 text-xs">{lib.price} €</span>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    );
-                                                })()
-                                            )}
-
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    // For inline editing of existing item, we might need a different context 
-                                                    // or just use generic "update item" logic? 
-                                                    // For now, let's keep it simple: Add New Item via Voice is better supported.
-                                                    // If user wants to replace description, they can type.
-                                                    // Or we can open modal to "Replace Description"?
-                                                    // Let's remove the inline mic for now as per request "replace mic button" 
-                                                    // and rely on the big "Add Item via Voice" button we will add.
-                                                    // OR: Use modal to set description only.
-                                                    // Let's try to map it to "note" context but applied to this item?
-                                                    // Complex. Let's just remove the inline mic to declutter, 
-                                                    // or replace with a small "Sparkles" that opens modal for this specific item?
-                                                    // User said "replace mic button".
-                                                    // Let's replace with a small button that says "IA" or Sparkles icon
-                                                    // and opens modal with context 'item_description_update' -> updateItem?
-                                                    // For MVP "Free AI", adding new lines is the main feature.
-                                                    // I will remove this inline mic to simplify UI as requested.
-                                                }}
-                                                className="hidden" // Hiding inline mic
-                                                title="Dicter"
-                                            >
-                                                {/* <Mic className="w-4 h-4" /> */}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <span>Coût unitaire (interne) :</span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
-                                            placeholder="0.00"
-                                            value={item.buying_price || ''}
-                                            onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
-                                            disabled={isLocked}
-                                        />
-                                        <span>€</span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    <div className="w-20 relative">
-                                        <input
-                                            type="number"
-                                            placeholder="Qté"
-                                            step="0.01"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
-                                            value={item.quantity}
-                                            onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                                            disabled={isLocked}
-                                        />
-                                        {userProfile?.enable_calculator !== false && (
-                                            <button
-                                                type="button"
-                                                onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
-                                                className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
-                                                title="Calculatrice Matériaux"
-                                                disabled={isLocked}
-                                            >
-                                                <Calculator className="w-3 h-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="w-28">
-                                        <input
-                                            type="number"
-                                            placeholder="Prix U."
-                                            step="0.01"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
-                                            value={item.price}
-                                            onChange={(e) => updateItem(item.id, 'price', e.target.value)}
-                                            disabled={isLocked}
-                                        />
-                                    </div>
-                                    <div className="w-28 py-2 text-right font-medium text-gray-900">
-                                        {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => moveItem(index, 'up')}
-                                            disabled={index === 0 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
-                                            title="Monter"
-                                        >
-                                            <ArrowUp className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => moveItem(index, 'down')}
-                                            disabled={index === formData.items.length - 1 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
-                                            title="Descendre"
-                                        >
-                                            <ArrowDown className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => removeItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30"
-                                        disabled={isLocked}
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
+        {/* Preview Modal */}
+        {(previewUrl || previewLoading) && (
+            <div
+                className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+                onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
+                onKeyDown={(e) => { if (e.key === 'Escape') setPreviewUrl(null); }}
+            >
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] sm:h-[92vh] flex flex-col animate-in fade-in zoom-in duration-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${formData.type === 'invoice' ? 'bg-green-100 dark:bg-green-900/30' :
+                                formData.type === 'amendment' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                                    'bg-blue-100 dark:bg-blue-900/30'
+                                }`}>
+                                <FileText className={`w-4.5 h-4.5 ${formData.type === 'invoice' ? 'text-green-600 dark:text-green-400' :
+                                    formData.type === 'amendment' ? 'text-orange-600 dark:text-orange-400' :
+                                        'text-blue-600 dark:text-blue-400'
+                                    }`} />
                             </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-4 flex gap-4">
-                        <button
-                            onClick={addItem}
-                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                            disabled={isLocked}
-                        >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Ajouter une ligne
-                        </button>
-
-
-
-                        <button
-                            onClick={() => setShowAIModal(true)}
-                            className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
-                            disabled={isLocked}
-                        >
-                            <Sparkles className="w-3 h-3 mr-2" />
-                            Assistant Devis IA
-                        </button>
-                    </div>
-                </div>
-
-                {/* AI Modal */}
-                {showAIModal && (
-                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 bg-gradient-to-r from-purple-600 to-indigo-600">
-                                <h3 className="text-xl font-bold text-white flex items-center">
-                                    <Sparkles className="w-6 h-6 mr-3" />
-                                    Assistant Intelligent
-                                </h3>
-                                <p className="text-purple-100 text-sm mt-1">
-                                    Décrivez les travaux et l'IA générera le devis pour vous.
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                                        {formData.title || 'Document sans titre'}
+                                    </h3>
+                                    <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${formData.type === 'invoice' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        formData.type === 'amendment' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        }`}>
+                                        {formData.type === 'invoice' ? 'Facture' : formData.type === 'amendment' ? 'Avenant' : 'Devis'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {(() => {
+                                        const c = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+                                        return c ? c.name : '';
+                                    })()}
+                                    {formData.id && formData.id !== 'new' ? ` · N°${formData.id}` : ' · Brouillon'}
+                                    {total ? ` · ${total.toFixed(2)} € TTC` : ''}
                                 </p>
                             </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <a
+                                href={previewUrl || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 hidden sm:flex ${!previewUrl ? 'pointer-events-none opacity-50' : ''}`}
+                                title="Ouvrir dans un nouvel onglet"
+                            >
+                                <ExternalLink className="w-4.5 h-4.5" />
+                            </a>
+                            <button
+                                onClick={() => { setPreviewUrl(null); setPreviewLoading(false); }}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Fermer (Échap)"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
 
-                            <div className="p-6">
-                                <textarea
-                                    className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                                    placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
-                                    value={aiPrompt}
-                                    onChange={(e) => setAiPrompt(e.target.value)}
-                                    autoFocus
-                                />
-                                <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
-                                    <span>
-                                        Décrivez les travaux ci-dessus.
-                                    </span>
-                                    <span>{aiPrompt.length} caractères</span>
+                    {/* PDF Content */}
+                    <div className="flex-1 bg-gray-200 dark:bg-gray-950 overflow-hidden relative">
+                        {previewLoading && !previewUrl ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-4">
+                                <div className="relative">
+                                    <div className="w-16 h-20 bg-white dark:bg-gray-800 rounded-lg shadow-lg flex items-center justify-center">
+                                        <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                        <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                    </div>
                                 </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Génération du document...</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Cela ne prend qu'un instant</p>
+                                </div>
+                            </div>
+                        ) : previewUrl ? (
+                            <iframe
+                                src={previewUrl}
+                                title="Prévisualisation PDF"
+                                className="w-full h-full border-0"
+                                style={{ background: '#525659' }}
+                            />
+                        ) : null}
 
-                                <div className="mt-6 flex justify-end gap-3">
-                                    <button
-                                        onClick={() => setShowAIModal(false)}
-                                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                        {/* Fallback overlay for mobile (iframe may not render PDF) */}
+                        {previewUrl && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center sm:hidden bg-gray-200 dark:bg-gray-950">
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg max-w-xs w-full space-y-4">
+                                    <div className="w-14 h-14 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                                        <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">Document prêt</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            L'aperçu intégré n'est pas disponible sur mobile.
+                                        </p>
+                                    </div>
+                                    <a
+                                        href={previewUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 inline-flex items-center justify-center font-medium shadow-sm transition-colors text-sm"
                                     >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleAIGenerate}
-                                        disabled={aiLoading || !aiPrompt.trim()}
-                                        className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
-                                    >
-                                        {aiLoading ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Génération...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sparkles className="w-4 h-4 mr-2" />
-                                                Générer
-                                            </>
-                                        )}
-                                    </button>
+                                        <ExternalLink className="w-4 h-4 mr-2" />
+                                        Ouvrir le PDF
+                                    </a>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
-                )}
 
-                {/* Payment Schedule (Invoices) */}
-                {formData.type === 'invoice' && !formData.is_external && (
-                    <div className="mb-6">
-                        <PaymentSchedule
-                            invoiceId={id}
-                            totalAmount={total}
-                        />
-                    </div>
-                )}
-
-                {/* Totaux */}
-                <div className="flex justify-end pt-6 border-t border-gray-100">
-                    <div className="w-72 space-y-4">
-                        {/* MarginGauge removed here as it was used with incorrect props causing crash */}
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-end mb-4">
-                                <input
-                                    type="checkbox"
-                                    id="include_tva"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    checked={formData.include_tva}
-                                    onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
-                                    disabled={isLocked}
-                                />
-                                <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
-                                    Appliquer la TVA (20%)
-                                </label>
-                            </div>
-                            <div className="flex items-center justify-end mb-4">
-                                <input
-                                    type="checkbox"
-                                    id="has_material_deposit"
-                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                    checked={formData.has_material_deposit}
-                                    onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
-                                    disabled={isLocked}
-                                />
-                                <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900">
-                                    Demander un acompte matériel
-                                </label>
-                            </div>
-                            <div className="flex justify-between text-gray-600">
-                                <span>Total HT</span>
-                                <span>{subtotal.toFixed(2)} €</span>
-                            </div>
-                            {formData.include_tva && (
-                                <div className="flex justify-between text-gray-600">
-                                    <span>TVA (20%)</span>
-                                    <span>{tva.toFixed(2)} €</span>
-                                </div>
-                            )}
-                            {!formData.include_tva && (
-                                <div className="text-xs text-gray-500 text-right italic">
-                                    TVA non applicable, art. 293 B du CGI
-                                </div>
-                            )}
-                            <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                <span>Total TTC</span>
-                                <span>{total.toFixed(2)} €</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Signature Display */}
-                {signature && (
-                    <div className="border-t border-gray-100 pt-6 mt-6">
-                        <h4 className="text-sm font-medium text-gray-900 mb-2">Signature du client</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 inline-block">
-                            <img src={signature} alt="Signature Client" className="h-24 object-contain" />
-                            <p className="text-xs text-gray-500 mt-2">
-                                Signé le {new Date(formData.signed_at || formData.updated_at || new Date()).toLocaleDateString()}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Notes */}
-                <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
+                    {/* Footer actions */}
+                    <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900">
                         <button
-                            type="button"
-                            onClick={() => {
-                                setVoiceContext('note');
-                                setShowSmartVoice(true);
-                            }}
-                            className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
-                            title="Dicter une note"
-                            disabled={isLocked}
+                            onClick={() => setPreviewUrl(null)}
+                            className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         >
-                            <Sparkles className="w-4 h-4" />
+                            Fermer
                         </button>
-                    </div>
-                    <textarea
-                        rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                        placeholder="Conditions de paiement, validité du devis..."
-                        value={formData.notes}
-                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        disabled={isLocked}
-                    />
-                    {/* Auto-calculate Material Deposit Hint */}
-                    {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (
-                        <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 flex items-start gap-2">
-                            <div className="mt-0.5"><Star className="w-4 h-4" /></div>
-                            <div>
-                                <strong>Note automatique : Acompte Matériel</strong><br />
-                                Le devis contient du matériel. Une mention sera ajoutée automatiquement au PDF :<br />
-                                <span className="italic opacity-80">
-                                    "Un acompte correspondant à la totalité du matériel (
-                                    {(() => {
-                                        const mItems = formData.items.filter(i => i.type === 'material');
-                                        const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                                        const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
-                                        return mTTC.toFixed(2);
-                                    })()} € TTC) est requis à la signature."
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <SmartVoiceModal
-                isOpen={showSmartVoice}
-                onClose={() => setShowSmartVoice(false)}
-                onResult={handleVoiceResult}
-                context={voiceContext}
-            />
-
-            <MaterialsCalculator
-                isOpen={showCalculator}
-                onClose={() => setShowCalculator(false)}
-                onApply={handleCalculatorApply}
-            />
-
-            {/* Signature Modal */}
-            <SignatureModal
-                isOpen={showSignatureModal}
-                onClose={() => setShowSignatureModal(false)}
-                onSave={handleSignatureSave}
-            />
-
-            <ReviewRequestModal
-                isOpen={showReviewRequestModal}
-                onClose={() => {
-                    setShowReviewRequestModal(false);
-                    navigate('/app/devis');
-                }}
-                client={clients.find(c => c.id == formData.client_id)}
-                userProfile={userProfile}
-            />
-
-            {/* Preview Modal */}
-            {(previewUrl || previewLoading) && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
-                    onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setPreviewUrl(null); }}
-                >
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] sm:h-[92vh] flex flex-col animate-in fade-in zoom-in duration-200 overflow-hidden">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${formData.type === 'invoice' ? 'bg-green-100 dark:bg-green-900/30' :
-                                    formData.type === 'amendment' ? 'bg-orange-100 dark:bg-orange-900/30' :
-                                        'bg-blue-100 dark:bg-blue-900/30'
-                                    }`}>
-                                    <FileText className={`w-4.5 h-4.5 ${formData.type === 'invoice' ? 'text-green-600 dark:text-green-400' :
-                                        formData.type === 'amendment' ? 'text-orange-600 dark:text-orange-400' :
-                                            'text-blue-600 dark:text-blue-400'
-                                        }`} />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
-                                            {formData.title || 'Document sans titre'}
-                                        </h3>
-                                        <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${formData.type === 'invoice' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                            formData.type === 'amendment' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                                                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                            }`}>
-                                            {formData.type === 'invoice' ? 'Facture' : formData.type === 'amendment' ? 'Avenant' : 'Devis'}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                        {(() => {
-                                            const c = clients.find(c => c.id?.toString() === formData.client_id?.toString());
-                                            return c ? c.name : '';
-                                        })()}
-                                        {formData.id && formData.id !== 'new' ? ` · N°${formData.id}` : ' · Brouillon'}
-                                        {total ? ` · ${total.toFixed(2)} € TTC` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <a
-                                    href={previewUrl || '#'}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 hidden sm:flex ${!previewUrl ? 'pointer-events-none opacity-50' : ''}`}
-                                    title="Ouvrir dans un nouvel onglet"
-                                >
-                                    <ExternalLink className="w-4.5 h-4.5" />
-                                </a>
-                                <button
-                                    onClick={() => { setPreviewUrl(null); setPreviewLoading(false); }}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                    title="Fermer (Échap)"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* PDF Content */}
-                        <div className="flex-1 bg-gray-200 dark:bg-gray-950 overflow-hidden relative">
-                            {previewLoading && !previewUrl ? (
-                                <div className="flex flex-col items-center justify-center h-full gap-4">
-                                    <div className="relative">
-                                        <div className="w-16 h-20 bg-white dark:bg-gray-800 rounded-lg shadow-lg flex items-center justify-center">
-                                            <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                                        </div>
-                                        <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
-                                            <Loader2 className="w-4 h-4 text-white animate-spin" />
-                                        </div>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Génération du document...</p>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Cela ne prend qu'un instant</p>
-                                    </div>
-                                </div>
-                            ) : previewUrl ? (
-                                <iframe
-                                    src={previewUrl}
-                                    title="Prévisualisation PDF"
-                                    className="w-full h-full border-0"
-                                    style={{ background: '#525659' }}
-                                />
-                            ) : null}
-
-                            {/* Fallback overlay for mobile (iframe may not render PDF) */}
-                            {previewUrl && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center sm:hidden bg-gray-200 dark:bg-gray-950">
-                                    <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg max-w-xs w-full space-y-4">
-                                        <div className="w-14 h-14 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                                            <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white">Document prêt</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                L'aperçu intégré n'est pas disponible sur mobile.
-                                            </p>
-                                        </div>
-                                        <a
-                                            href={previewUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 inline-flex items-center justify-center font-medium shadow-sm transition-colors text-sm"
-                                        >
-                                            <ExternalLink className="w-4 h-4 mr-2" />
-                                            Ouvrir le PDF
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer actions */}
-                        <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900">
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setPreviewUrl(null)}
-                                className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                onClick={() => {
+                                    handleSendQuoteEmail();
+                                    setPreviewUrl(null);
+                                }}
+                                className="hidden sm:flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
-                                Fermer
-                            </button>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        handleSendQuoteEmail();
-                                        setPreviewUrl(null);
-                                    }}
-                                    className="hidden sm:flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                >
-                                    <Send className="w-3.5 h-3.5 mr-1.5" />
-                                    Envoyer
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        handleDownloadPDF(formData.status === 'accepted');
-                                        setPreviewUrl(null);
-                                    }}
-                                    className="flex items-center px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
-                                >
-                                    <Download className="w-3.5 h-3.5 mr-1.5" />
-                                    Télécharger
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Email Preview Modal */}
-            {
-                emailPreview && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                                    Prévisualisation de l'email
-                                </h3>
-                                <button
-                                    onClick={() => setEmailPreview(null)}
-                                    className="p-1 hover:bg-gray-100 rounded-full"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
-
-                            <div className="p-6 space-y-4 overflow-y-auto">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={emailPreview.email}
-                                        className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={emailPreview.rawSubject}
-                                            onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(emailPreview.rawSubject);
-                                                toast.success('Objet copié !');
-                                            }}
-                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg"
-                                            title="Copier l'objet"
-                                        >
-                                            <Copy className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                    <div className="relative">
-                                        <textarea
-                                            rows={12}
-                                            value={emailPreview.rawBody}
-                                            onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(emailPreview.rawBody);
-                                                toast.success('Message copié !');
-                                            }}
-                                            className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
-                                            title="Copier le message"
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-xl">
-                            <button
-                                type="button"
-                                onClick={() => setEmailPreview(null)}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center"
-                            >
-                                <Send className="w-4 h-4 mr-2" />
+                                <Send className="w-3.5 h-3.5 mr-1.5" />
                                 Envoyer
                             </button>
+                            <button
+                                onClick={() => {
+                                    handleDownloadPDF(formData.status === 'accepted');
+                                    setPreviewUrl(null);
+                                }}
+                                className="flex items-center px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" />
+                                Télécharger
+                            </button>
                         </div>
                     </div>
-                )
-            }
-            {/* Full Screen Description Editor (Mobile) */}
-            {
-                fullScreenEditItem && (
-                    (() => {
-                        const item = formData.items.find(i => i.id === fullScreenEditItem);
-                        if (!item) {
-                            // reset if item not found (e.g. deleted)
-                            if (fullScreenEditItem) setFullScreenEditItem(null);
-                            return null;
-                        }
-                        const itemIndex = formData.items.findIndex(i => i.id === item.id);
+                </div>
+            </div>
+        )}
 
-                        return (
-                            <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
-                                {/* --- Items Table --- */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
-                                    <button
-                                        onClick={() => setFullScreenEditItem(null)}
-                                        className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
-                                    >
-                                        <ArrowLeft className="w-6 h-6" />
-                                    </button>
-                                    <h3 className="font-semibold text-lg">Description</h3>
-                                    <button
-                                        onClick={() => setFullScreenEditItem(null)}
-                                        className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
-                                    >
-                                        Valider
-                                    </button>
-                                </div>
+        {/* Email Preview Modal */}
+        {
+            emailPreview && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                                <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                                Prévisualisation de l'email
+                            </h3>
+                            <button
+                                onClick={() => setEmailPreview(null)}
+                                className="p-1 hover:bg-gray-100 rounded-full"
+                            >
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
 
-                                {/* Suggestions Area (Sticky under header) */}
-                                {(() => {
-                                    const matches = priceLibrary.filter(lib =>
-                                        lib.description.toLowerCase().includes((item.description || '').toLowerCase())
-                                    ).slice(0, 10);
-
-                                    if (matches.length > 0) {
-                                        return (
-                                            <div className="bg-blue-50/50 border-b border-blue-100 overflow-x-auto">
-                                                <div className="flex p-3 gap-3">
-                                                    {matches.map(lib => (
-                                                        <button
-                                                            key={lib.id}
-                                                            onClick={() => {
-                                                                updateItem(item.id, 'description', lib.description);
-                                                                updateItem(item.id, 'price', lib.price);
-                                                            }}
-                                                            className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
-                                                        >
-                                                            <div className="font-medium text-blue-900 truncate">{lib.description}</div>
-                                                            <div className="text-blue-500 text-xs">{lib.price} €</div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-
-                                {/* Text Area */}
-                                <div className="flex-1 p-4 relative bg-white">
-                                    <textarea
-                                        className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
-                                        placeholder="Saisissez la description détaillée..."
-                                        value={item.description}
-                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                        autoFocus
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={emailPreview.email}
+                                    className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={emailPreview.rawSubject}
+                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     />
-
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(emailPreview.rawSubject);
+                                            toast.success('Objet copié !');
+                                        }}
+                                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg"
+                                        title="Copier l'objet"
+                                    >
+                                        <Copy className="w-5 h-5" />
+                                    </button>
                                 </div>
                             </div>
-                        );
-                    })()
-                )
-            }
-        </div >
-    );
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                <div className="relative">
+                                    <textarea
+                                        rows={12}
+                                        value={emailPreview.rawBody}
+                                        onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(emailPreview.rawBody);
+                                            toast.success('Message copié !');
+                                        }}
+                                        className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
+                                        title="Copier le message"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setEmailPreview(null)}
+                            className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
+                            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center"
+                        >
+                            <Send className="w-4 h-4 mr-2" />
+                            Envoyer
+                        </button>
+                    </div>
+                </div>
+            )
+        }
+        {/* Full Screen Description Editor (Mobile) */}
+        {
+            fullScreenEditItem && (
+                (() => {
+                    const item = formData.items.find(i => i.id === fullScreenEditItem);
+                    if (!item) {
+                        // reset if item not found (e.g. deleted)
+                        if (fullScreenEditItem) setFullScreenEditItem(null);
+                        return null;
+                    }
+                    const itemIndex = formData.items.findIndex(i => i.id === item.id);
+
+                    return (
+                        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
+                            {/* --- Items Table --- */}
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
+                                <button
+                                    onClick={() => setFullScreenEditItem(null)}
+                                    className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
+                                >
+                                    <ArrowLeft className="w-6 h-6" />
+                                </button>
+                                <h3 className="font-semibold text-lg">Description</h3>
+                                <button
+                                    onClick={() => setFullScreenEditItem(null)}
+                                    className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
+                                >
+                                    Valider
+                                </button>
+                            </div>
+
+                            {/* Suggestions Area (Sticky under header) */}
+                            {(() => {
+                                const matches = priceLibrary.filter(lib =>
+                                    lib.description.toLowerCase().includes((item.description || '').toLowerCase())
+                                ).slice(0, 10);
+
+                                if (matches.length > 0) {
+                                    return (
+                                        <div className="bg-blue-50/50 border-b border-blue-100 overflow-x-auto">
+                                            <div className="flex p-3 gap-3">
+                                                {matches.map(lib => (
+                                                    <button
+                                                        key={lib.id}
+                                                        onClick={() => {
+                                                            updateItem(item.id, 'description', lib.description);
+                                                            updateItem(item.id, 'price', lib.price);
+                                                        }}
+                                                        className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
+                                                    >
+                                                        <div className="font-medium text-blue-900 truncate">{lib.description}</div>
+                                                        <div className="text-blue-500 text-xs">{lib.price} €</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            {/* Text Area */}
+                            <div className="flex-1 p-4 relative bg-white">
+                                <textarea
+                                    className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
+                                    placeholder="Saisissez la description détaillée..."
+                                    value={item.description}
+                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                    autoFocus
+                                />
+
+                            </div>
+                        </div>
+                    );
+                })()
+            )
+        }
+    </div >
+);
 };
 
 export default DevisForm;
