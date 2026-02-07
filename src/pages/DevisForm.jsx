@@ -2044,34 +2044,40 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
 
                     {displayPdfUrl && (
-                        <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[600px] flex flex-col">
-                            <object
-                                data={displayPdfUrl}
-                                type="application/pdf"
-                                className="w-full h-full flex-grow"
-                            >
-                                <div className="flex items-center justify-center h-full bg-gray-50 flex-col">
-                                    <p className="text-gray-500 mb-4">L'aperçu n'est pas disponible directement.</p>
-                                    <a
-                                        href={displayPdfUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Ouvrir le PDF
-                                    </a>
+                        <div className="mb-8 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-800">
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                                    <Eye className="w-4 h-4 text-blue-500" />
+                                    Aperçu du document importé
                                 </div>
-                            </object>
-                            <div className="p-2 bg-gray-50 text-center text-sm border-t border-gray-200">
                                 <a
                                     href={displayPdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 hover:underline flex items-center justify-center gap-2"
+                                    className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
                                 >
-                                    <Eye className="w-4 h-4" />
-                                    Ouvrir le document complet dans un nouvel onglet
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    Nouvel onglet
+                                </a>
+                            </div>
+                            <div className="h-[550px] bg-gray-200 dark:bg-gray-950">
+                                <iframe
+                                    src={displayPdfUrl}
+                                    title="Aperçu document importé"
+                                    className="w-full h-full border-0"
+                                    style={{ background: '#525659' }}
+                                />
+                            </div>
+                            {/* Mobile fallback */}
+                            <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-center sm:hidden">
+                                <a
+                                    href={displayPdfUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Ouvrir le PDF
                                 </a>
                             </div>
                         </div>
