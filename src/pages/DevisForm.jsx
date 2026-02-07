@@ -509,12 +509,26 @@ const DevisForm = () => {
                     has_material_deposit: data.has_material_deposit !== false,
                     intervention_address: data.intervention_address || '',
                     intervention_postal_code: data.intervention_postal_code || '',
-                    intervention_city: data.intervention_city || ''
+                    intervention_city: data.intervention_city || '',
+                    amendment_details: data.amendment_details || {},
+                    parent_quote_id: data.parent_quote_id || null
                 });
 
                 if (data.intervention_address || data.intervention_city) {
                     setDiffAddress(true);
                 }
+
+                if (data.parent_quote_id) {
+                    const { data: parentData } = await supabase
+                        .from('quotes')
+                        .select('id, total_ttc, total_ht, items, date, title')
+                        .eq('id', data.parent_quote_id)
+                        .single();
+                    if (parentData) {
+                        setFormData(prev => ({ ...prev, parent_quote_data: parentData }));
+                    }
+                }
+
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
             }
@@ -857,9 +871,7 @@ const DevisForm = () => {
                 has_material_deposit: formData.has_material_deposit,
                 intervention_address: formData.intervention_address,
                 intervention_postal_code: formData.intervention_postal_code,
-                has_material_deposit: formData.has_material_deposit,
-                intervention_address: formData.intervention_address,
-                intervention_postal_code: formData.intervention_postal_code,
+
                 intervention_city: formData.intervention_city,
                 parent_quote_id: formData.parent_quote_id,
                 amendment_details: formData.amendment_details
