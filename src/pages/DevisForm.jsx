@@ -3122,7 +3122,14 @@ return (
                 })()
             )
         }
-    </div >
+        <SituationModal
+            isOpen={showSituationModal}
+            onClose={() => setShowSituationModal(false)}
+            quote={{ ...formData, id: id }}
+            onSave={handleSaveSituation}
+        />
+    </div>
+);
 );
 };
 
