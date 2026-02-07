@@ -18,19 +18,19 @@ const AmendmentFields = ({ formData, setFormData }) => {
         <div className="space-y-6 bg-orange-50 dark:bg-orange-900/10 p-6 rounded-xl border border-orange-100 dark:border-orange-800/30">
             <div className="flex items-center gap-3 text-orange-800 dark:text-orange-200 mb-4">
                 <ClipboardList className="w-6 h-6" />
-                <h3 className="text-lg font-bold">Détails de l'Avenant</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Détails de l'Avenant</h3>
             </div>
 
             {/* CONSTAT TERRAIN */}
             <div className="space-y-4">
-                <h4 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 flex items-center justify-center text-sm">1</span>
                     Constat Terrain
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
                             Date du constat
                         </label>
                         <input
@@ -41,7 +41,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
                             Raison technique / Norme
                         </label>
                         <input
@@ -70,7 +70,7 @@ const AmendmentFields = ({ formData, setFormData }) => {
 
             {/* NOUVELLE SOLUTION */}
             <div className="space-y-4 pt-4 border-t border-orange-200 dark:border-orange-800/30">
-                <h4 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 flex items-center justify-center text-sm">2</span>
                     Nouvelle Solution
                 </h4>
