@@ -20,7 +20,6 @@ import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoServi
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
-import PublicQuoteLink from '../components/PublicQuoteLink';
 import SituationModal from '../components/SituationModal';
 
 const DevisForm = () => {
