@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ const DevisForm = () => {
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
     const fileInputRef = React.useRef(null);
     const [showCalculator, setShowCalculator] = useState(false);
@@ -1510,7 +1511,7 @@ Conditions de règlement : Paiement à réception de facture.`
         try {
             if (!userProfile) {
                 toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
-                fetchUserProfile(); // Try to fetch again just in case
+                fetchUserProfile();
                 return;
             }
 
@@ -1524,6 +1525,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 toast.error('Client introuvable');
                 return;
             }
+
+            setPreviewLoading(true);
 
             const isInvoice = formData.type === 'invoice';
             if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
@@ -1547,13 +1550,10 @@ Conditions de règlement : Paiement à réception de facture.`
                 has_material_deposit: formData.has_material_deposit
             };
 
-            // console.log("Generating preview with:", { devisData, selectedClient, userProfile });
-            // Use 'bloburl' for better compatibility with iframes
             const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
 
             if (url) {
                 setPreviewUrl(url);
-                console.log("Preview URL set (Blob URL)");
             } else {
                 throw new Error("La génération du PDF n'a retourné aucune URL");
             }
@@ -1561,6 +1561,8 @@ Conditions de règlement : Paiement à réception de facture.`
         } catch (error) {
             console.error('Error handling preview:', error);
             toast.error("Impossible de générer l'aperçu PDF : " + error.message);
+        } finally {
+            setPreviewLoading(false);
         }
     };
 
@@ -2751,66 +2753,157 @@ Conditions de règlement : Paiement à réception de facture.`
             />
 
             {/* Preview Modal */}
-            {
-                previewUrl && (
-                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
-                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                                <h3 className="font-semibold text-lg text-gray-800 flex items-center">
-                                    <Eye className="w-5 h-5 mr-2 text-blue-600" />
-                                    Prévisualisation du document
-                                </h3>
-                                <button
-                                    onClick={() => setPreviewUrl(null)}
-                                    className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
+            {(previewUrl || previewLoading) && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+                    onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setPreviewUrl(null); }}
+                >
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] sm:h-[92vh] flex flex-col animate-in fade-in zoom-in duration-200 overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                                    formData.type === 'invoice' ? 'bg-green-100 dark:bg-green-900/30' :
+                                    formData.type === 'amendment' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                                    'bg-blue-100 dark:bg-blue-900/30'
+                                }`}>
+                                    <FileText className={`w-4.5 h-4.5 ${
+                                        formData.type === 'invoice' ? 'text-green-600 dark:text-green-400' :
+                                        formData.type === 'amendment' ? 'text-orange-600 dark:text-orange-400' :
+                                        'text-blue-600 dark:text-blue-400'
+                                    }`} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                                            {formData.title || 'Document sans titre'}
+                                        </h3>
+                                        <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                            formData.type === 'invoice' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                            formData.type === 'amendment' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        }`}>
+                                            {formData.type === 'invoice' ? 'Facture' : formData.type === 'amendment' ? 'Avenant' : 'Devis'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                        {(() => {
+                                            const c = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+                                            return c ? c.name : '';
+                                        })()}
+                                        {formData.id && formData.id !== 'new' ? ` · N°${formData.id}` : ' · Brouillon'}
+                                        {total ? ` · ${total.toFixed(2)} € TTC` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <a
+                                    href={previewUrl || '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 hidden sm:flex ${!previewUrl ? 'pointer-events-none opacity-50' : ''}`}
+                                    title="Ouvrir dans un nouvel onglet"
                                 >
-                                    <X className="w-6 h-6" />
+                                    <ExternalLink className="w-4.5 h-4.5" />
+                                </a>
+                                <button
+                                    onClick={() => { setPreviewUrl(null); setPreviewLoading(false); }}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                    title="Fermer (Échap)"
+                                >
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="flex-1 bg-gray-100 p-0 overflow-hidden relative">
-                                <object
-                                    data={previewUrl}
-                                    type="application/pdf"
-                                    className="w-full h-full"
-                                >
-                                    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                                        <div className="bg-white p-6 rounded-xl shadow-sm max-w-sm">
-                                            <p className="text-gray-500 mb-4">L'aperçu intégré n'est pas supporté sur votre appareil.</p>
-                                            <a
-                                                href={previewUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center font-medium shadow-sm transition-colors"
-                                            >
-                                                <Download className="w-4 h-4 mr-2" />
-                                                Ouvrir le PDF
-                                            </a>
+                        </div>
+
+                        {/* PDF Content */}
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-950 overflow-hidden relative">
+                            {previewLoading && !previewUrl ? (
+                                <div className="flex flex-col items-center justify-center h-full gap-4">
+                                    <div className="relative">
+                                        <div className="w-16 h-20 bg-white dark:bg-gray-800 rounded-lg shadow-lg flex items-center justify-center">
+                                            <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                        </div>
+                                        <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                            <Loader2 className="w-4 h-4 text-white animate-spin" />
                                         </div>
                                     </div>
-                                </object>
-                            </div>
-                            <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
+                                    <div className="text-center">
+                                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Génération du document...</p>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Cela ne prend qu'un instant</p>
+                                    </div>
+                                </div>
+                            ) : previewUrl ? (
+                                <iframe
+                                    src={previewUrl}
+                                    title="Prévisualisation PDF"
+                                    className="w-full h-full border-0"
+                                    style={{ background: '#525659' }}
+                                />
+                            ) : null}
+
+                            {/* Fallback overlay for mobile (iframe may not render PDF) */}
+                            {previewUrl && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center sm:hidden bg-gray-200 dark:bg-gray-950">
+                                    <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg max-w-xs w-full space-y-4">
+                                        <div className="w-14 h-14 mx-auto bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                                            <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">Document prêt</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                L'aperçu intégré n'est pas disponible sur mobile.
+                                            </p>
+                                        </div>
+                                        <a
+                                            href={previewUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-full px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 inline-flex items-center justify-center font-medium shadow-sm transition-colors text-sm"
+                                        >
+                                            <ExternalLink className="w-4 h-4 mr-2" />
+                                            Ouvrir le PDF
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer actions */}
+                        <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900">
+                            <button
+                                onClick={() => setPreviewUrl(null)}
+                                className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                Fermer
+                            </button>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setPreviewUrl(null)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    onClick={() => {
+                                        handleSendQuoteEmail();
+                                        setPreviewUrl(null);
+                                    }}
+                                    className="hidden sm:flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                 >
-                                    Fermer
+                                    <Send className="w-3.5 h-3.5 mr-1.5" />
+                                    Envoyer
                                 </button>
                                 <button
                                     onClick={() => {
                                         handleDownloadPDF(formData.status === 'accepted');
                                         setPreviewUrl(null);
                                     }}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                    className="flex items-center px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
                                 >
-                                    <Download className="w-4 h-4 mr-2" />
+                                    <Download className="w-3.5 h-3.5 mr-1.5" />
                                     Télécharger
                                 </button>
                             </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Email Preview Modal */}
             {
