@@ -527,8 +527,26 @@ const DevisForm = () => {
                         .select('id, total_ttc, total_ht, items, date, title')
                         .eq('id', data.parent_quote_id)
                         .single();
+
                     if (parentData) {
-                        setFormData(prev => ({ ...prev, parent_quote_data: parentData }));
+                        // Calculate progress total (Situation invoices sums)
+                        // This mirrors get_public_quote RPC logic to ensure inconsistent PDF preview
+                        const { data: progressInvoices } = await supabase
+                            .from('quotes')
+                            .select('total_ttc')
+                            .eq('parent_id', data.parent_quote_id) // Situations are children of the Original Quote
+                            .eq('type', 'invoice')
+                            .neq('status', 'cancelled');
+
+                        const progressTotal = (progressInvoices || []).reduce((sum, inv) => sum + (inv.total_ttc || 0), 0);
+
+                        setFormData(prev => ({
+                            ...prev,
+                            parent_quote_data: {
+                                ...parentData,
+                                progress_total: progressTotal
+                            }
+                        }));
                     }
                 }
 
