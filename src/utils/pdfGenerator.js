@@ -338,36 +338,83 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Progress invoices (Situations) already billed on parent quote
         const progressTotal = devis.parent_quote_data?.progress_total || 0;
 
-        // NEW LOGIC: Do NOT subtract deposit from "Solde" on Amendment. 
-        // Solde = New Total - Progress Invoices.
-        const balance = newTotalTTC - progressTotal;
+        // SCENARIO CHECK: Has Progress (Situation) Invoice?
+        // If yes, Situation replaces Initial Quote for billing baseline.
+        // If no, we use Initial Quote + Amendment - Deposit.
 
         const leftX = 14;
         const rightValueX = 100;
 
-        doc.text(`Montant initial TTC :`, leftX, financeY);
-        doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
-        financeY += 6;
-
-        if (deposit > 0) {
-            doc.text(`Acompte versé :`, leftX, financeY);
-            doc.text(`${deposit.toFixed(2)} € (conservé)`, rightValueX, financeY, { align: 'right' });
-            financeY += 6;
-        }
-
         if (progressTotal > 0) {
-            doc.text(`Situations intermédiaires :`, leftX, financeY);
-            doc.text(`${progressTotal.toFixed(2)} € (déduit)`, rightValueX, financeY, { align: 'right' });
+            // SCENARIO A: WITH SITUATION 
+            // Display: Initial (Ref), Situation (Billed), Amendment (New), Global Total (Sit + Amend)
+            // Balance = Amendment Total (as Situation is billed separately)
+
+            doc.text(`Devis Initial TTC :`, leftX, financeY);
+            doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
+
+            doc.text(`Facturé à ce jour (Situation) :`, leftX, financeY);
+            doc.text(`${progressTotal.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(`(incluant acompte)`, rightValueX, financeY + 3, { align: 'right' });
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            financeY += 8;
+
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(37, 99, 235); // Blue
+            doc.text(`Montant Avenant TTC :`, leftX, financeY);
+            doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+            financeY += 8;
+
+            doc.setFontSize(12);
+            doc.text(`Nouveau Total Projet :`, leftX, financeY);
+            // New Total = Situation + Amendment
+            doc.text(`${(progressTotal + amendmentTTC).toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`(Solde à régler sur cet avenant : ${amendmentTTC.toFixed(2)} €)`, rightValueX, financeY, { align: 'right' });
+
+        } else {
+            // SCENARIO B: NO SITUATION (Standard Additive)
+            // Balance = Initial + Amendment - Deposit
+
+            doc.text(`Devis Initial TTC :`, leftX, financeY);
+            doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+
+            if (deposit > 0) {
+                doc.text(`Acompte versé :`, leftX, financeY);
+                doc.text(`${deposit.toFixed(2)} € (conservé)`, rightValueX, financeY, { align: 'right' });
+                financeY += 6;
+            }
+
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(37, 99, 235);
+            doc.text(`Complément Avenant TTC :`, leftX, financeY);
+            doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+            financeY += 8;
+
+            // Balance Calculation
+            const balance = initialTTC + amendmentTTC - deposit;
+
+            doc.setFontSize(12);
+            doc.text(`Nouveau Solde à Régler :`, leftX, financeY);
+            doc.text(`${balance.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`(Total Projet : ${(initialTTC + amendmentTTC).toFixed(2)} € TTC)`, rightValueX, financeY, { align: 'right' });
         }
-
-        doc.setFont(undefined, 'bold');
-        doc.text(`Nouveau montant TTC :`, leftX, financeY);
-        doc.text(`${newTotalTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
-        financeY += 6;
-
-        doc.text(`Solde à régler :`, leftX, financeY);
-        doc.text(`${balance.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
 
         // Update currentY for next sections
         currentTableY = financeY + 10;

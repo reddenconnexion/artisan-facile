@@ -395,213 +395,230 @@ const PublicQuote = () => {
                     <div className="border-t border-gray-100 pt-6 flex justify-end">
                         <div className="w-full sm:w-1/2 md:w-5/12 space-y-3">
                             {isAmendment ? (
-                                <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Ajustement Financier</h3>
 
                                     <div className="space-y-3 text-sm">
                                         <div className="flex justify-between text-gray-600">
-                                            <span>Montant initial TTC</span>
+                                            <span>Devis Initial TTC</span>
                                             <span>{(quote.parent_quote_data?.total_ttc || 0).toFixed(2)} €</span>
                                         </div>
 
-                                        {/* Acompte / Deposit */}
-                                        <div className="flex justify-between text-gray-600">
-                                            <span>Acompte versé</span>
-                                            <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
-                                        </div>
-                                        <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(conservé)</div>
-
-                                        {/* Progress Invoices linked to parent */}
-                                        {(quote.parent_quote_data?.progress_total > 0) && (
+                                        {/* SCENARIO A : SITUATION EXISTE (On remplace le devis initial) */}
+                                        {(quote.parent_quote_data?.progress_total > 0) ? (
                                             <>
-                                                <div className="flex justify-between text-gray-600">
-                                                    <span>Situations / Factures émises</span>
+                                                <div className="flex justify-between text-gray-800 font-medium">
+                                                    <span>Facturé à ce jour (Situation)</span>
                                                     <span>{(quote.parent_quote_data.progress_total).toFixed(2)} €</span>
                                                 </div>
-                                                <div className="text-xs text-right text-gray-400 -mt-2 mb-2">(déduit)</div>
+                                                <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(incluant acompte)</div>
+
+                                                <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
+                                                    <span>Montant Avenant TTC</span>
+                                                    <span>+{quote.total_ttc.toFixed(2)} €</span>
+                                                </div>
+
+                                                <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
+                                                    <span>Nouveau Total Projet</span>
+                                                    <span>
+                                                        {(quote.parent_quote_data.progress_total + quote.total_ttc).toFixed(2)} €
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-right text-gray-500 mt-1">
+                                                    (Solde à régler sur cet avenant : {quote.total_ttc.toFixed(2)} €)
+                                                </div>
                                             </>
-                                        )}
+                                        ) : (
+                                            /* SCENARIO B : PAS DE SITUATION (On cumule) */
+                                            <>
+                                                {/* Acompte / Deposit */}
+                                                <div className="flex justify-between text-gray-600">
+                                                    <span>Acompte versé</span>
+                                                    <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
+                                                </div>
+                                                <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(conservé)</div>
 
-                                        <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
-                                            <span>Coût Avenant TTC</span>
-                                            <span>+{quote.total_ttc.toFixed(2)} €</span>
-                                        </div>
+                                                <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
+                                                    <span>Complément Avenant TTC</span>
+                                                    <span>+{quote.total_ttc.toFixed(2)} €</span>
+                                                </div>
 
-                                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
-                                            <span>Nouveau Solde à Régler</span>
-                                            <span>
-                                                {((
-                                                    (quote.parent_quote_data?.total_ttc || 0) +
-                                                    quote.total_ttc -
-                                                    (amendmentDetails.initial_deposit_amount || 0) -
-                                                    (quote.parent_quote_data?.progress_total || 0)
-                                                )).toFixed(2)} €
-                                            </span>
-                                        </div>
-                                        <div className="text-xs text-right text-gray-500 mt-1">
-                                            (Total Projet: {((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} € TTC)
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between text-gray-600">
-                                        <span>Total HT</span>
-                                        <span>{quote.total_ht.toFixed(2)} €</span>
-                                    </div>
-                                    {quote.total_tva > 0 ? (
-                                        <div className="flex justify-between text-gray-600">
-                                            <span>TVA (20%)</span>
-                                            <span>{quote.total_tva.toFixed(2)} €</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
-                                    )}
-                                    <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                        <span>Total TTC</span>
-                                        <span>{quote.total_ttc.toFixed(2)} €</span>
-                                    </div>
-                                </>
+                                                <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
+                                                    <span>Nouveau Solde à Régler</span>
+                                                    <span>{((
+                                                        (quote.parent_quote_data?.total_ttc || 0) +
+                                                        quote.total_ttc -
+                                                        (amendmentDetails.initial_deposit_amount || 0)
+                                                    )).toFixed(2)} €</span>
+                                                </div>
+                                                <div className="text-xs text-right text-gray-500 mt-1">
+                                                    (Total Projet: {((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} € TTC)
+                                                </div>
+                                            </>
+                                            </>
                             )}
                         </div>
                     </div>
-
-                    {/* Notes with Auto Calculation */}
-                    {(quote.notes || (!isInvoiceView && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
-                        <div className="mt-8 pt-8 border-t border-gray-100">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
-                            <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
-                                {quote.notes}
-                                {!isInvoiceView && quote.items.some(i => i.type === 'material') && quote.has_material_deposit === true && (
-                                    <div className="mt-4 pt-4 border-t border-gray-200/50">
-                                        <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
-                                        Montant des fournitures : {(() => {
-                                            const mItems = quote.items.filter(i => i.type === 'material');
-                                            const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                                            // Infer tax applied if total_ttc > total_ht globally (simplified check)
-                                            // Or use a strict rule. Assuming standard 1.2 if VAT enabled.
-                                            // PublicQuote doesn't have 'include_tva' flag easily accessible if it's not in DB distinct column (it is in formData).
-                                            // Wait, quote object has fields. Let's check quote struct.
-                                            // Ideally we infer from total_tva > 0.
-                                            const hasTva = quote.total_tva > 0;
-                                            const mTTC = hasTva ? mHT * 1.2 : mHT;
-                                            return mTTC.toFixed(2);
-                                        })()} € TTC.<br />
-                                        Un acompte correspondant à la totalité du matériel est requis à la signature.<br />
-                                    </div>
-                                )}
+                    ) : (
+                    <>
+                        <div className="flex justify-between text-gray-600">
+                            <span>Total HT</span>
+                            <span>{quote.total_ht.toFixed(2)} €</span>
+                        </div>
+                        {quote.total_tva > 0 ? (
+                            <div className="flex justify-between text-gray-600">
+                                <span>TVA (20%)</span>
+                                <span>{quote.total_tva.toFixed(2)} €</span>
                             </div>
+                        ) : (
+                            <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
+                        )}
+                        <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
+                            <span>Total TTC</span>
+                            <span>{quote.total_ttc.toFixed(2)} €</span>
+                        </div>
+                    </>
+                            )}
+                </div>
+            </div>
+
+            {/* Notes with Auto Calculation */}
+            {(quote.notes || (!isInvoiceView && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
+                <div className="mt-8 pt-8 border-t border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
+                    <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
+                        {quote.notes}
+                        {!isInvoiceView && quote.items.some(i => i.type === 'material') && quote.has_material_deposit === true && (
+                            <div className="mt-4 pt-4 border-t border-gray-200/50">
+                                <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
+                                Montant des fournitures : {(() => {
+                                    const mItems = quote.items.filter(i => i.type === 'material');
+                                    const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                                    // Infer tax applied if total_ttc > total_ht globally (simplified check)
+                                    // Or use a strict rule. Assuming standard 1.2 if VAT enabled.
+                                    // PublicQuote doesn't have 'include_tva' flag easily accessible if it's not in DB distinct column (it is in formData).
+                                    // Wait, quote object has fields. Let's check quote struct.
+                                    // Ideally we infer from total_tva > 0.
+                                    const hasTva = quote.total_tva > 0;
+                                    const mTTC = hasTva ? mHT * 1.2 : mHT;
+                                    return mTTC.toFixed(2);
+                                })()} € TTC.<br />
+                                Un acompte correspondant à la totalité du matériel est requis à la signature.<br />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+
+                {/* Legal Terms Footer (Common) */ }
+    <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
+        <p className="mb-2">
+            <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}.
+            {(() => {
+                const isInstallment = (quote.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(quote.notes));
+                return isInstallment
+                    ? ` Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${artisan.company_name || artisan.full_name}.`
+                    : ` Le règlement s'effectue par virement bancaire.`;
+            })()}
+        </p>
+        <p className="mb-2">
+            <strong className="text-gray-500">Pénalités de retard :</strong> Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.
+        </p>
+        <p className="mb-2">
+            <strong className="text-gray-500">Frais de recouvrement (Clients Pros) :</strong> Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).
+        </p>
+        <p>
+            <strong className="text-gray-500">Réserve de propriété :</strong> Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix.
+        </p>
+    </div>
+
+    {/* Payment Information (Visible for Invoices/Signed Quotes OR if IBAN present) */ }
+    {/* Logic: PDF shows it always if IBAN exists. Web should match. */ }
+    {
+        quote.status !== 'paid' && artisan.iban && (
+            <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                    <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
+                    Moyens de paiement acceptés
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
+                        <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
+                            {artisan.iban}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2 flex items-center">
+                            Reference à rappeler : <span className="font-bold ml-1">{quote.id}</span>
+                        </p>
+                    </div>
+                    {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
+                        <div className="bg-white p-4 rounded-xl border border-slate-200">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
+                            <p className="text-slate-900 font-medium">
+                                {artisan.wero_phone}
+                                {(artisan.full_name || artisan.company_name) && (
+                                    <span className="text-slate-500 font-normal text-sm ml-1">
+                                        ({artisan.full_name || artisan.company_name})
+                                    </span>
+                                )}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
                         </div>
                     )}
                 </div>
-
-                {/* Legal Terms Footer (Common) */}
-                <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}.
-                        {(() => {
-                            const isInstallment = (quote.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(quote.notes));
-                            return isInstallment
-                                ? ` Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${artisan.company_name || artisan.full_name}.`
-                                : ` Le règlement s'effectue par virement bancaire.`;
-                        })()}
-                    </p>
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Pénalités de retard :</strong> Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.
-                    </p>
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Frais de recouvrement (Clients Pros) :</strong> Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).
-                    </p>
-                    <p>
-                        <strong className="text-gray-500">Réserve de propriété :</strong> Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix.
-                    </p>
-                </div>
-
-                {/* Payment Information (Visible for Invoices/Signed Quotes OR if IBAN present) */}
-                {/* Logic: PDF shows it always if IBAN exists. Web should match. */}
-                {quote.status !== 'paid' && artisan.iban && (
-                    <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                            <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
-                            Moyens de paiement acceptés
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
-                                <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
-                                    {artisan.iban}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-2 flex items-center">
-                                    Reference à rappeler : <span className="font-bold ml-1">{quote.id}</span>
-                                </p>
-                            </div>
-                            {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
-                                <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                    <p className="text-slate-900 font-medium">
-                                        {artisan.wero_phone}
-                                        {(artisan.full_name || artisan.company_name) && (
-                                            <span className="text-slate-500 font-normal text-sm ml-1">
-                                                ({artisan.full_name || artisan.company_name})
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Actions Bar */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0">
-                    <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 justify-end">
-                        <button
-                            onClick={handleDownload}
-                            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-all"
-                        >
-                            <Download className="w-5 h-5 mr-2" />
-                            Télécharger PDF
-                        </button>
-
-                        {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
-                            <button
-                                onClick={() => setShowSignatureModal(true)}
-                                className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
-                            >
-                                <PenTool className="w-5 h-5 mr-2" />
-                                Signer le devis
-                            </button>
-                        ) : null}
-
-                        {/* Payment Info for Invoices - REMOVED ABSOLUTE BLOCK */}
-
-                        {isSigned && quote.type !== 'invoice' && (
-                            <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
-                                <FileCheck className="w-5 h-5 mr-2" />
-                                Devis signé le {new Date(quote.signed_at || quote.updated_at).toLocaleDateString()}
-                            </div>
-                        )}
-
-                        {quote.status === 'paid' && (
-                            <div className="flex items-center justify-center px-8 py-3 bg-red-100 text-red-800 font-bold rounded-xl border border-red-200 cursor-default">
-                                <FileCheck className="w-5 h-5 mr-2" />
-                                FACTURE ACQUITTÉE
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Spacer for fixed bottom bar on mobile */}
-                <div className="h-24 md:hidden"></div>
             </div>
+        )
+    }
 
-            <SignatureModal
-                isOpen={showSignatureModal}
-                onClose={() => setShowSignatureModal(false)}
-                onSave={handleSignatureSave}
-            />
+    {/* Actions Bar */ }
+    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 justify-end">
+            <button
+                onClick={handleDownload}
+                className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-all"
+            >
+                <Download className="w-5 h-5 mr-2" />
+                Télécharger PDF
+            </button>
+
+            {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
+                <button
+                    onClick={() => setShowSignatureModal(true)}
+                    className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+                >
+                    <PenTool className="w-5 h-5 mr-2" />
+                    Signer le devis
+                </button>
+            ) : null}
+
+            {/* Payment Info for Invoices - REMOVED ABSOLUTE BLOCK */}
+
+            {isSigned && quote.type !== 'invoice' && (
+                <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
+                    <FileCheck className="w-5 h-5 mr-2" />
+                    Devis signé le {new Date(quote.signed_at || quote.updated_at).toLocaleDateString()}
+                </div>
+            )}
+
+            {quote.status === 'paid' && (
+                <div className="flex items-center justify-center px-8 py-3 bg-red-100 text-red-800 font-bold rounded-xl border border-red-200 cursor-default">
+                    <FileCheck className="w-5 h-5 mr-2" />
+                    FACTURE ACQUITTÉE
+                </div>
+            )}
         </div>
+    </div>
+
+    {/* Spacer for fixed bottom bar on mobile */ }
+    <div className="h-24 md:hidden"></div>
+            </div >
+
+    <SignatureModal
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSave={handleSignatureSave}
+    />
+        </div >
     );
 };
 
