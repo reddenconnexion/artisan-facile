@@ -176,6 +176,19 @@ const PublicQuote = () => {
         }
     }
 
+    // Safe Date Parsing Helper
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            // Check if date is valid
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleDateString();
+        } catch (e) {
+            return '';
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-4xl mx-auto space-y-6">
@@ -237,7 +250,7 @@ const PublicQuote = () => {
                                     {quote.id}
                                 </span>
                                 <div className="mt-2 text-sm text-gray-500">
-                                    Du {new Date(quote.date).toLocaleDateString()}
+                                    Du {formatDate(quote.date)}
                                 </div>
                             </div>
                         </div>
@@ -283,7 +296,7 @@ const PublicQuote = () => {
                                 <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-4">Constat Terrain</h3>
                                 <div className="space-y-3 text-amber-900">
                                     {amendmentDetails.constat_date && (
-                                        <p><strong>Date du constat :</strong> {new Date(amendmentDetails.constat_date).toLocaleDateString()}</p>
+                                        <p><strong>Date du constat :</strong> {formatDate(amendmentDetails.constat_date)}</p>
                                     )}
                                     {amendmentDetails.constat_description && (
                                         <p className="whitespace-pre-line">{amendmentDetails.constat_description}</p>
@@ -513,7 +526,7 @@ const PublicQuote = () => {
                 {/* Legal Terms Footer (Common) */}
                 <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
                     <p className="mb-2">
-                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${new Date(quote.valid_until).toLocaleDateString()}` : 'à réception de la facture'}.
+                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${formatDate(quote.valid_until)}` : 'à réception de la facture'}.
                         {(() => {
                             const isInstallment = (quote.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(quote.notes));
                             return isInstallment
@@ -596,7 +609,7 @@ const PublicQuote = () => {
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
                                 <FileCheck className="w-5 h-5 mr-2" />
-                                Devis signé le {new Date(quote.signed_at || quote.updated_at).toLocaleDateString()}
+                                Devis signé le {formatDate(quote.signed_at || quote.updated_at)}
                             </div>
                         )}
 
