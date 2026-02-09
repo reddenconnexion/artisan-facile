@@ -195,7 +195,7 @@ const ActionableDashboard = ({ user }) => {
                                             <span className="text-xs font-normal text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Signé le {format(parseISO(quote.signed_at || quote.updated_at), 'dd/MM', { locale: fr })}</span>
                                         </p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            {quote.title} - <span className="font-semibold text-gray-900 dark:text-gray-100">{quote.total_ttc} €</span>
+                                            {quote.title} - <span className="font-semibold text-gray-900 dark:text-gray-100">{(quote.total_ttc || 0).toFixed(2)} €</span>
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ const ActionableDashboard = ({ user }) => {
                                     <div>
                                         <p className="font-medium text-gray-900 dark:text-white">{quote.client_name || quote.clients?.name || 'Client'}</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {quote.total_ttc}€
+                                            Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {(quote.total_ttc || 0).toFixed(2)}€
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ const ActionableDashboard = ({ user }) => {
                                         </p>
                                     </div>
                                     <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
-                                        {quote.total_ttc} €
+                                        {(quote.total_ttc || 0).toFixed(2)} €
                                     </span>
                                 </div>
                             ))}
