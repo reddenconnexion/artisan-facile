@@ -4,14 +4,13 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { useDashboardData, useUserProfile } from '../hooks/useDataCache';
+import { useDashboardData } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
-import { getUrssafRate } from '../utils/taxUtils';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 
 // --- Helper for Stats Calculation (Pure Function) ---
-const calculateStats = (allQuotes, referenceDate, userPrefs) => {
+const calculateStats = (allQuotes, referenceDate) => {
     // Default safe return structure matching buildMetricObject shape
     const getSafeEmptyMetric = () => {
         const emptyItem = { value: 0, max: 100, chart: [], details: [] };
@@ -100,25 +99,7 @@ const calculateStats = (allQuotes, referenceDate, userPrefs) => {
                         const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
                         const deductionTTC = deductionHT * taxRatio;
                         const materialTTC = materialHT * taxRatio;
-
-                        // Calculate URSSAF Charges (simulated on HT)
-                        let urssafCost = 0;
-                        quote.items.forEach(item => {
-                            const lineHT = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
-                            if (lineHT > 0) {
-                                const itemType = item.type || 'service';
-                                const rate = getUrssafRate(userPrefs, itemType);
-                                urssafCost += lineHT * rate;
-                            }
-                        });
-
-                        netAmount = amount - materialTTC - deductionTTC - urssafCost;
-                    } else {
-                        // Fallback if no items: Assume service
-                        const totalHT = quote.total_ht !== undefined ? quote.total_ht : (amount / 1.2);
-                        const rate = getUrssafRate(userPrefs, 'service');
-                        const urssafCost = totalHT * rate;
-                        netAmount = amount - urssafCost;
+                        netAmount = amount - materialTTC - deductionTTC;
                     }
 
                     const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
@@ -266,13 +247,13 @@ const calculateStats = (allQuotes, referenceDate, userPrefs) => {
 };
 
 // --- Reusable Smart Card with Individual Navigation ---
-const RichStatCard = ({ title, allQuotes, userProfile, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick }) => {
+const RichStatCard = ({ title, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick }) => {
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
 
     // Calculate stats specifically for this card's localDate
-    const stats = useMemo(() => calculateStats(allQuotes, localDate, userProfile?.ai_preferences), [allQuotes, localDate, userProfile]);
+    const stats = useMemo(() => calculateStats(allQuotes, localDate), [allQuotes, localDate]);
     const currentData = stats[type]?.[period]; // Data for current period
     const displayValue = type === 'conversion' ? stats.conversion?.[period]?.value : currentData?.value;
 
@@ -392,10 +373,7 @@ const Dashboard = () => {
     const [detailsView, setDetailsView] = useState(null);
 
     // Utilisation du cache React Query
-    const { data, isLoading: loadingData } = useDashboardData();
-    const { data: userProfile, isLoading: loadingProfile } = useUserProfile();
-
-    const loading = loadingData || loadingProfile;
+    const { data, isLoading: loading } = useDashboardData();
 
     const allQuotes = data?.allQuotes || [];
     const clientCount = data?.clientCount || 0;
@@ -466,7 +444,6 @@ const Dashboard = () => {
                 <RichStatCard
                     title="Chiffre d'affaires"
                     allQuotes={allQuotes}
-                    userProfile={userProfile}
                     type="revenue"
                     icon={TrendingUp}
                     colorClass="bg-green-500"
@@ -477,9 +454,8 @@ const Dashboard = () => {
                 <RichStatCard
                     title="Résultat Net"
                     allQuotes={allQuotes}
-                    userProfile={userProfile}
                     type="netIncome"
-                    staticSubText="(Après charges)"
+                    staticSubText="(Hors Matériel)"
                     icon={TrendingUp}
                     colorClass="bg-emerald-600"
                     colorHex="#059669"
@@ -489,7 +465,6 @@ const Dashboard = () => {
                 <RichStatCard
                     title="Volume de Devis"
                     allQuotes={allQuotes}
-                    userProfile={userProfile}
                     type="quotes"
                     staticSubText={`${pendingQuotesCount} en attente`}
                     icon={FileCheck}
@@ -501,7 +476,6 @@ const Dashboard = () => {
                 <RichStatCard
                     title="Taux de conversion"
                     allQuotes={allQuotes}
-                    userProfile={userProfile}
                     type="conversion"
                     staticSubText="Devis signés / Total"
                     icon={BarChart3}
