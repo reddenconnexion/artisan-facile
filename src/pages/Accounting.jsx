@@ -84,9 +84,10 @@ const Accounting = () => {
   // Calcul du CA détaillé pour la période sélectionnée (factures payées uniquement)
   // Retourne { total, services, vente }
   const periodData = useMemo(() => {
-    if (!invoices.length) return { total: 0, services: 0, vente: 0 };
+    const safeInvoices = invoices || [];
+    if (!safeInvoices.length) return { total: 0, services: 0, vente: 0 };
 
-    const filtered = (invoices || []).filter(invoice => {
+    const filtered = safeInvoices.filter(invoice => {
       // Filtrer par statut payé (comme le Dashboard)
       const status = (invoice.status || '').toLowerCase();
       // Inclure 'paid' et les factures (type=invoice) non annulées/brouillon (selon logique comptable préférée)
