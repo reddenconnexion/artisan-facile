@@ -3,6 +3,18 @@ import autoTable from 'jspdf-autotable';
 import { PDFDocument } from 'pdf-lib';
 import { generateFacturXXML } from './facturxGenerator';
 
+// Safe Date Helper
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleDateString();
+    } catch (e) {
+        return '';
+    }
+};
+
 // Converted to Async to support pdf-lib operations
 export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false) => {
     // ---------------------------------------------------------
@@ -95,9 +107,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`${dateLabel} : ${new Date(devis.date).toLocaleDateString()}`, 14, 85);
+    doc.text(`${dateLabel} : ${formatDate(devis.date)}`, 14, 85);
     if (!isInvoice && devis.valid_until) {
-        doc.text(`Valable jusqu'au : ${new Date(devis.valid_until).toLocaleDateString()}`, 14, 90);
+        doc.text(`Valable jusqu'au : ${formatDate(devis.valid_until)}`, 14, 90);
     }
 
     // Factur-X Info (Ops Category)
@@ -175,7 +187,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // --- AVENANT SECTIONS ---
         // 1. Reference
         const parentRef = devis.parent_quote_data
-            ? `Devis initial N° ${devis.parent_quote_data.id} du ${new Date(devis.parent_quote_data.date).toLocaleDateString()}`
+            ? `Devis initial N° ${devis.parent_quote_data.id} du ${formatDate(devis.parent_quote_data.date)}`
             : `Devis initial Référence Inconnue`;
 
         doc.setFontSize(10);
@@ -207,7 +219,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setTextColor(50, 50, 50);
 
         if (details.constat_date) {
-            doc.text(`Lors de l'intervention du ${new Date(details.constat_date).toLocaleDateString()}, découverte de :`, 14, currentY);
+            doc.text(`Lors de l'intervention du ${formatDate(details.constat_date)}, découverte de :`, 14, currentY);
             currentY += 5;
         }
         if (details.constat_description) {
@@ -666,7 +678,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Calcule la date d'échance : soit c'est une facture et on a valid_until, soit c'est aujourd'hui (réception)
     const dueDate = (isInvoice && devis.valid_until)
-        ? new Date(devis.valid_until).toLocaleDateString()
+        ? formatDate(devis.valid_until)
         : "à réception";
 
     // --- NEW: Fetch Installments Schedule ---
@@ -698,7 +710,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text("Échéancier de paiement :", 14, currentY);
 
         const scheduleBody = installments.map(inst => [
-            new Date(inst.due_date).toLocaleDateString(),
+            formatDate(inst.due_date),
             `${inst.amount.toFixed(2)} €`,
             inst.status === 'paid' ? 'Payé' : (inst.status === 'partial' ? 'Partiel' : 'En attente')
         ]);
