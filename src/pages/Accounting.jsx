@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../utils/supabase';
+import { useUserProfile, useQuotes } from '../hooks/useDataCache';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -58,9 +58,13 @@ const VAT_LIMITS = {
 
 const Accounting = () => {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use hooks for reactive data
+  const { data: profile, isLoading: profileLoading } = useUserProfile();
+  const { data: invoices, isLoading: invoicesLoading } = useQuotes(); // Fetch all quotes (will filter locally)
+
+  const loading = profileLoading || invoicesLoading;
+
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedPeriod, setSelectedPeriod] = useState('month'); // 'month' ou 'quarter'
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -75,50 +79,14 @@ const Accounting = () => {
   const [caVente, setCaVente] = useState('');
   const [caServices, setCaServices] = useState('');
 
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Charger le profil
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
-
-      if (profileError) console.error('Error fetching profile', profileError);
-      if (profileData) setProfile(profileData);
-
-      // Charger tous les documents (avec les items pour le calcul précis)
-      // items est une colonne JSON, pas une relation, donc '*' suffit
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (invoiceError) throw invoiceError;
-      setInvoices(invoiceData || []);
-
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Erreur lors du chargement des données. Veuillez réessayer.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // No need for loadData or useEffect for fetching
 
   // Calcul du CA détaillé pour la période sélectionnée (factures payées uniquement)
   // Retourne { total, services, vente }
   const periodData = useMemo(() => {
     if (!invoices.length) return { total: 0, services: 0, vente: 0 };
 
-    const filtered = invoices.filter(invoice => {
+    const filtered = (invoices || []).filter(invoice => {
       // Filtrer par statut payé (comme le Dashboard)
       const status = (invoice.status || '').toLowerCase();
       // Inclure 'paid' et les factures (type=invoice) non annulées/brouillon (selon logique comptable préférée)
@@ -183,7 +151,7 @@ const Accounting = () => {
 
   // Calcul du CA annuel (factures payées uniquement)
   const yearlyRevenue = useMemo(() => {
-    return invoices
+    return (invoices || [])
       .filter(invoice => {
         const status = (invoice.status || '').toLowerCase();
         if (status !== 'paid') return false;
@@ -248,7 +216,7 @@ const Accounting = () => {
 
   // Calcul du CA Services annuel pour le plafond mixte
   const yearlyRevenueServices = useMemo(() => {
-    return invoices
+    return (invoices || [])
       .filter(invoice => {
         const status = (invoice.status || '').toLowerCase();
         if (status !== 'paid') return false;
