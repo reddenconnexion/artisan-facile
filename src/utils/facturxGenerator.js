@@ -1,25 +1,29 @@
 export const generateFacturXXML = (devis, client, userProfile) => {
-    const formatDate = (dateStr) => {
-        if (!dateStr) return new Date().toISOString().replace(/[-:]/g, '').substring(0, 8); // YYYYMMDD
-        return new Date(dateStr).toISOString().replace(/[-:]/g, '').substring(0, 8);
-    };
+  const formatDate = (dateStr) => {
+    if (!dateStr) return new Date().toISOString().replace(/[-:]/g, '').substring(0, 8); // YYYYMMDD
+    try {
+      return new Date(dateStr).toISOString().replace(/[-:]/g, '').substring(0, 8);
+    } catch (e) {
+      return new Date().toISOString().replace(/[-:]/g, '').substring(0, 8);
+    }
+  };
 
-    const invoiceId = devis.id;
-    const issueDate = formatDate(devis.date);
-    const typeCode = "380"; // 380 = Commercial Invoice
-    const currency = "EUR";
+  const invoiceId = devis.id;
+  const issueDate = formatDate(devis.date);
+  const typeCode = "380"; // 380 = Commercial Invoice
+  const currency = "EUR";
 
-    // Taxes
-    const totalHT = devis.total_ht || 0;
-    const totalTVA = devis.total_tva || 0;
-    const totalTTC = devis.total_ttc || 0;
+  // Taxes
+  const totalHT = devis.total_ht || 0;
+  const totalTVA = devis.total_tva || 0;
+  const totalTTC = devis.total_ttc || 0;
 
-    // Amounts must had 2 decimals
-    const formatAmount = (amt) => (amt || 0).toFixed(2);
+  // Amounts must had 2 decimals
+  const formatAmount = (amt) => (amt || 0).toFixed(2);
 
-    const guidFn = () => 'urn:factur-x.eu:1p0:minimum';
+  const guidFn = () => 'urn:factur-x.eu:1p0:minimum';
 
-    return `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <rsm:ExchangedDocumentContext>
     <ram:GuidelineSpecifiedDocumentContextParameter>
@@ -87,14 +91,14 @@ export const generateFacturXXML = (devis, client, userProfile) => {
 };
 
 const escapeXml = (unsafe) => {
-    if (!unsafe) return '';
-    return unsafe.replace(/[<>&'"]/g, function (c) {
-        switch (c) {
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '&': return '&amp;';
-            case '\'': return '&apos;';
-            case '"': return '&quot;';
-        }
-    });
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&'"]/g, function (c) {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+    }
+  });
 };

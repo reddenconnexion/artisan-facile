@@ -175,6 +175,8 @@ const PublicQuote = () => {
             console.error("Error parsing amendment details", e);
         }
     }
+    // Ensure it's an object
+    amendmentDetails = amendmentDetails || {};
 
     // Safe Date Parsing Helper
     const formatDate = (dateString) => {
@@ -390,8 +392,9 @@ const PublicQuote = () => {
                                     </div>
                                 );
 
-                                const services = quote.items.filter(i => i.type === 'service' || !i.type);
-                                const materials = quote.items.filter(i => i.type === 'material');
+                                const items = quote.items || [];
+                                const services = items.filter(i => i.type === 'service' || !i.type);
+                                const materials = items.filter(i => i.type === 'material');
 
                                 return (
                                     <>
@@ -495,16 +498,16 @@ const PublicQuote = () => {
                     </div>
 
                     {/* Notes with Auto Calculation */}
-                    {(quote.notes || (!isInvoiceView && quote.items.some(i => i.type === 'material'))) && quote.status !== 'paid' && (
+                    {(quote.notes || (!isInvoiceView && (quote.items || []).some(i => i.type === 'material'))) && quote.status !== 'paid' && (
                         <div className="mt-8 pt-8 border-t border-gray-100">
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
                             <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
                                 {quote.notes}
-                                {!isInvoiceView && quote.items.some(i => i.type === 'material') && quote.has_material_deposit === true && (
+                                {!isInvoiceView && (quote.items || []).some(i => i.type === 'material') && quote.has_material_deposit === true && (
                                     <div className="mt-4 pt-4 border-t border-gray-200/50">
                                         <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
                                         Montant des fournitures : {(() => {
-                                            const mItems = quote.items.filter(i => i.type === 'material');
+                                            const mItems = (quote.items || []).filter(i => i.type === 'material');
                                             const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
                                             // Infer tax applied if total_ttc > total_ht globally (simplified check)
                                             // Or use a strict rule. Assuming standard 1.2 if VAT enabled.
