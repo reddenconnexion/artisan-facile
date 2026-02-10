@@ -74,7 +74,7 @@ const calculateStats = (allQuotes, referenceDate) => {
         };
 
         allQuotes.forEach(quote => {
-            const amount = parseFloat(quote.total_ttc) || 0;
+            const amount = parseFloat(quote.total_ht) || parseFloat(quote.total_ttc) || 0;
             const qDate = new Date(quote.date || quote.created_at || new Date());
             if (isNaN(qDate.getTime())) return;
 
@@ -90,17 +90,15 @@ const calculateStats = (allQuotes, referenceDate) => {
                 if (!isDuplicate) {
                     metrics.revenue.total += amount;
 
-                    // Net Income
+                    // Net Income (calculated in HT)
+                    let netAmount = 0;
                     const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
                         (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
 
                     if (isDeposit) {
                         netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
                     } else {
-                        const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
-
-                        // Materials Cost
+                        // Materials Cost (HT)
                         const materialItems = quote.items.filter(i => i.type === 'material');
                         const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
@@ -113,8 +111,7 @@ const calculateStats = (allQuotes, referenceDate) => {
                         // We assume deduction covers material first.
                         const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
 
-                        const adjustedMaterialTTC = adjustedMaterialHT * taxRatio;
-                        netAmount = amount - adjustedMaterialTTC;
+                        netAmount = amount - adjustedMaterialHT;
                     }
 
 
