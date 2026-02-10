@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Zap, Loader2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuotes } from '../hooks/useDataCache';
+import { useQuotes, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { supabase } from '../utils/supabase';
+import { toast } from 'sonner';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -28,6 +30,8 @@ const StatusBadge = ({ status }) => {
 const DevisList = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { invalidateQuotes } = useInvalidateCache();
+    const [convertingId, setConvertingId] = useState(null);
 
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
@@ -53,6 +57,45 @@ const DevisList = () => {
         const file = event.target.files?.[0];
         if (file) {
             navigate('/app/devis/new', { state: { importFile: file } });
+        }
+    };
+
+    const handleConvertToInvoice = async (e, devis) => {
+        e.stopPropagation();
+        setConvertingId(devis.id);
+
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .update({
+                    type: 'invoice',
+                    status: 'billed',
+                    date: new Date().toISOString().split('T')[0]
+                })
+                .eq('id', devis.id);
+
+            if (error) throw error;
+
+            if (devis.client_id) {
+                await supabase.from('clients').update({ status: 'signed' }).eq('id', devis.client_id).catch(() => {});
+            }
+
+            invalidateQuotes();
+            toast.success(
+                `Facture FAC #${devis.id} créée !`,
+                {
+                    action: {
+                        label: 'Voir la facture',
+                        onClick: () => navigate(`/app/devis/${devis.id}`)
+                    },
+                    duration: 6000
+                }
+            );
+        } catch (error) {
+            console.error('Error converting to invoice:', error);
+            toast.error('Erreur lors de la conversion');
+        } finally {
+            setConvertingId(null);
         }
     };
 
@@ -182,9 +225,24 @@ const DevisList = () => {
                                     <StatusBadge status={devis.status} />
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button className="text-gray-400 hover:text-gray-600">
-                                        <FileText className="w-5 h-5" />
-                                    </button>
+                                    {devis.type === 'quote' && devis.status === 'accepted' ? (
+                                        <button
+                                            onClick={(e) => handleConvertToInvoice(e, devis)}
+                                            disabled={convertingId === devis.id}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 disabled:opacity-50 transition-colors shadow-sm"
+                                            title="Convertir en facture"
+                                        >
+                                            {convertingId === devis.id
+                                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                : <Zap className="w-3.5 h-3.5" />
+                                            }
+                                            Facturer
+                                        </button>
+                                    ) : (
+                                        <button className="text-gray-400 hover:text-gray-600">
+                                            <FileText className="w-5 h-5" />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -213,6 +271,19 @@ const DevisList = () => {
                                 <span className="font-bold text-gray-900 dark:text-white text-lg">
                                     {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                 </span>
+                                {devis.type === 'quote' && devis.status === 'accepted' && (
+                                    <button
+                                        onClick={(e) => handleConvertToInvoice(e, devis)}
+                                        disabled={convertingId === devis.id}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 disabled:opacity-50 transition-colors shadow-sm"
+                                    >
+                                        {convertingId === devis.id
+                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            : <Zap className="w-3.5 h-3.5" />
+                                        }
+                                        Facturer
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

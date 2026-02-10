@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, isAfter, isBefore, addDays, parseISO, startOfDay, addHours } from 'date-fns';
+import { toast } from 'sonner';
+import { useInvalidateCache } from '../hooks/useDataCache';
 import { fr } from 'date-fns/locale';
 
 const ActionableDashboard = ({ user }) => {
     const navigate = useNavigate();
+    const { invalidateQuotes } = useInvalidateCache();
     const [loading, setLoading] = useState(true);
+    const [convertingId, setConvertingId] = useState(null);
     const [actionItems, setActionItems] = useState({
         upcomingEvents: [],
         overdueQuotes: [],
@@ -149,6 +153,53 @@ const ActionableDashboard = ({ user }) => {
         }
     };
 
+    const handleConvertToInvoice = async (e, quote) => {
+        e.stopPropagation();
+        setConvertingId(quote.id);
+
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .update({
+                    type: 'invoice',
+                    status: 'billed',
+                    date: new Date().toISOString().split('T')[0]
+                })
+                .eq('id', quote.id);
+
+            if (error) throw error;
+
+            // Update client CRM status
+            const clientId = quote.client_id;
+            if (clientId) {
+                await supabase.from('clients').update({ status: 'signed' }).eq('id', clientId).catch(() => {});
+            }
+
+            // Remove from local list immediately
+            setActionItems(prev => ({
+                ...prev,
+                signedQuotes: prev.signedQuotes.filter(q => q.id !== quote.id)
+            }));
+
+            invalidateQuotes();
+            toast.success(
+                `Facture FAC #${quote.id} créée !`,
+                {
+                    action: {
+                        label: 'Voir la facture',
+                        onClick: () => navigate(`/app/devis/${quote.id}`)
+                    },
+                    duration: 6000
+                }
+            );
+        } catch (error) {
+            console.error('Error converting to invoice:', error);
+            toast.error('Erreur lors de la conversion');
+        } finally {
+            setConvertingId(null);
+        }
+    };
+
     if (loading) return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-pulse">
             <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
@@ -199,8 +250,16 @@ const ActionableDashboard = ({ user }) => {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 shadow-sm">
-                                            Traiter
+                                        <button
+                                            onClick={(e) => handleConvertToInvoice(e, quote)}
+                                            disabled={convertingId === quote.id}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm disabled:opacity-50 transition-colors"
+                                        >
+                                            {convertingId === quote.id
+                                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                : <Zap className="w-3.5 h-3.5" />
+                                            }
+                                            Facturer
                                         </button>
                                     </div>
                                 </div>
