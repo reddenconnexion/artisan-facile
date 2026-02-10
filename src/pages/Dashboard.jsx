@@ -97,9 +97,8 @@ const calculateStats = (allQuotes, referenceDate) => {
                         const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
                         const materialItems = quote.items.filter(i => i.type === 'material');
                         const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const deductionTTC = deductionHT * taxRatio;
                         const materialTTC = materialHT * taxRatio;
-                        netAmount = amount - materialTTC - deductionTTC;
+                        netAmount = amount - materialTTC;
                     }
 
                     const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
