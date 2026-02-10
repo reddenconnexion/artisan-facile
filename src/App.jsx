@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './layouts/Layout';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Configuration du cache React Query
 const queryClient = new QueryClient({
@@ -66,6 +67,7 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ReloadPrompt />
@@ -108,6 +110,7 @@ function App() {
         </BrowserRouter >
       </AuthProvider >
     </QueryClientProvider >
+    </ErrorBoundary>
   );
 }
 

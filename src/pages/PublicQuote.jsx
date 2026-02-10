@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabase';
 import { FileCheck, Download, Loader2, Phone, Mail, MapPin, Globe, PenTool } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
-import { toast } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { sendNotification } from '../utils/notifications';
 
 const PublicQuote = () => {
@@ -178,6 +178,9 @@ const PublicQuote = () => {
     // Ensure it's an object
     amendmentDetails = amendmentDetails || {};
 
+    // Safe number formatting (prevent .toFixed crash on null/undefined)
+    const fmt = (value) => (parseFloat(value) || 0).toFixed(2);
+
     // Safe Date Parsing Helper
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -193,6 +196,7 @@ const PublicQuote = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+            <Toaster position="top-right" richColors />
             <div className="max-w-4xl mx-auto space-y-6">
 
                 {/* Header Card */}
@@ -380,10 +384,10 @@ const PublicQuote = () => {
                                                             {item.quantity}
                                                         </td>
                                                         <td className="py-4 px-2 text-gray-600 text-right">
-                                                            {item.price.toFixed(2)} €
+                                                            {fmt(item.price)} €
                                                         </td>
                                                         <td className="py-4 px-2 text-gray-900 font-medium text-right">
-                                                            {(item.quantity * item.price).toFixed(2)} €
+                                                            {fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0))} €
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -417,7 +421,7 @@ const PublicQuote = () => {
                                     <div className="space-y-3 text-sm">
                                         <div className="flex justify-between text-gray-600">
                                             <span>Devis Initial TTC</span>
-                                            <span>{(quote.parent_quote_data?.total_ttc || 0).toFixed(2)} €</span>
+                                            <span>{fmt(quote.parent_quote_data?.total_ttc)} €</span>
                                         </div>
 
                                         {/* SCENARIO A : SITUATION EXISTE (On remplace le devis initial) */}
@@ -425,23 +429,23 @@ const PublicQuote = () => {
                                             <>
                                                 <div className="flex justify-between text-gray-800 font-medium">
                                                     <span>Facturé à ce jour (Situation)</span>
-                                                    <span>{(quote.parent_quote_data.progress_total).toFixed(2)} €</span>
+                                                    <span>{fmt(quote.parent_quote_data?.progress_total)} €</span>
                                                 </div>
                                                 <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(incluant acompte)</div>
 
                                                 <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
                                                     <span>Montant Avenant TTC</span>
-                                                    <span>+{quote.total_ttc.toFixed(2)} €</span>
+                                                    <span>+{fmt(quote.total_ttc)} €</span>
                                                 </div>
 
                                                 <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
                                                     <span>Nouveau Total Projet</span>
                                                     <span>
-                                                        {(quote.parent_quote_data.progress_total + quote.total_ttc).toFixed(2)} €
+                                                        {fmt((parseFloat(quote.parent_quote_data?.progress_total) || 0) + (parseFloat(quote.total_ttc) || 0))} €
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-right text-gray-500 mt-1">
-                                                    (Solde à régler sur cet avenant : {quote.total_ttc.toFixed(2)} €)
+                                                    (Solde à régler sur cet avenant : {fmt(quote.total_ttc)} €)
                                                 </div>
                                             </>
                                         ) : (
@@ -450,25 +454,25 @@ const PublicQuote = () => {
                                                 {/* Acompte / Deposit */}
                                                 <div className="flex justify-between text-gray-600">
                                                     <span>Acompte versé</span>
-                                                    <span>{(amendmentDetails.initial_deposit_amount || 0).toFixed(2)} €</span>
+                                                    <span>{fmt(amendmentDetails.initial_deposit_amount)} €</span>
                                                 </div>
                                                 <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(conservé)</div>
 
                                                 <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
                                                     <span>Complément Avenant TTC</span>
-                                                    <span>+{quote.total_ttc.toFixed(2)} €</span>
+                                                    <span>+{fmt(quote.total_ttc)} €</span>
                                                 </div>
 
                                                 <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
                                                     <span>Nouveau Solde à Régler</span>
-                                                    <span>{((
-                                                        (quote.parent_quote_data?.total_ttc || 0) +
-                                                        quote.total_ttc -
-                                                        (amendmentDetails.initial_deposit_amount || 0)
-                                                    )).toFixed(2)} €</span>
+                                                    <span>{fmt(
+                                                        (parseFloat(quote.parent_quote_data?.total_ttc) || 0) +
+                                                        (parseFloat(quote.total_ttc) || 0) -
+                                                        (parseFloat(amendmentDetails.initial_deposit_amount) || 0)
+                                                    )} €</span>
                                                 </div>
                                                 <div className="text-xs text-right text-gray-500 mt-1">
-                                                    (Total Projet: {((quote.parent_quote_data?.total_ttc || 0) + quote.total_ttc).toFixed(2)} € TTC)
+                                                    (Total Projet: {fmt((parseFloat(quote.parent_quote_data?.total_ttc) || 0) + (parseFloat(quote.total_ttc) || 0))} € TTC)
                                                 </div>
                                             </>
                                         )}
@@ -478,19 +482,19 @@ const PublicQuote = () => {
                                 <>
                                     <div className="flex justify-between text-gray-600">
                                         <span>Total HT</span>
-                                        <span>{quote.total_ht.toFixed(2)} €</span>
+                                        <span>{fmt(quote.total_ht)} €</span>
                                     </div>
-                                    {quote.total_tva > 0 ? (
+                                    {(parseFloat(quote.total_tva) || 0) > 0 ? (
                                         <div className="flex justify-between text-gray-600">
                                             <span>TVA (20%)</span>
-                                            <span>{quote.total_tva.toFixed(2)} €</span>
+                                            <span>{fmt(quote.total_tva)} €</span>
                                         </div>
                                     ) : (
                                         <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
                                     )}
                                     <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
                                         <span>Total TTC</span>
-                                        <span>{quote.total_ttc.toFixed(2)} €</span>
+                                        <span>{fmt(quote.total_ttc)} €</span>
                                     </div>
                                 </>
                             )}
