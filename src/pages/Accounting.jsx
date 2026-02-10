@@ -5,12 +5,12 @@ import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// Taux URSSAF 2024/2025 pour micro-entrepreneurs
+// Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
   micro_entreprise: {
     services: { normal: 0.212, acre: 0.106, label: 'Prestations de services artisanaux (BIC)' },
     vente: { normal: 0.123, acre: 0.062, label: 'Achat/revente de marchandises (BIC)' },
-    liberal: { normal: 0.211, acre: 0.106, label: 'Profession libérale (BNC)' },
+    liberal: { normal: 0.256, acre: 0.128, label: 'Profession libérale (BNC)' },
     mixte: {
       services: { normal: 0.212, acre: 0.106 },
       vente: { normal: 0.123, acre: 0.062 }
@@ -41,19 +41,19 @@ const ACTIVITY_LABELS = {
   liberal: 'Profession libérale'
 };
 
-// Plafonds de CA micro-entreprise 2024
+// Plafonds de CA micro-entreprise 2025/2026
 const CA_LIMITS = {
   services: 77700,
   vente: 188700,
   liberal: 77700
 };
 
-// Seuils Franchise en base de TVA 2024
+// Seuils Franchise en base de TVA 2025/2026
 // Base: seuil standard. Majoré: seuil de tolérance (passage immédiat si dépassé)
 const VAT_LIMITS = {
-  services: { base: 36800, majore: 39100 },
-  vente: { base: 91900, majore: 101000 },
-  liberal: { base: 36800, majore: 39100 }
+  services: { base: 37500, majore: 41250 },
+  vente: { base: 85000, majore: 93500 },
+  liberal: { base: 37500, majore: 41250 }
 };
 
 const Accounting = () => {
@@ -72,6 +72,13 @@ const Accounting = () => {
   const [hasAcre, setHasAcre] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
+  // Synchroniser hasAcre depuis le profil utilisateur
+  useEffect(() => {
+    if (profile?.ai_preferences?.has_acre !== undefined) {
+      setHasAcre(profile.ai_preferences.has_acre === true);
+    }
+  }, [profile]);
+
   // CA manuel (pour saisie directe)
   const [manualCa, setManualCa] = useState('');
 
@@ -87,12 +94,19 @@ const Accounting = () => {
     const safeInvoices = invoices || [];
     if (!safeInvoices.length) return { total: 0, services: 0, vente: 0 };
 
+    // Exclure les doublons : si un devis (type!=invoice) est payé ET sa facture enfant aussi,
+    // ne compter que l'un des deux (on exclut la facture enfant qui a un parent_id)
+    const paidQuoteIds = new Set(
+      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
+    );
+
     const filtered = safeInvoices.filter(invoice => {
-      // Filtrer par statut payé (comme le Dashboard)
       const status = (invoice.status || '').toLowerCase();
-      // Inclure 'paid' et les factures (type=invoice) non annulées/brouillon (selon logique comptable préférée)
-      // Ici on reste strict : 'paid'
       if (status !== 'paid') return false;
+
+      // Exclure les factures enfant dont le devis parent est déjà payé
+      const type = (invoice.type || 'quote').toLowerCase();
+      if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
 
       const invoiceDate = new Date(invoice.date || invoice.created_at);
       if (isNaN(invoiceDate.getTime())) return false;
@@ -120,7 +134,6 @@ const Accounting = () => {
           const qty = parseFloat(item.quantity) || 0;
           const lineTotal = price * qty;
 
-          // Detection type
           if (item.type === 'material') {
             totalMaterial += lineTotal;
           } else {
@@ -128,9 +141,8 @@ const Accounting = () => {
           }
         });
       } else {
-        // Fallback si pas d'items: Tout en service par défaut (ou selon type d'activité du profil ?)
-        // On utilise total_ht
-        const amount = inv.total_ht || (inv.total_ttc ? inv.total_ttc / 1.2 : 0);
+        // Fallback si pas d'items: utiliser total_ht, ou total_ttc si pas de TVA
+        const amount = inv.total_ht || inv.total_ttc || 0;
         totalService += amount;
       }
     });
@@ -150,17 +162,23 @@ const Accounting = () => {
     setCaVente(periodData.vente > 0 ? periodData.vente.toFixed(2) : '');
   }, [periodData]);
 
-  // Calcul du CA annuel (factures payées uniquement)
+  // Calcul du CA annuel (factures payées uniquement, sans doublons)
   const yearlyRevenue = useMemo(() => {
-    return (invoices || [])
+    const safeInvoices = invoices || [];
+    const paidQuoteIds = new Set(
+      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
+    );
+    return safeInvoices
       .filter(invoice => {
         const status = (invoice.status || '').toLowerCase();
         if (status !== 'paid') return false;
+        const type = (invoice.type || 'quote').toLowerCase();
+        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         return !isNaN(invoiceDate.getTime()) && invoiceDate.getFullYear() === selectedYear;
       })
       .reduce((sum, invoice) => {
-        const amount = invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0);
+        const amount = invoice.total_ht || invoice.total_ttc || 0;
         return sum + amount;
       }, 0);
   }, [invoices, selectedYear]);
@@ -215,18 +233,23 @@ const Accounting = () => {
     };
   }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
 
-  // Calcul du CA Services annuel pour le plafond mixte
+  // Calcul du CA Services annuel pour le plafond mixte (sans doublons)
   const yearlyRevenueServices = useMemo(() => {
-    return (invoices || [])
+    const safeInvoices = invoices || [];
+    const paidQuoteIds = new Set(
+      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
+    );
+    return safeInvoices
       .filter(invoice => {
         const status = (invoice.status || '').toLowerCase();
         if (status !== 'paid') return false;
+        const type = (invoice.type || 'quote').toLowerCase();
+        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         if (isNaN(invoiceDate.getTime()) || invoiceDate.getFullYear() !== selectedYear) return false;
         return true;
       })
       .reduce((sum, invoice) => {
-        // Somme des items service
         let sDiff = 0;
         if (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0) {
           invoice.items.forEach(item => {
@@ -235,9 +258,8 @@ const Accounting = () => {
             }
           });
         } else {
-          // Fallback: si ce n'est pas spécifié, on assume tout service SAUF si l'activité est pure vente
           if (activityType !== 'vente') {
-            sDiff += (invoice.total_ht || (invoice.total_ttc ? invoice.total_ttc / 1.2 : 0));
+            sDiff += (invoice.total_ht || invoice.total_ttc || 0);
           }
         }
         return sum + sDiff;
