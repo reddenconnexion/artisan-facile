@@ -10,6 +10,7 @@ import { processVoiceCommand } from '../utils/voiceCommands';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import GlobalAssistant from '../components/GlobalAssistant';
+import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 
 const Layout = () => {
   const location = useLocation();
@@ -18,6 +19,9 @@ const Layout = () => {
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
+
+  // Écouter les signatures de devis en temps réel
+  useSignatureNotifications();
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
