@@ -101,30 +101,25 @@ const calculateStats = (allQuotes, referenceDate) => {
                         netAmount = amount - materialTTC;
                     }
 
-                    const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                        (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+
 
                     if (qDate.getFullYear() === refYear) {
                         metrics.revenue.year += amount;
                         metrics.revenue.charts.year[qDate.getMonth()] += amount;
                         metrics.revenue.details.year.push(quote);
 
-                        if (!isDeposit) {
-                            metrics.netIncome.year += netAmount;
-                            metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
-                            metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
-                        }
+                        metrics.netIncome.year += netAmount;
+                        metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
+                        metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
 
                         if (isSameMonth(qDate, referenceDate)) {
                             metrics.revenue.month += amount;
                             if (metrics.revenue.charts.month[getDate(qDate) - 1] !== undefined) metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
                             metrics.revenue.details.month.push(quote);
 
-                            if (!isDeposit) {
-                                metrics.netIncome.month += netAmount;
-                                if (metrics.netIncome.charts.month[getDate(qDate) - 1] !== undefined) metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
-                                metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
-                            }
+                            metrics.netIncome.month += netAmount;
+                            if (metrics.netIncome.charts.month[getDate(qDate) - 1] !== undefined) metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
+                            metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
                         }
 
                         const qWeek = getWeek(qDate, { weekStartsOn: 1 });
@@ -135,22 +130,18 @@ const calculateStats = (allQuotes, referenceDate) => {
                             metrics.revenue.charts.week[weekDayIndex] += amount;
                             metrics.revenue.details.week.push(quote);
 
-                            if (!isDeposit) {
-                                metrics.netIncome.week += netAmount;
-                                metrics.netIncome.charts.week[weekDayIndex] += netAmount;
-                                metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
-                            }
+                            metrics.netIncome.week += netAmount;
+                            metrics.netIncome.charts.week[weekDayIndex] += netAmount;
+                            metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
                         }
 
                     } else if (qDate.getFullYear() === refYear - 1) {
                         metrics.revenue.lastYear += amount;
                         metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
                         metrics.revenue.details.lastYear.push(quote);
-                        if (!isDeposit) {
-                            metrics.netIncome.lastYear += netAmount;
-                            metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
-                            metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
-                        }
+                        metrics.netIncome.lastYear += netAmount;
+                        metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
+                        metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
                     }
                 }
             }
