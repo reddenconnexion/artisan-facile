@@ -188,7 +188,10 @@ export function useInvalidateCache() {
 
     return {
         invalidateClients: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
-        invalidateQuotes: () => queryClient.invalidateQueries({ queryKey: ['quotes'] }),
+        invalidateQuotes: () => {
+            queryClient.invalidateQueries({ queryKey: ['quotes'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        },
         invalidateQuote: (id) => queryClient.invalidateQueries({ queryKey: ['quote', id] }),
         invalidatePriceLibrary: () => queryClient.invalidateQueries({ queryKey: ['priceLibrary'] }),
         invalidateProfile: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
@@ -241,7 +244,7 @@ export function useDashboardData() {
             // Récupérer les devis avec les données clients
             const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
+                .select('total_ht, total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items, title');
             if (quotesError) throw quotesError;
 
             // Compter les clients
