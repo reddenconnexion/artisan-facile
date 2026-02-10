@@ -1587,6 +1587,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
             toast.success('Devis converti en facture');
+            invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'accepted');
             await handleDownloadPDF(true); // Auto-generate invoice PDF
         } catch (error) {
@@ -1610,6 +1611,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             setSignature(signatureData);
             setFormData(prev => ({ ...prev, status: 'accepted' }));
+            invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
