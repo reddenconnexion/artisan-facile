@@ -100,6 +100,7 @@ export default defineConfig({
     include: ['pdfjs-dist']
   },
   build: {
+    target: ['es2020', 'safari14'],
     rollupOptions: {
       output: {
         manualChunks: {
