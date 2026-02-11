@@ -59,6 +59,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 // FollowUps est maintenant intégré dans DevisList comme sous-onglet
 const Rentals = lazy(() => import('./pages/Rentals'));
 const Accounting = lazy(() => import('./pages/Accounting'));
+const Marketing = lazy(() => import('./pages/Marketing'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -107,6 +108,7 @@ function App() {
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<ActivitySettings />} />
                 <Route path="accounting" element={<Accounting />} />
+                <Route path="marketing" element={<Marketing />} />
               </Route>
             </Routes >
           </Suspense >
