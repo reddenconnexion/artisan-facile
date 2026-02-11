@@ -15,14 +15,27 @@ import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 // Helper: wrap queryFn avec cache offline
 function withOfflineCache(cacheKey, fetchFn) {
     return async () => {
+        // Si en ligne, toujours essayer le réseau
+        if (navigator.onLine) {
+            const data = await fetchFn();
+            // Ne sauvegarder que les résultats non-vides
+            if (data && (!Array.isArray(data) || data.length > 0)) {
+                saveToOfflineCache(cacheKey, data);
+            }
+            return data;
+        }
+
+        // Hors-ligne : essayer le fetch (Workbox peut servir depuis son cache)
         try {
             const data = await fetchFn();
-            saveToOfflineCache(cacheKey, data);
+            if (data && (!Array.isArray(data) || data.length > 0)) {
+                saveToOfflineCache(cacheKey, data);
+            }
             return data;
         } catch (error) {
-            // Hors-ligne ou erreur réseau : retourner les données en cache
+            // Hors-ligne et fetch échoué : retourner le cache local
             const cached = getFromOfflineCache(cacheKey);
-            if (cached) return cached.data;
+            if (cached?.data) return cached.data;
             throw error;
         }
     };
