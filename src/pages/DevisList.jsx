@@ -178,7 +178,7 @@ const DevisList = () => {
                     </div>
                 )}
                 <div className={`flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto ${isFollowUpsTab ? 'flex-1' : ''}`}>
-                    {['all', 'pending', 'draft', 'sent', 'accepted', 'billed', 'paid', 'postponed', 'followups'].map((status) => (
+                    {['all', 'pending', 'draft', 'sent', 'accepted', 'rejected', 'billed', 'paid', 'postponed', 'followups'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
@@ -194,6 +194,7 @@ const DevisList = () => {
                             {status === 'draft' && 'Brouillons'}
                             {status === 'sent' && 'Envoyés'}
                             {status === 'accepted' && 'Signés'}
+                            {status === 'rejected' && 'Refusés'}
                             {status === 'billed' && 'Facturés'}
                             {status === 'paid' && 'Payés'}
                             {status === 'postponed' && 'Reportés'}
