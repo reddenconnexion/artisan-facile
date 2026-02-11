@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 
 /**
  * Hooks de cache pour les données principales
@@ -8,7 +9,24 @@ import { useAuth } from '../context/AuthContext';
  * - Éviter les rechargements inutiles
  * - Garder les données en mémoire entre les pages
  * - Synchroniser automatiquement après modifications
+ * - Persister en localStorage pour consultation hors-ligne
  */
+
+// Helper: wrap queryFn avec cache offline
+function withOfflineCache(cacheKey, fetchFn) {
+    return async () => {
+        try {
+            const data = await fetchFn();
+            saveToOfflineCache(cacheKey, data);
+            return data;
+        } catch (error) {
+            // Hors-ligne ou erreur réseau : retourner les données en cache
+            const cached = getFromOfflineCache(cacheKey);
+            if (cached) return cached.data;
+            throw error;
+        }
+    };
+}
 
 // Cache des clients
 export function useClients() {
@@ -16,27 +34,28 @@ export function useClients() {
 
     return useQuery({
         queryKey: ['clients', user?.id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`clients_${user?.id}`, async () => {
             const { data, error } = await supabase
                 .from('clients')
                 .select('*')
                 .order('name');
             if (error) throw error;
             return data || [];
-        },
+        }),
         enabled: !!user,
-        staleTime: 5 * 60 * 1000, // 5 minutes avant de considérer les données périmées
-        gcTime: 30 * 60 * 1000, // 30 minutes en cache
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
     });
 }
 
 // Cache des devis/factures
 export function useQuotes(filters = {}) {
     const { user } = useAuth();
+    const filterKey = JSON.stringify(filters);
 
     return useQuery({
         queryKey: ['quotes', user?.id, filters],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`quotes_${user?.id}_${filterKey}`, async () => {
             let query = supabase
                 .from('quotes')
                 .select('*')
@@ -55,10 +74,10 @@ export function useQuotes(filters = {}) {
             const { data, error } = await query;
             if (error) throw error;
             return data || [];
-        },
+        }),
         enabled: !!user,
-        staleTime: 2 * 60 * 1000, // 2 minutes
-        gcTime: 15 * 60 * 1000, // 15 minutes
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
     });
 }
 
@@ -68,7 +87,7 @@ export function useQuote(id) {
 
     return useQuery({
         queryKey: ['quote', id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`quote_${id}`, async () => {
             const { data, error } = await supabase
                 .from('quotes')
                 .select('*')
@@ -76,9 +95,9 @@ export function useQuote(id) {
                 .single();
             if (error) throw error;
             return data;
-        },
+        }),
         enabled: !!user && !!id && id !== 'new',
-        staleTime: 1 * 60 * 1000, // 1 minute
+        staleTime: 1 * 60 * 1000,
     });
 }
 
@@ -108,7 +127,7 @@ export function useUserProfile() {
 
     return useQuery({
         queryKey: ['profile', user?.id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`profile_${user?.id}`, async () => {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
@@ -125,10 +144,10 @@ export function useUserProfile() {
                 email: user.email,
                 ...settings
             };
-        },
+        }),
         enabled: !!user,
-        staleTime: 10 * 60 * 1000, // 10 minutes
-        gcTime: 60 * 60 * 1000, // 1 heure
+        staleTime: 10 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
     });
 }
 
@@ -240,7 +259,7 @@ export function useDashboardData() {
 
     return useQuery({
         queryKey: ['dashboard', user?.id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`dashboard_${user?.id}`, async () => {
             // Récupérer les devis avec les données clients
             const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
@@ -290,10 +309,10 @@ export function useDashboardData() {
                 pendingQuotesCount: pendingQuotesCount || 0,
                 recentActivity: activities
             };
-        },
+        }),
         enabled: !!user,
-        staleTime: 2 * 60 * 1000, // 2 minutes
-        gcTime: 10 * 60 * 1000, // 10 minutes
+        staleTime: 2 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
     });
 }
 

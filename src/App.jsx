@@ -13,8 +13,11 @@ const queryClient = new QueryClient({
     queries: {
       // Ne pas refetch automatiquement quand la fenêtre reprend le focus
       refetchOnWindowFocus: false,
-      // Réessayer 1 fois en cas d'erreur
-      retry: 1,
+      // Réessayer 1 fois, sauf si hors-ligne
+      retry: (failureCount) => {
+        if (!navigator.onLine) return false;
+        return failureCount < 1;
+      },
       // Garder les données en cache 5 minutes par défaut
       staleTime: 5 * 60 * 1000,
     },
