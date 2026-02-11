@@ -14,6 +14,7 @@ const StatusBadge = ({ status }) => {
         sent: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: AlertCircle, label: 'Envoyé' },
         accepted: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', icon: CheckCircle, label: 'Accepté' },
         rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: AlertCircle, label: 'Refusé' },
+        refused: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: AlertCircle, label: 'Refusé' },
         billed: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', icon: CheckCircle, label: 'Facturé' },
         paid: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: CheckCircle, label: 'Payé' },
         postponed: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Clock, label: 'Reporté' },
@@ -117,7 +118,9 @@ const DevisList = () => {
             devis.id.toString().includes(debouncedSearch);
 
         const matchesStatus = statusFilter === 'all' ||
-            (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) : devis.status === statusFilter);
+            (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) :
+            statusFilter === 'rejected' ? ['rejected', 'refused'].includes(devis.status) :
+            devis.status === statusFilter);
 
         return matchesSearch && matchesStatus;
     });
