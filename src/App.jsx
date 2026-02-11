@@ -56,7 +56,7 @@ const PublicQuote = lazy(() => import('./pages/PublicQuote'));
 const ActivitySettings = lazy(() => import('./pages/settings/ActivitySettings'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
-const FollowUps = lazy(() => import('./pages/FollowUps'));
+// FollowUps est maintenant intégré dans DevisList comme sous-onglet
 const Rentals = lazy(() => import('./pages/Rentals'));
 const Accounting = lazy(() => import('./pages/Accounting'));
 
@@ -102,7 +102,7 @@ function App() {
                 <Route path="rentals" element={<Rentals />} />
                 <Route path="library" element={<PriceLibrary />} />
                 <Route path="inventory" element={<Inventory />} />
-                <Route path="follow-ups" element={<FollowUps />} />
+                <Route path="follow-ups" element={<Navigate to="/app/devis" state={{ filter: 'followups' }} replace />} />
                 <Route path="portfolio" element={<Portfolio />} />
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<ActivitySettings />} />

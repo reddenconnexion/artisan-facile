@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Clock, Send, CheckCircle, Mail, AlertTriangle, ChevronRight, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const FollowUps = () => {
+const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('due'); // 'due' or 'history'
@@ -123,12 +123,14 @@ const FollowUps = () => {
     const closePreview = () => setPreview(null);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className={embedded ? 'space-y-6' : 'max-w-6xl mx-auto space-y-6'}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Send className="w-6 h-6 text-blue-600" />
-                    Centre de Relance
-                </h1>
+                {!embedded && (
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Send className="w-6 h-6 text-blue-600" />
+                        Centre de Relance
+                    </h1>
+                )}
 
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                     <button
