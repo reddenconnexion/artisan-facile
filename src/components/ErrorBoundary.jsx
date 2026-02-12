@@ -3,7 +3,7 @@ import React from 'react';
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { hasError: false, error: null };
+        this.state = { hasError: false, error: null, recovering: false };
     }
 
     static getDerivedStateFromError(error) {
@@ -13,6 +13,26 @@ class ErrorBoundary extends React.Component {
     componentDidCatch(error, errorInfo) {
         console.error('ErrorBoundary caught:', error, errorInfo);
     }
+
+    handleReload = async () => {
+        this.setState({ recovering: true });
+        try {
+            // 1. Désinscrire le Service Worker
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(r => r.unregister()));
+            }
+            // 2. Vider tous les caches
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(key => caches.delete(key)));
+            }
+        } catch (e) {
+            console.error('Error during cache cleanup:', e);
+        }
+        // 3. Recharger sans cache navigateur
+        window.location.reload();
+    };
 
     render() {
         if (this.state.hasError) {
@@ -29,10 +49,11 @@ class ErrorBoundary extends React.Component {
                             La page n'a pas pu se charger correctement.
                         </p>
                         <button
-                            onClick={() => window.location.reload()}
-                            style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none', fontWeight: '500', cursor: 'pointer', fontSize: '0.875rem' }}
+                            onClick={this.handleReload}
+                            disabled={this.state.recovering}
+                            style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: 'none', fontWeight: '500', cursor: 'pointer', fontSize: '0.875rem', opacity: this.state.recovering ? 0.7 : 1 }}
                         >
-                            Recharger la page
+                            {this.state.recovering ? 'Nettoyage du cache...' : 'Recharger la page'}
                         </button>
                     </div>
                 </div>

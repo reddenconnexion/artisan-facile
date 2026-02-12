@@ -137,19 +137,10 @@
     </div>
 
     <script>
-        // Auto-reload when back online
+        // Auto-reload when back online (conserve l'URL originale)
         window.addEventListener('online', () => {
             window.location.reload();
         });
-
-        // Try to navigate to cached app shell
-        if ('caches' in window) {
-            caches.match('/index.html').then(response => {
-                if (response) {
-                    window.location.href = '/';
-                }
-            });
-        }
     </script>
 </body>
 </html>

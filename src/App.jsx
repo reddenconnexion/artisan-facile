@@ -39,27 +39,45 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
-// Pages chargées à la demande (lazy loading)
+// Pages publiques chargées immédiatement (liens clients /q/:token et /p/:token)
+// Pas de lazy loading = pas de chunk séparé = affichage direct sur Safari/iPhone
+import PublicQuote from './pages/PublicQuote';
+import ClientPortal from './pages/portal/ClientPortal';
+
+// Lazy loading avec retry automatique (fix Safari/iOS)
+// Quand un chunk JS échoue (cache SW périmé après redéploiement),
+// on vide le cache du Service Worker et on retente l'import
+const lazyWithRetry = (importFn) => {
+  return lazy(() =>
+    importFn().catch(async () => {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+      }
+      return importFn();
+    })
+  );
+};
+
+// Pages chargées à la demande (lazy loading avec retry)
 // Cela réduit le temps de chargement initial de ~50%
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Clients = lazy(() => import('./pages/Clients'));
-const ClientForm = lazy(() => import('./pages/ClientForm'));
-const CRM = lazy(() => import('./pages/CRM'));
-const DevisList = lazy(() => import('./pages/DevisList'));
-const DevisForm = lazy(() => import('./pages/DevisForm'));
-const Agenda = lazy(() => import('./pages/Agenda'));
-const PriceLibrary = lazy(() => import('./pages/PriceLibrary'));
-const Maintenance = lazy(() => import('./pages/Maintenance'));
-const Profile = lazy(() => import('./pages/Profile'));
-const ClientPortal = lazy(() => import('./pages/portal/ClientPortal'));
-const PublicQuote = lazy(() => import('./pages/PublicQuote'));
-const ActivitySettings = lazy(() => import('./pages/settings/ActivitySettings'));
-const Inventory = lazy(() => import('./pages/Inventory'));
-const Portfolio = lazy(() => import('./pages/Portfolio'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Clients = lazyWithRetry(() => import('./pages/Clients'));
+const ClientForm = lazyWithRetry(() => import('./pages/ClientForm'));
+const CRM = lazyWithRetry(() => import('./pages/CRM'));
+const DevisList = lazyWithRetry(() => import('./pages/DevisList'));
+const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
+const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
+const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
+const Maintenance = lazyWithRetry(() => import('./pages/Maintenance'));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const ActivitySettings = lazyWithRetry(() => import('./pages/settings/ActivitySettings'));
+const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
+const Portfolio = lazyWithRetry(() => import('./pages/Portfolio'));
 // FollowUps est maintenant intégré dans DevisList comme sous-onglet
-const Rentals = lazy(() => import('./pages/Rentals'));
-const Accounting = lazy(() => import('./pages/Accounting'));
-const Marketing = lazy(() => import('./pages/Marketing'));
+const Rentals = lazyWithRetry(() => import('./pages/Rentals'));
+const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
+const Marketing = lazyWithRetry(() => import('./pages/Marketing'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
