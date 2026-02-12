@@ -39,6 +39,11 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
+// Pages publiques chargées immédiatement (liens clients /q/:token et /p/:token)
+// Pas de lazy loading = pas de chunk séparé = affichage direct sur Safari/iPhone
+import PublicQuote from './pages/PublicQuote';
+import ClientPortal from './pages/portal/ClientPortal';
+
 // Lazy loading avec retry automatique (fix Safari/iOS)
 // Quand un chunk JS échoue (cache SW périmé après redéploiement),
 // on vide le cache du Service Worker et on retente l'import
@@ -66,8 +71,6 @@ const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
 const Maintenance = lazyWithRetry(() => import('./pages/Maintenance'));
 const Profile = lazyWithRetry(() => import('./pages/Profile'));
-const ClientPortal = lazyWithRetry(() => import('./pages/portal/ClientPortal'));
-const PublicQuote = lazyWithRetry(() => import('./pages/PublicQuote'));
 const ActivitySettings = lazyWithRetry(() => import('./pages/settings/ActivitySettings'));
 const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
 const Portfolio = lazyWithRetry(() => import('./pages/Portfolio'));
