@@ -30,6 +30,7 @@ const DevisForm = () => {
     const { user } = useAuth();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
+    const [dataLoaded, setDataLoaded] = useState(!isEditing);
     const [clients, setClients] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -301,30 +302,38 @@ const DevisForm = () => {
 
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
-    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading);
+    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
 
     useEffect(() => {
         if (user) {
-            // Restore Draft Logic
-            const checkDraft = async () => {
-                const draft = getDraft(draftKey);
-                if (draft) {
-                    // Check DB timestamp if editing
-                    let dbDate = new Date(0);
-                    if (isEditing) {
-                        const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
-                        if (data?.updated_at) dbDate = new Date(data.updated_at);
-                    }
+            const loadData = async () => {
+                // For editing mode: load DB data FIRST, then check draft
+                if (isEditing) {
+                    await fetchDevis();
+                    setDataLoaded(true);
 
-                    const draftDate = new Date(draft._draft_saved_at || 0);
-                    if (draftDate > dbDate) {
+                    // Only restore draft if it's newer than the DB data
+                    const draft = getDraft(draftKey);
+                    if (draft) {
+                        const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
+                        const dbDate = data?.updated_at ? new Date(data.updated_at) : new Date(0);
+                        const draftDate = new Date(draft._draft_saved_at || 0);
+                        if (draftDate > dbDate) {
+                            const { _draft_saved_at, ...restored } = draft;
+                            setFormData(prev => ({ ...prev, ...restored }));
+                        }
+                    }
+                } else {
+                    // New quote: restore draft immediately
+                    const draft = getDraft(draftKey);
+                    if (draft) {
                         const { _draft_saved_at, ...restored } = draft;
                         setFormData(prev => ({ ...prev, ...restored }));
-
                     }
                 }
             };
-            checkDraft();
+
+            loadData();
 
             fetchClients().then((loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File)
@@ -370,15 +379,9 @@ const DevisForm = () => {
                     if (importFile) {
                         processImportedFile(importFile);
                     }
-
-                    // Clear state to avoid re-triggering on refresh, but keep client selection if valid
-                    // window.history.replaceState({}, document.title); // Removed aggressive clearing to ensure stability during render
                 }
             });
             fetchUserProfile();
-            if (isEditing) {
-                fetchDevis();
-            }
         }
     }, [user, id]);
 
@@ -1778,6 +1781,17 @@ Conditions de règlement : Paiement à réception de facture.`
 
     // Verrouillage si Signé/Facturé/Payé/Annulé
     const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+
+    if (isEditing && !dataLoaded) {
+        return (
+            <div className="max-w-4xl mx-auto pb-12 flex items-center justify-center min-h-[50vh]">
+                <div className="flex flex-col items-center gap-3 text-gray-500">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="text-sm">Chargement du document...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto pb-12">
