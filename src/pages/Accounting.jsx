@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes } from '../hooks/useDataCache';
 import { toast } from 'sonner';
-import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
@@ -71,6 +71,9 @@ const Accounting = () => {
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3));
   const [hasAcre, setHasAcre] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState('charges'); // 'charges' or 'recettes'
+  const [recettesYear, setRecettesYear] = useState(new Date().getFullYear());
+  const [recettesSearch, setRecettesSearch] = useState('');
 
   // Synchroniser hasAcre depuis le profil utilisateur
   useEffect(() => {
@@ -352,6 +355,121 @@ const Accounting = () => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
   };
 
+  const PAYMENT_METHOD_LABELS = {
+    virement: 'Virement bancaire',
+    cheque: 'Chèque',
+    especes: 'Espèces',
+    carte: 'Carte bancaire',
+    paypal: 'PayPal',
+    wero: 'Wero',
+    autre: 'Autre'
+  };
+
+  // Livre de recettes : liste chronologique des encaissements
+  const recettesData = useMemo(() => {
+    const safeInvoices = invoices || [];
+
+    // Filtrer les factures payées, exclure doublons parent/enfant
+    const paidQuoteIds = new Set(
+      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
+    );
+
+    return safeInvoices
+      .filter(invoice => {
+        const status = (invoice.status || '').toLowerCase();
+        if (status !== 'paid') return false;
+
+        // Exclure les factures enfant dont le devis parent est déjà payé
+        const type = (invoice.type || 'quote').toLowerCase();
+        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
+
+        // Filtre par année
+        const paidDate = invoice.paid_at ? new Date(invoice.paid_at) : new Date(invoice.date || invoice.created_at);
+        if (isNaN(paidDate.getTime())) return false;
+        if (paidDate.getFullYear() !== recettesYear) return false;
+
+        // Filtre par recherche
+        if (recettesSearch) {
+          const search = recettesSearch.toLowerCase();
+          const matchClient = (invoice.client_name || '').toLowerCase().includes(search);
+          const matchTitle = (invoice.title || '').toLowerCase().includes(search);
+          const matchId = String(invoice.id).includes(search);
+          if (!matchClient && !matchTitle && !matchId) return false;
+        }
+
+        return true;
+      })
+      .map(invoice => {
+        const paidDate = invoice.paid_at ? new Date(invoice.paid_at) : new Date(invoice.date || invoice.created_at);
+
+        // Déterminer la nature : service ou vente
+        let nature = 'Prestation de services';
+        if (invoice.items && Array.isArray(invoice.items)) {
+          const hasMaterial = invoice.items.some(i => i.type === 'material');
+          const hasService = invoice.items.some(i => i.type !== 'material');
+          if (hasMaterial && hasService) nature = 'Mixte (services + vente)';
+          else if (hasMaterial) nature = 'Vente de marchandises';
+        }
+
+        return {
+          id: invoice.id,
+          date: paidDate,
+          dateStr: paidDate.toLocaleDateString('fr-FR'),
+          reference: `${(invoice.type || 'quote') === 'invoice' ? 'F' : 'D'}${invoice.id}`,
+          client: invoice.client_name || 'Client inconnu',
+          nature,
+          amount: invoice.total_ht || invoice.total_ttc || 0,
+          amountTTC: invoice.total_ttc || invoice.total_ht || 0,
+          paymentMethod: PAYMENT_METHOD_LABELS[invoice.payment_method] || invoice.payment_method || 'Non renseigné',
+          title: invoice.title || ''
+        };
+      })
+      .sort((a, b) => a.date - b.date); // Tri chronologique
+  }, [invoices, recettesYear, recettesSearch]);
+
+  // Total annuel du livre de recettes
+  const recettesTotal = useMemo(() => {
+    return recettesData.reduce((sum, r) => sum + r.amount, 0);
+  }, [recettesData]);
+
+  // Export CSV du livre de recettes
+  const exportRecettesCSV = () => {
+    if (!recettesData.length) {
+      toast.error('Aucune recette à exporter');
+      return;
+    }
+
+    const headers = ['Date', 'Référence', 'Client', 'Nature', 'Montant HT (€)', 'Montant TTC (€)', 'Mode de règlement'];
+    const rows = recettesData.map(r => [
+      r.dateStr,
+      r.reference,
+      `"${r.client.replace(/"/g, '""')}"`,
+      `"${r.nature}"`,
+      r.amount.toFixed(2).replace('.', ','),
+      r.amountTTC.toFixed(2).replace('.', ','),
+      r.paymentMethod
+    ]);
+
+    // Ajouter ligne de total
+    rows.push([
+      '', '', '', 'TOTAL',
+      recettesTotal.toFixed(2).replace('.', ','),
+      recettesData.reduce((s, r) => s + r.amountTTC, 0).toFixed(2).replace('.', ','),
+      ''
+    ]);
+
+    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `livre_recettes_${recettesYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Livre de recettes ${recettesYear} exporté`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -364,16 +482,45 @@ const Accounting = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-12">
-      <div className="mb-8">
+      <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Calculator className="w-8 h-8 text-blue-600" />
-          Comptabilité & Charges URSSAF
+          Comptabilité
         </h2>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Calculez vos charges sociales à déclarer selon votre statut
+          Charges sociales et livre de recettes
         </p>
       </div>
 
+      {/* Onglets */}
+      <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6">
+        <button
+          onClick={() => setActiveTab('charges')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'charges'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Calculator className="w-4 h-4" />
+          Charges URSSAF
+        </button>
+        <button
+          onClick={() => setActiveTab('recettes')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'recettes'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          Livre de recettes
+        </button>
+      </div>
+
+      {/* ========== ONGLET CHARGES URSSAF ========== */}
+      {activeTab === 'charges' && (
+      <>
       {/* Statut actuel */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -811,6 +958,187 @@ const Accounting = () => {
             </div>
           </div>
         </>
+      )}
+      </>
+      )}
+
+      {/* ========== ONGLET LIVRE DE RECETTES ========== */}
+      {activeTab === 'recettes' && (
+      <>
+        {/* En-tête avec info légale */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
+          <div className="flex items-start">
+            <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-800 dark:text-blue-400">
+              <p className="font-medium mb-1">Obligation légale (art. L123-28 du Code de Commerce)</p>
+              <p>
+                Tout micro-entrepreneur doit tenir un livre de recettes chronologique mentionnant :
+                la date, la référence de la facture, le client, la nature de la prestation, le montant et le mode de règlement.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtres et export */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+              <BookOpen className="w-5 h-5 mr-2 text-blue-600" />
+              Livre de recettes {recettesYear}
+            </h3>
+            <button
+              onClick={exportRecettesCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Exporter CSV
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div>
+              <select
+                value={recettesYear}
+                onChange={(e) => setRecettesYear(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              >
+                {[2024, 2025, 2026].map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Rechercher par client, titre, n° de facture..."
+                value={recettesSearch}
+                onChange={(e) => setRecettesSearch(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tableau du livre de recettes */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+          {recettesData.length === 0 ? (
+            <div className="p-12 text-center">
+              <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Aucune recette enregistrée pour {recettesYear}</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                Les factures payées apparaîtront automatiquement ici.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Vue desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700 border-b border-gray-100 dark:border-gray-600">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Référence</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nature</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Montant HT</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Règlement</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {recettesData.map((recette, idx) => (
+                      <tr key={recette.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">{recette.dateStr}</td>
+                        <td className="px-4 py-3">
+                          <Link to={`/app/devis/${recette.id}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                            {recette.reference}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{recette.client}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{recette.nature}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right font-medium">{formatCurrency(recette.amount)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            recette.paymentMethod === 'Non renseigné'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                              : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          }`}>
+                            {recette.paymentMethod}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50 dark:bg-gray-700 border-t-2 border-gray-200 dark:border-gray-600">
+                      <td colSpan="4" className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                        Total {recettesYear} ({recettesData.length} recette{recettesData.length > 1 ? 's' : ''})
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white text-right">
+                        {formatCurrency(recettesTotal)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Vue mobile (cartes) */}
+              <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
+                {recettesData.map((recette) => (
+                  <div key={recette.id} className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{recette.dateStr}</span>
+                      <Link to={`/app/devis/${recette.id}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                        {recette.reference}
+                      </Link>
+                    </div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{recette.client}</span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(recette.amount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{recette.nature}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        recette.paymentMethod === 'Non renseigné'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      }`}>
+                        {recette.paymentMethod}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {/* Total mobile */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      Total {recettesYear} ({recettesData.length} recette{recettesData.length > 1 ? 's' : ''})
+                    </span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(recettesTotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Avertissement si modes de règlement manquants */}
+        {recettesData.some(r => r.paymentMethod === 'Non renseigné') && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start mb-6">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-3 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Modes de règlement manquants</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                Certaines recettes n'ont pas de mode de règlement renseigné.
+                Pour être conforme, éditez les factures concernées et renseignez le mode de paiement dans le champ prévu.
+              </p>
+            </div>
+          </div>
+        )}
+      </>
       )}
     </div>
   );

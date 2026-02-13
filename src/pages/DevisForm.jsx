@@ -294,7 +294,9 @@ const DevisForm = () => {
         has_material_deposit: true,
         intervention_address: '',
         intervention_postal_code: '',
-        intervention_city: ''
+        intervention_city: '',
+        payment_method: '',
+        paid_at: ''
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
@@ -517,7 +519,9 @@ const DevisForm = () => {
                     intervention_postal_code: data.intervention_postal_code || '',
                     intervention_city: data.intervention_city || '',
                     amendment_details: data.amendment_details || {},
-                    parent_quote_id: data.parent_quote_id || null
+                    parent_quote_id: data.parent_quote_id || null,
+                    payment_method: data.payment_method || '',
+                    paid_at: data.paid_at ? data.paid_at.split('T')[0] : ''
                 });
 
                 if (data.intervention_address || data.intervention_city) {
@@ -898,7 +902,9 @@ const DevisForm = () => {
 
                 intervention_city: formData.intervention_city,
                 parent_quote_id: formData.parent_quote_id,
-                amendment_details: formData.amendment_details
+                amendment_details: formData.amendment_details,
+                payment_method: formData.payment_method || null,
+                paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null)
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -2243,6 +2249,38 @@ Conditions de règlement : Paiement à réception de facture.`
                             </p>
                         )}
                     </div>
+                    {/* Mode de règlement - visible quand statut = Payé */}
+                    {formData.status === 'paid' && (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mode de règlement</label>
+                                <select
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.payment_method}
+                                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                                >
+                                    <option value="">-- Sélectionner --</option>
+                                    <option value="virement">Virement bancaire</option>
+                                    <option value="cheque">Chèque</option>
+                                    <option value="especes">Espèces</option>
+                                    <option value="carte">Carte bancaire</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="wero">Wero</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'encaissement</label>
+                                <input
+                                    type="date"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.paid_at}
+                                    onChange={(e) => setFormData({ ...formData, paid_at: e.target.value })}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Obligatoire pour le livre de recettes</p>
+                            </div>
+                        </>
+                    )}
                     {/* Factur-X Options */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
