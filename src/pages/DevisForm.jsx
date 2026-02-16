@@ -1094,20 +1094,30 @@ const DevisForm = () => {
                 type: isForMaterial ? 'material' : 'service'
             };
 
+            if (formData.include_tva) {
+                depositItem.price = depositAmount / 1.2;
+            } else {
+                depositItem.price = depositAmount;
+            }
+
+            const depHT = depositItem.price;
+            const depTVA = formData.include_tva ? (depositAmount - depHT) : 0;
+
             const depositData = {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
                 title: `Facture d'Acompte - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Directly billed
+                status: 'billed',
                 type: 'invoice',
                 items: [depositItem],
-                total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
-                total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
+                total_ht: depHT,
+                total_tva: depTVA,
                 total_ttc: depositAmount,
-                parent_id: id,
-                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}
+                include_tva: formData.include_tva,
+                parent_id: parseInt(id, 10),
+                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC
@@ -1116,20 +1126,6 @@ RÉCAPITULATIF :
 
 Conditions de règlement : Paiement à réception de facture.`
             };
-
-            if (formData.include_tva) {
-                // If we want the final line to be 'depositAmount', and that is TTC.
-                // price = depositAmount / 1.2
-                depositItem.price = depositAmount / 1.2;
-                depositData.total_ht = depositItem.price;
-                depositData.total_tva = depositAmount - depositItem.price;
-                depositData.total_ttc = depositAmount;
-            } else {
-                depositItem.price = depositAmount;
-                depositData.total_ht = depositAmount;
-                depositData.total_tva = 0;
-                depositData.total_ttc = depositAmount;
-            }
 
             const { data, error } = await supabase
                 .from('quotes')
@@ -1187,17 +1183,30 @@ Conditions de règlement : Paiement à réception de facture.`
                 type: 'service'
             };
 
+            if (formData.include_tva) {
+                depositItem.price = depositAmount / 1.2;
+            } else {
+                depositItem.price = depositAmount;
+            }
+
+            const depositHT = depositItem.price;
+            const depositTVA = formData.include_tva ? (depositAmount - depositHT) : 0;
+
             const depositData = {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
                 title: `Facture Acompte Matériel - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Default to billed as it is a deposit request
+                status: 'billed',
                 type: 'invoice',
                 items: [depositItem],
-                parent_id: id,
-                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}
+                parent_id: parseInt(id, 10),
+                include_tva: formData.include_tva,
+                total_ht: depositHT,
+                total_tva: depositTVA,
+                total_ttc: depositAmount,
+                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC
@@ -1206,18 +1215,6 @@ RÉCAPITULATIF :
 
 Conditions de règlement : Paiement à réception de facture.`
             };
-
-            if (formData.include_tva) {
-                depositItem.price = depositAmount / 1.2;
-                depositData.total_ht = depositItem.price;
-                depositData.total_tva = depositAmount - depositItem.price;
-                depositData.total_ttc = depositAmount;
-            } else {
-                depositItem.price = depositAmount;
-                depositData.total_ht = depositAmount;
-                depositData.total_tva = 0;
-                depositData.total_ttc = depositAmount;
-            }
 
             const { data, error } = await supabase
                 .from('quotes')
@@ -1270,8 +1267,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: total_ht,
                 total_tva: total_tva,
                 total_ttc: total_ttc,
-                parent_id: id,
-                notes: `Facture de situation générée le ${new Date().toLocaleDateString()} depuis devis ${id}`
+                parent_id: parseInt(id, 10),
+                notes: `Facture de situation générée le ${new Date().toLocaleDateString("fr-FR")} depuis devis ${id}`
             };
 
             const { data, error } = await supabase
@@ -1311,8 +1308,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 date: new Date().toISOString().split('T')[0],
                 status: 'draft',
                 type: 'amendment', // Correct type
-                parent_id: id, // Keep for lineage if used by situations
-                parent_quote_id: id, // For Amendment logic
+                parent_id: parseInt(id, 10),
+                parent_quote_id: parseInt(id, 10),
                 items: [],
                 notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
                 total_ht: 0,
@@ -1348,50 +1345,47 @@ Conditions de règlement : Paiement à réception de facture.`
         setLoading(true);
         try {
             // 1. Fetch existing deposits/situations linked to this quote
-            // We need to exclude 'Avenants' (quotes) from deductions, only invoices matter here.
-            // But usually Avenant should be merged into Closing Invoice?
-            // If Avenant is accepted, it should be part of the final bill?
-            // COMPLEXITY: Handling Avenant in Closing Invoice.
-            // For now, let's keep Closing Invoice simple (Original Quote base).
-            // Avenant should probably be billed separately or manually added?
-            // Let's stick to standard flow: Closing Invoice deduces deposits from THIS quote ID.
-            // Check if parent_id query includes Avenants?
-            // parent_id = id checks children. Avenant is a child.
-            // We filter by type='invoice' below, so Avenant (type='quote') won't be deducted. Correct.
+            // Use parseInt to ensure parent_id comparison uses the correct numeric type
+            const quoteId = parseInt(id, 10);
 
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
                 .select('id, title, date, total_ht, total_ttc, type, status')
-                .eq('parent_id', id)
-                .neq('status', 'cancelled'); // Ignore cancelled
+                .eq('parent_id', quoteId)
+                .neq('status', 'cancelled');
 
             if (fetchError) throw fetchError;
 
-            // Filter out self (previous closing invoices)
+            // Filter: keep only invoices (not amendments), exclude previous closing invoices
             const deposits = (linkedInvoices || []).filter(inv =>
                 inv.type === 'invoice' &&
                 !inv.title?.toLowerCase().includes('clôture')
             );
-            // ... rest of logic ...
+
+            if (deposits.length === 0) {
+                toast.info("Aucun acompte trouvé. La facture de clôture reprendra le devis intégralement.");
+            }
 
             // 2. Prepare items: Copy original items
             let finalItems = formData.items.map(item => ({
                 ...item,
-                id: Date.now() + Math.random(), // New IDs to avoid conflict
+                id: Date.now() + Math.random(),
                 quantity: parseFloat(item.quantity) || 0,
                 price: parseFloat(item.price) || 0,
                 buying_price: parseFloat(item.buying_price) || 0
             }));
 
-            // 3. Add deduction lines
+            // 3. Add deduction lines for each deposit/advance already paid
+            let totalDeducted = 0;
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
+                totalDeducted += amountHT;
                 return {
                     id: Date.now() + Math.random(),
                     description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
                     quantity: 1,
                     unit: 'forfait',
-                    price: -Math.abs(amountHT), // Negative Price HT
+                    price: -Math.abs(amountHT),
                     buying_price: 0,
                     type: 'service'
                 };
@@ -1409,6 +1403,10 @@ Conditions de règlement : Paiement à réception de facture.`
                 ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
                 : 'Client';
 
+            const deductionSummary = deposits.length > 0
+                ? `\n\nDéductions appliquées (${deposits.length} acompte${deposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
+                : '';
+
             const invoiceData = {
                 user_id: user.id,
                 client_id: formData.client_id,
@@ -1421,8 +1419,9 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
-                parent_id: id,
-                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`
+                include_tva: formData.include_tva,
+                parent_id: quoteId,
+                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${deductionSummary}`
             };
 
             const { data, error } = await supabase
@@ -1433,7 +1432,10 @@ Conditions de règlement : Paiement à réception de facture.`
 
             if (error) throw error;
 
-            toast.success("Facture de clôture générée !");
+            const successMsg = deposits.length > 0
+                ? `Facture de clôture générée avec ${deposits.length} déduction${deposits.length > 1 ? 's' : ''} !`
+                : "Facture de clôture générée !";
+            toast.success(successMsg);
             navigate(`/app/devis/${data.id}`);
             setShowActionsMenu(false);
 
