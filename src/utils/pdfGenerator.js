@@ -104,6 +104,18 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
     }
 
+    // Mention "ACQUITTÉE" bien visible en haut de la 1ère page
+    if (isInvoice && devis.status === 'paid') {
+        const titleWidth = doc.getTextWidth(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`);
+        const stampX = 14 + titleWidth + 5;
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(220, 38, 38);
+        doc.text("ACQUITTÉE", stampX, 75);
+        // Reset
+        doc.setTextColor(0, 0, 0);
+    }
+
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
@@ -561,7 +573,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
 
     // Notes / Conditions Display
-    if (allNotes && devis.status !== 'paid') {
+    if (allNotes) {
         const splitNotes = doc.splitTextToSize(allNotes, 180);
         const notesHeight = splitNotes.length * 5 + 15;
 
@@ -781,26 +793,25 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     if (elementY > 285) doc.addPage();
 
 
-    // Mention "ACQUITTÉE" si payée
+    // Filigrane "ACQUITTÉE" sur toutes les pages (en complément du texte en haut de page 1)
     if (isInvoice && devis.status === 'paid') {
-        doc.setTextColor(220, 38, 38); // Red color
-        doc.setFontSize(30);
-        doc.setFont(undefined, 'bold');
-        doc.saveGraphicsState();
-        doc.setGState(new doc.GState({ opacity: 0.5 }));
-
-        // Rotate text logic (manual approximation as standard jsPDF rotate is tricky without context, usually use angle arg in text)
-        // doc.text(text, x, y, options: {angle: 45})
+        const totalPages = doc.internal.getNumberOfPages();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-
-        doc.text("ACQUITTÉE", pageWidth / 2, pageHeight / 2, {
-            align: 'center',
-            angle: 45,
-            renderingMode: 'fill'
-        });
-
-        doc.restoreGraphicsState();
+        for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            doc.setTextColor(220, 38, 38);
+            doc.setFontSize(30);
+            doc.setFont(undefined, 'bold');
+            doc.saveGraphicsState();
+            doc.setGState(new doc.GState({ opacity: 0.15 }));
+            doc.text("ACQUITTÉE", pageWidth / 2, pageHeight / 2, {
+                align: 'center',
+                angle: 45,
+                renderingMode: 'fill'
+            });
+            doc.restoreGraphicsState();
+        }
     }
 
     // Pied de page
