@@ -320,11 +320,17 @@ const DevisForm = () => {
                         const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
                         const dbDate = data?.updated_at ? new Date(data.updated_at) : new Date(0);
                         const draftDate = new Date(draft._draft_saved_at || 0);
-                        if (draftDate > dbDate) {
+
+                        // Sanity check: never restore an empty/default draft over real DB data
+                        // This catches corrupted drafts from the auto-save race condition
+                        const draftHasContent = draft.items && draft.items.length > 0 &&
+                            draft.items.some(i => i.description && i.description.trim() !== '');
+
+                        if (draftDate > dbDate && draftHasContent) {
                             const { _draft_saved_at, ...restored } = draft;
                             setFormData(prev => ({ ...prev, ...restored }));
                         } else {
-                            // DB data is newer (e.g. quote was signed) - clear stale draft
+                            // Draft is stale or empty - clear it
                             localStorage.removeItem(draftKey);
                         }
                     }
