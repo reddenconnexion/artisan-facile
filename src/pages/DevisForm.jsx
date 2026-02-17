@@ -312,22 +312,10 @@ const DevisForm = () => {
                 // For editing mode: load DB data FIRST, then check draft
                 if (isEditing) {
                     await fetchDevis();
+                    // Clear any stale draft - for existing quotes, DB is always the source of truth.
+                    // Auto-save will create a fresh draft from the loaded DB data.
+                    if (draftKey) localStorage.removeItem(draftKey);
                     setDataLoaded(true);
-
-                    // Only restore draft if it's newer than the DB data
-                    const draft = getDraft(draftKey);
-                    if (draft) {
-                        const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
-                        const dbDate = data?.updated_at ? new Date(data.updated_at) : new Date(0);
-                        const draftDate = new Date(draft._draft_saved_at || 0);
-                        if (draftDate > dbDate) {
-                            const { _draft_saved_at, ...restored } = draft;
-                            setFormData(prev => ({ ...prev, ...restored }));
-                        } else {
-                            // DB data is newer (e.g. quote was signed) - clear stale draft
-                            localStorage.removeItem(draftKey);
-                        }
-                    }
                 } else {
                     // New quote: restore draft immediately
                     const draft = getDraft(draftKey);
