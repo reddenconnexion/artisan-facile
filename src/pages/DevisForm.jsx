@@ -1115,7 +1115,6 @@ const DevisForm = () => {
                 total_ht: depHT,
                 total_tva: depTVA,
                 total_ttc: depositAmount,
-                include_tva: formData.include_tva,
                 parent_id: parseInt(id, 10),
                 notes: `Facture d'acompte générée le ${new Date().toLocaleDateString("fr-FR")}
 
@@ -1202,7 +1201,6 @@ Conditions de règlement : Paiement à réception de facture.`
                 type: 'invoice',
                 items: [depositItem],
                 parent_id: parseInt(id, 10),
-                include_tva: formData.include_tva,
                 total_ht: depositHT,
                 total_tva: depositTVA,
                 total_ttc: depositAmount,
@@ -1419,7 +1417,6 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
-                include_tva: formData.include_tva,
                 parent_id: quoteId,
                 notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${deductionSummary}`
             };
