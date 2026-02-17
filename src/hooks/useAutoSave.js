@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useDebounce } from './useDebounce';
 import { toast } from 'sonner';
 
@@ -12,9 +12,17 @@ import { toast } from 'sonner';
 export const useAutoSave = (key, data, enabled = true, delay = 1000) => {
     const debouncedData = useDebounce(data, delay);
     const [lastSaved, setLastSaved] = useState(null);
+    const enabledRef = useRef(enabled);
+
+    // Keep ref in sync so the effect always reads the latest value
+    useEffect(() => {
+        enabledRef.current = enabled;
+    }, [enabled]);
 
     useEffect(() => {
-        if (!enabled || !key || !debouncedData) return;
+        // Use ref instead of dependency to avoid saving stale debounced data
+        // when enabled transitions from false to true (before debounce settles)
+        if (!enabledRef.current || !key || !debouncedData) return;
 
         try {
             // Add a timestamp metadata
@@ -30,7 +38,7 @@ export const useAutoSave = (key, data, enabled = true, delay = 1000) => {
         } catch (error) {
             console.error('Auto-save error:', error);
         }
-    }, [debouncedData, key, enabled]);
+    }, [debouncedData, key]);
 
     const clearAutoSave = () => {
         if (key) {
