@@ -323,6 +323,9 @@ const DevisForm = () => {
                         if (draftDate > dbDate) {
                             const { _draft_saved_at, ...restored } = draft;
                             setFormData(prev => ({ ...prev, ...restored }));
+                        } else {
+                            // DB data is newer (e.g. quote was signed) - clear stale draft
+                            localStorage.removeItem(draftKey);
                         }
                     }
                 } else {
