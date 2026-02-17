@@ -85,13 +85,19 @@ const ActionableDashboard = ({ user }) => {
 
 
             // 3. Pending Invoices (Billed but not Paid)
-            const { data: pendingInvoices } = await supabase
+            const { data: rawPendingInvoices } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients(name), children:quotes!parent_id(id)')
                 .eq('user_id', user.id)
                 .eq('status', 'billed')
                 .order('date', { ascending: true })
                 .limit(10);
+
+            // Exclude parent invoices that have child invoices (deposits/closing).
+            // Payment tracking happens through the children, so the parent is no longer "pending".
+            const pendingInvoices = (rawPendingInvoices || []).filter(inv =>
+                !inv.children || inv.children.length === 0
+            );
 
             // 4. Drafts (To finish)
             const { data: draftQuotes } = await supabase
