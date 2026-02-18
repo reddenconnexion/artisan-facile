@@ -895,7 +895,9 @@ const DevisForm = () => {
                 parent_quote_id: formData.parent_quote_id,
                 amendment_details: formData.amendment_details,
                 payment_method: formData.payment_method || null,
-                paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null)
+                paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null),
+                operation_category: formData.operation_category || 'service',
+                vat_on_debits: formData.vat_on_debits || false
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
