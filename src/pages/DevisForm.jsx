@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase } from '../utils/supabase';
@@ -47,7 +47,10 @@ const DevisForm = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
-    const fileInputRef = React.useRef(null);
+    const fileInputRef = useRef(null);
+    // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
+    // without the actual user.id or quote id changing.
+    const initKeyRef = useRef(null);
     const [showCalculator, setShowCalculator] = useState(false);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
@@ -306,15 +309,50 @@ const DevisForm = () => {
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
     const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
 
+    // Immediately save to localStorage when the tab becomes hidden, bypassing the debounce.
+    // This prevents losing the last typed line when the user switches tabs before the 1-second
+    // debounce fires.
+    useEffect(() => {
+        if (!draftKey || !user || !dataLoaded) return;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                try {
+                    const dataToSave = {
+                        ...formData,
+                        _draft_saved_at: new Date().toISOString()
+                    };
+                    localStorage.setItem(draftKey, JSON.stringify(dataToSave));
+                } catch (e) {
+                    console.error('Visibility auto-save error:', e);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [formData, draftKey, user, dataLoaded]);
+
     useEffect(() => {
         if (user) {
+            // Prevent re-run when only the user object reference changes (e.g. Supabase auth token
+            // refresh). Only re-initialize if user.id or quote id actually changed.
+            const currentKey = `${user.id}:${id || 'new'}`;
+            if (initKeyRef.current === currentKey) return;
+            initKeyRef.current = currentKey;
+
             const loadData = async () => {
-                // For editing mode: load DB data FIRST, then check draft
+                // For editing mode: load DB data FIRST, then restore draft if available
                 if (isEditing) {
+                    // Capture any draft (unsaved user changes) BEFORE fetching overwrites formData
+                    const existingDraft = getDraft(draftKey);
                     await fetchDevis();
-                    // Clear any stale draft - for existing quotes, DB is always the source of truth.
-                    // Auto-save will create a fresh draft from the loaded DB data.
-                    if (draftKey) localStorage.removeItem(draftKey);
+                    // If a draft exists it means the user had unsaved changes: restore them on top
+                    // of the DB data so nothing is lost.
+                    if (existingDraft) {
+                        const { _draft_saved_at, ...restoredDraft } = existingDraft;
+                        setFormData(prev => ({ ...prev, ...restoredDraft }));
+                    }
                     setDataLoaded(true);
                 } else {
                     // New quote: restore draft immediately
