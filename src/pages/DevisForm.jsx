@@ -549,6 +549,7 @@ const DevisForm = () => {
                     intervention_city: data.intervention_city || '',
                     amendment_details: data.amendment_details || {},
                     parent_quote_id: data.parent_quote_id || null,
+                    parent_id: data.parent_id ?? null,
                     payment_method: data.payment_method || '',
                     paid_at: data.paid_at ? data.paid_at.split('T')[0] : ''
                 });
@@ -1467,6 +1468,13 @@ Conditions de règlement : Paiement à réception de facture.`
                 .single();
 
             if (error) throw error;
+
+            // Proactively clear any stale draft that might exist for the new invoice's key
+            // (e.g. from a previous navigation side-effect). This ensures the closing invoice
+            // always loads its items — including the deduction lines — from the DB on first visit.
+            if (user) {
+                localStorage.removeItem(`quote_draft_${data.id}`);
+            }
 
             const successMsg = deposits.length > 0
                 ? `Facture de clôture générée avec ${deposits.length} déduction${deposits.length > 1 ? 's' : ''} !`
