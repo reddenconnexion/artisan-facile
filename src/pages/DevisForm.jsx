@@ -351,7 +351,21 @@ const DevisForm = () => {
                     // of the DB data so nothing is lost.
                     if (existingDraft) {
                         const { _draft_saved_at, ...restoredDraft } = existingDraft;
-                        setFormData(prev => ({ ...prev, ...restoredDraft }));
+                        setFormData(prev => {
+                            // If the DB has deduction items (negative price) that the draft lacks,
+                            // the draft was saved before the closing invoice deductions were added
+                            // (stale draft from before the fix). Keep DB items to preserve deductions
+                            // and only restore other draft fields.
+                            if (restoredDraft.items !== undefined) {
+                                const dbHasDeductions = (prev.items || []).some(i => i.price < 0);
+                                const draftHasDeductions = (restoredDraft.items || []).some(i => i.price < 0);
+                                if (dbHasDeductions && !draftHasDeductions) {
+                                    const { items: _staleItems, ...draftWithoutItems } = restoredDraft;
+                                    return { ...prev, ...draftWithoutItems };
+                                }
+                            }
+                            return { ...prev, ...restoredDraft };
+                        });
                     }
                     setDataLoaded(true);
                 } else {
