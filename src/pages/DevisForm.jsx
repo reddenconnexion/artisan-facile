@@ -1367,6 +1367,14 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleCreateClosingInvoice = async () => {
+        // Safety check: closing invoice must be generated from the original quote/invoice,
+        // not from a child document (deposit, situation, etc.) which would result in
+        // the deposit deductions not being found.
+        if (formData.parent_id) {
+            toast.error("La facture de clôture doit être générée depuis le devis original, pas depuis une facture enfant.");
+            return;
+        }
+
         if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
             return;
         }
@@ -1980,7 +1988,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
 
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && (
+                                {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
                                     <>
                                         <button
                                             onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
