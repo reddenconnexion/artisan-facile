@@ -44,12 +44,7 @@ const GlobalAssistant = () => {
 
         setIsProcessing(true);
         try {
-            const context = {
-                apiKey: localStorage.getItem('openai_api_key'), // Fallback handled in service
-                provider: 'gemini'
-            };
-
-            const result = await processAssistantIntent(text, context);
+            const result = await processAssistantIntent(text);
             const { intent, data: intentData, response } = result;
 
             toast.info(response || "Action en cours...");

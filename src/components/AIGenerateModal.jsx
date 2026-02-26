@@ -19,24 +19,8 @@ export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, use
         setLoading(true);
         try {
             const context = {
-                apiKey: userProfile?.openai_api_key || localStorage.getItem('openai_api_key'),
-                provider: userProfile?.ai_provider || localStorage.getItem('ai_provider'),
-                hourlyRate: userProfile?.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
-                travelFee: {
-                    zone1: {
-                        radius: userProfile?.zone1_radius || localStorage.getItem('zone1_radius'),
-                        price: userProfile?.zone1_price || localStorage.getItem('zone1_price')
-                    },
-                    zone2: {
-                        radius: userProfile?.zone2_radius || localStorage.getItem('zone2_radius'),
-                        price: userProfile?.zone2_price || localStorage.getItem('zone2_price')
-                    },
-                    zone3: {
-                        radius: userProfile?.zone3_radius || localStorage.getItem('zone3_radius'),
-                        price: userProfile?.zone3_price || localStorage.getItem('zone3_price')
-                    }
-                },
-                instructions: userProfile?.ai_instructions || localStorage.getItem('ai_instructions') || ''
+                hourlyRate: userProfile?.ai_hourly_rate || '',
+                instructions: userProfile?.ai_instructions || ''
             };
 
             const items = await generateQuoteItems(prompt, context);
