@@ -9,7 +9,15 @@ const callAiProxy = async (systemPrompt, userMessage) => {
         body: { systemPrompt, userMessage }
     });
 
-    if (error) throw new Error(error.message || 'Erreur du proxy IA');
+    if (error) {
+        // Extract the real error message from the Edge Function response body
+        let message = error.message || 'Erreur du proxy IA';
+        try {
+            const body = await error.context?.json?.();
+            if (body?.error) message = body.error;
+        } catch { /* ignore */ }
+        throw new Error(message);
+    }
     if (data?.error) throw new Error(data.error);
 
     return data.rawResponse;
