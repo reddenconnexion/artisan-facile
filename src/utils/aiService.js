@@ -1,59 +1,46 @@
+import { supabase } from './supabase';
+
 /**
- * Stores the OpenAI API Key in local storage (or user metadata if you prefer robust sync).
- * For this version, we use localStorage for simplicity and privacy, 
- * but we can sync to profile settings if requested.
+ * Calls the ai-proxy Edge Function which securely retrieves the API key
+ * from the database and proxies the request server-side.
  */
-export const saveApiKey = (apiKey) => {
-    localStorage.setItem('openai_api_key', apiKey);
-};
+const callAiProxy = async (systemPrompt, userMessage) => {
+    const { data, error } = await supabase.functions.invoke('ai-proxy', {
+        body: { systemPrompt, userMessage }
+    });
 
-export const getProvider = () => {
-    return localStorage.getItem('ai_provider') || 'gemini';
-};
+    if (error) throw new Error(error.message || 'Erreur du proxy IA');
+    if (data?.error) throw new Error(data.error);
 
-export const getApiKey = () => {
-    return localStorage.getItem('openai_api_key');
+    return data.rawResponse;
 };
 
 /**
  * Generates quote items based on a natural language description.
- * @param {string} userDescription - The user's description of work (e.g., "Rénovation sdb 5m2")
- * @param {object} context - Optional context (apiKey, provider, hourlyRate, instructions, etc.)
- * @returns {Promise<Array>} - Array of items { description, quantity, price, type, unit }
+ * @param {string} userDescription - The user's description of work
+ * @param {object} context - Optional context (hourlyRate, instructions, etc.)
+ * @returns {Promise<Array>} - Array of items
  */
 export const generateQuoteItems = async (userDescription, context = {}) => {
-    // Priority: Context > LocalStorage (fallback)
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
-    }
-
-    let constraints = "";
-    // Handle both snake_case (DB) and camelCase (JS)
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
 
-    // Note: Travel fee is now handled by zones in handleClientChange, 
-    // so we don't explicitly ask AI to add it to avoid duplicates,
-    // unless explicitly requested in instructions.
-
+    let constraints = "";
     if (hourlyRate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${hourlyRate}€/h.\n`;
     if (instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
 
     const systemPrompt = `
     Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
     Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis.
-    
+
     RÈGLES :
     1. Analyse la demande et déduis les matériaux nécessaires, la main d'oeuvre, et les consommables.
     2. Estime des prix réalistes du marché français (en Euros HT).
     3. Pour chaque ligne, détermine le type: 'service' (Main d'oeuvre) ou 'material' (Matériel).
     4. Sois précis mais concis dans les descriptions.
-    
+
     ${constraints}
-    
+
     FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
     [
         {
@@ -66,116 +53,39 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
     ]
     `;
 
+    const rawResponse = await callAiProxy(systemPrompt, `DESCRIPTION UTILISATEUR: "${userDescription}"`);
+
+    let jsonString = rawResponse.trim();
+    const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+        jsonString = jsonMatch[0];
+    } else {
+        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    }
+
     try {
-        let responseData;
-
-        if (provider === 'gemini') {
-            // Using gemini-3-flash-preview (Latest Available)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `${systemPrompt}\n\nDESCRIPTION UTILISATEUR: "${userDescription}"`
-                        }]
-                    }]
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                console.error("Gemini API Error Details:", errData);
-                throw new Error(`Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}`);
-            }
-
-            const data = await response.json();
-            const textRef = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!textRef) throw new Error("Réponse Gemini vide");
-            responseData = textRef;
-
-        } else {
-            // --- OPENAI API (Default) ---
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Génère le devis pour : "${userDescription}"` }
-                    ],
-                    temperature: 0.7
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error?.message || "Erreur OpenAI API");
-            }
-
-            const data = await response.json();
-            responseData = data.choices[0].message.content;
-        }
-
-        // Robust JSON extraction
-        let jsonString = responseData.trim();
-        const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
-
-        if (jsonMatch) {
-            jsonString = jsonMatch[0];
-        } else {
-            // Fallback cleanup if no array brackets found (unlikely for a list)
-            jsonString = jsonString
-                .replace(/```json/g, '')
-                .replace(/```/g, '')
-                .trim();
-        }
-
-        // Attempt to parse
-        try {
-            return JSON.parse(jsonString);
-        } catch (parseError) {
-            console.error("JSON Parse Error:", parseError, "Raw:", jsonString);
-            throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-        }
-
-    } catch (error) {
-        console.error("AI Service Error:", error);
-        throw error;
+        return JSON.parse(jsonString);
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
     }
 };
 
 /**
- * Analyzes natural language input to determine intent and extract structured data using Gemini.
+ * Analyzes natural language input to determine intent and extract structured data.
  * @param {string} userText - The user's spoken or typed command.
- * @param {object} context - Context (apiKey, current date, etc.)
- * @returns {Promise<object>} - Structured intent: { intent: 'calendar'|'client'|'email'|'unknown', data: object, response: string }
+ * @returns {Promise<object>} - Structured intent
  */
-export const processAssistantIntent = async (userText, context = {}) => {
-    // Priority: Context > LocalStorage (fallback)
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
-    }
-
-    // Default to Gemini Flash instructions
+export const processAssistantIntent = async (userText) => {
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const systemPrompt = `
     Tu es l'assistant intelligent d'un artisan. Ta mission est d'analyser la demande vocale de l'utilisateur et d'extraire des actions structurées.
-    
+
     INFORMATIONS CONTEXTUELLES :
     - Date d'aujourd'hui : ${today}
     - Heure actuelle : ${currentTime}
-    
+
     INTENTIONS POSSIBLES (Choisis-en une seule) :
     1. 'calendar' : Pour planifier un rendez-vous, une réunion, un chantier.
     2. 'client' : Pour créer ou mettre à jour une fiche client.
@@ -187,22 +97,22 @@ export const processAssistantIntent = async (userText, context = {}) => {
     {
         "intent": "calendar" | "client" | "email" | "navigation" | "unknown",
         "data": { ...champs spécifiques selon l'intention... },
-        "response": "Court message de confirmation à lire à l'utilisateur (ex: 'C'est noté, je prépare le mail')."
+        "response": "Court message de confirmation à lire à l'utilisateur."
     }
 
     DÉTAILS DES CHAMPS 'data' PAR INTENTION :
 
     Pour 'calendar' :
-    - title: "Rendez-vous avec M. Martin" (Génère un titre clair)
-    - start_date: "YYYY-MM-DDTHH:MM:00" (Date ISO déduite. Si 'demain', calcule la date. Si pas d'heure, mets 09:00 par défaut)
-    - duration: 60 (Durée en minutes, 60 par défaut)
+    - title: "Rendez-vous avec M. Martin"
+    - start_date: "YYYY-MM-DDTHH:MM:00"
+    - duration: 60
     - description: "Détails..."
 
     Pour 'client' :
     - name: "Nom Prénom"
-    - email: "email@exemple.com" (si détecté)
-    - phone: "06..." (si détecté)
-    - address: "Adresse complète" (si détectée)
+    - email: "email@exemple.com"
+    - phone: "06..."
+    - address: "Adresse complète"
     - notes: "Autres infos"
 
     Pour 'email' :
@@ -214,67 +124,13 @@ export const processAssistantIntent = async (userText, context = {}) => {
     - page: "/app/clients" | "/app/devis" | "/app/agenda" | "/app/settings"
     `;
 
-    try {
-        let jsonResponse = "";
+    const rawResponse = await callAiProxy(systemPrompt, `DEMANDE UTILISATEUR: "${userText}"`);
 
-        if (provider === 'gemini') {
-            // Using gemini-3-flash-preview (Latest Available)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `${systemPrompt}\n\nDEMANDE UTILISATEUR: "${userText}"`
-                        }]
-                    }]
-                })
-            });
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(`Erreur Gemini: ${err.error?.message || response.statusText}`);
-            }
-
-            const data = await response.json();
-            jsonResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        } else {
-            // Fallback OpenAI if configured
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userText }
-                    ],
-                    temperature: 0.3
-                })
-            });
-            const data = await response.json();
-            jsonResponse = data.choices[0].message.content;
-        }
-
-        // Clean JSON
-        let cleanJson = jsonResponse.trim();
-        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanJson = jsonMatch[0];
-
-        // Ensure quotes inside strings are escaped properly if manual parsing failed, 
-        // but JSON.parse expects valid JSON. Gemini usually does well.
-
-        return JSON.parse(cleanJson);
-
-
-    } catch (e) {
-        console.error("Assistant Intent Error:", e);
-        throw e;
-    }
+    return JSON.parse(cleanJson);
 };
 
 /**
@@ -286,20 +142,13 @@ export const processAssistantIntent = async (userText, context = {}) => {
  * @returns {Promise<object>} { subject, body }
  */
 export const generateFollowUpEmail = async (quote, client, step, context = {}) => {
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante.");
-    }
-
     const companyName = context.companyName || "Votre Artisan";
     const userName = context.userName || "";
 
     const systemPrompt = `
     Tu es un assistant professionnel pour un artisan du bâtiment.
     Rédige un e-mail de relance pour un devis envoyé.
-    
+
     CONTEXTE :
     - Artisan : ${companyName} ${userName ? `(${userName})` : ''}
     - Client : ${client.name || 'Client'}
@@ -307,10 +156,10 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     - Devis N° : ${quote.id}
     - Date du devis : ${new Date(quote.date).toLocaleDateString('fr-FR')}
     - Montant : ${quote.total_ttc ? quote.total_ttc + '€' : 'N/A'}
-    
+
     OBJECTIF DE LA RELANCE : ${step.label}
     TON/INSTRUCTIONS SPÉCIFIQUES : ${step.context || "Ton professionnel, courtois et direct."}
-    
+
     FORMAT JSON ATTENDU :
     {
         "subject": "Objet du mail...",
@@ -318,57 +167,11 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     }
     `;
 
-    try {
-        let jsonResponse = "";
+    const rawResponse = await callAiProxy(systemPrompt, 'Génère l\'email de relance.');
 
-        if (provider === 'gemini') {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: systemPrompt
-                        }]
-                    }]
-                })
-            });
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error?.message || "Erreur Gemini");
-            }
-            const data = await response.json();
-            jsonResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        } else {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt }
-                    ],
-                    temperature: 0.7
-                })
-            });
-            const data = await response.json();
-            jsonResponse = data.choices[0].message.content;
-        }
-
-        let cleanJson = jsonResponse.trim();
-        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanJson = jsonMatch[0];
-
-        return JSON.parse(cleanJson);
-
-    } catch (error) {
-        console.error("AI FollowUp Error:", error);
-        throw error;
-    }
+    return JSON.parse(cleanJson);
 };

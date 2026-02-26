@@ -68,18 +68,18 @@ const Profile = () => {
                     wero_phone: data.wero_phone || '',
                     artisan_status: aiPrefs.artisan_status || 'micro_entreprise',
                     activity_type: aiPrefs.activity_type || 'services',
-                    openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
-                    ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
-                    ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
+                    openai_api_key: aiPrefs.openai_api_key || '',
+                    ai_provider: aiPrefs.ai_provider || 'openai',
+                    ai_hourly_rate: aiPrefs.ai_hourly_rate || '',
                     // Zones
-                    zone1_radius: aiPrefs.zone1_radius || localStorage.getItem('zone1_radius') || '',
-                    zone1_price: aiPrefs.zone1_price || localStorage.getItem('zone1_price') || '',
-                    zone2_radius: aiPrefs.zone2_radius || localStorage.getItem('zone2_radius') || '',
-                    zone2_price: aiPrefs.zone2_price || localStorage.getItem('zone2_price') || '',
-                    zone3_radius: aiPrefs.zone3_radius || localStorage.getItem('zone3_radius') || '',
-                    zone3_price: aiPrefs.zone3_price || localStorage.getItem('zone3_price') || '',
+                    zone1_radius: aiPrefs.zone1_radius || '',
+                    zone1_price: aiPrefs.zone1_price || '',
+                    zone2_radius: aiPrefs.zone2_radius || '',
+                    zone2_price: aiPrefs.zone2_price || '',
+                    zone3_radius: aiPrefs.zone3_radius || '',
+                    zone3_price: aiPrefs.zone3_price || '',
 
-                    ai_instructions: aiPrefs.ai_instructions || localStorage.getItem('ai_instructions') || ''
+                    ai_instructions: aiPrefs.ai_instructions || ''
                 });
             }
         } catch (error) {
@@ -166,10 +166,9 @@ const Profile = () => {
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
 
-                    // Save AI prefs to JSONB column
-                    // NOTE: API key is intentionally NOT saved to the database for security.
-                    // It remains only in localStorage (user-managed, client-side only).
+                    // Save AI prefs to JSONB column (including API key, stored server-side only)
                     ai_preferences: {
+                        openai_api_key: formData.openai_api_key,
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
                         zone1_radius: formData.zone1_radius,
@@ -553,7 +552,6 @@ const Profile = () => {
                                     type="button"
                                     onClick={() => {
                                         setFormData({ ...formData, ai_provider: 'openai' });
-                                        localStorage.setItem('ai_provider', 'openai');
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${(!formData.ai_provider || formData.ai_provider === 'openai')
                                         ? 'bg-white text-purple-700 shadow-sm'
@@ -566,7 +564,6 @@ const Profile = () => {
                                     type="button"
                                     onClick={() => {
                                         setFormData({ ...formData, ai_provider: 'gemini' });
-                                        localStorage.setItem('ai_provider', 'gemini');
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${formData.ai_provider === 'gemini'
                                         ? 'bg-white text-blue-700 shadow-sm'
@@ -590,12 +587,11 @@ const Profile = () => {
                                     value={formData.openai_api_key || ''}
                                     onChange={(e) => {
                                         setFormData({ ...formData, openai_api_key: e.target.value });
-                                        localStorage.setItem('openai_api_key', e.target.value);
                                     }}
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => toast.success("Clé sauvegardée localement")}
+                                    onClick={() => toast.info("Cliquez sur 'Enregistrer les modifications' pour sauvegarder la clé.")}
                                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                 >
                                     Sauvegarder
@@ -615,7 +611,6 @@ const Profile = () => {
                                     value={formData.ai_hourly_rate || ''}
                                     onChange={(e) => {
                                         setFormData({ ...formData, ai_hourly_rate: e.target.value });
-                                        localStorage.setItem('ai_hourly_rate', e.target.value);
                                     }}
                                 />
                             </div>
@@ -639,7 +634,6 @@ const Profile = () => {
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [radiusKey]: val }));
-                                                        localStorage.setItem(radiusKey, val);
                                                     }}
                                                 />
                                                 <span className="absolute right-2 top-1.5 text-xs text-gray-400">km</span>
@@ -654,7 +648,6 @@ const Profile = () => {
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [priceKey]: val }));
-                                                        localStorage.setItem(priceKey, val);
                                                     }}
                                                 />
                                                 <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
@@ -677,7 +670,6 @@ const Profile = () => {
                                 value={formData.ai_instructions || ''}
                                 onChange={(e) => {
                                     setFormData({ ...formData, ai_instructions: e.target.value });
-                                    localStorage.setItem('ai_instructions', e.target.value);
                                 }}
                             />
                         </div>
