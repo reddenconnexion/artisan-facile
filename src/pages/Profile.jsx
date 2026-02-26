@@ -96,13 +96,37 @@ const Profile = () => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Le fichier est trop volumineux (max 5 Mo)');
+                return;
+            }
+
+            // Whitelist allowed MIME types for logos
+            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp', 'image/gif'];
+            if (!allowedMimeTypes.includes(file.type)) {
+                toast.error('Format de fichier non autorisé. Utilisez JPG, PNG, SVG, WebP ou GIF.');
+                return;
+            }
+
+            // Whitelist allowed extensions
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg', 'webp', 'gif'];
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(fileExt)) {
+                toast.error('Extension de fichier non autorisée.');
+                return;
+            }
+
+            // Use cryptographically secure random filename to prevent guessing
+            const randomBytes = new Uint8Array(16);
+            crypto.getRandomValues(randomBytes);
+            const randomHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            const fileName = `${user.id}-${randomHex}.${fileExt}`;
             const filePath = `${fileName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('logos')
-                .upload(filePath, file);
+                .upload(filePath, file, { contentType: file.type });
 
             if (uploadError) throw uploadError;
 
@@ -143,8 +167,9 @@ const Profile = () => {
                     wero_phone: formData.wero_phone,
 
                     // Save AI prefs to JSONB column
+                    // NOTE: API key is intentionally NOT saved to the database for security.
+                    // It remains only in localStorage (user-managed, client-side only).
                     ai_preferences: {
-                        openai_api_key: formData.openai_api_key,
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
                         zone1_radius: formData.zone1_radius,
