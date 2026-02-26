@@ -47,8 +47,8 @@ const PublicQuote = () => {
                 if (status === 'SUBSCRIBED') {
                     // Track presence
                     await channel.track({
-                        online_at: new Date().toISOString(),
-                        view_token: token
+                        online_at: new Date().toISOString()
+                        // NOTE: token intentionally omitted to prevent leakage via presence state
                     });
                 }
             });
@@ -75,10 +75,20 @@ const PublicQuote = () => {
         }
     };
 
+    // Only allow https:// URLs to prevent javascript: and data: URI attacks
+    const isSafeHttpsUrl = (url) => {
+        try {
+            const parsed = new URL(url);
+            return parsed.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    };
+
     const handleDownload = () => {
         if (!quote) return;
-        if (quote.original_pdf_url) {
-            window.open(quote.original_pdf_url, '_blank');
+        if (quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
+            window.open(quote.original_pdf_url, '_blank', 'noopener,noreferrer');
             return;
         }
         const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
@@ -238,10 +248,10 @@ const PublicQuote = () => {
                                             <a href={`mailto:${artisan.email}`} className="hover:text-blue-600">{artisan.email}</a>
                                         </div>
                                     )}
-                                    {artisan.website && (
+                                    {artisan.website && isSafeHttpsUrl(artisan.website) && (
                                         <div className="flex items-center gap-2">
                                             <Globe className="w-4 h-4" />
-                                            <a href={artisan.website} target="_blank" rel="noreferrer" className="hover:text-blue-600">{artisan.website}</a>
+                                            <a href={artisan.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">{artisan.website}</a>
                                         </div>
                                     )}
                                 </div>
@@ -335,7 +345,7 @@ const PublicQuote = () => {
                     )}
 
                     {/* Content: External PDF or Items Table */}
-                    {(quote.is_external && quote.original_pdf_url) ? (
+                    {(quote.is_external && quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) ? (
                         <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
                             <object
                                 data={quote.original_pdf_url}

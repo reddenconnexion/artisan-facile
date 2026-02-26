@@ -13,6 +13,13 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Enforce minimum password requirements
+        if (password.length < 8) {
+            toast.error('Le mot de passe doit contenir au moins 8 caractères.');
+            return;
+        }
+
         setLoading(true);
         try {
             const { data, error } = await signUp({
@@ -91,11 +98,17 @@ const Register = () => {
                             <input
                                 type="password"
                                 required
+                                minLength={8}
                                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                placeholder="Mot de passe"
+                                placeholder="Mot de passe (8 caractères minimum)"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
+                            {password.length > 0 && password.length < 8 && (
+                                <p className="mt-1 text-xs text-red-500">
+                                    Encore {8 - password.length} caractère(s) requis
+                                </p>
+                            )}
                         </div>
                         <div>
                             <select
