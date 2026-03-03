@@ -91,7 +91,7 @@ const PublicQuote = () => {
             window.open(quote.original_pdf_url, '_blank', 'noopener,noreferrer');
             return;
         }
-        const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
+        const isInvoice = quote.type === 'invoice';
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
 
@@ -172,7 +172,7 @@ const PublicQuote = () => {
 
     const { artisan, client } = quote;
     const isSigned = quote.status === 'accepted';
-    const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
+    const isInvoiceView = quote.type === 'invoice';
     const isAmendment = quote.type === 'amendment';
 
     let amendmentDetails = {};

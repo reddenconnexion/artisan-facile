@@ -125,7 +125,7 @@ const WorksitePilot = () => {
             const depositsMap = {};
             if (allQuotes) {
                 allQuotes.forEach(q => {
-                    if (q.parent_id && (q.type === 'invoice' || q.status === 'paid')) {
+                    if (q.parent_id && q.type === 'invoice') {
                         if (!depositsMap[q.parent_id]) depositsMap[q.parent_id] = [];
                         depositsMap[q.parent_id].push(q);
                     }
