@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
-    CheckCircle
+    CheckCircle, Camera, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -29,6 +29,7 @@ const InterventionReportForm = () => {
     const [saving, setSaving] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -46,6 +47,7 @@ const InterventionReportForm = () => {
         description: '',
         work_done: '',
         materials_used: [EMPTY_MATERIAL()],
+        photos: [],
         notes: '',
         status: 'draft',
         client_signature: null,
@@ -144,6 +146,45 @@ const InterventionReportForm = () => {
         toast.success('Signature enregistrée');
     };
 
+    const handlePhotoUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        setUploadingPhotos(true);
+        try {
+            const uploaded = [];
+            for (const file of files) {
+                const ext = file.name.split('.').pop();
+                const path = `interventions/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('project-photos')
+                    .upload(path, file);
+                if (uploadError) throw uploadError;
+                const { data: { publicUrl } } = supabase.storage
+                    .from('project-photos')
+                    .getPublicUrl(path);
+                uploaded.push({ url: publicUrl, path, name: file.name });
+            }
+            setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), ...uploaded] }));
+            toast.success(`${uploaded.length} photo(s) ajoutée(s)`);
+        } catch (err) {
+            toast.error('Erreur lors de l\'upload des photos');
+        } finally {
+            setUploadingPhotos(false);
+            e.target.value = '';
+        }
+    };
+
+    const removePhoto = async (photo) => {
+        try {
+            if (photo.path) {
+                await supabase.storage.from('project-photos').remove([photo.path]);
+            }
+            setFormData(prev => ({ ...prev, photos: prev.photos.filter(p => p.url !== photo.url) }));
+        } catch (err) {
+            toast.error('Erreur lors de la suppression');
+        }
+    };
+
     const handleSave = async (statusOverride = null) => {
         if (!formData.title.trim()) {
             toast.error('Le titre est obligatoire');
@@ -168,6 +209,7 @@ const InterventionReportForm = () => {
                 description: formData.description || null,
                 work_done: formData.work_done || null,
                 materials_used: formData.materials_used.filter(m => m.description.trim()),
+                photos: formData.photos || [],
                 notes: formData.notes || null,
                 status: statusOverride || formData.status,
                 client_signature: formData.client_signature || null,
@@ -607,6 +649,64 @@ const InterventionReportForm = () => {
                                 </span>
                             </div>
                         )}
+                    </div>
+                )}
+            </div>
+
+            {/* Photos */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Camera className="w-5 h-5 text-blue-500" />
+                        Photos de l'intervention
+                    </h2>
+                    <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium
+                        ${uploadingPhotos
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                            : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}>
+                        {uploadingPhotos
+                            ? <><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> Upload...</>
+                            : <><Camera className="w-4 h-4" /> Ajouter des photos</>}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={uploadingPhotos}
+                            onChange={handlePhotoUpload}
+                        />
+                    </label>
+                </div>
+
+                {(formData.photos || []).length === 0 ? (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                        <Camera className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
+                        <span className="text-sm text-gray-400 dark:text-gray-500">Cliquez pour ajouter des photos</span>
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                    </label>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {(formData.photos || []).map((photo, idx) => (
+                            <div key={photo.url} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
+                                <img
+                                    src={photo.url}
+                                    alt={photo.name || `Photo ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                />
+                                <button
+                                    onClick={() => removePhoto(photo)}
+                                    className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                                    title="Supprimer"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                        <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                            <Plus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">Ajouter</span>
+                            <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                        </label>
                     </div>
                 )}
             </div>

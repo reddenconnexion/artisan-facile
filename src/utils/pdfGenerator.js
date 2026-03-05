@@ -1068,6 +1068,67 @@ export const generateInterventionReportPDF = async (report, userProfile = {}) =>
         y = doc.lastAutoTable.finalY + 6;
     }
 
+    // ------ Photos ------
+    const photos = (report.photos || []).filter(p => p?.url);
+    if (photos.length > 0) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        doc.setFillColor(...bgGray);
+        doc.roundedRect(14, y, 182, 6, 2, 2, 'F');
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...blue);
+        doc.text('PHOTOS', 18, y + 4.2);
+        y += 10;
+
+        const imgW = 55;
+        const imgH = 40;
+        const gap = 6;
+        const perRow = 3;
+
+        for (let i = 0; i < photos.length; i++) {
+            const col = i % perRow;
+            const row = Math.floor(i / perRow);
+            const x = 14 + col * (imgW + gap);
+            const imgY = y + row * (imgH + gap);
+
+            if (imgY + imgH > 280) {
+                doc.addPage();
+                y = 20;
+                // recalculate
+                const newCol = i % perRow;
+                const newRow = Math.floor(i / perRow) - Math.floor(i / perRow); // reset row
+                const newX = 14 + newCol * (imgW + gap);
+                const newImgY = y;
+                try {
+                    const res = await fetch(photos[i].url);
+                    const blob = await res.blob();
+                    const dataUrl = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = e => resolve(e.target.result);
+                        reader.readAsDataURL(blob);
+                    });
+                    doc.addImage(dataUrl, 'JPEG', newX, newImgY, imgW, imgH);
+                } catch (e) { /* skip */ }
+                continue;
+            }
+
+            try {
+                const res = await fetch(photos[i].url);
+                const blob = await res.blob();
+                const dataUrl = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsDataURL(blob);
+                });
+                doc.addImage(dataUrl, 'JPEG', x, imgY, imgW, imgH);
+            } catch (e) { /* ignore failed images */ }
+        }
+
+        const rows = Math.ceil(photos.length / perRow);
+        y += rows * (imgH + gap) + 4;
+        if (y > 270) { doc.addPage(); y = 20; }
+    }
+
     // ------ Notes ------
     if (report.notes) {
         doc.setFillColor(...bgGray);
