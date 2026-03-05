@@ -8,6 +8,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 import { useClients, useQuotes, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
 import SignatureModal from '../components/SignatureModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
@@ -18,6 +19,7 @@ const InterventionReportForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isTestMode, captureEmail } = useTestMode();
     const isEditing = id && id !== 'new';
 
     const { data: existingReport, isLoading: loadingReport } = useInterventionReport(isEditing ? id : null);
@@ -1018,8 +1020,13 @@ const InterventionReportForm = () => {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
-                                        window.location.href = url;
+                                        if (isTestMode) {
+                                            captureEmail({ email: sendInvoiceModal.email, subject: sendInvoiceModal.subject, body: sendInvoiceModal.body });
+                                            toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
+                                        } else {
+                                            const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
+                                            window.location.href = url;
+                                        }
                                         setSendInvoiceModal(null);
                                     }}
                                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"

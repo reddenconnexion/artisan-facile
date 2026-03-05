@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { generateQuoteItems } from '../utils/aiService';
@@ -28,6 +29,7 @@ const DevisForm = () => {
     const { id } = useParams();
     const location = useLocation();
     const { user } = useAuth();
+    const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
     const [dataLoaded, setDataLoaded] = useState(!isEditing);
@@ -841,8 +843,13 @@ const DevisForm = () => {
         if (!emailPreview) return;
 
         const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailtoUrl;
-        toast.success('Application de messagerie ouverte');
+        if (isTestMode) {
+            captureEmail({ email: emailPreview.email, subject, body });
+            toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
+        } else {
+            window.location.href = mailtoUrl;
+            toast.success('Application de messagerie ouverte');
+        }
 
         // Log interaction
         if (formData.client_id) {
