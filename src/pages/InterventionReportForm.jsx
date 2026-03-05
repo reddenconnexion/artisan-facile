@@ -197,7 +197,7 @@ const InterventionReportForm = () => {
     const handleSave = async (statusOverride = null) => {
         if (!formData.title.trim()) {
             toast.error('Le titre est obligatoire');
-            return;
+            return false;
         }
 
         setSaving(true);
@@ -218,7 +218,6 @@ const InterventionReportForm = () => {
                 description: formData.description || null,
                 work_done: formData.work_done || null,
                 materials_used: formData.materials_used.filter(m => m.description.trim()),
-                photos: formData.photos || [],
                 notes: formData.notes || null,
                 status: statusOverride || formData.status,
                 client_signature: formData.client_signature || null,
@@ -227,36 +226,68 @@ const InterventionReportForm = () => {
                 updated_at: new Date().toISOString(),
             };
 
+            // Ajouter photos seulement si la colonne existe (migration appliquée)
+            const photosPayload = formData.photos?.length ? { photos: formData.photos } : {};
+
             if (isEditing) {
                 const { error } = await supabase
                     .from('intervention_reports')
-                    .update(payload)
+                    .update({ ...payload, ...photosPayload })
                     .eq('id', id);
-                if (error) throw error;
+                if (error) {
+                    // Réessayer sans photos si la colonne n'existe pas encore
+                    if (error.code === '42703') {
+                        const { error: e2 } = await supabase
+                            .from('intervention_reports')
+                            .update(payload)
+                            .eq('id', id);
+                        if (e2) throw e2;
+                    } else {
+                        throw error;
+                    }
+                }
                 invalidateInterventionReport(id);
             } else {
                 const { data, error } = await supabase
                     .from('intervention_reports')
-                    .insert([{ ...payload, user_id: user.id }])
+                    .insert([{ ...payload, ...photosPayload, user_id: user.id }])
                     .select()
                     .single();
-                if (error) throw error;
+                if (error) {
+                    if (error.code === '42703') {
+                        const { data: d2, error: e2 } = await supabase
+                            .from('intervention_reports')
+                            .insert([{ ...payload, user_id: user.id }])
+                            .select()
+                            .single();
+                        if (e2) throw e2;
+                        invalidateInterventionReports();
+                        navigate(`/app/interventions/${d2.id}`, { replace: true });
+                        invalidateInterventionReports();
+                        toast.success('Rapport sauvegardé');
+                        return true;
+                    }
+                    throw error;
+                }
                 invalidateInterventionReports();
                 navigate(`/app/interventions/${data.id}`, { replace: true });
             }
 
             invalidateInterventionReports();
             toast.success('Rapport sauvegardé');
+            return true;
         } catch (err) {
-            console.error(err);
+            console.error('handleSave error:', err);
             toast.error('Erreur lors de la sauvegarde');
+            return false;
         } finally {
             setSaving(false);
         }
     };
 
     const handleMarkCompleted = async () => {
-        await handleSave('completed');
+        const saved = await handleSave('completed');
+        if (!saved) return;
 
         const toastId = 'completing-invoice';
         toast.loading('Génération de la facture de clôture…', { id: toastId });
@@ -338,28 +369,26 @@ const InterventionReportForm = () => {
             // --- 4. Créer la facture dans Supabase ---
             const invoiceToken = crypto.randomUUID();
 
+            const invoicePayload = {
+                user_id: user.id,
+                client_id: clientId ? Number(clientId) : null,
+                client_name: client?.name || formData.client_name || null,
+                title: linkedQuote?.title || formData.title || 'Facture de clôture',
+                date: new Date().toISOString().split('T')[0],
+                type: 'invoice',
+                status: 'sent',
+                items,
+                total_ht: totalHT,
+                total_tva: totalTVA,
+                total_ttc: totalTTC,
+                include_tva: includeTva,
+                public_token: invoiceToken,
+                notes: `Facture de clôture — rapport d'intervention du ${formData.date || new Date().toLocaleDateString('fr-FR')}`,
+            };
+
             const { data: newInvoice, error: invoiceError } = await supabase
                 .from('quotes')
-                .insert([{
-                    user_id: user.id,
-                    client_id: formData.client_id ? Number(formData.client_id) : null,
-                    client_name: formData.client_name || client?.name || null,
-                    title: linkedQuote?.title || formData.title || 'Facture de clôture',
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'invoice',
-                    status: 'sent',
-                    items,
-                    total_ht: totalHT,
-                    total_tva: totalTVA,
-                    total_ttc: totalTTC,
-                    include_tva: includeTva,
-                    operation_category: linkedQuote?.operation_category || null,
-                    public_token: invoiceToken,
-                    intervention_address: formData.intervention_address || linkedQuote?.intervention_address || null,
-                    intervention_postal_code: formData.intervention_postal_code || linkedQuote?.intervention_postal_code || null,
-                    intervention_city: formData.intervention_city || linkedQuote?.intervention_city || null,
-                    ...(linkedQuote ? { parent_quote_id: linkedQuote.id } : {}),
-                }])
+                .insert([invoicePayload])
                 .select()
                 .single();
 
@@ -405,8 +434,8 @@ const InterventionReportForm = () => {
 
         } catch (err) {
             toast.dismiss(toastId);
-            console.error(err);
-            toast.error('Erreur lors de la génération de la facture');
+            console.error('handleMarkCompleted error:', err);
+            toast.error(`Erreur : ${err?.message || err?.code || 'inconnue'}`, { duration: 8000 });
         }
     };
 
