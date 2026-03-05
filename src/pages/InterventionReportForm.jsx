@@ -249,37 +249,124 @@ const InterventionReportForm = () => {
 
     const handleMarkCompleted = async () => {
         await handleSave('completed');
-        // After save, check if we can propose sending the linked invoice
-        const quote = formData.quote_id ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString()) : null;
-        const client = formData.client_id ? clients.find(c => c.id.toString() === formData.client_id.toString()) : null;
-        if (!quote || !client?.email) return;
 
-        // Ensure the quote has a public_token
-        let token = quote.public_token;
-        if (!token) {
-            token = crypto.randomUUID();
-            const { error } = await supabase.from('quotes').update({ public_token: token }).eq('id', quote.id);
-            if (error) { console.error(error); return; }
+        const client = formData.client_id
+            ? clients.find(c => c.id.toString() === formData.client_id.toString())
+            : null;
+        if (!client?.email) return;
+
+        const toastId = 'completing-invoice';
+        toast.loading('Génération de la facture de clôture…', { id: toastId });
+
+        try {
+            // --- 1. Construire les lignes de la facture ---
+            const materials = (formData.materials_used || []).filter(m => m.description?.trim());
+            const items = materials.map(m => ({
+                description: m.description,
+                quantity: parseFloat(m.quantity) || 1,
+                unit: m.unit || 'unité',
+                price: parseFloat(m.price) || 0,
+                buying_price: 0,
+                type: 'material',
+            }));
+
+            // Ajouter une ligne main d'œuvre si durée renseignée
+            const hours = parseFloat(formData.duration_hours);
+            const hourlyRate = parseFloat(userProfile?.ai_hourly_rate);
+            if (hours > 0 && hourlyRate > 0) {
+                items.push({
+                    description: `Main d'œuvre — ${formData.title || 'Intervention'}`,
+                    quantity: hours,
+                    unit: 'h',
+                    price: hourlyRate,
+                    buying_price: 0,
+                    type: 'service',
+                });
+            }
+            if (items.length === 0) {
+                items.push({ description: formData.title || 'Intervention', quantity: 1, unit: 'forfait', price: 0, buying_price: 0, type: 'service' });
+            }
+
+            const totalHT = items.reduce((s, i) => s + i.quantity * i.price, 0);
+            const tvaRate = 0.2;
+            const totalTVA = totalHT * tvaRate;
+            const totalTTC = totalHT + totalTVA;
+
+            // --- 2. Créer la facture dans Supabase ---
+            const invoiceToken = crypto.randomUUID();
+            const linkedQuote = formData.quote_id
+                ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
+                : null;
+
+            const { data: newInvoice, error: invoiceError } = await supabase
+                .from('quotes')
+                .insert([{
+                    user_id: user.id,
+                    client_id: formData.client_id ? Number(formData.client_id) : null,
+                    client_name: formData.client_name || client?.name || null,
+                    title: formData.title || 'Facture de clôture',
+                    date: formData.date || new Date().toISOString().split('T')[0],
+                    type: 'invoice',
+                    status: 'sent',
+                    items,
+                    total_ht: totalHT,
+                    total_tva: totalTVA,
+                    total_ttc: totalTTC,
+                    include_tva: true,
+                    public_token: invoiceToken,
+                    intervention_address: formData.intervention_address || null,
+                    intervention_postal_code: formData.intervention_postal_code || null,
+                    intervention_city: formData.intervention_city || null,
+                    ...(linkedQuote ? { parent_quote_id: linkedQuote.id } : {}),
+                }])
+                .select()
+                .single();
+
+            if (invoiceError) throw invoiceError;
+
+            // --- 3. Uploader le rapport PDF ---
+            const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
+            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('project-photos')
+                .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
+
+            let reportUrl = null;
+            if (!uploadError) {
+                const { data: { publicUrl: rUrl } } = supabase.storage
+                    .from('project-photos')
+                    .getPublicUrl(reportPath);
+                reportUrl = rUrl;
+            }
+
+            toast.dismiss(toastId);
+            toast.success('Facture de clôture créée');
+
+            // --- 4. Préparer le modal email ---
+            const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
+            const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+            const subject = `Facture N°${newInvoice.id} : ${newInvoice.title} - ${companyName}`;
+            const signatureBlock = [
+                companyName,
+                userProfile?.phone || '',
+                userProfile?.professional_email || userProfile?.email || '',
+            ].filter(Boolean).join('\n');
+
+            const body =
+                `Bonjour ${client.name},\n\n` +
+                `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
+                `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
+                `📄 Facture de clôture :\n${invoiceUrl}\n\n` +
+                (reportUrl ? `📋 Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+                `Cordialement,\n${signatureBlock}`;
+
+            setSendInvoiceModal({ email: client.email, subject, body });
+
+        } catch (err) {
+            toast.dismiss(toastId);
+            console.error(err);
+            toast.error('Erreur lors de la génération de la facture');
         }
-
-        const publicUrl = `${window.location.origin}/q/${token}`;
-        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
-        const isInvoice = quote.type === 'invoice';
-        const docType = isInvoice ? 'Facture' : 'Devis';
-        const subject = `${docType}${quote.id ? ` N°${quote.id}` : ''} : ${quote.title || 'Travaux'} - ${companyName}`;
-        const signatureBlock = [
-            companyName,
-            userProfile?.phone || '',
-            userProfile?.professional_email || userProfile?.email || '',
-        ].filter(Boolean).join('\n');
-
-        const body =
-            `Bonjour ${client.name},\n\n` +
-            `Le rapport d'intervention "${formData.title}" est maintenant terminé.\n\n` +
-            `Vous trouverez ci-dessous le lien pour consulter et télécharger votre ${docType.toLowerCase()} :\n${publicUrl}\n\n` +
-            `Cordialement,\n${signatureBlock}`;
-
-        setSendInvoiceModal({ email: client.email, subject, body });
     };
 
     const handleExportPDF = async () => {
@@ -870,7 +957,7 @@ const InterventionReportForm = () => {
                                 <div>
                                     <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Rapport terminé !</h3>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Voulez-vous envoyer la facture associée au client&nbsp;?
+                                        Facture de clôture créée. Envoyez-la au client avec le rapport d'intervention.
                                     </p>
                                 </div>
                             </div>

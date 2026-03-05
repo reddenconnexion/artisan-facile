@@ -895,7 +895,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 // ---------------------------------------------------------------
 // Génération PDF pour les rapports d'intervention
 // ---------------------------------------------------------------
-export const generateInterventionReportPDF = async (report, userProfile = {}) => {
+export const generateInterventionReportPDF = async (report, userProfile = {}, returnBlob = false) => {
     const doc = new jsPDF();
 
     const blue = [37, 99, 235];
@@ -1199,7 +1199,10 @@ export const generateInterventionReportPDF = async (report, userProfile = {}) =>
         );
     }
 
-    // ------ Téléchargement ------
+    // ------ Téléchargement ou retour blob ------
     const fileName = `rapport-intervention-${report.report_number || report.date || 'sans-date'}.pdf`;
+    if (returnBlob) {
+        return doc.output('blob');
+    }
     doc.save(fileName);
 };
