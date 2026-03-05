@@ -3,8 +3,10 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Plus, Trash2, Calendar, DollarSign, CheckCircle, AlertCircle, Clock, Bell } from 'lucide-react';
 import { sendInstallmentReminder } from '../utils/followUpService';
+import { useTestMode } from '../context/TestModeContext';
 
 const PaymentSchedule = ({ invoiceId, totalAmount, onScheduleChange }) => {
+    const { isTestMode, captureEmail } = useTestMode();
     const [installments, setInstallments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showPayModal, setShowPayModal] = useState(false);
@@ -40,7 +42,7 @@ const PaymentSchedule = ({ invoiceId, totalAmount, onScheduleChange }) => {
     const handleRemind = async (inst) => {
         if (!inst.quotes?.user_id) return;
         try {
-            await sendInstallmentReminder(inst, inst.quotes.user_id);
+            await sendInstallmentReminder(inst, inst.quotes.user_id, isTestMode ? captureEmail : null);
             toast.success("Rappel envoyé par email");
             fetchInstallments(); // Refresh to update reminder count/status
         } catch (e) {

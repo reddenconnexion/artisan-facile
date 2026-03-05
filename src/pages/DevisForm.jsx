@@ -1706,9 +1706,14 @@ Conditions de règlement : Paiement à réception de facture.`
                 window.open(reviewUrl, '_blank');
                 break;
             case 'email':
-                const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
-                const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
-                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                const reviewSubject = `Votre avis compte pour ${userProfile.company_name || 'nous'}`;
+                const reviewBody = `Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`;
+                if (isTestMode) {
+                    captureEmail({ email: selectedClient?.email || '', subject: reviewSubject, body: reviewBody });
+                    toast.success('📬 Demande d\'avis capturée dans l\'inbox test', { duration: 4000 });
+                } else {
+                    window.location.href = `mailto:?subject=${encodeURIComponent(reviewSubject)}&body=${encodeURIComponent(reviewBody)}`;
+                }
                 break;
         }
         setShowReviewMenu(false);

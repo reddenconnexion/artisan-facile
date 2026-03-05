@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, Mail, MessageSquare, Copy, Star, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTestMode } from '../context/TestModeContext';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
+    const { isTestMode, captureEmail } = useTestMode();
     if (!isOpen) return null;
 
     const reviewUrl = userProfile?.google_review_url;
@@ -39,9 +41,14 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
             toast.error("Lien Google Avis non configuré");
             return;
         }
-        window.location.href = `mailto:${client?.email || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+        if (isTestMode) {
+            captureEmail({ email: client?.email || '', subject: emailSubject, body: emailBody });
+            toast.success('📬 Demande d\'avis capturée dans l\'inbox test', { duration: 4000 });
+        } else {
+            window.location.href = `mailto:${client?.email || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            toast.success("Application de messagerie ouverte");
+        }
         onClose();
-        toast.success("Application de messagerie ouverte");
     };
 
     const handleSendSMS = () => {
