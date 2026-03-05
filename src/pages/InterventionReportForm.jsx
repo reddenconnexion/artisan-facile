@@ -259,44 +259,60 @@ const InterventionReportForm = () => {
         toast.loading('Génération de la facture de clôture…', { id: toastId });
 
         try {
-            // --- 1. Construire les lignes de la facture ---
-            const materials = (formData.materials_used || []).filter(m => m.description?.trim());
-            const items = materials.map(m => ({
-                description: m.description,
-                quantity: parseFloat(m.quantity) || 1,
-                unit: m.unit || 'unité',
-                price: parseFloat(m.price) || 0,
-                buying_price: 0,
-                type: 'material',
-            }));
+            const linkedQuote = formData.quote_id
+                ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
+                : null;
 
-            // Ajouter une ligne main d'œuvre si durée renseignée
+            // --- 1. Base : items du devis signé lié ---
+            const baseItems = linkedQuote?.items
+                ? linkedQuote.items.map(i => ({
+                    description: i.description,
+                    quantity: parseFloat(i.quantity) || 1,
+                    unit: i.unit || 'unité',
+                    price: parseFloat(i.price) || 0,
+                    buying_price: parseFloat(i.buying_price) || 0,
+                    type: i.type || 'service',
+                }))
+                : [];
+
+            // --- 2. Matériaux supplémentaires du rapport ---
+            const reportMaterials = (formData.materials_used || [])
+                .filter(m => m.description?.trim())
+                .map(m => ({
+                    description: `[Matériel rapport] ${m.description}`,
+                    quantity: parseFloat(m.quantity) || 1,
+                    unit: m.unit || 'unité',
+                    price: parseFloat(m.price) || 0,
+                    buying_price: 0,
+                    type: 'material',
+                }));
+
+            // --- 3. Main d'œuvre supplémentaire (heures rapport) ---
             const hours = parseFloat(formData.duration_hours);
             const hourlyRate = parseFloat(userProfile?.ai_hourly_rate);
-            if (hours > 0 && hourlyRate > 0) {
-                items.push({
-                    description: `Main d'œuvre — ${formData.title || 'Intervention'}`,
+            const laborItems = (hours > 0 && hourlyRate > 0)
+                ? [{
+                    description: `Main d'œuvre — ${formData.title || 'Intervention'} (${hours}h)`,
                     quantity: hours,
                     unit: 'h',
                     price: hourlyRate,
                     buying_price: 0,
                     type: 'service',
-                });
-            }
+                }]
+                : [];
+
+            const items = [...baseItems, ...reportMaterials, ...laborItems];
             if (items.length === 0) {
                 items.push({ description: formData.title || 'Intervention', quantity: 1, unit: 'forfait', price: 0, buying_price: 0, type: 'service' });
             }
 
+            const includeTva = linkedQuote?.include_tva !== false;
             const totalHT = items.reduce((s, i) => s + i.quantity * i.price, 0);
-            const tvaRate = 0.2;
-            const totalTVA = totalHT * tvaRate;
+            const totalTVA = includeTva ? totalHT * 0.2 : 0;
             const totalTTC = totalHT + totalTVA;
 
-            // --- 2. Créer la facture dans Supabase ---
+            // --- 4. Créer la facture dans Supabase ---
             const invoiceToken = crypto.randomUUID();
-            const linkedQuote = formData.quote_id
-                ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
-                : null;
 
             const { data: newInvoice, error: invoiceError } = await supabase
                 .from('quotes')
@@ -304,19 +320,20 @@ const InterventionReportForm = () => {
                     user_id: user.id,
                     client_id: formData.client_id ? Number(formData.client_id) : null,
                     client_name: formData.client_name || client?.name || null,
-                    title: formData.title || 'Facture de clôture',
-                    date: formData.date || new Date().toISOString().split('T')[0],
+                    title: linkedQuote?.title || formData.title || 'Facture de clôture',
+                    date: new Date().toISOString().split('T')[0],
                     type: 'invoice',
                     status: 'sent',
                     items,
                     total_ht: totalHT,
                     total_tva: totalTVA,
                     total_ttc: totalTTC,
-                    include_tva: true,
+                    include_tva: includeTva,
+                    operation_category: linkedQuote?.operation_category || null,
                     public_token: invoiceToken,
-                    intervention_address: formData.intervention_address || null,
-                    intervention_postal_code: formData.intervention_postal_code || null,
-                    intervention_city: formData.intervention_city || null,
+                    intervention_address: formData.intervention_address || linkedQuote?.intervention_address || null,
+                    intervention_postal_code: formData.intervention_postal_code || linkedQuote?.intervention_postal_code || null,
+                    intervention_city: formData.intervention_city || linkedQuote?.intervention_city || null,
                     ...(linkedQuote ? { parent_quote_id: linkedQuote.id } : {}),
                 }])
                 .select()
@@ -324,7 +341,7 @@ const InterventionReportForm = () => {
 
             if (invoiceError) throw invoiceError;
 
-            // --- 3. Uploader le rapport PDF ---
+            // --- 5. Uploader le rapport PDF ---
             const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
             const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
             const { error: uploadError } = await supabase.storage
@@ -342,7 +359,7 @@ const InterventionReportForm = () => {
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');
 
-            // --- 4. Préparer le modal email ---
+            // --- 6. Préparer le modal email ---
             const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
             const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
             const subject = `Facture N°${newInvoice.id} : ${newInvoice.title} - ${companyName}`;
