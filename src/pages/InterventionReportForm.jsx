@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
-    CheckCircle, Camera, X
+    CheckCircle, Camera, X, Mail, Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -30,6 +30,7 @@ const InterventionReportForm = () => {
     const [exporting, setExporting] = useState(false);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [sendInvoiceModal, setSendInvoiceModal] = useState(null); // { email, subject, body }
 
     const [formData, setFormData] = useState({
         title: '',
@@ -246,7 +247,144 @@ const InterventionReportForm = () => {
         }
     };
 
-    const handleMarkCompleted = () => handleSave('completed');
+    const handleMarkCompleted = async () => {
+        await handleSave('completed');
+
+        const client = formData.client_id
+            ? clients.find(c => c.id.toString() === formData.client_id.toString())
+            : null;
+        if (!client?.email) return;
+
+        const toastId = 'completing-invoice';
+        toast.loading('Génération de la facture de clôture…', { id: toastId });
+
+        try {
+            const linkedQuote = formData.quote_id
+                ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
+                : null;
+
+            // --- 1. Base : items du devis signé lié ---
+            const baseItems = linkedQuote?.items
+                ? linkedQuote.items.map(i => ({
+                    description: i.description,
+                    quantity: parseFloat(i.quantity) || 1,
+                    unit: i.unit || 'unité',
+                    price: parseFloat(i.price) || 0,
+                    buying_price: parseFloat(i.buying_price) || 0,
+                    type: i.type || 'service',
+                }))
+                : [];
+
+            // --- 2. Matériaux supplémentaires du rapport ---
+            const reportMaterials = (formData.materials_used || [])
+                .filter(m => m.description?.trim())
+                .map(m => ({
+                    description: `[Matériel rapport] ${m.description}`,
+                    quantity: parseFloat(m.quantity) || 1,
+                    unit: m.unit || 'unité',
+                    price: parseFloat(m.price) || 0,
+                    buying_price: 0,
+                    type: 'material',
+                }));
+
+            // --- 3. Main d'œuvre supplémentaire (heures rapport) ---
+            const hours = parseFloat(formData.duration_hours);
+            const hourlyRate = parseFloat(userProfile?.ai_hourly_rate);
+            const laborItems = (hours > 0 && hourlyRate > 0)
+                ? [{
+                    description: `Main d'œuvre — ${formData.title || 'Intervention'} (${hours}h)`,
+                    quantity: hours,
+                    unit: 'h',
+                    price: hourlyRate,
+                    buying_price: 0,
+                    type: 'service',
+                }]
+                : [];
+
+            const items = [...baseItems, ...reportMaterials, ...laborItems];
+            if (items.length === 0) {
+                items.push({ description: formData.title || 'Intervention', quantity: 1, unit: 'forfait', price: 0, buying_price: 0, type: 'service' });
+            }
+
+            const includeTva = linkedQuote?.include_tva !== false;
+            const totalHT = items.reduce((s, i) => s + i.quantity * i.price, 0);
+            const totalTVA = includeTva ? totalHT * 0.2 : 0;
+            const totalTTC = totalHT + totalTVA;
+
+            // --- 4. Créer la facture dans Supabase ---
+            const invoiceToken = crypto.randomUUID();
+
+            const { data: newInvoice, error: invoiceError } = await supabase
+                .from('quotes')
+                .insert([{
+                    user_id: user.id,
+                    client_id: formData.client_id ? Number(formData.client_id) : null,
+                    client_name: formData.client_name || client?.name || null,
+                    title: linkedQuote?.title || formData.title || 'Facture de clôture',
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'invoice',
+                    status: 'sent',
+                    items,
+                    total_ht: totalHT,
+                    total_tva: totalTVA,
+                    total_ttc: totalTTC,
+                    include_tva: includeTva,
+                    operation_category: linkedQuote?.operation_category || null,
+                    public_token: invoiceToken,
+                    intervention_address: formData.intervention_address || linkedQuote?.intervention_address || null,
+                    intervention_postal_code: formData.intervention_postal_code || linkedQuote?.intervention_postal_code || null,
+                    intervention_city: formData.intervention_city || linkedQuote?.intervention_city || null,
+                    ...(linkedQuote ? { parent_quote_id: linkedQuote.id } : {}),
+                }])
+                .select()
+                .single();
+
+            if (invoiceError) throw invoiceError;
+
+            // --- 5. Uploader le rapport PDF ---
+            const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
+            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('project-photos')
+                .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
+
+            let reportUrl = null;
+            if (!uploadError) {
+                const { data: { publicUrl: rUrl } } = supabase.storage
+                    .from('project-photos')
+                    .getPublicUrl(reportPath);
+                reportUrl = rUrl;
+            }
+
+            toast.dismiss(toastId);
+            toast.success('Facture de clôture créée');
+
+            // --- 6. Préparer le modal email ---
+            const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
+            const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+            const subject = `Facture N°${newInvoice.id} : ${newInvoice.title} - ${companyName}`;
+            const signatureBlock = [
+                companyName,
+                userProfile?.phone || '',
+                userProfile?.professional_email || userProfile?.email || '',
+            ].filter(Boolean).join('\n');
+
+            const body =
+                `Bonjour ${client.name},\n\n` +
+                `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
+                `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
+                `📄 Facture de clôture :\n${invoiceUrl}\n\n` +
+                (reportUrl ? `📋 Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+                `Cordialement,\n${signatureBlock}`;
+
+            setSendInvoiceModal({ email: client.email, subject, body });
+
+        } catch (err) {
+            toast.dismiss(toastId);
+            console.error(err);
+            toast.error('Erreur lors de la génération de la facture');
+        }
+    };
 
     const handleExportPDF = async () => {
         setExporting(true);
@@ -823,6 +961,77 @@ const InterventionReportForm = () => {
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
             />
+
+            {/* Modal envoi facture automatique */}
+            {sendInvoiceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Rapport terminé !</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Facture de clôture créée. Envoyez-la au client avec le rapport d'intervention.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Destinataire</label>
+                                    <input
+                                        type="text"
+                                        value={sendInvoiceModal.email}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, email: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Objet</label>
+                                    <input
+                                        type="text"
+                                        value={sendInvoiceModal.subject}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, subject: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Message</label>
+                                    <textarea
+                                        rows={7}
+                                        value={sendInvoiceModal.body}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, body: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-1">
+                                <button
+                                    onClick={() => setSendInvoiceModal(null)}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                >
+                                    Ignorer
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
+                                        window.location.href = url;
+                                        setSendInvoiceModal(null);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    Ouvrir dans la messagerie
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
