@@ -369,28 +369,26 @@ const InterventionReportForm = () => {
             // --- 4. Créer la facture dans Supabase ---
             const invoiceToken = crypto.randomUUID();
 
+            const invoicePayload = {
+                user_id: user.id,
+                client_id: clientId ? Number(clientId) : null,
+                client_name: client?.name || formData.client_name || null,
+                title: linkedQuote?.title || formData.title || 'Facture de clôture',
+                date: new Date().toISOString().split('T')[0],
+                type: 'invoice',
+                status: 'sent',
+                items,
+                total_ht: totalHT,
+                total_tva: totalTVA,
+                total_ttc: totalTTC,
+                include_tva: includeTva,
+                public_token: invoiceToken,
+                notes: `Facture de clôture — rapport d'intervention du ${formData.date || new Date().toLocaleDateString('fr-FR')}`,
+            };
+
             const { data: newInvoice, error: invoiceError } = await supabase
                 .from('quotes')
-                .insert([{
-                    user_id: user.id,
-                    client_id: formData.client_id ? Number(formData.client_id) : null,
-                    client_name: formData.client_name || client?.name || null,
-                    title: linkedQuote?.title || formData.title || 'Facture de clôture',
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'invoice',
-                    status: 'sent',
-                    items,
-                    total_ht: totalHT,
-                    total_tva: totalTVA,
-                    total_ttc: totalTTC,
-                    include_tva: includeTva,
-                    operation_category: linkedQuote?.operation_category || null,
-                    public_token: invoiceToken,
-                    intervention_address: formData.intervention_address || linkedQuote?.intervention_address || null,
-                    intervention_postal_code: formData.intervention_postal_code || linkedQuote?.intervention_postal_code || null,
-                    intervention_city: formData.intervention_city || linkedQuote?.intervention_city || null,
-                    ...(linkedQuote ? { parent_quote_id: linkedQuote.id } : {}),
-                }])
+                .insert([invoicePayload])
                 .select()
                 .single();
 
@@ -436,8 +434,8 @@ const InterventionReportForm = () => {
 
         } catch (err) {
             toast.dismiss(toastId);
-            console.error(err);
-            toast.error('Erreur lors de la génération de la facture');
+            console.error('handleMarkCompleted error:', err);
+            toast.error(`Erreur : ${err?.message || err?.code || 'inconnue'}`, { duration: 8000 });
         }
     };
 
