@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TestModeProvider } from './context/TestModeContext';
 import Layout from './layouts/Layout';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
@@ -94,6 +95,7 @@ function App() {
     <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <TestModeProvider>
         <ReloadPrompt />
         <OfflineBanner />
         <BrowserRouter>
@@ -135,6 +137,7 @@ function App() {
             </Routes >
           </Suspense >
         </BrowserRouter >
+        </TestModeProvider>
       </AuthProvider >
     </QueryClientProvider >
     </ErrorBoundary>
