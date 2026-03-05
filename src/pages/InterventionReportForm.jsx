@@ -102,9 +102,15 @@ const InterventionReportForm = () => {
 
     const handleQuoteChange = (quoteId) => {
         const quote = allQuotes.find(q => String(q.id) === String(quoteId));
+        const linkedClient = quote?.client_id
+            ? clients.find(c => String(c.id) === String(quote.client_id))
+            : null;
         setFormData(prev => ({
             ...prev,
             quote_id: quoteId,
+            // Auto-remplir le client depuis le devis si pas encore sélectionné
+            client_id: prev.client_id || (linkedClient ? String(linkedClient.id) : prev.client_id),
+            client_name: prev.client_name || linkedClient?.name || quote?.client_name || '',
             // Pre-fill address from quote if current address is empty
             intervention_address: prev.intervention_address || quote?.intervention_address || '',
             intervention_postal_code: prev.intervention_postal_code || quote?.intervention_postal_code || '',
@@ -252,18 +258,34 @@ const InterventionReportForm = () => {
     const handleMarkCompleted = async () => {
         await handleSave('completed');
 
-        const client = formData.client_id
-            ? clients.find(c => c.id.toString() === formData.client_id.toString())
-            : null;
-        if (!client?.email) return;
-
         const toastId = 'completing-invoice';
         toast.loading('Génération de la facture de clôture…', { id: toastId });
 
         try {
+            // --- Résoudre le devis lié ---
             const linkedQuote = formData.quote_id
                 ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
+                    ?? (await supabase.from('quotes').select('*').eq('id', formData.quote_id).single()).data
                 : null;
+
+            // --- Résoudre le client (cache → fallback DB) ---
+            const clientId = formData.client_id || linkedQuote?.client_id;
+            if (!clientId) {
+                toast.dismiss(toastId);
+                toast.error('Aucun client associé au rapport — facture non générée');
+                return;
+            }
+            let client = clients.find(c => c.id.toString() === clientId.toString());
+            if (!client) {
+                const { data: dbClient } = await supabase
+                    .from('clients').select('*').eq('id', clientId).single();
+                client = dbClient;
+            }
+            if (!client?.email) {
+                toast.dismiss(toastId);
+                toast.error(`Le client "${client?.name || 'inconnu'}" n'a pas d'email — facture non envoyée`);
+                return;
+            }
 
             // --- 1. Base : items du devis signé lié ---
             const baseItems = linkedQuote?.items
