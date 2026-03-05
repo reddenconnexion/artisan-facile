@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
-    CheckCircle, Camera, X
+    CheckCircle, Camera, X, Mail, Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -30,6 +30,7 @@ const InterventionReportForm = () => {
     const [exporting, setExporting] = useState(false);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [sendInvoiceModal, setSendInvoiceModal] = useState(null); // { email, subject, body }
 
     const [formData, setFormData] = useState({
         title: '',
@@ -246,7 +247,40 @@ const InterventionReportForm = () => {
         }
     };
 
-    const handleMarkCompleted = () => handleSave('completed');
+    const handleMarkCompleted = async () => {
+        await handleSave('completed');
+        // After save, check if we can propose sending the linked invoice
+        const quote = formData.quote_id ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString()) : null;
+        const client = formData.client_id ? clients.find(c => c.id.toString() === formData.client_id.toString()) : null;
+        if (!quote || !client?.email) return;
+
+        // Ensure the quote has a public_token
+        let token = quote.public_token;
+        if (!token) {
+            token = crypto.randomUUID();
+            const { error } = await supabase.from('quotes').update({ public_token: token }).eq('id', quote.id);
+            if (error) { console.error(error); return; }
+        }
+
+        const publicUrl = `${window.location.origin}/q/${token}`;
+        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+        const isInvoice = quote.type === 'invoice';
+        const docType = isInvoice ? 'Facture' : 'Devis';
+        const subject = `${docType}${quote.id ? ` N°${quote.id}` : ''} : ${quote.title || 'Travaux'} - ${companyName}`;
+        const signatureBlock = [
+            companyName,
+            userProfile?.phone || '',
+            userProfile?.professional_email || userProfile?.email || '',
+        ].filter(Boolean).join('\n');
+
+        const body =
+            `Bonjour ${client.name},\n\n` +
+            `Le rapport d'intervention "${formData.title}" est maintenant terminé.\n\n` +
+            `Vous trouverez ci-dessous le lien pour consulter et télécharger votre ${docType.toLowerCase()} :\n${publicUrl}\n\n` +
+            `Cordialement,\n${signatureBlock}`;
+
+        setSendInvoiceModal({ email: client.email, subject, body });
+    };
 
     const handleExportPDF = async () => {
         setExporting(true);
@@ -823,6 +857,77 @@ const InterventionReportForm = () => {
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
             />
+
+            {/* Modal envoi facture automatique */}
+            {sendInvoiceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Rapport terminé !</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Voulez-vous envoyer la facture associée au client&nbsp;?
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Destinataire</label>
+                                    <input
+                                        type="text"
+                                        value={sendInvoiceModal.email}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, email: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Objet</label>
+                                    <input
+                                        type="text"
+                                        value={sendInvoiceModal.subject}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, subject: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Message</label>
+                                    <textarea
+                                        rows={7}
+                                        value={sendInvoiceModal.body}
+                                        onChange={e => setSendInvoiceModal(prev => ({ ...prev, body: e.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-1">
+                                <button
+                                    onClick={() => setSendInvoiceModal(null)}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                >
+                                    Ignorer
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
+                                        window.location.href = url;
+                                        setSendInvoiceModal(null);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    Ouvrir dans la messagerie
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
