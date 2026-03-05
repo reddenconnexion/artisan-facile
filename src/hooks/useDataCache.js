@@ -230,6 +230,8 @@ export function useInvalidateCache() {
         invalidateInventory: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
         invalidateAgenda: () => queryClient.invalidateQueries({ queryKey: ['agenda'] }),
         invalidateAll: () => queryClient.invalidateQueries(),
+        invalidateInterventionReports: () => queryClient.invalidateQueries({ queryKey: ['interventionReports'] }),
+        invalidateInterventionReport: (id) => queryClient.invalidateQueries({ queryKey: ['interventionReport', id] }),
     };
 }
 
@@ -326,6 +328,46 @@ export function useDashboardData() {
         enabled: !!user,
         staleTime: 2 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
+    });
+}
+
+// Cache des rapports d'intervention
+export function useInterventionReports() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['interventionReports', user?.id],
+        queryFn: withOfflineCache(`interventionReports_${user?.id}`, async () => {
+            const { data, error } = await supabase
+                .from('intervention_reports')
+                .select('*')
+                .order('date', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        }),
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
+    });
+}
+
+// Cache d'un rapport d'intervention spécifique
+export function useInterventionReport(id) {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['interventionReport', id],
+        queryFn: withOfflineCache(`interventionReport_${id}`, async () => {
+            const { data, error } = await supabase
+                .from('intervention_reports')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            return data;
+        }),
+        enabled: !!user && !!id && id !== 'new',
+        staleTime: 1 * 60 * 1000,
     });
 }
 

@@ -78,6 +78,8 @@ const Portfolio = lazyWithRetry(() => import('./pages/Portfolio'));
 const Rentals = lazyWithRetry(() => import('./pages/Rentals'));
 const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
 const Marketing = lazyWithRetry(() => import('./pages/Marketing'));
+const InterventionReports = lazyWithRetry(() => import('./pages/InterventionReports'));
+const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionReportForm'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -127,6 +129,8 @@ function App() {
                 <Route path="settings/activity" element={<ActivitySettings />} />
                 <Route path="accounting" element={<Accounting />} />
                 <Route path="marketing" element={<Marketing />} />
+                <Route path="interventions" element={<InterventionReports />} />
+                <Route path="interventions/:id" element={<InterventionReportForm />} />
               </Route>
             </Routes >
           </Suspense >
