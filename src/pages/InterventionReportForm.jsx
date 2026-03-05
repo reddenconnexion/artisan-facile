@@ -8,7 +8,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useClients, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
+import { useClients, useQuotes, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
 import SignatureModal from '../components/SignatureModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 
@@ -22,6 +22,7 @@ const InterventionReportForm = () => {
 
     const { data: existingReport, isLoading: loadingReport } = useInterventionReport(isEditing ? id : null);
     const { data: clients = [] } = useClients();
+    const { data: allQuotes = [] } = useQuotes();
     const { data: userProfile } = useUserProfile();
     const { invalidateInterventionReports, invalidateInterventionReport } = useInvalidateCache();
 
@@ -85,6 +86,24 @@ const InterventionReportForm = () => {
             ...prev,
             client_id: clientId,
             client_name: client?.name || '',
+            quote_id: '',  // reset quote when client changes
+        }));
+    };
+
+    // Quotes filtered for the selected client
+    const clientQuotes = formData.client_id
+        ? allQuotes.filter(q => String(q.client_id) === String(formData.client_id))
+        : allQuotes;
+
+    const handleQuoteChange = (quoteId) => {
+        const quote = allQuotes.find(q => String(q.id) === String(quoteId));
+        setFormData(prev => ({
+            ...prev,
+            quote_id: quoteId,
+            // Pre-fill address from quote if current address is empty
+            intervention_address: prev.intervention_address || quote?.intervention_address || '',
+            intervention_postal_code: prev.intervention_postal_code || quote?.intervention_postal_code || '',
+            intervention_city: prev.intervention_city || quote?.intervention_city || '',
         }));
     };
 
@@ -373,6 +392,30 @@ const InterventionReportForm = () => {
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Devis / Facture lié(e)
+                    </label>
+                    <select
+                        value={formData.quote_id}
+                        onChange={e => handleQuoteChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">— Aucun devis lié —</option>
+                        {clientQuotes.map(q => (
+                            <option key={q.id} value={q.id}>
+                                {q.title || `Devis #${q.id}`}
+                                {q.date ? ` — ${new Date(q.date).toLocaleDateString('fr-FR')}` : ''}
+                                {q.total_ttc ? ` — ${parseFloat(q.total_ttc).toFixed(2)} €` : ''}
+                            </option>
+                        ))}
+                    </select>
+                    {formData.quote_id && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            L'adresse du devis a été pré-remplie si le champ était vide.
+                        </p>
+                    )}
                 </div>
             </div>
 
