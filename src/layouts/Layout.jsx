@@ -101,7 +101,8 @@ const Layout = () => {
       enable_price_library: userSettings.enable_price_library ?? true,
       enable_inventory: userSettings.enable_inventory ?? true,
       enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
-      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType)
+      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType),
+      enable_intervention_reports: userSettings.enable_intervention_reports ?? true,
     };
 
     const nav = [
@@ -121,7 +122,9 @@ const Layout = () => {
 
     nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });
 
-    nav.push({ name: 'Rapports d\'intervention', href: '/app/interventions', icon: ClipboardList });
+    if (settings.enable_intervention_reports) {
+      nav.push({ name: 'Rapports d\'intervention', href: '/app/interventions', icon: ClipboardList });
+    }
 
     nav.push({ name: 'Comptabilité', href: '/app/accounting', icon: Calculator });
 
