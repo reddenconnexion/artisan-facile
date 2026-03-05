@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 import { getDueFollowUps, recordFollowUp } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
@@ -9,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
+    const { isTestMode, captureEmail } = useTestMode();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('due'); // 'due' or 'history'
     const [dueQuotes, setDueQuotes] = useState([]);
@@ -99,9 +101,14 @@ const FollowUps = ({ embedded = false }) => {
             return;
         }
 
-        // 1. Open Mail Client
-        const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailtoUrl;
+        // 1. Open Mail Client (or capture in test mode)
+        if (isTestMode) {
+            captureEmail({ email: clientEmail, subject, body });
+            toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
+        } else {
+            const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailtoUrl;
+        }
 
         // 2. Record Action (Optimistic update or confirm dialog? 
         // For simplicity, we assume user sends it. 

@@ -210,7 +210,7 @@ export const getOverdueInstallments = async (userId) => {
  * @param {object} installment 
  * @param {string} userId 
  */
-export const sendInstallmentReminder = async (installment, userId) => {
+export const sendInstallmentReminder = async (installment, userId, captureEmail = null) => {
     if (!installment.quotes?.clients?.email) {
         throw new Error("Email du client introuvable");
     }
@@ -230,8 +230,12 @@ export const sendInstallmentReminder = async (installment, userId) => {
         `Merci de régulariser cette situation dès que possible.\n\n` +
         `Cordialement,`;
 
-    // Open mail client
-    window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // Open mail client (or capture in test mode)
+    if (typeof captureEmail === 'function') {
+        captureEmail({ email: client.email, subject, body });
+    } else {
+        window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
 
     // Update reminded count
     await supabase
