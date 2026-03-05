@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 
 const ActivitySettings = () => {
@@ -22,7 +22,8 @@ const ActivitySettings = () => {
         enable_agenda: true,
         enable_calculator: true,
         enable_accounting: true,
-        enable_inventory: true
+        enable_inventory: true,
+        enable_intervention_reports: true
     });
 
     useEffect(() => {
@@ -150,6 +151,12 @@ const ActivitySettings = () => {
             label: 'Comptabilité & Charges',
             description: 'Suivi du CA et calcul automatique des charges sociales (URSSAF).',
             icon: Calculator
+        },
+        {
+            key: 'enable_intervention_reports',
+            label: 'Rapports d\'intervention',
+            description: 'Créez des rapports de dépannage avec signature client et export PDF.',
+            icon: ClipboardList
         }
     ];
 
