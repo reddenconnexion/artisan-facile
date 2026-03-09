@@ -384,6 +384,22 @@ const InterventionReportForm = () => {
                 reportUrl = rUrl;
             }
 
+            // Stocker le lien PDF sur le rapport lui-même (pour retrouver le lien depuis n'importe quelle facture liée)
+            if (reportUrl && isEditing) {
+                await supabase
+                    .from('intervention_reports')
+                    .update({ report_pdf_url: reportUrl })
+                    .eq('id', id);
+            }
+
+            // Si un devis/facture est lié au rapport, on lui affecte aussi le lien du PDF
+            if (reportUrl && formData.quote_id) {
+                await supabase
+                    .from('quotes')
+                    .update({ report_pdf_url: reportUrl })
+                    .eq('id', formData.quote_id);
+            }
+
             const invoicePayload = {
                 user_id: user.id,
                 client_id: clientId ? Number(clientId) : null,
