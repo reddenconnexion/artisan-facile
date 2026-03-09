@@ -627,6 +627,16 @@ const ProjectPhotos = ({ clientId }) => {
         setShowMoveModal(true);
     };
 
+    const handleMoveUncategorized = () => {
+        const uncategorized = photos.filter(p => p.project_id === null);
+        if (uncategorized.length === 0) return;
+        setPhotosToMove(new Set(uncategorized.map(p => p.id)));
+        setMoveTargetId('');
+        setIsCreatingInMove(false);
+        setNewMoveProjectName('');
+        setShowMoveModal(true);
+    };
+
     const handleConfirmMove = async () => {
         if (photosToMove.size === 0) return;
 
@@ -918,13 +928,25 @@ const ProjectPhotos = ({ clientId }) => {
                     </div>
 
                     {!creatingProject && (
-                        <button
-                            onClick={() => setCreatingProject(true)}
-                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors ml-auto sm:ml-0"
-                        >
-                            <FolderPlus className="w-4 h-4" />
-                            Nouveau chantier
-                        </button>
+                        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                            {projectCounts['uncategorized'] > 0 && projects.length > 0 && (
+                                <button
+                                    onClick={handleMoveUncategorized}
+                                    className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                                    title={`Déplacer les ${projectCounts['uncategorized']} photos non classées vers un dossier`}
+                                >
+                                    <FolderInput className="w-4 h-4" />
+                                    Ranger les non classées ({projectCounts['uncategorized']})
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setCreatingProject(true)}
+                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                                <FolderPlus className="w-4 h-4" />
+                                Nouveau chantier
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
