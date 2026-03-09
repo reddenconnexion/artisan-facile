@@ -361,7 +361,9 @@ const ProjectPhotos = ({ clientId }) => {
 
     useEffect(() => {
         if (clientId && user) {
-            Promise.all([fetchPhotos(), fetchProjects()]);
+            Promise.all([fetchPhotos(), fetchProjects()]).then(([, loadedProjects]) => {
+                if (loadedProjects) initDefaultProject(loadedProjects);
+            });
 
             // Realtime subscriptions
             const photosSubscription = supabase
@@ -403,9 +405,48 @@ const ProjectPhotos = ({ clientId }) => {
 
             if (error) throw error;
             setProjects(data || []);
+            return data || [];
         } catch (error) {
             console.error('Error fetching projects:', error);
-            // Silent fail allowed for projects as table might not exist yet if migration pending
+            return [];
+        }
+    };
+
+    // Sélectionne (ou crée) automatiquement le dossier du dernier devis/facture actif
+    const initDefaultProject = async (existingProjects) => {
+        try {
+            const { data: quote } = await supabase
+                .from('quotes')
+                .select('id, title, type, status')
+                .eq('client_id', clientId)
+                .in('status', ['sent', 'accepted', 'billed'])
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (!quote?.title) return;
+
+            const folderName = quote.title.trim();
+            const existing = existingProjects.find(p => p.name === folderName);
+
+            if (existing) {
+                setSelectedProjectId(existing.id);
+                return;
+            }
+
+            // Créer le dossier automatiquement
+            const { data: created, error } = await supabase
+                .from('projects')
+                .insert([{ name: folderName, client_id: clientId, user_id: user.id }])
+                .select()
+                .single();
+
+            if (!error && created) {
+                setProjects(prev => [...prev, created]);
+                setSelectedProjectId(created.id);
+            }
+        } catch (e) {
+            console.error('initDefaultProject error', e);
         }
     };
 
