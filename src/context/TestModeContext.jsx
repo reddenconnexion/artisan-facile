@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -19,6 +19,23 @@ export function TestModeProvider({ children }) {
     const [capturedEmails, setCapturedEmails] = useState(() => {
         try { return JSON.parse(localStorage.getItem(LS_EMAILS)) || []; } catch { return []; }
     });
+
+    // Au démarrage, récupérer le client test depuis la DB s'il existe (même si localStorage est vide)
+    useEffect(() => {
+        if (!user) return;
+        supabase
+            .from('clients')
+            .select('id, name, email, portal_token')
+            .eq('user_id', user.id)
+            .eq('name', '⚗️ Client Test')
+            .maybeSingle()
+            .then(({ data }) => {
+                if (data) {
+                    setTestClient(data);
+                    localStorage.setItem(LS_CLIENT, JSON.stringify(data));
+                }
+            });
+    }, [user?.id]);
 
     const ensureTestClient = useCallback(async () => {
         if (!user) return null;
