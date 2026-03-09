@@ -898,11 +898,11 @@ const InterventionReportForm = () => {
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {(formData.photos || []).map((photo, idx) => (
-                            <div key={photo.url} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
+                            <div key={photo.url} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center" style={{ minHeight: '100px', aspectRatio: '4/3' }}>
                                 <img
                                     src={photo.url}
                                     alt={photo.name || `Photo ${idx + 1}`}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                 />
                                 <button
                                     onClick={() => removePhoto(photo)}
@@ -913,7 +913,7 @@ const InterventionReportForm = () => {
                                 </button>
                             </div>
                         ))}
-                        <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors" style={{ aspectRatio: '4/3' }}>
                             <Plus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                             <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">Ajouter</span>
                             <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
