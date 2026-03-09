@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
 import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList } from 'lucide-react';
-import { generateDevisPDF } from '../../utils/pdfGenerator';
+import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
 
 const ClientPortal = () => {
     const { token } = useParams();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [downloadingReport, setDownloadingReport] = useState(null);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('documents'); // 'documents' or 'photos'
 
@@ -49,6 +50,19 @@ const ClientPortal = () => {
 
         const isInvoice = quote.type === 'invoice';
         generateDevisPDF(quote, clientObj, userProfileObj, isInvoice);
+    };
+
+    const handleDownloadReport = async (report) => {
+        if (report.report_pdf_url) {
+            window.open(report.report_pdf_url, '_blank');
+            return;
+        }
+        setDownloadingReport(report.id);
+        try {
+            await generateInterventionReportPDF(report, data.artisan);
+        } finally {
+            setDownloadingReport(null);
+        }
     };
 
     if (loading) return (
@@ -210,17 +224,14 @@ const ClientPortal = () => {
                                                     </div>
                                                     <p className="font-semibold text-gray-900 text-sm">{report.title}</p>
                                                 </div>
-                                                {report.report_pdf_url && (
-                                                    <a
-                                                        href={report.report_pdf_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                                        title="Télécharger le rapport"
-                                                    >
-                                                        <Download className="w-5 h-5" />
-                                                    </a>
-                                                )}
+                                                <button
+                                                    onClick={() => handleDownloadReport(report)}
+                                                    disabled={downloadingReport === report.id}
+                                                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
+                                                    title="Télécharger le rapport"
+                                                >
+                                                    <Download className="w-5 h-5" />
+                                                </button>
                                             </div>
                                             <p className="text-sm text-gray-500">
                                                 {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}

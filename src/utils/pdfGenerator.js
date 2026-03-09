@@ -1086,6 +1086,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         const perRow = 3;
 
         // Draw image contained (no stretch) inside a cell
+        // Use getImageProperties so ratio matches exactly what jsPDF embeds (raw, no EXIF rotation)
         const addPhotoCell = (dataUrl, cellX, cellY) => {
             try {
                 const props = doc.getImageProperties(dataUrl);
@@ -1100,8 +1101,10 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
                     drawW = cellH * ratio;
                     offsetX = (cellW - drawW) / 2;
                 }
-                doc.addImage(dataUrl, 'JPEG', cellX + offsetX, cellY + offsetY, drawW, drawH);
-            } catch (e) { /* skip */ }
+                doc.addImage(dataUrl, cellX + offsetX, cellY + offsetY, drawW, drawH);
+            } catch (e) {
+                console.warn('addPhotoCell error', e);
+            }
         };
 
         const fetchDataUrl = async (url) => {
