@@ -1085,20 +1085,19 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         const gap = 6;
         const perRow = 3;
 
+        let pageStartIdx = 0;
+
         for (let i = 0; i < photos.length; i++) {
-            const col = i % perRow;
-            const row = Math.floor(i / perRow);
+            const col = (i - pageStartIdx) % perRow;
+            const row = Math.floor((i - pageStartIdx) / perRow);
             const x = 14 + col * (imgW + gap);
             const imgY = y + row * (imgH + gap);
 
             if (imgY + imgH > 280) {
                 doc.addPage();
                 y = 20;
-                // recalculate
-                const newCol = i % perRow;
-                const newRow = Math.floor(i / perRow) - Math.floor(i / perRow); // reset row
-                const newX = 14 + newCol * (imgW + gap);
-                const newImgY = y;
+                pageStartIdx = i;
+                const newX = 14; // col 0 on new page
                 try {
                     const res = await fetch(photos[i].url);
                     const blob = await res.blob();
@@ -1107,7 +1106,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
                         reader.onload = e => resolve(e.target.result);
                         reader.readAsDataURL(blob);
                     });
-                    doc.addImage(dataUrl, 'JPEG', newX, newImgY, imgW, imgH);
+                    doc.addImage(dataUrl, 'JPEG', newX, y, imgW, imgH);
                 } catch (e) { /* skip */ }
                 continue;
             }
@@ -1124,8 +1123,9 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
             } catch (e) { /* ignore failed images */ }
         }
 
-        const rows = Math.ceil(photos.length / perRow);
-        y += rows * (imgH + gap) + 4;
+        const photosOnLastPage = photos.length - pageStartIdx;
+        const rowsOnLastPage = Math.ceil(photosOnLastPage / perRow);
+        y += rowsOnLastPage * (imgH + gap) + 4;
         if (y > 270) { doc.addPage(); y = 20; }
     }
 
