@@ -380,17 +380,17 @@ const Dashboard = () => {
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();
 
-    const testClientId = !isTestMode && testClient?.id ? testClient.id : null;
+    const isTestQuote = (q) => q.clients?.name?.includes('⚗️') || (testClient?.id && q.client_id === testClient.id);
 
     const allQuotes = useMemo(
-        () => (data?.allQuotes || []).filter(q => !testClientId || q.client_id !== testClientId),
-        [data?.allQuotes, testClientId]
+        () => (data?.allQuotes || []).filter(q => isTestMode || !isTestQuote(q)),
+        [data?.allQuotes, isTestMode, testClient?.id]
     );
-    const clientCount = Math.max(0, (data?.clientCount || 0) - (testClientId ? 1 : 0));
+    const clientCount = data?.clientCount || 0;
     const pendingQuotesCount = allQuotes.filter(q => ['draft', 'sent'].includes(q.status)).length;
     const recentActivity = useMemo(
-        () => (data?.recentActivity || []).filter(a => !testClientId || !a.description.includes('⚗️ Client Test')),
-        [data?.recentActivity, testClientId]
+        () => (data?.recentActivity || []).filter(a => isTestMode || !a.description.includes('⚗️')),
+        [data?.recentActivity, isTestMode]
     );
 
     // Afficher un écran de chargement
