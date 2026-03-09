@@ -47,7 +47,7 @@ const ClientPortal = () => {
         // But here user just wants to download the document. 
         // Let's assume 'accepted' = Invoice, others = Quote for the button label/logic.
 
-        const isInvoice = quote.status === 'accepted';
+        const isInvoice = quote.type === 'invoice';
         generateDevisPDF(quote, clientObj, userProfileObj, isInvoice);
     };
 
@@ -164,7 +164,7 @@ const ClientPortal = () => {
                                                             ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
                                                                 quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
                                                                     'bg-yellow-100 text-yellow-800'}`}>
-                                                            {quote.status === 'accepted' ? 'Facture / Signé' : 'Devis'}
+                                                            {quote.type === 'invoice' ? 'Facture' : quote.status === 'accepted' ? 'Devis signé' : 'Devis'}
                                                         </span>
                                                         <span className="text-sm text-gray-500">#{quote.id}</span>
                                                     </div>

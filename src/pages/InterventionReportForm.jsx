@@ -265,17 +265,20 @@ const InterventionReportForm = () => {
                         navigate(`/app/interventions/${d2.id}`, { replace: true });
                         invalidateInterventionReports();
                         toast.success('Rapport sauvegardé');
-                        return true;
+                        return d2.id;
                     }
                     throw error;
                 }
                 invalidateInterventionReports();
                 navigate(`/app/interventions/${data.id}`, { replace: true });
+                invalidateInterventionReports();
+                toast.success('Rapport sauvegardé');
+                return data.id;
             }
 
             invalidateInterventionReports();
             toast.success('Rapport sauvegardé');
-            return true;
+            return isEditing ? Number(id) : true;
         } catch (err) {
             console.error('handleSave error:', err);
             toast.error('Erreur lors de la sauvegarde');
@@ -286,8 +289,8 @@ const InterventionReportForm = () => {
     };
 
     const handleMarkCompleted = async () => {
-        const saved = await handleSave('completed');
-        if (!saved) return;
+        const savedId = await handleSave('completed');
+        if (!savedId) return;
 
         const toastId = 'completing-invoice';
         toast.loading('Génération de la facture de clôture…', { id: toastId });
@@ -385,11 +388,11 @@ const InterventionReportForm = () => {
             }
 
             // Stocker le lien PDF sur le rapport lui-même (pour retrouver le lien depuis n'importe quelle facture liée)
-            if (reportUrl && isEditing) {
+            if (reportUrl) {
                 await supabase
                     .from('intervention_reports')
                     .update({ report_pdf_url: reportUrl })
-                    .eq('id', id);
+                    .eq('id', savedId);
             }
 
             // Si un devis/facture est lié au rapport, on lui affecte aussi le lien du PDF
