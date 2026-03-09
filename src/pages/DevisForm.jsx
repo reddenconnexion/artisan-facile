@@ -558,7 +558,8 @@ const DevisForm = () => {
                     parent_quote_id: data.parent_quote_id || null,
                     parent_id: data.parent_id ?? null,
                     payment_method: data.payment_method || '',
-                    paid_at: data.paid_at ? data.paid_at.split('T')[0] : ''
+                    paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
+                    report_pdf_url: data.report_pdf_url || null
                 });
 
                 if (data.intervention_address || data.intervention_city) {
@@ -824,7 +825,11 @@ const DevisForm = () => {
                 `${userProfile?.website || ''}`
             ].filter(Boolean).join('\n');
 
-            const body = `${introduction}\n\n${callToAction}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
+            const reportSection = (isInvoice && formData.report_pdf_url)
+                ? `\n\n📋 Rapport d'intervention :\n${formData.report_pdf_url}`
+                : '';
+
+            const body = `${introduction}\n\n${callToAction}${reportSection}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
 
             setEmailPreview({
                 email: selectedClient.email,

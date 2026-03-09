@@ -369,6 +369,21 @@ const InterventionReportForm = () => {
             // --- 4. Créer la facture dans Supabase ---
             const invoiceToken = crypto.randomUUID();
 
+            // --- 5. Uploader le rapport PDF avant de créer la facture ---
+            const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
+            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('project-photos')
+                .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
+
+            let reportUrl = null;
+            if (!uploadError) {
+                const { data: { publicUrl: rUrl } } = supabase.storage
+                    .from('project-photos')
+                    .getPublicUrl(reportPath);
+                reportUrl = rUrl;
+            }
+
             const invoicePayload = {
                 user_id: user.id,
                 client_id: clientId ? Number(clientId) : null,
@@ -384,6 +399,7 @@ const InterventionReportForm = () => {
                 include_tva: includeTva,
                 public_token: invoiceToken,
                 notes: `Facture de clôture — rapport d'intervention du ${formData.date || new Date().toLocaleDateString('fr-FR')}`,
+                report_pdf_url: reportUrl,
             };
 
             const { data: newInvoice, error: invoiceError } = await supabase
@@ -393,21 +409,6 @@ const InterventionReportForm = () => {
                 .single();
 
             if (invoiceError) throw invoiceError;
-
-            // --- 5. Uploader le rapport PDF ---
-            const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
-            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
-            const { error: uploadError } = await supabase.storage
-                .from('project-photos')
-                .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
-
-            let reportUrl = null;
-            if (!uploadError) {
-                const { data: { publicUrl: rUrl } } = supabase.storage
-                    .from('project-photos')
-                    .getPublicUrl(reportPath);
-                reportUrl = rUrl;
-            }
 
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');
