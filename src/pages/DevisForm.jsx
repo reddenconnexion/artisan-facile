@@ -764,37 +764,21 @@ const DevisForm = () => {
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
             // Template Construction
-            // Template Construction
             let subjectPrefix = isInvoice ? 'Facture' : 'Devis';
-            if (isInvoice && formData.status === 'paid') {
-                subjectPrefix = 'Facture';
-            }
-            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} : ${formData.title || 'Votre projet'} - ${companyName}`;
+            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} – ${formData.title || 'Votre projet'} | ${companyName}`;
 
             const introduction = isInvoice
-                ? `Bonjour ${selectedClient.name},\n\nVeuillez trouver ci-joint la facture concernant votre projet "${formData.title || 'Travaux'}".`
-                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous prie de trouver ci-joint ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
+                ? `Bonjour ${selectedClient.name},\n\nJe vous transmets votre facture pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour y accéder.`
+                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour le consulter.`;
 
-            const actionText = isInvoice ? 'consulter et télécharger' : 'consulter, télécharger et signer';
-            const callToAction = `Vous pouvez ${actionText} le document directement via ce lien sécurisé :\n${publicUrl}`;
-
-            const reviewSection = showReviewRequest
-                ? `\n\nVotre satisfaction est importante.\nSi vous avez apprécié mon travail, vous pouvez laisser un avis rapide via ce lien :\n${userProfile.google_review_url}`
-                : '';
-
-            const politeClosing = `Je reste à votre entière disposition pour toute question.\n\nBien cordialement,`;
+            const actionText = isInvoice ? 'Consulter et télécharger votre facture' : 'Consulter, télécharger et signer votre devis';
+            const callToAction = `${actionText} :\n${publicUrl}`;
 
             // Client Portal Link Logic
-            let portalSection = '';
-            // Only add portal link for Invoices (especially deposit/progress) or if specifically requested?
-            // User request: "when I send the deposit invoice". But useful generally.
-            // Let's add it for ALL invoices to drive adoption, or at least Deposit invoices.
-            // "facture d'acompte" usually has "Acompte" in title.
-            // But let's make it robust: If it's an INVOICE, we offer the portal.
+            let portalUrl = null;
             if (isInvoice) {
                 let clientPortalToken = selectedClient.portal_token;
 
-                // If no token exists, generate one and save it
                 if (!clientPortalToken) {
                     clientPortalToken = crypto.randomUUID();
                     const { error: clientUpdateError } = await supabase
@@ -805,25 +789,14 @@ const DevisForm = () => {
                     if (clientUpdateError) {
                         console.error("Error creating portal token", clientUpdateError);
                     } else {
-                        // Update local client object to prevent re-generation issues in same session
                         selectedClient.portal_token = clientPortalToken;
-                        // Update clients state if possible, though strict necessity is low for this action
                     }
                 }
 
                 if (clientPortalToken) {
-                    const portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
-                    portalSection = `\n\nESPACE CLIENT\nRetrouvez tous vos documents et le suivi de chantier sur votre espace personnel :\n${portalUrl}`;
+                    portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
                 }
             }
-
-            const signatureBlock = [
-                `${companyName}`,
-                `${userProfile?.full_name || ''}`,
-                `${userProfile?.phone || ''}`,
-                `${userProfile?.professional_email || userProfile?.email || ''}`,
-                `${userProfile?.website || ''}`
-            ].filter(Boolean).join('\n');
 
             // Chercher le lien du rapport : d'abord sur la facture, sinon via intervention_reports lié
             let reportPdfUrl = formData.report_pdf_url || null;
@@ -838,7 +811,6 @@ const DevisForm = () => {
                     .maybeSingle();
                 if (linkedReport) {
                     reportPdfUrl = linkedReport.report_pdf_url || null;
-                    // Fallback pour les anciennes données : reconstituer l'URL depuis le chemin de stockage
                     if (!reportPdfUrl && linkedReport.report_number) {
                         const reportPath = `interventions/${linkedReport.user_id}/rapport-${linkedReport.report_number}.pdf`;
                         const { data: urlData } = supabase.storage.from('project-photos').getPublicUrl(reportPath);
@@ -846,11 +818,30 @@ const DevisForm = () => {
                     }
                 }
             }
-            const reportSection = reportPdfUrl
-                ? `\n\n📋 Rapport d'intervention :\n${reportPdfUrl}`
-                : '';
 
-            const body = `${introduction}\n\n${callToAction}${reportSection}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
+            const signatureBlock = [
+                companyName,
+                userProfile?.full_name || '',
+                userProfile?.phone || '',
+                userProfile?.professional_email || userProfile?.email || '',
+                userProfile?.website || ''
+            ].filter(Boolean).join('\n');
+
+            // Assembler les sections
+            const bodyParts = [introduction, callToAction];
+            if (reportPdfUrl) {
+                bodyParts.push(`📋 Rapport d'intervention :\n${reportPdfUrl}`);
+            }
+            if (portalUrl) {
+                bodyParts.push(`Votre espace client (documents, suivi de chantier) :\n${portalUrl}`);
+            }
+            if (showReviewRequest) {
+                bodyParts.push(`Si vous êtes satisfait de mon travail, un avis Google m'aiderait beaucoup :\n${userProfile.google_review_url}`);
+            }
+            bodyParts.push(`Je reste à votre disposition pour toute question.\n\nBien cordialement,`);
+            bodyParts.push(signatureBlock);
+
+            const body = bodyParts.join('\n\n');
 
             setEmailPreview({
                 email: selectedClient.email,

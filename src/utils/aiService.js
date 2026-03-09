@@ -160,6 +160,13 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     OBJECTIF DE LA RELANCE : ${step.label}
     TON/INSTRUCTIONS SPÉCIFIQUES : ${step.context || "Ton professionnel, courtois et direct."}
 
+    RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
+    - Commence par "Bonjour [Nom],"
+    - Sépare les paragraphes par une ligne vide (\\n\\n)
+    - Un seul point central par paragraphe, phrases courtes
+    - Termine par "Bien cordialement," suivi du nom de l'artisan
+    - Pas de tirets, pas d'astérisques, pas de crochets
+
     FORMAT JSON ATTENDU :
     {
         "subject": "Objet du mail...",
