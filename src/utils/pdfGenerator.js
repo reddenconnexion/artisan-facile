@@ -1086,10 +1086,15 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         const perRow = 3;
 
         // Draw image contained (no stretch) inside a cell
-        const addPhotoCell = (dataUrl, cellX, cellY) => {
+        const addPhotoCell = async (dataUrl, cellX, cellY) => {
             try {
-                const props = doc.getImageProperties(dataUrl);
-                const ratio = props.width / props.height;
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = dataUrl;
+                });
+                const ratio = img.naturalWidth / img.naturalHeight;
                 let drawW, drawH, offsetX = 0, offsetY = 0;
                 if (ratio >= cellW / cellH) {
                     drawW = cellW;
@@ -1100,7 +1105,9 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
                     drawW = cellH * ratio;
                     offsetX = (cellW - drawW) / 2;
                 }
-                doc.addImage(dataUrl, 'JPEG', cellX + offsetX, cellY + offsetY, drawW, drawH);
+                const ext = (dataUrl.match(/^data:image\/(\w+)/) || [])[1]?.toUpperCase() || 'JPEG';
+                const fmt = ext === 'JPG' ? 'JPEG' : ext;
+                doc.addImage(dataUrl, fmt, cellX + offsetX, cellY + offsetY, drawW, drawH);
             } catch (e) { /* skip */ }
         };
 
@@ -1129,14 +1136,14 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
                 pageStartIdx = i;
                 try {
                     const dataUrl = await fetchDataUrl(photos[i].url);
-                    addPhotoCell(dataUrl, 14, y);
+                    await addPhotoCell(dataUrl, 14, y);
                 } catch (e) { /* skip */ }
                 continue;
             }
 
             try {
                 const dataUrl = await fetchDataUrl(photos[i].url);
-                addPhotoCell(dataUrl, x, imgY);
+                await addPhotoCell(dataUrl, x, imgY);
             } catch (e) { /* skip */ }
         }
 
