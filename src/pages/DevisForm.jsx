@@ -825,8 +825,21 @@ const DevisForm = () => {
                 `${userProfile?.website || ''}`
             ].filter(Boolean).join('\n');
 
-            const reportSection = (isInvoice && formData.report_pdf_url)
-                ? `\n\n📋 Rapport d'intervention :\n${formData.report_pdf_url}`
+            // Chercher le lien du rapport : d'abord sur la facture, sinon via intervention_reports lié
+            let reportPdfUrl = formData.report_pdf_url || null;
+            if (isInvoice && !reportPdfUrl) {
+                const { data: linkedReport } = await supabase
+                    .from('intervention_reports')
+                    .select('report_pdf_url')
+                    .eq('quote_id', id)
+                    .in('status', ['completed', 'signed'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                reportPdfUrl = linkedReport?.report_pdf_url || null;
+            }
+            const reportSection = reportPdfUrl
+                ? `\n\n📋 Rapport d'intervention :\n${reportPdfUrl}`
                 : '';
 
             const body = `${introduction}\n\n${callToAction}${reportSection}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
