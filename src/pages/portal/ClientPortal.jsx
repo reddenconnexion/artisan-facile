@@ -1,20 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList } from 'lucide-react';
+import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList, Eye, X, Loader2 } from 'lucide-react';
 import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
+
+/* ─── Inline PDF Viewer Modal ─── */
+const PdfViewerModal = ({ url, title, onClose }) => {
+    if (!url) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white flex-shrink-0">
+                <span className="text-sm font-medium truncate max-w-xs">{title}</span>
+                <button
+                    onClick={onClose}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-1.5 text-sm"
+                >
+                    <X className="w-4 h-4" />
+                    Fermer
+                </button>
+            </div>
+            {/* PDF */}
+            <div className="flex-1 overflow-hidden">
+                <iframe
+                    src={url}
+                    title={title}
+                    className="w-full h-full border-0"
+                />
+            </div>
+        </div>
+    );
+};
 
 const ClientPortal = () => {
     const { token } = useParams();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [downloadingReport, setDownloadingReport] = useState(null);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('documents'); // 'documents' or 'photos'
+    const [activeTab, setActiveTab] = useState('documents');
+
+    // PDF viewer state
+    const [pdfViewer, setPdfViewer] = useState({ url: null, title: '' });
+    const [generatingPdf, setGeneratingPdf] = useState(null); // id of doc being generated
 
     useEffect(() => {
         fetchPortalData();
     }, [token]);
+
+    // Revoke blob URL when viewer closes
+    const closePdfViewer = useCallback(() => {
+        if (pdfViewer.url?.startsWith('blob:')) {
+            URL.revokeObjectURL(pdfViewer.url);
+        }
+        setPdfViewer({ url: null, title: '' });
+    }, [pdfViewer.url]);
 
     const fetchPortalData = async () => {
         try {
@@ -34,22 +73,23 @@ const ClientPortal = () => {
     };
 
     const handleDownload = (quote) => {
-        // Reconstruct necessary objects for pdfGenerator
-        // Note: We might need to adjust pdfGenerator if it relies on specific object structures not present here
-        // But get_portal_data returns full rows, so it should be close.
-        // We need 'client' and 'userProfile' objects.
-
-        const clientObj = data.client;
-        const userProfileObj = data.artisan;
-
-        // pdfGenerator expects 'devis', 'client', 'userProfile', 'isInvoice'
-        // We determine isInvoice based on status or other logic. 
-        // For simplicity, let's assume if status is 'accepted' and we want invoice, we pass true.
-        // But here user just wants to download the document. 
-        // Let's assume 'accepted' = Invoice, others = Quote for the button label/logic.
-
         const isInvoice = quote.type === 'invoice';
-        generateDevisPDF(quote, clientObj, userProfileObj, isInvoice);
+        generateDevisPDF(quote, data.client, data.artisan, isInvoice);
+    };
+
+    const handleViewQuote = async (quote) => {
+        const key = `q-${quote.id}`;
+        setGeneratingPdf(key);
+        try {
+            const isInvoice = quote.type === 'invoice';
+            const blobUrl = await generateDevisPDF(quote, data.client, data.artisan, isInvoice, 'bloburl');
+            const label = isInvoice ? `Facture #${quote.id}` : `Devis #${quote.id}`;
+            setPdfViewer({ url: blobUrl, title: label });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setGeneratingPdf(null);
+        }
     };
 
     const handleDownloadReport = async (report) => {
@@ -57,11 +97,30 @@ const ClientPortal = () => {
             window.open(report.report_pdf_url, '_blank');
             return;
         }
-        setDownloadingReport(report.id);
+        const key = `dl-${report.id}`;
+        setGeneratingPdf(key);
         try {
             await generateInterventionReportPDF(report, data.artisan);
         } finally {
-            setDownloadingReport(null);
+            setGeneratingPdf(null);
+        }
+    };
+
+    const handleViewReport = async (report) => {
+        const key = `r-${report.id}`;
+        if (report.report_pdf_url) {
+            setPdfViewer({ url: report.report_pdf_url, title: report.title || 'Rapport d\'intervention' });
+            return;
+        }
+        setGeneratingPdf(key);
+        try {
+            const blob = await generateInterventionReportPDF(report, data.artisan, true);
+            const blobUrl = URL.createObjectURL(blob);
+            setPdfViewer({ url: blobUrl, title: report.title || 'Rapport d\'intervention' });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setGeneratingPdf(null);
         }
     };
 
@@ -85,6 +144,15 @@ const ClientPortal = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
+            {/* Inline PDF Viewer */}
+            {pdfViewer.url && (
+                <PdfViewerModal
+                    url={pdfViewer.url}
+                    title={pdfViewer.title}
+                    onClose={closePdfViewer}
+                />
+            )}
+
             {/* Header / Artisan Info */}
             <header className="bg-white shadow-sm border-b border-gray-200">
                 <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -169,35 +237,54 @@ const ClientPortal = () => {
                                 </div>
                             ) : (
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    {quotes.map((quote) => (
-                                        <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                                                            ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                                                quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                                    'bg-yellow-100 text-yellow-800'}`}>
-                                                            {quote.type === 'invoice' ? 'Facture' : quote.status === 'accepted' ? 'Devis signé' : 'Devis'}
-                                                        </span>
-                                                        <span className="text-sm text-gray-500">#{quote.id}</span>
+                                    {quotes.map((quote) => {
+                                        const isInvoice = quote.type === 'invoice';
+                                        const viewKey = `q-${quote.id}`;
+                                        const dlKey = `dl-q-${quote.id}`;
+                                        return (
+                                            <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                                                                ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                                                    quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                                        'bg-yellow-100 text-yellow-800'}`}>
+                                                                {isInvoice ? 'Facture' : quote.status === 'accepted' ? 'Devis signé' : 'Devis'}
+                                                            </span>
+                                                            <span className="text-sm text-gray-500">#{quote.id}</span>
+                                                        </div>
+                                                        <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
                                                     </div>
-                                                    <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
+                                                    <div className="flex items-center gap-1">
+                                                        {/* View inline */}
+                                                        <button
+                                                            onClick={() => handleViewQuote(quote)}
+                                                            disabled={generatingPdf === viewKey}
+                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+                                                            title="Voir le document"
+                                                        >
+                                                            {generatingPdf === viewKey
+                                                                ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                                : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                        {/* Download */}
+                                                        <button
+                                                            onClick={() => handleDownload(quote)}
+                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Télécharger"
+                                                        >
+                                                            <Download className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleDownload(quote)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                    title="Télécharger"
-                                                >
-                                                    <Download className="w-5 h-5" />
-                                                </button>
+                                                <div className="text-sm text-gray-600 space-y-1">
+                                                    <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
+                                                    <p className="line-clamp-2">{quote.notes}</p>
+                                                </div>
                                             </div>
-                                            <div className="text-sm text-gray-600 space-y-1">
-                                                <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
-                                                <p className="line-clamp-2">{quote.notes}</p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -210,37 +297,54 @@ const ClientPortal = () => {
                                     Rapports d'intervention
                                 </h2>
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    {reports.map((report) => (
-                                        <div key={report.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${report.status === 'signed' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
-                                                            {report.status === 'signed' ? 'Signé' : 'Terminé'}
-                                                        </span>
-                                                        {report.report_number && (
-                                                            <span className="text-sm text-gray-500">N°{report.report_number}</span>
-                                                        )}
+                                    {reports.map((report) => {
+                                        const viewKey = `r-${report.id}`;
+                                        return (
+                                            <div key={report.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${report.status === 'signed' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                                {report.status === 'signed' ? 'Signé' : 'Terminé'}
+                                                            </span>
+                                                            {report.report_number && (
+                                                                <span className="text-sm text-gray-500">N°{report.report_number}</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="font-semibold text-gray-900 text-sm">{report.title}</p>
                                                     </div>
-                                                    <p className="font-semibold text-gray-900 text-sm">{report.title}</p>
+                                                    <div className="flex items-center gap-1">
+                                                        {/* View inline */}
+                                                        <button
+                                                            onClick={() => handleViewReport(report)}
+                                                            disabled={generatingPdf === viewKey}
+                                                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
+                                                            title="Voir le rapport"
+                                                        >
+                                                            {generatingPdf === viewKey
+                                                                ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                                : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                        {/* Download */}
+                                                        <button
+                                                            onClick={() => handleDownloadReport(report)}
+                                                            disabled={generatingPdf === `dl-${report.id}`}
+                                                            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
+                                                            title="Télécharger le rapport"
+                                                        >
+                                                            <Download className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleDownloadReport(report)}
-                                                    disabled={downloadingReport === report.id}
-                                                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
-                                                    title="Télécharger le rapport"
-                                                >
-                                                    <Download className="w-5 h-5" />
-                                                </button>
+                                                <p className="text-sm text-gray-500">
+                                                    {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    {report.signed_at && report.signer_name && (
+                                                        <span className="ml-2">· Signé par {report.signer_name}</span>
+                                                    )}
+                                                </p>
                                             </div>
-                                            <p className="text-sm text-gray-500">
-                                                {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                                {report.signed_at && report.signer_name && (
-                                                    <span className="ml-2">· Signé par {report.signer_name}</span>
-                                                )}
-                                            </p>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
