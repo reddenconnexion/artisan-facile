@@ -281,27 +281,31 @@ export function useDashboardData() {
                 .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title');
             if (quotesError) throw quotesError;
 
-            // Compter les clients
+            // Compter les clients (hors client test)
             const { count: clientCount } = await supabase
                 .from('clients')
-                .select('*', { count: 'exact', head: true });
+                .select('*', { count: 'exact', head: true })
+                .not('name', 'like', '⚗️%');
 
-            // Compter les devis en attente
+            // Compter les devis en attente (hors client test)
             const { count: pendingQuotesCount } = await supabase
                 .from('quotes')
-                .select('*', { count: 'exact', head: true })
-                .in('status', ['draft', 'sent']);
+                .select('*, clients!inner(name)', { count: 'exact', head: true })
+                .in('status', ['draft', 'sent'])
+                .not('clients.name', 'like', '⚗️%');
 
-            // Activité récente
+            // Activité récente (hors client test)
             const { data: rQuotes } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients!inner(name)')
+                .not('clients.name', 'like', '⚗️%')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
             const { data: rSignatures } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients!inner(name)')
+                .not('clients.name', 'like', '⚗️%')
                 .not('signed_at', 'is', null)
                 .order('signed_at', { ascending: false })
                 .limit(5);
@@ -309,6 +313,7 @@ export function useDashboardData() {
             const { data: rClients } = await supabase
                 .from('clients')
                 .select('*')
+                .not('name', 'like', '⚗️%')
                 .order('created_at', { ascending: false })
                 .limit(5);
 

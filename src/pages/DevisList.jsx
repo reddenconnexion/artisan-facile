@@ -72,7 +72,7 @@ const DevisList = () => {
     };
 
     const filteredDevis = devisList.filter(devis => {
-        if (!isTestMode && testClient?.id && devis.client_id === testClient.id) return false;
+        if (!isTestMode && (devis.client_name?.includes('⚗️') || (testClient?.id && devis.client_id === testClient.id))) return false;
 
         const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
             devis.id.toString().includes(debouncedSearch);
