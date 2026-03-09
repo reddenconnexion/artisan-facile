@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useClients, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useTestMode } from '../context/TestModeContext';
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -12,6 +13,7 @@ const Clients = () => {
     // Utilisation du cache React Query
     const { data: clients = [], isLoading: loading } = useClients();
     const { invalidateClients } = useInvalidateCache();
+    const { isTestMode, testClient } = useTestMode();
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
@@ -55,6 +57,7 @@ const Clients = () => {
     };
 
     const filteredClients = clients.filter(client => {
+        if (!isTestMode && testClient?.id && client.id === testClient.id) return false;
         const term = debouncedSearch.toLowerCase(); // Utilise la recherche retardée
         return (
             client.name.toLowerCase().includes(term) ||

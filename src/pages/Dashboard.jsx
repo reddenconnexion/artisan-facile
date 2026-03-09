@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardData } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 
@@ -374,14 +375,23 @@ const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
+    const { isTestMode, testClient } = useTestMode();
 
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();
 
-    const allQuotes = data?.allQuotes || [];
-    const clientCount = data?.clientCount || 0;
-    const pendingQuotesCount = data?.pendingQuotesCount || 0;
-    const recentActivity = data?.recentActivity || [];
+    const testClientId = !isTestMode && testClient?.id ? testClient.id : null;
+
+    const allQuotes = useMemo(
+        () => (data?.allQuotes || []).filter(q => !testClientId || q.client_id !== testClientId),
+        [data?.allQuotes, testClientId]
+    );
+    const clientCount = Math.max(0, (data?.clientCount || 0) - (testClientId ? 1 : 0));
+    const pendingQuotesCount = allQuotes.filter(q => ['draft', 'sent'].includes(q.status)).length;
+    const recentActivity = useMemo(
+        () => (data?.recentActivity || []).filter(a => !testClientId || !a.description.includes('⚗️ Client Test')),
+        [data?.recentActivity, testClientId]
+    );
 
     // Afficher un écran de chargement
     if (loading) {
