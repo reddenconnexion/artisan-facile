@@ -3,6 +3,7 @@ import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send }
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useTestMode } from '../context/TestModeContext';
 
 const FollowUps = lazy(() => import('./FollowUps'));
 
@@ -44,6 +45,7 @@ const DevisList = () => {
     const location = useLocation();
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
+    const { isTestMode, testClient } = useTestMode();
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
@@ -70,6 +72,8 @@ const DevisList = () => {
     };
 
     const filteredDevis = devisList.filter(devis => {
+        if (!isTestMode && testClient?.id && devis.client_id === testClient.id) return false;
+
         const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
             devis.id.toString().includes(debouncedSearch);
 
