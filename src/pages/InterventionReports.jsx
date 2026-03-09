@@ -8,6 +8,7 @@ import { supabase } from '../utils/supabase';
 import { useInterventionReports, useInvalidateCache } from '../hooks/useDataCache';
 import { useUserProfile } from '../hooks/useDataCache';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
+import { useTestMode } from '../context/TestModeContext';
 
 const STATUS_CONFIG = {
     draft: { label: 'Brouillon', bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: Clock },
@@ -36,8 +37,10 @@ const InterventionReports = () => {
     const { data: reports = [], isLoading } = useInterventionReports();
     const { data: userProfile } = useUserProfile();
     const { invalidateInterventionReports } = useInvalidateCache();
+    const { isTestMode, testClient } = useTestMode();
 
     const filtered = reports.filter(r => {
+        if (!isTestMode && (r.client_name?.includes('⚗️') || (testClient?.id && r.client_id === testClient.id))) return false;
         const matchSearch =
             (r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (r.client_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,11 +76,15 @@ const InterventionReports = () => {
         }
     };
 
+    const visibleReports = reports.filter(r =>
+        isTestMode || !(r.client_name?.includes('⚗️') || (testClient?.id && r.client_id === testClient.id))
+    );
+
     const stats = {
-        total: reports.length,
-        signed: reports.filter(r => r.status === 'signed').length,
-        completed: reports.filter(r => r.status === 'completed').length,
-        draft: reports.filter(r => r.status === 'draft').length,
+        total: visibleReports.length,
+        signed: visibleReports.filter(r => r.status === 'signed').length,
+        completed: visibleReports.filter(r => r.status === 'completed').length,
+        draft: visibleReports.filter(r => r.status === 'draft').length,
     };
 
     return (
