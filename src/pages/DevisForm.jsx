@@ -830,13 +830,21 @@ const DevisForm = () => {
             if (isInvoice && !reportPdfUrl) {
                 const { data: linkedReport } = await supabase
                     .from('intervention_reports')
-                    .select('report_pdf_url')
+                    .select('report_pdf_url, report_number, user_id')
                     .eq('quote_id', id)
                     .in('status', ['completed', 'signed'])
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
-                reportPdfUrl = linkedReport?.report_pdf_url || null;
+                if (linkedReport) {
+                    reportPdfUrl = linkedReport.report_pdf_url || null;
+                    // Fallback pour les anciennes données : reconstituer l'URL depuis le chemin de stockage
+                    if (!reportPdfUrl && linkedReport.report_number) {
+                        const reportPath = `interventions/${linkedReport.user_id}/rapport-${linkedReport.report_number}.pdf`;
+                        const { data: urlData } = supabase.storage.from('project-photos').getPublicUrl(reportPath);
+                        reportPdfUrl = urlData?.publicUrl || null;
+                    }
+                }
             }
             const reportSection = reportPdfUrl
                 ? `\n\n📋 Rapport d'intervention :\n${reportPdfUrl}`
