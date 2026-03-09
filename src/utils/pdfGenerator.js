@@ -1080,52 +1080,69 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         doc.text('PHOTOS', 18, y + 4.2);
         y += 10;
 
-        const imgW = 55;
-        const imgH = 40;
+        const cellW = 55;
+        const cellH = 45;
         const gap = 6;
         const perRow = 3;
+
+        // Draw image contained (no stretch) inside a cell
+        const addPhotoCell = (dataUrl, cellX, cellY) => {
+            try {
+                const props = doc.getImageProperties(dataUrl);
+                const ratio = props.width / props.height;
+                let drawW, drawH, offsetX = 0, offsetY = 0;
+                if (ratio >= cellW / cellH) {
+                    drawW = cellW;
+                    drawH = cellW / ratio;
+                    offsetY = (cellH - drawH) / 2;
+                } else {
+                    drawH = cellH;
+                    drawW = cellH * ratio;
+                    offsetX = (cellW - drawW) / 2;
+                }
+                doc.addImage(dataUrl, 'JPEG', cellX + offsetX, cellY + offsetY, drawW, drawH);
+            } catch (e) { /* skip */ }
+        };
+
+        const fetchDataUrl = async (url) => {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        };
 
         let pageStartIdx = 0;
 
         for (let i = 0; i < photos.length; i++) {
             const col = (i - pageStartIdx) % perRow;
             const row = Math.floor((i - pageStartIdx) / perRow);
-            const x = 14 + col * (imgW + gap);
-            const imgY = y + row * (imgH + gap);
+            const x = 14 + col * (cellW + gap);
+            const imgY = y + row * (cellH + gap);
 
-            if (imgY + imgH > 280) {
+            if (imgY + cellH > 280) {
                 doc.addPage();
                 y = 20;
                 pageStartIdx = i;
-                const newX = 14; // col 0 on new page
                 try {
-                    const res = await fetch(photos[i].url);
-                    const blob = await res.blob();
-                    const dataUrl = await new Promise(resolve => {
-                        const reader = new FileReader();
-                        reader.onload = e => resolve(e.target.result);
-                        reader.readAsDataURL(blob);
-                    });
-                    doc.addImage(dataUrl, 'JPEG', newX, y, imgW, imgH);
+                    const dataUrl = await fetchDataUrl(photos[i].url);
+                    addPhotoCell(dataUrl, 14, y);
                 } catch (e) { /* skip */ }
                 continue;
             }
 
             try {
-                const res = await fetch(photos[i].url);
-                const blob = await res.blob();
-                const dataUrl = await new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onload = e => resolve(e.target.result);
-                    reader.readAsDataURL(blob);
-                });
-                doc.addImage(dataUrl, 'JPEG', x, imgY, imgW, imgH);
-            } catch (e) { /* ignore failed images */ }
+                const dataUrl = await fetchDataUrl(photos[i].url);
+                addPhotoCell(dataUrl, x, imgY);
+            } catch (e) { /* skip */ }
         }
 
         const photosOnLastPage = photos.length - pageStartIdx;
         const rowsOnLastPage = Math.ceil(photosOnLastPage / perRow);
-        y += rowsOnLastPage * (imgH + gap) + 4;
+        y += rowsOnLastPage * (cellH + gap) + 4;
         if (y > 270) { doc.addPage(); y = 20; }
     }
 
