@@ -21,8 +21,8 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
     const emailBody = [
         `Bonjour ${clientName},`,
         `Merci pour votre confiance ! Je suis ravi que le projet soit désormais finalisé.`,
-        `Si vous avez apprécié mon travail, un rapide avis Google m'aiderait beaucoup à développer mon activité.\nCela ne prend que 30 secondes :\n${reviewUrl}`,
-        `Besoin d'inspiration ? Voici un exemple :\n"${suggestedReview}"`,
+        `⭐ Un rapide avis Google m'aiderait beaucoup à développer mon activité.\nCela ne prend que 30 secondes :\n${reviewUrl}`,
+        `💬 Besoin d'inspiration ? Voici un exemple :\n"${suggestedReview}"`,
         `Encore merci, et n'hésitez pas à me contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile?.full_name || ''}`
     ].join('\n\n');
 

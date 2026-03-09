@@ -164,6 +164,7 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     - Commence par "Bonjour [Nom],"
     - Sépare les paragraphes par une ligne vide (\\n\\n)
     - Un seul point central par paragraphe, phrases courtes
+    - Utilise 1 ou 2 emojis pertinents pour baliser les sections importantes (ex: 📄 pour le devis, ⭐ pour un avis, 🔔 pour une relance)
     - Termine par "Bien cordialement," suivi du nom de l'artisan
     - Pas de tirets, pas d'astérisques, pas de crochets
 
