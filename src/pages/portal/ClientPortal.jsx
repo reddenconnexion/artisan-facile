@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { FileText, Camera, Download, Phone, Mail, MapPin, Globe } from 'lucide-react';
+import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList } from 'lucide-react';
 import { generateDevisPDF } from '../../utils/pdfGenerator';
 
 const ClientPortal = () => {
@@ -67,7 +67,7 @@ const ClientPortal = () => {
         </div>
     );
 
-    const { client, artisan, quotes, photos } = data;
+    const { client, artisan, quotes, photos, reports = [] } = data;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
@@ -145,43 +145,92 @@ const ClientPortal = () => {
 
                 {/* Content */}
                 {activeTab === 'documents' && (
-                    <div className="space-y-4">
-                        {quotes.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">Aucun document disponible.</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                {quotes.map((quote) => (
-                                    <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                                                        ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                                            quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                                'bg-yellow-100 text-yellow-800'}`}>
-                                                        {quote.status === 'accepted' ? 'Facture / Signé' : 'Devis'}
-                                                    </span>
-                                                    <span className="text-sm text-gray-500">#{quote.id}</span>
+                    <div className="space-y-8">
+                        {/* Devis & Factures */}
+                        <div className="space-y-4">
+                            {quotes.length === 0 ? (
+                                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-gray-500">Aucun document disponible.</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {quotes.map((quote) => (
+                                        <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                                                            ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                                                quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                                    'bg-yellow-100 text-yellow-800'}`}>
+                                                            {quote.status === 'accepted' ? 'Facture / Signé' : 'Devis'}
+                                                        </span>
+                                                        <span className="text-sm text-gray-500">#{quote.id}</span>
+                                                    </div>
+                                                    <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
                                                 </div>
-                                                <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
+                                                <button
+                                                    onClick={() => handleDownload(quote)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Télécharger"
+                                                >
+                                                    <Download className="w-5 h-5" />
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => handleDownload(quote)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Télécharger"
-                                            >
-                                                <Download className="w-5 h-5" />
-                                            </button>
+                                            <div className="text-sm text-gray-600 space-y-1">
+                                                <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
+                                                <p className="line-clamp-2">{quote.notes}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-sm text-gray-600 space-y-1">
-                                            <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
-                                            <p className="line-clamp-2">{quote.notes}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Rapports d'intervention */}
+                        {reports.length > 0 && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <ClipboardList className="w-4 h-4" />
+                                    Rapports d'intervention
+                                </h2>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {reports.map((report) => (
+                                        <div key={report.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${report.status === 'signed' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                            {report.status === 'signed' ? 'Signé' : 'Terminé'}
+                                                        </span>
+                                                        {report.report_number && (
+                                                            <span className="text-sm text-gray-500">N°{report.report_number}</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="font-semibold text-gray-900 text-sm">{report.title}</p>
+                                                </div>
+                                                {report.report_pdf_url && (
+                                                    <a
+                                                        href={report.report_pdf_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                        title="Télécharger le rapport"
+                                                    >
+                                                        <Download className="w-5 h-5" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-gray-500">
+                                                {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                {report.signed_at && report.signer_name && (
+                                                    <span className="ml-2">· Signé par {report.signer_name}</span>
+                                                )}
+                                            </p>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
