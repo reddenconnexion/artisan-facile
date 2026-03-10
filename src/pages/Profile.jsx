@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound } from 'lucide-react';
 import { getNotificationTopic } from '../utils/notifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
@@ -198,6 +198,30 @@ const Profile = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const [newEmail, setNewEmail] = useState('');
+    const [emailChanging, setEmailChanging] = useState(false);
+    const [emailChangeSent, setEmailChangeSent] = useState(false);
+
+    const handleEmailChange = async (e) => {
+        e.preventDefault();
+        if (!newEmail.trim()) return;
+        if (newEmail === user.email) {
+            toast.error('Cette adresse est déjà votre email de connexion.');
+            return;
+        }
+        setEmailChanging(true);
+        try {
+            const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+            if (error) throw error;
+            setEmailChangeSent(true);
+            toast.success('Email de confirmation envoyé ! Vérifiez votre boîte mail.');
+        } catch (err) {
+            toast.error('Erreur : ' + err.message);
+        } finally {
+            setEmailChanging(false);
+        }
     };
 
     return (
@@ -678,6 +702,53 @@ const Profile = () => {
             </div>
 
             {/* Zone de Danger / Maintenance */}
+            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center">
+                        <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                        Email de connexion
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Email actuel : <strong>{user?.email}</strong>
+                        <br />Vos données ne seront pas perdues — elles sont liées à votre compte, pas à votre adresse email.
+                    </p>
+
+                    {emailChangeSent ? (
+                        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
+                            <Mail className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <p className="font-medium">Email de confirmation envoyé à <strong>{newEmail}</strong></p>
+                                <p className="mt-1 text-green-700">Cliquez sur le lien dans cet email pour finaliser le changement. Une fois confirmé, utilisez votre nouvelle adresse pour vous connecter.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleEmailChange} className="flex flex-col sm:flex-row gap-3 max-w-lg">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nouvelle adresse email</label>
+                                <input
+                                    type="email"
+                                    value={newEmail}
+                                    onChange={(e) => setNewEmail(e.target.value)}
+                                    placeholder="contact@monentreprise.com"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    type="submit"
+                                    disabled={emailChanging || !newEmail.trim()}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
+                                >
+                                    <KeyRound className="w-4 h-4" />
+                                    {emailChanging ? 'Envoi...' : 'Changer'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+
             < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
