@@ -23,9 +23,10 @@ export const getFollowUpSettings = async (userId) => {
         // Default settings
         return {
             steps: [
-                { delay: 3, label: "Relance douce", context: "Rappel amical, demander s'ils ont des questions." },
-                { delay: 7, label: "Relance standard", context: "Souligner la disponibilité et la validité du devis." },
-                { delay: 14, label: "Dernière relance", context: "Demander courtoisement une décision finale." }
+                { delay: 3, label: "Première relance", context: "Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate." },
+                { delay: 7, label: "Deuxième relance", context: "Apporter de la valeur : partager un cas client similaire, une précision technique ou un comparatif pour aider à la décision." },
+                { delay: 7, label: "Troisième relance", context: "Proposer un appel téléphonique ou un contact via un autre canal (LinkedIn) pour lever les derniers freins." },
+                { delay: 13, label: "Message de clôture", context: "Informer que le devis va être archivé sous peu et proposer un recontact futur si le projet se concrétise." }
             ]
         };
 
