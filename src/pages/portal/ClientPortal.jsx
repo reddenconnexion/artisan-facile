@@ -177,10 +177,10 @@ const ClientPortal = () => {
                                     {artisan.phone}
                                 </a>
                             )}
-                            {artisan.email && (
-                                <a href={`mailto:${artisan.email}`} className="flex items-center hover:text-blue-600">
+                            {artisan.professional_email && (
+                                <a href={`mailto:${artisan.professional_email}`} className="flex items-center hover:text-blue-600">
                                     <Mail className="w-4 h-4 mr-2" />
-                                    {artisan.email}
+                                    {artisan.professional_email}
                                 </a>
                             )}
                             {artisan.website && (
