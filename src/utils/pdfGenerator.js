@@ -575,10 +575,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Notes / Conditions Display
     if (allNotes) {
         const splitNotes = doc.splitTextToSize(allNotes, 180);
-        const notesHeight = splitNotes.length * 5 + 15;
 
-        // Check if notes fit on current page
-        if (currentY + notesHeight > 280) {
+        // Check if header fits on current page
+        if (currentY + 11 > 280) {
             doc.addPage();
             currentY = 20;
         }
@@ -588,8 +587,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text("Notes / Conditions :", 14, currentY);
         currentY += 6;
 
-        doc.text(splitNotes, 14, currentY);
-        currentY += (splitNotes.length * 5) + 10;
+        // Render line by line to handle notes spanning multiple pages
+        for (const line of splitNotes) {
+            if (currentY + 5 > 280) {
+                doc.addPage();
+                currentY = 20;
+            }
+            doc.text(line, 14, currentY);
+            currentY += 5;
+        }
+        currentY += 10;
     }
 
     // Signature (Masqué si payé, "Bon pour accord" n'a plus de sens sur une quittance)
