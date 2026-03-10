@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2 } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, isAfter, isBefore, addDays, parseISO, startOfDay, addHours } from 'date-fns';
+import { format, isAfter, addDays, parseISO, addHours, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { fr } from 'date-fns/locale';
@@ -218,7 +218,17 @@ const ActionableDashboard = ({ user }) => {
 
     const hasItems = Object.values(actionItems).some(arr => arr.length > 0);
 
-    if (!hasItems) return null; // Or show "All good!" message
+    if (!hasItems) return (
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 mb-8 flex items-center gap-4">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Tout est à jour !</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune action en attente. Profitez-en pour prendre de l'avance.</p>
+            </div>
+        </div>
+    );
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-8">
@@ -364,30 +374,38 @@ const ActionableDashboard = ({ user }) => {
                             <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
                         </h4>
                         <div className="space-y-2">
-                            {actionItems.overdueQuotes.map(quote => (
-                                <div
-                                    key={quote.id}
-                                    onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                                >
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">{quote.client_name || quote.clients?.name || 'Client'}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {(quote.total_ttc || 0).toFixed(2)}€
-                                        </p>
+                            {actionItems.overdueQuotes.map(quote => {
+                                const daysOverdue = differenceInDays(new Date(), parseISO(quote.date));
+                                return (
+                                    <div
+                                        key={quote.id}
+                                        onClick={() => navigate(`/app/devis/${quote.id}`)}
+                                        className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                {quote.client_name || quote.clients?.name || 'Client'}
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${daysOverdue > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
+                                                    +{daysOverdue}j
+                                                </span>
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} · {(quote.total_ttc || 0).toFixed(2)}€
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={(e) => handleManualFollowUp(e, quote.id)}
+                                                className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
+                                                title="Marquer comme relancé aujourd'hui"
+                                            >
+                                                Relancé
+                                            </button>
+                                            <ArrowRight className="w-4 h-4 text-amber-400" />
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={(e) => handleManualFollowUp(e, quote.id)}
-                                            className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
-                                            title="Marquer comme relancé aujourd'hui"
-                                        >
-                                            Relancé
-                                        </button>
-                                        <ArrowRight className="w-4 h-4 text-amber-400" />
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}

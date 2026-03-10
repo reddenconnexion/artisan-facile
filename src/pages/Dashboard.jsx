@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
+import QuickActions from '../components/QuickActions';
 
 // --- Helper for Stats Calculation (Pure Function) ---
 const calculateStats = (allQuotes, referenceDate) => {
@@ -451,6 +452,7 @@ const Dashboard = () => {
                 </button>
             </div>
 
+            <QuickActions />
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
