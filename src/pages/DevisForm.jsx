@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -64,6 +64,9 @@ const DevisForm = () => {
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState([]);
+    const [aiDuration, setAiDuration] = useState(null);
+    const [showAISuggestions, setShowAISuggestions] = useState(false);
 
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
@@ -106,7 +109,9 @@ const DevisForm = () => {
                 instructions: userProfile?.ai_instructions || ''
             };
 
-            const items = await generateQuoteItems(aiPrompt, context);
+            const result = await generateQuoteItems(aiPrompt, context);
+            const { items, suggestions, estimated_duration } = result;
+
             if (items && items.length > 0) {
                 const newItems = items.map(item => ({
                     id: Date.now() + Math.random(),
@@ -123,9 +128,16 @@ const DevisForm = () => {
                     items: [...prev.items, ...newItems]
                 }));
 
-                toast.success(`${newItems.length} lignes générées !`);
-                setShowAIModal(false);
-                setAiPrompt('');
+                setAiSuggestions(suggestions || []);
+                setAiDuration(estimated_duration || null);
+
+                if (suggestions && suggestions.length > 0) {
+                    setShowAISuggestions(true);
+                } else {
+                    toast.success(`${newItems.length} lignes générées !`);
+                    setShowAIModal(false);
+                    setAiPrompt('');
+                }
             } else {
                 toast.warning("L'IA n'a pas généré de lignes valides.");
             }
@@ -135,6 +147,23 @@ const DevisForm = () => {
         } finally {
             setAiLoading(false);
         }
+    };
+
+    const handleAddAISuggestion = (suggestion) => {
+        setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, {
+                id: Date.now() + Math.random(),
+                description: suggestion,
+                quantity: 1,
+                unit: 'forfait',
+                price: 0,
+                buying_price: 0,
+                type: 'service'
+            }]
+        }));
+        setAiSuggestions(prev => prev.filter(s => s !== suggestion));
+        toast.success('Ligne ajoutée — pensez à renseigner le prix');
     };
 
     const handleCalculatorApply = (quantity) => {
@@ -922,6 +951,37 @@ const DevisForm = () => {
         }
     };
 
+    const autoCreateAgendaEvent = async (quoteTitle, clientId) => {
+        try {
+            const client = clients.find(c => c.id.toString() === (clientId || formData.client_id)?.toString());
+            const eventDate = new Date();
+            eventDate.setDate(eventDate.getDate() + 7);
+            const dateStr = eventDate.toISOString().split('T')[0];
+
+            const address = formData.intervention_address
+                ? [formData.intervention_address, formData.intervention_postal_code, formData.intervention_city].filter(Boolean).join(', ')
+                : client ? [client.address, client.postal_code, client.city].filter(Boolean).join(', ') : '';
+
+            await supabase.from('events').insert([{
+                user_id: user.id,
+                title: `Chantier : ${quoteTitle || formData.title}`,
+                date: dateStr,
+                time: '08:00',
+                client_name: client?.name || '',
+                client_id: clientId || formData.client_id || null,
+                address,
+                details: `Créé automatiquement depuis le devis #${id} — Date à confirmer avec le client`
+            }]);
+
+            toast.success('Événement chantier ajouté à l\'agenda (dans 7 jours par défaut)', {
+                action: { label: 'Voir l\'agenda', onClick: () => navigate('/app/agenda') },
+                duration: 6000
+            });
+        } catch (err) {
+            console.error('Erreur création événement agenda:', err);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -998,6 +1058,11 @@ const DevisForm = () => {
             }
 
             if (error) throw error;
+
+            // Auto-create Agenda Event if status transitions to Accepted/Signed
+            if (['accepted', 'signed'].includes(quoteData.status) && !['accepted', 'signed'].includes(initialStatus)) {
+                await autoCreateAgendaEvent(quoteData.title, quoteData.client_id);
+            }
 
             // Auto-create Project (Dossier Chantier) if Signed/Accepted
             if (['accepted', 'signed'].includes(quoteData.status) && quoteData.title && error === null) {
@@ -1700,6 +1765,7 @@ Conditions de règlement : Paiement à réception de facture.`
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
+            await autoCreateAgendaEvent(formData.title, formData.client_id);
         } catch (error) {
             console.error('Error saving signature:', error);
             toast.error('Erreur lors de la sauvegarde de la signature');
@@ -2698,50 +2764,95 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Assistant Intelligent
                                 </h3>
                                 <p className="text-purple-100 text-sm mt-1">
-                                    Décrivez les travaux et l'IA générera le devis pour vous.
+                                    {showAISuggestions ? 'Postes à ne pas oublier détectés par l\'IA' : 'Décrivez les travaux et l\'IA générera le devis pour vous.'}
                                 </p>
                             </div>
 
                             <div className="p-6">
-                                <textarea
-                                    className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                                    placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
-                                    value={aiPrompt}
-                                    onChange={(e) => setAiPrompt(e.target.value)}
-                                    autoFocus
-                                />
-                                <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
-                                    <span>
-                                        Décrivez les travaux ci-dessus.
-                                    </span>
-                                    <span>{aiPrompt.length} caractères</span>
-                                </div>
+                                {!showAISuggestions ? (
+                                    <>
+                                        <textarea
+                                            className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                                            placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
+                                            value={aiPrompt}
+                                            onChange={(e) => setAiPrompt(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
+                                            <span>Décrivez les travaux ci-dessus.</span>
+                                            <span>{aiPrompt.length} caractères</span>
+                                        </div>
 
-                                <div className="mt-6 flex justify-end gap-3">
-                                    <button
-                                        onClick={() => setShowAIModal(false)}
-                                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleAIGenerate}
-                                        disabled={aiLoading || !aiPrompt.trim()}
-                                        className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
-                                    >
-                                        {aiLoading ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Génération...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sparkles className="w-4 h-4 mr-2" />
-                                                Générer
-                                            </>
+                                        <div className="mt-6 flex justify-end gap-3">
+                                            <button
+                                                onClick={() => setShowAIModal(false)}
+                                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                            >
+                                                Annuler
+                                            </button>
+                                            <button
+                                                onClick={handleAIGenerate}
+                                                disabled={aiLoading || !aiPrompt.trim()}
+                                                className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
+                                            >
+                                                {aiLoading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Génération...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-4 h-4 mr-2" />
+                                                        Générer
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        {aiDuration && (
+                                            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
+                                                <Clock className="w-4 h-4 flex-shrink-0" />
+                                                <span>Durée estimée du chantier : <strong>{aiDuration}</strong></span>
+                                            </div>
                                         )}
-                                    </button>
-                                </div>
+                                        <p className="text-sm text-gray-600 mb-3">
+                                            Ces postes sont souvent oubliés pour ce type de travaux. Voulez-vous les ajouter ?
+                                        </p>
+                                        <ul className="space-y-2 max-h-60 overflow-y-auto">
+                                            {aiSuggestions.map((suggestion, idx) => (
+                                                <li key={idx} className="flex items-center justify-between gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                                                    <span className="text-sm text-gray-700">{suggestion}</span>
+                                                    <button
+                                                        onClick={() => handleAddAISuggestion(suggestion)}
+                                                        className="flex-shrink-0 px-3 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                                                    >
+                                                        + Ajouter
+                                                    </button>
+                                                </li>
+                                            ))}
+                                            {aiSuggestions.length === 0 && (
+                                                <li className="text-sm text-gray-500 text-center py-2">Tous les postes ont été ajoutés !</li>
+                                            )}
+                                        </ul>
+                                        <div className="mt-6 flex justify-end">
+                                            <button
+                                                onClick={() => {
+                                                    setShowAIModal(false);
+                                                    setShowAISuggestions(false);
+                                                    setAiPrompt('');
+                                                    setAiSuggestions([]);
+                                                    setAiDuration(null);
+                                                    toast.success('Devis généré avec succès !');
+                                                }}
+                                                className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700"
+                                            >
+                                                Terminer
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
