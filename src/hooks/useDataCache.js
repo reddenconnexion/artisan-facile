@@ -214,6 +214,25 @@ export function useAgendaEvents(startDate, endDate) {
     });
 }
 
+// Compteurs d'actions en attente (pour badges de navigation)
+// Dérivé du cache useQuotes — pas de requête supplémentaire
+export function usePendingCounts() {
+    const { data: quotes = [] } = useQuotes();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const overdueQuotes = quotes.filter(q =>
+        q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
+    ).length;
+
+    const pendingInvoices = quotes.filter(q => q.status === 'billed').length;
+
+    const signedNotBilled = quotes.filter(q => q.status === 'accepted').length;
+
+    const total = overdueQuotes + pendingInvoices + signedNotBilled;
+
+    return { overdueQuotes, pendingInvoices, signedNotBilled, total };
+}
+
 // Hook pour invalider le cache après une modification
 export function useInvalidateCache() {
     const queryClient = useQueryClient();
