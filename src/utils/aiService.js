@@ -31,32 +31,42 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
 
     const systemPrompt = `
     Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
-    Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis.
+    Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis,
+    ET de fournir des conseils enrichis pour ne rien oublier.
 
     RÈGLES :
     1. Analyse la demande et déduis les matériaux nécessaires, la main d'oeuvre, et les consommables.
     2. Estime des prix réalistes du marché français (en Euros HT).
     3. Pour chaque ligne, détermine le type: 'service' (Main d'oeuvre) ou 'material' (Matériel).
     4. Sois précis mais concis dans les descriptions.
+    5. Identifie les postes souvent oubliés pour ce type de travaux (protection, évacuation déchets, etc.).
+    6. Estime la durée totale du chantier (ex: "1 jour", "2-3 jours", "1 semaine").
 
     ${constraints}
 
     FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
-    [
-        {
-            "description": "Désignation de l'article",
-            "quantity": 1,
-            "unit": "u" | "m2" | "ml" | "h" | "forfait",
-            "price": 0.00,
-            "type": "service" | "material"
-        }
-    ]
+    {
+        "items": [
+            {
+                "description": "Désignation de l'article",
+                "quantity": 1,
+                "unit": "u" | "m2" | "ml" | "h" | "forfait",
+                "price": 0.00,
+                "type": "service" | "material"
+            }
+        ],
+        "suggestions": [
+            "Protection des sols et meubles",
+            "Évacuation et tri des déchets de chantier"
+        ],
+        "estimated_duration": "2-3 jours"
+    }
     `;
 
     const rawResponse = await callAiProxy(systemPrompt, `DESCRIPTION UTILISATEUR: "${userDescription}"`);
 
     let jsonString = rawResponse.trim();
-    const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
         jsonString = jsonMatch[0];
     } else {
@@ -64,7 +74,16 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
     }
 
     try {
-        return JSON.parse(jsonString);
+        const parsed = JSON.parse(jsonString);
+        // Support both new enriched format and legacy array format
+        if (Array.isArray(parsed)) {
+            return { items: parsed, suggestions: [], estimated_duration: null };
+        }
+        return {
+            items: parsed.items || [],
+            suggestions: parsed.suggestions || [],
+            estimated_duration: parsed.estimated_duration || null
+        };
     } catch {
         throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
     }
