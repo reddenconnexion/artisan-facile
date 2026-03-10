@@ -5,32 +5,35 @@ import { getDueFollowUps, recordFollowUp } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Clock, Send, CheckCircle, Mail, AlertTriangle, ChevronRight, History } from 'lucide-react';
+import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const STEP_STYLES = [
+    { badge: 'bg-blue-100 text-blue-700', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
+    { badge: 'bg-amber-100 text-amber-700', border: 'border-amber-200', panel: 'border-amber-200 bg-amber-50 dark:bg-amber-950/20', btn: 'bg-amber-600 hover:bg-amber-700' },
+    { badge: 'bg-orange-100 text-orange-700', border: 'border-orange-200', panel: 'border-orange-200 bg-orange-50 dark:bg-orange-950/20', btn: 'bg-orange-600 hover:bg-orange-700' },
+    { badge: 'bg-gray-100 text-gray-600', border: 'border-gray-300', panel: 'border-gray-200 bg-gray-50 dark:bg-gray-800/50', btn: 'bg-gray-600 hover:bg-gray-700' },
+];
 
 const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('due'); // 'due' or 'history'
+    const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [generating, setGenerating] = useState(null); // ID of quote being generated
-    const [preview, setPreview] = useState(null); // { quoteId, subject, body }
+    const [generating, setGenerating] = useState({});   // { [quoteId]: true }
+    const [suggestions, setSuggestions] = useState({}); // { [quoteId]: { subject, body } }
+    const [expanded, setExpanded] = useState({});       // { [quoteId]: true }
 
     useEffect(() => {
-        if (user) {
-            refreshData();
-        }
+        if (user) refreshData();
     }, [user, activeTab]);
 
     const refreshData = () => {
-        if (activeTab === 'due') {
-            fetchDueQuotes();
-        } else {
-            fetchHistory();
-        }
+        if (activeTab === 'due') fetchDueQuotes();
+        else fetchHistory();
     };
 
     const fetchDueQuotes = async () => {
@@ -44,90 +47,69 @@ const FollowUps = ({ embedded = false }) => {
         setLoading(true);
         const { data, error } = await supabase
             .from('quote_follow_ups')
-            .select(`
-                *,
-                quotes (
-                    id,
-                    title,
-                    total_ttc,
-                    clients (name)
-                )
-            `)
+            .select(`*, quotes (id, title, total_ttc, clients (name))`)
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error(error);
-            toast.error("Erreur chargement historique");
-        } else {
-            setHistory(data || []);
-        }
+        if (error) toast.error("Erreur chargement historique");
+        else setHistory(data || []);
         setLoading(false);
     };
 
-    const handleGenerateEmail = async (quote) => {
+    const handleGenerate = async (quote) => {
         try {
-            setGenerating(quote.id);
-            setPreview(null); // Clear previous
+            setGenerating(prev => ({ ...prev, [quote.id]: true }));
             const step = quote.next_step;
-
-            // Generate content
             const client = quote.clients || { name: 'Client' };
-            const emailContent = await generateFollowUpEmail(quote, client, step, {}); // Pass user settings context if needed (handled in aiService via localStorage fallback)
-
-            setPreview({
-                quoteId: quote.id,
-                quote,
-                step,
-                subject: emailContent.subject,
-                body: emailContent.body
-            });
-
+            const emailContent = await generateFollowUpEmail(quote, client, step, {});
+            setSuggestions(prev => ({ ...prev, [quote.id]: emailContent }));
+            setExpanded(prev => ({ ...prev, [quote.id]: true }));
         } catch (error) {
-            toast.error("Erreur gnration IA: " + error.message);
+            toast.error("Erreur génération IA: " + error.message);
         } finally {
-            setGenerating(null);
+            setGenerating(prev => ({ ...prev, [quote.id]: false }));
         }
     };
 
-    const handleSend = async () => {
-        if (!preview) return;
+    const updateSuggestion = (quoteId, field, value) => {
+        setSuggestions(prev => ({ ...prev, [quoteId]: { ...prev[quoteId], [field]: value } }));
+    };
 
-        const { quote, subject, body, step } = preview;
+    const dismissSuggestion = (quoteId) => {
+        setSuggestions(prev => { const n = { ...prev }; delete n[quoteId]; return n; });
+        setExpanded(prev => { const n = { ...prev }; delete n[quoteId]; return n; });
+    };
+
+    const handleSend = async (quote) => {
+        const suggestion = suggestions[quote.id];
+        if (!suggestion) return;
+
         const clientEmail = quote.clients?.email;
-
         if (!clientEmail) {
             toast.error("Le client n'a pas d'email !");
             return;
         }
 
-        // 1. Open Mail Client (or capture in test mode)
+        const { subject, body } = suggestion;
         if (isTestMode) {
             captureEmail({ email: clientEmail, subject, body });
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
         } else {
-            const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.location.href = mailtoUrl;
+            window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         }
 
-        // 2. Record Action (Optimistic update or confirm dialog? 
-        // For simplicity, we assume user sends it. 
-        // Could ask "Did you send it?" but better flow is auto-log for MVP.)
-
-        // Let's add a small confirmation toast with "Undo" or just direct record.
-        // Or better: record it now.
         try {
             await recordFollowUp(quote, user.id, body, 'email');
             toast.success("Relance enregistrée !");
-            setPreview(null);
-            fetchDueQuotes(); // Refresh list
+            dismissSuggestion(quote.id);
+            fetchDueQuotes();
         } catch (err) {
             console.error(err);
             toast.error("Erreur lors de l'enregistrement du suivi");
         }
     };
 
-    const closePreview = () => setPreview(null);
+    const getDaysOverdue = (dueDate) =>
+        Math.floor((new Date() - new Date(dueDate)) / (1000 * 60 * 60 * 24));
 
     return (
         <div className={embedded ? 'space-y-6' : 'max-w-6xl mx-auto space-y-6'}>
@@ -138,14 +120,12 @@ const FollowUps = ({ embedded = false }) => {
                         Centre de Relance
                     </h1>
                 )}
-
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                     <button
                         onClick={() => setActiveTab('due')}
                         className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'due'
                             ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                            : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         À Relancer ({dueQuotes.length})
                     </button>
@@ -153,8 +133,7 @@ const FollowUps = ({ embedded = false }) => {
                         onClick={() => setActiveTab('history')}
                         className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
                             ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                            : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         Historique
                     </button>
@@ -173,49 +152,137 @@ const FollowUps = ({ embedded = false }) => {
                         </div>
                     ) : (
                         <div className="grid gap-4">
-                            {dueQuotes.map((quote) => (
-                                <div key={quote.id} className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
-                                    <div className="flex-1 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">
-                                                {quote.next_step?.label}
-                                            </span>
-                                            <span className="text-sm text-gray-500 flex items-center">
-                                                <Clock className="w-4 h-4 mr-1" />
-                                                Devis du {new Date(quote.date).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                                            {quote.clients?.name} - {quote.title}
-                                        </h3>
-                                        <div className="text-sm text-gray-500">
-                                            Montant: <span className="font-medium text-gray-900 dark:text-white">{quote.total_ttc}€</span>
-                                            {quote.last_followup_at && (
-                                                <span className="ml-4 text-orange-600">
-                                                    Dernière relance : {new Date(quote.last_followup_at).toLocaleDateString()}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
+                            {dueQuotes.map((quote) => {
+                                const stepIdx = quote.next_step?.index ?? 0;
+                                const style = STEP_STYLES[Math.min(stepIdx, STEP_STYLES.length - 1)];
+                                const daysOverdue = getDaysOverdue(quote.next_step?.due_date);
+                                const suggestion = suggestions[quote.id];
+                                const isExpanded = !!expanded[quote.id];
+                                const isGenerating = !!generating[quote.id];
 
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
-                                        >
-                                            Voir le devis
-                                        </button>
-                                        <button
-                                            onClick={() => handleGenerateEmail(quote)}
-                                            disabled={generating === quote.id}
-                                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center shadow-sm disabled:opacity-50"
-                                        >
-                                            {generating === quote.id ? 'Génération...' : 'Relancer par Email'}
-                                            <Send className="w-4 h-4 ml-2" />
-                                        </button>
+                                return (
+                                    <div key={quote.id} className={`bg-white dark:bg-gray-900 rounded-xl border-2 ${style.border} shadow-sm transition-shadow hover:shadow-md`}>
+
+                                        {/* ── Card header ── */}
+                                        <div className="p-5 flex flex-col md:flex-row gap-4">
+                                            <div className="flex-1 space-y-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`${style.badge} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide`}>
+                                                        {quote.next_step?.label}
+                                                    </span>
+                                                    {daysOverdue > 0 && (
+                                                        <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                                            En retard de {daysOverdue}j
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                                                    {quote.clients?.name} — {quote.title}
+                                                </h3>
+                                                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-4 h-4" />
+                                                        Devis du {new Date(quote.date).toLocaleDateString('fr-FR')}
+                                                    </span>
+                                                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                                        {quote.total_ttc} €
+                                                    </span>
+                                                    {quote.last_followup_at && (
+                                                        <span className="text-orange-500">
+                                                            Dernière relance : {new Date(quote.last_followup_at).toLocaleDateString('fr-FR')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* ── Action buttons ── */}
+                                            <div className="flex items-start gap-2 pt-1 shrink-0">
+                                                <button
+                                                    onClick={() => navigate(`/app/devis/${quote.id}`)}
+                                                    className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                                                >
+                                                    Voir devis
+                                                </button>
+
+                                                {!suggestion ? (
+                                                    <button
+                                                        onClick={() => handleGenerate(quote)}
+                                                        disabled={isGenerating}
+                                                        className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm disabled:opacity-60 transition-opacity ${style.btn}`}
+                                                    >
+                                                        <Sparkles className="w-4 h-4" />
+                                                        {isGenerating ? 'Génération…' : 'Suggérer un message'}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setExpanded(prev => ({ ...prev, [quote.id]: !isExpanded }))}
+                                                        className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm ${style.btn}`}
+                                                    >
+                                                        <Mail className="w-4 h-4" />
+                                                        Message prêt
+                                                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ── Inline email suggestion panel ── */}
+                                        {suggestion && isExpanded && (
+                                            <div className={`border-t-2 ${style.panel} rounded-b-xl p-5 space-y-3`}>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                        Suggestion IA — modifiable avant envoi
+                                                    </p>
+                                                    <button
+                                                        onClick={() => handleGenerate(quote)}
+                                                        disabled={isGenerating}
+                                                        className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                                                    >
+                                                        {isGenerating ? 'Régénération…' : '↺ Régénérer'}
+                                                    </button>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Objet</label>
+                                                    <input
+                                                        type="text"
+                                                        value={suggestion.subject}
+                                                        onChange={(e) => updateSuggestion(quote.id, 'subject', e.target.value)}
+                                                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Message</label>
+                                                    <textarea
+                                                        value={suggestion.body}
+                                                        onChange={(e) => updateSuggestion(quote.id, 'body', e.target.value)}
+                                                        rows={9}
+                                                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono leading-relaxed"
+                                                    />
+                                                </div>
+
+                                                <div className="flex justify-end gap-3 pt-1">
+                                                    <button
+                                                        onClick={() => dismissSuggestion(quote.id)}
+                                                        className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                                                    >
+                                                        Annuler
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleSend(quote)}
+                                                        className={`px-5 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow ${style.btn}`}
+                                                    >
+                                                        <Send className="w-4 h-4" />
+                                                        Envoyer l'email
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -260,52 +327,6 @@ const FollowUps = ({ embedded = false }) => {
                     {history.length === 0 && (
                         <div className="p-8 text-center text-gray-500">Aucun historique disponible</div>
                     )}
-                </div>
-            )}
-
-            {/* Modal Preview */}
-            {preview && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-                            <h3 className="text-xl font-bold dark:text-white">Aperçu de l'Email</h3>
-                            <button onClick={closePreview} className="text-gray-400 hover:text-gray-600">
-                                <AlertTriangle className="w-6 h-6 rotate-45" /> {/* Using generic icon as close X substitute or just X */}
-                                Fermer
-                            </button>
-                        </div>
-
-                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Objet</label>
-                                <input
-                                    type="text"
-                                    value={preview.subject}
-                                    onChange={(e) => setPreview({ ...preview, subject: e.target.value })}
-                                    className="w-full border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-1">Message</label>
-                                <textarea
-                                    value={preview.body}
-                                    onChange={(e) => setPreview({ ...preview, body: e.target.value })}
-                                    rows={10}
-                                    className="w-full border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white font-sans"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3">
-                            <button onClick={closePreview} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-800">
-                                Annuler
-                            </button>
-                            <button onClick={handleSend} className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center">
-                                <Send className="w-4 h-4 mr-2" />
-                                Envoyer (Ouvrir Mail)
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
         </div>
