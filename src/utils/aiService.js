@@ -164,20 +164,40 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     const companyName = context.companyName || "Votre Artisan";
     const userName = context.userName || "";
 
+    const stepIndex = step.index ?? 0;
+    const validUntil = quote.valid_until
+        ? new Date(quote.valid_until).toLocaleDateString('fr-FR')
+        : null;
+
+    const stepGuides = [
+        // Étape 0 — Première relance (J+3)
+        `Message court et léger (3-4 phrases max). Vérifier simplement que le devis est bien arrivé et proposer de répondre à d'éventuelles questions. Aucune pression, ton naturel.`,
+        // Étape 1 — Deuxième relance (J+10)
+        `Message de valeur ajoutée (4-6 phrases). Mettre en avant un point fort du devis, une précision technique sur le projet ou un exemple de réalisation similaire. Rappeler la disponibilité pour en discuter.`,
+        // Étape 2 — Troisième relance (J+17)
+        `Message direct et orienté action (4-5 phrases). Proposer explicitement un appel téléphonique ou un échange via un autre canal pour lever les derniers doutes. Inclure une disponibilité concrète.`,
+        // Étape 3 — Message de clôture (J+30)
+        `Message de clôture respectueux (4-5 phrases). ${validUntil ? `Rappeler que le devis (valable jusqu'au ${validUntil}) va être archivé.` : `Informer que le devis va être archivé prochainement.`} Laisser une porte ouverte pour un recontact futur sans aucune pression. Ton chaleureux.`,
+    ];
+
+    const guide = stepGuides[stepIndex] || stepGuides[stepGuides.length - 1];
+
     const systemPrompt = `
     Tu es un assistant professionnel pour un artisan du bâtiment.
     Rédige un e-mail de relance pour un devis envoyé.
 
-    CONTEXTE :
+    CONTEXTE DU DEVIS :
     - Artisan : ${companyName} ${userName ? `(${userName})` : ''}
     - Client : ${client.name || 'Client'}
     - Projet : ${quote.title || 'Travaux'}
     - Devis N° : ${quote.id}
     - Date du devis : ${new Date(quote.date).toLocaleDateString('fr-FR')}
-    - Montant : ${quote.total_ttc ? quote.total_ttc + '€' : 'N/A'}
+    - Montant TTC : ${quote.total_ttc ? quote.total_ttc + ' €' : 'N/A'}
+    ${validUntil ? `- Valable jusqu'au : ${validUntil}` : ''}
 
-    OBJECTIF DE LA RELANCE : ${step.label}
-    TON/INSTRUCTIONS SPÉCIFIQUES : ${step.context || "Ton professionnel, courtois et direct."}
+    ÉTAPE DE RELANCE : ${step.label} (étape ${stepIndex + 1})
+    OBJECTIF STRATÉGIQUE : ${step.context || "Ton professionnel, courtois et direct."}
+    GUIDE DE RÉDACTION : ${guide}
 
     RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
     - Commence par "Bonjour [Nom],"
