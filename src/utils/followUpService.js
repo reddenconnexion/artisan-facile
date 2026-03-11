@@ -20,8 +20,8 @@ export const getFollowUpSettings = async (userId) => {
             return data.follow_up_settings;
         }
 
-        // Default settings
-        return {
+        // Aucune configuration sauvegardée : initialiser avec les 4 étapes par défaut
+        const defaultSettings = {
             steps: [
                 { delay: 3, label: "Première relance", context: "Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate." },
                 { delay: 7, label: "Deuxième relance", context: "Apporter de la valeur : partager un cas client similaire, une précision technique ou un comparatif pour aider à la décision." },
@@ -29,6 +29,14 @@ export const getFollowUpSettings = async (userId) => {
                 { delay: 13, label: "Message de clôture", context: "Informer que le devis va être archivé sous peu et proposer un recontact futur si le projet se concrétise." }
             ]
         };
+
+        // Sauvegarder automatiquement pour que l'utilisateur les voie dans la config
+        await supabase
+            .from('profiles')
+            .update({ follow_up_settings: defaultSettings })
+            .eq('id', userId);
+
+        return defaultSettings;
 
     } catch (error) {
         console.error("Error fetching follow-up settings:", error);
