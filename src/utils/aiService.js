@@ -154,69 +154,97 @@ export const processAssistantIntent = async (userText) => {
 
 /**
  * Generates a follow-up email content using AI.
- * @param {object} quote - The quote object
+ * @param {object|object[]} quotes - A single quote or array of quotes (for grouped relances)
  * @param {object} client - The client object
  * @param {object} step - The step configuration (label, context)
  * @param {object} context - User settings/context
  * @returns {Promise<object>} { subject, body }
  */
-export const generateFollowUpEmail = async (quote, client, step, context = {}) => {
+export const generateFollowUpEmail = async (quotes, client, step, context = {}) => {
+    // Accept both single quote and array of quotes
+    if (!Array.isArray(quotes)) quotes = [quotes];
+
     const companyName = context.companyName || "Votre Artisan";
     const userName = context.userName || "";
+    const artisanSignature = userName ? `${userName} — ${companyName}` : companyName;
 
     const stepIndex = step.index ?? 0;
-    const validUntil = quote.valid_until
-        ? new Date(quote.valid_until).toLocaleDateString('fr-FR')
+    const isGrouped = quotes.length > 1;
+
+    const quoteDate = quotes[0]?.date
+        ? new Date(quotes[0].date).toLocaleDateString('fr-FR')
         : null;
+
+    // Build the list of quotes for the prompt
+    const quotesLines = quotes.map(q => {
+        const montant = q.total_ttc
+            ? Number(q.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+            : 'montant non précisé';
+        return `  • ${q.title || 'Travaux'} : ${montant}`;
+    }).join('\n');
 
     const stepGuides = [
         // Étape 0 — Première relance (J+3)
-        `Message court et léger (3-4 phrases max). Vérifier simplement que le devis est bien arrivé et proposer de répondre à d'éventuelles questions. Aucune pression, ton naturel.`,
+        `Message court et naturel (3-4 phrases). S'assurer que le${isGrouped ? 's devis sont' : ' devis est'} bien arrivé${isGrouped ? 's' : ''} et proposer de répondre à d'éventuelles questions. Aucune pression, ton humain.`,
         // Étape 1 — Deuxième relance (J+10)
-        `Message de valeur ajoutée (4-6 phrases). Mettre en avant un point fort du devis, une précision technique sur le projet ou un exemple de réalisation similaire. Rappeler la disponibilité pour en discuter.`,
+        `Message de valeur (4-5 phrases). Souligner un point fort ${isGrouped ? 'des projets' : 'du projet'} ou apporter une précision technique utile. Rappeler la disponibilité pour en parler, de préférence par téléphone.`,
         // Étape 2 — Troisième relance (J+17)
-        `Message direct et orienté action (4-5 phrases). Proposer explicitement un appel téléphonique ou un échange via un autre canal pour lever les derniers doutes. Inclure une disponibilité concrète.`,
+        `Message direct et orienté action (4-5 phrases). Proposer explicitement un appel téléphonique pour lever les derniers doutes — c'est souvent plus simple qu'un échange d'emails.`,
         // Étape 3 — Message de clôture (J+30)
-        `Message de clôture respectueux (4-5 phrases). ${validUntil ? `Rappeler que le devis (valable jusqu'au ${validUntil}) va être archivé.` : `Informer que le devis va être archivé prochainement.`} Laisser une porte ouverte pour un recontact futur sans aucune pression. Ton chaleureux.`,
+        `Message de clôture respectueux (4-5 phrases). Informer que le${isGrouped ? 's devis vont être archivés' : ' devis va être archivé'} prochainement. Laisser une porte ouverte pour un recontact futur, sans aucune pression. Ton chaleureux.`,
     ];
 
     const guide = stepGuides[stepIndex] || stepGuides[stepGuides.length - 1];
 
-    const systemPrompt = `
-    Tu es un assistant professionnel pour un artisan du bâtiment.
-    Rédige un e-mail de relance pour un devis envoyé.
+    const systemPrompt = `Tu es un assistant professionnel pour un artisan du bâtiment.
+Rédige un e-mail de relance pour ${isGrouped ? `${quotes.length} devis envoyés` : 'un devis envoyé'} à un client.
 
-    CONTEXTE DU DEVIS :
-    - Artisan : ${companyName} ${userName ? `(${userName})` : ''}
-    - Client : ${client.name || 'Client'}
-    - Projet : ${quote.title || 'Travaux'}
-    - Devis N° : ${quote.id}
-    - Date du devis : ${new Date(quote.date).toLocaleDateString('fr-FR')}
-    - Montant TTC : ${quote.total_ttc ? quote.total_ttc + ' €' : 'N/A'}
-    ${validUntil ? `- Valable jusqu'au : ${validUntil}` : ''}
+ARTISAN : ${artisanSignature}
+CLIENT : ${client.name || 'Client'}
+${quoteDate ? `DATE D'ENVOI DES DEVIS : ${quoteDate}` : ''}
+DEVIS À RELANCER :
+${quotesLines}
 
-    ÉTAPE DE RELANCE : ${step.label} (étape ${stepIndex + 1})
-    OBJECTIF STRATÉGIQUE : ${step.context || "Ton professionnel, courtois et direct."}
-    GUIDE DE RÉDACTION : ${guide}
+ÉTAPE DE RELANCE : ${step.label} (étape ${stepIndex + 1})
+OBJECTIF : ${step.context || "Ton professionnel, courtois et direct."}
+GUIDE : ${guide}
 
-    RÈGLES POUR L'OBJET DU MAIL :
-    - Ne jamais mentionner le numéro de relance (ex: "Relance 1", "2ème relance", etc.)
-    - L'objet doit être naturel, orienté projet ou client
+EXEMPLE DE STYLE À SUIVRE (adapte-le au contexte ci-dessus) :
+---
+Bonjour Frédéric,
 
-    RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
-    - Commence par "Bonjour [Nom],"
-    - Sépare les paragraphes par une ligne vide (\\n\\n)
-    - Un seul point central par paragraphe, phrases courtes
-    - Utilise 1 ou 2 emojis pertinents pour baliser les sections importantes (ex: 📄 pour le devis, ⭐ pour un avis, 🔔 pour une relance)
-    - Termine par "Bien cordialement," suivi du nom de l'artisan
-    - Pas de tirets, pas d'astérisques, pas de crochets
+Je me permets de revenir vers vous concernant les trois devis que je vous ai transmis le 19 février :
 
-    FORMAT JSON ATTENDU :
-    {
-        "subject": "Objet du mail...",
-        "body": "Corps du mail..."
-    }
-    `;
+• Devis atelier — Tableau divisionnaire + câblage 16mm² : 2 117,87 €
+• Devis climatisation — Ligne dédiée groupe extérieur : 294,77 €
+• Devis logement annexe — Mise en conformité électrique : 670,00 €
+
+Avez-vous eu l'occasion d'en prendre connaissance ? Ces trois projets peuvent tout à fait être réalisés de manière indépendante, selon vos priorités et votre calendrier — ou regroupés pour optimiser le déplacement et la coordination.
+
+Si vous avez des questions sur un point technique ou si vous souhaitez ajuster quoi que ce soit, je suis disponible pour en parler directement par téléphone. C'est souvent plus simple qu'un échange d'emails.
+
+Bien cordialement,
+Denis Meriot — Red Den Connexion
+---
+
+RÈGLES POUR L'OBJET DU MAIL :
+- Ne jamais mentionner "relance" ni son numéro
+- L'objet doit être naturel, centré sur le projet ou le client
+
+RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
+- Commence par "Bonjour [Prénom]," — utilise le prénom si tu peux le déduire du nom complet, sinon le nom entier
+- Sépare les paragraphes par une ligne vide (\\n\\n)
+- ${isGrouped ? 'Liste les devis sous forme de puces (•) avec titre et montant, précédés d\'une ligne vide' : 'Mentionne le projet et le montant clairement'}
+- Phrases courtes, ton humain et direct — pas de jargon ni de formules creuses
+- ${stepIndex >= 2 ? 'Propose explicitement un échange téléphonique' : 'Propose un échange téléphonique si pertinent'}
+- Pas d'emojis
+- Termine par "Bien cordialement,\\n${artisanSignature}"
+
+FORMAT JSON ATTENDU :
+{
+    "subject": "Objet du mail...",
+    "body": "Corps du mail..."
+}`;
 
     const rawResponse = await callAiProxy(systemPrompt, 'Génère l\'email de relance.');
 
