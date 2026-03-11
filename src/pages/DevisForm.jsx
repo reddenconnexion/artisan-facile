@@ -7,6 +7,7 @@ import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { generateQuoteItems } from '../utils/aiService';
+import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
@@ -59,6 +60,10 @@ const DevisForm = () => {
     const [initialStatus, setInitialStatus] = useState('draft');
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
+
+    // Follow-up state
+    const [followUpSteps, setFollowUpSteps] = useState([]);
+    const [markingFollowUp, setMarkingFollowUp] = useState(false);
 
     // AI Assistant State
     const [showAIModal, setShowAIModal] = useState(false);
@@ -578,6 +583,7 @@ const DevisForm = () => {
                     operation_category: data.operation_category || 'service',
                     vat_on_debits: data.vat_on_debits === true,
                     last_followup_at: data.last_followup_at || null,
+                    follow_up_count: data.follow_up_count || 0,
                     updated_at: data.updated_at || null,
                     has_material_deposit: data.has_material_deposit !== false,
                     intervention_address: data.intervention_address || '',
@@ -626,6 +632,13 @@ const DevisForm = () => {
 
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
+
+                // Load follow-up steps for the "Marquer comme relancé" button
+                if (data.status === 'sent') {
+                    getFollowUpSettings(user.id).then(settings => {
+                        setFollowUpSteps(settings.steps || []);
+                    });
+                }
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
@@ -927,6 +940,32 @@ const DevisForm = () => {
         }
 
         setEmailPreview(null);
+    };
+
+    const handleMarkAsFollowedUp = async () => {
+        if (!id || id === 'new') return;
+        setMarkingFollowUp(true);
+        try {
+            const currentCount = formData.follow_up_count || 0;
+            const nextCount = currentCount + 1;
+            const quoteObj = {
+                id,
+                client_id: formData.client_id,
+                follow_up_count: currentCount
+            };
+            await recordFollowUp(quoteObj, user.id, '(Relance hors appli)', 'manual', nextCount);
+            setFormData(prev => ({
+                ...prev,
+                follow_up_count: nextCount,
+                last_followup_at: new Date().toISOString()
+            }));
+            toast.success(`Relance ${nextCount} enregistrée`);
+        } catch (err) {
+            console.error(err);
+            toast.error("Erreur lors de l'enregistrement");
+        } finally {
+            setMarkingFollowUp(false);
+        }
     };
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
@@ -2398,7 +2437,28 @@ Conditions de règlement : Paiement à réception de facture.`
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
                                 Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
+                                {formData.follow_up_count > 0 && (
+                                    <span className="ml-1 text-amber-500">
+                                        (étape {formData.follow_up_count})
+                                    </span>
+                                )}
                             </p>
+                        )}
+                        {formData.status === 'sent' && (
+                            <button
+                                type="button"
+                                onClick={handleMarkAsFollowedUp}
+                                disabled={markingFollowUp}
+                                className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg transition-colors"
+                            >
+                                <Check className="w-4 h-4" />
+                                {markingFollowUp ? 'Enregistrement…' : (() => {
+                                    const nextStep = followUpSteps[formData.follow_up_count];
+                                    return nextStep
+                                        ? `Relancé — ${nextStep.label}`
+                                        : `Relancé — étape ${(formData.follow_up_count || 0) + 1}`;
+                                })()}
+                            </button>
                         )}
                     </div>
                     {/* Mode de règlement - visible quand statut = Payé */}
