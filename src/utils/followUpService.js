@@ -131,14 +131,15 @@ export const getDueFollowUps = async (userId) => {
 
 /**
  * Records a follow-up action.
- * @param {object} quote 
- * @param {string} userId 
- * @param {string} content 
- * @param {string} method 
+ * @param {object} quote
+ * @param {string} userId
+ * @param {string} content
+ * @param {string} method
+ * @param {number|null} forcedCount - Override the computed follow_up_count (for manual step selection)
  */
-export const recordFollowUp = async (quote, userId, content, method = 'email') => {
+export const recordFollowUp = async (quote, userId, content, method = 'email', forcedCount = null) => {
     const now = new Date().toISOString();
-    const newCount = (quote.follow_up_count || 0) + 1;
+    const newCount = forcedCount ?? (quote.follow_up_count || 0) + 1;
 
     // 1. Insert interaction
     const { error: insertError } = await supabase
