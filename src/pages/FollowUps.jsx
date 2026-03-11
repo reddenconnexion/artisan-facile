@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
-import { getDueFollowUps, recordFollowUp } from '../utils/followUpService';
+import { getDueFollowUps, recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -9,11 +9,13 @@ import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles } from
 import { useNavigate } from 'react-router-dom';
 
 const STEP_STYLES = [
-    { badge: 'bg-blue-100 text-blue-700', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
-    { badge: 'bg-amber-100 text-amber-700', border: 'border-amber-200', panel: 'border-amber-200 bg-amber-50 dark:bg-amber-950/20', btn: 'bg-amber-600 hover:bg-amber-700' },
-    { badge: 'bg-orange-100 text-orange-700', border: 'border-orange-200', panel: 'border-orange-200 bg-orange-50 dark:bg-orange-950/20', btn: 'bg-orange-600 hover:bg-orange-700' },
-    { badge: 'bg-gray-100 text-gray-600', border: 'border-gray-300', panel: 'border-gray-200 bg-gray-50 dark:bg-gray-800/50', btn: 'bg-gray-600 hover:bg-gray-700' },
+    { badge: 'bg-blue-100 text-blue-700', activeBadge: 'bg-blue-600 text-white', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
+    { badge: 'bg-amber-100 text-amber-700', activeBadge: 'bg-amber-500 text-white', border: 'border-amber-200', panel: 'border-amber-200 bg-amber-50 dark:bg-amber-950/20', btn: 'bg-amber-600 hover:bg-amber-700' },
+    { badge: 'bg-orange-100 text-orange-700', activeBadge: 'bg-orange-500 text-white', border: 'border-orange-200', panel: 'border-orange-200 bg-orange-50 dark:bg-orange-950/20', btn: 'bg-orange-600 hover:bg-orange-700' },
+    { badge: 'bg-gray-100 text-gray-600', activeBadge: 'bg-gray-600 text-white', border: 'border-gray-300', panel: 'border-gray-200 bg-gray-50 dark:bg-gray-800/50', btn: 'bg-gray-600 hover:bg-gray-700' },
 ];
+
+const getStyle = (idx) => STEP_STYLES[Math.min(idx, STEP_STYLES.length - 1)];
 
 const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
@@ -21,11 +23,13 @@ const FollowUps = ({ embedded = false }) => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
+    const [availableSteps, setAvailableSteps] = useState([]);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [generating, setGenerating] = useState({});   // { [quoteId]: true }
-    const [suggestions, setSuggestions] = useState({}); // { [quoteId]: { subject, body } }
-    const [expanded, setExpanded] = useState({});       // { [quoteId]: true }
+    const [generating, setGenerating] = useState({});
+    const [suggestions, setSuggestions] = useState({});
+    const [expanded, setExpanded] = useState({});
+    const [stepOverrides, setStepOverrides] = useState({}); // { [quoteId]: stepIndex }
 
     useEffect(() => {
         if (user) refreshData();
@@ -38,8 +42,16 @@ const FollowUps = ({ embedded = false }) => {
 
     const fetchDueQuotes = async () => {
         setLoading(true);
-        const data = await getDueFollowUps(user.id);
+        const [data, settings] = await Promise.all([
+            getDueFollowUps(user.id),
+            getFollowUpSettings(user.id),
+        ]);
         setDueQuotes(data);
+        setAvailableSteps(settings.steps || []);
+        // Initialise les overrides à l'étape automatique de chaque devis
+        const initialOverrides = {};
+        data.forEach(q => { initialOverrides[q.id] = q.next_step?.index ?? 0; });
+        setStepOverrides(initialOverrides);
         setLoading(false);
     };
 
@@ -55,10 +67,23 @@ const FollowUps = ({ embedded = false }) => {
         setLoading(false);
     };
 
+    const handleStepChange = (quoteId, idx) => {
+        setStepOverrides(prev => ({ ...prev, [quoteId]: idx }));
+        // Effacer la suggestion existante car elle est liée à l'ancienne étape
+        setSuggestions(prev => { const n = { ...prev }; delete n[quoteId]; return n; });
+        setExpanded(prev => { const n = { ...prev }; delete n[quoteId]; return n; });
+    };
+
+    const getEffectiveStep = (quote) => {
+        const idx = stepOverrides[quote.id] ?? quote.next_step?.index ?? 0;
+        const stepData = availableSteps[idx] ?? quote.next_step;
+        return { ...stepData, index: idx };
+    };
+
     const handleGenerate = async (quote) => {
         try {
             setGenerating(prev => ({ ...prev, [quote.id]: true }));
-            const step = quote.next_step;
+            const step = getEffectiveStep(quote);
             const client = quote.clients || { name: 'Client' };
             const emailContent = await generateFollowUpEmail(quote, client, step, {});
             setSuggestions(prev => ({ ...prev, [quote.id]: emailContent }));
@@ -98,7 +123,8 @@ const FollowUps = ({ embedded = false }) => {
         }
 
         try {
-            await recordFollowUp(quote, user.id, body, 'email');
+            const overrideIdx = stepOverrides[quote.id] ?? quote.next_step?.index ?? 0;
+            await recordFollowUp(quote, user.id, body, 'email', overrideIdx + 1);
             toast.success("Relance enregistrée !");
             dismissSuggestion(quote.id);
             fetchDueQuotes();
@@ -153,8 +179,8 @@ const FollowUps = ({ embedded = false }) => {
                     ) : (
                         <div className="grid gap-4">
                             {dueQuotes.map((quote) => {
-                                const stepIdx = quote.next_step?.index ?? 0;
-                                const style = STEP_STYLES[Math.min(stepIdx, STEP_STYLES.length - 1)];
+                                const activeIdx = stepOverrides[quote.id] ?? quote.next_step?.index ?? 0;
+                                const style = getStyle(activeIdx);
                                 const daysOverdue = getDaysOverdue(quote.next_step?.due_date);
                                 const suggestion = suggestions[quote.id];
                                 const isExpanded = !!expanded[quote.id];
@@ -164,66 +190,88 @@ const FollowUps = ({ embedded = false }) => {
                                     <div key={quote.id} className={`bg-white dark:bg-gray-900 rounded-xl border-2 ${style.border} shadow-sm transition-shadow hover:shadow-md`}>
 
                                         {/* ── Card header ── */}
-                                        <div className="p-5 flex flex-col md:flex-row gap-4">
-                                            <div className="flex-1 space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className={`${style.badge} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide`}>
-                                                        {quote.next_step?.label}
-                                                    </span>
-                                                    {daysOverdue > 0 && (
-                                                        <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                                            En retard de {daysOverdue}j
+                                        <div className="p-5 flex flex-col gap-3">
+                                            <div className="flex flex-col md:flex-row md:items-start gap-3">
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {daysOverdue > 0 && (
+                                                            <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                                                En retard de {daysOverdue}j
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                                                        {quote.clients?.name} — {quote.title}
+                                                    </h3>
+                                                    <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock className="w-4 h-4" />
+                                                            Devis du {new Date(quote.date).toLocaleDateString('fr-FR')}
                                                         </span>
-                                                    )}
+                                                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                                            {quote.total_ttc} €
+                                                        </span>
+                                                        {quote.last_followup_at && (
+                                                            <span className="text-orange-500">
+                                                                Dernière relance : {new Date(quote.last_followup_at).toLocaleDateString('fr-FR')}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                                                    {quote.clients?.name} — {quote.title}
-                                                </h3>
-                                                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="w-4 h-4" />
-                                                        Devis du {new Date(quote.date).toLocaleDateString('fr-FR')}
-                                                    </span>
-                                                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                                                        {quote.total_ttc} €
-                                                    </span>
-                                                    {quote.last_followup_at && (
-                                                        <span className="text-orange-500">
-                                                            Dernière relance : {new Date(quote.last_followup_at).toLocaleDateString('fr-FR')}
-                                                        </span>
+
+                                                {/* ── Action buttons ── */}
+                                                <div className="flex items-start gap-2 shrink-0">
+                                                    <button
+                                                        onClick={() => navigate(`/app/devis/${quote.id}`)}
+                                                        className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                                                    >
+                                                        Voir devis
+                                                    </button>
+                                                    {!suggestion ? (
+                                                        <button
+                                                            onClick={() => handleGenerate(quote)}
+                                                            disabled={isGenerating}
+                                                            className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm disabled:opacity-60 transition-opacity ${style.btn}`}
+                                                        >
+                                                            <Sparkles className="w-4 h-4" />
+                                                            {isGenerating ? 'Génération…' : 'Suggérer un message'}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setExpanded(prev => ({ ...prev, [quote.id]: !isExpanded }))}
+                                                            className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm ${style.btn}`}
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Message prêt
+                                                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                        </button>
                                                     )}
                                                 </div>
                                             </div>
 
-                                            {/* ── Action buttons ── */}
-                                            <div className="flex items-start gap-2 pt-1 shrink-0">
-                                                <button
-                                                    onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                                    className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
-                                                >
-                                                    Voir devis
-                                                </button>
-
-                                                {!suggestion ? (
-                                                    <button
-                                                        onClick={() => handleGenerate(quote)}
-                                                        disabled={isGenerating}
-                                                        className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm disabled:opacity-60 transition-opacity ${style.btn}`}
-                                                    >
-                                                        <Sparkles className="w-4 h-4" />
-                                                        {isGenerating ? 'Génération…' : 'Suggérer un message'}
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setExpanded(prev => ({ ...prev, [quote.id]: !isExpanded }))}
-                                                        className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm ${style.btn}`}
-                                                    >
-                                                        <Mail className="w-4 h-4" />
-                                                        Message prêt
-                                                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                                    </button>
-                                                )}
-                                            </div>
+                                            {/* ── Sélecteur d'étape ── */}
+                                            {availableSteps.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-xs text-gray-400 mr-1">Étape :</span>
+                                                    {availableSteps.map((step, idx) => {
+                                                        const s = getStyle(idx);
+                                                        const isActive = activeIdx === idx;
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => handleStepChange(quote.id, idx)}
+                                                                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                                                                    isActive
+                                                                        ? s.activeBadge + ' shadow-sm'
+                                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                                                                }`}
+                                                            >
+                                                                {step.label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* ── Inline email suggestion panel ── */}
