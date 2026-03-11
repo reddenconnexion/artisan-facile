@@ -16,7 +16,7 @@ export const getFollowUpSettings = async (userId) => {
 
         if (error) throw error;
 
-        if (data?.follow_up_settings) {
+        if (data?.follow_up_settings?.steps?.length > 0) {
             return data.follow_up_settings;
         }
 
