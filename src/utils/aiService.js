@@ -199,6 +199,10 @@ export const generateFollowUpEmail = async (quote, client, step, context = {}) =
     OBJECTIF STRATÉGIQUE : ${step.context || "Ton professionnel, courtois et direct."}
     GUIDE DE RÉDACTION : ${guide}
 
+    RÈGLES POUR L'OBJET DU MAIL :
+    - Ne jamais mentionner le numéro de relance (ex: "Relance 1", "2ème relance", etc.)
+    - L'objet doit être naturel, orienté projet ou client
+
     RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
     - Commence par "Bonjour [Nom],"
     - Sépare les paragraphes par une ligne vide (\\n\\n)
