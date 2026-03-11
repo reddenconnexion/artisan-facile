@@ -346,9 +346,10 @@ const InterventionReportForm = () => {
                 }));
 
             // --- 3. Main d'œuvre supplémentaire (heures rapport) ---
+            // Ajoutée uniquement si aucun devis signé n'est lié (pour éviter le doublon avec les items du devis)
             const hours = parseFloat(formData.duration_hours);
             const hourlyRate = parseFloat(userProfile?.ai_hourly_rate);
-            const laborItems = (hours > 0 && hourlyRate > 0)
+            const laborItems = (!linkedQuote && hours > 0 && hourlyRate > 0)
                 ? [{
                     description: `Main d'œuvre — ${formData.title || 'Intervention'} (${hours}h)`,
                     quantity: hours,
@@ -364,7 +365,9 @@ const InterventionReportForm = () => {
                 items.push({ description: formData.title || 'Intervention', quantity: 1, unit: 'forfait', price: 0, buying_price: 0, type: 'service' });
             }
 
-            const includeTva = linkedQuote?.include_tva !== false;
+            // Les micro-entrepreneurs (auto-entrepreneurs) sont en franchise de TVA
+            const isAutoEntrepreneur = userProfile?.artisan_status === 'micro_entreprise';
+            const includeTva = !isAutoEntrepreneur && (linkedQuote?.include_tva !== false);
             const totalHT = items.reduce((s, i) => s + i.quantity * i.price, 0);
             const totalTVA = includeTva ? totalHT * 0.2 : 0;
             const totalTTC = totalHT + totalTVA;
