@@ -422,6 +422,8 @@ const InterventionReportForm = () => {
                 public_token: invoiceToken,
                 notes: `Facture de clôture — rapport d'intervention du ${formData.date || new Date().toLocaleDateString('fr-FR')}`,
                 report_pdf_url: reportUrl,
+                // Lier la facture au devis d'origine pour que le dashboard retire ce devis des "À traiter"
+                parent_id: linkedQuote?.id || null,
             };
 
             const { data: newInvoice, error: invoiceError } = await supabase
@@ -431,6 +433,14 @@ const InterventionReportForm = () => {
                 .single();
 
             if (invoiceError) throw invoiceError;
+
+            // Passer le devis lié en "Facturé" pour refléter l'avancement dans le pipeline
+            if (linkedQuote?.id) {
+                await supabase
+                    .from('quotes')
+                    .update({ status: 'billed' })
+                    .eq('id', linkedQuote.id);
+            }
 
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');
