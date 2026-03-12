@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -10,6 +10,75 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
+import { supabase } from '../utils/supabase';
+
+// --- Recent Voice Memos Widget ---
+const MEMO_STATUS_ICON = {
+    pending:      { Icon: Clock,       color: 'text-gray-400' },
+    transcribing: { Icon: Sparkles,    color: 'text-blue-400' },
+    processing:   { Icon: Sparkles,    color: 'text-purple-400' },
+    done:         { Icon: CheckCircle2,color: 'text-green-500' },
+    error:        { Icon: XCircle,     color: 'text-red-400' },
+    cancelled:    { Icon: XCircle,     color: 'text-gray-300' },
+};
+
+const RecentVoiceMemos = ({ userId, navigate }) => {
+    const [memos, setMemos] = useState([]);
+
+    useEffect(() => {
+        if (!userId) return;
+        supabase.from('voice_memos')
+            .select('id, transcript, status, intent_result, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(3)
+            .then(({ data }) => setMemos(data || []));
+    }, [userId]);
+
+    if (memos.length === 0) return null;
+
+    return (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Mic size={15} className="text-blue-500" />
+                    Mémos vocaux récents
+                </h3>
+                <button
+                    onClick={() => navigate('/app/voice-memos')}
+                    className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                >
+                    Voir tout <ChevronRightIcon size={12} />
+                </button>
+            </div>
+            <div className="space-y-2">
+                {memos.map(memo => {
+                    const cfg = MEMO_STATUS_ICON[memo.status] || MEMO_STATUS_ICON.pending;
+                    const StatusIcon = cfg.Icon;
+                    return (
+                        <div
+                            key={memo.id}
+                            onClick={() => navigate('/app/voice-memos')}
+                            className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                        >
+                            <StatusIcon size={14} className={`mt-0.5 flex-shrink-0 ${cfg.color}`} />
+                            <div className="min-w-0 flex-1">
+                                {memo.transcript ? (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 italic truncate">"{memo.transcript}"</p>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">En cours de traitement...</p>
+                                )}
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {formatDistanceToNow(new Date(memo.created_at), { addSuffix: true, locale: fr })}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 // --- Helper for Stats Calculation (Pure Function) ---
 const calculateStats = (allQuotes, referenceDate) => {
@@ -453,6 +522,7 @@ const Dashboard = () => {
             </div>
 
             <QuickActions />
+            <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

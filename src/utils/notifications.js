@@ -27,3 +27,17 @@ export const getNotificationTopic = (userId) => {
     if (!userId) return '';
     return `artisan-facile-${userId}`;
 };
+
+/**
+ * Sends a pipeline completion notification summarizing what was auto-created.
+ * @param {string} userId
+ * @param {Array} actionsTaken - Array of { type, label, link } objects from voicePipelineExecutor
+ */
+export const sendPipelineNotification = async (userId, actionsTaken) => {
+    if (!userId || !actionsTaken || actionsTaken.length === 0) return;
+
+    const summary = actionsTaken.map(a => `• ${a.label}`).join('\n');
+    const title = 'Pipeline vocal — Actions effectuées';
+
+    await sendNotification(userId, summary, title);
+};
