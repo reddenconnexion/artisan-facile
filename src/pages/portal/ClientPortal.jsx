@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList, Eye, X, Loader2 } from 'lucide-react';
+import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList, Eye, X, Loader2, PenLine, CheckCircle } from 'lucide-react';
 import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
+import SignatureModal from '../../components/SignatureModal';
 
 /* ─── Inline PDF Viewer Modal ─── */
 const PdfViewerModal = ({ url, title, onClose }) => {
@@ -42,6 +43,10 @@ const ClientPortal = () => {
     // PDF viewer state
     const [pdfViewer, setPdfViewer] = useState({ url: null, title: '' });
     const [generatingPdf, setGeneratingPdf] = useState(null); // id of doc being generated
+
+    // Signature state
+    const [signingQuoteId, setSigningQuoteId] = useState(null);
+    const [signedQuoteIds, setSignedQuoteIds] = useState(new Set());
 
     useEffect(() => {
         fetchPortalData();
@@ -124,6 +129,21 @@ const ClientPortal = () => {
         }
     };
 
+    const handleSignQuote = async (signatureDataUrl) => {
+        if (!signingQuoteId) return;
+        const { data: result, error } = await supabase.rpc('sign_quote_via_portal', {
+            portal_token_input: token,
+            quote_id_input: signingQuoteId,
+            signature_base64: signatureDataUrl,
+        });
+        if (error || !result?.success) {
+            alert(result?.error || error?.message || 'Erreur lors de la signature');
+            return;
+        }
+        setSignedQuoteIds(prev => new Set([...prev, signingQuoteId]));
+        setSigningQuoteId(null);
+    };
+
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -152,6 +172,13 @@ const ClientPortal = () => {
                     onClose={closePdfViewer}
                 />
             )}
+
+            {/* Signature Modal */}
+            <SignatureModal
+                isOpen={!!signingQuoteId}
+                onSave={handleSignQuote}
+                onClose={() => setSigningQuoteId(null)}
+            />
 
             {/* Header / Artisan Info */}
             <header className="bg-white shadow-sm border-b border-gray-200">
@@ -243,41 +270,64 @@ const ClientPortal = () => {
                                         const dlKey = `dl-q-${quote.id}`;
                                         return (
                                             <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                                                                ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                                                    quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                                        'bg-yellow-100 text-yellow-800'}`}>
-                                                                {isInvoice ? 'Facture' : quote.status === 'accepted' ? 'Devis signé' : 'Devis'}
-                                                            </span>
-                                                            <span className="text-sm text-gray-500">#{quote.id}</span>
+                                                {/* Determine signature state */}
+                                                {(() => {
+                                                    const isSigned = quote.status === 'accepted' || signedQuoteIds.has(quote.id);
+                                                    const canSign = !isInvoice && !isSigned && quote.status !== 'rejected' && quote.status !== 'cancelled';
+                                                    return (
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                                                                        ${isSigned ? 'bg-green-100 text-green-800' :
+                                                                            quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                                                'bg-yellow-100 text-yellow-800'}`}>
+                                                                        {isInvoice ? 'Facture' : isSigned ? 'Devis signé' : 'Devis'}
+                                                                    </span>
+                                                                    <span className="text-sm text-gray-500">#{quote.id}</span>
+                                                                </div>
+                                                                <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                {/* Sign button for unsigned quotes */}
+                                                                {canSign && (
+                                                                    <button
+                                                                        onClick={() => setSigningQuoteId(quote.id)}
+                                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                                        title="Signer ce devis"
+                                                                    >
+                                                                        <PenLine className="w-3.5 h-3.5" />
+                                                                        Signer
+                                                                    </button>
+                                                                )}
+                                                                {isSigned && !isInvoice && (
+                                                                    <span className="flex items-center gap-1 text-xs text-green-600 font-medium px-2">
+                                                                        <CheckCircle className="w-4 h-4" /> Signé
+                                                                    </span>
+                                                                )}
+                                                                {/* View inline */}
+                                                                <button
+                                                                    onClick={() => handleViewQuote(quote)}
+                                                                    disabled={generatingPdf === viewKey}
+                                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+                                                                    title="Voir le document"
+                                                                >
+                                                                    {generatingPdf === viewKey
+                                                                        ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                                        : <Eye className="w-5 h-5" />}
+                                                                </button>
+                                                                {/* Download */}
+                                                                <button
+                                                                    onClick={() => handleDownload(quote)}
+                                                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                    title="Télécharger"
+                                                                >
+                                                                    <Download className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        {/* View inline */}
-                                                        <button
-                                                            onClick={() => handleViewQuote(quote)}
-                                                            disabled={generatingPdf === viewKey}
-                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
-                                                            title="Voir le document"
-                                                        >
-                                                            {generatingPdf === viewKey
-                                                                ? <Loader2 className="w-5 h-5 animate-spin" />
-                                                                : <Eye className="w-5 h-5" />}
-                                                        </button>
-                                                        {/* Download */}
-                                                        <button
-                                                            onClick={() => handleDownload(quote)}
-                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="Télécharger"
-                                                        >
-                                                            <Download className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                                    );
+                                                })()}
                                                 <div className="text-sm text-gray-600 space-y-1">
                                                     <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
                                                     <p className="line-clamp-2">{quote.notes}</p>
