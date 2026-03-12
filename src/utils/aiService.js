@@ -202,6 +202,42 @@ export const processAssistantIntent = async (userText, fullPipeline = false) => 
 };
 
 /**
+ * Generates a structured intervention report summary from a voice transcript.
+ * @param {string} transcript - The voice transcription text
+ * @returns {Promise<object>} { title, description, work_done, notes }
+ */
+export const generateInterventionSummary = async (transcript) => {
+    const systemPrompt = `Tu es un assistant pour artisan du bâtiment.
+Analyse la transcription vocale d'un artisan décrivant une intervention et génère un rapport structuré.
+
+RÈGLES :
+- "title" : Titre court et précis de l'intervention (10 mots max).
+- "description" : Problème constaté ou demande initiale du client (ce qui était cassé, la demande).
+- "work_done" : Travaux effectivement réalisés, pièces remplacées, réglages effectués (le détail de ce qui a été fait).
+- "notes" : Observations internes, remarques techniques ou recommandations pour le suivi (laisser vide si rien de notable).
+
+FORMAT JSON pur (sans markdown) :
+{
+    "title": "...",
+    "description": "...",
+    "work_done": "...",
+    "notes": "..."
+}`;
+
+    const rawResponse = await callAiProxy(systemPrompt, `TRANSCRIPTION VOCALE : "${transcript}"`);
+
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+
+    try {
+        return JSON.parse(cleanJson);
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+};
+
+/**
  * Generates a follow-up email content using AI.
  * @param {object|object[]} quotes - A single quote or array of quotes (for grouped relances)
  * @param {object} client - The client object

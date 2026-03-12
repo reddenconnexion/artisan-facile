@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
-    CheckCircle, Camera, X, Mail, Send
+    CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -12,6 +12,8 @@ import { useTestMode } from '../context/TestModeContext';
 import { useClients, useQuotes, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
 import SignatureModal from '../components/SignatureModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { generateInterventionSummary } from '../utils/aiService';
 
 const EMPTY_MATERIAL = () => ({ id: Date.now(), description: '', quantity: 1, unit: 'unité', price: 0 });
 
@@ -33,6 +35,60 @@ const InterventionReportForm = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [sendInvoiceModal, setSendInvoiceModal] = useState(null); // { email, subject, body }
+    const [processingAudio, setProcessingAudio] = useState(false);
+
+    const { isRecording, audioBlob, startRecording, stopRecording, isSupported: micSupported } = useAudioRecorder();
+
+    const handleDictate = async () => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            await startRecording();
+        }
+    };
+
+    // When recording stops and we have a blob, transcribe + generate summary
+    useEffect(() => {
+        if (!audioBlob || isRecording) return;
+        const processAudio = async () => {
+            setProcessingAudio(true);
+            try {
+                // Convert blob to base64
+                const buffer = await audioBlob.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                const audioBase64 = btoa(binary);
+                const mimeType = audioBlob.type || 'audio/webm';
+
+                // Transcribe with Whisper via edge function
+                const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('voice-transcribe', {
+                    body: { audioBase64, mimeType }
+                });
+                if (transcribeError) throw transcribeError;
+                const transcript = transcribeData?.transcript;
+                if (!transcript) throw new Error('Transcription vide');
+
+                // Generate structured summary with AI
+                const summary = await generateInterventionSummary(transcript);
+                setFormData(prev => ({
+                    ...prev,
+                    title: summary.title || prev.title,
+                    description: summary.description || prev.description,
+                    work_done: summary.work_done || prev.work_done,
+                    notes: summary.notes || prev.notes,
+                }));
+                toast.success('Rapport rempli depuis votre dictée');
+            } catch (err) {
+                console.error(err);
+                toast.error('Erreur lors de l\'analyse vocale : ' + (err.message || 'Réessayez'));
+            } finally {
+                setProcessingAudio(false);
+            }
+        };
+        processAudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [audioBlob]);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -767,10 +823,34 @@ const InterventionReportForm = () => {
 
             {/* Work Description */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-                <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Wrench className="w-5 h-5 text-blue-500" />
-                    Description des travaux
-                </h2>
+                <div className="flex items-center justify-between">
+                    <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Wrench className="w-5 h-5 text-blue-500" />
+                        Description des travaux
+                    </h2>
+                    {micSupported && (
+                        <button
+                            type="button"
+                            onClick={handleDictate}
+                            disabled={processingAudio}
+                            title={isRecording ? 'Arrêter la dictée' : 'Dicter le rapport vocalement'}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                isRecording
+                                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 animate-pulse'
+                                    : processingAudio
+                                        ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                                        : 'bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400'
+                            }`}
+                        >
+                            {processingAudio
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyse en cours…</>
+                                : isRecording
+                                    ? <><MicOff className="w-4 h-4" /> Arrêter</>
+                                    : <><Mic className="w-4 h-4" /><Sparkles className="w-3 h-3" /> Dicter</>
+                            }
+                        </button>
+                    )}
+                </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Problème constaté / Description de la demande
