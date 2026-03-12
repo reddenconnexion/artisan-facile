@@ -66,7 +66,7 @@ const CheckMark = ({ value, label }) => {
 };
 
 const Subscription = () => {
-    const { plan, usage, isPro, remainingVoice, voiceLimit, remainingAI, aiLimit, loading } = usePlanLimits();
+    const { plan, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading } = usePlanLimits();
     const navigate = useNavigate();
     const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
 
@@ -90,7 +90,9 @@ const Subscription = () => {
             </div>
 
             {/* Current plan banner */}
-            <div className={`rounded-xl p-5 mb-6 ${isPro
+            <div className={`rounded-xl p-5 mb-6 ${isOwner
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                : isPro
                 ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white'
                 : 'bg-gradient-to-r from-gray-100 to-blue-50 border border-gray-200'
             }`}>
@@ -100,10 +102,15 @@ const Subscription = () => {
                             Votre plan actuel
                         </p>
                         <p className={`text-3xl font-bold mt-1 ${isPro ? 'text-white' : 'text-gray-800'}`}>
-                            {isPro ? 'Pro' : 'Gratuit'}
+                            {isOwner ? 'Propriétaire' : isPro ? 'Pro' : 'Gratuit'}
                         </p>
+                        {isOwner && (
+                            <p className="text-purple-200 text-xs mt-1">Accès illimité à toutes les fonctionnalités</p>
+                        )}
                     </div>
-                    {isPro ? (
+                    {isOwner ? (
+                        <div className="text-5xl">👑</div>
+                    ) : isPro ? (
                         <Crown size={40} className="text-orange-200" />
                     ) : (
                         <div className="text-right">
@@ -253,7 +260,15 @@ const Subscription = () => {
                 </div>
             )}
 
-            {isPro && (
+            {isOwner && (
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
+                    <div className="text-3xl mb-2">👑</div>
+                    <p className="text-purple-700 font-semibold text-sm">Compte Propriétaire</p>
+                    <p className="text-purple-600 text-xs mt-1">Accès illimité à toutes les fonctionnalités. Aucune restriction.</p>
+                </div>
+            )}
+
+            {isPro && !isOwner && (
                 <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
                     <CheckCircle size={24} className="mx-auto text-green-500 mb-2" />
                     <p className="text-green-700 font-semibold text-sm">Vous avez le plan Pro actif</p>

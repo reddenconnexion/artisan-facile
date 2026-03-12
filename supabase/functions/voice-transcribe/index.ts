@@ -49,13 +49,14 @@ Deno.serve(async (req) => {
     }
 
     // Determine which API key to use
-    // Pro plan: use app-level key from env; Free plan: use user's own key
+    // Owner/Pro plan: use app-level key from env; Free plan: use user's own key
     const userPlan = profile.plan || 'free';
+    const isPrivileged = userPlan === 'pro' || userPlan === 'owner';
     const appWhisperKey = Deno.env.get('OPENAI_API_KEY');
     const userWhisperKey = profile.ai_preferences?.openai_api_key;
 
     let whisperApiKey: string | null = null;
-    if (userPlan === 'pro' && appWhisperKey) {
+    if (isPrivileged && appWhisperKey) {
       whisperApiKey = appWhisperKey;
     } else if (userWhisperKey) {
       whisperApiKey = userWhisperKey;
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
     if (!whisperApiKey) {
       return new Response(
         JSON.stringify({
-          error: userPlan === 'pro'
+          error: isPrivileged
             ? 'Service de transcription temporairement indisponible.'
             : 'Clé API OpenAI non configurée. Ajoutez-la dans votre profil pour utiliser la transcription vocale.'
         }),
