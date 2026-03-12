@@ -11,6 +11,11 @@ export const PLAN_LIMITS = {
         ai_generations: Infinity,
         auto_pipeline: true,
     },
+    owner: {
+        voice_memos: Infinity,
+        ai_generations: Infinity,
+        auto_pipeline: true,
+    },
 };
 
 /**
