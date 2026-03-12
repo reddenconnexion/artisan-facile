@@ -37,7 +37,7 @@ const InterventionReportForm = () => {
     const [sendInvoiceModal, setSendInvoiceModal] = useState(null); // { email, subject, body }
     const [processingAudio, setProcessingAudio] = useState(false);
 
-    const { isRecording, audioBlob, startRecording, stopRecording, isSupported: micSupported } = useAudioRecorder();
+    const { isRecording, audioBlob, duration: recordingDuration, startRecording, stopRecording, isSupported: micSupported } = useAudioRecorder();
 
     const handleDictate = async () => {
         if (isRecording) {
@@ -53,21 +53,23 @@ const InterventionReportForm = () => {
         const processAudio = async () => {
             setProcessingAudio(true);
             try {
-                // Convert blob to base64
-                const buffer = await audioBlob.arrayBuffer();
-                const bytes = new Uint8Array(buffer);
-                let binary = '';
-                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-                const audioBase64 = btoa(binary);
+                // Convert blob to base64 using FileReader (reliable for large files)
                 const mimeType = audioBlob.type || 'audio/webm';
+                const audioBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(audioBlob);
+                });
 
                 // Transcribe with Whisper via edge function
                 const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('voice-transcribe', {
                     body: { audioBase64, mimeType }
                 });
-                if (transcribeError) throw transcribeError;
+                if (transcribeError) throw new Error(transcribeError.message || 'Erreur de transcription');
+                if (transcribeData?.error) throw new Error(transcribeData.error);
                 const transcript = transcribeData?.transcript;
-                if (!transcript) throw new Error('Transcription vide');
+                if (!transcript) throw new Error('Transcription vide — parlez plus fort ou réessayez');
 
                 // Generate structured summary with AI
                 const summary = await generateInterventionSummary(transcript);
@@ -845,7 +847,7 @@ const InterventionReportForm = () => {
                             {processingAudio
                                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyse en cours…</>
                                 : isRecording
-                                    ? <><MicOff className="w-4 h-4" /> Arrêter</>
+                                    ? <><MicOff className="w-4 h-4" /> Arrêter ({recordingDuration}s)</>
                                     : <><Mic className="w-4 h-4" /><Sparkles className="w-3 h-3" /> Dicter</>
                             }
                         </button>
