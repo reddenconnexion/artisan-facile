@@ -91,12 +91,59 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
 
 /**
  * Analyzes natural language input to determine intent and extract structured data.
+ * Supports both simple assistant commands and full voice pipeline intents.
  * @param {string} userText - The user's spoken or typed command.
+ * @param {boolean} [fullPipeline=false] - If true, includes pipeline-specific intents.
  * @returns {Promise<object>} - Structured intent
  */
-export const processAssistantIntent = async (userText) => {
+export const processAssistantIntent = async (userText, fullPipeline = false) => {
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    const pipelineIntents = fullPipeline ? `
+    6. 'create_client' : Créer une fiche client (nom, téléphone, email, adresse).
+    7. 'create_quote' : Créer un devis pour un client avec description des travaux.
+    8. 'create_invoice' : Transformer un devis accepté en facture, ou créer une facture directe.
+    9. 'send_invoice' : Envoyer une facture existante par email au client.
+    10. 'create_intervention_report' : Créer un rapport d'intervention (compte-rendu de chantier).
+    11. 'schedule_appointment' : Planifier un rendez-vous client ou chantier.` : '';
+
+    const pipelineDataFormats = fullPipeline ? `
+    Pour 'create_client' :
+    - name: "Nom Prénom" (obligatoire)
+    - phone: "06..." (si mentionné)
+    - email: "email@exemple.com" (si mentionné)
+    - address: "Adresse complète" (si mentionnée)
+    - notes: "Autres infos"
+
+    Pour 'create_quote' :
+    - client_name: "Nom du client" (si mentionné, sinon null)
+    - title: "Titre du devis" (déduit des travaux)
+    - description: "Description complète des travaux"
+    - urgency: "normal" | "urgent" (si mentionné)
+
+    Pour 'create_invoice' :
+    - client_name: "Nom du client"
+    - amount: 0.00 (montant si mentionné, sinon null)
+    - description: "Description de la prestation"
+
+    Pour 'send_invoice' :
+    - client_name: "Nom du client"
+    - description: "Contexte de la facture à envoyer"
+
+    Pour 'create_intervention_report' :
+    - client_name: "Nom du client" (si mentionné)
+    - date: "${today}" (ou date mentionnée au format YYYY-MM-DD)
+    - title: "Titre de l'intervention"
+    - description: "Description des travaux effectués"
+    - work_done: "Résumé du travail réalisé"
+
+    Pour 'schedule_appointment' :
+    - title: "Rendez-vous / Visite chantier..."
+    - client_name: "Nom du client" (si mentionné)
+    - start_date: "YYYY-MM-DDTHH:MM:00"
+    - duration: 60 (durée en minutes)
+    - description: "Détails"` : '';
 
     const systemPrompt = `
     Tu es l'assistant intelligent d'un artisan. Ta mission est d'analyser la demande vocale de l'utilisateur et d'extraire des actions structurées.
@@ -107,16 +154,17 @@ export const processAssistantIntent = async (userText) => {
 
     INTENTIONS POSSIBLES (Choisis-en une seule) :
     1. 'calendar' : Pour planifier un rendez-vous, une réunion, un chantier.
-    2. 'client' : Pour créer ou mettre à jour une fiche client.
+    2. 'client' : Pour mettre à jour ou consulter une fiche client existante.
     3. 'email' : Pour envoyer un email, une relance, un message.
     4. 'navigation' : Pour aller sur une page spécifique (Clients, Devis, Agenda, Réglages).
-    5. 'unknown' : Si la demande n'est pas claire.
+    5. 'unknown' : Si la demande n'est pas claire.${pipelineIntents}
 
-    FORMAT DE RÉPONSE ATTENDU (JSON pur) :
+    FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown) :
     {
-        "intent": "calendar" | "client" | "email" | "navigation" | "unknown",
+        "intent": "calendar" | "client" | "email" | "navigation" | "unknown"${fullPipeline ? ' | "create_client" | "create_quote" | "create_invoice" | "send_invoice" | "create_intervention_report" | "schedule_appointment"' : ''},
         "data": { ...champs spécifiques selon l'intention... },
-        "response": "Court message de confirmation à lire à l'utilisateur."
+        "response": "Court message de confirmation à lire à l'utilisateur.",
+        "confidence": 0.0 à 1.0
     }
 
     DÉTAILS DES CHAMPS 'data' PAR INTENTION :
@@ -141,6 +189,7 @@ export const processAssistantIntent = async (userText) => {
 
     Pour 'navigation' :
     - page: "/app/clients" | "/app/devis" | "/app/agenda" | "/app/settings"
+    ${pipelineDataFormats}
     `;
 
     const rawResponse = await callAiProxy(systemPrompt, `DEMANDE UTILISATEUR: "${userText}"`);

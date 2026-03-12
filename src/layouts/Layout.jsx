@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown } from 'lucide-react';
+import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import TestModePanel from '../components/TestModePanel';
@@ -153,6 +154,9 @@ const Layout = () => {
     if (settings.enable_rentals) {
       nav.push({ name: 'Locations', href: '/app/rentals', icon: Truck });
     }
+
+    nav.push({ name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic });
+    nav.push({ name: 'Abonnement', href: '/app/subscription', icon: Crown });
 
     return nav;
   }, [user]);
@@ -500,6 +504,9 @@ const Layout = () => {
 
 
           <GlobalAssistant />
+
+          {/* Voice Pipeline Button */}
+          <VoiceRecorderButton />
 
           {/* Voice Assistant Controls Removed (Replaced by GlobalAssistant) */}
           {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
