@@ -100,7 +100,8 @@ Deno.serve(async (req) => {
             return json({ success: true, dev_otp: otp });
         }
 
-        const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'signature@artisan-facile.fr';
+        const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Artisan Facile <signature@artisan-facile.fr>';
+        const replyTo = Deno.env.get('EMAIL_REPLY_TO');
         const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -110,6 +111,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
                 from: emailFrom,
                 to: normalizedEmail,
+                ...(replyTo ? { reply_to: replyTo } : {}),
                 subject: 'Votre code de signature – Artisan Facile',
                 html: buildEmailHtml(otp),
             }),
