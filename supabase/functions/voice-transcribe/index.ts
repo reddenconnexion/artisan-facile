@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const appWhisperKey = Deno.env.get('OPENAI_API_KEY');
     const userWhisperKey = profile.ai_preferences?.openai_api_key;
 
-    let whisperApiKey: string | null = null;
+    let whisperApiKey = null;
     if (isPrivileged && appWhisperKey) {
       whisperApiKey = appWhisperKey;
     } else if (userWhisperKey) {
