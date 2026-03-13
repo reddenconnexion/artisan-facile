@@ -97,14 +97,34 @@ const PublicQuote = () => {
 
 
 
-    const handleSignatureSave = async (signatureData, signerEmail) => {
+    const handleRequestOtp = async (email) => {
+        try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            const response = await fetch(`${supabaseUrl}/functions/v1/request-quote-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                },
+                body: JSON.stringify({ token, email }),
+            });
+            const data = await response.json();
+            if (!response.ok) return { success: false, error: data.error };
+            return { success: true };
+        } catch {
+            return { success: false, error: "Erreur réseau. Veuillez réessayer." };
+        }
+    };
+
+    const handleSignatureSave = async (signatureData, otpCode) => {
         try {
             setSavingSignature(true);
             const { data, error } = await supabase
                 .rpc('sign_public_quote', {
                     lookup_token: token,
                     signature_base64: signatureData,
-                    signer_email: signerEmail || null
+                    otp_code: otpCode || null,
                 });
 
             if (error) throw error;
@@ -660,7 +680,8 @@ const PublicQuote = () => {
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
-                clientEmail={quote?.client?.email || null}
+                onRequestOtp={handleRequestOtp}
+                requiresOtp={Boolean(quote?.client?.email)}
             />
         </div >
     );
