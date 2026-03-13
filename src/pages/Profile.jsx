@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -10,6 +10,11 @@ const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    // API key: stored in a ref (not React state) to keep it out of DevTools
+    // and not displayed in the form input value
+    const storedApiKeyRef = useRef('');
+    const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+    const [apiKeyInput, setApiKeyInput] = useState('');
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -49,6 +54,9 @@ const Profile = () => {
 
             if (data) {
                 const aiPrefs = data.ai_preferences || {};
+                // Store the API key in a ref — never put it in React state or form inputs
+                storedApiKeyRef.current = aiPrefs.openai_api_key || '';
+                setApiKeyConfigured(!!aiPrefs.openai_api_key);
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',
@@ -68,7 +76,6 @@ const Profile = () => {
                     wero_phone: data.wero_phone || '',
                     artisan_status: aiPrefs.artisan_status || 'micro_entreprise',
                     activity_type: aiPrefs.activity_type || 'services',
-                    openai_api_key: aiPrefs.openai_api_key || '',
                     ai_provider: aiPrefs.ai_provider || 'openai',
                     ai_hourly_rate: aiPrefs.ai_hourly_rate || '',
                     // Zones
@@ -166,9 +173,9 @@ const Profile = () => {
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
 
-                    // Save AI prefs to JSONB column (including API key, stored server-side only)
                     ai_preferences: {
-                        openai_api_key: formData.openai_api_key,
+                        // Use newly typed key if provided, else preserve the existing stored key
+                        openai_api_key: apiKeyInput || storedApiKeyRef.current,
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
                         zone1_radius: formData.zone1_radius,
@@ -603,24 +610,29 @@ const Profile = () => {
                             <label className="block text-sm font-medium text-purple-900 mb-2">
                                 Clé API ({(!formData.ai_provider || formData.ai_provider === 'openai') ? 'OpenAI' : 'Gemini'})
                             </label>
-                            <div className="flex gap-2">
+                            {apiKeyConfigured && !apiKeyInput ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="flex-1 px-3 py-2 border border-purple-200 rounded-lg bg-purple-50 text-purple-700 text-sm">
+                                        ✓ Clé configurée
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setApiKeyInput(' ')}
+                                        className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
+                                    >
+                                        Modifier
+                                    </button>
+                                </div>
+                            ) : (
                                 <input
                                     type="password"
                                     placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
-                                    className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                                    value={formData.openai_api_key || ''}
-                                    onChange={(e) => {
-                                        setFormData({ ...formData, openai_api_key: e.target.value });
-                                    }}
+                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
+                                    onChange={(e) => setApiKeyInput(e.target.value)}
+                                    autoFocus={apiKeyConfigured}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => toast.info("Cliquez sur 'Enregistrer les modifications' pour sauvegarder la clé.")}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                                >
-                                    Sauvegarder
-                                </button>
-                            </div>
+                            )}
                         </div>
 
                         <div className="pt-4 border-t border-purple-100">
