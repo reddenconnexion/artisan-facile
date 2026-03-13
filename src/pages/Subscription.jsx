@@ -21,7 +21,7 @@ const FEATURES = [
     },
     {
         category: 'Transcription',
-        free: 'Votre clé OpenAI requise',
+        free: 'Votre clé OpenAI ou Gemini requise',
         pro: 'Incluse (géré par l\'app)',
         icon: Zap,
         proHighlight: true,
