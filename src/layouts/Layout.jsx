@@ -12,7 +12,6 @@ import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
-import GlobalAssistant from '../components/GlobalAssistant';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { usePendingCounts } from '../hooks/useDataCache';
 
@@ -503,12 +502,8 @@ const Layout = () => {
           )}
 
 
-          <GlobalAssistant />
-
           {/* Voice Pipeline Button */}
           <VoiceRecorderButton />
-
-          {/* Voice Assistant Controls Removed (Replaced by GlobalAssistant) */}
           {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
