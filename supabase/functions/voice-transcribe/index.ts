@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch user profile for plan and API key
+    // Fetch user profile for plan, provider and API key
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('ai_preferences, plan')
@@ -48,26 +48,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Determine which API key to use
-    // Owner/Pro plan: use app-level key from env; Free plan: use user's own key
+    // Determine provider and API key
     const userPlan = profile.plan || 'free';
     const isPrivileged = userPlan === 'pro' || userPlan === 'owner';
-    const appWhisperKey = Deno.env.get('OPENAI_API_KEY');
-    const userWhisperKey = profile.ai_preferences?.openai_api_key;
+    const aiProvider = profile.ai_preferences?.ai_provider || 'openai';
+    const userApiKey = profile.ai_preferences?.openai_api_key;
 
-    let whisperApiKey: string | null = null;
-    if (isPrivileged && appWhisperKey) {
-      whisperApiKey = appWhisperKey;
-    } else if (userWhisperKey) {
-      whisperApiKey = userWhisperKey;
+    let apiKey = null;
+    if (isPrivileged) {
+      if (aiProvider === 'gemini') {
+        apiKey = Deno.env.get('GEMINI_API_KEY') || userApiKey;
+      } else {
+        apiKey = Deno.env.get('OPENAI_API_KEY') || userApiKey;
+      }
+    } else {
+      apiKey = userApiKey;
     }
 
-    if (!whisperApiKey) {
+    if (!apiKey) {
+      const providerLabel = aiProvider === 'gemini' ? 'Gemini' : 'OpenAI';
       return new Response(
         JSON.stringify({
           error: isPrivileged
             ? 'Service de transcription temporairement indisponible.'
-            : 'Clé API OpenAI non configurée. Ajoutez-la dans votre profil pour utiliser la transcription vocale.'
+            : `Clé API ${providerLabel} non configurée. Ajoutez-la dans votre profil pour utiliser la transcription vocale.`
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -92,54 +96,97 @@ Deno.serve(async (req) => {
         .eq('user_id', user.id);
     }
 
-    // Decode base64 audio
-    const binaryString = atob(audioBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // Build multipart form for Whisper API
     const audioMimeType = mimeType || 'audio/webm';
-    const extension = audioMimeType.includes('ogg') ? 'ogg' : audioMimeType.includes('mp4') ? 'mp4' : 'webm';
-    const filename = `audio.${extension}`;
+    let transcript = '';
 
-    const formData = new FormData();
-    const audioBlob = new Blob([bytes], { type: audioMimeType });
-    formData.append('file', audioBlob, filename);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'fr');
-    formData.append('response_format', 'json');
+    if (aiProvider === 'gemini') {
+      // Gemini audio transcription via inlineData
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: audioMimeType,
+                    data: audioBase64
+                  }
+                },
+                {
+                  text: 'Transcris cet enregistrement audio en français. Retourne uniquement la transcription, sans commentaires ni formatage.'
+                }
+              ]
+            }]
+          })
+        }
+      );
 
-    // Call Whisper API
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whisperApiKey}`,
-      },
-      body: formData,
-    });
+      if (!geminiResponse.ok) {
+        const errData = await geminiResponse.json();
+        const errMsg = errData?.error?.message || `Erreur Gemini (${geminiResponse.status})`;
 
-    if (!whisperResponse.ok) {
-      const errData = await whisperResponse.json();
-      const errMsg = errData?.error?.message || `Erreur Whisper (${whisperResponse.status})`;
+        if (memoId) {
+          await supabase
+            .from('voice_memos')
+            .update({ status: 'error' })
+            .eq('id', memoId)
+            .eq('user_id', user.id);
+        }
 
-      if (memoId) {
-        await supabase
-          .from('voice_memos')
-          .update({ status: 'error' })
-          .eq('id', memoId)
-          .eq('user_id', user.id);
+        return new Response(
+          JSON.stringify({ error: errMsg }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      return new Response(
-        JSON.stringify({ error: errMsg }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      const geminiData = await geminiResponse.json();
+      transcript = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 
-    const whisperData = await whisperResponse.json();
-    const transcript = whisperData.text?.trim() || '';
+    } else {
+      // OpenAI Whisper transcription
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const extension = audioMimeType.includes('ogg') ? 'ogg' : audioMimeType.includes('mp4') ? 'mp4' : 'webm';
+      const formData = new FormData();
+      formData.append('file', new Blob([bytes], { type: audioMimeType }), `audio.${extension}`);
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'fr');
+      formData.append('response_format', 'json');
+
+      const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        body: formData,
+      });
+
+      if (!whisperResponse.ok) {
+        const errData = await whisperResponse.json();
+        const errMsg = errData?.error?.message || `Erreur Whisper (${whisperResponse.status})`;
+
+        if (memoId) {
+          await supabase
+            .from('voice_memos')
+            .update({ status: 'error' })
+            .eq('id', memoId)
+            .eq('user_id', user.id);
+        }
+
+        return new Response(
+          JSON.stringify({ error: errMsg }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const whisperData = await whisperResponse.json();
+      transcript = whisperData.text?.trim() || '';
+    }
 
     // Update memo with transcript and status
     if (memoId) {
@@ -151,7 +198,7 @@ Deno.serve(async (req) => {
     }
 
     // Increment usage tracking
-    const currentMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+    const currentMonth = new Date().toISOString().slice(0, 7);
     await supabase.rpc('increment_voice_memo_usage', {
       p_user_id: user.id,
       p_month: currentMonth
