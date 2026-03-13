@@ -110,7 +110,7 @@ const VoiceRecorderButton = () => {
             case 'executing': return 'Exécution...';
             case 'done': return 'Terminé !';
             case 'error': return 'Erreur';
-            default: return plan === 'pro' ? 'Mémo vocal' : `Mémo vocal (${remainingVoice}/${voiceLimit})`;
+            default: return 'Mémo vocal';
         }
     };
 
@@ -183,15 +183,6 @@ const VoiceRecorderButton = () => {
                 </button>
             </div>
 
-            {/* Idle hint */}
-            {status === 'idle' && (
-                <div className="text-xs text-gray-400 text-right">
-                    {plan === 'free'
-                        ? `${remainingVoice}/${voiceLimit} ce mois`
-                        : 'Pro — illimité'
-                    }
-                </div>
-            )}
         </div>
     );
 };
