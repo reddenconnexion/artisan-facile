@@ -97,13 +97,14 @@ const PublicQuote = () => {
 
 
 
-    const handleSignatureSave = async (signatureData) => {
+    const handleSignatureSave = async (signatureData, signerEmail) => {
         try {
             setSavingSignature(true);
             const { data, error } = await supabase
                 .rpc('sign_public_quote', {
                     lookup_token: token,
-                    signature_base64: signatureData
+                    signature_base64: signatureData,
+                    signer_email: signerEmail || null
                 });
 
             if (error) throw error;
@@ -659,6 +660,7 @@ const PublicQuote = () => {
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
+                clientEmail={quote?.client?.email || null}
             />
         </div >
     );
