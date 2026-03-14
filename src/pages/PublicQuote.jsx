@@ -124,7 +124,7 @@ const PublicQuote = () => {
                 .rpc('sign_public_quote', {
                     lookup_token: token,
                     signature_base64: signatureData,
-                    otp_code: otpCode || null,
+                    signer_email: otpCode || null,
                 });
 
             if (error) throw error;
