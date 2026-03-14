@@ -49,9 +49,13 @@ const Login = () => {
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="rounded-md shadow-sm -space-y-px">
                         <div>
+                            <label htmlFor="login-email" className="sr-only">Adresse email</label>
                             <input
+                                id="login-email"
+                                name="email"
                                 type="email"
                                 required
+                                autoComplete="email"
                                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                                 placeholder="Adresse email"
                                 value={email}
@@ -59,9 +63,13 @@ const Login = () => {
                             />
                         </div>
                         <div>
+                            <label htmlFor="login-password" className="sr-only">Mot de passe</label>
                             <input
+                                id="login-password"
+                                name="password"
                                 type="password"
                                 required
+                                autoComplete="current-password"
                                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                                 placeholder="Mot de passe"
                                 value={password}
