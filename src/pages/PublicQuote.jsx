@@ -112,7 +112,8 @@ const PublicQuote = () => {
             const data = await response.json();
             if (!response.ok) return { success: false, error: data.error };
             return { success: true };
-        } catch {
+        } catch (err) {
+            console.error('[OTP] fetch failed:', err);
             return { success: false, error: "Erreur réseau. Veuillez réessayer." };
         }
     };
