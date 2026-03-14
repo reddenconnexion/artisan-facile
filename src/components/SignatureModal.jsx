@@ -89,7 +89,7 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
             return;
         }
         const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
-        onSave(dataURL, requiresOtp ? confirmedEmail : null);
+        onSave(dataURL, requiresOtp ? otpInput.trim() : null);
     };
 
     // Si pas d'OTP requis, sauter directement à la signature
