@@ -17,10 +17,17 @@ export function useClients() {
     return useQuery({
         queryKey: ['clients', user?.id],
         queryFn: async () => {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('clients')
                 .select('*')
                 .order('name');
+
+            // Masquer le client de test si on n'est pas en mode développement/test
+            if (!import.meta.env.DEV) {
+                query = query.not('name', 'ilike', '%test%');
+            }
+
+            const { data, error } = await query;
             if (error) throw error;
             return data || [];
         },
@@ -245,9 +252,15 @@ export function useDashboardData() {
             if (quotesError) throw quotesError;
 
             // Compter les clients
-            const { count: clientCount } = await supabase
+            let clientsQuery = supabase
                 .from('clients')
                 .select('*', { count: 'exact', head: true });
+                
+            if (!import.meta.env.DEV) {
+                clientsQuery = clientsQuery.not('name', 'ilike', '%test%');
+            }
+            
+            const { count: clientCount } = await clientsQuery;
 
             // Compter les devis en attente
             const { count: pendingQuotesCount } = await supabase
@@ -269,11 +282,17 @@ export function useDashboardData() {
                 .order('signed_at', { ascending: false })
                 .limit(5);
 
-            const { data: rClients } = await supabase
+            let rClientsQuery = supabase
                 .from('clients')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(5);
+                
+            if (!import.meta.env.DEV) {
+                rClientsQuery = rClientsQuery.not('name', 'ilike', '%test%');
+            }
+                
+            const { data: rClients } = await rClientsQuery;
 
             const activities = [
                 ...(rQuotes || []).map(q => ({ type: 'quote', date: q.created_at, description: `Devis créé pour ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),

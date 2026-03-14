@@ -15,14 +15,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function inspectProfile() {
     const { data, error } = await supabase
-        .from('price_library')
+        .from('clients')
         .select('*')
-        .limit(1);
+        .ilike('name', '%test%');
 
     if (error) {
         console.error("Error:", error);
     } else {
-        console.log("Profile Schema Keys:", data && data.length > 0 ? Object.keys(data[0]) : "No profiles found");
+        console.log("Clients:", data);
         if (data && data.length > 0) {
             console.log("Sample Profile:", data[0]);
         }

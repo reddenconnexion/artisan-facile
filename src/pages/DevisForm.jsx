@@ -474,7 +474,11 @@ const DevisForm = () => {
     };
 
     const fetchClients = async () => {
-        const { data } = await supabase.from('clients').select('*'); // Fetch all fields for PDF
+        let query = supabase.from('clients').select('*');
+        if (!import.meta.env.DEV) {
+            query = query.not('name', 'ilike', '%test%');
+        }
+        const { data } = await query;
         setClients(data || []);
         return data || [];
     };

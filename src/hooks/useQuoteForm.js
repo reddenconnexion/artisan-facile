@@ -83,7 +83,11 @@ export function useQuoteForm() {
 
     // Fonctions de fetch (mémorisées pour éviter les re-renders)
     const fetchClients = useCallback(async () => {
-        const { data } = await supabase.from('clients').select('*');
+        let query = supabase.from('clients').select('*');
+        if (!import.meta.env.DEV) {
+            query = query.not('name', 'ilike', '%test%');
+        }
+        const { data } = await query;
         setClients(data || []);
         return data || [];
     }, []);

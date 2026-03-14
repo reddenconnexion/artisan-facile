@@ -633,6 +633,8 @@ const PublicQuote = () => {
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
+                client={client}
+                artisan={artisan}
             />
         </div >
     );

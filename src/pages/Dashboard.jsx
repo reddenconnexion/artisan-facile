@@ -91,30 +91,34 @@ const calculateStats = (allQuotes, referenceDate) => {
                     metrics.revenue.total += amount;
 
                     // Net Income
-                    const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                        (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+                    let netAmount = amount; // Default: Net = Total (assuming 100% labor if no items)
 
-                    if (isDeposit) {
-                        netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
-                    } else {
-                        const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
+                    if (quote.items && Array.isArray(quote.items)) {
+                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                            (quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
 
-                        // Materials Cost
-                        const materialItems = quote.items.filter(i => i.type === 'material');
-                        const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        if (isDeposit) {
+                            netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
+                        } else {
+                            const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
 
-                        // Detect Deductions (Deposits already paid)
-                        // Look for negative price items that are likely deposit deductions
-                        const deductionItems = quote.items.filter(i => (parseFloat(i.price) || 0) < 0);
-                        const deductionHT = deductionItems.reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                            // Materials Cost
+                            const materialItems = quote.items.filter(i => i.type === 'material');
+                            const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                        // Adjusted Material Cost = Total Material - Material Already Paid (Deduction)
-                        // We assume deduction covers material first.
-                        const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
+                            // Detect Deductions (Deposits already paid)
+                            // Look for negative price items that are likely deposit deductions
+                            const deductionItems = quote.items.filter(i => (parseFloat(i.price) || 0) < 0);
+                            const deductionHT = deductionItems.reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                        const adjustedMaterialTTC = adjustedMaterialHT * taxRatio;
-                        netAmount = amount - adjustedMaterialTTC;
+                            // Adjusted Material Cost = Total Material - Material Already Paid (Deduction)
+                            // We assume deduction covers material first.
+                            const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
+
+                            const adjustedMaterialTTC = adjustedMaterialHT * taxRatio;
+                            netAmount = amount - adjustedMaterialTTC;
+                        }
                     }
 
 
