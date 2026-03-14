@@ -646,7 +646,7 @@ const PublicQuote = () => {
 
                         {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
                             <button
-                                onClick={() => { console.log('[DEBUG] client.email =', quote?.client?.email, '| requiresOtp =', Boolean(quote?.client?.email)); setShowSignatureModal(true); }}
+                                onClick={() => setShowSignatureModal(true)}
                                 className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
                             >
                                 <PenTool className="w-5 h-5 mr-2" />
