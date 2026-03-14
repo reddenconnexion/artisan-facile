@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 
@@ -23,6 +23,19 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     const [otpError, setOtpError] = useState('');
     const [loadingOtp, setLoadingOtp] = useState(false);
     const [confirmedEmail, setConfirmedEmail] = useState('');
+
+    // Réinitialise et positionne la bonne étape à chaque ouverture
+    useEffect(() => {
+        if (isOpen) {
+            setStep(requiresOtp ? 'email' : 'sign');
+            setEmailInput('');
+            setEmailError('');
+            setOtpInput('');
+            setOtpError('');
+            setLoadingOtp(false);
+            setConfirmedEmail('');
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const reset = () => {
         setStep('email');
@@ -91,11 +104,6 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
         const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
         onSave(dataURL, requiresOtp ? otpInput.trim() : null);
     };
-
-    // Si pas d'OTP requis, sauter directement à la signature
-    if (isOpen && !requiresOtp && step !== 'sign') {
-        setStep('sign');
-    }
 
     if (!isOpen) return null;
 
