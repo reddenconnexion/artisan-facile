@@ -26,9 +26,9 @@ const getCachedSession = () => {
         const cached = localStorage.getItem(SESSION_CACHE_KEY);
         if (cached) {
             const { user, cachedAt } = JSON.parse(cached);
-            // Cache is valid for 30 days
-            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-            if (Date.now() - cachedAt < thirtyDays) {
+            // Cache is valid for 7 days (reduced from 30 for security)
+            const sevenDays = 7 * 24 * 60 * 60 * 1000;
+            if (Date.now() - cachedAt < sevenDays) {
                 return user;
             }
         }
@@ -132,57 +132,31 @@ export const AuthProvider = ({ children }) => {
             return supabase.auth.signOut();
         },
         loginAsDemo: async () => {
-            // SECURITY FIX: Use a single shared demo account to prevent database saturation
-            const demoEmail = 'demo@artisan-facile.local'; // Fixed email
-            const demoPassword = 'demo-password-123';
-
+            // SECURITY FIX: Use anonymous auth to give each demo user an isolated session.
+            // This prevents data leakage between demo users and removes hardcoded credentials.
             try {
-                // 1. Try to sign in first
-                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                    email: demoEmail,
-                    password: demoPassword
-                });
+                const { data, error } = await supabase.auth.signInAnonymously();
 
-                if (signInData?.user) {
-                    cacheUserSession(signInData.user);
-                    return { data: signInData };
-                }
+                if (error) throw error;
 
-                // 2. If sign in fails (likely user doesn't exist), try to sign up ONE time
-                if (signInError && signInError.message.includes('Invalid login credentials')) {
-                    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-                        email: demoEmail,
-                        password: demoPassword,
-                        options: {
-                            data: {
-                                full_name: 'Compte Démo Partagé',
-                                job_type: 'peintre'
-                            }
-                        }
-                    });
-
-                    if (signUpError) throw signUpError;
-
-                    if (signUpData?.user) {
-                        // If we just created it, maybe seed data once?
-                        if (signUpData.session) {
-                            await seedDemoData(signUpData.user.id);
-                            cacheUserSession(signUpData.user);
-                        }
-                        return { data: signUpData };
+                if (data?.user) {
+                    // Seed demo data for this new isolated anonymous user
+                    if (data.session) {
+                        await seedDemoData(data.user.id);
                     }
+                    cacheUserSession(data.user);
+                    return { data };
                 }
 
-                throw signInError || new Error("Échec connexion démo");
+                throw new Error("Échec connexion démo anonyme");
 
             } catch (error) {
                 console.error("Demo login error:", error);
 
-                // Fallback: If strict backend protections prevent sign up, use a fake local user
-                // so the user can at least see the UI (but RLS will fail for data fetching)
+                // Fallback: local UI-only demo (no database access)
                 const fakeUser = {
                     id: 'demo-local-fallback',
-                    email: demoEmail,
+                    email: 'demo@local',
                     user_metadata: { full_name: 'Mode Démo (Hors Ligne)', job_type: 'peintre' },
                     aud: 'authenticated',
                     role: 'authenticated'

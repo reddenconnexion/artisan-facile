@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, isAfter, isBefore, addDays, parseISO, startOfDay, addHours } from 'date-fns';
+import { format, isAfter, addDays, parseISO, addHours, differenceInDays } from 'date-fns';
+import { toast } from 'sonner';
+import { useInvalidateCache } from '../hooks/useDataCache';
 import { fr } from 'date-fns/locale';
 
 const ActionableDashboard = ({ user }) => {
     const navigate = useNavigate();
+    const { invalidateQuotes } = useInvalidateCache();
     const [loading, setLoading] = useState(true);
+    const [convertingId, setConvertingId] = useState(null);
     const [actionItems, setActionItems] = useState({
         upcomingEvents: [],
         overdueQuotes: [],
@@ -81,13 +85,19 @@ const ActionableDashboard = ({ user }) => {
 
 
             // 3. Pending Invoices (Billed but not Paid)
-            const { data: pendingInvoices } = await supabase
+            const { data: rawPendingInvoices } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients(name), children:quotes!parent_id(id)')
                 .eq('user_id', user.id)
                 .eq('status', 'billed')
                 .order('date', { ascending: true })
                 .limit(10);
+
+            // Exclude parent invoices that have child invoices (deposits/closing).
+            // Payment tracking happens through the children, so the parent is no longer "pending".
+            const pendingInvoices = (rawPendingInvoices || []).filter(inv =>
+                !inv.children || inv.children.length === 0
+            );
 
             // 4. Drafts (To finish)
             const { data: draftQuotes } = await supabase
@@ -149,6 +159,53 @@ const ActionableDashboard = ({ user }) => {
         }
     };
 
+    const handleConvertToInvoice = async (e, quote) => {
+        e.stopPropagation();
+        setConvertingId(quote.id);
+
+        try {
+            const { error } = await supabase
+                .from('quotes')
+                .update({
+                    type: 'invoice',
+                    status: 'billed',
+                    date: new Date().toISOString().split('T')[0]
+                })
+                .eq('id', quote.id);
+
+            if (error) throw error;
+
+            // Update client CRM status
+            const clientId = quote.client_id;
+            if (clientId) {
+                await supabase.from('clients').update({ status: 'signed' }).eq('id', clientId).catch(() => {});
+            }
+
+            // Remove from local list immediately
+            setActionItems(prev => ({
+                ...prev,
+                signedQuotes: prev.signedQuotes.filter(q => q.id !== quote.id)
+            }));
+
+            invalidateQuotes();
+            toast.success(
+                `Facture FAC #${quote.id} créée !`,
+                {
+                    action: {
+                        label: 'Voir la facture',
+                        onClick: () => navigate(`/app/devis/${quote.id}`)
+                    },
+                    duration: 6000
+                }
+            );
+        } catch (error) {
+            console.error('Error converting to invoice:', error);
+            toast.error('Erreur lors de la conversion');
+        } finally {
+            setConvertingId(null);
+        }
+    };
+
     if (loading) return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-pulse">
             <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
@@ -161,7 +218,17 @@ const ActionableDashboard = ({ user }) => {
 
     const hasItems = Object.values(actionItems).some(arr => arr.length > 0);
 
-    if (!hasItems) return null; // Or show "All good!" message
+    if (!hasItems) return (
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 mb-8 flex items-center gap-4">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Tout est à jour !</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Aucune action en attente. Profitez-en pour prendre de l'avance.</p>
+            </div>
+        </div>
+    );
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-8">
@@ -199,8 +266,16 @@ const ActionableDashboard = ({ user }) => {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 shadow-sm">
-                                            Traiter
+                                        <button
+                                            onClick={(e) => handleConvertToInvoice(e, quote)}
+                                            disabled={convertingId === quote.id}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 shadow-sm disabled:opacity-50 transition-colors"
+                                        >
+                                            {convertingId === quote.id
+                                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                : <Zap className="w-3.5 h-3.5" />
+                                            }
+                                            Facturer
                                         </button>
                                     </div>
                                 </div>
@@ -299,30 +374,38 @@ const ActionableDashboard = ({ user }) => {
                             <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
                         </h4>
                         <div className="space-y-2">
-                            {actionItems.overdueQuotes.map(quote => (
-                                <div
-                                    key={quote.id}
-                                    onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                    className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                                >
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">{quote.client_name || quote.clients?.name || 'Client'}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} - {(quote.total_ttc || 0).toFixed(2)}€
-                                        </p>
+                            {actionItems.overdueQuotes.map(quote => {
+                                const daysOverdue = differenceInDays(new Date(), parseISO(quote.date));
+                                return (
+                                    <div
+                                        key={quote.id}
+                                        onClick={() => navigate(`/app/devis/${quote.id}`)}
+                                        className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                {quote.client_name || quote.clients?.name || 'Client'}
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${daysOverdue > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
+                                                    +{daysOverdue}j
+                                                </span>
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} · {(quote.total_ttc || 0).toFixed(2)}€
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={(e) => handleManualFollowUp(e, quote.id)}
+                                                className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
+                                                title="Marquer comme relancé aujourd'hui"
+                                            >
+                                                Relancé
+                                            </button>
+                                            <ArrowRight className="w-4 h-4 text-amber-400" />
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={(e) => handleManualFollowUp(e, quote.id)}
-                                            className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
-                                            title="Marquer comme relancé aujourd'hui"
-                                        >
-                                            Relancé
-                                        </button>
-                                        <ArrowRight className="w-4 h-4 text-amber-400" />
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}

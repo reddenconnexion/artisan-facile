@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { generateQuoteItems } from '../utils/aiService';
+import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
@@ -28,8 +30,10 @@ const DevisForm = () => {
     const { id } = useParams();
     const location = useLocation();
     const { user } = useAuth();
+    const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
+    const [dataLoaded, setDataLoaded] = useState(!isEditing);
     const [clients, setClients] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -46,7 +50,10 @@ const DevisForm = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
-    const fileInputRef = React.useRef(null);
+    const fileInputRef = useRef(null);
+    // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
+    // without the actual user.id or quote id changing.
+    const initKeyRef = useRef(null);
     const [showCalculator, setShowCalculator] = useState(false);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
@@ -54,10 +61,17 @@ const DevisForm = () => {
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
 
+    // Follow-up state
+    const [followUpSteps, setFollowUpSteps] = useState([]);
+    const [markingFollowUp, setMarkingFollowUp] = useState(false);
+
     // AI Assistant State
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState([]);
+    const [aiDuration, setAiDuration] = useState(null);
+    const [showAISuggestions, setShowAISuggestions] = useState(false);
 
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
@@ -95,21 +109,14 @@ const DevisForm = () => {
 
         setAiLoading(true);
         try {
-            // Retrieve settings from userProfile (which now includes flattened ai_preferences)
-            // Fallback to localStorage for any missing values during transition
             const context = {
-                apiKey: userProfile?.openai_api_key || localStorage.getItem('openai_api_key'),
-                provider: userProfile?.ai_provider || localStorage.getItem('ai_provider'),
-                hourlyRate: userProfile?.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
-                travelFee: {
-                    zone1: { radius: userProfile?.zone1_radius || localStorage.getItem('zone1_radius'), price: userProfile?.zone1_price || localStorage.getItem('zone1_price') },
-                    zone2: { radius: userProfile?.zone2_radius || localStorage.getItem('zone2_radius'), price: userProfile?.zone2_price || localStorage.getItem('zone2_price') },
-                    zone3: { radius: userProfile?.zone3_radius || localStorage.getItem('zone3_radius'), price: userProfile?.zone3_price || localStorage.getItem('zone3_price') }
-                },
-                instructions: userProfile?.ai_instructions || localStorage.getItem('ai_instructions') || ''
+                hourlyRate: userProfile?.ai_hourly_rate || '',
+                instructions: userProfile?.ai_instructions || ''
             };
 
-            const items = await generateQuoteItems(aiPrompt, context);
+            const result = await generateQuoteItems(aiPrompt, context);
+            const { items, suggestions, estimated_duration } = result;
+
             if (items && items.length > 0) {
                 const newItems = items.map(item => ({
                     id: Date.now() + Math.random(),
@@ -126,9 +133,16 @@ const DevisForm = () => {
                     items: [...prev.items, ...newItems]
                 }));
 
-                toast.success(`${newItems.length} lignes générées !`);
-                setShowAIModal(false);
-                setAiPrompt('');
+                setAiSuggestions(suggestions || []);
+                setAiDuration(estimated_duration || null);
+
+                if (suggestions && suggestions.length > 0) {
+                    setShowAISuggestions(true);
+                } else {
+                    toast.success(`${newItems.length} lignes générées !`);
+                    setShowAIModal(false);
+                    setAiPrompt('');
+                }
             } else {
                 toast.warning("L'IA n'a pas généré de lignes valides.");
             }
@@ -138,6 +152,23 @@ const DevisForm = () => {
         } finally {
             setAiLoading(false);
         }
+    };
+
+    const handleAddAISuggestion = (suggestion) => {
+        setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, {
+                id: Date.now() + Math.random(),
+                description: suggestion,
+                quantity: 1,
+                unit: 'forfait',
+                price: 0,
+                buying_price: 0,
+                type: 'service'
+            }]
+        }));
+        setAiSuggestions(prev => prev.filter(s => s !== suggestion));
+        toast.success('Ligne ajoutée — pensez à renseigner le prix');
     };
 
     const handleCalculatorApply = (quantity) => {
@@ -275,7 +306,7 @@ const DevisForm = () => {
         title: '',
         public_token: '',
         date: new Date().toISOString().split('T')[0],
-        valid_until: '',
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         items: [
             { id: 1, description: '', quantity: 1, price: 0, buying_price: 0, type: 'service' }
         ],
@@ -293,7 +324,9 @@ const DevisForm = () => {
         has_material_deposit: true,
         intervention_address: '',
         intervention_postal_code: '',
-        intervention_city: ''
+        intervention_city: '',
+        payment_method: '',
+        paid_at: ''
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
@@ -301,30 +334,78 @@ const DevisForm = () => {
 
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
-    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading);
+    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
+
+    // Immediately save to localStorage when the tab becomes hidden, bypassing the debounce.
+    // This prevents losing the last typed line when the user switches tabs before the 1-second
+    // debounce fires.
+    useEffect(() => {
+        if (!draftKey || !user || !dataLoaded) return;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                try {
+                    const dataToSave = {
+                        ...formData,
+                        _draft_saved_at: new Date().toISOString()
+                    };
+                    localStorage.setItem(draftKey, JSON.stringify(dataToSave));
+                } catch (e) {
+                    console.error('Visibility auto-save error:', e);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [formData, draftKey, user, dataLoaded]);
 
     useEffect(() => {
         if (user) {
-            // Restore Draft Logic
-            const checkDraft = async () => {
-                const draft = getDraft(draftKey);
-                if (draft) {
-                    // Check DB timestamp if editing
-                    let dbDate = new Date(0);
-                    if (isEditing) {
-                        const { data } = await supabase.from('quotes').select('updated_at').eq('id', id).single();
-                        if (data?.updated_at) dbDate = new Date(data.updated_at);
-                    }
+            // Prevent re-run when only the user object reference changes (e.g. Supabase auth token
+            // refresh). Only re-initialize if user.id or quote id actually changed.
+            const currentKey = `${user.id}:${id || 'new'}`;
+            if (initKeyRef.current === currentKey) return;
+            initKeyRef.current = currentKey;
 
-                    const draftDate = new Date(draft._draft_saved_at || 0);
-                    if (draftDate > dbDate) {
+            const loadData = async () => {
+                // For editing mode: load DB data FIRST, then restore draft if available
+                if (isEditing) {
+                    // Capture any draft (unsaved user changes) BEFORE fetching overwrites formData
+                    const existingDraft = getDraft(draftKey);
+                    await fetchDevis();
+                    // If a draft exists it means the user had unsaved changes: restore them on top
+                    // of the DB data so nothing is lost.
+                    if (existingDraft) {
+                        const { _draft_saved_at, ...restoredDraft } = existingDraft;
+                        setFormData(prev => {
+                            // If the DB has deduction items (negative price) that the draft lacks,
+                            // the draft was saved before the closing invoice deductions were added
+                            // (stale draft from before the fix). Keep DB items to preserve deductions
+                            // and only restore other draft fields.
+                            if (restoredDraft.items !== undefined) {
+                                const dbHasDeductions = (prev.items || []).some(i => i.price < 0);
+                                const draftHasDeductions = (restoredDraft.items || []).some(i => i.price < 0);
+                                if (dbHasDeductions && !draftHasDeductions) {
+                                    const { items: _staleItems, ...draftWithoutItems } = restoredDraft;
+                                    return { ...prev, ...draftWithoutItems };
+                                }
+                            }
+                            return { ...prev, ...restoredDraft };
+                        });
+                    }
+                    setDataLoaded(true);
+                } else {
+                    // New quote: restore draft immediately
+                    const draft = getDraft(draftKey);
+                    if (draft) {
                         const { _draft_saved_at, ...restored } = draft;
                         setFormData(prev => ({ ...prev, ...restored }));
-
                     }
                 }
             };
-            checkDraft();
+
+            loadData();
 
             fetchClients().then((loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File)
@@ -370,15 +451,9 @@ const DevisForm = () => {
                     if (importFile) {
                         processImportedFile(importFile);
                     }
-
-                    // Clear state to avoid re-triggering on refresh, but keep client selection if valid
-                    // window.history.replaceState({}, document.title); // Removed aggressive clearing to ensure stability during render
                 }
             });
             fetchUserProfile();
-            if (isEditing) {
-                fetchDevis();
-            }
         }
     }, [user, id]);
 
@@ -512,13 +587,18 @@ const DevisForm = () => {
                     operation_category: data.operation_category || 'service',
                     vat_on_debits: data.vat_on_debits === true,
                     last_followup_at: data.last_followup_at || null,
+                    follow_up_count: data.follow_up_count || 0,
                     updated_at: data.updated_at || null,
                     has_material_deposit: data.has_material_deposit !== false,
                     intervention_address: data.intervention_address || '',
                     intervention_postal_code: data.intervention_postal_code || '',
                     intervention_city: data.intervention_city || '',
                     amendment_details: data.amendment_details || {},
-                    parent_quote_id: data.parent_quote_id || null
+                    parent_quote_id: data.parent_quote_id || null,
+                    parent_id: data.parent_id ?? null,
+                    payment_method: data.payment_method || '',
+                    paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
+                    report_pdf_url: data.report_pdf_url || null
                 });
 
                 if (data.intervention_address || data.intervention_city) {
@@ -556,6 +636,13 @@ const DevisForm = () => {
 
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
+
+                // Load follow-up steps for the "Marquer comme relancé" button
+                if (data.status === 'sent') {
+                    getFollowUpSettings(user.id).then(settings => {
+                        setFollowUpSteps(settings.steps || []);
+                    });
+                }
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du devis');
@@ -723,37 +810,22 @@ const DevisForm = () => {
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
             // Template Construction
-            // Template Construction
+            const docEmoji = isInvoice ? '🧾' : '📄';
             let subjectPrefix = isInvoice ? 'Facture' : 'Devis';
-            if (isInvoice && formData.status === 'paid') {
-                subjectPrefix = 'Facture';
-            }
-            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} : ${formData.title || 'Votre projet'} - ${companyName}`;
+            const subject = `${docEmoji} ${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} – ${formData.title || 'Votre projet'} | ${companyName}`;
 
             const introduction = isInvoice
-                ? `Bonjour ${selectedClient.name},\n\nVeuillez trouver ci-joint la facture concernant votre projet "${formData.title || 'Travaux'}".`
-                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous prie de trouver ci-joint ma proposition pour votre projet "${formData.title || 'Travaux'}".`;
+                ? `Bonjour ${selectedClient.name},\n\nJe vous transmets votre facture pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour y accéder.`
+                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour le consulter.`;
 
-            const actionText = isInvoice ? 'consulter et télécharger' : 'consulter, télécharger et signer';
-            const callToAction = `Vous pouvez ${actionText} le document directement via ce lien sécurisé :\n${publicUrl}`;
-
-            const reviewSection = showReviewRequest
-                ? `\n\nVotre satisfaction est importante.\nSi vous avez apprécié mon travail, vous pouvez laisser un avis rapide via ce lien :\n${userProfile.google_review_url}`
-                : '';
-
-            const politeClosing = `Je reste à votre entière disposition pour toute question.\n\nBien cordialement,`;
+            const actionText = isInvoice ? 'Consulter et télécharger votre facture' : 'Consulter, télécharger et signer votre devis';
+            const callToAction = `${docEmoji} ${actionText} :\n${publicUrl}`;
 
             // Client Portal Link Logic
-            let portalSection = '';
-            // Only add portal link for Invoices (especially deposit/progress) or if specifically requested?
-            // User request: "when I send the deposit invoice". But useful generally.
-            // Let's add it for ALL invoices to drive adoption, or at least Deposit invoices.
-            // "facture d'acompte" usually has "Acompte" in title.
-            // But let's make it robust: If it's an INVOICE, we offer the portal.
+            let portalUrl = null;
             if (isInvoice) {
                 let clientPortalToken = selectedClient.portal_token;
 
-                // If no token exists, generate one and save it
                 if (!clientPortalToken) {
                     clientPortalToken = crypto.randomUUID();
                     const { error: clientUpdateError } = await supabase
@@ -764,27 +836,59 @@ const DevisForm = () => {
                     if (clientUpdateError) {
                         console.error("Error creating portal token", clientUpdateError);
                     } else {
-                        // Update local client object to prevent re-generation issues in same session
                         selectedClient.portal_token = clientPortalToken;
-                        // Update clients state if possible, though strict necessity is low for this action
                     }
                 }
 
                 if (clientPortalToken) {
-                    const portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
-                    portalSection = `\n\nESPACE CLIENT\nRetrouvez tous vos documents et le suivi de chantier sur votre espace personnel :\n${portalUrl}`;
+                    portalUrl = `${window.location.origin}/p/${clientPortalToken}`;
+                }
+            }
+
+            // Chercher le lien du rapport : d'abord sur la facture, sinon via intervention_reports lié
+            let reportPdfUrl = formData.report_pdf_url || null;
+            if (isInvoice && !reportPdfUrl) {
+                const { data: linkedReport } = await supabase
+                    .from('intervention_reports')
+                    .select('report_pdf_url, report_number, user_id')
+                    .eq('quote_id', id)
+                    .in('status', ['completed', 'signed'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (linkedReport) {
+                    reportPdfUrl = linkedReport.report_pdf_url || null;
+                    if (!reportPdfUrl && linkedReport.report_number) {
+                        const reportPath = `interventions/${linkedReport.user_id}/rapport-${linkedReport.report_number}.pdf`;
+                        const { data: urlData } = supabase.storage.from('project-photos').getPublicUrl(reportPath);
+                        reportPdfUrl = urlData?.publicUrl || null;
+                    }
                 }
             }
 
             const signatureBlock = [
-                `${companyName}`,
-                `${userProfile?.full_name || ''}`,
-                `${userProfile?.phone || ''}`,
-                `${userProfile?.professional_email || userProfile?.email || ''}`,
-                `${userProfile?.website || ''}`
+                companyName,
+                userProfile?.full_name || '',
+                userProfile?.phone || '',
+                userProfile?.professional_email || userProfile?.email || '',
+                userProfile?.website || ''
             ].filter(Boolean).join('\n');
 
-            const body = `${introduction}\n\n${callToAction}${portalSection}\n${reviewSection}\n\n${politeClosing}\n\n${signatureBlock}`;
+            // Assembler les sections
+            const bodyParts = [introduction, callToAction];
+            if (reportPdfUrl) {
+                bodyParts.push(`📋 Rapport d'intervention :\n${reportPdfUrl}`);
+            }
+            if (portalUrl) {
+                bodyParts.push(`🏠 Votre espace client (documents & suivi de chantier) :\n${portalUrl}`);
+            }
+            if (showReviewRequest) {
+                bodyParts.push(`⭐ Un avis Google m'aiderait beaucoup à développer mon activité :\n${userProfile.google_review_url}`);
+            }
+            bodyParts.push(`N'hésitez pas à me contacter pour toute question.\n\nBien cordialement,`);
+            bodyParts.push(signatureBlock);
+
+            const body = bodyParts.join('\n\n');
 
             setEmailPreview({
                 email: selectedClient.email,
@@ -803,8 +907,13 @@ const DevisForm = () => {
         if (!emailPreview) return;
 
         const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailtoUrl;
-        toast.success('Application de messagerie ouverte');
+        if (isTestMode) {
+            captureEmail({ email: emailPreview.email, subject, body });
+            toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
+        } else {
+            window.location.href = mailtoUrl;
+            toast.success('Application de messagerie ouverte');
+        }
 
         // Log interaction
         if (formData.client_id) {
@@ -837,6 +946,32 @@ const DevisForm = () => {
         setEmailPreview(null);
     };
 
+    const handleMarkAsFollowedUp = async () => {
+        if (!id || id === 'new') return;
+        setMarkingFollowUp(true);
+        try {
+            const currentCount = formData.follow_up_count || 0;
+            const nextCount = currentCount + 1;
+            const quoteObj = {
+                id,
+                client_id: formData.client_id,
+                follow_up_count: currentCount
+            };
+            await recordFollowUp(quoteObj, user.id, '(Relance hors appli)', 'manual', nextCount);
+            setFormData(prev => ({
+                ...prev,
+                follow_up_count: nextCount,
+                last_followup_at: new Date().toISOString()
+            }));
+            toast.success(`Relance ${nextCount} enregistrée`);
+        } catch (err) {
+            console.error(err);
+            toast.error("Erreur lors de l'enregistrement");
+        } finally {
+            setMarkingFollowUp(false);
+        }
+    };
+
     const { subtotal, tva, total, totalCost } = calculateTotal();
 
     // Helper to auto-update CRM status
@@ -856,6 +991,37 @@ const DevisForm = () => {
             } catch (err) {
                 console.error("Auto-update CRM error", err);
             }
+        }
+    };
+
+    const autoCreateAgendaEvent = async (quoteTitle, clientId) => {
+        try {
+            const client = clients.find(c => c.id.toString() === (clientId || formData.client_id)?.toString());
+            const eventDate = new Date();
+            eventDate.setDate(eventDate.getDate() + 7);
+            const dateStr = eventDate.toISOString().split('T')[0];
+
+            const address = formData.intervention_address
+                ? [formData.intervention_address, formData.intervention_postal_code, formData.intervention_city].filter(Boolean).join(', ')
+                : client ? [client.address, client.postal_code, client.city].filter(Boolean).join(', ') : '';
+
+            await supabase.from('events').insert([{
+                user_id: user.id,
+                title: `Chantier : ${quoteTitle || formData.title}`,
+                date: dateStr,
+                time: '08:00',
+                client_name: client?.name || '',
+                client_id: clientId || formData.client_id || null,
+                address,
+                details: `Créé automatiquement depuis le devis #${id} — Date à confirmer avec le client`
+            }]);
+
+            toast.success('Événement chantier ajouté à l\'agenda (dans 7 jours par défaut)', {
+                action: { label: 'Voir l\'agenda', onClick: () => navigate('/app/agenda') },
+                duration: 6000
+            });
+        } catch (err) {
+            console.error('Erreur création événement agenda:', err);
         }
     };
 
@@ -899,7 +1065,11 @@ const DevisForm = () => {
 
                 intervention_city: formData.intervention_city,
                 parent_quote_id: formData.parent_quote_id,
-                amendment_details: formData.amendment_details
+                amendment_details: formData.amendment_details,
+                payment_method: formData.payment_method || null,
+                paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null),
+                operation_category: formData.operation_category || 'service',
+                vat_on_debits: formData.vat_on_debits || false
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -931,6 +1101,11 @@ const DevisForm = () => {
             }
 
             if (error) throw error;
+
+            // Auto-create Agenda Event if status transitions to Accepted/Signed
+            if (['accepted', 'signed'].includes(quoteData.status) && !['accepted', 'signed'].includes(initialStatus)) {
+                await autoCreateAgendaEvent(quoteData.title, quoteData.client_id);
+            }
 
             // Auto-create Project (Dossier Chantier) if Signed/Accepted
             if (['accepted', 'signed'].includes(quoteData.status) && quoteData.title && error === null) {
@@ -1089,20 +1264,29 @@ const DevisForm = () => {
                 type: isForMaterial ? 'material' : 'service'
             };
 
+            if (formData.include_tva) {
+                depositItem.price = depositAmount / 1.2;
+            } else {
+                depositItem.price = depositAmount;
+            }
+
+            const depHT = depositItem.price;
+            const depTVA = formData.include_tva ? (depositAmount - depHT) : 0;
+
             const depositData = {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
                 title: `Facture d'Acompte - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Directly billed
+                status: 'billed',
                 type: 'invoice',
                 items: [depositItem],
-                total_ht: depositAmount / (1 + (formData.include_tva ? 0.2 : 0)), // Approx back-calc if needed, or just use raw
-                total_tva: formData.include_tva ? (depositAmount - (depositAmount / 1.2)) : 0,
+                total_ht: depHT,
+                total_tva: depTVA,
                 total_ttc: depositAmount,
-                parent_id: id,
-                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString()}
+                parent_id: parseInt(id, 10),
+                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC
@@ -1111,20 +1295,6 @@ RÉCAPITULATIF :
 
 Conditions de règlement : Paiement à réception de facture.`
             };
-
-            if (formData.include_tva) {
-                // If we want the final line to be 'depositAmount', and that is TTC.
-                // price = depositAmount / 1.2
-                depositItem.price = depositAmount / 1.2;
-                depositData.total_ht = depositItem.price;
-                depositData.total_tva = depositAmount - depositItem.price;
-                depositData.total_ttc = depositAmount;
-            } else {
-                depositItem.price = depositAmount;
-                depositData.total_ht = depositAmount;
-                depositData.total_tva = 0;
-                depositData.total_ttc = depositAmount;
-            }
 
             const { data, error } = await supabase
                 .from('quotes')
@@ -1182,17 +1352,29 @@ Conditions de règlement : Paiement à réception de facture.`
                 type: 'service'
             };
 
+            if (formData.include_tva) {
+                depositItem.price = depositAmount / 1.2;
+            } else {
+                depositItem.price = depositAmount;
+            }
+
+            const depositHT = depositItem.price;
+            const depositTVA = formData.include_tva ? (depositAmount - depositHT) : 0;
+
             const depositData = {
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
                 title: `Facture Acompte Matériel - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
-                status: 'billed', // Default to billed as it is a deposit request
+                status: 'billed',
                 type: 'invoice',
                 items: [depositItem],
-                parent_id: id,
-                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString()}
+                parent_id: parseInt(id, 10),
+                total_ht: depositHT,
+                total_tva: depositTVA,
+                total_ttc: depositAmount,
+                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC
@@ -1201,18 +1383,6 @@ RÉCAPITULATIF :
 
 Conditions de règlement : Paiement à réception de facture.`
             };
-
-            if (formData.include_tva) {
-                depositItem.price = depositAmount / 1.2;
-                depositData.total_ht = depositItem.price;
-                depositData.total_tva = depositAmount - depositItem.price;
-                depositData.total_ttc = depositAmount;
-            } else {
-                depositItem.price = depositAmount;
-                depositData.total_ht = depositAmount;
-                depositData.total_tva = 0;
-                depositData.total_ttc = depositAmount;
-            }
 
             const { data, error } = await supabase
                 .from('quotes')
@@ -1265,8 +1435,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: total_ht,
                 total_tva: total_tva,
                 total_ttc: total_ttc,
-                parent_id: id,
-                notes: `Facture de situation générée le ${new Date().toLocaleDateString()} depuis devis ${id}`
+                parent_id: parseInt(id, 10),
+                notes: `Facture de situation générée le ${new Date().toLocaleDateString("fr-FR")} depuis devis ${id}`
             };
 
             const { data, error } = await supabase
@@ -1306,8 +1476,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 date: new Date().toISOString().split('T')[0],
                 status: 'draft',
                 type: 'amendment', // Correct type
-                parent_id: id, // Keep for lineage if used by situations
-                parent_quote_id: id, // For Amendment logic
+                parent_id: parseInt(id, 10),
+                parent_quote_id: parseInt(id, 10),
                 items: [],
                 notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
                 total_ht: 0,
@@ -1336,6 +1506,14 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleCreateClosingInvoice = async () => {
+        // Safety check: closing invoice must be generated from the original quote/invoice,
+        // not from a child document (deposit, situation, etc.) which would result in
+        // the deposit deductions not being found.
+        if (formData.parent_id) {
+            toast.error("La facture de clôture doit être générée depuis le devis original, pas depuis une facture enfant.");
+            return;
+        }
+
         if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
             return;
         }
@@ -1343,50 +1521,47 @@ Conditions de règlement : Paiement à réception de facture.`
         setLoading(true);
         try {
             // 1. Fetch existing deposits/situations linked to this quote
-            // We need to exclude 'Avenants' (quotes) from deductions, only invoices matter here.
-            // But usually Avenant should be merged into Closing Invoice?
-            // If Avenant is accepted, it should be part of the final bill?
-            // COMPLEXITY: Handling Avenant in Closing Invoice.
-            // For now, let's keep Closing Invoice simple (Original Quote base).
-            // Avenant should probably be billed separately or manually added?
-            // Let's stick to standard flow: Closing Invoice deduces deposits from THIS quote ID.
-            // Check if parent_id query includes Avenants?
-            // parent_id = id checks children. Avenant is a child.
-            // We filter by type='invoice' below, so Avenant (type='quote') won't be deducted. Correct.
+            // Use parseInt to ensure parent_id comparison uses the correct numeric type
+            const quoteId = parseInt(id, 10);
 
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
                 .select('id, title, date, total_ht, total_ttc, type, status')
-                .eq('parent_id', id)
-                .neq('status', 'cancelled'); // Ignore cancelled
+                .eq('parent_id', quoteId)
+                .neq('status', 'cancelled');
 
             if (fetchError) throw fetchError;
 
-            // Filter out self (previous closing invoices)
+            // Filter: keep only invoices (not amendments), exclude previous closing invoices
             const deposits = (linkedInvoices || []).filter(inv =>
                 inv.type === 'invoice' &&
                 !inv.title?.toLowerCase().includes('clôture')
             );
-            // ... rest of logic ...
+
+            if (deposits.length === 0) {
+                toast.info("Aucun acompte trouvé. La facture de clôture reprendra le devis intégralement.");
+            }
 
             // 2. Prepare items: Copy original items
             let finalItems = formData.items.map(item => ({
                 ...item,
-                id: Date.now() + Math.random(), // New IDs to avoid conflict
+                id: Date.now() + Math.random(),
                 quantity: parseFloat(item.quantity) || 0,
                 price: parseFloat(item.price) || 0,
                 buying_price: parseFloat(item.buying_price) || 0
             }));
 
-            // 3. Add deduction lines
+            // 3. Add deduction lines for each deposit/advance already paid
+            let totalDeducted = 0;
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
+                totalDeducted += amountHT;
                 return {
                     id: Date.now() + Math.random(),
                     description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
                     quantity: 1,
                     unit: 'forfait',
-                    price: -Math.abs(amountHT), // Negative Price HT
+                    price: -Math.abs(amountHT),
                     buying_price: 0,
                     type: 'service'
                 };
@@ -1404,6 +1579,10 @@ Conditions de règlement : Paiement à réception de facture.`
                 ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
                 : 'Client';
 
+            const deductionSummary = deposits.length > 0
+                ? `\n\nDéductions appliquées (${deposits.length} acompte${deposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
+                : '';
+
             const invoiceData = {
                 user_id: user.id,
                 client_id: formData.client_id,
@@ -1416,8 +1595,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
-                parent_id: id,
-                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}`
+                parent_id: quoteId,
+                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${deductionSummary}`
             };
 
             const { data, error } = await supabase
@@ -1428,7 +1607,17 @@ Conditions de règlement : Paiement à réception de facture.`
 
             if (error) throw error;
 
-            toast.success("Facture de clôture générée !");
+            // Proactively clear any stale draft that might exist for the new invoice's key
+            // (e.g. from a previous navigation side-effect). This ensures the closing invoice
+            // always loads its items — including the deduction lines — from the DB on first visit.
+            if (user) {
+                localStorage.removeItem(`quote_draft_${data.id}`);
+            }
+
+            const successMsg = deposits.length > 0
+                ? `Facture de clôture générée avec ${deposits.length} déduction${deposits.length > 1 ? 's' : ''} !`
+                : "Facture de clôture générée !";
+            toast.success(successMsg);
             navigate(`/app/devis/${data.id}`);
             setShowActionsMenu(false);
 
@@ -1591,6 +1780,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
             toast.success('Devis converti en facture');
+            invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'accepted');
             await handleDownloadPDF(true); // Auto-generate invoice PDF
         } catch (error) {
@@ -1614,9 +1804,11 @@ Conditions de règlement : Paiement à réception de facture.`
 
             setSignature(signatureData);
             setFormData(prev => ({ ...prev, status: 'accepted' }));
+            invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
+            await autoCreateAgendaEvent(formData.title, formData.client_id);
         } catch (error) {
             console.error('Error saving signature:', error);
             toast.error('Erreur lors de la sauvegarde de la signature');
@@ -1641,9 +1833,19 @@ Conditions de règlement : Paiement à réception de facture.`
                 window.open(reviewUrl, '_blank');
                 break;
             case 'email':
-                const subject = encodeURIComponent(`Votre avis compte pour ${userProfile.company_name || 'nous'}`);
-                const body = encodeURIComponent(`Bonjour,\n\nMerci de nous avoir fait confiance pour vos travaux.\n\nNous serions ravis d'avoir votre retour d'expérience. Cela ne prend que quelques secondes via ce lien :\n${reviewUrl}\n\nCordialement,\n${userProfile.full_name || ''}`);
-                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                const reviewSubject = `⭐ Votre avis compte pour ${userProfile.company_name || 'nous'}`;
+                const reviewBody = [
+                    `Bonjour,`,
+                    `Merci de nous avoir fait confiance pour vos travaux !`,
+                    `⭐ Votre avis nous aiderait beaucoup. Cela ne prend que 30 secondes :\n${reviewUrl}`,
+                    `N'hésitez pas à nous contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile.full_name || ''}`
+                ].join('\n\n');
+                if (isTestMode) {
+                    captureEmail({ email: selectedClient?.email || '', subject: reviewSubject, body: reviewBody });
+                    toast.success('📬 Demande d\'avis capturée dans l\'inbox test', { duration: 4000 });
+                } else {
+                    window.location.href = `mailto:?subject=${encodeURIComponent(reviewSubject)}&body=${encodeURIComponent(reviewBody)}`;
+                }
                 break;
         }
         setShowReviewMenu(false);
@@ -1780,6 +1982,17 @@ Conditions de règlement : Paiement à réception de facture.`
 
     // Verrouillage si Signé/Facturé/Payé/Annulé
     const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+
+    if (isEditing && !dataLoaded) {
+        return (
+            <div className="max-w-4xl mx-auto pb-12 flex items-center justify-center min-h-[50vh]">
+                <div className="flex flex-col items-center gap-3 text-gray-500">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="text-sm">Chargement du document...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto pb-12">
@@ -1932,7 +2145,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
 
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && (
+                                {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
                                     <>
                                         <button
                                             onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
@@ -2228,9 +2441,62 @@ Conditions de règlement : Paiement à réception de facture.`
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
                                 Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
+                                {formData.follow_up_count > 0 && (
+                                    <span className="ml-1 text-amber-500">
+                                        (étape {formData.follow_up_count})
+                                    </span>
+                                )}
                             </p>
                         )}
+                        {formData.status === 'sent' && (
+                            <button
+                                type="button"
+                                onClick={handleMarkAsFollowedUp}
+                                disabled={markingFollowUp}
+                                className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 rounded-lg transition-colors"
+                            >
+                                <Check className="w-4 h-4" />
+                                {markingFollowUp ? 'Enregistrement…' : (() => {
+                                    const nextStep = followUpSteps[formData.follow_up_count];
+                                    return nextStep
+                                        ? `Relancé — ${nextStep.label}`
+                                        : `Relancé — étape ${(formData.follow_up_count || 0) + 1}`;
+                                })()}
+                            </button>
+                        )}
                     </div>
+                    {/* Mode de règlement - visible quand statut = Payé */}
+                    {formData.status === 'paid' && (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mode de règlement</label>
+                                <select
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.payment_method}
+                                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                                >
+                                    <option value="">-- Sélectionner --</option>
+                                    <option value="virement">Virement bancaire</option>
+                                    <option value="cheque">Chèque</option>
+                                    <option value="especes">Espèces</option>
+                                    <option value="carte">Carte bancaire</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="wero">Wero</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'encaissement</label>
+                                <input
+                                    type="date"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.paid_at}
+                                    onChange={(e) => setFormData({ ...formData, paid_at: e.target.value })}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Obligatoire pour le livre de recettes</p>
+                            </div>
+                        </>
+                    )}
                     {/* Factur-X Options */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
@@ -2562,50 +2828,95 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Assistant Intelligent
                                 </h3>
                                 <p className="text-purple-100 text-sm mt-1">
-                                    Décrivez les travaux et l'IA générera le devis pour vous.
+                                    {showAISuggestions ? 'Postes à ne pas oublier détectés par l\'IA' : 'Décrivez les travaux et l\'IA générera le devis pour vous.'}
                                 </p>
                             </div>
 
                             <div className="p-6">
-                                <textarea
-                                    className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                                    placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
-                                    value={aiPrompt}
-                                    onChange={(e) => setAiPrompt(e.target.value)}
-                                    autoFocus
-                                />
-                                <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
-                                    <span>
-                                        Décrivez les travaux ci-dessus.
-                                    </span>
-                                    <span>{aiPrompt.length} caractères</span>
-                                </div>
+                                {!showAISuggestions ? (
+                                    <>
+                                        <textarea
+                                            className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                                            placeholder="Ex: Rénovation complète sdb 6m2 avec carrelage métro, douche italienne, meuble vasque..."
+                                            value={aiPrompt}
+                                            onChange={(e) => setAiPrompt(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <div className="mt-2 flex justify-between items-center text-xs text-gray-400">
+                                            <span>Décrivez les travaux ci-dessus.</span>
+                                            <span>{aiPrompt.length} caractères</span>
+                                        </div>
 
-                                <div className="mt-6 flex justify-end gap-3">
-                                    <button
-                                        onClick={() => setShowAIModal(false)}
-                                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleAIGenerate}
-                                        disabled={aiLoading || !aiPrompt.trim()}
-                                        className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
-                                    >
-                                        {aiLoading ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Génération...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sparkles className="w-4 h-4 mr-2" />
-                                                Générer
-                                            </>
+                                        <div className="mt-6 flex justify-end gap-3">
+                                            <button
+                                                onClick={() => setShowAIModal(false)}
+                                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                            >
+                                                Annuler
+                                            </button>
+                                            <button
+                                                onClick={handleAIGenerate}
+                                                disabled={aiLoading || !aiPrompt.trim()}
+                                                className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center"
+                                            >
+                                                {aiLoading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Génération...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-4 h-4 mr-2" />
+                                                        Générer
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        {aiDuration && (
+                                            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
+                                                <Clock className="w-4 h-4 flex-shrink-0" />
+                                                <span>Durée estimée du chantier : <strong>{aiDuration}</strong></span>
+                                            </div>
                                         )}
-                                    </button>
-                                </div>
+                                        <p className="text-sm text-gray-600 mb-3">
+                                            Ces postes sont souvent oubliés pour ce type de travaux. Voulez-vous les ajouter ?
+                                        </p>
+                                        <ul className="space-y-2 max-h-60 overflow-y-auto">
+                                            {aiSuggestions.map((suggestion, idx) => (
+                                                <li key={idx} className="flex items-center justify-between gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                                                    <span className="text-sm text-gray-700">{suggestion}</span>
+                                                    <button
+                                                        onClick={() => handleAddAISuggestion(suggestion)}
+                                                        className="flex-shrink-0 px-3 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                                                    >
+                                                        + Ajouter
+                                                    </button>
+                                                </li>
+                                            ))}
+                                            {aiSuggestions.length === 0 && (
+                                                <li className="text-sm text-gray-500 text-center py-2">Tous les postes ont été ajoutés !</li>
+                                            )}
+                                        </ul>
+                                        <div className="mt-6 flex justify-end">
+                                            <button
+                                                onClick={() => {
+                                                    setShowAIModal(false);
+                                                    setShowAISuggestions(false);
+                                                    setAiPrompt('');
+                                                    setAiSuggestions([]);
+                                                    setAiDuration(null);
+                                                    toast.success('Devis généré avec succès !');
+                                                }}
+                                                className="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700"
+                                            >
+                                                Terminer
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

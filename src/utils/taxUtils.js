@@ -1,9 +1,9 @@
-// Taux URSSAF 2024/2025 pour micro-entrepreneurs
+// Taux URSSAF 2026 pour micro-entrepreneurs
 export const URSSAF_RATES = {
     micro_entreprise: {
         services: { normal: 0.212, acre: 0.106, label: 'Prestations de services artisanaux (BIC)' },
         vente: { normal: 0.123, acre: 0.062, label: 'Achat/revente de marchandises (BIC)' },
-        liberal: { normal: 0.211, acre: 0.106, label: 'Profession libérale (BNC)' },
+        liberal: { normal: 0.256, acre: 0.128, label: 'Profession libérale (BNC)' },
         mixte: {
             services: { normal: 0.212, acre: 0.106 },
             vente: { normal: 0.123, acre: 0.062 }

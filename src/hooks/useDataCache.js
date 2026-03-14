@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 
 /**
  * Hooks de cache pour les données principales
@@ -8,7 +9,37 @@ import { useAuth } from '../context/AuthContext';
  * - Éviter les rechargements inutiles
  * - Garder les données en mémoire entre les pages
  * - Synchroniser automatiquement après modifications
+ * - Persister en localStorage pour consultation hors-ligne
  */
+
+// Helper: wrap queryFn avec cache offline
+function withOfflineCache(cacheKey, fetchFn) {
+    return async () => {
+        // Si en ligne, toujours essayer le réseau
+        if (navigator.onLine) {
+            const data = await fetchFn();
+            // Ne sauvegarder que les résultats non-vides
+            if (data && (!Array.isArray(data) || data.length > 0)) {
+                saveToOfflineCache(cacheKey, data);
+            }
+            return data;
+        }
+
+        // Hors-ligne : essayer le fetch (Workbox peut servir depuis son cache)
+        try {
+            const data = await fetchFn();
+            if (data && (!Array.isArray(data) || data.length > 0)) {
+                saveToOfflineCache(cacheKey, data);
+            }
+            return data;
+        } catch (error) {
+            // Hors-ligne et fetch échoué : retourner le cache local
+            const cached = getFromOfflineCache(cacheKey);
+            if (cached?.data) return cached.data;
+            throw error;
+        }
+    };
+}
 
 // Cache des clients
 export function useClients() {
@@ -16,34 +47,28 @@ export function useClients() {
 
     return useQuery({
         queryKey: ['clients', user?.id],
-        queryFn: async () => {
-            let query = supabase
+        queryFn: withOfflineCache(`clients_${user?.id}`, async () => {
+            const { data, error } = await supabase
                 .from('clients')
                 .select('*')
                 .order('name');
-
-            // Masquer le client de test si on n'est pas en mode développement/test
-            if (!import.meta.env.DEV) {
-                query = query.not('name', 'ilike', '%test%');
-            }
-
-            const { data, error } = await query;
             if (error) throw error;
             return data || [];
-        },
+        }),
         enabled: !!user,
-        staleTime: 5 * 60 * 1000, // 5 minutes avant de considérer les données périmées
-        gcTime: 30 * 60 * 1000, // 30 minutes en cache
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
     });
 }
 
 // Cache des devis/factures
 export function useQuotes(filters = {}) {
     const { user } = useAuth();
+    const filterKey = JSON.stringify(filters);
 
     return useQuery({
         queryKey: ['quotes', user?.id, filters],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`quotes_${user?.id}_${filterKey}`, async () => {
             let query = supabase
                 .from('quotes')
                 .select('*')
@@ -62,10 +87,10 @@ export function useQuotes(filters = {}) {
             const { data, error } = await query;
             if (error) throw error;
             return data || [];
-        },
+        }),
         enabled: !!user,
-        staleTime: 2 * 60 * 1000, // 2 minutes
-        gcTime: 15 * 60 * 1000, // 15 minutes
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
     });
 }
 
@@ -75,7 +100,7 @@ export function useQuote(id) {
 
     return useQuery({
         queryKey: ['quote', id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`quote_${id}`, async () => {
             const { data, error } = await supabase
                 .from('quotes')
                 .select('*')
@@ -83,9 +108,9 @@ export function useQuote(id) {
                 .single();
             if (error) throw error;
             return data;
-        },
+        }),
         enabled: !!user && !!id && id !== 'new',
-        staleTime: 1 * 60 * 1000, // 1 minute
+        staleTime: 1 * 60 * 1000,
     });
 }
 
@@ -115,7 +140,7 @@ export function useUserProfile() {
 
     return useQuery({
         queryKey: ['profile', user?.id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`profile_${user?.id}`, async () => {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
@@ -132,10 +157,10 @@ export function useUserProfile() {
                 email: user.email,
                 ...settings
             };
-        },
+        }),
         enabled: !!user,
-        staleTime: 10 * 60 * 1000, // 10 minutes
-        gcTime: 60 * 60 * 1000, // 1 heure
+        staleTime: 10 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
     });
 }
 
@@ -189,19 +214,43 @@ export function useAgendaEvents(startDate, endDate) {
     });
 }
 
+// Compteurs d'actions en attente (pour badges de navigation)
+// Dérivé du cache useQuotes — pas de requête supplémentaire
+export function usePendingCounts() {
+    const { data: quotes = [] } = useQuotes();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const overdueQuotes = quotes.filter(q =>
+        q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
+    ).length;
+
+    const pendingInvoices = quotes.filter(q => q.status === 'billed').length;
+
+    const signedNotBilled = quotes.filter(q => q.status === 'accepted').length;
+
+    const total = overdueQuotes + pendingInvoices + signedNotBilled;
+
+    return { overdueQuotes, pendingInvoices, signedNotBilled, total };
+}
+
 // Hook pour invalider le cache après une modification
 export function useInvalidateCache() {
     const queryClient = useQueryClient();
 
     return {
         invalidateClients: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
-        invalidateQuotes: () => queryClient.invalidateQueries({ queryKey: ['quotes'] }),
+        invalidateQuotes: () => {
+            queryClient.invalidateQueries({ queryKey: ['quotes'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        },
         invalidateQuote: (id) => queryClient.invalidateQueries({ queryKey: ['quote', id] }),
         invalidatePriceLibrary: () => queryClient.invalidateQueries({ queryKey: ['priceLibrary'] }),
         invalidateProfile: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
         invalidateInventory: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
         invalidateAgenda: () => queryClient.invalidateQueries({ queryKey: ['agenda'] }),
         invalidateAll: () => queryClient.invalidateQueries(),
+        invalidateInterventionReports: () => queryClient.invalidateQueries({ queryKey: ['interventionReports'] }),
+        invalidateInterventionReport: (id) => queryClient.invalidateQueries({ queryKey: ['interventionReport', id] }),
     };
 }
 
@@ -244,55 +293,48 @@ export function useDashboardData() {
 
     return useQuery({
         queryKey: ['dashboard', user?.id],
-        queryFn: async () => {
+        queryFn: withOfflineCache(`dashboard_${user?.id}`, async () => {
             // Récupérer les devis avec les données clients
             const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ttc, date, created_at, status, id, clients(name), type, parent_id, signed_at, items');
+                .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title');
             if (quotesError) throw quotesError;
 
-            // Compter les clients
-            let clientsQuery = supabase
+            // Compter les clients (hors client test)
+            const { count: clientCount } = await supabase
                 .from('clients')
-                .select('*', { count: 'exact', head: true });
-                
-            if (!import.meta.env.DEV) {
-                clientsQuery = clientsQuery.not('name', 'ilike', '%test%');
-            }
-            
-            const { count: clientCount } = await clientsQuery;
+                .select('*', { count: 'exact', head: true })
+                .not('name', 'like', '⚗️%');
 
-            // Compter les devis en attente
+            // Compter les devis en attente (hors client test)
             const { count: pendingQuotesCount } = await supabase
                 .from('quotes')
-                .select('*', { count: 'exact', head: true })
-                .in('status', ['draft', 'sent']);
+                .select('*, clients!inner(name)', { count: 'exact', head: true })
+                .in('status', ['draft', 'sent'])
+                .not('clients.name', 'like', '⚗️%');
 
-            // Activité récente
+            // Activité récente (hors client test)
             const { data: rQuotes } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients!inner(name)')
+                .not('clients.name', 'like', '⚗️%')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
             const { data: rSignatures } = await supabase
                 .from('quotes')
-                .select('*, clients(name)')
+                .select('*, clients!inner(name)')
+                .not('clients.name', 'like', '⚗️%')
                 .not('signed_at', 'is', null)
                 .order('signed_at', { ascending: false })
                 .limit(5);
 
-            let rClientsQuery = supabase
+            const { data: rClients } = await supabase
                 .from('clients')
                 .select('*')
+                .not('name', 'like', '⚗️%')
                 .order('created_at', { ascending: false })
                 .limit(5);
-                
-            if (!import.meta.env.DEV) {
-                rClientsQuery = rClientsQuery.not('name', 'ilike', '%test%');
-            }
-                
-            const { data: rClients } = await rClientsQuery;
 
             const activities = [
                 ...(rQuotes || []).map(q => ({ type: 'quote', date: q.created_at, description: `Devis créé pour ${q.clients?.name || 'Client inconnu'}`, amount: q.total_ttc })),
@@ -306,10 +348,50 @@ export function useDashboardData() {
                 pendingQuotesCount: pendingQuotesCount || 0,
                 recentActivity: activities
             };
-        },
+        }),
         enabled: !!user,
-        staleTime: 2 * 60 * 1000, // 2 minutes
-        gcTime: 10 * 60 * 1000, // 10 minutes
+        staleTime: 2 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+    });
+}
+
+// Cache des rapports d'intervention
+export function useInterventionReports() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['interventionReports', user?.id],
+        queryFn: withOfflineCache(`interventionReports_${user?.id}`, async () => {
+            const { data, error } = await supabase
+                .from('intervention_reports')
+                .select('*')
+                .order('date', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        }),
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
+    });
+}
+
+// Cache d'un rapport d'intervention spécifique
+export function useInterventionReport(id) {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['interventionReport', id],
+        queryFn: withOfflineCache(`interventionReport_${id}`, async () => {
+            const { data, error } = await supabase
+                .from('intervention_reports')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            return data;
+        }),
+        enabled: !!user && !!id && id !== 'new',
+        staleTime: 1 * 60 * 1000,
     });
 }
 

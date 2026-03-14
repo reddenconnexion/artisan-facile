@@ -1,13 +1,84 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardData } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
+import QuickActions from '../components/QuickActions';
+import { supabase } from '../utils/supabase';
+
+// --- Recent Voice Memos Widget ---
+const MEMO_STATUS_ICON = {
+    pending:      { Icon: Clock,       color: 'text-gray-400' },
+    transcribing: { Icon: Sparkles,    color: 'text-blue-400' },
+    processing:   { Icon: Sparkles,    color: 'text-purple-400' },
+    done:         { Icon: CheckCircle2,color: 'text-green-500' },
+    error:        { Icon: XCircle,     color: 'text-red-400' },
+    cancelled:    { Icon: XCircle,     color: 'text-gray-300' },
+};
+
+const RecentVoiceMemos = ({ userId, navigate }) => {
+    const [memos, setMemos] = useState([]);
+
+    useEffect(() => {
+        if (!userId) return;
+        supabase.from('voice_memos')
+            .select('id, transcript, status, intent_result, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(3)
+            .then(({ data }) => setMemos(data || []));
+    }, [userId]);
+
+    if (memos.length === 0) return null;
+
+    return (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Mic size={15} className="text-blue-500" />
+                    Mémos vocaux récents
+                </h3>
+                <button
+                    onClick={() => navigate('/app/voice-memos')}
+                    className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                >
+                    Voir tout <ChevronRightIcon size={12} />
+                </button>
+            </div>
+            <div className="space-y-2">
+                {memos.map(memo => {
+                    const cfg = MEMO_STATUS_ICON[memo.status] || MEMO_STATUS_ICON.pending;
+                    const StatusIcon = cfg.Icon;
+                    return (
+                        <div
+                            key={memo.id}
+                            onClick={() => navigate('/app/voice-memos')}
+                            className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                        >
+                            <StatusIcon size={14} className={`mt-0.5 flex-shrink-0 ${cfg.color}`} />
+                            <div className="min-w-0 flex-1">
+                                {memo.transcript ? (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 italic truncate">"{memo.transcript}"</p>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">En cours de traitement...</p>
+                                )}
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {formatDistanceToNow(new Date(memo.created_at), { addSuffix: true, locale: fr })}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 // --- Helper for Stats Calculation (Pure Function) ---
 const calculateStats = (allQuotes, referenceDate) => {
@@ -74,7 +145,7 @@ const calculateStats = (allQuotes, referenceDate) => {
         };
 
         allQuotes.forEach(quote => {
-            const amount = parseFloat(quote.total_ttc) || 0;
+            const amount = parseFloat(quote.total_ht) || parseFloat(quote.total_ttc) || 0;
             const qDate = new Date(quote.date || quote.created_at || new Date());
             if (isNaN(qDate.getTime())) return;
 
@@ -90,35 +161,28 @@ const calculateStats = (allQuotes, referenceDate) => {
                 if (!isDuplicate) {
                     metrics.revenue.total += amount;
 
-                    // Net Income
-                    let netAmount = amount; // Default: Net = Total (assuming 100% labor if no items)
+                    // Net Income (calculated in HT)
+                    let netAmount = 0;
+                    const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
+                        (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
 
-                    if (quote.items && Array.isArray(quote.items)) {
-                        const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
-                            (quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
+                    if (isDeposit) {
+                        netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
+                    } else {
+                        // Materials Cost (HT)
+                        const materialItems = quote.items.filter(i => i.type === 'material');
+                        const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                        if (isDeposit) {
-                            netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
-                        } else {
-                            const allItemsHT = quote.items.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                            const taxRatio = (allItemsHT > 0.01) ? (amount / allItemsHT) : 1;
+                        // Detect Deductions (Deposits already paid)
+                        // Look for negative price items that are likely deposit deductions
+                        const deductionItems = quote.items.filter(i => (parseFloat(i.price) || 0) < 0);
+                        const deductionHT = deductionItems.reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                            // Materials Cost
-                            const materialItems = quote.items.filter(i => i.type === 'material');
-                            const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        // Adjusted Material Cost = Total Material - Material Already Paid (Deduction)
+                        // We assume deduction covers material first.
+                        const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
 
-                            // Detect Deductions (Deposits already paid)
-                            // Look for negative price items that are likely deposit deductions
-                            const deductionItems = quote.items.filter(i => (parseFloat(i.price) || 0) < 0);
-                            const deductionHT = deductionItems.reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-
-                            // Adjusted Material Cost = Total Material - Material Already Paid (Deduction)
-                            // We assume deduction covers material first.
-                            const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
-
-                            const adjustedMaterialTTC = adjustedMaterialHT * taxRatio;
-                            netAmount = amount - adjustedMaterialTTC;
-                        }
+                        netAmount = amount - adjustedMaterialHT;
                     }
 
 
@@ -381,14 +445,23 @@ const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
+    const { isTestMode, testClient } = useTestMode();
 
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();
 
-    const allQuotes = data?.allQuotes || [];
+    const isTestQuote = (q) => q.clients?.name?.includes('⚗️') || (testClient?.id && q.client_id === testClient.id);
+
+    const allQuotes = useMemo(
+        () => (data?.allQuotes || []).filter(q => isTestMode || !isTestQuote(q)),
+        [data?.allQuotes, isTestMode, testClient?.id]
+    );
     const clientCount = data?.clientCount || 0;
-    const pendingQuotesCount = data?.pendingQuotesCount || 0;
-    const recentActivity = data?.recentActivity || [];
+    const pendingQuotesCount = allQuotes.filter(q => ['draft', 'sent'].includes(q.status)).length;
+    const recentActivity = useMemo(
+        () => (data?.recentActivity || []).filter(a => isTestMode || !a.description.includes('⚗️')),
+        [data?.recentActivity, isTestMode]
+    );
 
     // Afficher un écran de chargement
     if (loading) {
@@ -448,6 +521,8 @@ const Dashboard = () => {
                 </button>
             </div>
 
+            <QuickActions />
+            <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

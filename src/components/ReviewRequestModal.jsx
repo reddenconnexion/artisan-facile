@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, Mail, MessageSquare, Copy, Star, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTestMode } from '../context/TestModeContext';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
+    const { isTestMode, captureEmail } = useTestMode();
     if (!isOpen) return null;
 
     const reviewUrl = userProfile?.google_review_url;
@@ -16,7 +18,13 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
 
     // Messages for Email/SMS
     const emailSubject = `Votre avis compte pour ${companyName}`;
-    const emailBody = `Bonjour ${clientName},\n\nMerci de votre confiance pour ce projet qui est désormais finalisé.\n\nLa satisfaction de mes clients est ma priorité. Si vous avez apprécié mon travail, pourriez-vous prendre 30 secondes pour laisser un avis sur Google ?\n\nCela m'aide énormément à développer mon activité locale.\n\nVoici le lien direct :\n${reviewUrl}\n\nUn exemple de message si vous manquez d'inspiration :\n"${suggestedReview}"\n\nMerci encore !\n\nCordialement,\n${userProfile?.full_name || ''}`;
+    const emailBody = [
+        `Bonjour ${clientName},`,
+        `Merci pour votre confiance ! Je suis ravi que le projet soit désormais finalisé.`,
+        `⭐ Un rapide avis Google m'aiderait beaucoup à développer mon activité.\nCela ne prend que 30 secondes :\n${reviewUrl}`,
+        `💬 Besoin d'inspiration ? Voici un exemple :\n"${suggestedReview}"`,
+        `Encore merci, et n'hésitez pas à me contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile?.full_name || ''}`
+    ].join('\n\n');
 
     const smsBody = `Bonjour ${clientName}, merci pour votre confiance ! Si vous êtes satisfait, un petit avis Google m'aiderait beaucoup : ${reviewUrl} . Merci ! ${userProfile?.full_name || ''}`;
 
@@ -39,9 +47,14 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
             toast.error("Lien Google Avis non configuré");
             return;
         }
-        window.location.href = `mailto:${client?.email || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+        if (isTestMode) {
+            captureEmail({ email: client?.email || '', subject: emailSubject, body: emailBody });
+            toast.success('📬 Demande d\'avis capturée dans l\'inbox test', { duration: 4000 });
+        } else {
+            window.location.href = `mailto:${client?.email || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            toast.success("Application de messagerie ouverte");
+        }
         onClose();
-        toast.success("Application de messagerie ouverte");
     };
 
     const handleSendSMS = () => {

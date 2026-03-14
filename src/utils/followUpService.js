@@ -16,18 +16,27 @@ export const getFollowUpSettings = async (userId) => {
 
         if (error) throw error;
 
-        if (data?.follow_up_settings) {
+        if (data?.follow_up_settings?.steps?.length > 0) {
             return data.follow_up_settings;
         }
 
-        // Default settings
-        return {
+        // Aucune configuration sauvegardée : initialiser avec les 4 étapes par défaut
+        const defaultSettings = {
             steps: [
-                { delay: 3, label: "Relance douce", context: "Rappel amical, demander s'ils ont des questions." },
-                { delay: 7, label: "Relance standard", context: "Souligner la disponibilité et la validité du devis." },
-                { delay: 14, label: "Dernière relance", context: "Demander courtoisement une décision finale." }
+                { delay: 3, label: "Première relance", context: "Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate." },
+                { delay: 7, label: "Deuxième relance", context: "Apporter de la valeur : partager un cas client similaire, une précision technique ou un comparatif pour aider à la décision." },
+                { delay: 7, label: "Troisième relance", context: "Proposer un appel téléphonique ou un contact via un autre canal (LinkedIn) pour lever les derniers freins." },
+                { delay: 13, label: "Message de clôture", context: "Informer que le devis va être archivé sous peu et proposer un recontact futur si le projet se concrétise." }
             ]
         };
+
+        // Sauvegarder automatiquement pour que l'utilisateur les voie dans la config
+        await supabase
+            .from('profiles')
+            .update({ follow_up_settings: defaultSettings })
+            .eq('id', userId);
+
+        return defaultSettings;
 
     } catch (error) {
         console.error("Error fetching follow-up settings:", error);
@@ -130,14 +139,15 @@ export const getDueFollowUps = async (userId) => {
 
 /**
  * Records a follow-up action.
- * @param {object} quote 
- * @param {string} userId 
- * @param {string} content 
- * @param {string} method 
+ * @param {object} quote
+ * @param {string} userId
+ * @param {string} content
+ * @param {string} method
+ * @param {number|null} forcedCount - Override the computed follow_up_count (for manual step selection)
  */
-export const recordFollowUp = async (quote, userId, content, method = 'email') => {
+export const recordFollowUp = async (quote, userId, content, method = 'email', forcedCount = null) => {
     const now = new Date().toISOString();
-    const newCount = (quote.follow_up_count || 0) + 1;
+    const newCount = forcedCount ?? (quote.follow_up_count || 0) + 1;
 
     // 1. Insert interaction
     const { error: insertError } = await supabase
@@ -210,7 +220,7 @@ export const getOverdueInstallments = async (userId) => {
  * @param {object} installment 
  * @param {string} userId 
  */
-export const sendInstallmentReminder = async (installment, userId) => {
+export const sendInstallmentReminder = async (installment, userId, captureEmail = null) => {
     if (!installment.quotes?.clients?.email) {
         throw new Error("Email du client introuvable");
     }
@@ -230,8 +240,12 @@ export const sendInstallmentReminder = async (installment, userId) => {
         `Merci de régulariser cette situation dès que possible.\n\n` +
         `Cordialement,`;
 
-    // Open mail client
-    window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // Open mail client (or capture in test mode)
+    if (typeof captureEmail === 'function') {
+        captureEmail({ email: client.email, subject, body });
+    } else {
+        window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
 
     // Update reminded count
     await supabase

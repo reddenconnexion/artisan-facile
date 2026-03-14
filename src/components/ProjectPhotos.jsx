@@ -361,7 +361,9 @@ const ProjectPhotos = ({ clientId }) => {
 
     useEffect(() => {
         if (clientId && user) {
-            Promise.all([fetchPhotos(), fetchProjects()]);
+            Promise.all([fetchPhotos(), fetchProjects()]).then(([, loadedProjects]) => {
+                if (loadedProjects) initDefaultProject(loadedProjects);
+            });
 
             // Realtime subscriptions
             const photosSubscription = supabase
@@ -403,9 +405,48 @@ const ProjectPhotos = ({ clientId }) => {
 
             if (error) throw error;
             setProjects(data || []);
+            return data || [];
         } catch (error) {
             console.error('Error fetching projects:', error);
-            // Silent fail allowed for projects as table might not exist yet if migration pending
+            return [];
+        }
+    };
+
+    // Sélectionne (ou crée) automatiquement le dossier du dernier devis/facture actif
+    const initDefaultProject = async (existingProjects) => {
+        try {
+            const { data: quote } = await supabase
+                .from('quotes')
+                .select('id, title, type, status')
+                .eq('client_id', clientId)
+                .in('status', ['sent', 'accepted', 'billed'])
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (!quote?.title) return;
+
+            const folderName = quote.title.trim();
+            const existing = existingProjects.find(p => p.name === folderName);
+
+            if (existing) {
+                setSelectedProjectId(existing.id);
+                return;
+            }
+
+            // Créer le dossier automatiquement
+            const { data: created, error } = await supabase
+                .from('projects')
+                .insert([{ name: folderName, client_id: clientId, user_id: user.id }])
+                .select()
+                .single();
+
+            if (!error && created) {
+                setProjects(prev => [...prev, created]);
+                setSelectedProjectId(created.id);
+            }
+        } catch (e) {
+            console.error('initDefaultProject error', e);
         }
     };
 
@@ -580,6 +621,16 @@ const ProjectPhotos = ({ clientId }) => {
             if (selectedPhotos.size === 0) return;
             setPhotosToMove(selectedPhotos);
         }
+        setMoveTargetId('');
+        setIsCreatingInMove(false);
+        setNewMoveProjectName('');
+        setShowMoveModal(true);
+    };
+
+    const handleMoveUncategorized = () => {
+        const uncategorized = photos.filter(p => p.project_id === null);
+        if (uncategorized.length === 0) return;
+        setPhotosToMove(new Set(uncategorized.map(p => p.id)));
         setMoveTargetId('');
         setIsCreatingInMove(false);
         setNewMoveProjectName('');
@@ -877,13 +928,25 @@ const ProjectPhotos = ({ clientId }) => {
                     </div>
 
                     {!creatingProject && (
-                        <button
-                            onClick={() => setCreatingProject(true)}
-                            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors ml-auto sm:ml-0"
-                        >
-                            <FolderPlus className="w-4 h-4" />
-                            Nouveau chantier
-                        </button>
+                        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                            {projectCounts['uncategorized'] > 0 && projects.length > 0 && (
+                                <button
+                                    onClick={handleMoveUncategorized}
+                                    className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                                    title={`Déplacer les ${projectCounts['uncategorized']} photos non classées vers un dossier`}
+                                >
+                                    <FolderInput className="w-4 h-4" />
+                                    Ranger les non classées ({projectCounts['uncategorized']})
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setCreatingProject(true)}
+                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                                <FolderPlus className="w-4 h-4" />
+                                Nouveau chantier
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

@@ -34,7 +34,7 @@ export function useQuoteForm() {
         title: '',
         public_token: '',
         date: new Date().toISOString().split('T')[0],
-        valid_until: '',
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         items: [{ id: 1, description: '', quantity: 1, price: 0, buying_price: 0, type: 'service' }],
         notes: '',
         status: 'draft',

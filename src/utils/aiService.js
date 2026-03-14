@@ -1,208 +1,185 @@
+import { supabase } from './supabase';
+
 /**
- * Stores the OpenAI API Key in local storage (or user metadata if you prefer robust sync).
- * For this version, we use localStorage for simplicity and privacy, 
- * but we can sync to profile settings if requested.
+ * Calls the ai-proxy Edge Function which securely retrieves the API key
+ * from the database and proxies the request server-side.
  */
-export const saveApiKey = (apiKey) => {
-    localStorage.setItem('openai_api_key', apiKey);
-};
+const callAiProxy = async (systemPrompt, userMessage) => {
+    const { data, error } = await supabase.functions.invoke('ai-proxy', {
+        body: { systemPrompt, userMessage }
+    });
 
-export const getProvider = () => {
-    return localStorage.getItem('ai_provider') || 'gemini';
-};
+    if (error) throw new Error(error.message || 'Erreur du proxy IA');
+    if (data?.error) throw new Error(data.error);
 
-export const getApiKey = () => {
-    return localStorage.getItem('openai_api_key');
+    return data.rawResponse;
 };
 
 /**
  * Generates quote items based on a natural language description.
- * @param {string} userDescription - The user's description of work (e.g., "Rénovation sdb 5m2")
- * @param {object} context - Optional context (apiKey, provider, hourlyRate, instructions, etc.)
- * @returns {Promise<Array>} - Array of items { description, quantity, price, type, unit }
+ * @param {string} userDescription - The user's description of work
+ * @param {object} context - Optional context (hourlyRate, instructions, etc.)
+ * @returns {Promise<Array>} - Array of items
  */
 export const generateQuoteItems = async (userDescription, context = {}) => {
-    // Priority: Context > LocalStorage (fallback)
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
-    }
-
-    let constraints = "";
-    // Handle both snake_case (DB) and camelCase (JS)
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
 
-    // Note: Travel fee is now handled by zones in handleClientChange, 
-    // so we don't explicitly ask AI to add it to avoid duplicates,
-    // unless explicitly requested in instructions.
-
+    let constraints = "";
     if (hourlyRate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${hourlyRate}€/h.\n`;
     if (instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
 
     const systemPrompt = `
     Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
-    Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis.
-    
+    Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis,
+    ET de fournir des conseils enrichis pour ne rien oublier.
+
     RÈGLES :
     1. Analyse la demande et déduis les matériaux nécessaires, la main d'oeuvre, et les consommables.
     2. Estime des prix réalistes du marché français (en Euros HT).
     3. Pour chaque ligne, détermine le type: 'service' (Main d'oeuvre) ou 'material' (Matériel).
     4. Sois précis mais concis dans les descriptions.
-    
+    5. Identifie les postes souvent oubliés pour ce type de travaux (protection, évacuation déchets, etc.).
+    6. Estime la durée totale du chantier (ex: "1 jour", "2-3 jours", "1 semaine").
+
     ${constraints}
-    
+
     FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
-    [
-        {
-            "description": "Désignation de l'article",
-            "quantity": 1,
-            "unit": "u" | "m2" | "ml" | "h" | "forfait",
-            "price": 0.00,
-            "type": "service" | "material"
-        }
-    ]
+    {
+        "items": [
+            {
+                "description": "Désignation de l'article",
+                "quantity": 1,
+                "unit": "u" | "m2" | "ml" | "h" | "forfait",
+                "price": 0.00,
+                "type": "service" | "material"
+            }
+        ],
+        "suggestions": [
+            "Protection des sols et meubles",
+            "Évacuation et tri des déchets de chantier"
+        ],
+        "estimated_duration": "2-3 jours"
+    }
     `;
 
+    const rawResponse = await callAiProxy(systemPrompt, `DESCRIPTION UTILISATEUR: "${userDescription}"`);
+
+    let jsonString = rawResponse.trim();
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+        jsonString = jsonMatch[0];
+    } else {
+        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    }
+
     try {
-        let responseData;
-
-        if (provider === 'gemini') {
-            // Using gemini-3-flash-preview (Latest Available)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `${systemPrompt}\n\nDESCRIPTION UTILISATEUR: "${userDescription}"`
-                        }]
-                    }]
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                console.error("Gemini API Error Details:", errData);
-                throw new Error(`Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}`);
-            }
-
-            const data = await response.json();
-            const textRef = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!textRef) throw new Error("Réponse Gemini vide");
-            responseData = textRef;
-
-        } else {
-            // --- OPENAI API (Default) ---
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Génère le devis pour : "${userDescription}"` }
-                    ],
-                    temperature: 0.7
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error?.message || "Erreur OpenAI API");
-            }
-
-            const data = await response.json();
-            responseData = data.choices[0].message.content;
+        const parsed = JSON.parse(jsonString);
+        // Support both new enriched format and legacy array format
+        if (Array.isArray(parsed)) {
+            return { items: parsed, suggestions: [], estimated_duration: null };
         }
-
-        // Robust JSON extraction
-        let jsonString = responseData.trim();
-        const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
-
-        if (jsonMatch) {
-            jsonString = jsonMatch[0];
-        } else {
-            // Fallback cleanup if no array brackets found (unlikely for a list)
-            jsonString = jsonString
-                .replace(/```json/g, '')
-                .replace(/```/g, '')
-                .trim();
-        }
-
-        // Attempt to parse
-        try {
-            return JSON.parse(jsonString);
-        } catch (parseError) {
-            console.error("JSON Parse Error:", parseError, "Raw:", jsonString);
-            throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-        }
-
-    } catch (error) {
-        console.error("AI Service Error:", error);
-        throw error;
+        return {
+            items: parsed.items || [],
+            suggestions: parsed.suggestions || [],
+            estimated_duration: parsed.estimated_duration || null
+        };
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
     }
 };
 
 /**
- * Analyzes natural language input to determine intent and extract structured data using Gemini.
+ * Analyzes natural language input to determine intent and extract structured data.
+ * Supports both simple assistant commands and full voice pipeline intents.
  * @param {string} userText - The user's spoken or typed command.
- * @param {object} context - Context (apiKey, current date, etc.)
- * @returns {Promise<object>} - Structured intent: { intent: 'calendar'|'client'|'email'|'unknown', data: object, response: string }
+ * @param {boolean} [fullPipeline=false] - If true, includes pipeline-specific intents.
+ * @returns {Promise<object>} - Structured intent
  */
-export const processAssistantIntent = async (userText, context = {}) => {
-    // Priority: Context > LocalStorage (fallback)
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante. Veuillez la configurer dans votre profil.");
-    }
-
-    // Default to Gemini Flash instructions
+export const processAssistantIntent = async (userText, fullPipeline = false) => {
     const today = new Date().toISOString().split('T')[0];
     const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+    const pipelineIntents = fullPipeline ? `
+    6. 'create_client' : Créer une fiche client (nom, téléphone, email, adresse).
+    7. 'create_quote' : Créer un devis pour un client avec description des travaux.
+    8. 'create_invoice' : Transformer un devis accepté en facture, ou créer une facture directe.
+    9. 'send_invoice' : Envoyer une facture existante par email au client.
+    10. 'create_intervention_report' : Créer un rapport d'intervention (compte-rendu de chantier).
+    11. 'schedule_appointment' : Planifier un rendez-vous client ou chantier.` : '';
+
+    const pipelineDataFormats = fullPipeline ? `
+    Pour 'create_client' :
+    - name: "Nom Prénom" (obligatoire)
+    - phone: "06..." (si mentionné)
+    - email: "email@exemple.com" (si mentionné)
+    - address: "Adresse complète" (si mentionnée)
+    - notes: "Autres infos"
+
+    Pour 'create_quote' :
+    - client_name: "Nom du client" (si mentionné, sinon null)
+    - title: "Titre du devis" (déduit des travaux)
+    - description: "Description complète des travaux"
+    - urgency: "normal" | "urgent" (si mentionné)
+
+    Pour 'create_invoice' :
+    - client_name: "Nom du client"
+    - amount: 0.00 (montant si mentionné, sinon null)
+    - description: "Description de la prestation"
+
+    Pour 'send_invoice' :
+    - client_name: "Nom du client"
+    - description: "Contexte de la facture à envoyer"
+
+    Pour 'create_intervention_report' :
+    - client_name: "Nom du client" (si mentionné)
+    - date: "${today}" (ou date mentionnée au format YYYY-MM-DD)
+    - title: "Titre de l'intervention"
+    - description: "Description des travaux effectués"
+    - work_done: "Résumé du travail réalisé"
+
+    Pour 'schedule_appointment' :
+    - title: "Rendez-vous / Visite chantier..."
+    - client_name: "Nom du client" (si mentionné)
+    - start_date: "YYYY-MM-DDTHH:MM:00"
+    - duration: 60 (durée en minutes)
+    - description: "Détails"` : '';
+
     const systemPrompt = `
     Tu es l'assistant intelligent d'un artisan. Ta mission est d'analyser la demande vocale de l'utilisateur et d'extraire des actions structurées.
-    
+
     INFORMATIONS CONTEXTUELLES :
     - Date d'aujourd'hui : ${today}
     - Heure actuelle : ${currentTime}
-    
+
     INTENTIONS POSSIBLES (Choisis-en une seule) :
     1. 'calendar' : Pour planifier un rendez-vous, une réunion, un chantier.
-    2. 'client' : Pour créer ou mettre à jour une fiche client.
+    2. 'client' : Pour mettre à jour ou consulter une fiche client existante.
     3. 'email' : Pour envoyer un email, une relance, un message.
     4. 'navigation' : Pour aller sur une page spécifique (Clients, Devis, Agenda, Réglages).
-    5. 'unknown' : Si la demande n'est pas claire.
+    5. 'unknown' : Si la demande n'est pas claire.${pipelineIntents}
 
-    FORMAT DE RÉPONSE ATTENDU (JSON pur) :
+    FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown) :
     {
-        "intent": "calendar" | "client" | "email" | "navigation" | "unknown",
+        "intent": "calendar" | "client" | "email" | "navigation" | "unknown"${fullPipeline ? ' | "create_client" | "create_quote" | "create_invoice" | "send_invoice" | "create_intervention_report" | "schedule_appointment"' : ''},
         "data": { ...champs spécifiques selon l'intention... },
-        "response": "Court message de confirmation à lire à l'utilisateur (ex: 'C'est noté, je prépare le mail')."
+        "response": "Court message de confirmation à lire à l'utilisateur.",
+        "confidence": 0.0 à 1.0
     }
 
     DÉTAILS DES CHAMPS 'data' PAR INTENTION :
 
     Pour 'calendar' :
-    - title: "Rendez-vous avec M. Martin" (Génère un titre clair)
-    - start_date: "YYYY-MM-DDTHH:MM:00" (Date ISO déduite. Si 'demain', calcule la date. Si pas d'heure, mets 09:00 par défaut)
-    - duration: 60 (Durée en minutes, 60 par défaut)
+    - title: "Rendez-vous avec M. Martin"
+    - start_date: "YYYY-MM-DDTHH:MM:00"
+    - duration: 60
     - description: "Détails..."
 
     Pour 'client' :
     - name: "Nom Prénom"
-    - email: "email@exemple.com" (si détecté)
-    - phone: "06..." (si détecté)
-    - address: "Adresse complète" (si détectée)
+    - email: "email@exemple.com"
+    - phone: "06..."
+    - address: "Adresse complète"
     - notes: "Autres infos"
 
     Pour 'email' :
@@ -212,163 +189,153 @@ export const processAssistantIntent = async (userText, context = {}) => {
 
     Pour 'navigation' :
     - page: "/app/clients" | "/app/devis" | "/app/agenda" | "/app/settings"
+    ${pipelineDataFormats}
     `;
 
+    const rawResponse = await callAiProxy(systemPrompt, `DEMANDE UTILISATEUR: "${userText}"`);
+
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+
+    return JSON.parse(cleanJson);
+};
+
+/**
+ * Generates a structured intervention report summary from a voice transcript.
+ * @param {string} transcript - The voice transcription text
+ * @returns {Promise<object>} { title, description, work_done, notes }
+ */
+export const generateInterventionSummary = async (transcript) => {
+    const systemPrompt = `Tu es un assistant pour artisan du bâtiment.
+Analyse la transcription vocale d'un artisan décrivant une intervention et génère un rapport structuré.
+
+RÈGLES :
+- "title" : Titre court et précis de l'intervention (10 mots max).
+- "description" : Problème constaté ou demande initiale du client (ce qui était cassé, la demande).
+- "work_done" : Travaux effectivement réalisés, pièces remplacées, réglages effectués (le détail de ce qui a été fait).
+- "notes" : Observations internes, remarques techniques ou recommandations pour le suivi (laisser vide si rien de notable).
+
+FORMAT JSON pur (sans markdown) :
+{
+    "title": "...",
+    "description": "...",
+    "work_done": "...",
+    "notes": "..."
+}`;
+
+    const rawResponse = await callAiProxy(systemPrompt, `TRANSCRIPTION VOCALE : "${transcript}"`);
+
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+
     try {
-        let jsonResponse = "";
-
-        if (provider === 'gemini') {
-            // Using gemini-3-flash-preview (Latest Available)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `${systemPrompt}\n\nDEMANDE UTILISATEUR: "${userText}"`
-                        }]
-                    }]
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(`Erreur Gemini: ${err.error?.message || response.statusText}`);
-            }
-
-            const data = await response.json();
-            jsonResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        } else {
-            // Fallback OpenAI if configured
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userText }
-                    ],
-                    temperature: 0.3
-                })
-            });
-            const data = await response.json();
-            jsonResponse = data.choices[0].message.content;
-        }
-
-        // Clean JSON
-        let cleanJson = jsonResponse.trim();
-        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanJson = jsonMatch[0];
-
-        // Ensure quotes inside strings are escaped properly if manual parsing failed, 
-        // but JSON.parse expects valid JSON. Gemini usually does well.
-
         return JSON.parse(cleanJson);
-
-
-    } catch (e) {
-        console.error("Assistant Intent Error:", e);
-        throw e;
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
     }
 };
 
 /**
  * Generates a follow-up email content using AI.
- * @param {object} quote - The quote object
+ * @param {object|object[]} quotes - A single quote or array of quotes (for grouped relances)
  * @param {object} client - The client object
  * @param {object} step - The step configuration (label, context)
  * @param {object} context - User settings/context
  * @returns {Promise<object>} { subject, body }
  */
-export const generateFollowUpEmail = async (quote, client, step, context = {}) => {
-    const apiKey = context.apiKey || localStorage.getItem('openai_api_key');
-    const provider = context.provider || localStorage.getItem('ai_provider') || 'gemini';
-
-    if (!apiKey) {
-        throw new Error("Clé API manquante.");
-    }
+export const generateFollowUpEmail = async (quotes, client, step, context = {}) => {
+    // Accept both single quote and array of quotes
+    if (!Array.isArray(quotes)) quotes = [quotes];
 
     const companyName = context.companyName || "Votre Artisan";
     const userName = context.userName || "";
+    const artisanSignature = userName ? `${userName} — ${companyName}` : companyName;
 
-    const systemPrompt = `
-    Tu es un assistant professionnel pour un artisan du bâtiment.
-    Rédige un e-mail de relance pour un devis envoyé.
-    
-    CONTEXTE :
-    - Artisan : ${companyName} ${userName ? `(${userName})` : ''}
-    - Client : ${client.name || 'Client'}
-    - Projet : ${quote.title || 'Travaux'}
-    - Devis N° : ${quote.id}
-    - Date du devis : ${new Date(quote.date).toLocaleDateString('fr-FR')}
-    - Montant : ${quote.total_ttc ? quote.total_ttc + '€' : 'N/A'}
-    
-    OBJECTIF DE LA RELANCE : ${step.label}
-    TON/INSTRUCTIONS SPÉCIFIQUES : ${step.context || "Ton professionnel, courtois et direct."}
-    
-    FORMAT JSON ATTENDU :
-    {
-        "subject": "Objet du mail...",
-        "body": "Corps du mail..."
-    }
-    `;
+    const stepIndex = step.index ?? 0;
+    const isGrouped = quotes.length > 1;
 
-    try {
-        let jsonResponse = "";
+    const quoteDate = quotes[0]?.date
+        ? new Date(quotes[0].date).toLocaleDateString('fr-FR')
+        : null;
 
-        if (provider === 'gemini') {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: systemPrompt
-                        }]
-                    }]
-                })
-            });
+    // Build the list of quotes for the prompt
+    const quotesLines = quotes.map(q => {
+        const montant = q.total_ttc
+            ? Number(q.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+            : 'montant non précisé';
+        return `  • ${q.title || 'Travaux'} : ${montant}`;
+    }).join('\n');
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error?.message || "Erreur Gemini");
-            }
-            const data = await response.json();
-            jsonResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const stepGuides = [
+        // Étape 0 — Première relance (J+3)
+        `Message court et naturel (3-4 phrases). S'assurer que le${isGrouped ? 's devis sont' : ' devis est'} bien arrivé${isGrouped ? 's' : ''} et proposer de répondre à d'éventuelles questions. Aucune pression, ton humain.`,
+        // Étape 1 — Deuxième relance (J+10)
+        `Message de valeur (4-5 phrases). Souligner un point fort ${isGrouped ? 'des projets' : 'du projet'} ou apporter une précision technique utile. Rappeler la disponibilité pour en parler, de préférence par téléphone.`,
+        // Étape 2 — Troisième relance (J+17)
+        `Message direct et orienté action (4-5 phrases). Proposer explicitement un appel téléphonique pour lever les derniers doutes — c'est souvent plus simple qu'un échange d'emails.`,
+        // Étape 3 — Message de clôture (J+30)
+        `Message de clôture respectueux (4-5 phrases). Informer que le${isGrouped ? 's devis vont être archivés' : ' devis va être archivé'} prochainement. Laisser une porte ouverte pour un recontact futur, sans aucune pression. Ton chaleureux.`,
+    ];
 
-        } else {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        { role: "system", content: systemPrompt }
-                    ],
-                    temperature: 0.7
-                })
-            });
-            const data = await response.json();
-            jsonResponse = data.choices[0].message.content;
-        }
+    const guide = stepGuides[stepIndex] || stepGuides[stepGuides.length - 1];
 
-        let cleanJson = jsonResponse.trim();
-        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanJson = jsonMatch[0];
+    const systemPrompt = `Tu es un assistant professionnel pour un artisan du bâtiment.
+Rédige un e-mail de relance pour ${isGrouped ? `${quotes.length} devis envoyés` : 'un devis envoyé'} à un client.
 
-        return JSON.parse(cleanJson);
+ARTISAN : ${artisanSignature}
+CLIENT : ${client.name || 'Client'}
+${quoteDate ? `DATE D'ENVOI DES DEVIS : ${quoteDate}` : ''}
+DEVIS À RELANCER :
+${quotesLines}
 
-    } catch (error) {
-        console.error("AI FollowUp Error:", error);
-        throw error;
-    }
+ÉTAPE DE RELANCE : ${step.label} (étape ${stepIndex + 1})
+OBJECTIF : ${step.context || "Ton professionnel, courtois et direct."}
+GUIDE : ${guide}
+
+EXEMPLE DE STYLE À SUIVRE (adapte-le au contexte ci-dessus) :
+---
+Bonjour Frédéric,
+
+Je me permets de revenir vers vous concernant les trois devis que je vous ai transmis le 19 février :
+
+• Devis atelier — Tableau divisionnaire + câblage 16mm² : 2 117,87 €
+• Devis climatisation — Ligne dédiée groupe extérieur : 294,77 €
+• Devis logement annexe — Mise en conformité électrique : 670,00 €
+
+Avez-vous eu l'occasion d'en prendre connaissance ? Ces trois projets peuvent tout à fait être réalisés de manière indépendante, selon vos priorités et votre calendrier — ou regroupés pour optimiser le déplacement et la coordination.
+
+Si vous avez des questions sur un point technique ou si vous souhaitez ajuster quoi que ce soit, je suis disponible pour en parler directement par téléphone. C'est souvent plus simple qu'un échange d'emails.
+
+Bien cordialement,
+Denis Meriot — Red Den Connexion
+---
+
+RÈGLES POUR L'OBJET DU MAIL :
+- Ne jamais mentionner "relance" ni son numéro
+- L'objet doit être naturel, centré sur le projet ou le client
+
+RÈGLES DE MISE EN FORME (texte brut, pas de HTML ni Markdown) :
+- Commence par "Bonjour [Prénom]," — utilise le prénom si tu peux le déduire du nom complet, sinon le nom entier
+- Sépare les paragraphes par une ligne vide (\\n\\n)
+- ${isGrouped ? 'Liste les devis sous forme de puces (•) avec titre et montant, précédés d\'une ligne vide' : 'Mentionne le projet et le montant clairement'}
+- Phrases courtes, ton humain et direct — pas de jargon ni de formules creuses
+- ${stepIndex >= 2 ? 'Propose explicitement un échange téléphonique' : 'Propose un échange téléphonique si pertinent'}
+- Pas d'emojis
+- Termine par "Bien cordialement,\\n${artisanSignature}"
+
+FORMAT JSON ATTENDU :
+{
+    "subject": "Objet du mail...",
+    "body": "Corps du mail..."
+}`;
+
+    const rawResponse = await callAiProxy(systemPrompt, 'Génère l\'email de relance.');
+
+    let cleanJson = rawResponse.trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+
+    return JSON.parse(cleanJson);
 };

@@ -1,19 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { FileText, Camera, Download, Phone, Mail, MapPin, Globe } from 'lucide-react';
-import { generateDevisPDF } from '../../utils/pdfGenerator';
+import { FileText, Camera, Download, Phone, Mail, MapPin, Globe, ClipboardList, Eye, X, Loader2, PenLine, CheckCircle } from 'lucide-react';
+import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
+import SignatureModal from '../../components/SignatureModal';
+
+/* ─── Inline PDF Viewer Modal ─── */
+const PdfViewerModal = ({ url, title, onClose }) => {
+    if (!url) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white flex-shrink-0">
+                <span className="text-sm font-medium truncate max-w-xs">{title}</span>
+                <button
+                    onClick={onClose}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-1.5 text-sm"
+                >
+                    <X className="w-4 h-4" />
+                    Fermer
+                </button>
+            </div>
+            {/* PDF */}
+            <div className="flex-1 overflow-hidden">
+                <iframe
+                    src={url}
+                    title={title}
+                    className="w-full h-full border-0"
+                />
+            </div>
+        </div>
+    );
+};
 
 const ClientPortal = () => {
     const { token } = useParams();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('documents'); // 'documents' or 'photos'
+    const [activeTab, setActiveTab] = useState('documents');
+
+    // PDF viewer state
+    const [pdfViewer, setPdfViewer] = useState({ url: null, title: '' });
+    const [generatingPdf, setGeneratingPdf] = useState(null); // id of doc being generated
+
+    // Signature state
+    const [signingQuoteId, setSigningQuoteId] = useState(null);
+    const [signedQuoteIds, setSignedQuoteIds] = useState(new Set());
 
     useEffect(() => {
         fetchPortalData();
     }, [token]);
+
+    // Revoke blob URL when viewer closes
+    const closePdfViewer = useCallback(() => {
+        if (pdfViewer.url?.startsWith('blob:')) {
+            URL.revokeObjectURL(pdfViewer.url);
+        }
+        setPdfViewer({ url: null, title: '' });
+    }, [pdfViewer.url]);
 
     const fetchPortalData = async () => {
         try {
@@ -33,22 +78,70 @@ const ClientPortal = () => {
     };
 
     const handleDownload = (quote) => {
-        // Reconstruct necessary objects for pdfGenerator
-        // Note: We might need to adjust pdfGenerator if it relies on specific object structures not present here
-        // But get_portal_data returns full rows, so it should be close.
-        // We need 'client' and 'userProfile' objects.
+        const isInvoice = quote.type === 'invoice';
+        generateDevisPDF(quote, data.client, data.artisan, isInvoice);
+    };
 
-        const clientObj = data.client;
-        const userProfileObj = data.artisan;
+    const handleViewQuote = async (quote) => {
+        const key = `q-${quote.id}`;
+        setGeneratingPdf(key);
+        try {
+            const isInvoice = quote.type === 'invoice';
+            const blobUrl = await generateDevisPDF(quote, data.client, data.artisan, isInvoice, 'bloburl');
+            const label = isInvoice ? `Facture #${quote.id}` : `Devis #${quote.id}`;
+            setPdfViewer({ url: blobUrl, title: label });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setGeneratingPdf(null);
+        }
+    };
 
-        // pdfGenerator expects 'devis', 'client', 'userProfile', 'isInvoice'
-        // We determine isInvoice based on status or other logic. 
-        // For simplicity, let's assume if status is 'accepted' and we want invoice, we pass true.
-        // But here user just wants to download the document. 
-        // Let's assume 'accepted' = Invoice, others = Quote for the button label/logic.
+    const handleDownloadReport = async (report) => {
+        if (report.report_pdf_url) {
+            window.open(report.report_pdf_url, '_blank');
+            return;
+        }
+        const key = `dl-${report.id}`;
+        setGeneratingPdf(key);
+        try {
+            await generateInterventionReportPDF(report, data.artisan);
+        } finally {
+            setGeneratingPdf(null);
+        }
+    };
 
-        const isInvoice = quote.status === 'accepted';
-        generateDevisPDF(quote, clientObj, userProfileObj, isInvoice);
+    const handleViewReport = async (report) => {
+        const key = `r-${report.id}`;
+        if (report.report_pdf_url) {
+            setPdfViewer({ url: report.report_pdf_url, title: report.title || 'Rapport d\'intervention' });
+            return;
+        }
+        setGeneratingPdf(key);
+        try {
+            const blob = await generateInterventionReportPDF(report, data.artisan, true);
+            const blobUrl = URL.createObjectURL(blob);
+            setPdfViewer({ url: blobUrl, title: report.title || 'Rapport d\'intervention' });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setGeneratingPdf(null);
+        }
+    };
+
+    const handleSignQuote = async (signatureDataUrl) => {
+        if (!signingQuoteId) return;
+        const { data: result, error } = await supabase.rpc('sign_quote_via_portal', {
+            portal_token_input: token,
+            quote_id_input: signingQuoteId,
+            signature_base64: signatureDataUrl,
+        });
+        if (error || !result?.success) {
+            alert(result?.error || error?.message || 'Erreur lors de la signature');
+            return;
+        }
+        setSignedQuoteIds(prev => new Set([...prev, signingQuoteId]));
+        setSigningQuoteId(null);
     };
 
     if (loading) return (
@@ -67,10 +160,26 @@ const ClientPortal = () => {
         </div>
     );
 
-    const { client, artisan, quotes, photos } = data;
+    const { client, artisan, quotes, photos, reports = [] } = data;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
+            {/* Inline PDF Viewer */}
+            {pdfViewer.url && (
+                <PdfViewerModal
+                    url={pdfViewer.url}
+                    title={pdfViewer.title}
+                    onClose={closePdfViewer}
+                />
+            )}
+
+            {/* Signature Modal */}
+            <SignatureModal
+                isOpen={!!signingQuoteId}
+                onSave={handleSignQuote}
+                onClose={() => setSigningQuoteId(null)}
+            />
+
             {/* Header / Artisan Info */}
             <header className="bg-white shadow-sm border-b border-gray-200">
                 <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -95,10 +204,10 @@ const ClientPortal = () => {
                                     {artisan.phone}
                                 </a>
                             )}
-                            {artisan.email && (
-                                <a href={`mailto:${artisan.email}`} className="flex items-center hover:text-blue-600">
+                            {artisan.professional_email && (
+                                <a href={`mailto:${artisan.professional_email}`} className="flex items-center hover:text-blue-600">
                                     <Mail className="w-4 h-4 mr-2" />
-                                    {artisan.email}
+                                    {artisan.professional_email}
                                 </a>
                             )}
                             {artisan.website && (
@@ -145,43 +254,148 @@ const ClientPortal = () => {
 
                 {/* Content */}
                 {activeTab === 'documents' && (
-                    <div className="space-y-4">
-                        {quotes.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">Aucun document disponible.</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                {quotes.map((quote) => (
-                                    <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                                                        ${quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                                            quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                                'bg-yellow-100 text-yellow-800'}`}>
-                                                        {quote.status === 'accepted' ? 'Facture / Signé' : 'Devis'}
-                                                    </span>
-                                                    <span className="text-sm text-gray-500">#{quote.id}</span>
+                    <div className="space-y-8">
+                        {/* Devis & Factures */}
+                        <div className="space-y-4">
+                            {quotes.length === 0 ? (
+                                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-gray-500">Aucun document disponible.</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {quotes.map((quote) => {
+                                        const isInvoice = quote.type === 'invoice';
+                                        const viewKey = `q-${quote.id}`;
+                                        const dlKey = `dl-q-${quote.id}`;
+                                        return (
+                                            <div key={quote.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                                {/* Determine signature state */}
+                                                {(() => {
+                                                    const isSigned = quote.status === 'accepted' || signedQuoteIds.has(quote.id);
+                                                    const canSign = !isInvoice && !isSigned && quote.status !== 'rejected' && quote.status !== 'cancelled';
+                                                    return (
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                                                                        ${isSigned ? 'bg-green-100 text-green-800' :
+                                                                            quote.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                                                'bg-yellow-100 text-yellow-800'}`}>
+                                                                        {isInvoice ? 'Facture' : isSigned ? 'Devis signé' : 'Devis'}
+                                                                    </span>
+                                                                    <span className="text-sm text-gray-500">#{quote.id}</span>
+                                                                </div>
+                                                                <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                {/* Sign button for unsigned quotes */}
+                                                                {canSign && (
+                                                                    <button
+                                                                        onClick={() => setSigningQuoteId(quote.id)}
+                                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                                                                        title="Signer ce devis"
+                                                                    >
+                                                                        <PenLine className="w-3.5 h-3.5" />
+                                                                        Signer
+                                                                    </button>
+                                                                )}
+                                                                {isSigned && !isInvoice && (
+                                                                    <span className="flex items-center gap-1 text-xs text-green-600 font-medium px-2">
+                                                                        <CheckCircle className="w-4 h-4" /> Signé
+                                                                    </span>
+                                                                )}
+                                                                {/* View inline */}
+                                                                <button
+                                                                    onClick={() => handleViewQuote(quote)}
+                                                                    disabled={generatingPdf === viewKey}
+                                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+                                                                    title="Voir le document"
+                                                                >
+                                                                    {generatingPdf === viewKey
+                                                                        ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                                        : <Eye className="w-5 h-5" />}
+                                                                </button>
+                                                                {/* Download */}
+                                                                <button
+                                                                    onClick={() => handleDownload(quote)}
+                                                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                    title="Télécharger"
+                                                                >
+                                                                    <Download className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                                <div className="text-sm text-gray-600 space-y-1">
+                                                    <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
+                                                    <p className="line-clamp-2">{quote.notes}</p>
                                                 </div>
-                                                <p className="text-lg font-bold text-gray-900">{quote.total_ttc.toFixed(2)} €</p>
                                             </div>
-                                            <button
-                                                onClick={() => handleDownload(quote)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Télécharger"
-                                            >
-                                                <Download className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                        <div className="text-sm text-gray-600 space-y-1">
-                                            <p>Date : {new Date(quote.date).toLocaleDateString()}</p>
-                                            <p className="line-clamp-2">{quote.notes}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Rapports d'intervention */}
+                        {reports.length > 0 && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <ClipboardList className="w-4 h-4" />
+                                    Rapports d'intervention
+                                </h2>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {reports.map((report) => {
+                                        const viewKey = `r-${report.id}`;
+                                        return (
+                                            <div key={report.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${report.status === 'signed' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                                                                {report.status === 'signed' ? 'Signé' : 'Terminé'}
+                                                            </span>
+                                                            {report.report_number && (
+                                                                <span className="text-sm text-gray-500">N°{report.report_number}</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="font-semibold text-gray-900 text-sm">{report.title}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        {/* View inline */}
+                                                        <button
+                                                            onClick={() => handleViewReport(report)}
+                                                            disabled={generatingPdf === viewKey}
+                                                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
+                                                            title="Voir le rapport"
+                                                        >
+                                                            {generatingPdf === viewKey
+                                                                ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                                : <Eye className="w-5 h-5" />}
+                                                        </button>
+                                                        {/* Download */}
+                                                        <button
+                                                            onClick={() => handleDownloadReport(report)}
+                                                            disabled={generatingPdf === `dl-${report.id}`}
+                                                            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-40"
+                                                            title="Télécharger le rapport"
+                                                        >
+                                                            <Download className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-gray-500">
+                                                    {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    {report.signed_at && report.signer_name && (
+                                                        <span className="ml-2">· Signé par {report.signer_name}</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>

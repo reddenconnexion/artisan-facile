@@ -55,7 +55,7 @@ export default defineConfig({
               cacheableResponse: {
                 statuses: [0, 200]
               },
-              networkTimeoutSeconds: 10
+              networkTimeoutSeconds: 3
             }
           },
           {
@@ -91,7 +91,14 @@ export default defineConfig({
     })
   ],
   server: {
-    host: true
+    host: true,
+    headers: {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
+    }
   },
   define: {
     'import.meta.env.PACKAGE_VERSION': JSON.stringify(process.env.npm_package_version)
@@ -100,6 +107,7 @@ export default defineConfig({
     include: ['pdfjs-dist']
   },
   build: {
+    target: ['es2020', 'safari14'],
     rollupOptions: {
       output: {
         manualChunks: {

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound } from 'lucide-react';
 import { getNotificationTopic } from '../utils/notifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
@@ -10,6 +10,11 @@ const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    // API key: stored in a ref (not React state) to keep it out of DevTools
+    // and not displayed in the form input value
+    const storedApiKeyRef = useRef('');
+    const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+    const [apiKeyInput, setApiKeyInput] = useState('');
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -49,6 +54,9 @@ const Profile = () => {
 
             if (data) {
                 const aiPrefs = data.ai_preferences || {};
+                // Store the API key in a ref — never put it in React state or form inputs
+                storedApiKeyRef.current = aiPrefs.openai_api_key || '';
+                setApiKeyConfigured(!!aiPrefs.openai_api_key);
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',
@@ -68,18 +76,17 @@ const Profile = () => {
                     wero_phone: data.wero_phone || '',
                     artisan_status: aiPrefs.artisan_status || 'micro_entreprise',
                     activity_type: aiPrefs.activity_type || 'services',
-                    openai_api_key: aiPrefs.openai_api_key || localStorage.getItem('openai_api_key') || '',
-                    ai_provider: aiPrefs.ai_provider || localStorage.getItem('ai_provider') || 'openai',
-                    ai_hourly_rate: aiPrefs.ai_hourly_rate || localStorage.getItem('ai_hourly_rate') || '',
+                    ai_provider: aiPrefs.ai_provider || 'openai',
+                    ai_hourly_rate: aiPrefs.ai_hourly_rate || '',
                     // Zones
-                    zone1_radius: aiPrefs.zone1_radius || localStorage.getItem('zone1_radius') || '',
-                    zone1_price: aiPrefs.zone1_price || localStorage.getItem('zone1_price') || '',
-                    zone2_radius: aiPrefs.zone2_radius || localStorage.getItem('zone2_radius') || '',
-                    zone2_price: aiPrefs.zone2_price || localStorage.getItem('zone2_price') || '',
-                    zone3_radius: aiPrefs.zone3_radius || localStorage.getItem('zone3_radius') || '',
-                    zone3_price: aiPrefs.zone3_price || localStorage.getItem('zone3_price') || '',
+                    zone1_radius: aiPrefs.zone1_radius || '',
+                    zone1_price: aiPrefs.zone1_price || '',
+                    zone2_radius: aiPrefs.zone2_radius || '',
+                    zone2_price: aiPrefs.zone2_price || '',
+                    zone3_radius: aiPrefs.zone3_radius || '',
+                    zone3_price: aiPrefs.zone3_price || '',
 
-                    ai_instructions: aiPrefs.ai_instructions || localStorage.getItem('ai_instructions') || ''
+                    ai_instructions: aiPrefs.ai_instructions || ''
                 });
             }
         } catch (error) {
@@ -96,13 +103,37 @@ const Profile = () => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Le fichier est trop volumineux (max 5 Mo)');
+                return;
+            }
+
+            // Whitelist allowed MIME types for logos
+            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp', 'image/gif'];
+            if (!allowedMimeTypes.includes(file.type)) {
+                toast.error('Format de fichier non autorisé. Utilisez JPG, PNG, SVG, WebP ou GIF.');
+                return;
+            }
+
+            // Whitelist allowed extensions
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg', 'webp', 'gif'];
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(fileExt)) {
+                toast.error('Extension de fichier non autorisée.');
+                return;
+            }
+
+            // Use cryptographically secure random filename to prevent guessing
+            const randomBytes = new Uint8Array(16);
+            crypto.getRandomValues(randomBytes);
+            const randomHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            const fileName = `${user.id}-${randomHex}.${fileExt}`;
             const filePath = `${fileName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('logos')
-                .upload(filePath, file);
+                .upload(filePath, file, { contentType: file.type });
 
             if (uploadError) throw uploadError;
 
@@ -142,9 +173,9 @@ const Profile = () => {
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
 
-                    // Save AI prefs to JSONB column
                     ai_preferences: {
-                        openai_api_key: formData.openai_api_key,
+                        // Use newly typed key if provided, else preserve the existing stored key
+                        openai_api_key: apiKeyInput || storedApiKeyRef.current,
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
                         zone1_radius: formData.zone1_radius,
@@ -174,6 +205,30 @@ const Profile = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const [newEmail, setNewEmail] = useState('');
+    const [emailChanging, setEmailChanging] = useState(false);
+    const [emailChangeSent, setEmailChangeSent] = useState(false);
+
+    const handleEmailChange = async (e) => {
+        e.preventDefault();
+        if (!newEmail.trim()) return;
+        if (newEmail === user.email) {
+            toast.error('Cette adresse est déjà votre email de connexion.');
+            return;
+        }
+        setEmailChanging(true);
+        try {
+            const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+            if (error) throw error;
+            setEmailChangeSent(true);
+            toast.success('Email de confirmation envoyé ! Vérifiez votre boîte mail.');
+        } catch (err) {
+            toast.error('Erreur : ' + err.message);
+        } finally {
+            setEmailChanging(false);
+        }
     };
 
     return (
@@ -528,7 +583,6 @@ const Profile = () => {
                                     type="button"
                                     onClick={() => {
                                         setFormData({ ...formData, ai_provider: 'openai' });
-                                        localStorage.setItem('ai_provider', 'openai');
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${(!formData.ai_provider || formData.ai_provider === 'openai')
                                         ? 'bg-white text-purple-700 shadow-sm'
@@ -541,7 +595,6 @@ const Profile = () => {
                                     type="button"
                                     onClick={() => {
                                         setFormData({ ...formData, ai_provider: 'gemini' });
-                                        localStorage.setItem('ai_provider', 'gemini');
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${formData.ai_provider === 'gemini'
                                         ? 'bg-white text-blue-700 shadow-sm'
@@ -557,25 +610,29 @@ const Profile = () => {
                             <label className="block text-sm font-medium text-purple-900 mb-2">
                                 Clé API ({(!formData.ai_provider || formData.ai_provider === 'openai') ? 'OpenAI' : 'Gemini'})
                             </label>
-                            <div className="flex gap-2">
+                            {apiKeyConfigured && !apiKeyInput ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="flex-1 px-3 py-2 border border-purple-200 rounded-lg bg-purple-50 text-purple-700 text-sm">
+                                        ✓ Clé configurée
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setApiKeyInput(' ')}
+                                        className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
+                                    >
+                                        Modifier
+                                    </button>
+                                </div>
+                            ) : (
                                 <input
                                     type="password"
                                     placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
-                                    className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                                    value={formData.openai_api_key || ''}
-                                    onChange={(e) => {
-                                        setFormData({ ...formData, openai_api_key: e.target.value });
-                                        localStorage.setItem('openai_api_key', e.target.value);
-                                    }}
+                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
+                                    onChange={(e) => setApiKeyInput(e.target.value)}
+                                    autoFocus={apiKeyConfigured}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => toast.success("Clé sauvegardée localement")}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                                >
-                                    Sauvegarder
-                                </button>
-                            </div>
+                            )}
                         </div>
 
                         <div className="pt-4 border-t border-purple-100">
@@ -590,7 +647,6 @@ const Profile = () => {
                                     value={formData.ai_hourly_rate || ''}
                                     onChange={(e) => {
                                         setFormData({ ...formData, ai_hourly_rate: e.target.value });
-                                        localStorage.setItem('ai_hourly_rate', e.target.value);
                                     }}
                                 />
                             </div>
@@ -614,7 +670,6 @@ const Profile = () => {
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [radiusKey]: val }));
-                                                        localStorage.setItem(radiusKey, val);
                                                     }}
                                                 />
                                                 <span className="absolute right-2 top-1.5 text-xs text-gray-400">km</span>
@@ -629,7 +684,6 @@ const Profile = () => {
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [priceKey]: val }));
-                                                        localStorage.setItem(priceKey, val);
                                                     }}
                                                 />
                                                 <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
@@ -652,7 +706,6 @@ const Profile = () => {
                                 value={formData.ai_instructions || ''}
                                 onChange={(e) => {
                                     setFormData({ ...formData, ai_instructions: e.target.value });
-                                    localStorage.setItem('ai_instructions', e.target.value);
                                 }}
                             />
                         </div>
@@ -661,6 +714,53 @@ const Profile = () => {
             </div>
 
             {/* Zone de Danger / Maintenance */}
+            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center">
+                        <Mail className="w-5 h-5 mr-2 text-blue-600" />
+                        Email de connexion
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Email actuel : <strong>{user?.email}</strong>
+                        <br />Vos données ne seront pas perdues — elles sont liées à votre compte, pas à votre adresse email.
+                    </p>
+
+                    {emailChangeSent ? (
+                        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
+                            <Mail className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <p className="font-medium">Email de confirmation envoyé à <strong>{newEmail}</strong></p>
+                                <p className="mt-1 text-green-700">Cliquez sur le lien dans cet email pour finaliser le changement. Une fois confirmé, utilisez votre nouvelle adresse pour vous connecter.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleEmailChange} className="flex flex-col sm:flex-row gap-3 max-w-lg">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nouvelle adresse email</label>
+                                <input
+                                    type="email"
+                                    value={newEmail}
+                                    onChange={(e) => setNewEmail(e.target.value)}
+                                    placeholder="contact@monentreprise.com"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    type="submit"
+                                    disabled={emailChanging || !newEmail.trim()}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
+                                >
+                                    <KeyRound className="w-4 h-4" />
+                                    {emailChanging ? 'Envoi...' : 'Changer'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+
             < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">

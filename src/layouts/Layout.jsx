@@ -1,23 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown } from 'lucide-react';
+import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
+import TestModePanel from '../components/TestModePanel';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTestMode } from '../context/TestModeContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
-import GlobalAssistant from '../components/GlobalAssistant';
+import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
+import { usePendingCounts } from '../hooks/useDataCache';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [showTestPanel, setShowTestPanel] = useState(false);
+  const { isTestMode, capturedEmails, enableTestMode } = useTestMode();
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
+  const { total: pendingCount } = usePendingCounts();
+
+  // Écouter les signatures de devis en temps réel
+  useSignatureNotifications();
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
@@ -97,7 +107,8 @@ const Layout = () => {
       enable_price_library: userSettings.enable_price_library ?? true,
       enable_inventory: userSettings.enable_inventory ?? true,
       enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
-      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType)
+      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType),
+      enable_intervention_reports: userSettings.enable_intervention_reports ?? true,
     };
 
     const nav = [
@@ -113,14 +124,19 @@ const Layout = () => {
 
     if (settings.enable_crm) {
       nav.push({ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban });
-      nav.push({ name: 'Relances', href: '/app/follow-ups', icon: Send });
     }
 
     nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });
 
+    if (settings.enable_intervention_reports) {
+      nav.push({ name: 'Rapports d\'intervention', href: '/app/interventions', icon: ClipboardList });
+    }
+
     nav.push({ name: 'Comptabilité', href: '/app/accounting', icon: Calculator });
 
     nav.push({ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon });
+
+    nav.push({ name: 'Marketing', href: '/app/marketing', icon: Megaphone });
 
     if (settings.enable_price_library) {
       nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
@@ -137,6 +153,9 @@ const Layout = () => {
     if (settings.enable_rentals) {
       nav.push({ name: 'Locations', href: '/app/rentals', icon: Truck });
     }
+
+    nav.push({ name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic });
+    nav.push({ name: 'Abonnement', href: '/app/subscription', icon: Crown });
 
     return nav;
   }, [user]);
@@ -161,6 +180,51 @@ const Layout = () => {
       toast.error('Erreur lors de la déconnexion');
     }
   };
+
+  // Keyboard shortcuts
+  const [showShortcuts, setShowShortcuts] = React.useState(false);
+
+  const handleKeyboardShortcuts = useCallback((e) => {
+    // Ignore shortcuts when typing in inputs/textareas
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+
+    if (e.altKey) {
+      switch (e.key.toLowerCase()) {
+        case 'd':
+          e.preventDefault();
+          navigate('/app/devis/new');
+          break;
+        case 'c':
+          e.preventDefault();
+          navigate('/app/clients/new');
+          break;
+        case 'r':
+          e.preventDefault();
+          navigate('/app/agenda', { state: { openNewEvent: true } });
+          break;
+        case 'i':
+          e.preventDefault();
+          navigate('/app/interventions/new');
+          break;
+        case 'h':
+          e.preventDefault();
+          navigate('/app');
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (e.key === '?' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      setShowShortcuts(prev => !prev);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyboardShortcuts);
+    return () => document.removeEventListener('keydown', handleKeyboardShortcuts);
+  }, [handleKeyboardShortcuts]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -301,6 +365,7 @@ const Layout = () => {
           <nav className="flex-1 px-4 space-y-2 mt-4 md:mt-0 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
+              const showBadge = item.name === 'Devis & Factures' && pendingCount > 0;
               return (
                 <Link
                   key={item.name}
@@ -310,8 +375,24 @@ const Layout = () => {
                     : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                     } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                 >
-                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                  {(!isCollapsed || isMobileMenuOpen) && <span>{item.name}</span>}
+                  <div className="relative flex-shrink-0">
+                    <item.icon className={`w-5 h-5 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                    {showBadge && (
+                      <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
+                  </div>
+                  {(!isCollapsed || isMobileMenuOpen) && (
+                    <span className="flex-1 flex items-center justify-between">
+                      {item.name}
+                      {showBadge && (
+                        <span className="ml-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                          {pendingCount}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -332,6 +413,45 @@ const Layout = () => {
               {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode Clair' : 'Mode Sombre')}
             </button>
 
+            {/* Mode Test */}
+            {isTestMode ? (
+              <button
+                onClick={() => setShowTestPanel(true)}
+                className={`flex items-center w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-400 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              >
+                <div className="relative flex-shrink-0">
+                  <Inbox className={`w-5 h-5 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                  {capturedEmails.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                      {capturedEmails.length > 9 ? '9+' : capturedEmails.length}
+                    </span>
+                  )}
+                </div>
+                {(!isCollapsed || isMobileMenuOpen) && (
+                  <span className="flex items-center gap-2">
+                    Inbox test
+                    <span className="text-[10px] bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full font-bold">TEST</span>
+                  </span>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={enableTestMode}
+                className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              >
+                <FlaskConical className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                {(!isCollapsed || isMobileMenuOpen) && 'Mode test'}
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              title="Raccourcis clavier (?)"
+            >
+              <Keyboard className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              {(!isCollapsed || isMobileMenuOpen) && 'Raccourcis clavier'}
+            </button>
             <button
               onClick={() => navigate('/app/settings')}
               className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
@@ -363,11 +483,27 @@ const Layout = () => {
           </main>
 
           <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
+          {showTestPanel && <TestModePanel onClose={() => setShowTestPanel(false)} />}
+
+          {/* Bannière mode test en bas de l'écran */}
+          {isTestMode && !showTestPanel && (
+            <button
+              onClick={() => setShowTestPanel(true)}
+              className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full shadow-lg transition-colors"
+            >
+              <FlaskConical className="w-4 h-4" />
+              MODE TEST ACTIF
+              {capturedEmails.length > 0 && (
+                <span className="bg-white text-amber-600 text-xs font-bold px-1.5 py-0.5 rounded-full">
+                  {capturedEmails.length}
+                </span>
+              )}
+            </button>
+          )}
 
 
-          <GlobalAssistant />
-
-          {/* Voice Assistant Controls Removed (Replaced by GlobalAssistant) */}
+          {/* Voice Pipeline Button */}
+          <VoiceRecorderButton />
           {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
@@ -388,6 +524,46 @@ const Layout = () => {
           </div> */}
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showShortcuts && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold dark:text-white flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-blue-600" />
+                Raccourcis clavier
+              </h2>
+              <button onClick={() => setShowShortcuts(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <X className="w-4 h-4 dark:text-gray-300" />
+              </button>
+            </div>
+            <div className="space-y-2 text-sm">
+              {[
+                { keys: ['Alt', 'D'], label: 'Nouveau devis' },
+                { keys: ['Alt', 'C'], label: 'Nouveau client' },
+                { keys: ['Alt', 'R'], label: 'Nouveau RDV (agenda)' },
+                { keys: ['Alt', 'I'], label: 'Nouveau rapport d\'intervention' },
+                { keys: ['Alt', 'H'], label: 'Tableau de bord' },
+                { keys: ['?'], label: 'Afficher / masquer cette aide' },
+              ].map(({ keys, label }) => (
+                <div key={label} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <span className="text-gray-700 dark:text-gray-300">{label}</span>
+                  <div className="flex items-center gap-1">
+                    {keys.map((k, i) => (
+                      <React.Fragment key={k}>
+                        <kbd className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono border border-gray-200 dark:border-gray-600">{k}</kbd>
+                        {i < keys.length - 1 && <span className="text-gray-400 text-xs">+</span>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">Les raccourcis sont désactivés dans les champs de saisie</p>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation - Amazon Style */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
