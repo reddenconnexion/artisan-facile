@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
             return json({ success: true, dev_otp: otp });
         }
 
-        const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Artisan Facile <signature@artisan-facile.fr>';
+        const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Artisan Facile <signature@artisanfacile.fr>';
         const replyTo = Deno.env.get('EMAIL_REPLY_TO');
         const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
