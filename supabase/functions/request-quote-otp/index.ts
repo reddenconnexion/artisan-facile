@@ -90,7 +90,10 @@ Deno.serve(async (req) => {
             .from('quote_otps')
             .insert({ quote_id: quote.id, otp_hash: otpHash, expires_at: expiresAt });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+            console.error('quote_otps insert error:', JSON.stringify(insertError));
+            throw insertError;
+        }
 
         // Envoyer l'OTP par email via Resend
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -119,8 +122,8 @@ Deno.serve(async (req) => {
 
         if (!emailRes.ok) {
             const detail = await emailRes.text();
-            console.error('Resend error:', detail);
-            throw new Error("Échec de l'envoi de l'email de vérification");
+            console.error('Resend error:', emailRes.status, detail);
+            throw new Error(`Resend ${emailRes.status}: ${detail}`);
         }
 
         return json({ success: true });
