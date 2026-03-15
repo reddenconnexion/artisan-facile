@@ -5,11 +5,19 @@ import { useNavigate } from 'react-router-dom';
 import { format, isAfter, addDays, parseISO, addHours, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { useTestMode } from '../context/TestModeContext';
 import { fr } from 'date-fns/locale';
 
 const ActionableDashboard = ({ user }) => {
     const navigate = useNavigate();
     const { invalidateQuotes } = useInvalidateCache();
+    const { isTestMode, testClient } = useTestMode();
+
+    const isTestQuote = (q) => !isTestMode && (
+        q.client_name?.includes('⚗️') ||
+        q.clients?.name?.includes('⚗️') ||
+        (testClient?.id && q.client_id === testClient.id)
+    );
     const [loading, setLoading] = useState(true);
     const [convertingId, setConvertingId] = useState(null);
     const [actionItems, setActionItems] = useState({
@@ -24,7 +32,7 @@ const ActionableDashboard = ({ user }) => {
         if (user) {
             fetchActionItems();
         }
-    }, [user]);
+    }, [user, isTestMode, testClient?.id]);
 
     const fetchActionItems = async () => {
         try {
@@ -81,7 +89,10 @@ const ActionableDashboard = ({ user }) => {
                 .order('updated_at', { ascending: false });
 
             // Filter out quotes that already have at least one invoice generated (deposit or final)
-            const signedQuotes = (rawSignedQuotes || []).filter(q => !q.invoices || q.invoices.length === 0);
+            // Also exclude test client quotes when not in test mode
+            const signedQuotes = (rawSignedQuotes || []).filter(q =>
+                (!q.invoices || q.invoices.length === 0) && !isTestQuote(q)
+            );
 
 
             // 3. Pending Invoices (Billed but not Paid)
@@ -123,9 +134,9 @@ const ActionableDashboard = ({ user }) => {
 
             setActionItems({
                 upcomingEvents: processedEvents || [],
-                overdueQuotes: overdueQuotes || [],
-                pendingInvoices: pendingInvoices || [],
-                draftQuotes: draftQuotes || [],
+                overdueQuotes: (overdueQuotes || []).filter(q => !isTestQuote(q)),
+                pendingInvoices: (pendingInvoices || []).filter(q => !isTestQuote(q)),
+                draftQuotes: (draftQuotes || []).filter(q => !isTestQuote(q)),
                 maintenanceAlerts: maintenanceAlerts,
                 signedQuotes: signedQuotes || []
             });
