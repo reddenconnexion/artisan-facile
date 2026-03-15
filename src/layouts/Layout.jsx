@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
+import { usePlanLimits } from '../hooks/usePlanLimits';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
@@ -25,6 +26,7 @@ const Layout = () => {
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
+  const { plan, isPro, isOwner } = usePlanLimits();
 
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
@@ -399,6 +401,37 @@ const Layout = () => {
           </nav>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+            {/* Plan Badge */}
+            <button
+              onClick={() => navigate('/app/subscription')}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                isOwner
+                  ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30'
+                  : isPro
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                  : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
+            >
+              <Crown className={`w-5 h-5 flex-shrink-0 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'} ${
+                isOwner ? 'text-violet-500' : isPro ? 'text-blue-500' : 'text-gray-400'
+              }`} />
+              {(!isCollapsed || isMobileMenuOpen) && (
+                <span className="flex items-center gap-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    isOwner
+                      ? 'bg-violet-200 dark:bg-violet-700 text-violet-800 dark:text-violet-100'
+                      : isPro
+                      ? 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                  }`}>
+                    {isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}
+                  </span>
+                  {!isPro && <span className="text-xs text-gray-400 dark:text-gray-500">Passer au Pro</span>}
+                </span>
+              )}
+            </button>
+
             {/* Dark Mode Toggle Button */}
             <button
               onClick={toggleDarkMode}
