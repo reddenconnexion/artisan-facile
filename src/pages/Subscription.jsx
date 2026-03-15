@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2
+    Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2,
+    Loader2, ExternalLink, AlertCircle, CreditCard
 } from 'lucide-react';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { PLAN_LIMITS } from '../utils/planLimits';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 
@@ -70,17 +71,57 @@ const CheckMark = ({ value, label }) => {
 const Subscription = () => {
     const { plan, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [portalLoading, setPortalLoading] = useState(false);
     const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
 
-    const handleUpgradeToPro = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { error } = await supabase.from('profiles').update({ plan: 'pro' }).eq('id', user.id);
-        if (error) {
-            toast.error('Erreur lors du passage en Pro : ' + error.message);
-        } else {
-            toast.success('Plan mis à jour en Pro !');
+    // Handle Stripe redirect callbacks
+    useEffect(() => {
+        if (searchParams.get('success') === 'true') {
+            toast.success('🎉 Abonnement Pro activé ! Bienvenue dans le plan Pro.');
             refresh();
+            // Clean URL
+            navigate('/app/subscription', { replace: true });
+        } else if (searchParams.get('cancelled') === 'true') {
+            toast.info('Paiement annulé. Vous restez sur le plan gratuit.');
+            navigate('/app/subscription', { replace: true });
+        }
+    }, []);
+
+    const handleCheckout = async () => {
+        setCheckoutLoading(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+                body: { origin: window.location.origin },
+            });
+            if (error) throw new Error(error.message);
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('URL de paiement non reçue');
+            }
+        } catch (err) {
+            toast.error('Erreur lors de la création du paiement : ' + err.message);
+            setCheckoutLoading(false);
+        }
+    };
+
+    const handleManageSubscription = async () => {
+        setPortalLoading(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('stripe-portal', {
+                body: { origin: window.location.origin },
+            });
+            if (error) throw new Error(error.message);
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error('URL du portail non reçue');
+            }
+        } catch (err) {
+            toast.error('Erreur : ' + err.message);
+            setPortalLoading(false);
         }
     };
 
@@ -121,18 +162,39 @@ const Subscription = () => {
                         {isOwner && (
                             <p className="text-purple-200 text-xs mt-1">Accès illimité à toutes les fonctionnalités</p>
                         )}
+                        {isPro && !isOwner && (
+                            <p className="text-orange-100 text-xs mt-1">14,99 € / mois · Renouvellement automatique</p>
+                        )}
                     </div>
                     {isOwner ? (
                         <div className="text-5xl">👑</div>
                     ) : isPro ? (
-                        <Crown size={40} className="text-orange-200" />
+                        <div className="text-right flex flex-col items-end gap-2">
+                            <Crown size={36} className="text-orange-200" />
+                            <button
+                                onClick={handleManageSubscription}
+                                disabled={portalLoading}
+                                className="flex items-center gap-1.5 text-xs text-orange-100 hover:text-white transition-colors"
+                            >
+                                {portalLoading
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <ExternalLink size={12} />
+                                }
+                                Gérer l'abonnement
+                            </button>
+                        </div>
                     ) : (
                         <div className="text-right">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Envie de plus ?</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">14,99 € / mois</p>
                             <button
-                                onClick={handleUpgradeToPro}
-                                className="mt-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                                onClick={handleCheckout}
+                                disabled={checkoutLoading}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
                             >
+                                {checkoutLoading
+                                    ? <Loader2 size={14} className="animate-spin" />
+                                    : <CreditCard size={14} />
+                                }
                                 Passer en Pro
                             </button>
                         </div>
@@ -147,7 +209,7 @@ const Subscription = () => {
                 </h2>
 
                 <div className="space-y-4">
-                    {/* Voice memos usage */}
+                    {/* Voice memos */}
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
@@ -181,7 +243,7 @@ const Subscription = () => {
                         )}
                     </div>
 
-                    {/* AI generations usage */}
+                    {/* AI generations */}
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
@@ -255,22 +317,30 @@ const Subscription = () => {
                 })}
             </div>
 
-            {/* Upgrade CTA (only for free users) */}
+            {/* Upgrade CTA (free users only) */}
             {!isPro && (
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white text-center">
                     <Crown size={32} className="mx-auto mb-2 text-amber-300" />
                     <h3 className="font-bold text-lg mb-1">Passez au plan Pro</h3>
-                    <p className="text-blue-100 text-sm mb-4">
-                        Transcription incluse, pipeline automatique, génération IA illimitée.
-                        Déléguez 100% de l'administratif.
+                    <p className="text-blue-100 text-sm mb-1">
+                        Transcription incluse, pipeline automatique, IA illimitée.
                     </p>
+                    <p className="text-blue-200 text-xs mb-4">Votre clé API n'est plus nécessaire — tout est géré par l'app.</p>
                     <button
-                        onClick={handleUpgradeToPro}
-                        className="px-6 py-3 bg-white text-blue-700 font-bold rounded-lg hover:bg-blue-50 transition-colors"
+                        onClick={handleCheckout}
+                        disabled={checkoutLoading}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-700 font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
                     >
-                        Activer le plan Pro
+                        {checkoutLoading
+                            ? <Loader2 size={16} className="animate-spin" />
+                            : <CreditCard size={16} />
+                        }
+                        Souscrire pour 14,99 € / mois
                     </button>
-                    <p className="text-xs text-blue-200 mt-2">Intégration de paiement à venir</p>
+                    <p className="text-xs text-blue-200 mt-3 flex items-center justify-center gap-1">
+                        <AlertCircle size={11} />
+                        Paiement sécurisé par Stripe · Annulable à tout moment
+                    </p>
                 </div>
             )}
 
@@ -285,8 +355,16 @@ const Subscription = () => {
             {isPro && !isOwner && (
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl p-4 text-center">
                     <CheckCircle size={24} className="mx-auto text-green-500 mb-2" />
-                    <p className="text-green-700 dark:text-green-300 font-semibold text-sm">Vous avez le plan Pro actif</p>
-                    <p className="text-green-600 dark:text-green-400 text-xs mt-1">Toutes les fonctionnalités sont disponibles.</p>
+                    <p className="text-green-700 dark:text-green-300 font-semibold text-sm">Plan Pro actif</p>
+                    <p className="text-green-600 dark:text-green-400 text-xs mt-1 mb-3">Toutes les fonctionnalités sont disponibles.</p>
+                    <button
+                        onClick={handleManageSubscription}
+                        disabled={portalLoading}
+                        className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 hover:underline"
+                    >
+                        {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                        Gérer / annuler l'abonnement
+                    </button>
                 </div>
             )}
         </div>
