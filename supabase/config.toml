@@ -1,0 +1,2 @@
+[functions.request-quote-otp]
+verify_jwt = false
