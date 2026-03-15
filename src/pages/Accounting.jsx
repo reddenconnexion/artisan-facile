@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes } from '../hooks/useDataCache';
+import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -58,12 +59,20 @@ const VAT_LIMITS = {
 
 const Accounting = () => {
   const { user } = useAuth();
+  const { isTestMode, testClient } = useTestMode();
 
   // Use hooks for reactive data
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const { data: invoices, isLoading: invoicesLoading } = useQuotes(); // Fetch all quotes (will filter locally)
 
   const loading = profileLoading || invoicesLoading;
+
+  // Exclure les devis/factures du client test de la comptabilité quand le mode test est inactif
+  const filteredInvoices = useMemo(() => {
+    const all = invoices || [];
+    if (isTestMode || !testClient?.id) return all;
+    return all.filter(q => q.client_id !== testClient.id && !q.client_name?.includes('⚗️'));
+  }, [invoices, isTestMode, testClient?.id]);
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedPeriod, setSelectedPeriod] = useState('month'); // 'month' ou 'quarter'
@@ -94,7 +103,7 @@ const Accounting = () => {
   // Calcul du CA détaillé pour la période sélectionnée (factures payées uniquement)
   // Retourne { total, services, vente }
   const periodData = useMemo(() => {
-    const safeInvoices = invoices || [];
+    const safeInvoices = filteredInvoices;
     if (!safeInvoices.length) return { total: 0, services: 0, vente: 0 };
 
     // Exclure les doublons : si un devis (type!=invoice) est payé ET sa facture enfant aussi,
@@ -156,7 +165,7 @@ const Accounting = () => {
       vente: totalMaterial
     };
 
-  }, [invoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
+  }, [filteredInvoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
 
   // Mettre à jour les champs "Auto-remplis" quand calculés
   useEffect(() => {
@@ -167,7 +176,7 @@ const Accounting = () => {
 
   // Calcul du CA annuel (factures payées uniquement, sans doublons)
   const yearlyRevenue = useMemo(() => {
-    const safeInvoices = invoices || [];
+    const safeInvoices = filteredInvoices;
     const paidQuoteIds = new Set(
       safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
     );
@@ -184,7 +193,7 @@ const Accounting = () => {
         const amount = invoice.total_ht || invoice.total_ttc || 0;
         return sum + amount;
       }, 0);
-  }, [invoices, selectedYear]);
+  }, [filteredInvoices, selectedYear]);
 
   // Récupération des préférences depuis ai_preferences
   // Valeurs par défaut si pas encore configurées
@@ -238,7 +247,7 @@ const Accounting = () => {
 
   // Calcul du CA Services annuel pour le plafond mixte (sans doublons)
   const yearlyRevenueServices = useMemo(() => {
-    const safeInvoices = invoices || [];
+    const safeInvoices = filteredInvoices;
     const paidQuoteIds = new Set(
       safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
     );
@@ -267,7 +276,7 @@ const Accounting = () => {
         }
         return sum + sDiff;
       }, 0);
-  }, [invoices, selectedYear, activityType]);
+  }, [filteredInvoices, selectedYear, activityType]);
 
 
   // Vérification du dépassement de plafond
@@ -367,7 +376,7 @@ const Accounting = () => {
 
   // Livre de recettes : liste chronologique des encaissements
   const recettesData = useMemo(() => {
-    const safeInvoices = invoices || [];
+    const safeInvoices = filteredInvoices;
 
     // Filtrer les factures payées, exclure doublons parent/enfant
     const paidQuoteIds = new Set(
@@ -425,7 +434,7 @@ const Accounting = () => {
         };
       })
       .sort((a, b) => a.date - b.date); // Tri chronologique
-  }, [invoices, recettesYear, recettesSearch]);
+  }, [filteredInvoices, recettesYear, recettesSearch]);
 
   // Total annuel du livre de recettes
   const recettesTotal = useMemo(() => {
