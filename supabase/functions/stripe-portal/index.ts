@@ -6,10 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
+const isTestMode = stripeKey.startsWith('sk_test_');
+
+const stripe = new Stripe(stripeKey, {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient(),
 });
+
+// Field name differs between test and live mode for accounting isolation
+const customerIdField = isTestMode ? 'stripe_test_customer_id' : 'stripe_customer_id';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,11 +50,12 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('stripe_customer_id')
+      .select(customerIdField)
       .eq('id', user.id)
       .single();
 
-    if (!profile?.stripe_customer_id) {
+    const customerId = profile?.[customerIdField];
+    if (!customerId) {
       return new Response(JSON.stringify({ error: 'Aucun abonnement trouvé.' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -58,7 +65,7 @@ Deno.serve(async (req) => {
     const appUrl = origin || Deno.env.get('APP_URL') || 'https://app.artisan-facile.fr';
 
     const session = await stripe.billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
+      customer: customerId,
       return_url: `${appUrl}/app/subscription`,
     });
 

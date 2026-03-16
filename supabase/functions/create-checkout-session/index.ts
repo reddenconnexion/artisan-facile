@@ -6,10 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
+const isTestMode = stripeKey.startsWith('sk_test_');
+
+const stripe = new Stripe(stripeKey, {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient(),
 });
+
+// Field names differ between test and live mode for accounting isolation
+const customerIdField = isTestMode ? 'stripe_test_customer_id' : 'stripe_customer_id';
+const subscriptionIdField = isTestMode ? 'stripe_test_subscription_id' : 'stripe_subscription_id';
+const subscriptionStatusField = isTestMode ? 'stripe_test_subscription_status' : 'stripe_subscription_status';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -37,7 +45,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch profile to check existing Stripe customer
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -45,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('stripe_customer_id, plan, full_name, company_name')
+      .select(`${customerIdField}, plan, full_name, company_name`)
       .eq('id', user.id)
       .single();
 
@@ -58,17 +65,20 @@ Deno.serve(async (req) => {
     const { origin } = await req.json().catch(() => ({ origin: 'https://app.artisan-facile.fr' }));
     const appUrl = origin || Deno.env.get('APP_URL') || 'https://app.artisan-facile.fr';
 
-    // Get or create Stripe customer
-    let customerId = profile?.stripe_customer_id;
+    // Get or create Stripe customer (isolated per mode)
+    let customerId = profile?.[customerIdField];
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
         name: profile?.company_name || profile?.full_name || user.email,
-        metadata: { supabase_user_id: user.id },
+        metadata: { supabase_user_id: user.id, stripe_mode: isTestMode ? 'test' : 'live' },
       });
       customerId = customer.id;
 
-      await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id);
+      await supabaseAdmin
+        .from('profiles')
+        .update({ [customerIdField]: customerId })
+        .eq('id', user.id);
     }
 
     // Create checkout session
@@ -93,8 +103,10 @@ Deno.serve(async (req) => {
       success_url: `${appUrl}/app/subscription?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app/subscription?cancelled=true`,
       locale: 'fr',
-      metadata: { supabase_user_id: user.id },
+      metadata: { supabase_user_id: user.id, stripe_mode: isTestMode ? 'test' : 'live' },
     });
+
+    console.log(`Checkout session created (${isTestMode ? 'TEST' : 'LIVE'} mode) for user ${user.id}`);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
