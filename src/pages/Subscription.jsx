@@ -95,7 +95,10 @@ const Subscription = () => {
             const { data, error } = await supabase.functions.invoke('create-checkout-session', {
                 body: { origin: window.location.origin },
             });
-            if (error) throw new Error(error.message);
+            if (error) {
+                const body = await error.context?.json?.().catch(() => null);
+                throw new Error(body?.error || error.message);
+            }
             if (data?.url) {
                 window.location.href = data.url;
             } else {
