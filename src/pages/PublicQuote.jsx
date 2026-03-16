@@ -129,6 +129,7 @@ const PublicQuote = () => {
                 });
 
             if (error) throw error;
+            if (data?.success === false) throw new Error(data.error || 'Échec de la signature');
 
             toast.success('Devis signé avec succès !');
             setShowSignatureModal(false);
