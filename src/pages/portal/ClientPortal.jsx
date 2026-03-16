@@ -142,6 +142,18 @@ const ClientPortal = () => {
         }
         setSignedQuoteIds(prev => new Set([...prev, signingQuoteId]));
         setSigningQuoteId(null);
+
+        // Notifier l'artisan par email
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        fetch(`${supabaseUrl}/functions/v1/notify-artisan-portal-signature`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseAnonKey}`,
+            },
+            body: JSON.stringify({ portal_token: token, quote_id: signingQuoteId }),
+        }).catch(err => console.error('[notify-artisan] fetch failed:', err));
     };
 
     if (loading) return (
