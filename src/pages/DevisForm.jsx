@@ -814,7 +814,7 @@ const DevisForm = () => {
             // Template Construction
             const docEmoji = isInvoice ? '🧾' : '📄';
             let subjectPrefix = isInvoice ? 'Facture' : 'Devis';
-            const subject = `${docEmoji} ${subjectPrefix}${formData.id ? ` N°${formData.id}` : ''} – ${formData.title || 'Votre projet'} | ${companyName}`;
+            const subject = `${docEmoji} ${subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} – ${formData.title || 'Votre projet'} | ${companyName}`;
 
             const introduction = isInvoice
                 ? `Bonjour ${selectedClient.name},\n\nJe vous transmets votre facture pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour y accéder.`
@@ -3130,7 +3130,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             const c = clients.find(c => c.id?.toString() === formData.client_id?.toString());
                                             return c ? c.name : '';
                                         })()}
-                                        {formData.id && formData.id !== 'new' ? ` · N°${formData.id}` : ' · Brouillon'}
+                                        {formData.id && formData.id !== 'new' ? ` · N°${formData.quote_number || formData.id}` : ' · Brouillon'}
                                         {total ? ` · ${total.toFixed(2)} € TTC` : ''}
                                     </p>
                                 </div>

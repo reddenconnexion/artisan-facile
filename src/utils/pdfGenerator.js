@@ -101,12 +101,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     if (isAmendment) {
         doc.text(`AVENANT - MODIFICATION TECHNIQUE`, 14, 75);
     } else {
-        doc.text(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`, 14, 75);
+        doc.text(`${typeDocument} N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`, 14, 75);
     }
 
     // Mention "ACQUITTÉE" bien visible en haut de la 1ère page
     if (isInvoice && devis.status === 'paid') {
-        const titleWidth = doc.getTextWidth(`${typeDocument} N° ${devis.id || 'PROVISOIRE'}`);
+        const titleWidth = doc.getTextWidth(`${typeDocument} N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`);
         const stampX = 14 + titleWidth + 5;
         doc.setFontSize(13);
         doc.setFont(undefined, 'bold');
@@ -868,7 +868,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // 3. Return Logic
     // ---------------------------------------------------------
 
-    const fileName = isInvoice ? `facture_${devis.id}.pdf` : `devis_${devis.id || 'brouillon'}.pdf`;
+    const fileName = isInvoice ? `facture_${devis.quote_number || devis.id}.pdf` : `devis_${devis.quote_number || devis.id || 'brouillon'}.pdf`;
 
     if (returnType === 'blob') {
         return new Blob([finalPdfBytes], { type: 'application/pdf' });

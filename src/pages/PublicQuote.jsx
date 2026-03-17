@@ -138,7 +138,7 @@ const PublicQuote = () => {
             if (quote.artisan?.id) {
                 await sendNotification(
                     quote.artisan.id,
-                    `Le devis N°${quote.id} pour ${quote.client.name} a été signé !`,
+                    `Le devis N°${quote.quote_number || quote.id} pour ${quote.client.name} a été signé !`,
                     `Nouveau Devis Signé - ${quote.client.name}`
                 );
             }
@@ -286,7 +286,7 @@ const PublicQuote = () => {
                                     {isSigned || isInvoiceView ? 'Facture N°' : 'Devis N°'}
                                 </span>
                                 <span className="text-2xl font-bold text-gray-900">
-                                    {quote.id}
+                                    {quote.quote_number || quote.id}
                                 </span>
                                 <div className="mt-2 text-sm text-gray-500">
                                     Du {formatDate(quote.date)}
@@ -601,7 +601,7 @@ const PublicQuote = () => {
                                         {artisan.iban}
                                     </p>
                                     <p className="text-xs text-slate-500 mt-2 flex items-center">
-                                        Reference à rappeler : <span className="font-bold ml-1">{quote.id}</span>
+                                        Reference à rappeler : <span className="font-bold ml-1">{quote.quote_number || quote.id}</span>
                                     </p>
                                 </div>
                                 {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
