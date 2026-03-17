@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 
@@ -15,6 +15,29 @@ import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from
  */
 const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) => {
     const sigCanvas = useRef({});
+    const canvasContainerRef = useRef(null);
+    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+    // Mesure le container pour dimensionner le canvas en px absolus (fix iOS)
+    const measureCanvas = useCallback(() => {
+        if (canvasContainerRef.current) {
+            const { width, height } = canvasContainerRef.current.getBoundingClientRect();
+            if (width > 0 && height > 0) {
+                setCanvasSize({ width: Math.floor(width), height: Math.floor(height) });
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (step !== 'sign') return;
+        // Petit délai pour que le DOM soit rendu avant de mesurer
+        const t = setTimeout(measureCanvas, 50);
+        window.addEventListener('resize', measureCanvas);
+        return () => {
+            clearTimeout(t);
+            window.removeEventListener('resize', measureCanvas);
+        };
+    }, [step, measureCanvas]);
 
     const [step, setStep] = useState('email');       // 'email' | 'otp' | 'sign'
     const [emailInput, setEmailInput] = useState('');
@@ -108,8 +131,8 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: 'min(90vh, 90dvh)' }}>
 
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b">
@@ -241,13 +264,23 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                 {step === 'sign' && (
                     <>
                         <div className="flex-1 p-4 bg-gray-50 flex items-center justify-center overflow-hidden">
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg bg-white w-full h-64 relative">
-                                <SignatureCanvas
-                                    ref={sigCanvas}
-                                    penColor="black"
-                                    canvasProps={{ className: 'w-full h-full cursor-crosshair' }}
-                                />
-                                <div className="absolute bottom-2 left-2 text-xs text-gray-400 pointer-events-none">
+                            <div
+                                ref={canvasContainerRef}
+                                className="border-2 border-dashed border-gray-300 rounded-lg bg-white w-full h-56 relative"
+                                style={{ touchAction: 'none' }}
+                            >
+                                {canvasSize.width > 0 && (
+                                    <SignatureCanvas
+                                        ref={sigCanvas}
+                                        penColor="black"
+                                        canvasProps={{
+                                            width: canvasSize.width,
+                                            height: canvasSize.height,
+                                            style: { width: '100%', height: '100%', cursor: 'crosshair', touchAction: 'none' },
+                                        }}
+                                    />
+                                )}
+                                <div className="absolute bottom-2 left-2 text-xs text-gray-400 pointer-events-none select-none">
                                     Signez ici
                                 </div>
                             </div>
