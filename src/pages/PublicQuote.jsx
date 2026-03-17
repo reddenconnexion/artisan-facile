@@ -683,7 +683,7 @@ const PublicQuote = () => {
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
                 onRequestOtp={handleRequestOtp}
-                requiresOtp={Boolean(quote?.client?.email)}
+                requiresOtp={quote?.require_otp === true && Boolean(quote?.client?.email)}
             />
         </div >
     );

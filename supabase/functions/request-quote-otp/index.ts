@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
         const { data: quote, error: quoteError } = await supabase
             .from('quotes')
             .select(`
-                id, status, token_revoked, token_expires_at, signed_at,
+                id, status, token_revoked, token_expires_at, signed_at, require_otp,
                 clients ( email )
             `)
             .eq('public_token', token)
@@ -52,6 +52,11 @@ Deno.serve(async (req) => {
         }
         if (quote.signed_at) {
             return json({ error: 'Ce devis a déjà été signé' }, 409);
+        }
+
+        // Vérifier que l'OTP est activé pour ce devis
+        if (!quote.require_otp) {
+            return json({ error: 'La vérification par code n\'est pas activée pour ce devis.' }, 403);
         }
 
         // Vérifier que l'email correspond au destinataire

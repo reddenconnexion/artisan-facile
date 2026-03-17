@@ -326,7 +326,8 @@ const DevisForm = () => {
         intervention_postal_code: '',
         intervention_city: '',
         payment_method: '',
-        paid_at: ''
+        paid_at: '',
+        require_otp: false
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
@@ -598,7 +599,8 @@ const DevisForm = () => {
                     parent_id: data.parent_id ?? null,
                     payment_method: data.payment_method || '',
                     paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
-                    report_pdf_url: data.report_pdf_url || null
+                    report_pdf_url: data.report_pdf_url || null,
+                    require_otp: data.require_otp === true
                 });
 
                 if (data.intervention_address || data.intervention_city) {
@@ -1069,7 +1071,8 @@ const DevisForm = () => {
                 payment_method: formData.payment_method || null,
                 paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null),
                 operation_category: formData.operation_category || 'service',
-                vat_on_debits: formData.vat_on_debits || false
+                vat_on_debits: formData.vat_on_debits || false,
+                require_otp: formData.require_otp || false
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -2521,6 +2524,19 @@ Conditions de règlement : Paiement à réception de facture.`
                             />
                             <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
                                 Option TVA sur les débits
+                            </label>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                            <input
+                                type="checkbox"
+                                id="require_otp"
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                checked={formData.require_otp}
+                                onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
+                                disabled={isLocked}
+                            />
+                            <label htmlFor="require_otp" className="text-sm text-gray-700">
+                                Exiger la vérification par email (OTP) pour signer
                             </label>
                         </div>
                     </div>
