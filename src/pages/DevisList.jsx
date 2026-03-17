@@ -196,7 +196,7 @@ const DevisList = () => {
                                 {filteredDevis.map((devis) => (
                                     <tr key={devis.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
-                                            {devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV')} #{devis.id}
+                                            {devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV')} #{devis.quote_number || devis.id}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                             <button
@@ -247,7 +247,7 @@ const DevisList = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <span className={`text-xs font-semibold px-2 py-1 rounded ${devis.type === 'invoice' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : (devis.type === 'amendment' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30')}`}>
-                                            {devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis')} #{devis.id}
+                                            {devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis')} #{devis.quote_number || devis.id}
                                         </span>
                                         <h3 className="font-bold text-gray-900 dark:text-white mt-2">{devis.client_name || 'Client inconnu'}</h3>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
