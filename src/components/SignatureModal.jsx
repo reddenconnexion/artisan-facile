@@ -59,11 +59,11 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
         setEmailError('');
         setLoadingOtp(true);
 
-        const result = await onRequestOtp(emailInput.trim());
+        const { success: otpSent, error: otpSendErr } = await onRequestOtp(emailInput.trim());
 
         setLoadingOtp(false);
-        if (!result.success) {
-            setEmailError(result.error || "Erreur lors de l'envoi du code.");
+        if (!otpSent) {
+            setEmailError(otpSendErr || "Erreur lors de l'envoi du code.");
             return;
         }
         setConfirmedEmail(emailInput.trim());
@@ -84,10 +84,10 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     const handleResendOtp = async () => {
         setOtpError('');
         setLoadingOtp(true);
-        const result = await onRequestOtp(confirmedEmail);
+        const { success: resendOk, error: resendErr } = await onRequestOtp(confirmedEmail);
         setLoadingOtp(false);
-        if (!result.success) {
-            setOtpError(result.error || "Erreur lors du renvoi du code.");
+        if (!resendOk) {
+            setOtpError(resendErr || "Erreur lors du renvoi du code.");
         } else {
             setOtpInput('');
             setOtpError('');
