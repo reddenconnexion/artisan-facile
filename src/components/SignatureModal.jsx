@@ -16,7 +16,7 @@ import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from
 const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) => {
     const sigCanvas = useRef({});
 
-    const [step, setStep] = useState('email');       // 'email' | 'otp' | 'sign'
+    const [step, setStep] = useState(() => requiresOtp ? 'email' : 'sign');  // 'email' | 'otp' | 'sign'
     const [emailInput, setEmailInput] = useState('');
     const [emailError, setEmailError] = useState('');
     const [otpInput, setOtpInput] = useState('');
@@ -55,6 +55,7 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     // ── Étape 1 : envoi de l'OTP ─────────────────────────────────────────────
     const handleEmailSubmit = async (e) => {
         e.preventDefault();
+        if (!onRequestOtp) return;
         setEmailError('');
         setLoadingOtp(true);
 

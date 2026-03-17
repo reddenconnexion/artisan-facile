@@ -3081,6 +3081,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 onSave={handleSignatureSave}
+                requiresOtp={false}
             />
 
             <ReviewRequestModal
