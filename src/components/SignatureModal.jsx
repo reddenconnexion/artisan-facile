@@ -16,7 +16,16 @@ import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from
 const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) => {
     const sigCanvas = useRef({});
     const canvasContainerRef = useRef(null);
+
+    // Tous les useState déclarés en premier pour éviter le TDZ après minification esbuild
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+    const [step, setStep] = useState(() => requiresOtp ? 'email' : 'sign');  // 'email' | 'otp' | 'sign'
+    const [emailInput, setEmailInput] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const [otpInput, setOtpInput] = useState('');
+    const [otpError, setOtpError] = useState('');
+    const [loadingOtp, setLoadingOtp] = useState(false);
+    const [confirmedEmail, setConfirmedEmail] = useState('');
 
     // Mesure le container pour dimensionner le canvas en px absolus (fix iOS)
     const measureCanvas = useCallback(() => {
@@ -38,14 +47,6 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
             window.removeEventListener('resize', measureCanvas);
         };
     }, [step, measureCanvas]);
-
-    const [step, setStep] = useState(() => requiresOtp ? 'email' : 'sign');  // 'email' | 'otp' | 'sign'
-    const [emailInput, setEmailInput] = useState('');
-    const [emailError, setEmailError] = useState('');
-    const [otpInput, setOtpInput] = useState('');
-    const [otpError, setOtpError] = useState('');
-    const [loadingOtp, setLoadingOtp] = useState(false);
-    const [confirmedEmail, setConfirmedEmail] = useState('');
 
     // Réinitialise et positionne la bonne étape à chaque ouverture
     useEffect(() => {
