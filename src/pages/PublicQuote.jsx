@@ -5,7 +5,6 @@ import { FileCheck, Download, Loader2, Phone, Mail, MapPin, Globe, PenTool } fro
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
-import { sendNotification } from '../utils/notifications';
 
 const PublicQuote = () => {
     const { token } = useParams();
@@ -134,14 +133,17 @@ const PublicQuote = () => {
             toast.success('Devis signé avec succès !');
             setShowSignatureModal(false);
 
-            // Send notification to artisan
-            if (quote.artisan?.id) {
-                await sendNotification(
-                    quote.artisan.id,
-                    `Le devis N°${quote.quote_number || quote.id} pour ${quote.client.name} a été signé !`,
-                    `Nouveau Devis Signé - ${quote.client.name}`
-                );
-            }
+            // Notification artisan côté serveur (ntfy.sh + email) – fiable même app fermée
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            fetch(`${supabaseUrl}/functions/v1/notify-artisan-portal-signature`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                },
+                body: JSON.stringify({ lookup_token: token }),
+            }).catch(err => console.error('Erreur notification artisan:', err));
 
             // Fetch latest data to get server timestamp if needed, but we can construct local object for immediate download speed
             const signedQuote = {

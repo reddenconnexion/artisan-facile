@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { portal_token, quote_id } = await req.json();
+        const { lookup_token } = await req.json();
 
-        if (!portal_token || !quote_id) {
-            return json({ error: 'portal_token et quote_id requis' }, 400);
+        if (!lookup_token) {
+            return json({ error: 'lookup_token requis' }, 400);
         }
 
         const supabase = createClient(
@@ -22,58 +22,79 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         );
 
-        // Récupérer le client_id et user_id depuis le portal_token
-        const { data: client, error: clientError } = await supabase
-            .from('clients')
-            .select('id, user_id, name')
-            .eq('portal_token', portal_token)
-            .single();
-
-        if (clientError || !client) {
-            return json({ error: 'Token invalide' }, 404);
-        }
-
-        // Récupérer le devis
+        // Récupérer le devis via son public_token
         const { data: quote, error: quoteError } = await supabase
             .from('quotes')
-            .select('id, title, total, type, client_id')
-            .eq('id', quote_id)
-            .eq('client_id', client.id)
+            .select('id, title, total_ttc, quote_number, user_id, client_id')
+            .eq('public_token', lookup_token)
             .single();
 
         if (quoteError || !quote) {
             return json({ error: 'Devis introuvable' }, 404);
         }
 
-        // Récupérer l'email de l'artisan depuis les profils (champ email = email de connexion)
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('email, full_name, company_name')
-            .eq('id', client.user_id)
+        // Récupérer le nom du client
+        const { data: client } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', quote.client_id)
             .single();
 
-        if (profileError || !profile?.email) {
-            // Fallback : récupérer l'email depuis auth.users
-            const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(
-                client.user_id
-            );
-            if (authError || !authUser?.user?.email) {
-                console.error('Impossible de trouver l\'email artisan:', profileError, authError);
-                return json({ error: 'Email artisan introuvable' }, 404);
-            }
-            profile.email = authUser.user.email;
+        const clientName = client?.name || 'Votre client';
+
+        // Récupérer le profil artisan
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('email, full_name, company_name')
+            .eq('id', quote.user_id)
+            .single();
+
+        if (!profile) {
+            return json({ error: 'Profil artisan introuvable' }, 404);
         }
 
+        const quoteLabel = quote.title || `Devis #${quote.quote_number || quote.id}`;
+        const amount = quote.total_ttc
+            ? `${Number(quote.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`
+            : null;
+
+        // Envoi ntfy.sh (push mobile) côté serveur – fiable même si l'app artisan est fermée
+        const ntfyTopic = `artisan-facile-${quote.user_id}`;
+        const ntfyMessage = `${clientName} a signé ${quoteLabel}${amount ? ` - ${amount}` : ''}`;
+        try {
+            await fetch(`https://ntfy.sh/${ntfyTopic}`, {
+                method: 'POST',
+                body: ntfyMessage,
+                headers: {
+                    'Title': `Devis signé - ${clientName}`,
+                    'Priority': 'high',
+                    'Tags': 'tada,money_with_wings',
+                },
+            });
+        } catch (ntfyErr) {
+            console.error('ntfy.sh error:', ntfyErr);
+            // Non-bloquant : on continue avec l'email
+        }
+
+        // Envoi email via Resend si la clé est configurée
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         if (!resendApiKey) {
-            console.log(`[DEV] Notification artisan : ${profile.email} – Devis #${quote.id} signé par ${client.name}`);
+            console.log(`[DEV] Notification artisan : ${profile.email} – ${quoteLabel} signé par ${clientName}`);
             return json({ success: true, dev: true });
+        }
+
+        let artisanEmail = profile.email;
+        if (!artisanEmail) {
+            const { data: authUser } = await supabase.auth.admin.getUserById(quote.user_id);
+            artisanEmail = authUser?.user?.email ?? null;
+        }
+
+        if (!artisanEmail) {
+            return json({ success: true, email: false, reason: 'no_email' });
         }
 
         const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Artisan Facile <signature@artisanfacile.fr>';
         const artisanName = profile.company_name || profile.full_name || 'Artisan';
-        const quoteLabel = quote.title || `Devis #${quote.id}`;
-        const amount = quote.total ? `${Number(quote.total).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €` : null;
 
         const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -83,16 +104,15 @@ Deno.serve(async (req) => {
             },
             body: JSON.stringify({
                 from: emailFrom,
-                to: profile.email,
-                subject: `✅ ${client.name} a signé votre devis`,
-                html: buildEmailHtml({ artisanName, clientName: client.name, quoteLabel, amount }),
+                to: artisanEmail,
+                subject: `✅ ${clientName} a signé votre devis`,
+                html: buildEmailHtml({ artisanName, clientName, quoteLabel, amount }),
             }),
         });
 
         if (!emailRes.ok) {
             const detail = await emailRes.text();
             console.error('Resend error:', emailRes.status, detail);
-            throw new Error(`Resend ${emailRes.status}: ${detail}`);
         }
 
         return json({ success: true });
