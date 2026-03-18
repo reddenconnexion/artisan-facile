@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -57,14 +58,50 @@ Deno.serve(async (req) => {
         const amount = quote.total_ttc
             ? `${Number(quote.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`
             : null;
+        const notifBody = `${clientName} a signé ${quoteLabel}${amount ? ` - ${amount}` : ''}`;
 
-        // Envoi ntfy.sh (push mobile) côté serveur – fiable même si l'app artisan est fermée
+        // 1. Web Push (natif, aucune app tierce requise)
+        const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+        const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+        if (vapidPublicKey && vapidPrivateKey) {
+            webpush.setVapidDetails(
+                'mailto:admin@artisanfacile.fr',
+                vapidPublicKey,
+                vapidPrivateKey,
+            );
+
+            const { data: pushSubs } = await supabase
+                .from('push_subscriptions')
+                .select('endpoint, p256dh, auth')
+                .eq('user_id', quote.user_id);
+
+            for (const sub of pushSubs ?? []) {
+                try {
+                    await webpush.sendNotification(
+                        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                        JSON.stringify({
+                            title: `Devis signé - ${clientName}`,
+                            body: notifBody,
+                            url: `/app/devis/${quote.id}`,
+                            tag: `signature-${quote.id}`,
+                        }),
+                    );
+                } catch (err: any) {
+                    // Subscription expirée ou invalide – on la supprime
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                        await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+                    }
+                    console.error('Web Push error:', err.statusCode, err.message);
+                }
+            }
+        }
+
+        // 2. ntfy.sh (pour les artisans qui ont l'app Ntfy installée)
         const ntfyTopic = `artisan-facile-${quote.user_id}`;
-        const ntfyMessage = `${clientName} a signé ${quoteLabel}${amount ? ` - ${amount}` : ''}`;
         try {
             await fetch(`https://ntfy.sh/${ntfyTopic}`, {
                 method: 'POST',
-                body: ntfyMessage,
+                body: notifBody,
                 headers: {
                     'Title': `Devis signé - ${clientName}`,
                     'Priority': 'high',
@@ -73,10 +110,9 @@ Deno.serve(async (req) => {
             });
         } catch (ntfyErr) {
             console.error('ntfy.sh error:', ntfyErr);
-            // Non-bloquant : on continue avec l'email
         }
 
-        // Envoi email via Resend si la clé est configurée
+        // 3. Email via Resend
         const resendApiKey = Deno.env.get('RESEND_API_KEY');
         if (!resendApiKey) {
             console.log(`[DEV] Notification artisan : ${profile.email} – ${quoteLabel} signé par ${clientName}`);

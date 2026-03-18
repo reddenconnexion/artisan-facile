@@ -3,12 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound } from 'lucide-react';
-import { getNotificationTopic } from '../utils/notifications';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
 const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
+    const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
     const [loading, setLoading] = useState(false);
     // API key: stored in a ref (not React state) to keep it out of DevTools
     // and not displayed in the form input value
@@ -510,57 +511,62 @@ const Profile = () => {
                 </div>
             </form >
 
-            {/* Notifications Mobile */}
+            {/* Notifications Push */}
             <div className="mt-8 bg-blue-50 rounded-xl shadow-sm border border-blue-100 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
                         <Bell className="w-5 h-5 mr-2" />
-                        Notifications Mobile
+                        Notifications Push
                     </h3>
-                    <p className="text-sm text-blue-800 mb-4">
-                        Pour recevoir une notification sur votre téléphone lorsqu'un devis est signé :
+                    <p className="text-sm text-blue-800 mb-6">
+                        Recevez une notification sur cet appareil dès qu'un client signe un devis — même quand l'application est fermée.
                     </p>
-                    <ol className="list-decimal list-inside text-sm text-blue-800 space-y-2 mb-6">
-                        <li>Téléchargez l'application gratuite <strong>Ntfy</strong> (Android / iOS)</li>
-                        <li>Ajoutez un abonnement au sujet suivant :</li>
-                    </ol>
-                    <div className="bg-white p-4 rounded-lg border border-blue-200 flex items-center justify-between">
-                        <code className="text-blue-600 font-mono font-bold select-all">
-                            {getNotificationTopic(user?.id)}
-                        </code>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                navigator.clipboard.writeText(getNotificationTopic(user?.id));
-                                toast.success('Sujet copié !');
-                            }}
-                            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
-                        >
-                            Copier
-                        </button>
-                    </div>
-                    <div className="mt-4">
+
+                    {!isPushSupported ? (
+                        <div className="bg-white border border-blue-200 rounded-lg p-4">
+                            <p className="text-sm text-gray-600">
+                                Les notifications push ne sont pas disponibles sur ce navigateur.
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Sur iOS, ajoutez l'application à votre écran d'accueil depuis Safari pour activer les notifications.
+                            </p>
+                        </div>
+                    ) : isPushSubscribed ? (
+                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                <span className="text-sm font-medium text-green-800">Notifications activées sur cet appareil</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    await unsubscribePush();
+                                    toast.success('Notifications désactivées');
+                                }}
+                                disabled={isPushLoading}
+                                className="text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
+                            >
+                                Désactiver
+                            </button>
+                        </div>
+                    ) : (
                         <button
                             type="button"
                             onClick={async () => {
-                                const { sendNotification } = await import('../utils/notifications'); // Dynamic import to avoid circular dep if any
-                                try {
-                                    await sendNotification(user?.id, "Ceci est un test de notification !", "Test Artisan Facile");
-                                    toast.success('Notification de test envoyée !');
-                                } catch (e) {
-                                    toast.error('Erreur lors de l\'envoi');
-                                    console.error(e);
+                                const result = await subscribePush();
+                                if (result.success) {
+                                    toast.success('Notifications activées !');
+                                } else {
+                                    toast.error(result.error || 'Impossible d\'activer les notifications');
                                 }
                             }}
-                            className="text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded-lg flex items-center w-full sm:w-auto justify-center"
+                            disabled={isPushLoading}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm transition-colors disabled:opacity-50"
                         >
-                            <Bell className="w-4 h-4 mr-2" />
-                            Envoyer une notification de test
+                            <Bell className="w-4 h-4" />
+                            {isPushLoading ? 'Activation...' : 'Activer les notifications push'}
                         </button>
-                        <p className="text-xs text-blue-600 mt-2">
-                            Si vous ne recevez rien après avoir cliqué, vérifiez que vous êtes bien abonné au sujet ci-dessus dans l'application ntfy.
-                        </p>
-                    </div>
+                    )}
                 </div>
             </div>
 
