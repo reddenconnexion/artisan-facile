@@ -9,3 +9,11 @@ verify_jwt = false
 
 [functions.stripe-portal]
 verify_jwt = true
+
+# Transmission e-facture vers PDP/PPF (JWT requis — appelée par le navigateur)
+[functions.transmit-invoice]
+verify_jwt = true
+
+# Callback de statut envoyé par la PDP/PPF (pas de JWT — endpoint public sécurisé par HMAC)
+[functions.pdp-webhook]
+verify_jwt = false
