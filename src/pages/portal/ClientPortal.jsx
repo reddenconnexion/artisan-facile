@@ -153,6 +153,9 @@ const ClientPortal = () => {
                 'Authorization': `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ quote_id: signingQuoteId }),
+        }).then(async res => {
+            const body = await res.text();
+            console.log('[notify-artisan] status:', res.status, body);
         }).catch(err => console.error('[notify-artisan] fetch failed:', err));
     };
 
