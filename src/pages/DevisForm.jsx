@@ -2020,7 +2020,7 @@ Conditions de règlement : Paiement à réception de facture.`
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={() => navigate('/app/devis')}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
+                    className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                 >
                     <ArrowLeft className="w-5 h-5 sm:mr-2" />
                     <span className="hidden sm:inline">Retour</span>
