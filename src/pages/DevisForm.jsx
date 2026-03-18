@@ -21,6 +21,7 @@ import ClientSelector from '../components/ClientSelector';
 import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
+import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import SituationModal from '../components/SituationModal';
@@ -2944,6 +2945,24 @@ Conditions de règlement : Paiement à réception de facture.`
                         <PaymentSchedule
                             invoiceId={id}
                             totalAmount={total}
+                        />
+                    </div>
+                )}
+
+                {/* Transmission e-facture (PDP/PPF) — factures sauvegardées uniquement */}
+                {formData.type === 'invoice' && id && (
+                    <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                        <h4 className="text-sm font-semibold text-indigo-800 mb-1">
+                            Transmission e-facture (PDP/PPF)
+                        </h4>
+                        <p className="text-xs text-indigo-600 mb-3">
+                            Obligatoire pour les factures B2B à partir de sept. 2026.
+                            Le PDF Factur-X EN 16931 sera transmis à votre plateforme configurée.
+                        </p>
+                        <InvoiceTransmissionStatus
+                            devis={{ ...formData, id }}
+                            client={selectedClient}
+                            userProfile={userProfile}
                         />
                     </div>
                 )}
