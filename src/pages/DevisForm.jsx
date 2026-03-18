@@ -334,6 +334,9 @@ const DevisForm = () => {
     const [showSituationModal, setShowSituationModal] = useState(false);
     const [diffAddress, setDiffAddress] = useState(false);
 
+    // Derived: client currently selected in the form (used in JSX and handlers)
+    const selectedClient = clients.find(c => formData.client_id && c.id.toString() === formData.client_id.toString()) || null;
+
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
     const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
