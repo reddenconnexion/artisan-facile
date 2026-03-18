@@ -39,13 +39,10 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
 
     useEffect(() => {
         if (step !== 'sign') return;
-        // Petit délai pour que le DOM soit rendu avant de mesurer
-        const t = setTimeout(measureCanvas, 50);
-        window.addEventListener('resize', measureCanvas);
-        return () => {
-            clearTimeout(t);
-            window.removeEventListener('resize', measureCanvas);
-        };
+        measureCanvas();
+        const ro = new ResizeObserver(measureCanvas);
+        if (canvasContainerRef.current) ro.observe(canvasContainerRef.current);
+        return () => ro.disconnect();
     }, [step, measureCanvas]);
 
     // Réinitialise et positionne la bonne étape à chaque ouverture
@@ -119,9 +116,12 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     };
 
     // ── Étape 3 : signature ──────────────────────────────────────────────────
-    const clear = () => sigCanvas.current.clear();
+    const clear = () => {
+        if (typeof sigCanvas.current?.clear === 'function') sigCanvas.current.clear();
+    };
 
     const save = () => {
+        if (typeof sigCanvas.current?.isEmpty !== 'function') return;
         if (sigCanvas.current.isEmpty()) {
             alert('Veuillez signer avant de valider.');
             return;
