@@ -12,10 +12,10 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { lookup_token } = await req.json();
+        const { lookup_token, quote_id } = await req.json();
 
-        if (!lookup_token) {
-            return json({ error: 'lookup_token requis' }, 400);
+        if (!lookup_token && !quote_id) {
+            return json({ error: 'lookup_token ou quote_id requis' }, 400);
         }
 
         const supabase = createClient(
@@ -23,12 +23,15 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         );
 
-        // Récupérer le devis via son public_token
-        const { data: quote, error: quoteError } = await supabase
+        // Récupérer le devis via son public_token ou son id
+        const query = supabase
             .from('quotes')
-            .select('id, title, total_ttc, quote_number, user_id, client_id')
-            .eq('public_token', lookup_token)
-            .single();
+            .select('id, title, total_ttc, quote_number, user_id, client_id');
+        const { data: quote, error: quoteError } = await (
+            lookup_token
+                ? query.eq('public_token', lookup_token)
+                : query.eq('id', quote_id)
+        ).single();
 
         if (quoteError || !quote) {
             return json({ error: 'Devis introuvable' }, 404);
