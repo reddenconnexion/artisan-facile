@@ -13,7 +13,7 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon.ico', 'offline.html', 'pwa-192x192.svg', 'pwa-512x512.svg'],
+      includeAssets: ['favicon.ico', 'offline.html', 'pwa-192x192.svg', 'pwa-512x512.svg', 'push-handler.js'],
       manifest: {
         name: 'Artisan Facile',
         short_name: 'ArtisanFacile',
@@ -36,6 +36,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        importScripts: ['push-handler.js'],
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 5000000,
