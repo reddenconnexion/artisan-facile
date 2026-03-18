@@ -152,7 +152,7 @@ const ClientPortal = () => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${supabaseAnonKey}`,
             },
-            body: JSON.stringify({ portal_token: token, quote_id: signingQuoteId }),
+            body: JSON.stringify({ quote_id: signingQuoteId }),
         }).catch(err => console.error('[notify-artisan] fetch failed:', err));
     };
 
