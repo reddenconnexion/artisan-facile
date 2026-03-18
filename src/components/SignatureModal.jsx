@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
         }
     }, []);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (step !== 'sign') return;
         measureCanvas();
         const ro = new ResizeObserver(measureCanvas);
