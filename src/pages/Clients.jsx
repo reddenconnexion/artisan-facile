@@ -19,7 +19,7 @@ const Clients = () => {
     const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
     const [activeMenu, setActiveMenu] = useState(null);
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('clients_view_mode') || 'grid');
-    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
 
     const toggleViewMode = (mode) => {
         setViewMode(mode);
