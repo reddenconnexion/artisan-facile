@@ -549,6 +549,7 @@
     <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
     <button class="btn" onclick="loadProject()">📂 Charger</button>
     <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;">🤖 Importer photo</button>
+    <button class="btn" onclick="saveToClient()" style="border-color:#66bb6a;color:#66bb6a;">🏠 Fiche client</button>
   </div>
 </header>
 
@@ -3031,6 +3032,47 @@ function toast(msg) {
 
   renderCircuits();
   draw();
+
+  // ── COMMUNICATION AVEC L'APPLICATION (postMessage) ───────────
+
+  function saveToClient() {
+    if (window.parent === window) {
+      toast('Ouvrez cet outil depuis l\'application pour sauvegarder dans une fiche client');
+      return;
+    }
+    const projectName = document.getElementById('projectName').value || 'Plan électrique';
+    const thumbnail = canvas.toDataURL('image/jpeg', 0.35);
+    const planData = {
+      elements: state.elements,
+      walls:    state.walls,
+      rooms:    state.rooms,
+      cables:   state.cables,
+      circuits: state.circuits,
+      pan:      state.pan,
+      zoom:     state.zoom,
+    };
+    window.parent.postMessage({ type: 'planelec-save', planData, thumbnail, planName: projectName }, '*');
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'planelec-load') {
+      const p = e.data.plan;
+      state.elements = p.elements || [];
+      state.walls    = p.walls    || [];
+      state.rooms    = p.rooms    || [];
+      state.cables   = p.cables   || [];
+      if (p.circuits && p.circuits.length) state.circuits = p.circuits;
+      if (p.pan)  state.pan  = p.pan;
+      if (p.zoom) state.zoom = p.zoom;
+      if (p.name) document.getElementById('projectName').value = p.name;
+      document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+      updateRoomList(); renderCircuits(); updateStats(); updateProps(); draw();
+      toast('Plan chargé ✓');
+    }
+    if (e.data?.type === 'planelec-saved') {
+      toast('Plan sauvegardé dans la fiche client ✓');
+    }
+  });
 
   // ── MOBILE : tiroirs + touch ──────────────────────────────────
 
