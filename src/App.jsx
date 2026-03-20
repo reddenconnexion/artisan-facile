@@ -83,6 +83,7 @@ const InterventionReports = lazyWithRetry(() => import('./pages/InterventionRepo
 const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionReportForm'));
 const VoiceMemos = lazyWithRetry(() => import('./pages/VoiceMemos'));
 const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
+const Outils = lazyWithRetry(() => import('./pages/Outils'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -137,6 +138,7 @@ function App() {
                 <Route path="interventions/:id" element={<InterventionReportForm />} />
                 <Route path="voice-memos" element={<VoiceMemos />} />
                 <Route path="subscription" element={<Subscription />} />
+                <Route path="outils" element={<Outils />} />
               </Route>
             </Routes >
           </Suspense >
