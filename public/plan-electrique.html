@@ -393,6 +393,142 @@
   .scrollbar-thin::-webkit-scrollbar { width: 4px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 768px) {
+    header {
+      height: auto;
+      min-height: 48px;
+      padding: 6px 10px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .header-center { display: none; }
+    .header-right   { display: none; }
+    .project-name   { flex: 1; width: auto; min-width: 0; }
+    .logo           { font-size: 13px; white-space: nowrap; }
+
+    /* Panels → tiroirs overlay */
+    .panel-left {
+      position: fixed;
+      top: 0; left: 0;
+      height: 100%;
+      width: 260px !important;
+      z-index: 60;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      overflow-y: auto;
+    }
+    .panel-left.mob-open  { transform: translateX(0); }
+
+    .panel-right {
+      position: fixed;
+      top: 0; right: 0;
+      height: 100%;
+      width: 240px !important;
+      z-index: 60;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      overflow-y: auto;
+    }
+    .panel-right.mob-open { transform: translateX(0); }
+
+    /* Fond sombre derrière le tiroir */
+    .mob-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 50;
+    }
+    .mob-overlay.open { display: block; }
+
+    /* Barre d'outils mobile en bas */
+    .mob-toolbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 58px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 4px 6px;
+      gap: 4px;
+      z-index: 40;
+    }
+    .mob-tb-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 4px 2px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      min-height: 46px;
+      transition: all 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mob-tb-btn:active { opacity: 0.65; }
+    .mob-tb-btn.active { background: rgba(245,166,35,0.15); border-color: var(--accent); color: var(--accent); }
+    .mob-tb-btn.danger:active { border-color: var(--accent2); color: var(--accent2); }
+    .mob-tb-btn svg { width: 20px; height: 20px; }
+
+    /* Canvas : espace pour la barre du bas */
+    .canvas-wrap { padding-bottom: 58px; }
+
+    /* Zoom bar : remonter au-dessus de la barre */
+    .zoom-bar { bottom: 68px; right: 10px; }
+    .zoom-bar button { font-size: 20px; padding: 0 6px; min-width: 30px; min-height: 30px; }
+
+    .coords { display: none; }
+
+    /* Boutons d'outils plus grands */
+    .tool-btn     { padding: 10px 4px; }
+    .tool-btn svg { width: 26px; height: 26px; }
+
+    /* Bouton fermer le tiroir */
+    .panel-mob-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 10px 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .panel-mob-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text2);
+    }
+    .panel-mob-close {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      border-radius: 5px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+  }
+
+  /* Desktop : cacher les éléments mobile */
+  @media (min-width: 769px) {
+    .mob-toolbar    { display: none; }
+    .mob-overlay    { display: none !important; }
+    .panel-mob-header { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -419,7 +555,11 @@
 <div class="main">
 
   <!-- LEFT PANEL -->
-  <div class="panel-left scrollbar-thin">
+  <div class="panel-left scrollbar-thin" id="panelLeft">
+    <div class="panel-mob-header">
+      <span class="panel-mob-title">⚡ Outils</span>
+      <button class="panel-mob-close" onclick="closePanels()">✕ Fermer</button>
+    </div>
 
     <div class="panel-section">
       <div class="panel-title">🔌 Appareillage</div>
@@ -684,7 +824,11 @@
   </div>
 
   <!-- RIGHT PANEL -->
-  <div class="panel-right scrollbar-thin">
+  <div class="panel-right scrollbar-thin" id="panelRight">
+    <div class="panel-mob-header">
+      <span class="panel-mob-title">📊 Stats</span>
+      <button class="panel-mob-close" onclick="closePanels()">✕ Fermer</button>
+    </div>
     <div class="panel-section">
       <div class="panel-title">📊 Statistiques</div>
       <div class="stats-grid">
@@ -781,6 +925,37 @@
 </div>
 
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+
+<!-- MOBILE : fond sombre derrière les tiroirs -->
+<div class="mob-overlay" id="mobOverlay" onclick="closePanels()"></div>
+
+<!-- MOBILE : barre d'outils en bas -->
+<div class="mob-toolbar">
+  <button class="mob-tb-btn" id="mobBtnTools" onclick="togglePanel('left')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>
+    Outils
+  </button>
+  <button class="mob-tb-btn" id="mobBtnSelect" onclick="setMode('select');closePanels()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+    Sélect.
+  </button>
+  <button class="mob-tb-btn" onclick="addRoom();closePanels()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    Pièce
+  </button>
+  <button class="mob-tb-btn" onclick="addWall();closePanels()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="12" x2="21" y2="12" stroke-width="3"/></svg>
+    Mur
+  </button>
+  <button class="mob-tb-btn danger" onclick="deleteSelected()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+    Suppr.
+  </button>
+  <button class="mob-tb-btn" id="mobBtnStats" onclick="togglePanel('right')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+    Stats
+  </button>
+</div>
 
 <!-- MODALE SAUVEGARDE -->
 <div class="modal-overlay" id="saveModal">
@@ -2749,6 +2924,135 @@ function toast(msg) {
 
   renderCircuits();
   draw();
+
+  // ── MOBILE : tiroirs + touch ──────────────────────────────────
+
+  function togglePanel(side) {
+    const left  = document.getElementById('panelLeft');
+    const right = document.getElementById('panelRight');
+    const ov    = document.getElementById('mobOverlay');
+    if (side === 'left') {
+      const isOpen = left.classList.contains('mob-open');
+      left.classList.toggle('mob-open', !isOpen);
+      right.classList.remove('mob-open');
+      ov.classList.toggle('open', !isOpen);
+      document.getElementById('mobBtnTools').classList.toggle('active', !isOpen);
+      document.getElementById('mobBtnStats').classList.remove('active');
+    } else {
+      const isOpen = right.classList.contains('mob-open');
+      right.classList.toggle('mob-open', !isOpen);
+      left.classList.remove('mob-open');
+      ov.classList.toggle('open', !isOpen);
+      document.getElementById('mobBtnStats').classList.toggle('active', !isOpen);
+      document.getElementById('mobBtnTools').classList.remove('active');
+    }
+  }
+
+  function closePanels() {
+    document.getElementById('panelLeft').classList.remove('mob-open');
+    document.getElementById('panelRight').classList.remove('mob-open');
+    document.getElementById('mobOverlay').classList.remove('open');
+    document.getElementById('mobBtnTools').classList.remove('active');
+    document.getElementById('mobBtnStats').classList.remove('active');
+  }
+
+  // ── TOUCH EVENTS ─────────────────────────────────────────────
+  let touch = {};
+
+  function getTouchDist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+  function getTouchCenter(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const ts = e.touches;
+    if (ts.length === 1) {
+      touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now() };
+    } else if (ts.length === 2) {
+      touch = {
+        fingers: 2,
+        dist0: getTouchDist(ts[0], ts[1]),
+        zoom0: state.zoom,
+        pan0: { ...state.pan },
+        center0: getTouchCenter(ts[0], ts[1]),
+      };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const ts = e.touches;
+    if (ts.length === 2 && touch.fingers === 2) {
+      const dist   = getTouchDist(ts[0], ts[1]);
+      const center = getTouchCenter(ts[0], ts[1]);
+      const r      = canvas.getBoundingClientRect();
+      const cx0    = touch.center0.x - r.left;
+      const cy0    = touch.center0.y - r.top;
+      const cx     = center.x - r.left;
+      const cy     = center.y - r.top;
+      const scale  = dist / touch.dist0;
+      const newZoom = Math.min(Math.max(touch.zoom0 * scale, 0.2), 5);
+      // Zoom ancré sur le centre des doigts
+      state.zoom  = newZoom;
+      state.pan.x = cx - (cx0 - touch.pan0.x) * scale + (cx - cx0);
+      state.pan.y = cy - (cy0 - touch.pan0.y) * scale + (cy - cy0);
+      document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+      draw();
+    } else if (ts.length === 1 && touch.fingers === 1) {
+      const dx = ts[0].clientX - touch.sx;
+      const dy = ts[0].clientY - touch.sy;
+      if (Math.hypot(dx, dy) > 6) touch.moved = true;
+      if (touch.moved && state.mode === 'select') {
+        if (!touch.pan0) touch.pan0 = { ...state.pan };
+        state.pan.x = touch.pan0.x + dx;
+        state.pan.y = touch.pan0.y + dy;
+        draw();
+      }
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (touch.fingers !== 1 || touch.moved) { touch = {}; return; }
+    // Tap simple → même logique que click
+    const t = e.changedTouches[0];
+    const r = canvas.getBoundingClientRect();
+    const sx = t.clientX - r.left;
+    const sy = t.clientY - r.top;
+    const w  = screenToWorld(sx, sy);
+    const sp = snapPoint(w.x, w.y);
+    const now = Date.now();
+
+    if (state.mode === 'select') {
+      handleSelect(sx, sy);
+    } else if (state.mode === 'place' && state.tool) {
+      placeElement(sp.x, sp.y);
+    } else if (state.mode === 'cable') {
+      if (touch.lastTap && (now - touch.lastTap) < 350 && state.cablePoints.length >= 2) {
+        finishCable();
+      } else {
+        state.cablePoints.push({ x: sp.x, y: sp.y });
+        draw();
+      }
+      touch.lastTap = now;
+    } else if (state.mode === 'wall') {
+      if (touch.lastTap && (now - touch.lastTap) < 350) {
+        state.wallStart = null; setMode('select');
+      } else {
+        if (!state.wallStart) { state.wallStart = sp; }
+        else { state.walls.push({ id: uid(), x1: state.wallStart.x, y1: state.wallStart.y, x2: sp.x, y2: sp.y }); state.wallStart = sp; }
+        draw();
+      }
+      touch.lastTap = now;
+    } else if (state.mode === 'room') {
+      if (touch.lastTap && (now - touch.lastTap) < 350 && state.roomPoints.length >= 3) {
+        finishRoom();
+      } else {
+        state.roomPoints.push(sp); draw();
+      }
+      touch.lastTap = now;
+    }
+    touch = {};
+  }, { passive: false });
 
   // Plan demo uniquement si aucun paramètre et pas de données
   if (!chantier && !client && !planB64) {
