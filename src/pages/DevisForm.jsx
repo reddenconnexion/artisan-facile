@@ -2780,20 +2780,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <span>Coût unitaire (interne) :</span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
-                                            placeholder="0.00"
-                                            value={item.buying_price || ''}
-                                            onChange={(e) => updateItem(item.id, 'buying_price', e.target.value)}
-                                            disabled={isLocked}
-                                        />
-                                        <span>€</span>
-                                    </div>
                                 </div>
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <div className="w-20 relative">
