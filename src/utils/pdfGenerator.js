@@ -278,64 +278,96 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     }
 
     // ---------------------------------------------------------
-    // Tableau des prestations (Séparé Main d'oeuvre / Matériel)
+    // Tableau des prestations
     // ---------------------------------------------------------
 
-    const services = devis.items.filter(i => i.type === 'service' || !i.type); // Default to service if undefined
-    const materials = devis.items.filter(i => i.type === 'material');
-
+    const allItems = devis.items || [];
+    const hasSections = allItems.some(i => i.type === 'section');
     const tableColumn = ["Description", "Quantité", "Prix Unitaire HT", "Total HT"];
+    const headerColor = isInvoice ? [46, 125, 50] : [37, 99, 235];
 
     // Track current Y position for multiple tables
     let currentTableY = tableStartY;
 
-    // Helper to generate rows
-    const generateRows = (items) => items.map(item => [
-        item.description,
-        item.quantity,
-        `${item.price.toFixed(2)} €`,
-        `${(item.quantity * item.price).toFixed(2)} €`
-    ]);
-
-    // 1. Table Main d'Oeuvre
-    if (services.length > 0) {
-        // Section Title
-        if (materials.length > 0) { // Only show header if we have both types, or always? User asked for clear separation.
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(100, 100, 100);
-            doc.text("MAIN D'OEUVRE & PRESTATIONS", 14, currentTableY - 2);
-        }
-
-        autoTable(doc, {
-            startY: currentTableY,
-            head: [tableColumn],
-            body: generateRows(services),
-            theme: 'grid',
-            headStyles: { fillColor: isInvoice ? [46, 125, 50] : [37, 99, 235] }, // Blue-600
-            styles: { fontSize: 9 },
+    if (hasSections) {
+        // Render items in order, with section rows as styled headers
+        const rows = allItems.map(item => {
+            if (item.type === 'section') {
+                return [{
+                    content: item.description || '—',
+                    colSpan: 4,
+                    styles: { fontStyle: 'bold', fillColor: [230, 236, 255], textColor: [37, 99, 235], halign: 'left', fontSize: 9 }
+                }];
+            }
+            return [
+                item.description || '',
+                item.quantity ?? '',
+                `${parseFloat(item.price || 0).toFixed(2)} €`,
+                `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
+            ];
         });
 
-        currentTableY = doc.lastAutoTable.finalY + 15; // Increased gap
-    }
-
-    // 2. Table Matériel
-    if (materials.length > 0) {
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(100, 100, 100);
-        doc.text("MATÉRIEL & FOURNITURES", 14, services.length > 0 ? currentTableY - 2 : currentTableY - 2); // Title
-
         autoTable(doc, {
             startY: currentTableY,
             head: [tableColumn],
-            body: generateRows(materials),
+            body: rows,
             theme: 'grid',
-            headStyles: { fillColor: [84, 110, 122] }, // Slate-500
+            headStyles: { fillColor: headerColor },
             styles: { fontSize: 9 },
         });
 
         currentTableY = doc.lastAutoTable.finalY + 15;
+    } else {
+        // Legacy: separate tables for services and materials
+        const services = allItems.filter(i => i.type === 'service' || !i.type);
+        const materials = allItems.filter(i => i.type === 'material');
+
+        const generateRows = (items) => items.map(item => [
+            item.description,
+            item.quantity,
+            `${parseFloat(item.price || 0).toFixed(2)} €`,
+            `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
+        ]);
+
+        // 1. Table Main d'Oeuvre
+        if (services.length > 0) {
+            if (materials.length > 0) {
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(100, 100, 100);
+                doc.text("MAIN D'OEUVRE & PRESTATIONS", 14, currentTableY - 2);
+            }
+
+            autoTable(doc, {
+                startY: currentTableY,
+                head: [tableColumn],
+                body: generateRows(services),
+                theme: 'grid',
+                headStyles: { fillColor: headerColor },
+                styles: { fontSize: 9 },
+            });
+
+            currentTableY = doc.lastAutoTable.finalY + 15;
+        }
+
+        // 2. Table Matériel
+        if (materials.length > 0) {
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text("MATÉRIEL & FOURNITURES", 14, currentTableY - 2);
+
+            autoTable(doc, {
+                startY: currentTableY,
+                head: [tableColumn],
+                body: generateRows(materials),
+                theme: 'grid',
+                headStyles: { fillColor: [84, 110, 122] },
+                styles: { fontSize: 9 },
+            });
+
+            currentTableY = doc.lastAutoTable.finalY + 15;
+        }
     }
 
     if (isAmendment) {
