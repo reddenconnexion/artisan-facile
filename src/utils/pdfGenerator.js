@@ -283,6 +283,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     const allItems = devis.items || [];
     const hasSections = allItems.some(i => i.type === 'section');
+    const materials = allItems.filter(i => i.type === 'material');
     const tableColumn = ["Description", "Quantité", "Prix Unitaire HT", "Total HT"];
     const headerColor = isInvoice ? [46, 125, 50] : [37, 99, 235];
 
@@ -320,7 +321,6 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     } else {
         // Legacy: separate tables for services and materials
         const services = allItems.filter(i => i.type === 'service' || !i.type);
-        const materials = allItems.filter(i => i.type === 'material');
 
         const generateRows = (items) => items.map(item => [
             item.description,
