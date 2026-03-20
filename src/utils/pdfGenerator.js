@@ -291,16 +291,21 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let currentTableY = tableStartY;
 
     if (hasSections) {
-        // Render items in order, with section rows as styled headers
+        // Render items in order, with section rows as styled headers and type column
+        const tableColumnWithType = ["Type", "Description", "Quantité", "Prix U. HT", "Total HT"];
         const rows = allItems.map(item => {
             if (item.type === 'section') {
                 return [{
                     content: item.description || '—',
-                    colSpan: 4,
+                    colSpan: 5,
                     styles: { fontStyle: 'bold', fillColor: [230, 236, 255], textColor: [37, 99, 235], halign: 'left', fontSize: 9 }
                 }];
             }
+            const typeLabel = item.type === 'material' ? 'Matériel' : 'Main d\'œuvre';
+            const typeColor = item.type === 'material' ? [255, 237, 213] : [219, 234, 254];
+            const typeTextColor = item.type === 'material' ? [154, 52, 18] : [29, 78, 216];
             return [
+                { content: typeLabel, styles: { fillColor: typeColor, textColor: typeTextColor, fontStyle: 'bold', fontSize: 8, halign: 'center' } },
                 item.description || '',
                 item.quantity ?? '',
                 `${parseFloat(item.price || 0).toFixed(2)} €`,
@@ -310,11 +315,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         autoTable(doc, {
             startY: currentTableY,
-            head: [tableColumn],
+            head: [tableColumnWithType],
             body: rows,
             theme: 'grid',
             headStyles: { fillColor: headerColor },
             styles: { fontSize: 9 },
+            columnStyles: { 0: { cellWidth: 25 } },
         });
 
         currentTableY = doc.lastAutoTable.finalY + 15;
