@@ -440,26 +440,32 @@ const PublicQuote = () => {
                                             <table className="w-full text-left border-collapse">
                                                 <thead>
                                                     <tr className="border-b-2 border-blue-200 bg-blue-50/50">
+                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase w-28">Type</th>
                                                         <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
+                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-20">Qté</th>
+                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-28">Prix U.</th>
+                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-28">Total HT</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100">
                                                     {items.map((item, idx) => (
                                                         item.type === 'section' ? (
                                                             <tr key={idx} className="bg-blue-50">
-                                                                <td colSpan={4} className="py-2 px-2 text-sm font-bold text-blue-700 uppercase tracking-wide">
+                                                                <td colSpan={5} className="py-2 px-2 text-sm font-bold text-blue-700 uppercase tracking-wide">
                                                                     {item.description || '—'}
                                                                 </td>
                                                             </tr>
                                                         ) : (
                                                             <tr key={idx} className="group hover:bg-gray-50/50">
-                                                                <td className="py-4 px-2 text-gray-900 font-medium">{item.description}</td>
-                                                                <td className="py-4 px-2 text-gray-600 text-right">{item.quantity}</td>
-                                                                <td className="py-4 px-2 text-gray-600 text-right">{fmt(item.price)} €</td>
-                                                                <td className="py-4 px-2 text-gray-900 font-medium text-right">{fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0))} €</td>
+                                                                <td className="py-3 px-2">
+                                                                    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${item.type === 'material' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                        {item.type === 'material' ? 'Matériel' : 'Main d\'œuvre'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 px-2 text-gray-900 font-medium">{item.description}</td>
+                                                                <td className="py-3 px-2 text-gray-600 text-right">{item.quantity}</td>
+                                                                <td className="py-3 px-2 text-gray-600 text-right">{fmt(item.price)} €</td>
+                                                                <td className="py-3 px-2 text-gray-900 font-medium text-right">{fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0))} €</td>
                                                             </tr>
                                                         )
                                                     ))}
