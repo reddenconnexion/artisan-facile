@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowRight, CheckCircle, Hammer, Phone,
-    CreditCard, Package, Kanban, Zap
+    CreditCard, Package, Kanban
 } from 'lucide-react';
 
 const WorksitePilot = () => {
@@ -428,24 +428,6 @@ const WorksitePilot = () => {
                                                             <MapPin className="w-4 h-4" />
                                                         </a>
                                                     )}
-                                                    <button
-                                                        onClick={() => {
-                                                            const base = `${window.location.origin}/plan-electrique.html`;
-                                                            const adresse = job.intervention_address
-                                                                ? `${job.intervention_address}${job.intervention_city ? ', ' + job.intervention_city : ''}`
-                                                                : job.clients?.address || '';
-                                                            const params = new URLSearchParams({
-                                                                chantier: adresse || job.title || '',
-                                                                client: job.clients?.name || '',
-                                                                back: window.location.href,
-                                                            });
-                                                            window.open(`${base}?${params}`, '_blank');
-                                                        }}
-                                                        className="p-1.5 hover:bg-yellow-50 text-yellow-600 rounded transition-colors"
-                                                        title="Plan électrique"
-                                                    >
-                                                        <Zap className="w-4 h-4" />
-                                                    </button>
                                                     {column.id !== 'completed' && (
                                                         <button
                                                             onClick={() => updateStage(job.id, column.id === 'planned' ? 'in_progress' : 'completed')}
