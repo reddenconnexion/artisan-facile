@@ -1,0 +1,2785 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlanÉlec Pro — Red Den Connexion</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0d0f12;
+    --surface: #161a1f;
+    --surface2: #1e2329;
+    --border: #2a3040;
+    --accent: #f5a623;
+    --accent2: #e8380d;
+    --text: #e8eaf0;
+    --text2: #8a9ab5;
+    --grid: rgba(255,255,255,0.03);
+    --wire: #4fc3f7;
+    --wire-hot: #ef5350;
+    --wire-neutral: #90caf9;
+    --wire-earth: #66bb6a;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 100;
+    gap: 12px;
+  }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--accent); }
+
+  .header-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .btn.danger:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .header-right { display: flex; gap: 8px; align-items: center; }
+
+  .project-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text);
+    width: 160px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  .panel-left {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .panel-section {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  .tool-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .tool-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.15s;
+    line-height: 1.2;
+  }
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tool-btn.active { background: rgba(245,166,35,0.15); border-color: var(--accent); color: var(--accent); }
+  .tool-btn svg { width: 22px; height: 22px; }
+
+  .tool-btn-wide {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    gap: 8px;
+    padding: 7px 10px;
+    font-size: 11px;
+    justify-content: flex-start;
+  }
+
+  /* Props panel */
+  .props { padding: 10px; }
+  .prop-row { margin-bottom: 8px; }
+  .prop-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; }
+  .prop-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .prop-input:focus { outline: none; border-color: var(--accent); }
+  select.prop-input { cursor: pointer; }
+
+  /* Legend */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text2);
+    margin-bottom: 4px;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-line {
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── CANVAS AREA ── */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  #canvas {
+    display: block;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  .zoom-bar {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2);
+  }
+  .zoom-bar button {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .zoom-bar button:hover { color: var(--accent); }
+
+  .coords {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+
+  .mode-indicator {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(245,166,35,0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .mode-indicator.visible { opacity: 1; }
+
+  /* ── RIGHT PANEL ── */
+  .panel-right {
+    width: 200px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .circuit-list { padding: 8px; }
+  .circuit-item {
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    margin-bottom: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .circuit-item:hover { border-color: var(--accent); }
+  .circuit-item.active { border-color: var(--accent); background: rgba(245,166,35,0.1); }
+  .circuit-name { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
+  .circuit-info { color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+
+  .circuit-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 10px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .stat-val { font-size: 18px; font-weight: 800; color: var(--accent); }
+  .stat-lbl { font-size: 9px; color: var(--text2); margin-top: 2px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 400px;
+    max-width: 95vw;
+  }
+  .modal h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+  .modal-btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .prop-rot-btn {
+    padding: 4px 2px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    transition: all 0.12s;
+    text-align: center;
+  }
+  .prop-rot-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .prop-rot-preset { background: rgba(245,166,35,0.07); }
+  .prop-rot-preset:hover { background: rgba(245,166,35,0.18); }
+
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Plan<span>Élec</span> Pro</div>
+  <div class="header-center">
+    <input class="project-name" type="text" value="Maison Dupont — Plan RDC" id="projectName" />
+    <button class="btn" onclick="addRoom()">🏠 Pièce</button>
+    <button class="btn" onclick="addWall()">🧱 Mur</button>
+    <button class="btn" id="btnSelectMode" onclick="setMode('select')" >↖ Sélectionner</button>
+    <button class="btn danger" onclick="deleteSelected()">🗑 Supprimer</button>
+    <button class="btn" onclick="clearAll()">✕ Effacer tout</button>
+  </div>
+  <div class="header-right">
+    <button class="btn" onclick="exportPNG()">📥 Export PNG</button>
+    <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
+    <button class="btn" onclick="loadProject()">📂 Charger</button>
+    <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;">🤖 Importer photo</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel-left scrollbar-thin">
+
+    <div class="panel-section">
+      <div class="panel-title">🔌 Appareillage</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="prise" onclick="selectTool('prise')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>
+          Prise 16A
+        </button>
+        <button class="tool-btn" data-type="prise20" onclick="selectTool('prise20')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="16" y1="10" x2="16" y2="14"/></svg>
+          Prise 20A
+        </button>
+        <button class="tool-btn" data-type="interrupteur" onclick="selectTool('interrupteur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="8" rx="4"/><circle cx="15" cy="12" r="3" fill="currentColor" opacity="0.4"/></svg>
+          Interrupteur
+        </button>
+        <button class="tool-btn" data-type="va-et-vient" onclick="selectTool('va-et-vient')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="8" rx="4"/><line x1="4" y1="12" x2="20" y2="12" stroke-dasharray="2 2"/></svg>
+          Va-et-vient
+        </button>
+        <button class="tool-btn" data-type="bouton-poussoir" onclick="selectTool('bouton-poussoir')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.5"/></svg>
+          Bouton
+        </button>
+        <button class="tool-btn" data-type="variateur" onclick="selectTool('variateur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="8" rx="2"/><polyline points="8,15 12,9 16,15"/></svg>
+          Variateur
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">💡 Éclairage</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="luminaire" onclick="selectTool('luminaire')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.2" y1="4.2" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.8" y2="19.8"/><line x1="19.8" y1="4.2" x2="17.7" y2="6.3"/><line x1="6.3" y1="17.7" x2="4.2" y2="19.8"/></svg>
+          Plafonnier
+        </button>
+        <button class="tool-btn" data-type="spot" onclick="selectTool('spot')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="4"/><path d="M12 2 L10 8 L14 8 Z" fill="currentColor" opacity="0.5"/></svg>
+          Spot
+        </button>
+        <button class="tool-btn" data-type="applique" onclick="selectTool('applique')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="6" height="16" rx="2"/><path d="M10 8 Q18 12 10 16"/></svg>
+          Applique
+        </button>
+        <button class="tool-btn" data-type="hublot" onclick="selectTool('hublot')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.3"/></svg>
+          Hublot
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">⚡ Équipements</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="tableau" onclick="selectTool('tableau')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+          Tableau
+        </button>
+        <button class="tool-btn" data-type="compteur" onclick="selectTool('compteur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="3" width="16" height="18" rx="2"/><rect x="7" y="7" width="10" height="6" rx="1"/><circle cx="10" cy="17" r="1.5"/><circle cx="14" cy="17" r="1.5"/></svg>
+          Compteur
+        </button>
+        <button class="tool-btn" data-type="gaine-tech" onclick="selectTool('gaine-tech')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="2" width="8" height="20" rx="1"/><line x1="10" y1="6" x2="14" y2="6"/><line x1="10" y1="10" x2="14" y2="10"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+          GT
+        </button>
+        <button class="tool-btn" data-type="chaudiere" onclick="selectTool('chaudiere')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="4" width="14" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>
+          Chaudière
+        </button>
+        <button class="tool-btn" data-type="cumulus" onclick="selectTool('cumulus')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="12" rx="7" ry="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
+          Cumulus
+        </button>
+        <button class="tool-btn" data-type="clim" onclick="selectTool('clim')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="8" rx="3"/><line x1="8" y1="16" x2="8" y2="20"/><line x1="16" y1="16" x2="16" y2="20"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
+          Clim
+        </button>
+        <button class="tool-btn" data-type="vmc" onclick="selectTool('vmc')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="7"/><path d="M12 5 Q17 12 12 12 Q7 12 12 5"/><path d="M12 19 Q7 12 12 12 Q17 12 12 19"/></svg>
+          VMC
+        </button>
+        <button class="tool-btn" data-type="prise-rj45" onclick="selectTool('prise-rj45')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="8" width="14" height="10" rx="1"/><rect x="9" y="11" width="6" height="4" rx="0.5"/></svg>
+          RJ45
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🧺 Circuits spécialisés</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="lave-linge" onclick="selectTool('lave-linge')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><circle cx="12" cy="13" r="2"/><line x1="7" y1="7" x2="9" y2="7"/></svg>
+          Lave-linge
+        </button>
+        <button class="tool-btn" data-type="lave-vaisselle" onclick="selectTool('lave-vaisselle')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>
+          Lave-vais.
+        </button>
+        <button class="tool-btn" data-type="seche-linge" onclick="selectTool('seche-linge')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M9 10 Q12 8 15 10"/><line x1="7" y1="7" x2="9" y2="7"/></svg>
+          Sèche-linge
+        </button>
+        <button class="tool-btn" data-type="refrigerateur" onclick="selectTool('refrigerateur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="5" y1="10" x2="19" y2="10"/><line x1="9" y1="6" x2="9" y2="9"/><line x1="9" y1="14" x2="9" y2="19"/></svg>
+          Réfrigérat.
+        </button>
+        <button class="tool-btn" data-type="four" onclick="selectTool('four')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="7" y="9" width="10" height="6" rx="1"/><circle cx="8" cy="7" r="1"/><circle cx="16" cy="7" r="1"/></svg>
+          Four
+        </button>
+        <button class="tool-btn" data-type="plaque" onclick="selectTool('plaque')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="10" r="2.5"/><circle cx="16" cy="10" r="2.5"/><circle cx="8" cy="16" r="2.5"/><circle cx="16" cy="16" r="2.5"/></svg>
+          Plaque
+        </button>
+        <button class="tool-btn" data-type="micro-ondes" onclick="selectTool('micro-ondes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><rect x="4" y="8" width="12" height="8" rx="1"/><circle cx="20" cy="12" r="1.5"/></svg>
+          Micro-ondes
+        </button>
+        <button class="tool-btn" data-type="congelateur" onclick="selectTool('congelateur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="6" x2="12" y2="18"/><line x1="8" y1="10" x2="16" y2="14"/><line x1="16" y1="10" x2="8" y2="14"/></svg>
+          Congélateur
+        </button>
+        <button class="tool-btn" data-type="pac" onclick="selectTool('pac')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="8" rx="2"/><path d="M7 8 L7 4 M12 8 L12 4 M17 8 L17 4"/><circle cx="7" cy="4" r="1.5"/><circle cx="12" cy="4" r="1.5"/><circle cx="17" cy="4" r="1.5"/></svg>
+          PAC
+        </button>
+        <button class="tool-btn" data-type="portail" onclick="selectTool('portail')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="9" height="16" rx="1"/><rect x="13" y="4" width="9" height="16" rx="1"/><circle cx="11" cy="12" r="1.5"/><circle cx="13" cy="12" r="1.5"/></svg>
+          Portail
+        </button>
+        <button class="tool-btn" data-type="alarme" onclick="selectTool('alarme')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2 L12 4"/><path d="M6 6 L4 4 M18 6 L20 4"/><path d="M4 14 Q4 8 12 8 Q20 8 20 14 L21 18 H3 Z"/><line x1="10" y1="21" x2="14" y2="21"/></svg>
+          Alarme
+        </button>
+        <button class="tool-btn" data-type="volet" onclick="selectTool('volet')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="14" rx="1"/><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="11" x2="21" y2="11"/><line x1="3" y1="15" x2="21" y2="15"/><rect x="9" y="17" width="6" height="4" rx="1"/></svg>
+          Volet roulant
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🛋️ Mobilier</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="canape" onclick="selectTool('canape')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="10" width="20" height="8" rx="3"/><rect x="2" y="8" width="4" height="10" rx="2"/><rect x="18" y="8" width="4" height="10" rx="2"/><line x1="6" y1="18" x2="6" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/></svg>
+          Canapé
+        </button>
+        <button class="tool-btn" data-type="lit-double" onclick="selectTool('lit-double')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="14" rx="1"/><rect x="2" y="6" width="20" height="4"/><line x1="12" y1="10" x2="12" y2="20"/></svg>
+          Lit double
+        </button>
+        <button class="tool-btn" data-type="lit-simple" onclick="selectTool('lit-simple')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="5" width="16" height="14" rx="1"/><rect x="4" y="5" width="16" height="4"/></svg>
+          Lit simple
+        </button>
+        <button class="tool-btn" data-type="table-manger" onclick="selectTool('table-manger')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="8" rx="1"/><line x1="6" y1="16" x2="5" y2="20"/><line x1="18" y1="16" x2="19" y2="20"/><line x1="6" y1="8" x2="5" y2="4"/><line x1="18" y1="8" x2="19" y2="4"/></svg>
+          Table
+        </button>
+        <button class="tool-btn" data-type="chaise" onclick="selectTool('chaise')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="10" width="12" height="8" rx="1"/><rect x="6" y="6" width="12" height="4" rx="1"/><line x1="8" y1="18" x2="7" y2="22"/><line x1="16" y1="18" x2="17" y2="22"/></svg>
+          Chaise
+        </button>
+        <button class="tool-btn" data-type="bureau" onclick="selectTool('bureau')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="10" rx="1"/><line x1="4" y1="18" x2="4" y2="22"/><line x1="20" y1="18" x2="20" y2="22"/><rect x="14" y="10" width="6" height="4" rx="0.5"/></svg>
+          Bureau
+        </button>
+        <button class="tool-btn" data-type="plan-travail" onclick="selectTool('plan-travail')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="6" rx="1"/><line x1="2" y1="14" x2="2" y2="20"/><line x1="22" y1="14" x2="22" y2="20"/><rect x="8" y="10" width="4" height="2"/></svg>
+          Plan travail
+        </button>
+        <button class="tool-btn" data-type="evier" onclick="selectTool('evier')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="12" rx="1"/><rect x="5" y="9" width="6" height="8" rx="1"/><rect x="13" y="9" width="6" height="8" rx="1"/><line x1="8" y1="7" x2="8" y2="4"/><circle cx="8" cy="4" r="1"/></svg>
+          Évier
+        </button>
+        <button class="tool-btn" data-type="douche" onclick="selectTool('douche')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="18" rx="1"/><path d="M17 8 Q21 8 21 12 L21 21 L3 21"/><circle cx="7" cy="7" r="1.5"/></svg>
+          Douche
+        </button>
+        <button class="tool-btn" data-type="baignoire" onclick="selectTool('baignoire')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="12" rx="4"/><line x1="6" y1="8" x2="6" y2="4"/><circle cx="6" cy="4" r="1.5"/></svg>
+          Baignoire
+        </button>
+        <button class="tool-btn" data-type="lavabo" onclick="selectTool('lavabo')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8 Q5 4 12 4 Q19 4 19 8 L19 16 Q19 20 12 20 Q5 20 5 16 Z"/><line x1="12" y1="20" x2="12" y2="23"/><circle cx="12" cy="11" r="2"/></svg>
+          Lavabo
+        </button>
+        <button class="tool-btn" data-type="wc" onclick="selectTool('wc')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2" width="12" height="5" rx="1"/><path d="M5 7 Q4 22 12 22 Q20 22 19 7 Z"/></svg>
+          WC
+        </button>
+        <button class="tool-btn" data-type="armoire" onclick="selectTool('armoire')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="10" cy="12" r="1"/><circle cx="14" cy="12" r="1"/></svg>
+          Armoire
+        </button>
+        <button class="tool-btn" data-type="table-basse" onclick="selectTool('table-basse')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="9" width="16" height="6" rx="1"/><line x1="6" y1="15" x2="6" y2="19"/><line x1="18" y1="15" x2="18" y2="19"/></svg>
+          Table basse
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🔧 Câblage</div>
+      <div class="tool-grid">
+        <button class="tool-btn tool-btn-wide" data-type="cable-phase" onclick="selectTool('cable-phase')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Câble phase (rouge)
+        </button>
+        <button class="tool-btn tool-btn-wide" data-type="cable-neutre" onclick="selectTool('cable-neutre')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#90caf9" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Câble neutre (bleu)
+        </button>
+        <button class="tool-btn tool-btn-wide" data-type="cable-terre" onclick="selectTool('cable-terre')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#66bb6a" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Câble terre (vert/j)
+        </button>
+        <button class="tool-btn tool-btn-wide" data-type="cable-telecom" onclick="selectTool('cable-telecom')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ce93d8" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="4 2"/></svg>
+          Câble télécom
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">📝 Propriétés</div>
+      <div class="props" id="propsPanel">
+        <div style="color:var(--text2);font-size:10px;">Sélectionnez un élément pour modifier ses propriétés.</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">📖 Légende</div>
+      <div style="padding:4px 0;">
+        <div class="legend-item"><div class="legend-dot" style="background:#ef5350"></div>Phase (rouge)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#90caf9"></div>Neutre (bleu)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#66bb6a"></div>Terre (vert/jaune)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div>Télécom</div>
+        <div class="legend-item"><div class="legend-line" style="background:#8a9ab5"></div>Mur</div>
+        <div class="legend-item"><div class="legend-line" style="background:rgba(245,166,35,0.5)"></div>Pièce</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div class="mode-indicator" id="modeIndicator"></div>
+    <div class="coords" id="coords">X: 0 — Y: 0</div>
+    <div class="zoom-bar">
+      <button onclick="zoom(-0.1)">−</button>
+      <span id="zoomLabel">100%</span>
+      <button onclick="zoom(0.1)">+</button>
+      <button onclick="resetView()" style="font-size:11px;margin-left:4px;">⟲</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right scrollbar-thin">
+    <div class="panel-section">
+      <div class="panel-title">📊 Statistiques</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="statElements">0</div><div class="stat-lbl">Éléments</div></div>
+        <div class="stat-card"><div class="stat-val" id="statPrises">0</div><div class="stat-lbl">Prises</div></div>
+        <div class="stat-card"><div class="stat-val" id="statLumiere">0</div><div class="stat-lbl">Luminaires</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCircuits">0</div><div class="stat-lbl">Circuits</div></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">⚡ Circuits</div>
+      <div class="circuit-list" id="circuitList">
+        <button class="btn" style="width:100%;font-size:10px;margin-bottom:6px" onclick="addCircuit()">+ Nouveau circuit</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">💡 Aide rapide</div>
+      <div style="font-size:10px;color:var(--text2);line-height:1.6;">
+        <div>• <b>Clic</b> : poser un élément</div>
+        <div>• <b>Câble</b> : cliquer point de départ, puis fin</div>
+        <div>• <b>Double-clic</b> : terminer un mur/câble</div>
+        <div>• <b>Molette</b> : zoom</div>
+        <div>• <b>Clic droit</b> : annuler action</div>
+        <div>• <b>Suppr</b> : effacer sélection</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">🏠 Pièces</div>
+      <div id="roomList" style="padding:4px 0;font-size:10px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- IA IMPORT MODAL -->
+<div class="modal-overlay" id="aiModal">
+  <div class="modal" style="width:520px;max-width:96vw;">
+    <h3 style="color:#a78bfa;">🤖 Importer un plan manuscrit</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+      Prends en photo ou scanne ton plan fait à la main. L'IA va reconnaître les pièces, murs et équipements électriques et les replacer automatiquement sur le canvas.
+    </p>
+
+    <!-- Drop zone -->
+    <div id="aiDropZone" onclick="document.getElementById('aiFileInput').click()" style="
+      border: 2px dashed #a78bfa; border-radius:10px; padding:28px 16px;
+      text-align:center; cursor:pointer; transition:all 0.2s; margin-bottom:12px;
+      background:rgba(167,139,250,0.05);
+    ">
+      <div id="aiDropContent">
+        <div style="font-size:32px;margin-bottom:8px;">📷</div>
+        <div style="font-size:13px;font-weight:700;color:#a78bfa;">Cliquer ou déposer une image</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">JPG, PNG, WEBP — photo ou scan</div>
+      </div>
+      <img id="aiPreview" style="display:none;max-width:100%;max-height:200px;border-radius:6px;margin-top:8px;" />
+    </div>
+    <input type="file" id="aiFileInput" accept="image/*" style="display:none" onchange="handleAIImageSelect(event)" />
+
+    <!-- Options -->
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="aiOptRooms" checked style="accent-color:#a78bfa;" /> Détecter les pièces
+      </label>
+      <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="aiOptWalls" checked style="accent-color:#a78bfa;" /> Détecter les murs
+      </label>
+      <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="aiOptElements" checked style="accent-color:#a78bfa;" /> Détecter les équipements
+      </label>
+      <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="aiOptMerge" style="accent-color:#a78bfa;" /> Fusionner avec le plan existant
+      </label>
+    </div>
+
+    <!-- Log IA -->
+    <div id="aiLog" style="
+      display:none; background:var(--surface2); border:1px solid var(--border);
+      border-radius:6px; padding:10px; font-family:'JetBrains Mono',monospace;
+      font-size:10px; color:#a78bfa; max-height:120px; overflow-y:auto;
+      white-space:pre-wrap; margin-bottom:12px;
+    "></div>
+
+    <div class="modal-btn-row">
+      <button class="btn" onclick="closeAIModal()">Annuler</button>
+      <button class="btn" id="aiBtnAnalyse" onclick="launchAIAnalysis()" style="background:#a78bfa;border-color:#a78bfa;color:#000;opacity:0.4;cursor:not-allowed;" disabled>
+        🔍 Analyser et importer
+      </button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+
+<!-- MODALE SAUVEGARDE -->
+<div class="modal-overlay" id="saveModal">
+  <div class="modal" style="width:520px;max-width:96vw;">
+    <h3>💾 Sauvegarder le plan</h3>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:10px;">
+      Fichier : <b id="saveFilename" style="color:var(--accent)"></b>
+    </p>
+
+    <div style="position:relative;margin-bottom:12px;">
+      <textarea id="saveData" readonly style="
+        width:100%; height:180px; resize:none;
+        background:var(--surface2); border:1px solid var(--border);
+        border-radius:6px; color:var(--text2);
+        font-family:'JetBrains Mono',monospace; font-size:10px;
+        padding:10px; line-height:1.5;
+      "></textarea>
+    </div>
+
+    <p style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+      💡 <b>Option 1 :</b> Télécharger le fichier .json directement.<br>
+      💡 <b>Option 2 :</b> Copier le texte, puis coller dans un fichier .json sur ton ordinateur.<br>
+      Pour recharger : bouton <b>📂 Charger</b> → sélectionner le fichier .json.
+    </p>
+
+    <div class="modal-btn-row">
+      <button class="btn" onclick="closeSaveModal()">Fermer</button>
+      <button class="btn" onclick="copySaveData()" style="border-color:#4fc3f7;color:#4fc3f7;">
+        📋 Copier le JSON
+      </button>
+      <button class="btn" onclick="downloadSaveData()" style="background:var(--accent);border-color:var(--accent);color:#000;">
+        📥 Télécharger .json
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// Polyfill roundRect for older browsers
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(Math.abs(r||0), Math.abs(w)/2, Math.abs(h)/2);
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.arcTo(x + w, y, x + w, y + r, r);
+    this.lineTo(x + w, y + h - r);
+    this.arcTo(x + w, y + h, x + w - r, y + h, r);
+    this.lineTo(x + r, y + h);
+    this.arcTo(x, y + h, x, y + h - r, r);
+    this.lineTo(x, y + r);
+    this.arcTo(x, y, x + r, y, r);
+    this.closePath();
+    return this;
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+
+let state = {
+  tool: null,
+  mode: 'select', // select | place | cable | wall | room
+  elements: [],
+  walls: [],
+  rooms: [],
+  cables: [],
+  circuits: [
+    { id: 1,  name: 'Éclairage',          color: '#ffeb3b', ampere: '10A' },
+    { id: 2,  name: 'Prises 16A',          color: '#4fc3f7', ampere: '16A' },
+    { id: 3,  name: 'Cuisine (20A)',        color: '#ef9a9a', ampere: '20A' },
+    { id: 4,  name: 'Lave-linge',          color: '#a5d6a7', ampere: '20A' },
+    { id: 5,  name: 'Lave-vaisselle',      color: '#80cbc4', ampere: '20A' },
+    { id: 6,  name: 'Sèche-linge',         color: '#ce93d8', ampere: '20A' },
+    { id: 7,  name: 'Réfrigérateur',       color: '#90caf9', ampere: '20A' },
+    { id: 8,  name: 'Four/Plaque',         color: '#ff8a65', ampere: '32A' },
+    { id: 9,  name: 'Chauffe-eau',         color: '#ffcc02', ampere: '20A' },
+    { id: 10, name: 'Climatisation',       color: '#81d4fa', ampere: '20A' },
+    { id: 11, name: 'Pompe chaleur (PAC)', color: '#b0bec5', ampere: '32A' },
+    { id: 12, name: 'Garage / Portail',    color: '#bcaaa4', ampere: '16A' },
+  ],
+  selected: null,
+  pan: { x: 60, y: 60 },
+  zoom: 1,
+  grid: 20,
+  // cable drawing state
+  cableStart: null,
+  cablePoints: [],
+  // wall drawing state
+  wallStart: null,
+  // room drawing state
+  roomPoints: [],
+  // mouse
+  mouseX: 0,
+  mouseY: 0,
+};
+
+// ══════════════════════════════════════════════════════════════
+//  RESIZE
+// ══════════════════════════════════════════════════════════════
+function resizeCanvas() {
+  const r = wrap.getBoundingClientRect();
+  canvas.width = r.width;
+  canvas.height = r.height;
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ══════════════════════════════════════════════════════════════
+//  COORDINATE HELPERS
+// ══════════════════════════════════════════════════════════════
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - state.pan.x) / state.zoom,
+    y: (sy - state.pan.y) / state.zoom,
+  };
+}
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * state.zoom + state.pan.x,
+    y: wy * state.zoom + state.pan.y,
+  };
+}
+function snapToGrid(v) {
+  return Math.round(v / state.grid) * state.grid;
+}
+function snapPoint(x, y) {
+  return { x: snapToGrid(x), y: snapToGrid(y) };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TOOL / MODE MANAGEMENT
+// ══════════════════════════════════════════════════════════════
+const CABLE_TOOLS = ['cable-phase','cable-neutre','cable-terre','cable-telecom'];
+const WALL_TOOLS = [];
+
+function selectTool(type) {
+  state.tool = type;
+  state.selected = null;
+  if (CABLE_TOOLS.includes(type)) {
+    state.mode = 'cable';
+    state.cablePoints = [];
+    state.cableStart = null;
+  } else if (type === 'wall') {
+    state.mode = 'wall';
+  } else if (type === 'room') {
+    state.mode = 'room';
+    state.roomPoints = [];
+  } else {
+    state.mode = 'place';
+  }
+  // Update button states
+  document.querySelectorAll('.tool-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === type);
+  });
+  document.getElementById('btnSelectMode').classList.remove('active');
+  showMode(type);
+  updateProps();
+  draw();
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  state.tool = null;
+  state.cablePoints = [];
+  state.cableStart = null;
+  state.wallStart = null;
+  state.roomPoints = [];
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btnSelectMode').classList.toggle('active', mode === 'select');
+  showMode(mode === 'select' ? 'Mode sélection' : mode);
+  draw();
+}
+
+function addWall() { selectTool('_wall_'); state.mode = 'wall'; state.wallStart = null; showMode('Mur — cliquer début'); }
+function addRoom() { selectTool('_room_'); state.mode = 'room'; state.roomPoints = []; showMode('Pièce — cliquer les coins (double-clic pour terminer)'); }
+
+function showMode(label) {
+  const el = document.getElementById('modeIndicator');
+  el.textContent = label;
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ELEMENT SYMBOLS (canvas drawing)
+// ══════════════════════════════════════════════════════════════
+const SYMBOLS = {
+  prise: drawPrise16,
+  prise20: drawPrise20,
+  interrupteur: drawInterrupteur,
+  'va-et-vient': drawVaEtVient,
+  'bouton-poussoir': drawBouton,
+  variateur: drawVariateur,
+  luminaire: drawLuminaire,
+  spot: drawSpot,
+  applique: drawApplique,
+  hublot: drawHublot,
+  tableau: drawTableau,
+  compteur: drawCompteur,
+  'gaine-tech': drawGaineTech,
+  chaudiere: drawChaudiere,
+  cumulus: drawCumulus,
+  clim: drawClim,
+  vmc: drawVmc,
+  'prise-rj45': drawRJ45,
+  // Circuits spécialisés
+  'lave-linge':     drawLaveLinge,
+  'lave-vaisselle': drawLaveVaisselle,
+  'seche-linge':    drawSecheLinge,
+  'refrigerateur':  drawRefrigerateur,
+  'four':           drawFour,
+  'plaque':         drawPlaque,
+  'micro-ondes':    drawMicroOndes,
+  'congelateur':    drawCongelateur,
+  'pac':            drawPAC,
+  'portail':        drawPortail,
+  'alarme':         drawAlarme,
+  'volet':          drawVolet,
+  // Mobilier
+  'canape':         drawCanape,
+  'lit-double':     drawLitDouble,
+  'lit-simple':     drawLitSimple,
+  'table-manger':   drawTableManger,
+  'chaise':         drawChaise,
+  'bureau':         drawBureau,
+  'plan-travail':   drawPlanTravail,
+  'evier':          drawEvier,
+  'douche':         drawDouche,
+  'baignoire':      drawBaignoire,
+  'lavabo':         drawLavabo,
+  'wc':             drawWC,
+  'armoire':        drawArmoire,
+  'table-basse':    drawTableBasse,
+};
+
+// Liste des types mobilier (rotation libre)
+const FURNITURE_TYPES = new Set([
+  'canape','lit-double','lit-simple','table-manger','chaise','bureau',
+  'plan-travail','evier','douche','baignoire','lavabo','wc','armoire','table-basse',
+]);
+
+function drawElement(el, isSelected) {
+  const s = worldToScreen(el.x, el.y);
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.scale(state.zoom, state.zoom);
+  if (el.rotation) ctx.rotate(el.rotation * Math.PI / 180);
+  if (isSelected) { ctx.shadowColor = '#f5a623'; ctx.shadowBlur = 14; }
+  (SYMBOLS[el.type] || drawGeneric)(ctx, el);
+  if (isSelected) {
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#f5a623';
+    ctx.lineWidth = 1.5 / state.zoom;
+    ctx.setLineDash([3,3]);
+    const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
+    ctx.strokeRect(-sz, -sz, sz*2, sz*2);
+    ctx.setLineDash([]);
+    if (el.rotation) {
+      ctx.font = `bold ${8/state.zoom}px sans-serif`;
+      ctx.fillStyle = '#f5a623'; ctx.textAlign = 'center';
+      ctx.fillText(el.rotation + 'deg', 0, -sz - 4);
+    }
+  }
+  if (el.label) {
+    ctx.fillStyle = '#8a9ab5';
+    ctx.font = `bold ${9/state.zoom}px Syne, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(el.label, 0, FURNITURE_TYPES.has(el.type) ? 44 : 26);
+  }
+  ctx.restore();
+}
+
+function drawGeneric(c, el) {
+  c.strokeStyle = '#f5a623'; c.lineWidth = 1.5;
+  c.strokeRect(-12,-12,24,24);
+  c.fillStyle = '#f5a623'; c.font = 'bold 8px Syne'; c.textAlign = 'center';
+  c.fillText(el.type.slice(0,3).toUpperCase(), 0, 3);
+}
+
+// ── PRISE 2P+T 16A (NF C 15-100) : cercle + 2 alvéoles + terre ──
+function drawPrise16(c) {
+  c.strokeStyle = '#4fc3f7'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 12, 0, Math.PI*2); c.fill(); c.stroke();
+  // alvéoles phase/neutre
+  c.fillStyle = '#4fc3f7';
+  c.beginPath(); c.arc(-4, -2, 1.8, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc( 4, -2, 1.8, 0, Math.PI*2); c.fill();
+  // picot de terre en bas
+  c.strokeStyle = '#4fc3f7'; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(0, 3); c.lineTo(0, 9); c.stroke();
+  c.beginPath(); c.moveTo(-3, 9); c.lineTo(3, 9); c.stroke();
+}
+
+// ── PRISE 2P+T 20A : cercle + marquage 20A ──
+function drawPrise20(c) {
+  c.strokeStyle = '#ef9a9a'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 12, 0, Math.PI*2); c.fill(); c.stroke();
+  c.fillStyle = '#ef9a9a';
+  c.beginPath(); c.arc(-4, -2, 1.8, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc( 4, -2, 1.8, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#ef9a9a'; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(0, 3); c.lineTo(0, 9); c.stroke();
+  c.beginPath(); c.moveTo(-3, 9); c.lineTo(3, 9); c.stroke();
+  // trait diagonal = 20A
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(7, -10); c.lineTo(11, -6); c.stroke();
+}
+
+// ── INTERRUPTEUR unipolaire (NF C 15-100 / CEI 60617) : cercle + trait brisé ──
+function drawInterrupteur(c) {
+  c.strokeStyle = '#e0e0e0'; c.lineWidth = 1.8;
+  // cercle de connexion gauche
+  c.beginPath(); c.arc(-10, 0, 2.5, 0, Math.PI*2); c.stroke();
+  // levier ouvert à ~50°
+  c.beginPath(); c.moveTo(-10, 0); c.lineTo(6, -8); c.stroke();
+  // cercle de connexion droite
+  c.beginPath(); c.arc(10, 0, 2.5, 0, Math.PI*2); c.stroke();
+}
+
+// ── VA-ET-VIENT (CEI) : cercle + 2 leviers ──
+function drawVaEtVient(c) {
+  c.strokeStyle = '#b2ebf2'; c.lineWidth = 1.8;
+  c.beginPath(); c.arc(-10, 0, 2.5, 0, Math.PI*2); c.stroke();
+  // levier principal
+  c.beginPath(); c.moveTo(-10, 0); c.lineTo(6, -8); c.stroke();
+  // second levier (position alternative)
+  c.setLineDash([2, 2]);
+  c.beginPath(); c.moveTo(-10, 0); c.lineTo(6, 8); c.stroke();
+  c.setLineDash([]);
+  c.beginPath(); c.arc(10, 0, 2.5, 0, Math.PI*2); c.stroke();
+}
+
+// ── BOUTON-POUSSOIR (CEI) : cercle + trait droit + flèche ──
+function drawBouton(c) {
+  c.strokeStyle = '#ce93d8'; c.lineWidth = 1.8;
+  c.beginPath(); c.arc(-10, 0, 2.5, 0, Math.PI*2); c.stroke();
+  // lame horizontale
+  c.beginPath(); c.moveTo(-7, 0); c.lineTo(7, 0); c.stroke();
+  // flèche de poussée
+  c.beginPath(); c.moveTo(0, -6); c.lineTo(0, -1); c.stroke();
+  c.beginPath(); c.moveTo(-2.5, -3); c.lineTo(0, -1); c.lineTo(2.5, -3); c.stroke();
+  c.beginPath(); c.arc(10, 0, 2.5, 0, Math.PI*2); c.stroke();
+}
+
+// ── VARIATEUR (CEI) : interrupteur + flèche diagonale ──
+function drawVariateur(c) {
+  c.strokeStyle = '#ffcc02'; c.lineWidth = 1.8;
+  c.beginPath(); c.arc(-10, 0, 2.5, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.moveTo(-10, 0); c.lineTo(6, -8); c.stroke();
+  c.beginPath(); c.arc(10, 0, 2.5, 0, Math.PI*2); c.stroke();
+  // flèche diagonale variateur
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(-5, 8); c.lineTo(5, -8); c.stroke();
+  c.beginPath(); c.moveTo(5, -8); c.lineTo(1, -5); c.moveTo(5, -8); c.lineTo(4, -3); c.stroke();
+}
+
+// ── LUMINAIRE PLAFONNIER (CEI 60617) : cercle + croix ──
+function drawLuminaire(c) {
+  c.strokeStyle = '#ffe082'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 11, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath();
+  c.moveTo(-7, -7); c.lineTo(7, 7);
+  c.moveTo(7, -7); c.lineTo(-7, 7);
+  c.stroke();
+}
+
+// ── SPOT ENCASTRÉ (CEI) : cercle plein + demi-cercle d'encastrement ──
+function drawSpot(c) {
+  c.strokeStyle = '#fff9c4'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 11, 0, Math.PI*2); c.fill(); c.stroke();
+  // croix + cercle intérieur rempli = luminaire encastré
+  c.fillStyle = '#fff9c4';
+  c.beginPath(); c.arc(0, 0, 5, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#fff9c4';
+  c.beginPath();
+  c.moveTo(-7, -7); c.lineTo(7, 7);
+  c.moveTo(7, -7); c.lineTo(-7, 7);
+  c.stroke();
+}
+
+// ── APPLIQUE MURALE : cercle + demi-cercle côté mur ──
+function drawApplique(c) {
+  c.strokeStyle = '#ffe082'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 11, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath();
+  c.moveTo(-7, -7); c.lineTo(7, 7);
+  c.moveTo(7, -7); c.lineTo(-7, 7);
+  c.stroke();
+  // demi-disque = applique (fixation murale)
+  c.fillStyle = '#ffe082';
+  c.beginPath(); c.arc(0, 0, 11, Math.PI, Math.PI*2); c.fill();
+}
+
+// ── HUBLOT (étanche) : cercle + croix + cercle extérieur pointillé ──
+function drawHublot(c) {
+  c.strokeStyle = '#ffe082'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 11, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath();
+  c.moveTo(-7, -7); c.lineTo(7, 7);
+  c.moveTo(7, -7); c.lineTo(-7, 7);
+  c.stroke();
+  // cercle extérieur pointillé = indice IP élevé
+  c.setLineDash([2.5, 2]);
+  c.beginPath(); c.arc(0, 0, 14, 0, Math.PI*2); c.stroke();
+  c.setLineDash([]);
+}
+
+// ── TABLEAU DE RÉPARTITION (NF C 15-100) : rectangle + disjoncteurs ──
+function drawTableau(c) {
+  c.strokeStyle = '#f5a623'; c.lineWidth = 2; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-16, -20, 32, 40); c.fill(); c.stroke();
+  // rangée de disjoncteurs
+  c.strokeStyle = '#f5a623'; c.lineWidth = 1;
+  [-12, -4, 4, 12].forEach(y => {
+    c.beginPath(); c.rect(-10, y-3, 20, 6); c.stroke();
+    // levier disjoncteur
+    c.fillStyle = 'rgba(245,166,35,0.5)';
+    c.beginPath(); c.rect(-8, y-2, 6, 4); c.fill();
+  });
+}
+
+// ── COMPTEUR LINKY : rectangle + sinusoïde ──
+function drawCompteur(c) {
+  c.strokeStyle = '#80cbc4'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-15, -18, 30, 36); c.fill(); c.stroke();
+  c.strokeStyle = '#80cbc4'; c.lineWidth = 1.5;
+  // sinusoïde = compteur d'énergie
+  c.beginPath();
+  c.moveTo(-11, 0);
+  c.bezierCurveTo(-8, -10, -3, -10, 0, 0);
+  c.bezierCurveTo(3, 10, 8, 10, 11, 0);
+  c.stroke();
+  // bornes
+  c.lineWidth = 1;
+  [[-8,12],[0,12],[8,12]].forEach(([x,y]) => {
+    c.beginPath(); c.arc(x, y, 2, 0, Math.PI*2); c.stroke();
+  });
+}
+
+// ── GAINE TECHNIQUE (GT) : rectangle étroit + tirets ──
+function drawGaineTech(c) {
+  c.strokeStyle = '#8a9ab5'; c.lineWidth = 1.5; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-8, -18, 16, 36); c.fill(); c.stroke();
+  c.strokeStyle = '#8a9ab5'; c.lineWidth = 1;
+  [-10, -3, 4, 11].forEach(y => {
+    c.beginPath(); c.moveTo(-5, y); c.lineTo(5, y); c.stroke();
+  });
+  // GT label
+  c.fillStyle = '#8a9ab5'; c.font = 'bold 6px sans-serif'; c.textAlign = 'center';
+  c.fillText('GT', 0, -13);
+}
+
+// ── CHAUDIÈRE : cercle + flamme ──
+function drawChaudiere(c) {
+  c.strokeStyle = '#ff8a65'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 2, 12, 0, Math.PI*2); c.fill(); c.stroke();
+  // flamme stylisée
+  c.strokeStyle = '#ff8a65'; c.fillStyle = 'rgba(255,138,101,0.4)';
+  c.beginPath();
+  c.moveTo(0, 8); c.bezierCurveTo(-6, 2, -4, -4, 0, -6);
+  c.bezierCurveTo(2, -2, 4, 0, 2, 4);
+  c.bezierCurveTo(5, 0, 6, -2, 4, -6);
+  c.bezierCurveTo(8, -2, 6, 6, 0, 8);
+  c.fill(); c.stroke();
+}
+
+// ── CUMULUS (chauffe-eau) : rectangle arrondi vertical + résistance ──
+function drawCumulus(c) {
+  c.strokeStyle = '#4db6ac'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  // cuve
+  c.beginPath();
+  c.arc(0, -6, 9, Math.PI, 0);
+  c.lineTo(9, 8); c.arc(0, 8, 9, 0, Math.PI); c.closePath();
+  c.fill(); c.stroke();
+  // résistance en U
+  c.strokeStyle = '#4db6ac'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-5, 2); c.lineTo(-5, -2); c.arc(0, -2, 5, Math.PI, 0); c.lineTo(5, 2); c.stroke();
+}
+
+// ── CLIMATISATION : rectangle + ondes froides ──
+function drawClim(c) {
+  c.strokeStyle = '#81d4fa'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-16, -9, 32, 18); c.fill(); c.stroke();
+  // 3 ondes sinusoïdales = air pulsé
+  c.strokeStyle = '#81d4fa'; c.lineWidth = 1.2;
+  [-4, 0, 4].forEach(y => {
+    c.beginPath();
+    c.moveTo(-10, y);
+    c.bezierCurveTo(-6, y-4, -2, y+4, 2, y);
+    c.bezierCurveTo(6, y-4, 10, y+4, 10, y);
+    c.stroke();
+  });
+}
+
+// ── VMC (NF C 15-100) : cercle + croix de ventilation ──
+function drawVmc(c) {
+  c.strokeStyle = '#b0bec5'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.arc(0, 0, 12, 0, Math.PI*2); c.fill(); c.stroke();
+  // hélice 4 pales
+  c.strokeStyle = '#b0bec5'; c.lineWidth = 1.5;
+  [[0,-1],[1,0],[0,1],[-1,0]].forEach(([dx,dy], i) => {
+    const a = i * Math.PI/2;
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.bezierCurveTo(dx*3, dy*3, Math.cos(a+1.2)*9, Math.sin(a+1.2)*9, Math.cos(a+0.5)*9, Math.sin(a+0.5)*9);
+    c.stroke();
+  });
+  c.beginPath(); c.arc(0, 0, 2.5, 0, Math.PI*2); c.stroke();
+}
+
+// ── PRISE RJ45 (télécom) : rectangle + connecteur ──
+function drawRJ45(c) {
+  c.strokeStyle = '#ce93d8'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-12, -10, 24, 20); c.fill(); c.stroke();
+  // connecteur RJ45
+  c.strokeStyle = '#ce93d8'; c.lineWidth = 1.2;
+  c.beginPath(); c.rect(-7, -5, 14, 8); c.stroke();
+  // 4 contacts
+  [-4.5, -1.5, 1.5, 4.5].forEach(x => {
+    c.beginPath(); c.moveTo(x, -5); c.lineTo(x, -1); c.stroke();
+  });
+  // tiret bas = prise murale
+  c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(-8, 7); c.lineTo(8, 7); c.stroke();
+}
+
+// ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
+function drawLaveLinge(c) {
+  // Corps machine : carré arrondi
+  c.strokeStyle = '#a5d6a7'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-14, -14, 28, 28); c.fill(); c.stroke();
+  // Hublot : cercle central
+  c.beginPath(); c.arc(0, 2, 8, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(0, 2, 4, 0, Math.PI*2); c.stroke();
+  // Bandeau de commande en haut
+  c.lineWidth = 1;
+  c.beginPath(); c.rect(-12, -13, 24, 5); c.stroke();
+  // Picots touches
+  c.fillStyle = '#a5d6a7';
+  [-6, 0, 6].forEach(x => { c.beginPath(); c.arc(x, -10, 1.2, 0, Math.PI*2); c.fill(); });
+}
+
+// ── LAVE-VAISSELLE : rectangle + étagères + gouttes ──
+function drawLaveVaisselle(c) {
+  c.strokeStyle = '#80cbc4'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-14, -14, 28, 28); c.fill(); c.stroke();
+  // étagères
+  c.lineWidth = 1;
+  [-4, 4].forEach(y => {
+    c.beginPath(); c.moveTo(-10, y); c.lineTo(10, y); c.stroke();
+  });
+  // assiettes stylisées (arcs)
+  [-6, 0, 6].forEach(x => {
+    c.beginPath(); c.arc(x, -8, 3, Math.PI, 0); c.stroke();
+    c.beginPath(); c.arc(x, 8, 3, Math.PI, 0); c.stroke();
+  });
+  // goutte d'eau = lave
+  c.fillStyle = '#80cbc4';
+  c.beginPath(); c.moveTo(0,-14); c.bezierCurveTo(-2,-14,-4,-11,-4,-9); c.arc(0,-9,4,Math.PI,0); c.bezierCurveTo(4,-11,2,-14,0,-14); c.fill();
+}
+
+// ── SÈCHE-LINGE : comme LL + flèches de chaleur ──
+function drawSecheLinge(c) {
+  c.strokeStyle = '#ce93d8'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-14, -14, 28, 28); c.fill(); c.stroke();
+  c.beginPath(); c.arc(0, 2, 8, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(0, 2, 4, 0, Math.PI*2); c.stroke();
+  c.lineWidth = 1;
+  c.beginPath(); c.rect(-12, -13, 24, 5); c.stroke();
+  // flèche chaleur = tilde ondulé
+  c.strokeStyle = '#ce93d8'; c.lineWidth = 1.2;
+  c.beginPath();
+  c.moveTo(-5, -10); c.bezierCurveTo(-3,-13,3,-7,5,-10);
+  c.stroke();
+  c.fillStyle = '#ce93d8';
+  c.beginPath(); c.moveTo(5,-10); c.lineTo(3,-8); c.lineTo(4,-12); c.closePath(); c.fill();
+}
+
+// ── RÉFRIGÉRATEUR : rectangle haut + étagères + flocon ──
+function drawRefrigerateur(c) {
+  c.strokeStyle = '#90caf9'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-12, -18, 24, 36); c.fill(); c.stroke();
+  // séparation congélo/frigo
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(-12, -4); c.lineTo(12, -4); c.stroke();
+  // étagères
+  [4, 10].forEach(y => {
+    c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(-10, y); c.lineTo(10, y); c.stroke();
+  });
+  // flocon dans partie haute
+  c.strokeStyle = '#90caf9'; c.lineWidth = 1.5;
+  [0, 60, 120].forEach(deg => {
+    const a = deg * Math.PI/180;
+    c.beginPath(); c.moveTo(Math.cos(a)*5, Math.sin(a)*5 - 10); c.lineTo(Math.cos(a+Math.PI)*5, Math.sin(a+Math.PI)*5 - 10); c.stroke();
+  });
+  c.beginPath(); c.arc(0, -10, 1.5, 0, Math.PI*2); c.stroke();
+}
+
+// ── FOUR ENCASTRABLE : rectangle + vitre + résistances ──
+function drawFour(c) {
+  c.strokeStyle = '#ff8a65'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-15, -14, 30, 28); c.fill(); c.stroke();
+  // vitre
+  c.strokeStyle = 'rgba(255,138,101,0.6)'; c.lineWidth = 1;
+  c.beginPath(); c.rect(-11, -8, 22, 16); c.stroke();
+  // résistance haut
+  c.strokeStyle = '#ff8a65'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-9, -5); c.lineTo(9, -5); c.stroke();
+  // résistance bas
+  c.beginPath(); c.moveTo(-9, 5); c.lineTo(9, 5); c.stroke();
+  // poignée
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-8, 13); c.lineTo(8, 13); c.stroke();
+  // bouton de commande
+  c.fillStyle = '#ff8a65';
+  c.beginPath(); c.arc(-12, -10, 2, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(-12, -4, 2, 0, Math.PI*2); c.fill();
+}
+
+// ── PLAQUE DE CUISSON : rectangle + 4 foyers ──
+function drawPlaque(c) {
+  c.strokeStyle = '#ef9a9a'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-16, -12, 32, 24); c.fill(); c.stroke();
+  // 4 foyers cercles concentriques
+  [[-7,-5],[7,-5],[-7,5],[7,5]].forEach(([x,y]) => {
+    c.strokeStyle = '#ef9a9a'; c.lineWidth = 1.5;
+    c.beginPath(); c.arc(x, y, 5, 0, Math.PI*2); c.stroke();
+    c.lineWidth = 0.8;
+    c.beginPath(); c.arc(x, y, 3, 0, Math.PI*2); c.stroke();
+    // point chaud central
+    c.fillStyle = '#ef9a9a';
+    c.beginPath(); c.arc(x, y, 1.2, 0, Math.PI*2); c.fill();
+  });
+}
+
+// ── MICRO-ONDES : rectangle + ondes ──
+function drawMicroOndes(c) {
+  c.strokeStyle = '#ffb74d'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-16, -10, 32, 20); c.fill(); c.stroke();
+  // vitre
+  c.strokeStyle = 'rgba(255,183,77,0.5)'; c.lineWidth = 1;
+  c.beginPath(); c.rect(-14, -8, 18, 16); c.stroke();
+  // ondes micro
+  c.strokeStyle = '#ffb74d'; c.lineWidth = 1.2;
+  [3, 6, 9].forEach(r => {
+    c.beginPath(); c.arc(-5, 0, r, -Math.PI*0.6, Math.PI*0.6); c.stroke();
+  });
+  // panneau commandes droite
+  c.fillStyle = '#ffb74d';
+  [[-4], [0], [4]].forEach(([y]) => {
+    c.beginPath(); c.arc(12, y, 1.5, 0, Math.PI*2); c.fill();
+  });
+}
+
+// ── CONGÉLATEUR : rectangle + étoiles froid ──
+function drawCongelateur(c) {
+  c.strokeStyle = '#81d4fa'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-12, -18, 24, 36); c.fill(); c.stroke();
+  // 3 étoiles froid (NF = nombre d'étoiles = température)
+  c.strokeStyle = '#81d4fa'; c.lineWidth = 1;
+  [-8, 0, 8].forEach(x => {
+    // étoile 6 branches
+    for (let a = 0; a < 6; a++) {
+      const ang = a * Math.PI/3;
+      c.beginPath(); c.moveTo(x, 0); c.lineTo(x + Math.cos(ang)*5, Math.sin(ang)*5); c.stroke();
+    }
+    c.fillStyle = '#81d4fa';
+    c.beginPath(); c.arc(x, 0, 1.5, 0, Math.PI*2); c.fill();
+  });
+  // ligne de fond
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(-10, 10); c.lineTo(10, 10); c.stroke();
+}
+
+// ── PAC (Pompe À Chaleur) : rectangle + flèches cycle thermodynamique ──
+function drawPAC(c) {
+  c.strokeStyle = '#b0bec5'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-16, -12, 32, 24); c.fill(); c.stroke();
+  // cycle : flèche haut = chaud, flèche bas = froid
+  c.strokeStyle = '#ef5350'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-6, 4); c.lineTo(-6, -4); c.stroke();
+  c.beginPath(); c.moveTo(-9, -1); c.lineTo(-6, -4); c.lineTo(-3, -1); c.stroke();
+  c.strokeStyle = '#90caf9'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(6, -4); c.lineTo(6, 4); c.stroke();
+  c.beginPath(); c.moveTo(3, 1); c.lineTo(6, 4); c.lineTo(9, 1); c.stroke();
+  // séparateur
+  c.strokeStyle = '#b0bec5'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(0, -10); c.lineTo(0, 10); c.stroke();
+  // label
+  c.fillStyle = '#b0bec5'; c.font = 'bold 6px sans-serif'; c.textAlign = 'center';
+  c.fillText('PAC', 0, -14);
+}
+
+// ── PORTAIL ÉLECTRIQUE : double vantail + moteur ──
+function drawPortail(c) {
+  c.strokeStyle = '#bcaaa4'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  // vantail gauche
+  c.beginPath(); c.rect(-15, -14, 12, 28); c.fill(); c.stroke();
+  // vantail droite
+  c.beginPath(); c.rect(3, -14, 12, 28); c.fill(); c.stroke();
+  // barreaux
+  c.strokeStyle = 'rgba(188,170,164,0.5)'; c.lineWidth = 0.8;
+  [-8, -3, 8, 13].forEach(x => {
+    c.beginPath(); c.moveTo(x, -12); c.lineTo(x, 12); c.stroke();
+  });
+  // moteur central
+  c.strokeStyle = '#bcaaa4'; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(0, 0, 3, 0, Math.PI*2); c.stroke();
+  c.fillStyle = '#bcaaa4';
+  c.beginPath(); c.arc(0, 0, 1.5, 0, Math.PI*2); c.fill();
+}
+
+// ── ALARME / DÉTECTEUR : cloche + ondes ──
+function drawAlarme(c) {
+  c.strokeStyle = '#ef5350'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  // cloche
+  c.beginPath();
+  c.moveTo(-10, 4); c.bezierCurveTo(-10,-10,10,-10,10,4); c.closePath();
+  c.fill(); c.stroke();
+  c.beginPath(); c.arc(0, -12, 2, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.moveTo(-4, 4); c.arc(0, 4, 4, Math.PI, 0); c.stroke();
+  // ondes rayonnantes
+  c.strokeStyle = 'rgba(239,83,80,0.5)'; c.lineWidth = 1;
+  [14, 18].forEach(r => {
+    c.beginPath(); c.arc(0, 0, r, -Math.PI*0.8, -Math.PI*0.2); c.stroke();
+    c.beginPath(); c.arc(0, 0, r, Math.PI*1.2, Math.PI*1.8); c.stroke();
+  });
+}
+
+// ── VOLET ROULANT MOTORISÉ : rectangle + lamelles + moteur ──
+function drawVolet(c) {
+  c.strokeStyle = '#a1887f'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-15, -14, 30, 22); c.fill(); c.stroke();
+  // lamelles
+  c.strokeStyle = 'rgba(161,136,127,0.7)'; c.lineWidth = 1;
+  [-9, -4, 1, 6].forEach(y => {
+    c.beginPath(); c.moveTo(-13, y); c.lineTo(13, y); c.stroke();
+  });
+  // moteur en haut
+  c.strokeStyle = '#a1887f'; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(0, -10, 4, 0, Math.PI*2); c.stroke();
+  c.fillStyle = '#a1887f';
+  c.beginPath(); c.arc(0, -10, 1.5, 0, Math.PI*2); c.fill();
+  // flèche de montée/descente
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(0, 8); c.lineTo(0, 14); c.stroke();
+  c.beginPath(); c.moveTo(-3, 11); c.lineTo(0, 14); c.lineTo(3, 11); c.stroke();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MOBILIER — Vue de dessus, style plan d'architecte
+//  Gris-bleuté neutre pour ne pas confondre avec l'électricité
+// ══════════════════════════════════════════════════════════════
+
+const MOB = '#6b7a8d';
+const MOB_FILL  = 'rgba(107,122,141,0.12)';
+const MOB_FILL2 = 'rgba(107,122,141,0.24)';
+
+function drawCanape(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-28, -8, 56, 20); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-28, -16, 56, 9); c.fill(); c.stroke();
+  c.beginPath(); c.rect(-34, -16, 7, 28); c.fill(); c.stroke();
+  c.beginPath(); c.rect(27, -16, 7, 28); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL;
+  [-14, 0, 14].forEach(x => {
+    c.beginPath(); c.rect(x-9, -7, 18, 17); c.fill();
+    c.strokeStyle = 'rgba(107,122,141,0.35)'; c.lineWidth = 0.7;
+    c.stroke(); c.strokeStyle = MOB; c.lineWidth = 1.5;
+  });
+}
+
+function drawLitDouble(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-26, -20, 52, 44); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-26, -20, 52, 10); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.35)'; c.lineWidth = 0.8;
+  c.beginPath(); c.moveTo(0, -10); c.lineTo(0, 24); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1;
+  [[-13,-8],[13,-8]].forEach(([x,y]) => {
+    c.fillStyle = 'rgba(255,255,255,0.05)';
+    c.beginPath(); c.rect(x-10, y, 20, 12); c.fill(); c.stroke();
+  });
+  c.strokeStyle = 'rgba(107,122,141,0.4)'; c.lineWidth = 0.8;
+  c.beginPath(); c.rect(-23, 6, 46, 16); c.stroke();
+}
+
+function drawLitSimple(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-16, -22, 32, 44); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-16, -22, 32, 10); c.fill(); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1;
+  c.fillStyle = 'rgba(255,255,255,0.05)';
+  c.beginPath(); c.rect(-12, -10, 24, 12); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.4)'; c.lineWidth = 0.8;
+  c.beginPath(); c.rect(-14, 5, 28, 15); c.stroke();
+}
+
+function drawTableManger(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-22, -14, 44, 28); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.2)'; c.lineWidth = 0.5;
+  [-6, 0, 6].forEach(y => { c.beginPath(); c.moveTo(-20, y); c.lineTo(20, y); c.stroke(); });
+  c.strokeStyle = 'rgba(107,122,141,0.5)'; c.lineWidth = 1;
+  [-10, 10].forEach(x => { c.beginPath(); c.rect(x-5, -20, 10, 5); c.stroke(); });
+  [-10, 10].forEach(x => { c.beginPath(); c.rect(x-5, 15, 10, 5); c.stroke(); });
+  [-10, 10].forEach(y => { c.beginPath(); c.rect(-28, y-5, 5, 10); c.stroke(); });
+  [-10, 10].forEach(y => { c.beginPath(); c.rect(23, y-5, 5, 10); c.stroke(); });
+}
+
+function drawChaise(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-9, -6, 18, 16); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-9, -14, 18, 9); c.fill(); c.stroke();
+  c.lineWidth = 1;
+  [[-8,10],[8,10],[-8,-6],[8,-6]].forEach(([x,y]) => {
+    c.beginPath(); c.arc(x, y, 1.5, 0, Math.PI*2); c.stroke();
+  });
+}
+
+function drawBureau(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-26, -12, 40, 24); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(14, -12, 14, 18); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.5)'; c.lineWidth = 0.8;
+  [-6, 2].forEach(y => {
+    c.beginPath(); c.rect(-24, y, 14, 6); c.stroke();
+    c.beginPath(); c.moveTo(-18, y+3); c.lineTo(-14, y+3); c.stroke();
+  });
+}
+
+function drawPlanTravail(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-36, -10, 72, 20); c.fill(); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1;
+  [[-18,-3],[-8,-3],[-18,3],[-8,3]].forEach(([x,y]) => {
+    c.beginPath(); c.arc(x, y, 4, 0, Math.PI*2); c.stroke();
+    c.beginPath(); c.arc(x, y, 2, 0, Math.PI*2); c.stroke();
+  });
+  c.fillStyle = 'rgba(107,122,141,0.08)';
+  c.beginPath(); c.rect(6, -7, 12, 14); c.fill(); c.stroke();
+  c.beginPath(); c.rect(20, -7, 12, 14); c.fill(); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(16, -8); c.lineTo(16, -12); c.arc(18, -12, 2, Math.PI, 0); c.stroke();
+}
+
+function drawEvier(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-20, -12, 40, 24); c.fill(); c.stroke();
+  c.fillStyle = 'rgba(107,122,141,0.08)';
+  c.beginPath(); c.rect(-17, -9, 16, 18); c.fill(); c.stroke();
+  c.beginPath(); c.rect(1, -9, 16, 18); c.fill(); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1;
+  c.beginPath(); c.arc(-9, 0, 2.5, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(9, 0, 2.5, 0, Math.PI*2); c.stroke();
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-2, -10); c.lineTo(-2, -14); c.arc(0, -14, 2, Math.PI, 0); c.stroke();
+}
+
+function drawDouche(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = 'rgba(107,122,141,0.05)';
+  c.beginPath(); c.rect(-22, -22, 44, 44); c.fill(); c.stroke();
+  c.lineWidth = 3;
+  c.beginPath(); c.moveTo(-22,-22); c.lineTo(-22,22); c.stroke();
+  c.beginPath(); c.moveTo(-22,-22); c.lineTo(22,-22); c.stroke();
+  c.beginPath(); c.moveTo(22,-22); c.lineTo(22,22); c.stroke();
+  c.lineWidth = 1; c.setLineDash([3,3]);
+  c.beginPath(); c.moveTo(-22,22); c.lineTo(0,22); c.stroke();
+  c.setLineDash([]);
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(12,-12); c.lineTo(12,-6); c.stroke();
+  c.fillStyle = 'rgba(107,122,141,0.3)';
+  c.beginPath(); c.arc(12,-6,4,0,Math.PI*2); c.fill(); c.stroke();
+  c.fillStyle = MOB;
+  [[-1,-1],[1,-1],[0,1]].forEach(([dx,dy]) => {
+    c.beginPath(); c.arc(12+dx,-6+dy,0.7,0,Math.PI*2); c.fill();
+  });
+  c.strokeStyle = MOB; c.lineWidth = 1;
+  c.beginPath(); c.arc(-8,14,3,0,Math.PI*2); c.stroke();
+}
+
+function drawBaignoire(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = 'rgba(107,122,141,0.05)';
+  c.beginPath();
+  c.moveTo(-26,-14); c.lineTo(20,-14);
+  c.arc(20,-4,10,-Math.PI/2,Math.PI/2);
+  c.lineTo(-26,6); c.arc(-26,-4,10,Math.PI/2,-Math.PI/2);
+  c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.35)'; c.lineWidth = 0.8;
+  c.beginPath(); c.rect(-22,-10,38,12); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(-22,-4,3,0,Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(16,-2,2.5,0,Math.PI*2); c.stroke();
+  c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-25,-9,8,10); c.fill(); c.stroke();
+}
+
+function drawLavabo(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = 'rgba(107,122,141,0.05)';
+  c.beginPath(); c.ellipse(0,2,16,14,0,0,Math.PI*2); c.fill(); c.stroke();
+  c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-20,-16,40,10); c.fill(); c.stroke();
+  c.beginPath(); c.rect(-20,14,40,4); c.fill(); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(0,-14); c.lineTo(0,-10); c.arc(0,-8,2,-Math.PI/2,Math.PI/2); c.stroke();
+  c.lineWidth = 1;
+  c.beginPath(); c.arc(0,6,3,0,Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(0,6,1.2,0,Math.PI*2); c.stroke();
+}
+
+function drawWC(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-11,-22,22,10); c.fill(); c.stroke();
+  c.fillStyle = 'rgba(107,122,141,0.05)';
+  c.beginPath();
+  c.moveTo(-13,-12); c.bezierCurveTo(-18,-12,-18,20,-8,22);
+  c.lineTo(8,22); c.bezierCurveTo(18,20,18,-12,13,-12);
+  c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.4)'; c.lineWidth = 0.8;
+  c.beginPath();
+  c.moveTo(-11,-12); c.bezierCurveTo(-15,-10,-15,18,-6,20);
+  c.lineTo(6,20); c.bezierCurveTo(15,18,15,-10,11,-12);
+  c.closePath(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.25)'; c.lineWidth = 0.6;
+  c.beginPath(); c.ellipse(0,8,8,10,0,0,Math.PI*2); c.stroke();
+}
+
+function drawArmoire(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-26,-14,52,28); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.5)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(0,-14); c.lineTo(0,14); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-6,-2); c.lineTo(-6,2); c.stroke();
+  c.beginPath(); c.moveTo(6,-2); c.lineTo(6,2); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.2)'; c.lineWidth = 0.6; c.setLineDash([2,2]);
+  c.beginPath(); c.arc(-26,14,52,-Math.PI/2,0); c.stroke();
+  c.beginPath(); c.arc(26,14,52,Math.PI,-Math.PI/2); c.stroke();
+  c.setLineDash([]);
+}
+
+function drawTableBasse(c) {
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL2;
+  c.beginPath(); c.rect(-20,-12,40,24); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(107,122,141,0.35)'; c.lineWidth = 0.7;
+  c.beginPath(); c.rect(-17,-9,34,18); c.stroke();
+  c.strokeStyle = MOB; c.lineWidth = 1.5;
+  [[-18,-10],[18,-10],[-18,10],[18,10]].forEach(([x,y]) => {
+    c.fillStyle = MOB_FILL2;
+    c.beginPath(); c.rect(x-2,y-2,4,4); c.fill(); c.stroke();
+  });
+}
+
+const CABLE_COLORS = {
+  'cable-phase': '#ef5350',
+  'cable-neutre': '#90caf9',
+  'cable-terre': '#66bb6a',
+  'cable-telecom': '#ce93d8',
+};
+const CABLE_DASH = {
+  'cable-telecom': [6, 4],
+};
+
+function drawCable(cable, isSelected) {
+  if (cable.points.length < 2) return;
+  const col = CABLE_COLORS[cable.type] || '#fff';
+  ctx.save();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = (isSelected ? 3 : 2) * state.zoom;
+  ctx.globalAlpha = isSelected ? 1 : 0.85;
+  if (CABLE_DASH[cable.type]) ctx.setLineDash(CABLE_DASH[cable.type].map(v => v * state.zoom));
+  if (isSelected) { ctx.shadowColor = col; ctx.shadowBlur = 8; }
+  ctx.beginPath();
+  const p0 = worldToScreen(cable.points[0].x, cable.points[0].y);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < cable.points.length; i++) {
+    const p = worldToScreen(cable.points[i].x, cable.points[i].y);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+  // Arrow mid
+  if (cable.points.length >= 2) {
+    const mid = Math.floor(cable.points.length / 2);
+    const a = worldToScreen(cable.points[mid-1].x, cable.points[mid-1].y);
+    const b = worldToScreen(cable.points[mid].x, cable.points[mid].y);
+    drawArrow(a, b, col);
+  }
+}
+
+function drawArrow(a, b, col) {
+  const angle = Math.atan2(b.y - a.y, b.x - a.x);
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const size = 6;
+  ctx.save();
+  ctx.fillStyle = col;
+  ctx.globalAlpha = 0.7;
+  ctx.translate(mx, my);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(size, 0); ctx.lineTo(-size/2, size/2); ctx.lineTo(-size/2, -size/2);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DRAW WALLS
+// ══════════════════════════════════════════════════════════════
+function drawWall(wall, isSelected) {
+  const a = worldToScreen(wall.x1, wall.y1);
+  const b = worldToScreen(wall.x2, wall.y2);
+  ctx.save();
+  ctx.strokeStyle = isSelected ? '#f5a623' : '#8a9ab5';
+  ctx.lineWidth = (isSelected ? 6 : 5) * state.zoom;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 1 * state.zoom;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DRAW ROOMS
+// ══════════════════════════════════════════════════════════════
+function drawRoom(room, isSelected) {
+  if (room.points.length < 3) return;
+  ctx.save();
+  ctx.strokeStyle = isSelected ? '#f5a623' : 'rgba(245,166,35,0.4)';
+  ctx.lineWidth = isSelected ? 2 : 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.fillStyle = isSelected ? 'rgba(245,166,35,0.08)' : 'rgba(245,166,35,0.03)';
+  ctx.beginPath();
+  const p0 = worldToScreen(room.points[0].x, room.points[0].y);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < room.points.length; i++) {
+    const p = worldToScreen(room.points[i].x, room.points[i].y);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]);
+  // Label
+  const cx = room.points.reduce((a,p)=>a+p.x,0)/room.points.length;
+  const cy = room.points.reduce((a,p)=>a+p.y,0)/room.points.length;
+  const sc = worldToScreen(cx, cy);
+  ctx.fillStyle = 'rgba(245,166,35,0.7)';
+  ctx.font = `bold ${12 * state.zoom}px Syne, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(room.name || 'Pièce', sc.x, sc.y);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAIN DRAW
+// ══════════════════════════════════════════════════════════════
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  const gs = state.grid * state.zoom;
+  const ox = ((state.pan.x % gs) + gs) % gs;
+  const oy = ((state.pan.y % gs) + gs) % gs;
+  for (let x = ox; x < canvas.width; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y = oy; y < canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  ctx.restore();
+
+  // Rooms
+  state.rooms.forEach(r => drawRoom(r, state.selected === r));
+
+  // Walls
+  state.walls.forEach(w => drawWall(w, state.selected === w));
+
+  // Cables
+  state.cables.forEach(c => drawCable(c, state.selected === c));
+
+  // In-progress cable
+  if (state.mode === 'cable' && state.cablePoints.length > 0) {
+    const lastP = worldToScreen(state.cablePoints[state.cablePoints.length-1].x, state.cablePoints[state.cablePoints.length-1].y);
+    const col = CABLE_COLORS[state.tool] || '#fff';
+    ctx.save();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 0.5; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    const f = worldToScreen(state.cablePoints[0].x, state.cablePoints[0].y);
+    ctx.moveTo(f.x, f.y);
+    state.cablePoints.forEach((p,i)=>{ if(i>0){ const s=worldToScreen(p.x,p.y); ctx.lineTo(s.x,s.y); }});
+    ctx.lineTo(state.mouseX, state.mouseY);
+    ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+
+  // In-progress wall
+  if (state.mode === 'wall' && state.wallStart) {
+    const a = worldToScreen(state.wallStart.x, state.wallStart.y);
+    const w = screenToWorld(state.mouseX, state.mouseY);
+    const sp = snapPoint(w.x, w.y);
+    const b = worldToScreen(sp.x, sp.y);
+    ctx.save();
+    ctx.strokeStyle = '#8a9ab5'; ctx.lineWidth = 5 * state.zoom; ctx.globalAlpha = 0.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  // In-progress room
+  if (state.mode === 'room' && state.roomPoints.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(245,166,35,0.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    const f = worldToScreen(state.roomPoints[0].x, state.roomPoints[0].y);
+    ctx.moveTo(f.x, f.y);
+    state.roomPoints.forEach((p,i)=>{ if(i>0){ const s=worldToScreen(p.x,p.y); ctx.lineTo(s.x,s.y); }});
+    ctx.lineTo(state.mouseX, state.mouseY);
+    ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+
+  // Elements
+  state.elements.forEach(el => drawElement(el, state.selected === el));
+
+  // Snap cursor
+  if (state.mode !== 'select') {
+    const w = screenToWorld(state.mouseX, state.mouseY);
+    const sp = snapPoint(w.x, w.y);
+    const sc = worldToScreen(sp.x, sp.y);
+    ctx.save();
+    ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
+    ctx.beginPath(); ctx.arc(sc.x, sc.y, 4, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  updateStats();
+  updateRoomList();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MOUSE EVENTS
+// ══════════════════════════════════════════════════════════════
+let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
+let mouseDragged = false;
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    isPanning = true;
+    panStart = { x: e.clientX, y: e.clientY };
+    panOrigin = { ...state.pan };
+    e.preventDefault();
+    return;
+  }
+  mouseDragged = false;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  state.mouseX = e.clientX - r.left;
+  state.mouseY = e.clientY - r.top;
+  const w = screenToWorld(state.mouseX, state.mouseY);
+  const sp = snapPoint(w.x, w.y);
+  document.getElementById('coords').textContent = `X: ${sp.x} — Y: ${sp.y}`;
+
+  if (isPanning) {
+    state.pan.x = panOrigin.x + (e.clientX - panStart.x);
+    state.pan.y = panOrigin.y + (e.clientY - panStart.y);
+    mouseDragged = true;
+  }
+  draw();
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (isPanning) { isPanning = false; return; }
+  if (mouseDragged) return;
+});
+
+canvas.addEventListener('click', (e) => {
+  if (e.altKey || isPanning || mouseDragged) return;
+  const r = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const w = screenToWorld(sx, sy);
+  const sp = snapPoint(w.x, w.y);
+
+  if (state.mode === 'select') {
+    handleSelect(sx, sy);
+    return;
+  }
+  if (state.mode === 'place' && state.tool) {
+    placeElement(sp.x, sp.y);
+    return;
+  }
+  if (state.mode === 'cable') {
+    state.cablePoints.push({ x: sp.x, y: sp.y });
+    draw();
+    return;
+  }
+  if (state.mode === 'wall') {
+    if (!state.wallStart) {
+      state.wallStart = sp;
+    } else {
+      state.walls.push({ id: uid(), x1: state.wallStart.x, y1: state.wallStart.y, x2: sp.x, y2: sp.y });
+      state.wallStart = sp; // chain walls
+    }
+    draw();
+    return;
+  }
+  if (state.mode === 'room') {
+    state.roomPoints.push(sp);
+    draw();
+    return;
+  }
+});
+
+canvas.addEventListener('dblclick', (e) => {
+  if (state.mode === 'cable' && state.cablePoints.length >= 2) {
+    finishCable();
+  } else if (state.mode === 'wall') {
+    state.wallStart = null;
+    setMode('select');
+  } else if (state.mode === 'room' && state.roomPoints.length >= 3) {
+    finishRoom();
+  }
+});
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (state.mode === 'cable') { state.cablePoints = []; }
+  if (state.mode === 'wall') { state.wallStart = null; }
+  if (state.mode === 'room') { state.roomPoints = []; }
+  setMode('select');
+  draw();
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  state.pan.x = mx - (mx - state.pan.x) * factor;
+  state.pan.y = my - (my - state.pan.y) * factor;
+  state.zoom = Math.min(Math.max(state.zoom * factor, 0.2), 5);
+  document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+  draw();
+}, { passive: false });
+
+// ══════════════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════════════
+let _uid = 1;
+function uid() { return _uid++; }
+
+function placeElement(x, y) {
+  const circuitId = getActiveCircuit();
+  state.elements.push({
+    id: uid(), type: state.tool, x, y,
+    label: '', circuitId,
+    circuit: state.circuits.find(c => c.id === circuitId)?.name || '',
+  });
+  toast('Élément posé');
+  draw();
+}
+
+function finishCable() {
+  if (state.cablePoints.length >= 2) {
+    state.cables.push({ id: uid(), type: state.tool, points: [...state.cablePoints] });
+    toast('Câble tracé');
+  }
+  state.cablePoints = [];
+  draw();
+}
+
+function finishRoom() {
+  const name = prompt('Nom de la pièce :', 'Salon');
+  state.rooms.push({ id: uid(), name: name || 'Pièce', points: [...state.roomPoints] });
+  state.roomPoints = [];
+  updateRoomList();
+  toast('Pièce créée');
+  setMode('select');
+  draw();
+}
+
+function handleSelect(sx, sy) {
+  const w = screenToWorld(sx, sy);
+  // Check elements
+  for (let i = state.elements.length - 1; i >= 0; i--) {
+    const el = state.elements[i];
+    const s = worldToScreen(el.x, el.y);
+    const d = Math.hypot(s.x - sx, s.y - sy);
+    if (d < 18 * state.zoom) {
+      state.selected = el;
+      updateProps();
+      draw();
+      return;
+    }
+  }
+  // Check cables
+  for (let i = state.cables.length - 1; i >= 0; i--) {
+    const cable = state.cables[i];
+    for (let j = 0; j < cable.points.length - 1; j++) {
+      const a = worldToScreen(cable.points[j].x, cable.points[j].y);
+      const b = worldToScreen(cable.points[j+1].x, cable.points[j+1].y);
+      if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 6) {
+        state.selected = cable;
+        updateProps();
+        draw();
+        return;
+      }
+    }
+  }
+  // Check walls
+  for (let i = state.walls.length - 1; i >= 0; i--) {
+    const wall = state.walls[i];
+    const a = worldToScreen(wall.x1, wall.y1);
+    const b = worldToScreen(wall.x2, wall.y2);
+    if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 8) {
+      state.selected = wall;
+      updateProps();
+      draw();
+      return;
+    }
+  }
+  // Check rooms
+  for (let i = state.rooms.length - 1; i >= 0; i--) {
+    const room = state.rooms[i];
+    const cx = room.points.reduce((a,p)=>a+p.x,0)/room.points.length;
+    const cy = room.points.reduce((a,p)=>a+p.y,0)/room.points.length;
+    const sc = worldToScreen(cx, cy);
+    if (Math.hypot(sc.x - sx, sc.y - sy) < 30) {
+      state.selected = room;
+      updateProps();
+      draw();
+      return;
+    }
+  }
+  state.selected = null;
+  updateProps();
+  draw();
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx-ax, dy = by-ay;
+  const t = Math.max(0, Math.min(1, ((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+}
+
+function deleteSelected() {
+  if (!state.selected) return;
+  state.elements = state.elements.filter(e => e !== state.selected);
+  state.cables = state.cables.filter(c => c !== state.selected);
+  state.walls = state.walls.filter(w => w !== state.selected);
+  state.rooms = state.rooms.filter(r => r !== state.selected);
+  state.selected = null;
+  updateProps();
+  draw();
+  toast('Supprimé');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (document.activeElement.tagName !== 'INPUT') deleteSelected();
+  }
+  if (e.key === 'Escape') setMode('select');
+  // R = rotation +90°, Shift+R = -90°
+  if (e.key === 'r' || e.key === 'R') {
+    if (document.activeElement.tagName !== 'INPUT') {
+      rotateSelected(e.shiftKey ? -90 : 90);
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  PROPS PANEL
+// ══════════════════════════════════════════════════════════════
+function updateProps() {
+  const panel = document.getElementById('propsPanel');
+  const el = state.selected;
+  if (!el) { panel.innerHTML = '<div style="color:var(--text2);font-size:10px;">Sélectionnez un élément.</div>'; return; }
+
+  const circuitOpts = state.circuits.map(c =>
+    `<option value="${c.id}" ${el.circuitId === c.id ? 'selected' : ''}>${c.name}</option>`
+  ).join('');
+
+  let html = '';
+
+  if (el.type) {
+    html += `<div class="prop-row"><div class="prop-label">Type</div>
+      <input class="prop-input" readonly value="${el.type}"/></div>`;
+    html += `<div class="prop-row"><div class="prop-label">Étiquette</div>
+      <input class="prop-input" id="propLabel" value="${el.label||''}" oninput="updateProp('label',this.value)"/></div>`;
+    if (!CABLE_TOOLS.includes(el.type)) {
+      html += `<div class="prop-row"><div class="prop-label">Circuit</div>
+        <select class="prop-input" onchange="updateProp('circuitId',parseInt(this.value))">${circuitOpts}</select></div>`;
+    }
+    // Rotation — pour tous les éléments
+    const rot = el.rotation || 0;
+    html += `<div class="prop-row">
+      <div class="prop-label">Orientation — <b style="color:var(--accent)">${rot}°</b></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:3px;margin-top:4px;">
+        <button class="prop-rot-btn" onclick="rotateSelected(-90)" title="−90°">↺ 90°</button>
+        <button class="prop-rot-btn" onclick="rotateSelected(-45)" title="−45°">↺ 45°</button>
+        <button class="prop-rot-btn" onclick="rotateSelected(45)"  title="+45°">↻ 45°</button>
+        <button class="prop-rot-btn" onclick="rotateSelected(90)"  title="+90°">↻ 90°</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px;">
+        <button class="prop-rot-btn" onclick="rotateSelected(15)"  title="+15°">↻ 15°</button>
+        <button class="prop-rot-btn" onclick="rotateSelected(-15)" title="−15°">↺ 15°</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:3px;margin-top:3px;">
+        <button class="prop-rot-btn prop-rot-preset" onclick="setRotation(0)"   title="Nord">↑ 0°</button>
+        <button class="prop-rot-btn prop-rot-preset" onclick="setRotation(90)"  title="Est">→ 90°</button>
+        <button class="prop-rot-btn prop-rot-preset" onclick="setRotation(180)" title="Sud">↓ 180°</button>
+        <button class="prop-rot-btn prop-rot-preset" onclick="setRotation(270)" title="Ouest">← 270°</button>
+      </div>
+      <div style="font-size:9px;color:var(--text2);margin-top:4px;">Raccourcis : <b>R</b> = +90° · <b>Shift+R</b> = −90°</div>
+    </div>`;
+    html += `<div class="prop-row"><div class="prop-label">Position</div>
+      <div style="display:flex;gap:4px">
+        <input class="prop-input" style="width:50%" value="${el.x||el.x1||''}" oninput="updatePropCoord('x',this.value)" placeholder="X"/>
+        <input class="prop-input" style="width:50%" value="${el.y||el.y1||''}" oninput="updatePropCoord('y',this.value)" placeholder="Y"/>
+      </div></div>`;
+  } else if (el.points) {
+    html += `<div class="prop-row"><div class="prop-label">Pièce</div>
+      <input class="prop-input" value="${el.name||''}" oninput="updateProp('name',this.value)"/></div>`;
+    html += `<div class="prop-row"><div class="prop-label">Points</div>
+      <input class="prop-input" readonly value="${el.points.length} sommets"/></div>`;
+  } else {
+    html += `<div class="prop-row"><div class="prop-label">Mur sélectionné</div></div>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+function updateProp(key, val) {
+  if (state.selected) { state.selected[key] = val; draw(); }
+}
+function updatePropCoord(key, val) {
+  if (state.selected) { state.selected[key] = parseFloat(val) || 0; draw(); }
+}
+
+function rotateSelected(delta) {
+  if (!state.selected || !state.selected.type) return;
+  const cur = state.selected.rotation || 0;
+  state.selected.rotation = ((cur + delta) % 360 + 360) % 360;
+  updateProps(); draw();
+}
+
+function setRotation(deg) {
+  if (!state.selected || !state.selected.type) return;
+  state.selected.rotation = deg;
+  updateProps(); draw();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CIRCUITS
+// ══════════════════════════════════════════════════════════════
+function getActiveCircuit() {
+  const items = document.querySelectorAll('.circuit-item.active');
+  if (items.length > 0) return parseInt(items[0].dataset.id);
+  return state.circuits[0]?.id;
+}
+
+function renderCircuits() {
+  const list = document.getElementById('circuitList');
+  list.innerHTML = `<button class="btn" style="width:100%;font-size:10px;margin-bottom:6px" onclick="addCircuit()">+ Nouveau circuit</button>`;
+  state.circuits.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'circuit-item' + (getActiveCircuit() === c.id ? ' active' : '');
+    div.dataset.id = c.id;
+    div.innerHTML = `<div class="circuit-name"><span class="circuit-dot" style="background:${c.color}"></span>${c.name}</div>
+      <div class="circuit-info">${c.ampere}</div>`;
+    div.onclick = () => {
+      document.querySelectorAll('.circuit-item').forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+    };
+    list.appendChild(div);
+  });
+}
+
+function addCircuit() {
+  const name = prompt('Nom du circuit :');
+  if (!name) return;
+  const ampere = prompt('Calibre (ex: 16A) :') || '16A';
+  const colors = ['#ffeb3b','#4fc3f7','#ef9a9a','#a5d6a7','#ce93d8','#ffcc80','#80deea'];
+  const color = colors[state.circuits.length % colors.length];
+  state.circuits.push({ id: uid(), name, color, ampere });
+  renderCircuits();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════════════════════
+function updateStats() {
+  const prises = state.elements.filter(e => e.type.startsWith('prise') || e.type === 'prise-rj45').length;
+  const lumiere = state.elements.filter(e => ['luminaire','spot','applique','hublot'].includes(e.type)).length;
+  document.getElementById('statElements').textContent = state.elements.length + state.walls.length + state.cables.length;
+  document.getElementById('statPrises').textContent = prises;
+  document.getElementById('statLumiere').textContent = lumiere;
+  document.getElementById('statCircuits').textContent = state.circuits.length;
+}
+
+function updateRoomList() {
+  const list = document.getElementById('roomList');
+  if (!state.rooms.length) { list.innerHTML = '<div style="color:var(--text2)">Aucune pièce</div>'; return; }
+  list.innerHTML = state.rooms.map(r => `<div style="padding:3px 0;cursor:pointer" onclick="selectRoom(${r.id})">🏠 ${r.name}</div>`).join('');
+}
+
+function selectRoom(id) {
+  state.selected = state.rooms.find(r => r.id === id);
+  updateProps();
+  draw();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ZOOM / VIEW
+// ══════════════════════════════════════════════════════════════
+function zoom(delta) {
+  const factor = 1 + delta;
+  const cx = canvas.width/2, cy = canvas.height/2;
+  state.pan.x = cx - (cx - state.pan.x) * factor;
+  state.pan.y = cy - (cy - state.pan.y) * factor;
+  state.zoom = Math.min(Math.max(state.zoom * factor, 0.2), 5);
+  document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+  draw();
+}
+
+function resetView() {
+  state.zoom = 1;
+  state.pan = { x: 60, y: 60 };
+  document.getElementById('zoomLabel').textContent = '100%';
+  draw();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CLEAR / DELETE
+// ══════════════════════════════════════════════════════════════
+function clearAll() {
+  showConfirm('Effacer tout le plan ?', () => {
+    state.elements = []; state.walls = []; state.cables = []; state.rooms = [];
+    state.selected = null;
+    updateProps(); updateRoomList(); draw();
+    toast('Plan effacé');
+  });
+}
+
+function showConfirm(message, onConfirm) {
+  // Remove any existing confirm bar
+  const existing = document.getElementById('confirmBar');
+  if (existing) existing.remove();
+
+  const bar = document.createElement('div');
+  bar.id = 'confirmBar';
+  bar.style.cssText = `
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+    background: #1e2329; border: 1px solid #f5a623; border-radius: 10px;
+    padding: 10px 18px; display: flex; align-items: center; gap: 14px;
+    font-family: Syne, sans-serif; font-size: 13px; font-weight: 600;
+    color: #e8eaf0; z-index: 9999; box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  `;
+  bar.innerHTML = `
+    <span>${message}</span>
+    <button id="confirmYes" style="background:#e8380d;border:none;color:#fff;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:12px;">Oui, effacer</button>
+    <button id="confirmNo" style="background:#2a3040;border:1px solid #2a3040;color:#e8eaf0;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:12px;">Annuler</button>
+  `;
+  document.body.appendChild(bar);
+
+  document.getElementById('confirmYes').onclick = () => { bar.remove(); onConfirm(); };
+  document.getElementById('confirmNo').onclick = () => bar.remove();
+
+  // Auto-dismiss after 6s
+  setTimeout(() => { if (bar.parentNode) bar.remove(); }, 6000);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXPORT PNG
+// ══════════════════════════════════════════════════════════════
+function exportPNG() {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = canvas.width; offscreen.height = canvas.height;
+  const oc = offscreen.getContext('2d');
+  oc.fillStyle = '#0d0f12'; oc.fillRect(0,0,offscreen.width,offscreen.height);
+  oc.drawImage(canvas, 0, 0);
+  oc.font = 'bold 13px Syne, sans-serif';
+  oc.fillStyle = 'rgba(245,166,35,0.5)';
+  oc.textAlign = 'right';
+  oc.fillText('Red Den Connexion — PlanElec Pro', offscreen.width - 12, offscreen.height - 12);
+  const dataUrl = offscreen.toDataURL('image/png');
+  const filename = (document.getElementById('projectName').value || 'plan-electrique') + '.png';
+
+  // Affiche l'image dans une modale avec bouton clic-droit / téléchargement
+  const existing = document.getElementById('pngModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'pngModal';
+  modal.className = 'modal-overlay open';
+  modal.innerHTML = `
+    <div class="modal" style="width:600px;max-width:96vw;">
+      <h3>📥 Export PNG — <span style="color:var(--accent);font-size:13px;">${filename}</span></h3>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:10px;">
+        Clic droit sur l'image → <b>Enregistrer l'image sous</b>
+      </p>
+      <img src="${dataUrl}" style="width:100%;border-radius:6px;border:1px solid var(--border);display:block;margin-bottom:12px;" />
+      <div class="modal-btn-row">
+        <button class="btn" onclick="document.getElementById('pngModal').remove()">Fermer</button>
+        <a href="${dataUrl}" download="${filename}" class="btn" style="background:var(--accent);border-color:var(--accent);color:#000;text-decoration:none;">
+          📥 Télécharger PNG
+        </a>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  toast('Plan exporté ✓');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SAVE / LOAD JSON
+// ══════════════════════════════════════════════════════════════
+function saveProject() {
+  const data = JSON.stringify({
+    projectName: document.getElementById('projectName').value,
+    elements: state.elements,
+    walls: state.walls,
+    cables: state.cables,
+    rooms: state.rooms,
+    circuits: state.circuits,
+  }, null, 2);
+
+  // Affiche le JSON dans une modale (téléchargement direct bloqué en iframe)
+  const modal = document.getElementById('saveModal');
+  const textarea = document.getElementById('saveData');
+  const filename = (document.getElementById('projectName').value || 'plan') + '.json';
+  document.getElementById('saveFilename').textContent = filename;
+  textarea.value = data;
+  modal.classList.add('open');
+  textarea.select();
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.remove('open');
+}
+
+function copySaveData() {
+  const textarea = document.getElementById('saveData');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    toast('JSON copié dans le presse-papier ✓');
+    closeSaveModal();
+  }).catch(() => {
+    // Fallback si clipboard API non dispo
+    document.execCommand('copy');
+    toast('JSON copié ✓');
+    closeSaveModal();
+  });
+}
+
+function downloadSaveData() {
+  const textarea = document.getElementById('saveData');
+  const filename = document.getElementById('saveFilename').textContent;
+  const blob = new Blob([textarea.value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('Fichier téléchargé ✓');
+  closeSaveModal();
+}
+
+function loadProject() {
+  document.getElementById('fileInput').click();
+}
+
+function handleFileLoad(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      document.getElementById('projectName').value = data.projectName || '';
+      state.elements = data.elements || [];
+      state.walls = data.walls || [];
+      state.cables = data.cables || [];
+      state.rooms = data.rooms || [];
+      state.circuits = data.circuits || state.circuits;
+      state.selected = null;
+      renderCircuits(); updateProps(); updateRoomList(); draw();
+      toast('Projet chargé');
+    } catch { toast('Erreur de lecture du fichier'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  IA IMPORT — ANALYSE PHOTO DE PLAN MANUSCRIT
+// ══════════════════════════════════════════════════════════════
+let aiImageBase64 = null;
+
+function openAIImport() {
+  document.getElementById('aiModal').classList.add('open');
+  aiImageBase64 = null;
+  document.getElementById('aiPreview').style.display = 'none';
+  document.getElementById('aiDropContent').style.display = 'block';
+  document.getElementById('aiLog').style.display = 'none';
+  document.getElementById('aiLog').textContent = '';
+  const btn = document.getElementById('aiBtnAnalyse');
+  btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed';
+}
+
+function closeAIModal() {
+  document.getElementById('aiModal').classList.remove('open');
+}
+
+function handleAIImageSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    aiImageBase64 = ev.target.result.split(',')[1];
+    const preview = document.getElementById('aiPreview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    document.getElementById('aiDropContent').style.display = 'none';
+    const btn = document.getElementById('aiBtnAnalyse');
+    btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+// Drag & drop sur la zone
+document.addEventListener('DOMContentLoaded', () => {
+  const zone = document.getElementById('aiDropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#f5a623'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = '#a78bfa'; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor = '#a78bfa';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        aiImageBase64 = ev.target.result.split(',')[1];
+        const preview = document.getElementById('aiPreview');
+        preview.src = ev.target.result;
+        preview.style.display = 'block';
+        document.getElementById('aiDropContent').style.display = 'none';
+        const btn = document.getElementById('aiBtnAnalyse');
+        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+});
+
+function aiLog(msg) {
+  const log = document.getElementById('aiLog');
+  log.style.display = 'block';
+  log.textContent += msg + '\n';
+  log.scrollTop = log.scrollHeight;
+}
+
+async function launchAIAnalysis() {
+  if (!aiImageBase64) return;
+
+  const btn = document.getElementById('aiBtnAnalyse');
+  btn.disabled = true; btn.textContent = '⏳ Analyse en cours…';
+
+  const doRooms    = document.getElementById('aiOptRooms').checked;
+  const doWalls    = document.getElementById('aiOptWalls').checked;
+  const doElements = document.getElementById('aiOptElements').checked;
+  const doMerge    = document.getElementById('aiOptMerge').checked;
+
+  document.getElementById('aiLog').textContent = '';
+  aiLog('📷 Image reçue, envoi à Claude Vision…');
+
+  const GRID = 20;
+  const CANVAS_W = 600;
+  const CANVAS_H = 480;
+
+  const systemPrompt = `Tu es un expert en électricité du bâtiment (norme NF C 15-100).
+Tu analyses des photos ou scans de plans électriques manuscrits et tu retournes UNIQUEMENT un objet JSON valide, sans texte autour, sans balises markdown.
+
+L'espace de travail est une grille de ${CANVAS_W}x${CANVAS_H} pixels avec un pas de ${GRID}px. Les coordonnées doivent être des multiples de ${GRID}.
+
+Les types d'éléments disponibles sont :
+- Appareillage : prise, prise20, interrupteur, va-et-vient, bouton-poussoir, variateur
+- Eclairage : luminaire, spot, applique, hublot
+- Equipements : tableau, compteur, gaine-tech, chaudiere, cumulus, clim, vmc, prise-rj45
+- Circuits spécialisés : lave-linge, lave-vaisselle, seche-linge, refrigerateur, four, plaque, micro-ondes, congelateur, pac, portail, alarme, volet
+
+Format JSON à retourner :
+{
+  "rooms": [{ "name": "Séjour", "points": [{"x":40,"y":40},{"x":300,"y":40},{"x":300,"y":280},{"x":40,"y":280}] }],
+  "walls": [{ "x1":40,"y1":40,"x2":300,"y2":40 }],
+  "elements": [{ "type":"luminaire","x":160,"y":160,"label":"Séjour","circuitId":1 }],
+  "cables": []
+}
+
+Règles importantes :
+- Coordonnées multiples de ${GRID} strictement
+- Reste dans les limites ${CANVAS_W}x${CANVAS_H}
+- Si tu ne vois pas de plan électrique clair, retourne des tableaux vides
+- circuitId : 1=éclairage, 2=prises 16A, 3=cuisine 20A, 4=lave-linge, 5=lave-vaisselle, 6=sèche-linge, 8=four/plaque, 9=chauffe-eau, 10=clim
+- Respecte la disposition spatiale du plan (proportions relatives)`;
+
+  const userPrompt = `${doRooms ? 'Détecte les pièces et leurs contours.' : ''}
+${doWalls ? 'Détecte les murs.' : ''}
+${doElements ? 'Détecte tous les équipements électriques visibles.' : ''}
+Retranscris ce plan manuscrit en JSON selon le format demandé.`;
+
+  try {
+    aiLog('🧠 Analyse de l\'image par Claude Vision…');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: aiImageBase64 } },
+            { type: 'text', text: userPrompt }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const raw = data.content.find(b => b.type === 'text')?.text || '';
+    aiLog('✅ Réponse reçue, parsing JSON…');
+
+    // Nettoyage du JSON (balises markdown éventuelles)
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const plan = JSON.parse(clean);
+
+    aiLog(`📐 Pièces : ${(plan.rooms||[]).length} | Murs : ${(plan.walls||[]).length} | Éléments : ${(plan.elements||[]).length}`);
+
+    // Snap toutes les coordonnées à la grille
+    const snap = v => Math.round(v / GRID) * GRID;
+
+    const newRooms = (plan.rooms || []).map(r => ({
+      id: uid(), name: r.name || 'Pièce',
+      points: r.points.map(p => ({ x: snap(p.x), y: snap(p.y) }))
+    }));
+    const newWalls = (plan.walls || []).map(w => ({
+      id: uid(), x1: snap(w.x1), y1: snap(w.y1), x2: snap(w.x2), y2: snap(w.y2)
+    }));
+    const newElements = (plan.elements || []).map(e => ({
+      id: uid(), type: e.type, x: snap(e.x), y: snap(e.y),
+      label: e.label || '', circuitId: e.circuitId || 1
+    }));
+    const newCables = (plan.cables || []).map(c => ({
+      id: uid(), type: c.type || 'cable-phase',
+      points: (c.points || []).map(p => ({ x: snap(p.x), y: snap(p.y) }))
+    }));
+
+    if (doMerge) {
+      if (doRooms)    state.rooms    = [...state.rooms,    ...newRooms];
+      if (doWalls)    state.walls    = [...state.walls,    ...newWalls];
+      if (doElements) state.elements = [...state.elements, ...newElements];
+      state.cables = [...state.cables, ...newCables];
+    } else {
+      if (doRooms)    state.rooms    = newRooms;
+      if (doWalls)    state.walls    = newWalls;
+      if (doElements) state.elements = newElements;
+      state.cables = newCables;
+    }
+
+    state.selected = null;
+    renderCircuits(); updateProps(); updateRoomList(); draw();
+
+    aiLog('🎉 Import terminé ! Vérifie et ajuste les éléments.');
+    btn.textContent = '✅ Importé !';
+    btn.style.background = '#66bb6a'; btn.style.borderColor = '#66bb6a';
+
+    setTimeout(() => {
+      closeAIModal();
+      toast(`Plan importé — ${newElements.length} éléments, ${newRooms.length} pièces`);
+      // reset btn
+      btn.textContent = '🔍 Analyser et importer';
+      btn.style.background = '#a78bfa'; btn.style.borderColor = '#a78bfa'; btn.style.color = '#000';
+    }, 1500);
+
+  } catch (err) {
+    aiLog(`❌ Erreur : ${err.message}`);
+    btn.disabled = false; btn.textContent = '🔍 Analyser et importer';
+    btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  INIT — Lecture des paramètres d'URL
+//  Paramètres supportés :
+//    ?chantier=Dupont%20RDC   → nom du projet
+//    ?client=Martin           → nom du client
+//    ?back=https://...        → URL bouton "Retour"
+//    ?plan=<JSON encodé>      → données à charger directement
+// ══════════════════════════════════════════════════════════════
+(function initFromURL() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Nom du projet
+  const chantier = params.get('chantier');
+  const client   = params.get('client');
+  if (chantier || client) {
+    const label = [client, chantier].filter(Boolean).join(' — ');
+    document.getElementById('projectName').value = label;
+  }
+
+  // Bouton retour vers l'appli
+  const back = params.get('back');
+  if (back) {
+    const btn = document.createElement('a');
+    btn.href = back;
+    btn.className = 'btn';
+    btn.style.cssText = 'border-color:#66bb6a;color:#66bb6a;text-decoration:none;';
+    btn.textContent = '← Retour à l\'appli';
+    document.querySelector('.header-right').prepend(btn);
+  }
+
+  // Données plan passées en URL (?plan=JSON encodé en base64)
+  const planB64 = params.get('plan');
+  if (planB64) {
+    try {
+      const data = JSON.parse(atob(planB64));
+      state.elements = data.elements || [];
+      state.walls    = data.walls    || [];
+      state.rooms    = data.rooms    || [];
+      state.cables   = data.cables   || [];
+      state.circuits = data.circuits || state.circuits;
+    } catch(e) { console.warn('Paramètre plan invalide', e); }
+  }
+
+  renderCircuits();
+  draw();
+
+  // Plan demo uniquement si aucun paramètre et pas de données
+  if (!chantier && !client && !planB64) {
+    setTimeout(() => {
+      state.rooms.push({ id: uid(), name: 'Séjour',  points: [{x:40,y:40},{x:300,y:40},{x:300,y:280},{x:40,y:280}] });
+      state.rooms.push({ id: uid(), name: 'Cuisine', points: [{x:300,y:40},{x:520,y:40},{x:520,y:180},{x:300,y:180}] });
+      state.rooms.push({ id: uid(), name: 'Chambre', points: [{x:40,y:280},{x:300,y:280},{x:300,y:500},{x:40,y:500}] });
+      state.walls.push({ id: uid(), x1:40,  y1:40,  x2:520, y2:40  });
+      state.walls.push({ id: uid(), x1:40,  y1:40,  x2:40,  y2:500 });
+      state.walls.push({ id: uid(), x1:520, y1:40,  x2:520, y2:180 });
+      state.walls.push({ id: uid(), x1:40,  y1:500, x2:300, y2:500 });
+      state.walls.push({ id: uid(), x1:300, y1:40,  x2:300, y2:500 });
+      state.walls.push({ id: uid(), x1:300, y1:180, x2:520, y2:180 });
+      state.elements.push({ id: uid(), type:'tableau',     x:60,  y:60,  label:'TGBT',    circuitId:1 });
+      state.elements.push({ id: uid(), type:'luminaire',   x:170, y:160, label:'Séjour',  circuitId:1 });
+      state.elements.push({ id: uid(), type:'interrupteur',x:80,  y:260, label:'',        circuitId:1 });
+      state.elements.push({ id: uid(), type:'prise',       x:120, y:240, label:'',        circuitId:2 });
+      state.elements.push({ id: uid(), type:'prise',       x:240, y:240, label:'',        circuitId:2 });
+      state.elements.push({ id: uid(), type:'prise20',     x:380, y:140, label:'Cuisson', circuitId:3 });
+      state.elements.push({ id: uid(), type:'luminaire',   x:410, y:100, label:'Cuisine', circuitId:1 });
+      state.elements.push({ id: uid(), type:'luminaire',   x:170, y:380, label:'Chambre', circuitId:1 });
+      state.elements.push({ id: uid(), type:'prise',       x:100, y:440, label:'',        circuitId:2 });
+      state.elements.push({ id: uid(), type:'cumulus',     x:460, y:140, label:'ECS',     circuitId:4 });
+      state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:60,y:240},{x:120,y:240}] });
+      state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:170,y:60},{x:170,y:160}] });
+      updateRoomList(); draw();
+    }, 100);
+  } else {
+    updateRoomList(); draw();
+  }
+})();
+</script>
+</body>
+</html>
