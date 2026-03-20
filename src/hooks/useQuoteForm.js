@@ -68,11 +68,12 @@ export function useQuoteForm() {
                 totalCost: 0
             };
         }
-        const subtotal = formData.items.reduce(
+        const lineItems = formData.items.filter(item => item.type !== 'section');
+        const subtotal = lineItems.reduce(
             (sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)),
             0
         );
-        const totalCost = formData.items.reduce(
+        const totalCost = lineItems.reduce(
             (sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)),
             0
         );
@@ -191,6 +192,17 @@ export function useQuoteForm() {
             }]
         }));
     }, [tradeConfig.defaultUnit]);
+
+    const addSection = useCallback(() => {
+        setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, {
+                id: Date.now(),
+                description: '',
+                type: 'section'
+            }]
+        }));
+    }, []);
 
     const removeItem = useCallback((itemId) => {
         setFormData(prev => ({
@@ -417,6 +429,7 @@ export function useQuoteForm() {
 
         // Gestion des items
         addItem,
+        addSection,
         removeItem,
         moveItem,
         updateItem,

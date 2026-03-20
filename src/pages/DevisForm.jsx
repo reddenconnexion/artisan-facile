@@ -703,6 +703,13 @@ const DevisForm = () => {
         }));
     };
 
+    const addSection = () => {
+        setFormData(prev => ({
+            ...prev,
+            items: [...prev.items, { id: Date.now(), description: '', type: 'section' }]
+        }));
+    };
+
     const removeItem = (id) => {
         setFormData(prev => ({
             ...prev,
@@ -740,8 +747,9 @@ const DevisForm = () => {
                 totalCost: 0
             };
         }
-        const subtotal = formData.items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
-        const totalCost = formData.items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)), 0);
+        const lineItems = formData.items.filter(item => item.type !== 'section');
+        const subtotal = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
+        const totalCost = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)), 0);
         const tva = formData.include_tva ? subtotal * 0.20 : 0;
         const total = subtotal + tva;
         return { subtotal, tva, total, totalCost };
@@ -2621,6 +2629,47 @@ Conditions de règlement : Paiement à réception de facture.`
                     </h3>
                     <div className="space-y-4">
                         {formData.items.map((item, index) => (
+                            item.type === 'section' ? (
+                                <div key={item.id} className="flex items-center gap-2 pt-2 pb-1 border-b-2 border-blue-200">
+                                    <Layers className="w-4 h-4 text-blue-500 shrink-0" />
+                                    <input
+                                        type="text"
+                                        placeholder="Titre de la section (ex: Création prise de terre)"
+                                        className="flex-1 px-3 py-1.5 text-sm font-semibold border-0 border-b border-blue-300 focus:outline-none focus:border-blue-500 bg-transparent text-blue-700 placeholder-blue-300"
+                                        value={item.description}
+                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                        disabled={isLocked}
+                                    />
+                                    <div className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => moveItem(index, 'up')}
+                                            disabled={index === 0 || isLocked}
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded disabled:opacity-30"
+                                            title="Monter"
+                                        >
+                                            <ArrowUp className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveItem(index, 'down')}
+                                            disabled={index === formData.items.length - 1 || isLocked}
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded disabled:opacity-30"
+                                            title="Descendre"
+                                        >
+                                            <ArrowDown className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(item.id)}
+                                            className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-30"
+                                            disabled={isLocked}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
                             <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
@@ -2812,10 +2861,11 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 </div>
                             </div>
+                            )
                         ))}
                     </div>
 
-                    <div className="mt-4 flex gap-4">
+                    <div className="mt-4 flex flex-wrap gap-4">
                         <button
                             onClick={addItem}
                             className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
@@ -2825,7 +2875,15 @@ Conditions de règlement : Paiement à réception de facture.`
                             Ajouter une ligne
                         </button>
 
-
+                        <button
+                            type="button"
+                            onClick={addSection}
+                            className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                            disabled={isLocked}
+                        >
+                            <Layers className="w-4 h-4 mr-1" />
+                            Ajouter une section
+                        </button>
 
                         <button
                             onClick={() => setShowAIModal(true)}
