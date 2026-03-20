@@ -768,6 +768,46 @@
     </div>
 
     <div class="panel-section">
+      <div class="panel-title">🚪 Ouvertures</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-type="porte" onclick="selectTool('porte')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="4" y1="4" x2="16" y2="4"/>
+            <line x1="4" y1="4" x2="4" y2="20"/>
+            <path d="M4 4 A12 12 0 0 1 16 16" stroke-dasharray="3 2"/>
+          </svg>
+          Porte
+        </button>
+        <button class="tool-btn" data-type="porte-double" onclick="selectTool('porte-double')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="12" y1="4" x2="4" y2="4"/>
+            <line x1="12" y1="4" x2="20" y2="4"/>
+            <path d="M12 4 A8 8 0 0 0 4 12" stroke-dasharray="3 2"/>
+            <path d="M12 4 A8 8 0 0 1 20 12" stroke-dasharray="3 2"/>
+          </svg>
+          Porte double
+        </button>
+        <button class="tool-btn" data-type="fenetre" onclick="selectTool('fenetre')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="9" width="18" height="6" rx="0.5"/>
+            <line x1="12" y1="9" x2="12" y2="15"/>
+            <line x1="3" y1="12" x2="21" y2="12" stroke-width="0.8" stroke-dasharray="2 1"/>
+          </svg>
+          Fenêtre
+        </button>
+        <button class="tool-btn" data-type="baie-vitree" onclick="selectTool('baie-vitree')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="9" width="20" height="6" rx="0.5"/>
+            <line x1="9" y1="9" x2="9" y2="15"/>
+            <line x1="15" y1="9" x2="15" y2="15"/>
+            <line x1="2" y1="12" x2="22" y2="12" stroke-width="0.8" stroke-dasharray="2 1"/>
+          </svg>
+          Baie vitrée
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-section">
       <div class="panel-title">🔧 Câblage</div>
       <div class="tool-grid">
         <button class="tool-btn tool-btn-wide" data-type="cable-phase" onclick="selectTool('cable-phase')">
@@ -1196,12 +1236,18 @@ const SYMBOLS = {
   'wc':             drawWC,
   'armoire':        drawArmoire,
   'table-basse':    drawTableBasse,
+  // Ouvertures
+  'porte':          drawPorte,
+  'porte-double':   drawPorteDouble,
+  'fenetre':        drawFenetre,
+  'baie-vitree':    drawBaieVitree,
 };
 
 // Liste des types mobilier (rotation libre)
 const FURNITURE_TYPES = new Set([
   'canape','lit-double','lit-simple','table-manger','chaise','bureau',
   'plan-travail','evier','douche','baignoire','lavabo','wc','armoire','table-basse',
+  'porte','porte-double','fenetre','baie-vitree',
 ]);
 
 function drawElement(el, isSelected) {
@@ -1919,6 +1965,67 @@ function drawTableBasse(c) {
   [[-18,-10],[18,-10],[-18,10],[18,10]].forEach(([x,y]) => {
     c.fillStyle = MOB_FILL2;
     c.beginPath(); c.rect(x-2,y-2,4,4); c.fill(); c.stroke();
+  });
+}
+
+// ── PORTE SIMPLE (symbole archi NF EN ISO 7519) ──────────────
+// Charnière en haut-gauche (-20,-20), vantail vers la droite, arc de 90°
+function drawPorte(c) {
+  const R = 36, hx = -18, hy = -18;
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
+  // Encadrement (l'ouverture dans le mur)
+  c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx, hy + 4); c.stroke();
+  c.beginPath(); c.moveTo(hx + R, hy); c.lineTo(hx + R, hy + 4); c.stroke();
+  // Vantail (battant)
+  c.lineWidth = 2.5;
+  c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx + R, hy); c.stroke();
+  // Arc de rotation
+  c.lineWidth = 1.2;
+  c.setLineDash([4, 3]);
+  c.beginPath(); c.arc(hx, hy, R, 0, Math.PI / 2); c.stroke();
+  c.setLineDash([]);
+}
+
+// ── PORTE DOUBLE (2 vantaux, arc symétrique) ──────────────────
+function drawPorteDouble(c) {
+  const R = 24, cx = 0, hy = -18;
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
+  // Vantaux
+  c.lineWidth = 2.5;
+  c.beginPath(); c.moveTo(cx, hy); c.lineTo(cx - R, hy); c.stroke();
+  c.beginPath(); c.moveTo(cx, hy); c.lineTo(cx + R, hy); c.stroke();
+  // Arcs de rotation
+  c.lineWidth = 1.2;
+  c.setLineDash([4, 3]);
+  c.beginPath(); c.arc(cx, hy, R, Math.PI / 2, Math.PI); c.stroke();
+  c.beginPath(); c.arc(cx, hy, R, 0, Math.PI / 2); c.stroke();
+  c.setLineDash([]);
+}
+
+// ── FENÊTRE SIMPLE (cadre + vitrage) ──────────────────────────
+function drawFenetre(c) {
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
+  c.fillStyle = 'rgba(79,195,247,0.12)';
+  // Cadre
+  c.beginPath(); c.rect(-22, -7, 44, 14); c.fill(); c.stroke();
+  // Ligne de vitrage centrale
+  c.strokeStyle = 'rgba(79,195,247,0.6)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(-22, 0); c.lineTo(22, 0); c.stroke();
+  // Montant central
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(0, -7); c.lineTo(0, 7); c.stroke();
+}
+
+// ── BAIE VITRÉE (large, 2 montants) ───────────────────────────
+function drawBaieVitree(c) {
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
+  c.fillStyle = 'rgba(79,195,247,0.12)';
+  c.beginPath(); c.rect(-34, -7, 68, 14); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(79,195,247,0.6)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(-34, 0); c.lineTo(34, 0); c.stroke();
+  c.strokeStyle = '#cfd8dc'; c.lineWidth = 1.2;
+  [-11, 11].forEach(x => {
+    c.beginPath(); c.moveTo(x, -7); c.lineTo(x, 7); c.stroke();
   });
 }
 
