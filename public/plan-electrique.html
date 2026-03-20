@@ -1261,17 +1261,39 @@ function drawElement(el, isSelected) {
   (SYMBOLS[el.type] || drawGeneric)(ctx, el);
   if (isSelected) {
     ctx.shadowBlur = 0;
+    const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
+    // Cadre de sélection
     ctx.strokeStyle = '#f5a623';
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.setLineDash([3,3]);
-    const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
     ctx.strokeRect(-sz, -sz, sz*2, sz*2);
     ctx.setLineDash([]);
-    if (el.rotation) {
-      ctx.font = `bold ${8/state.zoom}px sans-serif`;
-      ctx.fillStyle = '#f5a623'; ctx.textAlign = 'center';
-      ctx.fillText(el.rotation + 'deg', 0, -sz - 4);
-    }
+    // Poignée de rotation : tige + cercle au-dessus
+    const hDist = sz + 18;
+    ctx.strokeStyle = 'rgba(245,166,35,0.5)';
+    ctx.lineWidth = 1 / state.zoom;
+    ctx.beginPath(); ctx.moveTo(0, -sz); ctx.lineTo(0, -hDist); ctx.stroke();
+    const hr = 7 / state.zoom;
+    ctx.strokeStyle = '#f5a623';
+    ctx.fillStyle = '#1e2329';
+    ctx.lineWidth = 1.8 / state.zoom;
+    ctx.beginPath(); ctx.arc(0, -hDist, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Icône flèche courbée dans le cercle
+    ctx.lineWidth = 1.4 / state.zoom;
+    const ir = 4 / state.zoom;
+    ctx.beginPath(); ctx.arc(0, -hDist, ir, -Math.PI * 0.75, Math.PI * 0.5); ctx.stroke();
+    const ax = ir * Math.cos(Math.PI * 0.5), ay = -hDist + ir * Math.sin(Math.PI * 0.5);
+    ctx.fillStyle = '#f5a623';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 3.5/state.zoom, ay - 1/state.zoom);
+    ctx.lineTo(ax + 1/state.zoom, ay - 3.5/state.zoom);
+    ctx.closePath(); ctx.fill();
+    // Angle affiché si non nul
+    const rot = el.rotation || 0;
+    ctx.font = `bold ${8/state.zoom}px sans-serif`;
+    ctx.fillStyle = '#f5a623'; ctx.textAlign = 'center';
+    ctx.fillText(rot + '°', 0, -hDist - hr - 3/state.zoom);
   }
   if (el.label) {
     ctx.fillStyle = '#8a9ab5';
@@ -2218,6 +2240,20 @@ function draw() {
 // ══════════════════════════════════════════════════════════════
 let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
 let mouseDragged = false;
+let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
+let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
+
+function getRotHandleScreen(el) {
+  const s = worldToScreen(el.x, el.y);
+  const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
+  const dist = (sz + 18) * state.zoom;
+  const theta = (el.rotation || 0) * Math.PI / 180;
+  return { x: s.x + dist * Math.sin(theta), y: s.y - dist * Math.cos(theta) };
+}
+
+function getElHitRadius(el) {
+  return (FURNITURE_TYPES.has(el.type) ? 38 : 18) * state.zoom;
+}
 
 canvas.addEventListener('mousedown', (e) => {
   if (e.button === 1 || (e.button === 0 && e.altKey)) {
@@ -2228,6 +2264,30 @@ canvas.addEventListener('mousedown', (e) => {
     return;
   }
   mouseDragged = false;
+
+  if (state.mode === 'select' && state.selected?.type) {
+    const r = canvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    // Poignée de rotation ?
+    const h = getRotHandleScreen(state.selected);
+    if (Math.hypot(sx - h.x, sy - h.y) < 12) {
+      isRotating = true;
+      const s = worldToScreen(state.selected.x, state.selected.y);
+      rotateStartAngle = Math.atan2(sy - s.y, sx - s.x);
+      rotateStartRot = state.selected.rotation || 0;
+      e.preventDefault();
+      return;
+    }
+    // Déplacer l'élément ?
+    const s = worldToScreen(state.selected.x, state.selected.y);
+    if (Math.hypot(sx - s.x, sy - s.y) < getElHitRadius(state.selected)) {
+      isDraggingEl = true;
+      dragStartW   = screenToWorld(sx, sy);
+      dragElOrigin = { x: state.selected.x, y: state.selected.y };
+      e.preventDefault();
+      return;
+    }
+  }
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -2238,16 +2298,56 @@ canvas.addEventListener('mousemove', (e) => {
   const sp = snapPoint(w.x, w.y);
   document.getElementById('coords').textContent = `X: ${sp.x} — Y: ${sp.y}`;
 
+  if (isRotating && state.selected?.type) {
+    const s = worldToScreen(state.selected.x, state.selected.y);
+    const angle = Math.atan2(state.mouseY - s.y, state.mouseX - s.x);
+    let newRot = rotateStartRot + (angle - rotateStartAngle) * (180 / Math.PI);
+    if (e.shiftKey) newRot = Math.round(newRot / 15) * 15;
+    state.selected.rotation = ((Math.round(newRot) % 360) + 360) % 360;
+    updateProps(); draw();
+    return;
+  }
+
+  if (isDraggingEl && state.selected?.type) {
+    const cur = screenToWorld(state.mouseX, state.mouseY);
+    const sp2 = snapPoint(
+      dragElOrigin.x + (cur.x - dragStartW.x),
+      dragElOrigin.y + (cur.y - dragStartW.y)
+    );
+    state.selected.x = sp2.x;
+    state.selected.y = sp2.y;
+    mouseDragged = true;
+    updateProps(); draw();
+    return;
+  }
+
   if (isPanning) {
     state.pan.x = panOrigin.x + (e.clientX - panStart.x);
     state.pan.y = panOrigin.y + (e.clientY - panStart.y);
     mouseDragged = true;
   }
+
+  // Curseur dynamique
+  if (state.mode === 'select' && state.selected?.type) {
+    const sx = state.mouseX, sy = state.mouseY;
+    const h = getRotHandleScreen(state.selected);
+    if (Math.hypot(sx - h.x, sy - h.y) < 12) {
+      canvas.style.cursor = 'grab';
+    } else {
+      const s = worldToScreen(state.selected.x, state.selected.y);
+      canvas.style.cursor = Math.hypot(sx - s.x, sy - s.y) < getElHitRadius(state.selected) ? 'move' : 'crosshair';
+    }
+  } else {
+    canvas.style.cursor = '';
+  }
+
   draw();
 });
 
 canvas.addEventListener('mouseup', (e) => {
-  if (isPanning) { isPanning = false; return; }
+  if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
+  if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
+  if (isPanning)    { isPanning = false; return; }
   if (mouseDragged) return;
 });
 
@@ -3115,6 +3215,29 @@ function toast(msg) {
     e.preventDefault();
     const ts = e.touches;
     if (ts.length === 1) {
+      const r = canvas.getBoundingClientRect();
+      const sx = ts[0].clientX - r.left, sy = ts[0].clientY - r.top;
+      // Poignée de rotation ?
+      if (state.mode === 'select' && state.selected?.type) {
+        const h = getRotHandleScreen(state.selected);
+        if (Math.hypot(sx - h.x, sy - h.y) < 18) {
+          const s = worldToScreen(state.selected.x, state.selected.y);
+          isRotating = true;
+          rotateStartAngle = Math.atan2(sy - s.y, sx - s.x);
+          rotateStartRot = state.selected.rotation || 0;
+          touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now(), isRot: true };
+          return;
+        }
+        // Déplacer l'élément ?
+        const s = worldToScreen(state.selected.x, state.selected.y);
+        if (Math.hypot(sx - s.x, sy - s.y) < getElHitRadius(state.selected)) {
+          isDraggingEl = true;
+          dragStartW   = screenToWorld(sx, sy);
+          dragElOrigin = { x: state.selected.x, y: state.selected.y };
+          touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now(), isDrag: true };
+          return;
+        }
+      }
       touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now() };
     } else if (ts.length === 2) {
       touch = {
@@ -3130,6 +3253,33 @@ function toast(msg) {
   canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const ts = e.touches;
+
+    if (ts.length === 1 && touch.isRot && isRotating && state.selected?.type) {
+      const r = canvas.getBoundingClientRect();
+      const sx = ts[0].clientX - r.left, sy = ts[0].clientY - r.top;
+      const s = worldToScreen(state.selected.x, state.selected.y);
+      const angle = Math.atan2(sy - s.y, sx - s.x);
+      let newRot = rotateStartRot + (angle - rotateStartAngle) * (180 / Math.PI);
+      state.selected.rotation = ((Math.round(newRot) % 360) + 360) % 360;
+      updateProps(); draw();
+      return;
+    }
+
+    if (ts.length === 1 && touch.isDrag && isDraggingEl && state.selected?.type) {
+      const r = canvas.getBoundingClientRect();
+      const sx = ts[0].clientX - r.left, sy = ts[0].clientY - r.top;
+      const cur = screenToWorld(sx, sy);
+      const sp2 = snapPoint(
+        dragElOrigin.x + (cur.x - dragStartW.x),
+        dragElOrigin.y + (cur.y - dragStartW.y)
+      );
+      state.selected.x = sp2.x;
+      state.selected.y = sp2.y;
+      touch.moved = true;
+      updateProps(); draw();
+      return;
+    }
+
     if (ts.length === 2 && touch.fingers === 2) {
       const dist   = getTouchDist(ts[0], ts[1]);
       const center = getTouchCenter(ts[0], ts[1]);
@@ -3161,6 +3311,8 @@ function toast(msg) {
 
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+    if (isRotating)   { isRotating = false;   updateProps(); draw(); touch = {}; return; }
+    if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); touch = {}; return; }
     if (touch.fingers !== 1 || touch.moved) { touch = {}; return; }
     // Tap simple → même logique que click
     const t = e.changedTouches[0];
