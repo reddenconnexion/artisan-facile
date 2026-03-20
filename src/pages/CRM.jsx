@@ -430,7 +430,7 @@ const WorksitePilot = () => {
                                                     )}
                                                     <button
                                                         onClick={() => {
-                                                            const base = 'https://reddenconnexion.github.io/artisan-facile/plan-electrique.html';
+                                                            const base = `${window.location.origin}/plan-electrique.html`;
                                                             const adresse = job.intervention_address
                                                                 ? `${job.intervention_address}${job.intervention_city ? ', ' + job.intervention_city : ''}`
                                                                 : job.clients?.address || '';
