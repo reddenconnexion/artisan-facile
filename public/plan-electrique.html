@@ -737,6 +737,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="6" rx="1"/><line x1="2" y1="14" x2="2" y2="20"/><line x1="22" y1="14" x2="22" y2="20"/><rect x="8" y="10" width="4" height="2"/></svg>
           Plan travail
         </button>
+        <button class="tool-btn" data-type="plan-travail-perso" onclick="selectTool('plan-travail-perso')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="10" rx="1"/><line x1="2" y1="7" x2="22" y2="7" stroke-width="2.5"/><line x1="2" y1="17" x2="22" y2="17" stroke-width="2"/><line x1="7" y1="10" x2="7" y2="14" stroke-dasharray="1.5 1.5"/><line x1="12" y1="10" x2="12" y2="14" stroke-dasharray="1.5 1.5"/><line x1="17" y1="10" x2="17" y2="14" stroke-dasharray="1.5 1.5"/></svg>
+          Plan sur mesure
+        </button>
         <button class="tool-btn" data-type="evier" onclick="selectTool('evier')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="12" rx="1"/><rect x="5" y="9" width="6" height="8" rx="1"/><rect x="13" y="9" width="6" height="8" rx="1"/><line x1="8" y1="7" x2="8" y2="4"/><circle cx="8" cy="4" r="1"/></svg>
           Évier
@@ -857,11 +861,12 @@
     <div class="mode-indicator" id="modeIndicator"></div>
     <div class="coords" id="coords">X: 0 — Y: 0</div>
     <div class="zoom-bar">
-      <button onclick="zoom(-0.1)">−</button>
+      <button onclick="zoom(-0.1)" title="Zoom arrière">−</button>
       <span id="zoomLabel">100%</span>
-      <button onclick="zoom(0.1)">+</button>
-      <button onclick="resetView()" style="font-size:11px;margin-left:4px;">⟲</button>
+      <button onclick="zoom(0.1)" title="Zoom avant">+</button>
+      <button onclick="resetView()" style="font-size:11px;margin-left:4px;" title="Réinitialiser la vue">⟲</button>
     </div>
+    <div id="navHint" style="position:absolute;bottom:14px;right:14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 7px;opacity:0.5;pointer-events:none;">Espace+glisser · Molette · ↑↓←→</div>
   </div>
 
   <!-- RIGHT PANEL -->
@@ -1229,9 +1234,10 @@ const SYMBOLS = {
   'table-manger':   drawTableManger,
   'chaise':         drawChaise,
   'bureau':         drawBureau,
-  'plan-travail':   drawPlanTravail,
-  'evier':          drawEvier,
-  'douche':         drawDouche,
+  'plan-travail':         drawPlanTravail,
+  'plan-travail-perso':  (c, el) => drawPlanTravailPerso(c, el),
+  'evier':               drawEvier,
+  'douche':              drawDouche,
   'baignoire':      drawBaignoire,
   'lavabo':         drawLavabo,
   'wc':             drawWC,
@@ -1247,9 +1253,22 @@ const SYMBOLS = {
 // Liste des types mobilier (rotation libre)
 const FURNITURE_TYPES = new Set([
   'canape','lit-double','lit-simple','table-manger','chaise','bureau',
-  'plan-travail','evier','douche','baignoire','lavabo','wc','armoire','table-basse',
+  'plan-travail','plan-travail-perso','evier','douche','baignoire','lavabo','wc','armoire','table-basse',
   'porte','porte-double','fenetre','baie-vitree',
 ]);
+
+// Echelle : 1 cm = CM_TO_UNITS unités canvas  (cohérent avec les meubles existants)
+const CM_TO_UNITS = 0.5;
+
+function getElHalfSizes(el) {
+  if (el.type === 'plan-travail-perso') {
+    const hw = (el.widthCm || 120) * CM_TO_UNITS / 2;
+    const hh = (el.depthCm || 60)  * CM_TO_UNITS / 2;
+    return { hw, hh };
+  }
+  const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
+  return { hw: sz, hh: sz };
+}
 
 function drawElement(el, isSelected) {
   const s = worldToScreen(el.x, el.y);
@@ -1261,18 +1280,18 @@ function drawElement(el, isSelected) {
   (SYMBOLS[el.type] || drawGeneric)(ctx, el);
   if (isSelected) {
     ctx.shadowBlur = 0;
-    const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
+    const { hw, hh } = getElHalfSizes(el);
     // Cadre de sélection
     ctx.strokeStyle = '#f5a623';
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.setLineDash([3,3]);
-    ctx.strokeRect(-sz, -sz, sz*2, sz*2);
+    ctx.strokeRect(-hw, -hh, hw*2, hh*2);
     ctx.setLineDash([]);
     // Poignée de rotation : tige + cercle au-dessus
-    const hDist = sz + 18;
+    const hDist = hh + 18;
     ctx.strokeStyle = 'rgba(245,166,35,0.5)';
     ctx.lineWidth = 1 / state.zoom;
-    ctx.beginPath(); ctx.moveTo(0, -sz); ctx.lineTo(0, -hDist); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -hh); ctx.lineTo(0, -hDist); ctx.stroke();
     const hr = 7 / state.zoom;
     ctx.strokeStyle = '#f5a623';
     ctx.fillStyle = '#1e2329';
@@ -1296,10 +1315,11 @@ function drawElement(el, isSelected) {
     ctx.fillText(rot + '°', 0, -hDist - hr - 3/state.zoom);
   }
   if (el.label) {
+    const { hh: labelHh } = getElHalfSizes(el);
     ctx.fillStyle = '#8a9ab5';
     ctx.font = `bold ${9/state.zoom}px Syne, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(el.label, 0, FURNITURE_TYPES.has(el.type) ? 44 : 26);
+    ctx.fillText(el.label, 0, labelHh + 6);
   }
   ctx.restore();
 }
@@ -1869,6 +1889,27 @@ function drawBureau(c) {
   });
 }
 
+function drawPlanTravailPerso(c, el) {
+  const w  = (el.widthCm || 120) * CM_TO_UNITS;
+  const h  = (el.depthCm || 60)  * CM_TO_UNITS;
+  const hw = w / 2, hh = h / 2;
+  // Corps principal
+  c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
+  c.beginPath(); c.rect(-hw, -hh, w, h); c.fill(); c.stroke();
+  // Ligne de crédence (bord mural, en haut)
+  c.strokeStyle = MOB; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(-hw + 1, -hh + 1); c.lineTo(hw - 1, -hh + 1); c.stroke();
+  // Bord avant légèrement plus marqué
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-hw, hh); c.lineTo(hw, hh); c.stroke();
+  // Dimensions en texte centré
+  const fontSize = Math.max(5, Math.min(8, h * 0.28));
+  c.fillStyle = MOB; c.lineWidth = 1;
+  c.font = `bold ${fontSize}px Syne, sans-serif`;
+  c.textAlign = 'center';
+  c.fillText(`${el.widthCm || 120} × ${el.depthCm || 60} cm`, 0, fontSize / 2);
+}
+
 function drawPlanTravail(c) {
   c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
   c.beginPath(); c.rect(-36, -10, 72, 20); c.fill(); c.stroke();
@@ -2247,27 +2288,30 @@ function draw() {
 //  MOUSE EVENTS
 // ══════════════════════════════════════════════════════════════
 let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
+let spaceDown = false;
 let mouseDragged = false;
 let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
 let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
 
 function getRotHandleScreen(el) {
   const s = worldToScreen(el.x, el.y);
-  const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
-  const dist = (sz + 18) * state.zoom;
+  const { hh } = getElHalfSizes(el);
+  const dist = (hh + 18) * state.zoom;
   const theta = (el.rotation || 0) * Math.PI / 180;
   return { x: s.x + dist * Math.sin(theta), y: s.y - dist * Math.cos(theta) };
 }
 
 function getElHitRadius(el) {
-  return (FURNITURE_TYPES.has(el.type) ? 38 : 18) * state.zoom;
+  const { hw, hh } = getElHalfSizes(el);
+  return Math.max(hw, hh) * state.zoom;
 }
 
 canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+  if (e.button === 1 || (e.button === 0 && (e.altKey || spaceDown))) {
     isPanning = true;
     panStart = { x: e.clientX, y: e.clientY };
     panOrigin = { ...state.pan };
+    canvas.style.cursor = 'grabbing';
     e.preventDefault();
     return;
   }
@@ -2355,7 +2399,7 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mouseup', (e) => {
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
-  if (isPanning)    { isPanning = false; return; }
+  if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
   if (mouseDragged) return;
 });
 
@@ -2436,11 +2480,13 @@ function uid() { return _uid++; }
 
 function placeElement(x, y) {
   const circuitId = getActiveCircuit();
-  state.elements.push({
+  const el = {
     id: uid(), type: state.tool, x, y,
     label: '', circuitId,
     circuit: state.circuits.find(c => c.id === circuitId)?.name || '',
-  });
+  };
+  if (state.tool === 'plan-travail-perso') { el.widthCm = 120; el.depthCm = 60; }
+  state.elements.push(el);
   toast('Élément posé');
   draw();
 }
@@ -2541,22 +2587,35 @@ function deleteSelected() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (document.activeElement.tagName !== 'INPUT') deleteSelected();
+  if (document.activeElement.tagName === 'INPUT') return;
+  // Espace → mode pan temporaire
+  if (e.key === ' ' && !spaceDown) {
+    spaceDown = true;
+    canvas.style.cursor = 'grab';
+    e.preventDefault();
+    return;
   }
+  // Flèches → déplacer le plan
+  const step = e.shiftKey ? 100 : 30;
+  if (e.key === 'ArrowLeft')  { state.pan.x += step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowRight') { state.pan.x -= step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp')    { state.pan.y += step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowDown')  { state.pan.y -= step; draw(); e.preventDefault(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   if (e.key === 'Escape') setMode('select');
   // R = rotation +90°, Shift+R = -90°
-  if (e.key === 'r' || e.key === 'R') {
-    if (document.activeElement.tagName !== 'INPUT') {
-      rotateSelected(e.shiftKey ? -90 : 90);
-    }
-  }
+  if (e.key === 'r' || e.key === 'R') rotateSelected(e.shiftKey ? -90 : 90);
   // F = basculer le sens d'ouverture (portes)
   if (e.key === 'f' || e.key === 'F') {
-    if (document.activeElement.tagName !== 'INPUT') {
-      const el = state.selected;
-      if (el && ['porte','porte-double'].includes(el.type)) flipDoor(!el.flip);
-    }
+    const el = state.selected;
+    if (el && ['porte','porte-double'].includes(el.type)) flipDoor(!el.flip);
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    spaceDown = false;
+    if (!isPanning) canvas.style.cursor = '';
   }
 });
 
@@ -2605,6 +2664,27 @@ function updateProps() {
       </div>
       <div style="font-size:9px;color:var(--text2);margin-top:4px;">Raccourcis : <b>R</b> = +90° · <b>Shift+R</b> = −90°</div>
     </div>`;
+    // Dimensions sur mesure — uniquement pour plan-travail-perso
+    if (el.type === 'plan-travail-perso') {
+      html += `<div class="prop-row">
+        <div class="prop-label">Dimensions cuisine</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">
+          <div>
+            <div style="font-size:9px;color:var(--text2);margin-bottom:2px;">Largeur (cm)</div>
+            <input class="prop-input" type="number" min="30" max="600" step="5"
+              value="${el.widthCm || 120}"
+              oninput="updatePropNum('widthCm',this.value)" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--text2);margin-bottom:2px;">Profondeur (cm)</div>
+            <input class="prop-input" type="number" min="30" max="120" step="5"
+              value="${el.depthCm || 60}"
+              oninput="updatePropNum('depthCm',this.value)" style="width:100%"/>
+          </div>
+        </div>
+        <div style="font-size:9px;color:var(--text2);margin-top:4px;">Standard : 60 cm de profondeur · largeur libre</div>
+      </div>`;
+    }
     // Sens d'ouverture — uniquement pour les portes
     if (el.type === 'porte' || el.type === 'porte-double') {
       const f = !!el.flip;
@@ -2643,6 +2723,10 @@ function updateProp(key, val) {
 }
 function updatePropCoord(key, val) {
   if (state.selected) { state.selected[key] = parseFloat(val) || 0; draw(); }
+}
+function updatePropNum(key, val) {
+  const n = parseFloat(val);
+  if (state.selected && n > 0) { state.selected[key] = n; draw(); }
 }
 
 function rotateSelected(delta) {
