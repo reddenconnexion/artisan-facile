@@ -1174,9 +1174,6 @@ function loadFromLocalStorage() {
   } catch(e) { return false; }
 }
 
-loadFromLocalStorage();
-resizeCanvas();
-
 // ══════════════════════════════════════════════════════════════
 //  COORDINATE HELPERS
 // ══════════════════════════════════════════════════════════════
@@ -1321,6 +1318,10 @@ const FURNITURE_TYPES = new Set([
 
 // Echelle : 1 cm = CM_TO_UNITS unités canvas  (cohérent avec les meubles existants)
 const CM_TO_UNITS = 0.5;
+
+// ── initialisation différée : toutes les const sont prêtes ──
+loadFromLocalStorage();
+resizeCanvas();
 
 function getElHalfSizes(el) {
   if (el.type === 'plan-travail-perso') {
