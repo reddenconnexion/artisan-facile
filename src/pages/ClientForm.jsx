@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -10,6 +10,103 @@ import ProjectPhotos from '../components/ProjectPhotos';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
+
+// ── Plans électriques d'un client ────────────────────────────────────────────
+const ClientPlans = ({ clientId, clientName }) => {
+    const navigate = useNavigate();
+    const [plans, setPlans] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchPlans = async () => {
+        setLoading(true);
+        const { data } = await supabase
+            .from('client_plans')
+            .select('id, name, thumbnail, created_at, updated_at')
+            .eq('client_id', clientId)
+            .order('updated_at', { ascending: false });
+        setPlans(data || []);
+        setLoading(false);
+    };
+
+    useEffect(() => { fetchPlans(); }, [clientId]);
+
+    const handleDelete = async (planId) => {
+        if (!confirm('Supprimer ce plan ?')) return;
+        await supabase.from('client_plans').delete().eq('id', planId);
+        setPlans(prev => prev.filter(p => p.id !== planId));
+    };
+
+    if (loading) return <div className="text-sm text-gray-400 py-4 text-center">Chargement...</div>;
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">Plans électriques sauvegardés pour ce client.</p>
+                <button
+                    onClick={() => navigate('/app/outils')}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500 text-black rounded-lg text-sm font-semibold hover:bg-yellow-400 transition-colors"
+                >
+                    <Zap className="w-4 h-4" />
+                    Nouveau plan
+                </button>
+            </div>
+
+            {plans.length === 0 ? (
+                <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
+                    <Zap className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Aucun plan sauvegardé pour ce client.</p>
+                    <button
+                        onClick={() => navigate('/app/outils')}
+                        className="mt-3 text-sm text-yellow-600 font-medium hover:underline"
+                    >
+                        Créer le premier plan →
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {plans.map(plan => (
+                        <div key={plan.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition-shadow group">
+                            {/* Miniature */}
+                            <div className="h-36 bg-gray-900 relative overflow-hidden">
+                                {plan.thumbnail ? (
+                                    <img src={plan.thumbnail} alt={plan.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <Zap className="w-10 h-10 text-yellow-500/40" />
+                                    </div>
+                                )}
+                                {/* Overlay actions */}
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                    <button
+                                        onClick={() => navigate(`/app/outils?plan_id=${plan.id}`)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 text-black rounded-lg text-xs font-bold hover:bg-yellow-400"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        Ouvrir
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(plan.id)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500"
+                                    >
+                                        <Trash className="w-3.5 h-3.5" />
+                                        Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Infos */}
+                            <div className="p-3 bg-white dark:bg-gray-800">
+                                <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{plan.name}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Modifié le {new Date(plan.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const ClientForm = () => {
     const navigate = useNavigate();
@@ -335,6 +432,18 @@ const ClientForm = () => {
                         {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
                     </button>
                 )}
+                {isEditing && (
+                    <button
+                        onClick={() => setActiveTab('plans')}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'plans' ? 'text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Zap className="w-4 h-4" />
+                            Plans élec.
+                        </div>
+                        {activeTab === 'plans' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-yellow-500 rounded-t-full" />}
+                    </button>
+                )}
             </div>
 
             {activeTab === 'info' && (
@@ -604,6 +713,12 @@ const ClientForm = () => {
             {activeTab === 'history' && isEditing && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <ClientHistory clientId={id} />
+                </div>
+            )}
+
+            {activeTab === 'plans' && isEditing && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <ClientPlans clientId={id} clientName={formData.name} />
                 </div>
             )}
 
