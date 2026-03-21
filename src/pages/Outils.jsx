@@ -46,6 +46,17 @@ const Outils = () => {
             });
     }, [searchParams, user, sendPlanToIframe]);
 
+    // Injection de la config Supabase dans l'iframe (pour l'import IA)
+    const injectConfig = useCallback(() => {
+        const iframe = iframeRef.current;
+        if (!iframe?.contentWindow) return;
+        iframe.contentWindow.postMessage({
+            type: 'planelec-config',
+            supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        }, '*');
+    }, []);
+
     // Réception des messages de l'iframe
     useEffect(() => {
         const handleMessage = async (e) => {
@@ -85,17 +96,6 @@ const Outils = () => {
         setShowSaveModal(false);
         setPendingSave(null);
     };
-
-    // Injection de la config Supabase dans l'iframe (pour l'import IA)
-    const injectConfig = useCallback(() => {
-        const iframe = iframeRef.current;
-        if (!iframe?.contentWindow) return;
-        iframe.contentWindow.postMessage({
-            type: 'planelec-config',
-            supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        }, '*');
-    }, []);
 
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(clientSearch.toLowerCase())
