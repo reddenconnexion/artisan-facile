@@ -2340,6 +2340,7 @@ function draw() {
 let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
 let spaceDown = false;
 let mouseDragged = false;
+let mouseDownPos = null;  // position au mousedown pour détection du glisser-pan
 let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
 let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
 
@@ -2390,6 +2391,8 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
   }
+  // Gauche sur espace vide → prépare le pan par glisser
+  if (e.button === 0) mouseDownPos = { x: e.clientX, y: e.clientY };
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -2423,6 +2426,16 @@ canvas.addEventListener('mousemove', (e) => {
     return;
   }
 
+  // Démarrage du pan par glisser-gauche (seuil 4px, sans autre interaction active)
+  if (!isPanning && !isRotating && !isDraggingEl && mouseDownPos && e.buttons === 1) {
+    if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) > 4) {
+      isPanning = true;
+      panStart  = mouseDownPos;
+      panOrigin = { ...state.pan };
+      canvas.style.cursor = 'grabbing';
+    }
+  }
+
   if (isPanning) {
     state.pan.x = panOrigin.x + (e.clientX - panStart.x);
     state.pan.y = panOrigin.y + (e.clientY - panStart.y);
@@ -2452,10 +2465,18 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', (e) => {
+  mouseDownPos = null;
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
   if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
   if (mouseDragged) return;
+});
+// Nettoyage si la souris est relâchée hors du canvas (évite les états bloqués)
+window.addEventListener('mouseup', () => {
+  mouseDownPos = null;
+  if (isPanning)    { isPanning = false;    canvas.style.cursor = spaceDown ? 'grab' : ''; }
+  if (isDraggingEl) { isDraggingEl = false; updateProps(); draw(); }
+  if (isRotating)   { isRotating = false;   updateProps(); draw(); }
 });
 
 canvas.addEventListener('click', (e) => {
@@ -2515,7 +2536,11 @@ canvas.addEventListener('contextmenu', (e) => {
   draw();
 });
 
-canvas.addEventListener('wheel', (e) => {
+// Zoom molette : listener sur document pour intercepter avant que le scroll
+// parent (React overflow-y-auto) ne capte l'événement
+document.addEventListener('wheel', (e) => {
+  // Laisser défiler les panneaux latéraux
+  if (e.target.closest('.panel-left, .panel-right')) return;
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.1 : 0.9;
   const r = canvas.getBoundingClientRect();
