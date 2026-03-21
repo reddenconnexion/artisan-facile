@@ -19,22 +19,23 @@ const Outils = () => {
     const [selectedClientId, setSelectedClientId] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Chargement d'un plan depuis URL ?plan_id=X
+    // Ref pour synchroniser l'envoi du plan avec la disponibilité de l'iframe
+    const pendingPlanRef = useRef(null);   // plan en attente si iframe pas encore prête
+    const iframeReadyRef = useRef(false);  // true après reception de planelec-ready
+
     const sendPlanToIframe = useCallback((plan) => {
         const iframe = iframeRef.current;
-        if (!iframe) return;
-        const send = () => iframe.contentWindow?.postMessage({ type: 'planelec-load', plan }, '*');
-        // Attendre que l'iframe soit prête
-        if (iframe.contentDocument?.readyState === 'complete') {
-            send();
-        } else {
-            iframe.addEventListener('load', send, { once: true });
-        }
+        if (!iframe?.contentWindow) return;
+        iframe.contentWindow.postMessage({ type: 'planelec-load', plan }, '*');
     }, []);
 
+    // Chargement d'un plan depuis URL ?plan_id=X
     useEffect(() => {
         const planId = searchParams.get('plan_id');
         if (!planId || !user) return;
+        // Réinitialiser l'état de l'iframe à chaque nouveau chargement
+        iframeReadyRef.current = false;
+        pendingPlanRef.current = null;
         supabase
             .from('client_plans')
             .select('plan_data, name')
@@ -42,7 +43,15 @@ const Outils = () => {
             .eq('user_id', user.id)
             .single()
             .then(({ data }) => {
-                if (data) sendPlanToIframe({ ...data.plan_data, name: data.name });
+                if (!data) return;
+                const plan = { ...data.plan_data, name: data.name };
+                if (iframeReadyRef.current) {
+                    // L'iframe est déjà prête : envoyer immédiatement
+                    sendPlanToIframe(plan);
+                } else {
+                    // L'iframe n'est pas encore prête : stocker pour envoi ultérieur
+                    pendingPlanRef.current = plan;
+                }
             });
     }, [searchParams, user, sendPlanToIframe]);
 
@@ -60,8 +69,16 @@ const Outils = () => {
     // Réception des messages de l'iframe
     useEffect(() => {
         const handleMessage = async (e) => {
-            // L'iframe demande la config (prête à recevoir)
-            if (e.data?.type === 'planelec-ready') { injectConfig(); return; }
+            // L'iframe signale qu'elle est prête : injecter config ET envoyer plan en attente
+            if (e.data?.type === 'planelec-ready') {
+                injectConfig();
+                iframeReadyRef.current = true;
+                if (pendingPlanRef.current) {
+                    sendPlanToIframe(pendingPlanRef.current);
+                    pendingPlanRef.current = null;
+                }
+                return;
+            }
             if (e.data?.type !== 'planelec-save') return;
             // Charger la liste des clients
             const { data } = await supabase
@@ -77,7 +94,7 @@ const Outils = () => {
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [injectConfig]);
+    }, [injectConfig, sendPlanToIframe]);
 
     const handleSave = async () => {
         if (!selectedClientId || !planName.trim()) return;
