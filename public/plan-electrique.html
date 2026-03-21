@@ -3322,25 +3322,6 @@ function toast(msg) {
 
   // ── COMMUNICATION AVEC L'APPLICATION (postMessage) ───────────
 
-  function saveToClient() {
-    if (window.parent === window) {
-      toast('Ouvrez cet outil depuis l\'application pour sauvegarder dans une fiche client');
-      return;
-    }
-    const projectName = document.getElementById('projectName').value || 'Plan électrique';
-    const thumbnail = canvas.toDataURL('image/jpeg', 0.35);
-    const planData = {
-      elements: state.elements,
-      walls:    state.walls,
-      rooms:    state.rooms,
-      cables:   state.cables,
-      circuits: state.circuits,
-      pan:      state.pan,
-      zoom:     state.zoom,
-    };
-    window.parent.postMessage({ type: 'planelec-save', planData, thumbnail, planName: projectName }, '*');
-  }
-
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'planelec-load') {
       const p = e.data.plan;
@@ -3362,35 +3343,6 @@ function toast(msg) {
   });
 
   // ── MOBILE : tiroirs + touch ──────────────────────────────────
-
-  function togglePanel(side) {
-    const left  = document.getElementById('panelLeft');
-    const right = document.getElementById('panelRight');
-    const ov    = document.getElementById('mobOverlay');
-    if (side === 'left') {
-      const isOpen = left.classList.contains('mob-open');
-      left.classList.toggle('mob-open', !isOpen);
-      right.classList.remove('mob-open');
-      ov.classList.toggle('open', !isOpen);
-      document.getElementById('mobBtnTools').classList.toggle('active', !isOpen);
-      document.getElementById('mobBtnStats').classList.remove('active');
-    } else {
-      const isOpen = right.classList.contains('mob-open');
-      right.classList.toggle('mob-open', !isOpen);
-      left.classList.remove('mob-open');
-      ov.classList.toggle('open', !isOpen);
-      document.getElementById('mobBtnStats').classList.toggle('active', !isOpen);
-      document.getElementById('mobBtnTools').classList.remove('active');
-    }
-  }
-
-  function closePanels() {
-    document.getElementById('panelLeft').classList.remove('mob-open');
-    document.getElementById('panelRight').classList.remove('mob-open');
-    document.getElementById('mobOverlay').classList.remove('open');
-    document.getElementById('mobBtnTools').classList.remove('active');
-    document.getElementById('mobBtnStats').classList.remove('active');
-  }
 
   // ── TOUCH EVENTS ─────────────────────────────────────────────
   let touch = {};
@@ -3572,6 +3524,57 @@ function toast(msg) {
     updateRoomList(); draw();
   }
 })();
+
+// ══════════════════════════════════════════════════════════════
+//  FONCTIONS GLOBALES (appelées depuis les attributs HTML onclick)
+// ══════════════════════════════════════════════════════════════
+function saveToClient() {
+  if (window.parent === window) {
+    toast('Ouvrez cet outil depuis l\'application pour sauvegarder dans une fiche client');
+    return;
+  }
+  const projectName = document.getElementById('projectName').value || 'Plan électrique';
+  const thumbnail = canvas.toDataURL('image/jpeg', 0.35);
+  const planData = {
+    elements: state.elements,
+    walls:    state.walls,
+    rooms:    state.rooms,
+    cables:   state.cables,
+    circuits: state.circuits,
+    pan:      state.pan,
+    zoom:     state.zoom,
+  };
+  window.parent.postMessage({ type: 'planelec-save', planData, thumbnail, planName: projectName }, '*');
+}
+
+function togglePanel(side) {
+  const left  = document.getElementById('panelLeft');
+  const right = document.getElementById('panelRight');
+  const ov    = document.getElementById('mobOverlay');
+  if (side === 'left') {
+    const isOpen = left.classList.contains('mob-open');
+    left.classList.toggle('mob-open', !isOpen);
+    right.classList.remove('mob-open');
+    ov.classList.toggle('open', !isOpen);
+    document.getElementById('mobBtnTools').classList.toggle('active', !isOpen);
+    document.getElementById('mobBtnStats').classList.remove('active');
+  } else {
+    const isOpen = right.classList.contains('mob-open');
+    right.classList.toggle('mob-open', !isOpen);
+    left.classList.remove('mob-open');
+    ov.classList.toggle('open', !isOpen);
+    document.getElementById('mobBtnStats').classList.toggle('active', !isOpen);
+    document.getElementById('mobBtnTools').classList.remove('active');
+  }
+}
+
+function closePanels() {
+  document.getElementById('panelLeft').classList.remove('mob-open');
+  document.getElementById('panelRight').classList.remove('mob-open');
+  document.getElementById('mobOverlay').classList.remove('open');
+  document.getElementById('mobBtnTools').classList.remove('active');
+  document.getElementById('mobBtnStats').classList.remove('active');
+}
 </script>
 </body>
 </html>
