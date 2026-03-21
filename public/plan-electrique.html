@@ -3434,6 +3434,8 @@ function toast(msg) {
 
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'planelec-load') {
+      // Annuler le plan démo si encore en attente
+      clearTimeout(_demoTimer);
       const p = e.data.plan;
       state.elements = p.elements || [];
       state.walls    = p.walls    || [];
@@ -3442,6 +3444,7 @@ function toast(msg) {
       if (p.circuits && p.circuits.length) state.circuits = p.circuits;
       if (p.pan)  state.pan  = p.pan;
       if (p.zoom) state.zoom = p.zoom;
+      state.selected = null;
       if (p.name) document.getElementById('projectName').value = p.name;
       document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
       updateRoomList(); renderCircuits(); updateStats(); updateProps(); draw();
@@ -3605,8 +3608,9 @@ function toast(msg) {
   }, { passive: false });
 
   // Plan demo uniquement si aucun paramètre ET aucune donnée locale
+  let _demoTimer = null;
   if (!chantier && !client && !planB64 && state.elements.length === 0 && state.walls.length === 0 && state.rooms.length === 0) {
-    setTimeout(() => {
+    _demoTimer = setTimeout(() => {
       state.rooms.push({ id: uid(), name: 'Séjour',  points: [{x:40,y:40},{x:300,y:40},{x:300,y:280},{x:40,y:280}] });
       state.rooms.push({ id: uid(), name: 'Cuisine', points: [{x:300,y:40},{x:520,y:40},{x:520,y:180},{x:300,y:180}] });
       state.rooms.push({ id: uid(), name: 'Chambre', points: [{x:40,y:280},{x:300,y:280},{x:300,y:500},{x:40,y:500}] });
