@@ -49,6 +49,8 @@ const Outils = () => {
     // Réception des messages de l'iframe
     useEffect(() => {
         const handleMessage = async (e) => {
+            // L'iframe demande la config (prête à recevoir)
+            if (e.data?.type === 'planelec-ready') { injectConfig(); return; }
             if (e.data?.type !== 'planelec-save') return;
             // Charger la liste des clients
             const { data } = await supabase
@@ -64,7 +66,7 @@ const Outils = () => {
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [injectConfig]);
 
     const handleSave = async () => {
         if (!selectedClientId || !planName.trim()) return;
@@ -83,6 +85,17 @@ const Outils = () => {
         setShowSaveModal(false);
         setPendingSave(null);
     };
+
+    // Injection de la config Supabase dans l'iframe (pour l'import IA)
+    const injectConfig = useCallback(() => {
+        const iframe = iframeRef.current;
+        if (!iframe?.contentWindow) return;
+        iframe.contentWindow.postMessage({
+            type: 'planelec-config',
+            supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+            supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        }, '*');
+    }, []);
 
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(clientSearch.toLowerCase())
@@ -105,6 +118,7 @@ const Outils = () => {
                     title="Plan électrique"
                     className="w-full h-full border-0"
                     allow="clipboard-write"
+                    onLoad={injectConfig}
                 />
             </div>
 

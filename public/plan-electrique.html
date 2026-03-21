@@ -2910,6 +2910,19 @@ function handleFileLoad(e) {
 //  IA IMPORT — ANALYSE PHOTO DE PLAN MANUSCRIT
 // ══════════════════════════════════════════════════════════════
 let aiImageBase64 = null;
+let aiImageMediaType = 'image/jpeg';
+let _sbUrl = null, _sbKey = null;
+
+// Réception de la config Supabase depuis la page parente
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'planelec-config') {
+    _sbUrl = e.data.supabaseUrl;
+    _sbKey = e.data.supabaseAnonKey;
+  }
+});
+
+// Signal au parent que l'iframe est prête
+window.parent?.postMessage({ type: 'planelec-ready' }, '*');
 
 function openAIImport() {
   document.getElementById('aiModal').classList.add('open');
@@ -2929,6 +2942,7 @@ function closeAIModal() {
 function handleAIImageSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
+  aiImageMediaType = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = (ev) => {
     aiImageBase64 = ev.target.result.split(',')[1];
@@ -2953,6 +2967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault(); zone.style.borderColor = '#a78bfa';
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+      aiImageMediaType = file.type;
       const reader = new FileReader();
       reader.onload = ev => {
         aiImageBase64 = ev.target.result.split(',')[1];
@@ -3027,30 +3042,32 @@ Retranscris ce plan manuscrit en JSON selon le format demandé.`;
   try {
     aiLog('🧠 Analyse de l\'image par Claude Vision…');
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    if (!_sbUrl || !_sbKey) {
+      throw new Error('Configuration Supabase manquante. Rechargez la page depuis l\'application.');
+    }
+
+    const response = await fetch(`${_sbUrl}/functions/v1/plan-vision`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': _sbKey,
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: aiImageBase64 } },
-            { type: 'text', text: userPrompt }
-          ]
-        }]
-      })
+        imageBase64: aiImageBase64,
+        mediaType: aiImageMediaType,
+        systemPrompt,
+        userPrompt,
+      }),
     });
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
+      throw new Error(err.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    const raw = data.content.find(b => b.type === 'text')?.text || '';
+    if (data.error) throw new Error(data.error);
+    const raw = data.text || '';
     aiLog('✅ Réponse reçue, parsing JSON…');
 
     // Nettoyage du JSON (balises markdown éventuelles)
