@@ -1105,6 +1105,19 @@ let state = {
 };
 
 // ══════════════════════════════════════════════════════════════
+//  CONSTANTES DE DESSIN (déclarées avant tout appel à draw())
+// ══════════════════════════════════════════════════════════════
+const CABLE_COLORS = {
+  'cable-phase': '#ef5350',
+  'cable-neutre': '#90caf9',
+  'cable-terre': '#66bb6a',
+  'cable-telecom': '#ce93d8',
+};
+const CABLE_DASH = {
+  'cable-telecom': [6, 4],
+};
+
+// ══════════════════════════════════════════════════════════════
 //  RESIZE
 // ══════════════════════════════════════════════════════════════
 function resizeCanvas() {
@@ -2149,16 +2162,6 @@ function drawBaieVitree(c) {
     c.beginPath(); c.moveTo(x, -7); c.lineTo(x, 7); c.stroke();
   });
 }
-
-const CABLE_COLORS = {
-  'cable-phase': '#ef5350',
-  'cable-neutre': '#90caf9',
-  'cable-terre': '#66bb6a',
-  'cable-telecom': '#ce93d8',
-};
-const CABLE_DASH = {
-  'cable-telecom': [6, 4],
-};
 
 function drawCable(cable, isSelected) {
   if (cable.points.length < 2) return;
