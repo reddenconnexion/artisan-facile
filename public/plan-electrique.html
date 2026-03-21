@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PlanÉlec Pro — Red Den Connexion</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
   :root {
+    --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'Courier New', monospace;
     --bg: #0d0f12;
     --surface: #161a1f;
     --surface2: #1e2329;
@@ -26,7 +26,7 @@
   * { margin:0; padding:0; box-sizing:border-box; }
 
   body {
-    font-family: 'Syne', sans-serif;
+    font-family: var(--font-ui);
     background: var(--bg);
     color: var(--text);
     height: 100vh;
@@ -77,7 +77,7 @@
     color: var(--text);
     border-radius: 6px;
     cursor: pointer;
-    font-family: 'Syne', sans-serif;
+    font-family: var(--font-ui);
     font-size: 12px;
     font-weight: 600;
     transition: all 0.15s;
@@ -90,7 +90,7 @@
   .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   .project-name {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--text2);
     padding: 4px 8px;
@@ -150,7 +150,7 @@
     color: var(--text);
     border-radius: 6px;
     cursor: pointer;
-    font-family: 'Syne', sans-serif;
+    font-family: var(--font-ui);
     font-size: 9px;
     font-weight: 600;
     text-align: center;
@@ -181,7 +181,7 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
   }
   .prop-input:focus { outline: none; border-color: var(--accent); }
@@ -235,7 +235,7 @@
     border-radius: 8px;
     padding: 6px 10px;
     font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     color: var(--text2);
   }
   .zoom-bar button {
@@ -253,7 +253,7 @@
     position: absolute;
     bottom: 14px;
     left: 14px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     color: var(--text2);
     background: var(--surface);
@@ -305,7 +305,7 @@
   .circuit-item:hover { border-color: var(--accent); }
   .circuit-item.active { border-color: var(--accent); background: rgba(245,166,35,0.1); }
   .circuit-name { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
-  .circuit-info { color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+  .circuit-info { color: var(--text2); font-family: var(--font-mono); }
 
   .circuit-dot {
     display: inline-block;
@@ -383,7 +383,7 @@
     cursor: pointer;
     font-size: 10px;
     font-weight: 700;
-    font-family: 'Syne', sans-serif;
+    font-family: var(--font-ui);
     transition: all 0.12s;
     text-align: center;
   }
@@ -470,7 +470,7 @@
       color: var(--text2);
       border-radius: 7px;
       cursor: pointer;
-      font-family: 'Syne', sans-serif;
+      font-family: var(--font-ui);
       font-size: 7px;
       font-weight: 700;
       letter-spacing: 0.3px;
@@ -867,7 +867,7 @@
       <button onclick="zoom(0.1)" title="Zoom avant">+</button>
       <button onclick="resetView()" style="font-size:11px;margin-left:4px;" title="Réinitialiser la vue">⟲</button>
     </div>
-    <div id="navHint" style="position:absolute;bottom:14px;right:14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 7px;opacity:0.5;pointer-events:none;">Espace+glisser · Molette · ↑↓←→</div>
+    <div id="navHint" style="position:absolute;bottom:14px;right:14px;font-family:ui-monospace,'Cascadia Code','Courier New',monospace;font-size:9px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 7px;opacity:0.5;pointer-events:none;">Espace+glisser · Molette · ↑↓←→</div>
   </div>
 
   <!-- RIGHT PANEL -->
@@ -957,7 +957,7 @@
     <!-- Log IA -->
     <div id="aiLog" style="
       display:none; background:var(--surface2); border:1px solid var(--border);
-      border-radius:6px; padding:10px; font-family:'JetBrains Mono',monospace;
+      border-radius:6px; padding:10px; font-family:ui-monospace,'Cascadia Code','Courier New',monospace;
       font-size:10px; color:#a78bfa; max-height:120px; overflow-y:auto;
       white-space:pre-wrap; margin-bottom:12px;
     "></div>
@@ -1017,7 +1017,7 @@
         width:100%; height:180px; resize:none;
         background:var(--surface2); border:1px solid var(--border);
         border-radius:6px; color:var(--text2);
-        font-family:'JetBrains Mono',monospace; font-size:10px;
+        font-family:ui-monospace,'Cascadia Code','Courier New',monospace; font-size:10px;
         padding:10px; line-height:1.5;
       "></textarea>
     </div>
@@ -1379,7 +1379,7 @@ function drawElement(el, isSelected) {
   if (el.label) {
     const { hh: labelHh } = getElHalfSizes(el);
     ctx.fillStyle = '#8a9ab5';
-    ctx.font = `bold ${9/state.zoom}px Syne, sans-serif`;
+    ctx.font = `bold ${9/state.zoom}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(el.label, 0, labelHh + 6);
   }
@@ -1389,7 +1389,7 @@ function drawElement(el, isSelected) {
 function drawGeneric(c, el) {
   c.strokeStyle = '#f5a623'; c.lineWidth = 1.5;
   c.strokeRect(-12,-12,24,24);
-  c.fillStyle = '#f5a623'; c.font = 'bold 8px Syne'; c.textAlign = 'center';
+  c.fillStyle = '#f5a623'; c.font = 'bold 8px system-ui, sans-serif'; c.textAlign = 'center';
   c.fillText(el.type.slice(0,3).toUpperCase(), 0, 3);
 }
 
@@ -1967,7 +1967,7 @@ function drawPlanTravailPerso(c, el) {
   // Dimensions en texte centré
   const fontSize = Math.max(5, Math.min(8, h * 0.28));
   c.fillStyle = MOB; c.lineWidth = 1;
-  c.font = `bold ${fontSize}px Syne, sans-serif`;
+  c.font = `bold ${fontSize}px system-ui, sans-serif`;
   c.textAlign = 'center';
   c.fillText(`${el.widthCm || 120} × ${el.depthCm || 60} cm`, 0, fontSize / 2);
 }
@@ -2248,7 +2248,7 @@ function drawRoom(room, isSelected) {
   const cy = room.points.reduce((a,p)=>a+p.y,0)/room.points.length;
   const sc = worldToScreen(cx, cy);
   ctx.fillStyle = 'rgba(245,166,35,0.7)';
-  ctx.font = `bold ${12 * state.zoom}px Syne, sans-serif`;
+  ctx.font = `bold ${12 * state.zoom}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(room.name || 'Pièce', sc.x, sc.y);
   ctx.restore();
@@ -2941,13 +2941,13 @@ function showConfirm(message, onConfirm) {
     position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
     background: #1e2329; border: 1px solid #f5a623; border-radius: 10px;
     padding: 10px 18px; display: flex; align-items: center; gap: 14px;
-    font-family: Syne, sans-serif; font-size: 13px; font-weight: 600;
+    font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 600;
     color: #e8eaf0; z-index: 9999; box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   `;
   bar.innerHTML = `
     <span>${message}</span>
-    <button id="confirmYes" style="background:#e8380d;border:none;color:#fff;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:12px;">Oui, effacer</button>
-    <button id="confirmNo" style="background:#2a3040;border:1px solid #2a3040;color:#e8eaf0;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:12px;">Annuler</button>
+    <button id="confirmYes" style="background:#e8380d;border:none;color:#fff;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:system-ui,-apple-system,sans-serif;font-weight:700;font-size:12px;">Oui, effacer</button>
+    <button id="confirmNo" style="background:#2a3040;border:1px solid #2a3040;color:#e8eaf0;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:system-ui,-apple-system,sans-serif;font-weight:700;font-size:12px;">Annuler</button>
   `;
   document.body.appendChild(bar);
 
@@ -2967,7 +2967,7 @@ function exportPNG() {
   const oc = offscreen.getContext('2d');
   oc.fillStyle = '#0d0f12'; oc.fillRect(0,0,offscreen.width,offscreen.height);
   oc.drawImage(canvas, 0, 0);
-  oc.font = 'bold 13px Syne, sans-serif';
+  oc.font = 'bold 13px system-ui, sans-serif';
   oc.fillStyle = 'rgba(245,166,35,0.5)';
   oc.textAlign = 'right';
   oc.fillText('Red Den Connexion — PlanElec Pro', offscreen.width - 12, offscreen.height - 12);
