@@ -2340,7 +2340,7 @@ function draw() {
 let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
 let spaceDown = false;
 let mouseDragged = false;
-let mouseDownPos = null;  // position au mousedown pour détection du glisser-pan
+let mouseDownPos = null;  // pour détecter le glisser-pan gauche
 let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
 let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
 
@@ -2358,6 +2358,7 @@ function getElHitRadius(el) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
+  // Molette, Alt+gauche, Espace+gauche → pan immédiat
   if (e.button === 1 || (e.button === 0 && (e.altKey || spaceDown))) {
     isPanning = true;
     panStart = { x: e.clientX, y: e.clientY };
@@ -2366,7 +2367,10 @@ canvas.addEventListener('mousedown', (e) => {
     e.preventDefault();
     return;
   }
+  // Clic gauche normal
+  if (e.button !== 0) return;
   mouseDragged = false;
+  mouseDownPos = { x: e.clientX, y: e.clientY };
 
   if (state.mode === 'select' && state.selected?.type) {
     const r = canvas.getBoundingClientRect();
@@ -2378,24 +2382,32 @@ canvas.addEventListener('mousedown', (e) => {
       const s = worldToScreen(state.selected.x, state.selected.y);
       rotateStartAngle = Math.atan2(sy - s.y, sx - s.x);
       rotateStartRot = state.selected.rotation || 0;
+      mouseDownPos = null;
       e.preventDefault();
       return;
     }
-    // Déplacer l'élément ?
+    // Déplacer l'élément sélectionné ?
     const s = worldToScreen(state.selected.x, state.selected.y);
     if (Math.hypot(sx - s.x, sy - s.y) < getElHitRadius(state.selected)) {
       isDraggingEl = true;
       dragStartW   = screenToWorld(sx, sy);
       dragElOrigin = { x: state.selected.x, y: state.selected.y };
+      mouseDownPos = null;
       e.preventDefault();
       return;
     }
   }
-  // Gauche sur espace vide → prépare le pan par glisser
-  if (e.button === 0) mouseDownPos = { x: e.clientX, y: e.clientY };
 });
 
 canvas.addEventListener('mousemove', (e) => {
+  // Annulation auto si bouton relâché hors canvas
+  if (e.buttons === 0) {
+    mouseDownPos = null;
+    if (isPanning && !spaceDown) { isPanning = false; canvas.style.cursor = ''; }
+    if (isDraggingEl) { isDraggingEl = false; updateProps(); draw(); return; }
+    if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
+  }
+
   const r = canvas.getBoundingClientRect();
   state.mouseX = e.clientX - r.left;
   state.mouseY = e.clientY - r.top;
@@ -2426,9 +2438,10 @@ canvas.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Démarrage du pan par glisser-gauche (seuil 4px, sans autre interaction active)
-  if (!isPanning && !isRotating && !isDraggingEl && mouseDownPos && e.buttons === 1) {
-    if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) > 4) {
+  // Démarrage du pan par glisser-gauche — seuil généreux (15px) pour ne pas
+  // confondre avec un simple clic légèrement bougé
+  if (!isPanning && !isRotating && !isDraggingEl && mouseDownPos && (e.buttons & 1)) {
+    if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) >= 15) {
       isPanning = true;
       panStart  = mouseDownPos;
       panOrigin = { ...state.pan };
@@ -2469,14 +2482,7 @@ canvas.addEventListener('mouseup', (e) => {
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
   if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
-  if (mouseDragged) return;
-});
-// Nettoyage si la souris est relâchée hors du canvas (évite les états bloqués)
-window.addEventListener('mouseup', () => {
-  mouseDownPos = null;
-  if (isPanning)    { isPanning = false;    canvas.style.cursor = spaceDown ? 'grab' : ''; }
-  if (isDraggingEl) { isDraggingEl = false; updateProps(); draw(); }
-  if (isRotating)   { isRotating = false;   updateProps(); draw(); }
+  if (mouseDragged) { mouseDragged = false; return; }
 });
 
 canvas.addEventListener('click', (e) => {
