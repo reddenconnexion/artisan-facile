@@ -537,7 +537,7 @@
 <header>
   <div class="logo">Plan<span>Élec</span> Pro</div>
   <div class="header-center">
-    <input class="project-name" type="text" value="Maison Dupont — Plan RDC" id="projectName" />
+    <input class="project-name" type="text" value="Maison Dupont — Plan RDC" id="projectName" oninput="saveToLocalStorage()" />
     <button class="btn" onclick="addRoom()">🏠 Pièce</button>
     <button class="btn" onclick="addWall()">🧱 Mur</button>
     <button class="btn" id="btnSelectMode" onclick="setMode('select')" >↖ Sélectionner</button>
@@ -1113,6 +1113,52 @@ function resizeCanvas() {
   draw();
 }
 window.addEventListener('resize', resizeCanvas);
+
+// ══════════════════════════════════════════════════════════════
+//  PERSISTANCE LOCALE (localStorage)
+// ══════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'planelec-autosave';
+let _saveTimer = null;
+
+function saveToLocalStorage() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        projectName: document.getElementById('projectName')?.value || '',
+        elements: state.elements,
+        walls:    state.walls,
+        rooms:    state.rooms,
+        cables:   state.cables,
+        circuits: state.circuits,
+        pan:      state.pan,
+        zoom:     state.zoom,
+      }));
+    } catch(e) {}
+  }, 600);
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.projectName) document.getElementById('projectName').value = data.projectName;
+    state.elements = data.elements || [];
+    state.walls    = data.walls    || [];
+    state.rooms    = data.rooms    || [];
+    state.cables   = data.cables   || [];
+    if (data.circuits?.length) state.circuits = data.circuits;
+    if (data.pan)  state.pan  = data.pan;
+    if (data.zoom) {
+      state.zoom = data.zoom;
+      document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
+loadFromLocalStorage();
 resizeCanvas();
 
 // ══════════════════════════════════════════════════════════════
@@ -2282,6 +2328,7 @@ function draw() {
 
   updateStats();
   updateRoomList();
+  saveToLocalStorage();
 }
 
 // ══════════════════════════════════════════════════════════════
