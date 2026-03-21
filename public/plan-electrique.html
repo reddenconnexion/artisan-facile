@@ -2972,7 +2972,75 @@ function exportPNG() {
   oc.fillStyle = 'rgba(245,166,35,0.5)';
   oc.textAlign = 'right';
   oc.fillText('Red Den Connexion — PlanElec Pro', offscreen.width - 12, offscreen.height - 12);
-  const dataUrl = offscreen.toDataURL('image/png');
+
+  // ── LÉGENDE ─────────────────────────────────────────────────
+  const getLabel = type => {
+    const btn = document.querySelector(`[data-type="${type}"]`);
+    if (btn) return btn.textContent.trim();
+    const fallback = { 'cable-phase':'Câble phase','cable-neutre':'Câble neutre','cable-terre':'Câble terre','cable-telecom':'Câble télécom' };
+    return fallback[type] || type;
+  };
+  const usedElTypes   = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
+  const usedCabTypes  = [...new Set(state.cables.map(c => c.type))];
+  const items = [
+    ...usedElTypes.map(t => ({ kind:'el', type:t })),
+    ...usedCabTypes.map(t => ({ kind:'cable', type:t })),
+  ];
+
+  let finalCanvas = offscreen;
+  if (items.length > 0) {
+    const PAD = 20, CELL_H = 50, SYM_R = 18;
+    const COLS = Math.max(1, Math.floor(offscreen.width / 170));
+    const legendH = PAD * 2 + 20 + Math.ceil(items.length / COLS) * CELL_H;
+
+    finalCanvas = document.createElement('canvas');
+    finalCanvas.width  = offscreen.width;
+    finalCanvas.height = offscreen.height + legendH;
+    const fc = finalCanvas.getContext('2d');
+
+    fc.drawImage(offscreen, 0, 0);
+
+    // Fond légende
+    fc.fillStyle = '#161a1f';
+    fc.fillRect(0, offscreen.height, finalCanvas.width, legendH);
+    fc.fillStyle = '#f5a623';
+    fc.fillRect(0, offscreen.height, finalCanvas.width, 2);
+
+    // Titre
+    fc.font = 'bold 12px system-ui, sans-serif';
+    fc.fillStyle = '#f5a623';
+    fc.textAlign = 'left';
+    fc.fillText('LÉGENDE', PAD, offscreen.height + PAD + 12);
+
+    // Items
+    items.forEach((item, i) => {
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const cx  = PAD + col * Math.floor(offscreen.width / COLS) + SYM_R;
+      const cy  = offscreen.height + PAD + 20 + row * CELL_H + CELL_H / 2;
+
+      if (item.kind === 'el') {
+        fc.save(); fc.translate(cx, cy);
+        SYMBOLS[item.type](fc, { type: item.type });
+        fc.restore();
+      } else {
+        const color = CABLE_COLORS[item.type] || '#fff';
+        const dash  = CABLE_DASH[item.type] || [];
+        fc.save();
+        fc.strokeStyle = color; fc.lineWidth = 2.5;
+        fc.setLineDash(dash);
+        fc.beginPath(); fc.moveTo(cx - SYM_R + 4, cy); fc.lineTo(cx + SYM_R - 4, cy); fc.stroke();
+        fc.setLineDash([]); fc.restore();
+      }
+
+      fc.font = '11px system-ui, sans-serif';
+      fc.fillStyle = '#e8eaf0';
+      fc.textAlign = 'left';
+      fc.fillText(getLabel(item.type), cx + SYM_R + 6, cy + 4);
+    });
+  }
+
+  const dataUrl = finalCanvas.toDataURL('image/png');
   const filename = (document.getElementById('projectName').value || 'plan-electrique') + '.png';
 
   // Affiche l'image dans une modale avec bouton clic-droit / téléchargement
