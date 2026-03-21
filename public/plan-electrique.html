@@ -1992,8 +1992,11 @@ function drawTableBasse(c) {
 }
 
 // ── PORTE SIMPLE (symbole archi NF EN ISO 7519) ──────────────
-// Charnière en haut-gauche (-20,-20), vantail vers la droite, arc de 90°
-function drawPorte(c) {
+// Charnière en haut-gauche (-18,-18), vantail vers la droite, arc de 90°
+// el.flip = true → ouverture de l'autre côté du mur (miroir Y)
+function drawPorte(c, el) {
+  c.save();
+  if (el?.flip) c.scale(1, -1);
   const R = 36, hx = -18, hy = -18;
   c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
   // Encadrement (l'ouverture dans le mur)
@@ -2007,10 +2010,14 @@ function drawPorte(c) {
   c.setLineDash([4, 3]);
   c.beginPath(); c.arc(hx, hy, R, 0, Math.PI / 2); c.stroke();
   c.setLineDash([]);
+  c.restore();
 }
 
 // ── PORTE DOUBLE (2 vantaux, arc symétrique) ──────────────────
-function drawPorteDouble(c) {
+// el.flip = true → ouverture de l'autre côté du mur
+function drawPorteDouble(c, el) {
+  c.save();
+  if (el?.flip) c.scale(1, -1);
   const R = 24, cx = 0, hy = -18;
   c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
   // Vantaux
@@ -2023,6 +2030,7 @@ function drawPorteDouble(c) {
   c.beginPath(); c.arc(cx, hy, R, Math.PI / 2, Math.PI); c.stroke();
   c.beginPath(); c.arc(cx, hy, R, 0, Math.PI / 2); c.stroke();
   c.setLineDash([]);
+  c.restore();
 }
 
 // ── FENÊTRE SIMPLE (cadre + vitrage) ──────────────────────────
@@ -2543,6 +2551,13 @@ document.addEventListener('keydown', (e) => {
       rotateSelected(e.shiftKey ? -90 : 90);
     }
   }
+  // F = basculer le sens d'ouverture (portes)
+  if (e.key === 'f' || e.key === 'F') {
+    if (document.activeElement.tagName !== 'INPUT') {
+      const el = state.selected;
+      if (el && ['porte','porte-double'].includes(el.type)) flipDoor(!el.flip);
+    }
+  }
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -2590,6 +2605,22 @@ function updateProps() {
       </div>
       <div style="font-size:9px;color:var(--text2);margin-top:4px;">Raccourcis : <b>R</b> = +90° · <b>Shift+R</b> = −90°</div>
     </div>`;
+    // Sens d'ouverture — uniquement pour les portes
+    if (el.type === 'porte' || el.type === 'porte-double') {
+      const f = !!el.flip;
+      html += `<div class="prop-row">
+        <div class="prop-label">Sens d'ouverture</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">
+          <button class="prop-rot-btn${!f ? ' prop-rot-preset' : ''}" onclick="flipDoor(false)" title="Ouvre vers l'avant">
+            ↑ Avant
+          </button>
+          <button class="prop-rot-btn${f ? ' prop-rot-preset' : ''}" onclick="flipDoor(true)" title="Ouvre vers l'arrière">
+            ↓ Arrière
+          </button>
+        </div>
+        <div style="font-size:9px;color:var(--text2);margin-top:3px;">Raccourci : <b>F</b> = basculer le sens</div>
+      </div>`;
+    }
     html += `<div class="prop-row"><div class="prop-label">Position</div>
       <div style="display:flex;gap:4px">
         <input class="prop-input" style="width:50%" value="${el.x||el.x1||''}" oninput="updatePropCoord('x',this.value)" placeholder="X"/>
@@ -2624,6 +2655,13 @@ function rotateSelected(delta) {
 function setRotation(deg) {
   if (!state.selected || !state.selected.type) return;
   state.selected.rotation = deg;
+  updateProps(); draw();
+}
+
+function flipDoor(val) {
+  const el = state.selected;
+  if (!el || !['porte','porte-double'].includes(el.type)) return;
+  el.flip = val;
   updateProps(); draw();
 }
 
@@ -2872,6 +2910,19 @@ function handleFileLoad(e) {
 //  IA IMPORT — ANALYSE PHOTO DE PLAN MANUSCRIT
 // ══════════════════════════════════════════════════════════════
 let aiImageBase64 = null;
+let aiImageMediaType = 'image/jpeg';
+let _sbUrl = null, _sbKey = null;
+
+// Réception de la config Supabase depuis la page parente
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'planelec-config') {
+    _sbUrl = e.data.supabaseUrl;
+    _sbKey = e.data.supabaseAnonKey;
+  }
+});
+
+// Signal au parent que l'iframe est prête
+window.parent?.postMessage({ type: 'planelec-ready' }, '*');
 
 function openAIImport() {
   document.getElementById('aiModal').classList.add('open');
@@ -2891,6 +2942,7 @@ function closeAIModal() {
 function handleAIImageSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
+  aiImageMediaType = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = (ev) => {
     aiImageBase64 = ev.target.result.split(',')[1];
@@ -2915,6 +2967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault(); zone.style.borderColor = '#a78bfa';
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+      aiImageMediaType = file.type;
       const reader = new FileReader();
       reader.onload = ev => {
         aiImageBase64 = ev.target.result.split(',')[1];
@@ -2989,30 +3042,32 @@ Retranscris ce plan manuscrit en JSON selon le format demandé.`;
   try {
     aiLog('🧠 Analyse de l\'image par Claude Vision…');
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    if (!_sbUrl || !_sbKey) {
+      throw new Error('Configuration Supabase manquante. Rechargez la page depuis l\'application.');
+    }
+
+    const response = await fetch(`${_sbUrl}/functions/v1/plan-vision`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': _sbKey,
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: aiImageBase64 } },
-            { type: 'text', text: userPrompt }
-          ]
-        }]
-      })
+        imageBase64: aiImageBase64,
+        mediaType: aiImageMediaType,
+        systemPrompt,
+        userPrompt,
+      }),
     });
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
+      throw new Error(err.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    const raw = data.content.find(b => b.type === 'text')?.text || '';
+    if (data.error) throw new Error(data.error);
+    const raw = data.text || '';
     aiLog('✅ Réponse reçue, parsing JSON…');
 
     // Nettoyage du JSON (balises markdown éventuelles)
