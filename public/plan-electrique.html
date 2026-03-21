@@ -857,11 +857,12 @@
     <div class="mode-indicator" id="modeIndicator"></div>
     <div class="coords" id="coords">X: 0 — Y: 0</div>
     <div class="zoom-bar">
-      <button onclick="zoom(-0.1)">−</button>
+      <button onclick="zoom(-0.1)" title="Zoom arrière">−</button>
       <span id="zoomLabel">100%</span>
-      <button onclick="zoom(0.1)">+</button>
-      <button onclick="resetView()" style="font-size:11px;margin-left:4px;">⟲</button>
+      <button onclick="zoom(0.1)" title="Zoom avant">+</button>
+      <button onclick="resetView()" style="font-size:11px;margin-left:4px;" title="Réinitialiser la vue">⟲</button>
     </div>
+    <div id="navHint" style="position:absolute;bottom:14px;right:14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 7px;opacity:0.5;pointer-events:none;">Espace+glisser · Molette · ↑↓←→</div>
   </div>
 
   <!-- RIGHT PANEL -->
@@ -2247,6 +2248,7 @@ function draw() {
 //  MOUSE EVENTS
 // ══════════════════════════════════════════════════════════════
 let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
+let spaceDown = false;
 let mouseDragged = false;
 let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
 let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
@@ -2264,10 +2266,11 @@ function getElHitRadius(el) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+  if (e.button === 1 || (e.button === 0 && (e.altKey || spaceDown))) {
     isPanning = true;
     panStart = { x: e.clientX, y: e.clientY };
     panOrigin = { ...state.pan };
+    canvas.style.cursor = 'grabbing';
     e.preventDefault();
     return;
   }
@@ -2355,7 +2358,7 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mouseup', (e) => {
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
-  if (isPanning)    { isPanning = false; return; }
+  if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
   if (mouseDragged) return;
 });
 
@@ -2541,22 +2544,35 @@ function deleteSelected() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (document.activeElement.tagName !== 'INPUT') deleteSelected();
+  if (document.activeElement.tagName === 'INPUT') return;
+  // Espace → mode pan temporaire
+  if (e.key === ' ' && !spaceDown) {
+    spaceDown = true;
+    canvas.style.cursor = 'grab';
+    e.preventDefault();
+    return;
   }
+  // Flèches → déplacer le plan
+  const step = e.shiftKey ? 100 : 30;
+  if (e.key === 'ArrowLeft')  { state.pan.x += step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowRight') { state.pan.x -= step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp')    { state.pan.y += step; draw(); e.preventDefault(); return; }
+  if (e.key === 'ArrowDown')  { state.pan.y -= step; draw(); e.preventDefault(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   if (e.key === 'Escape') setMode('select');
   // R = rotation +90°, Shift+R = -90°
-  if (e.key === 'r' || e.key === 'R') {
-    if (document.activeElement.tagName !== 'INPUT') {
-      rotateSelected(e.shiftKey ? -90 : 90);
-    }
-  }
+  if (e.key === 'r' || e.key === 'R') rotateSelected(e.shiftKey ? -90 : 90);
   // F = basculer le sens d'ouverture (portes)
   if (e.key === 'f' || e.key === 'F') {
-    if (document.activeElement.tagName !== 'INPUT') {
-      const el = state.selected;
-      if (el && ['porte','porte-double'].includes(el.type)) flipDoor(!el.flip);
-    }
+    const el = state.selected;
+    if (el && ['porte','porte-double'].includes(el.type)) flipDoor(!el.flip);
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    spaceDown = false;
+    if (!isPanning) canvas.style.cursor = '';
   }
 });
 
