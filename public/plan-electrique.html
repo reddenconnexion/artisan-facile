@@ -1145,10 +1145,12 @@ function loadFromLocalStorage() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     if (data.projectName) document.getElementById('projectName').value = data.projectName;
-    state.elements = data.elements || [];
-    state.walls    = data.walls    || [];
-    state.rooms    = data.rooms    || [];
-    state.cables   = data.cables   || [];
+    // Dédoublonner par id au cas où des reloads auraient accumulé des doublons
+    const uniq = (arr) => { const seen = new Set(); return (arr||[]).filter(e => e.id && !seen.has(e.id) && seen.add(e.id)); };
+    state.elements = uniq(data.elements);
+    state.walls    = uniq(data.walls);
+    state.rooms    = uniq(data.rooms);
+    state.cables   = uniq(data.cables);
     if (data.circuits?.length) state.circuits = data.circuits;
     if (data.pan)  state.pan  = data.pan;
     if (data.zoom) {
@@ -2425,10 +2427,15 @@ canvas.addEventListener('mousemove', (e) => {
     state.pan.x = panOrigin.x + (e.clientX - panStart.x);
     state.pan.y = panOrigin.y + (e.clientY - panStart.y);
     mouseDragged = true;
+    canvas.style.cursor = 'grabbing';
+    draw();
+    return;
   }
 
   // Curseur dynamique
-  if (state.mode === 'select' && state.selected?.type) {
+  if (spaceDown) {
+    canvas.style.cursor = 'grab';
+  } else if (state.mode === 'select' && state.selected?.type) {
     const sx = state.mouseX, sy = state.mouseY;
     const h = getRotHandleScreen(state.selected);
     if (Math.hypot(sx - h.x, sy - h.y) < 12) {
@@ -3494,8 +3501,8 @@ function toast(msg) {
     touch = {};
   }, { passive: false });
 
-  // Plan demo uniquement si aucun paramètre et pas de données
-  if (!chantier && !client && !planB64) {
+  // Plan demo uniquement si aucun paramètre ET aucune donnée locale
+  if (!chantier && !client && !planB64 && state.elements.length === 0 && state.walls.length === 0 && state.rooms.length === 0) {
     setTimeout(() => {
       state.rooms.push({ id: uid(), name: 'Séjour',  points: [{x:40,y:40},{x:300,y:40},{x:300,y:280},{x:40,y:280}] });
       state.rooms.push({ id: uid(), name: 'Cuisine', points: [{x:300,y:40},{x:520,y:40},{x:520,y:180},{x:300,y:180}] });
