@@ -4143,39 +4143,102 @@ async function launchAIAnalysis() {
   aiLog('📷 Image reçue, envoi à Claude Vision…');
 
   const GRID = 20;
-  const CANVAS_W = 600;
-  const CANVAS_H = 480;
+  const CANVAS_W = 1000;
+  const CANVAS_H = 800;
 
-  const systemPrompt = `Tu es un expert en électricité du bâtiment (norme NF C 15-100).
-Tu analyses des photos ou scans de plans électriques manuscrits et tu retournes UNIQUEMENT un objet JSON valide, sans texte autour, sans balises markdown.
+  const systemPrompt = `Tu es un expert en électricité du bâtiment (norme NF C 15-100) spécialisé dans la lecture de plans architecturaux.
+Ta mission : analyser une photo ou scan de plan manuscrit et retourner UNIQUEMENT un objet JSON valide, sans texte autour, sans balises markdown.
 
-L'espace de travail est une grille de ${CANVAS_W}x${CANVAS_H} pixels avec un pas de ${GRID}px. Les coordonnées doivent être des multiples de ${GRID}.
+═══ ESPACE DE TRAVAIL ═══
+Grille de ${CANVAS_W}x${CANVAS_H} unités, pas de grille : ${GRID} unités.
+TOUTES les coordonnées doivent être des multiples de ${GRID} (ex: 0, 20, 40, 60…).
+IMPORTANT : Utilise tout l'espace disponible. Le plan doit s'étendre sur la majorité des ${CANVAS_W}x${CANVAS_H} unités.
+  → Identifie d'abord les limites extrêmes du bâtiment dans l'image.
+  → Mappe proportionnellement : coin haut-gauche du bâtiment ≈ (40,40), coin bas-droit ≈ (${CANVAS_W-40},${CANVAS_H-40}).
 
-Les types d'éléments disponibles sont :
-- Appareillage : prise, prise20, interrupteur, va-et-vient, bouton-poussoir, variateur
-- Eclairage : luminaire, spot, applique, hublot
-- Equipements : tableau, compteur, gaine-tech, chaudiere, cumulus, convecteur, seche-serviette, clim, vmc, prise-rj45
-- Circuits spécialisés : lave-linge, lave-vaisselle, seche-linge, refrigerateur, four, plaque, micro-ondes, congelateur, pac, portail, alarme, volet
+═══ TYPES D'ÉLÉMENTS ═══
+Appareillage :
+  - "prise"         → prise 16A standard (symbole : carré avec 2 traits)
+  - "prise20"       → prise 20A renforcée (cuisine/sdb, symbole carré avec T)
+  - "interrupteur"  → interrupteur simple (rectangle avec trait diagonal)
+  - "va-et-vient"   → va-et-vient (rectangle avec 2 traits diagonaux)
+  - "bouton-poussoir" → sonnette/minuterie (cercle avec point)
+  - "variateur"     → variateur de lumière (rectangle avec flèche)
 
-Format JSON à retourner :
+Éclairage :
+  - "luminaire"     → plafonnier standard (cercle avec croix)
+  - "spot"          → spot encastré (cercle plein/petit)
+  - "applique"      → applique murale (demi-cercle sur mur)
+  - "hublot"        → hublot salle de bain (cercle avec trait horizontal)
+
+Équipements :
+  - "tableau"       → tableau électrique (rectangle hachuré)
+  - "compteur"      → compteur EDF (rectangle avec chiffres)
+  - "gaine-tech"    → gaine technique (rectangle double trait)
+  - "chaudiere"     → chaudière gaz (rectangle avec flamme)
+  - "cumulus"       → chauffe-eau (cylindre)
+  - "convecteur"    → radiateur électrique (rectangle avec zigzag)
+  - "seche-serviette" → sèche-serviettes (rectangle étroit vertical)
+  - "clim"          → unité intérieure climatisation (rectangle horizontal)
+  - "vmc"           → VMC (carré avec croix de ventilation)
+  - "prise-rj45"    → prise réseau RJ45/téléphone
+
+Circuits spécialisés (repères visuels sur le plan) :
+  - "lave-linge"    → symbole machine à laver
+  - "lave-vaisselle"→ symbole lave-vaisselle
+  - "seche-linge"   → symbole sèche-linge
+  - "refrigerateur" → symbole réfrigérateur
+  - "four"          → four encastré
+  - "plaque"        → plaque de cuisson (rectangle avec 4 cercles)
+  - "micro-ondes"   → micro-ondes
+  - "congelateur"   → congélateur
+  - "pac"           → pompe à chaleur (unité extérieure)
+  - "portail"       → motorisation portail/garage
+  - "alarme"        → détecteur alarme (triangle)
+  - "volet"         → motorisation volet roulant
+
+═══ FORMAT JSON ATTENDU ═══
 {
-  "rooms": [{ "name": "Séjour", "points": [{"x":40,"y":40},{"x":300,"y":40},{"x":300,"y":280},{"x":40,"y":280}] }],
-  "walls": [{ "x1":40,"y1":40,"x2":300,"y2":40 }],
-  "elements": [{ "type":"luminaire","x":160,"y":160,"label":"Séjour","circuitId":1 }],
+  "rooms": [
+    {
+      "name": "Séjour",
+      "points": [{"x":40,"y":40},{"x":460,"y":40},{"x":460,"y":380},{"x":40,"y":380}]
+    }
+  ],
+  "walls": [
+    {"x1":40,"y1":40,"x2":460,"y2":40},
+    {"x1":460,"y1":40,"x2":460,"y2":380}
+  ],
+  "elements": [
+    {"type":"luminaire","x":250,"y":200,"label":"Séjour","circuitId":1},
+    {"type":"prise","x":80,"y":360,"label":"","circuitId":2},
+    {"type":"interrupteur","x":60,"y":60,"label":"","circuitId":1}
+  ],
   "cables": []
 }
 
-Règles importantes :
-- Coordonnées multiples de ${GRID} strictement
-- Reste dans les limites ${CANVAS_W}x${CANVAS_H}
-- Si tu ne vois pas de plan électrique clair, retourne des tableaux vides
-- circuitId : 1=éclairage, 2=prises 16A, 3=cuisine 20A, 4=lave-linge, 5=lave-vaisselle, 6=sèche-linge, 8=four/plaque, 9=chauffe-eau, 10=clim
-- Respecte la disposition spatiale du plan (proportions relatives)`;
+═══ RÈGLES STRICTES ═══
+1. Coordonnées multiples de ${GRID} UNIQUEMENT — arrondis au multiple le plus proche
+2. Reste dans [0, ${CANVAS_W}] (x) et [0, ${CANVAS_H}] (y)
+3. circuitId : 1=éclairage, 2=prises 16A, 3=cuisine 20A, 4=lave-linge, 5=lave-vaisselle, 6=sèche-linge, 8=four/plaque, 9=chauffe-eau, 10=clim
+4. Les rooms sont des polygones fermés — assez de points pour suivre le contour de chaque pièce
+5. Les murs suivent les lignes du plan avec précision (chaque segment = un objet wall)
+6. Place chaque élément AU CENTRE de l'espace qu'il occupe visuellement
+7. Si le plan est flou ou trop petit pour identifier précisément un élément, utilise le type le plus probable
+8. Si aucun plan n'est visible, retourne tous les tableaux vides`;
 
-  const userPrompt = `${doRooms ? 'Détecte les pièces et leurs contours.' : ''}
-${doWalls ? 'Détecte les murs.' : ''}
-${doElements ? 'Détecte tous les équipements électriques visibles.' : ''}
-Retranscris ce plan manuscrit en JSON selon le format demandé.`;
+  const userPrompt = `Analyse ce plan électrique manuscrit étape par étape :
+
+ÉTAPE 1 — Vue d'ensemble : identifie les limites du bâtiment et le nombre de pièces.
+ÉTAPE 2 — Pièces${doRooms ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : trace les contours de chaque pièce avec au minimum 4 points polygonaux.
+ÉTAPE 3 — Murs${doWalls ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : identifie chaque segment de mur (extérieur et séparations).
+ÉTAPE 4 — Équipements${doElements ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : localise chaque symbole électrique et identifie son type.
+
+${!doRooms ? 'Ne retourne PAS de rooms (tableau vide).' : ''}
+${!doWalls ? 'Ne retourne PAS de walls (tableau vide).' : ''}
+${!doElements ? 'Ne retourne PAS d\'elements (tableau vide).' : ''}
+
+Retourne UNIQUEMENT le JSON final, sans commentaire.`;
 
   try {
     aiLog('🧠 Analyse de l\'image par Claude Vision…');
