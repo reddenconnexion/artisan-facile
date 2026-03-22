@@ -97,7 +97,7 @@ const ClientPlans = ({ clientId, clientName }) => {
                             <div className="p-3 bg-white dark:bg-gray-800">
                                 <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{plan.name}</p>
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                    Modifié le {new Date(plan.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    Modifié le {new Date(plan.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             </div>
                         </div>

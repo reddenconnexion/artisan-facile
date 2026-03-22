@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 const Outils = () => {
     const iframeRef = useRef(null);
     const { user } = useAuth();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Modal sauvegarde
     const [showSaveModal, setShowSaveModal] = useState(false);
@@ -99,17 +99,50 @@ const Outils = () => {
     const handleSave = async () => {
         if (!selectedClientId || !planName.trim()) return;
         setSaving(true);
-        const { error } = await supabase.from('client_plans').insert({
-            user_id: user.id,
-            client_id: parseInt(selectedClientId),
-            name: planName.trim(),
-            plan_data: pendingSave.planData,
-            thumbnail: pendingSave.thumbnail,
-        });
-        setSaving(false);
-        if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
-        toast.success('Plan sauvegardé dans la fiche client');
+
+        // Vérifie si un plan du même nom existe déjà pour ce client
+        const { data: existing } = await supabase
+            .from('client_plans')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('client_id', parseInt(selectedClientId))
+            .eq('name', planName.trim())
+            .maybeSingle();
+
+        let savedId;
+        if (existing) {
+            // Écrase le plan existant
+            const { data, error } = await supabase
+                .from('client_plans')
+                .update({ plan_data: pendingSave.planData, thumbnail: pendingSave.thumbnail })
+                .eq('id', existing.id)
+                .select('id')
+                .single();
+            setSaving(false);
+            if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
+            savedId = data.id;
+            toast.success('Plan mis à jour dans la fiche client');
+        } else {
+            // Nouveau plan
+            const { data, error } = await supabase
+                .from('client_plans')
+                .insert({
+                    user_id: user.id,
+                    client_id: parseInt(selectedClientId),
+                    name: planName.trim(),
+                    plan_data: pendingSave.planData,
+                    thumbnail: pendingSave.thumbnail,
+                })
+                .select('id')
+                .single();
+            setSaving(false);
+            if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
+            savedId = data.id;
+            toast.success('Plan sauvegardé dans la fiche client');
+        }
+
         iframeRef.current?.contentWindow?.postMessage({ type: 'planelec-saved' }, '*');
+        setSearchParams({ plan_id: savedId });
         setShowSaveModal(false);
         setPendingSave(null);
     };
