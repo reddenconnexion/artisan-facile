@@ -56,13 +56,15 @@ const Outils = () => {
     }, [searchParams, user, sendPlanToIframe]);
 
     // Injection de la config Supabase dans l'iframe (pour l'import IA)
-    const injectConfig = useCallback(() => {
+    const injectConfig = useCallback(async () => {
         const iframe = iframeRef.current;
         if (!iframe?.contentWindow) return;
+        const { data: { session } } = await supabase.auth.getSession();
         iframe.contentWindow.postMessage({
             type: 'planelec-config',
             supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
             supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            accessToken: session?.access_token || null,
         }, '*');
     }, []);
 
