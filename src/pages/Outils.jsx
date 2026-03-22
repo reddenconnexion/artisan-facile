@@ -152,7 +152,7 @@ const Outils = () => {
     );
 
     return (
-        <div className="h-[calc(100vh-100px)] flex flex-col">
+        <div className="h-[calc(100vh-64px)] flex flex-col">
             <div className="px-4 mb-3 shrink-0">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Zap className="w-8 h-8 text-yellow-500" />
