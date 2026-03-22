@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mic, CheckCircle2, XCircle, Loader2, Clock, RefreshCw, ChevronRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Mic, CheckCircle2, XCircle, Loader2, Clock, RefreshCw, ChevronRight, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { supabase } from '../utils/supabase';
@@ -30,11 +30,14 @@ const INTENT_LABELS = {
     unknown: 'Non identifié',
 };
 
-const VoiceMemoCard = ({ memo, onRetry }) => {
+const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
     const navigate = useNavigate();
     const config = STATUS_CONFIG[memo.status] || STATUS_CONFIG.pending;
     const StatusIcon = config.icon;
     const actions = memo.actions_taken || [];
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    const isActive = memo.status === 'pending' || memo.status === 'transcribing' || memo.status === 'processing';
 
     return (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
@@ -92,16 +95,45 @@ const VoiceMemoCard = ({ memo, onRetry }) => {
                     </p>
                 </div>
 
-                {/* Retry button for errors */}
-                {memo.status === 'error' && (
-                    <button
-                        onClick={() => onRetry(memo.id)}
-                        title="Réessayer"
-                        className="text-gray-400 hover:text-blue-500 p-1 flex-shrink-0"
-                    >
-                        <RefreshCw size={14} />
-                    </button>
-                )}
+                {/* Actions */}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {memo.status === 'error' && (
+                        <button
+                            onClick={() => onRetry(memo.id)}
+                            title="Réessayer"
+                            className="text-gray-400 hover:text-blue-500 p-1"
+                        >
+                            <RefreshCw size={14} />
+                        </button>
+                    )}
+
+                    {!isActive && (
+                        confirmDelete ? (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => onDelete(memo.id)}
+                                    className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded font-medium"
+                                >
+                                    Confirmer
+                                </button>
+                                <button
+                                    onClick={() => setConfirmDelete(false)}
+                                    className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                                >
+                                    Annuler
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setConfirmDelete(true)}
+                                title="Supprimer ce mémo"
+                                className="text-gray-300 hover:text-red-400 p-1 transition-colors"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -139,6 +171,12 @@ const VoiceMemos = () => {
                 table: 'voice_memos',
                 filter: `user_id=eq.${user?.id}`,
             }, () => fetchMemos())
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'voice_memos',
+                filter: `user_id=eq.${user?.id}`,
+            }, () => fetchMemos())
             .subscribe();
 
         return () => supabase.removeChannel(channel);
@@ -146,6 +184,21 @@ const VoiceMemos = () => {
 
     const handleRetry = async (memoId) => {
         toast.info('Fonctionnalité de relance en cours de développement');
+    };
+
+    const handleDelete = async (memoId) => {
+        const { error } = await supabase
+            .from('voice_memos')
+            .delete()
+            .eq('id', memoId)
+            .eq('user_id', user.id);
+
+        if (error) {
+            toast.error('Erreur lors de la suppression');
+        } else {
+            setMemos(prev => prev.filter(m => m.id !== memoId));
+            toast.success('Mémo supprimé');
+        }
     };
 
     const filteredMemos = filter === 'all'
@@ -278,7 +331,7 @@ const VoiceMemos = () => {
             ) : (
                 <div className="space-y-3">
                     {filteredMemos.map(memo => (
-                        <VoiceMemoCard key={memo.id} memo={memo} onRetry={handleRetry} />
+                        <VoiceMemoCard key={memo.id} memo={memo} onRetry={handleRetry} onDelete={handleDelete} />
                     ))}
                 </div>
             )}
