@@ -587,6 +587,7 @@
   <div class="header-right">
     <button class="btn" onclick="openCableCalc()" style="border-color:#4fc3f7;color:#4fc3f7;" title="Calculer les longueurs de câble">📐 Câbles</button>
     <button class="btn" onclick="exportPNG()">📥 Export PNG</button>
+    <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;">📄 Export PDF</button>
     <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
     <button class="btn" onclick="loadProject()">📂 Charger</button>
     <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;">🤖 Importer photo</button>
@@ -3566,7 +3567,8 @@ function showConfirm(message, onConfirm) {
 // ══════════════════════════════════════════════════════════════
 //  EXPORT PNG
 // ══════════════════════════════════════════════════════════════
-function exportPNG() {
+// ── Helper : construit le canvas final avec légende ──────────
+function buildExportCanvas() {
   const offscreen = document.createElement('canvas');
   offscreen.width = canvas.width; offscreen.height = canvas.height;
   const oc = offscreen.getContext('2d');
@@ -3577,81 +3579,65 @@ function exportPNG() {
   oc.textAlign = 'right';
   oc.fillText('Red Den Connexion — PlanElec Pro', offscreen.width - 12, offscreen.height - 12);
 
-  // ── LÉGENDE ─────────────────────────────────────────────────
   const getLabel = type => {
     const btn = document.querySelector(`[data-type="${type}"]`);
     if (btn) return btn.textContent.trim();
     const fallback = { 'cable-phase':'Câble phase','cable-neutre':'Câble neutre','cable-terre':'Câble terre','cable-telecom':'Câble télécom' };
     return fallback[type] || type;
   };
-  const usedElTypes   = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
-  const usedCabTypes  = [...new Set(state.cables.map(c => c.type))];
+  const usedElTypes  = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
+  const usedCabTypes = [...new Set(state.cables.map(c => c.type))];
   const items = [
     ...usedElTypes.map(t => ({ kind:'el', type:t })),
     ...usedCabTypes.map(t => ({ kind:'cable', type:t })),
   ];
 
-  let finalCanvas = offscreen;
-  if (items.length > 0) {
-    const PAD = 12, CELL_H = 34, SYM_R = 13;
-    const COLS = Math.max(1, Math.floor(offscreen.width / 150));
-    const legendH = PAD * 2 + 16 + Math.ceil(items.length / COLS) * CELL_H;
+  if (items.length === 0) return offscreen;
 
-    finalCanvas = document.createElement('canvas');
-    finalCanvas.width  = offscreen.width;
-    finalCanvas.height = offscreen.height + legendH;
-    const fc = finalCanvas.getContext('2d');
+  const PAD = 12, CELL_H = 34, SYM_R = 13;
+  const COLS = Math.max(1, Math.floor(offscreen.width / 150));
+  const legendH = PAD * 2 + 16 + Math.ceil(items.length / COLS) * CELL_H;
 
-    fc.drawImage(offscreen, 0, 0);
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width  = offscreen.width;
+  finalCanvas.height = offscreen.height + legendH;
+  const fc = finalCanvas.getContext('2d');
 
-    // Fond légende — légèrement plus clair que le plan, quasi-fondu
-    fc.fillStyle = '#111418';
-    fc.fillRect(0, offscreen.height, finalCanvas.width, legendH);
-    // Séparateur discret
-    fc.strokeStyle = 'rgba(245,166,35,0.25)';
-    fc.lineWidth = 1;
-    fc.beginPath();
-    fc.moveTo(0, offscreen.height + 0.5);
-    fc.lineTo(finalCanvas.width, offscreen.height + 0.5);
-    fc.stroke();
+  fc.drawImage(offscreen, 0, 0);
+  fc.fillStyle = '#111418';
+  fc.fillRect(0, offscreen.height, finalCanvas.width, legendH);
+  fc.strokeStyle = 'rgba(245,166,35,0.25)'; fc.lineWidth = 1;
+  fc.beginPath(); fc.moveTo(0, offscreen.height + 0.5); fc.lineTo(finalCanvas.width, offscreen.height + 0.5); fc.stroke();
+  fc.font = '10px system-ui, sans-serif';
+  fc.fillStyle = 'rgba(245,166,35,0.45)'; fc.textAlign = 'left';
+  fc.fillText('LÉGENDE', PAD, offscreen.height + PAD + 9);
 
-    // Titre discret
-    fc.font = '10px system-ui, sans-serif';
-    fc.fillStyle = 'rgba(245,166,35,0.45)';
-    fc.textAlign = 'left';
-    fc.fillText('LÉGENDE', PAD, offscreen.height + PAD + 9);
-
-    // Items
-    fc.save();
-    fc.globalAlpha = 0.75; // symboles légèrement transparents
-    items.forEach((item, i) => {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
-      const cx  = PAD + col * Math.floor(offscreen.width / COLS) + SYM_R;
-      const cy  = offscreen.height + PAD + 16 + row * CELL_H + CELL_H / 2;
-
-      fc.save(); fc.translate(cx, cy);
-      if (item.kind === 'el') {
-        fc.scale(0.72, 0.72);
-        SYMBOLS[item.type](fc, { type: item.type });
-      } else {
-        const color = CABLE_COLORS[item.type] || '#fff';
-        const dash  = CABLE_DASH[item.type] || [];
-        fc.strokeStyle = color; fc.lineWidth = 2;
-        fc.setLineDash(dash);
-        fc.beginPath(); fc.moveTo(-SYM_R + 3, 0); fc.lineTo(SYM_R - 3, 0); fc.stroke();
-        fc.setLineDash([]);
-      }
-      fc.restore();
-
-      fc.font = '10px system-ui, sans-serif';
-      fc.fillStyle = '#8a9099';
-      fc.textAlign = 'left';
-      fc.fillText(getLabel(item.type), cx + SYM_R + 4, cy + 3);
-    });
+  fc.save(); fc.globalAlpha = 0.75;
+  items.forEach((item, i) => {
+    const col = i % COLS, row = Math.floor(i / COLS);
+    const cx = PAD + col * Math.floor(offscreen.width / COLS) + SYM_R;
+    const cy = offscreen.height + PAD + 16 + row * CELL_H + CELL_H / 2;
+    fc.save(); fc.translate(cx, cy);
+    if (item.kind === 'el') {
+      fc.scale(0.72, 0.72);
+      SYMBOLS[item.type](fc, { type: item.type });
+    } else {
+      const color = CABLE_COLORS[item.type] || '#fff';
+      const dash  = CABLE_DASH[item.type] || [];
+      fc.strokeStyle = color; fc.lineWidth = 2; fc.setLineDash(dash);
+      fc.beginPath(); fc.moveTo(-SYM_R+3,0); fc.lineTo(SYM_R-3,0); fc.stroke();
+      fc.setLineDash([]);
+    }
     fc.restore();
-  }
+    fc.font = '10px system-ui, sans-serif'; fc.fillStyle = '#8a9099'; fc.textAlign = 'left';
+    fc.fillText(getLabel(item.type), cx + SYM_R + 4, cy + 3);
+  });
+  fc.restore();
+  return finalCanvas;
+}
 
+function exportPNG() {
+  const finalCanvas = buildExportCanvas();
   const dataUrl = finalCanvas.toDataURL('image/png');
   const filename = (document.getElementById('projectName').value || 'plan-electrique') + '.png';
 
@@ -3680,6 +3666,79 @@ function exportPNG() {
     </div>`;
   document.body.appendChild(modal);
   toast('Plan exporté ✓');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXPORT PDF  (jsPDF chargé à la demande)
+// ══════════════════════════════════════════════════════════════
+function exportPDF() {
+  if (!window.jspdf?.jsPDF) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = exportPDF;
+    script.onerror = () => toast('Erreur chargement jsPDF');
+    document.head.appendChild(script);
+    toast('Chargement…');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const finalCanvas = buildExportCanvas();
+  const projectName = document.getElementById('projectName').value || 'Plan électrique';
+  const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+  // ── A4 paysage ───────────────────────────────────────────────
+  const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const PW = pdf.internal.pageSize.getWidth();   // 297 mm
+  const PH = pdf.internal.pageSize.getHeight();  // 210 mm
+
+  // Fond blanc
+  pdf.setFillColor(255,255,255);
+  pdf.rect(0,0,PW,PH,'F');
+
+  // Bandeau header sombre
+  const HH = 15;
+  pdf.setFillColor(13,15,18);
+  pdf.rect(0,0,PW,HH,'F');
+
+  pdf.setFont('helvetica','bold');
+  pdf.setFontSize(11);
+  pdf.setTextColor(245,166,35);
+  pdf.text(projectName, 8, HH - 4);
+
+  pdf.setFont('helvetica','normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(138,154,181);
+  pdf.text('PlanElec Pro', PW - 8, 5.5, { align:'right' });
+  pdf.text(date, PW - 8, HH - 4, { align:'right' });
+
+  // Image du plan (centrage, ratio conservé)
+  const FH = 7;   // hauteur footer
+  const M  = 5;   // marge latérale
+  const availW = PW - M * 2;
+  const availH = PH - HH - FH - M;
+  const aspect = finalCanvas.height / finalCanvas.width;
+  let imgW = availW, imgH = availW * aspect;
+  if (imgH > availH) { imgH = availH; imgW = availH / aspect; }
+  const imgX = (PW - imgW) / 2;
+  const imgY = HH + M / 2;
+
+  const imgData = finalCanvas.toDataURL('image/jpeg', 0.93);
+  pdf.addImage(imgData, 'JPEG', imgX, imgY, imgW, imgH);
+
+  // Bordure fine autour de l'image
+  pdf.setDrawColor(220,220,220);
+  pdf.setLineWidth(0.3);
+  pdf.rect(imgX, imgY, imgW, imgH);
+
+  // Footer
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica','normal');
+  pdf.setTextColor(170,170,170);
+  pdf.text(`Généré le ${date} — PlanElec Pro`, PW / 2, PH - 2.5, { align:'center' });
+
+  pdf.save(projectName + '.pdf');
+  toast('PDF exporté ✓');
 }
 
 // ══════════════════════════════════════════════════════════════
