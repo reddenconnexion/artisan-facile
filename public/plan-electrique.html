@@ -3640,14 +3640,67 @@ function buildExportCanvas() {
   return finalCanvas;
 }
 
-// ── Helper : canvas plan seul (sans légende, pour PDF) ───────
+// ── Helper : canvas plan haute résolution (sans légende, pour PDF) ──
+// Re-rend la scène à 2480×1748 px (~210 DPI A4) en recalculant zoom/pan
+// pour faire tenir tout le contenu, indépendamment du zoom écran.
 function buildPlanOnlyCanvas() {
-  const offscreen = document.createElement('canvas');
-  offscreen.width = canvas.width; offscreen.height = canvas.height;
-  const oc = offscreen.getContext('2d');
-  oc.fillStyle = '#0d0f12'; oc.fillRect(0,0,offscreen.width,offscreen.height);
+  const W = 2480, H = 1748; // A4 paysage ~210 DPI
+
+  // ── Bounding box en coordonnées monde ──────────────────────────
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const expand = (x, y) => {
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  };
+  state.elements.forEach(e => expand(e.x, e.y));
+  state.walls.forEach(w => { expand(w.x1, w.y1); expand(w.x2, w.y2); });
+  state.cables.forEach(c => c.points.forEach(p => expand(p.x, p.y)));
+  state.rooms.forEach(r => r.points && r.points.forEach(p => expand(p.x, p.y)));
+
+  // Plan vide → étendue par défaut
+  if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
+
+  const PAD = state.grid * 3; // 3 carreaux de marge
+  minX -= PAD; minY -= PAD; maxX += PAD; maxY += PAD;
+
+  const worldW = maxX - minX, worldH = maxY - minY;
+  const zoom   = Math.min(W / worldW, H / worldH);
+  const panX   = (W - worldW * zoom) / 2 - minX * zoom;
+  const panY   = (H - worldH * zoom) / 2 - minY * zoom;
+
+  // ── Sauvegarde état courant ────────────────────────────────────
+  const savedW    = canvas.width,  savedH    = canvas.height;
+  const savedZoom = state.zoom,    savedPan  = { ...state.pan };
+  const savedSel  = state.selected, savedMode = state.mode;
+
+  // ── Render haute résolution ────────────────────────────────────
+  canvas.width  = W;
+  canvas.height = H;
+  state.zoom     = zoom;
+  state.pan      = { x: panX, y: panY };
+  state.selected = null;   // pas de surlignage sélection
+  state.mode     = 'select'; // pas de tracé en cours
+
+  draw();
+
+  // ── Copie sur canvas opaque (fond sombre) ─────────────────────
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const oc = out.getContext('2d');
+  oc.fillStyle = '#0d0f12';
+  oc.fillRect(0, 0, W, H);
   oc.drawImage(canvas, 0, 0);
-  return offscreen;
+
+  // ── Restauration ──────────────────────────────────────────────
+  canvas.width  = savedW;
+  canvas.height = savedH;
+  state.zoom     = savedZoom;
+  state.pan      = savedPan;
+  state.selected = savedSel;
+  state.mode     = savedMode;
+  draw(); // redessine le canvas écran
+
+  return out;
 }
 
 function exportPNG() {
