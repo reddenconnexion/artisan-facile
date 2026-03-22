@@ -542,6 +542,7 @@
     <button class="btn" onclick="addRoom()">🏠 Pièce</button>
     <button class="btn" onclick="addWall()">🧱 Mur</button>
     <button class="btn" id="btnSelectMode" onclick="setMode('select')" >↖ Sélectionner</button>
+    <button class="btn" id="btnResizeMode" onclick="setMode('resize')" title="Redimensionner tout le plan comme une fenêtre">⇲ Redimensionner</button>
     <button class="btn danger" onclick="deleteSelected()">🗑 Supprimer</button>
     <button class="btn" onclick="clearAll()">✕ Effacer tout</button>
   </div>
@@ -1234,9 +1235,13 @@ function setMode(mode) {
   state.cableStart = null;
   state.wallStart = null;
   state.roomPoints = [];
+  state.selected = null;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('btnSelectMode').classList.toggle('active', mode === 'select');
-  showMode(mode === 'select' ? 'Mode sélection' : mode);
+  document.getElementById('btnResizeMode').classList.toggle('active', mode === 'resize');
+  if (mode === 'select') showMode('Mode sélection');
+  else if (mode === 'resize') showMode('Redimensionner — glisser une poignée de coin ou de bord');
+  else showMode(mode);
   draw();
 }
 
@@ -2323,8 +2328,11 @@ function draw() {
   // Elements
   state.elements.forEach(el => drawElement(el, state.selected === el));
 
+  // Overlay redimensionnement
+  if (state.mode === 'resize') drawResizeOverlay();
+
   // Snap cursor
-  if (state.mode !== 'select') {
+  if (state.mode !== 'select' && state.mode !== 'resize') {
     const w = screenToWorld(state.mouseX, state.mouseY);
     const sp = snapPoint(w.x, w.y);
     const sc = worldToScreen(sp.x, sp.y);
@@ -2376,6 +2384,27 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   mouseDragged = false;
   mouseDownPos = { x: e.clientX, y: e.clientY };
+
+  // Mode redimensionnement — détecter la poignée cliquée
+  if (state.mode === 'resize') {
+    const r = canvas.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const bbox = getBoundingBox();
+    if (bbox) {
+      const hit = getResizeHandles(bbox).find(h => {
+        const s = worldToScreen(h.wx, h.wy);
+        return Math.hypot(sx - s.x, sy - s.y) < 10;
+      });
+      if (hit) {
+        _resizeHandle   = hit;
+        _resizeBBox     = bbox;
+        _resizeOriginal = _snapshotState();
+        mouseDownPos    = null;
+        e.preventDefault();
+        return;
+      }
+    }
+  }
 
   if (state.mode === 'select' && state.selected?.type) {
     const r = canvas.getBoundingClientRect();
@@ -2443,6 +2472,32 @@ canvas.addEventListener('mousemove', (e) => {
     return;
   }
 
+  // Redimensionnement en cours
+  if (_resizeHandle && _resizeBBox && _resizeOriginal && (e.buttons & 1)) {
+    const wCur = screenToWorld(state.mouseX, state.mouseY);
+    const h = _resizeHandle;
+    const ax = h.ax, ay = h.ay; // ancre fixe
+
+    const oldDistX = h.wx - ax, oldDistY = h.wy - ay;
+    const newDistX = wCur.x - ax, newDistY = wCur.y - ay;
+
+    let scaleX = (!h.onlyY && Math.abs(oldDistX) > 0.1) ? newDistX / oldDistX : 1;
+    let scaleY = (!h.onlyX && Math.abs(oldDistY) > 0.1) ? newDistY / oldDistY : 1;
+    // Shift = proportionnel
+    if (e.shiftKey && !h.onlyX && !h.onlyY) {
+      const s = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+      scaleX = Math.sign(scaleX) * s; scaleY = Math.sign(scaleY) * s;
+    }
+    // Minimum 5% pour éviter l'effondrement
+    scaleX = Math.max(Math.abs(scaleX), 0.05) * Math.sign(scaleX) || 0.05;
+    scaleY = Math.max(Math.abs(scaleY), 0.05) * Math.sign(scaleY) || 0.05;
+
+    _applyResizeScale(_resizeOriginal, ax, ay, scaleX, scaleY);
+    mouseDragged = true;
+    draw();
+    return;
+  }
+
   // Démarrage du pan par glisser-gauche — seuil généreux (15px) pour ne pas
   // confondre avec un simple clic légèrement bougé
   if (!isPanning && !isRotating && !isDraggingEl && mouseDownPos && (e.buttons & 1)) {
@@ -2466,6 +2521,21 @@ canvas.addEventListener('mousemove', (e) => {
   // Curseur dynamique
   if (spaceDown) {
     canvas.style.cursor = 'grab';
+  } else if (state.mode === 'resize') {
+    if (_resizeHandle) {
+      canvas.style.cursor = _resizeHandle.cur;
+    } else {
+      const bbox = getBoundingBox();
+      if (bbox) {
+        const near = getResizeHandles(bbox).find(h => {
+          const s = worldToScreen(h.wx, h.wy);
+          return Math.hypot(state.mouseX - s.x, state.mouseY - s.y) < 10;
+        });
+        canvas.style.cursor = near ? near.cur : 'default';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    }
   } else if (state.mode === 'select' && state.selected?.type) {
     const sx = state.mouseX, sy = state.mouseY;
     const h = getRotHandleScreen(state.selected);
@@ -2484,6 +2554,13 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', (e) => {
   mouseDownPos = null;
+  if (_resizeHandle) {
+    _resizeHandle = null; _resizeBBox = null; _resizeOriginal = null;
+    mouseDragged = false;
+    saveToLocalStorage();
+    draw();
+    return;
+  }
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
   if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
@@ -2929,6 +3006,109 @@ function clearAll() {
     state.selected = null;
     updateProps(); updateRoomList(); draw();
     toast('Plan effacé');
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RESIZE MODE — redimensionnement global du plan
+// ══════════════════════════════════════════════════════════════
+
+function getBoundingBox() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const grow = (x, y) => { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); };
+  state.walls.forEach(w => { grow(w.x1, w.y1); grow(w.x2, w.y2); });
+  state.rooms.forEach(r => r.points.forEach(p => grow(p.x, p.y)));
+  state.elements.forEach(el => grow(el.x, el.y));
+  state.cables.forEach(c => c.points.forEach(p => grow(p.x, p.y)));
+  if (minX === Infinity) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+function getResizeHandles(bbox) {
+  const { minX, minY, maxX, maxY } = bbox;
+  const mx = (minX + maxX) / 2, my = (minY + maxY) / 2;
+  // wx,wy = position de la poignée ; ax,ay = ancre fixe opposée ; onlyX/onlyY = contrainte d'axe
+  return [
+    { id: 'nw', wx: minX, wy: minY, ax: maxX, ay: maxY, cur: 'nw-resize' },
+    { id: 'n',  wx: mx,   wy: minY, ax: mx,   ay: maxY, cur: 'n-resize',  onlyY: true },
+    { id: 'ne', wx: maxX, wy: minY, ax: minX, ay: maxY, cur: 'ne-resize' },
+    { id: 'e',  wx: maxX, wy: my,   ax: minX, ay: my,   cur: 'e-resize',  onlyX: true },
+    { id: 'se', wx: maxX, wy: maxY, ax: minX, ay: minY, cur: 'se-resize' },
+    { id: 's',  wx: mx,   wy: maxY, ax: mx,   ay: minY, cur: 's-resize',  onlyY: true },
+    { id: 'sw', wx: minX, wy: maxY, ax: maxX, ay: minY, cur: 'sw-resize' },
+    { id: 'w',  wx: minX, wy: my,   ax: maxX, ay: my,   cur: 'w-resize',  onlyX: true },
+  ];
+}
+
+function drawResizeOverlay() {
+  const bbox = getBoundingBox();
+  if (!bbox) return;
+  const { minX, minY, maxX, maxY } = bbox;
+  const tl = worldToScreen(minX, minY);
+  const br = worldToScreen(maxX, maxY);
+
+  // Cadre englobant
+  ctx.save();
+  ctx.strokeStyle = 'rgba(79,195,247,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 5]);
+  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Poignées
+  getResizeHandles(bbox).forEach(h => {
+    const s = worldToScreen(h.wx, h.wy);
+    const isActive = _resizeHandle && _resizeHandle.id === h.id;
+    ctx.save();
+    ctx.fillStyle   = isActive ? '#4fc3f7' : '#fff';
+    ctx.strokeStyle = '#4fc3f7';
+    ctx.lineWidth   = 1.5;
+    ctx.shadowColor = 'rgba(79,195,247,0.5)';
+    ctx.shadowBlur  = isActive ? 8 : 3;
+    ctx.fillRect(s.x - 5, s.y - 5, 10, 10);
+    ctx.strokeRect(s.x - 5, s.y - 5, 10, 10);
+    ctx.restore();
+  });
+}
+
+// État du resize
+let _resizeHandle   = null; // poignée en cours de déplacement
+let _resizeOriginal = null; // snapshot des coordonnées originales au début du drag
+let _resizeBBox     = null; // bbox originale au début du drag
+
+function _snapshotState() {
+  return {
+    walls:    state.walls.map(w => ({ ...w })),
+    rooms:    state.rooms.map(r => ({ ...r, points: r.points.map(p => ({ ...p })) })),
+    elements: state.elements.map(el => ({ ...el })),
+    cables:   state.cables.map(c => ({ ...c, points: c.points.map(p => ({ ...p })) })),
+  };
+}
+
+function _applyResizeScale(orig, ax, ay, sx, sy) {
+  // Applique le scale depuis l'état original (évite la dérive flottante)
+  orig.walls.forEach((ow, i) => {
+    state.walls[i].x1 = ax + (ow.x1 - ax) * sx;
+    state.walls[i].y1 = ay + (ow.y1 - ay) * sy;
+    state.walls[i].x2 = ax + (ow.x2 - ax) * sx;
+    state.walls[i].y2 = ay + (ow.y2 - ay) * sy;
+  });
+  orig.rooms.forEach((or, i) => {
+    or.points.forEach((op, j) => {
+      state.rooms[i].points[j].x = ax + (op.x - ax) * sx;
+      state.rooms[i].points[j].y = ay + (op.y - ay) * sy;
+    });
+  });
+  orig.elements.forEach((oe, i) => {
+    state.elements[i].x = ax + (oe.x - ax) * sx;
+    state.elements[i].y = ay + (oe.y - ay) * sy;
+  });
+  orig.cables.forEach((oc, i) => {
+    oc.points.forEach((op, j) => {
+      state.cables[i].points[j].x = ax + (op.x - ax) * sx;
+      state.cables[i].points[j].y = ay + (op.y - ay) * sy;
+    });
   });
 }
 
