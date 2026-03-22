@@ -639,6 +639,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="12" rx="7" ry="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
           Cumulus
         </button>
+        <button class="tool-btn" data-type="convecteur" onclick="selectTool('convecteur')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="20" height="8" rx="1"/><line x1="6" y1="11" x2="18" y2="11"/><line x1="6" y1="13" x2="18" y2="13"/></svg>
+          Convecteur
+        </button>
         <button class="tool-btn" data-type="clim" onclick="selectTool('clim')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="8" rx="3"/><line x1="8" y1="16" x2="8" y2="20"/><line x1="16" y1="16" x2="16" y2="20"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
           Clim
@@ -1275,6 +1279,7 @@ const SYMBOLS = {
   'gaine-tech': drawGaineTech,
   chaudiere: drawChaudiere,
   cumulus: drawCumulus,
+  convecteur: drawConvecteur,
   clim: drawClim,
   vmc: drawVmc,
   'prise-rj45': drawRJ45,
@@ -1605,6 +1610,23 @@ function drawCumulus(c) {
 }
 
 // ── CLIMATISATION : rectangle + ondes froides ──
+// ── CONVECTEUR ÉLECTRIQUE (NF C 15-100) : rectangle + ailettes de chauffe ──
+function drawConvecteur(c) {
+  // Corps
+  c.strokeStyle = '#ff8a65'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-20, -8, 40, 16); c.fill(); c.stroke();
+  // Ailettes horizontales (éléments chauffants)
+  c.strokeStyle = '#ff8a65'; c.lineWidth = 1.2;
+  [-3, 0, 3].forEach(y => {
+    c.beginPath(); c.moveTo(-14, y); c.lineTo(14, y); c.stroke();
+  });
+  // Petits tirets latéraux = connectique
+  c.lineWidth = 1;
+  [[-20, 0], [20, 0]].forEach(([x, y]) => {
+    c.beginPath(); c.moveTo(x, y - 3); c.lineTo(x, y + 3); c.stroke();
+  });
+}
+
 function drawClim(c) {
   c.strokeStyle = '#81d4fa'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
   c.beginPath(); c.rect(-16, -9, 32, 18); c.fill(); c.stroke();
@@ -1620,8 +1642,7 @@ function drawClim(c) {
 }
 
 // ── VMC (NF C 15-100) : cercle + croix de ventilation ──
-function drawVmc(c) {
-  c.strokeStyle = '#b0bec5'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+function drawVmc(c) {  c.strokeStyle = '#b0bec5'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
   c.beginPath(); c.arc(0, 0, 12, 0, Math.PI*2); c.fill(); c.stroke();
   // hélice 4 pales
   c.strokeStyle = '#b0bec5'; c.lineWidth = 1.5;
@@ -3439,7 +3460,7 @@ L'espace de travail est une grille de ${CANVAS_W}x${CANVAS_H} pixels avec un pas
 Les types d'éléments disponibles sont :
 - Appareillage : prise, prise20, interrupteur, va-et-vient, bouton-poussoir, variateur
 - Eclairage : luminaire, spot, applique, hublot
-- Equipements : tableau, compteur, gaine-tech, chaudiere, cumulus, clim, vmc, prise-rj45
+- Equipements : tableau, compteur, gaine-tech, chaudiere, cumulus, convecteur, clim, vmc, prise-rj45
 - Circuits spécialisés : lave-linge, lave-vaisselle, seche-linge, refrigerateur, four, plaque, micro-ondes, congelateur, pac, portail, alarme, volet
 
 Format JSON à retourner :
