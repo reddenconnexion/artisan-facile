@@ -3567,7 +3567,23 @@ function showConfirm(message, onConfirm) {
 // ══════════════════════════════════════════════════════════════
 //  EXPORT PNG
 // ══════════════════════════════════════════════════════════════
-// ── Helper : construit le canvas final avec légende ──────────
+// ── Helper : items de légende utilisés dans le plan ──────────
+function getLegendItems() {
+  const getLabel = type => {
+    const btn = document.querySelector(`[data-type="${type}"]`);
+    if (btn) return btn.textContent.trim();
+    const fallback = { 'cable-phase':'Câble phase','cable-neutre':'Câble neutre','cable-terre':'Câble terre','cable-telecom':'Câble télécom' };
+    return fallback[type] || type;
+  };
+  const usedElTypes  = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
+  const usedCabTypes = [...new Set(state.cables.map(c => c.type))];
+  return [
+    ...usedElTypes.map(t => ({ kind:'el', type:t, label:getLabel(t) })),
+    ...usedCabTypes.map(t => ({ kind:'cable', type:t, label:getLabel(t) })),
+  ];
+}
+
+// ── Helper : construit le canvas final avec légende en bas (PNG) ──
 function buildExportCanvas() {
   const offscreen = document.createElement('canvas');
   offscreen.width = canvas.width; offscreen.height = canvas.height;
@@ -3579,19 +3595,7 @@ function buildExportCanvas() {
   oc.textAlign = 'right';
   oc.fillText('Red Den Connexion — PlanElec Pro', offscreen.width - 12, offscreen.height - 12);
 
-  const getLabel = type => {
-    const btn = document.querySelector(`[data-type="${type}"]`);
-    if (btn) return btn.textContent.trim();
-    const fallback = { 'cable-phase':'Câble phase','cable-neutre':'Câble neutre','cable-terre':'Câble terre','cable-telecom':'Câble télécom' };
-    return fallback[type] || type;
-  };
-  const usedElTypes  = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
-  const usedCabTypes = [...new Set(state.cables.map(c => c.type))];
-  const items = [
-    ...usedElTypes.map(t => ({ kind:'el', type:t })),
-    ...usedCabTypes.map(t => ({ kind:'cable', type:t })),
-  ];
-
+  const items = getLegendItems();
   if (items.length === 0) return offscreen;
 
   const PAD = 12, CELL_H = 34, SYM_R = 13;
@@ -3630,10 +3634,20 @@ function buildExportCanvas() {
     }
     fc.restore();
     fc.font = '10px system-ui, sans-serif'; fc.fillStyle = '#8a9099'; fc.textAlign = 'left';
-    fc.fillText(getLabel(item.type), cx + SYM_R + 4, cy + 3);
+    fc.fillText(item.label, cx + SYM_R + 4, cy + 3);
   });
   fc.restore();
   return finalCanvas;
+}
+
+// ── Helper : canvas plan seul (sans légende, pour PDF) ───────
+function buildPlanOnlyCanvas() {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = canvas.width; offscreen.height = canvas.height;
+  const oc = offscreen.getContext('2d');
+  oc.fillStyle = '#0d0f12'; oc.fillRect(0,0,offscreen.width,offscreen.height);
+  oc.drawImage(canvas, 0, 0);
+  return offscreen;
 }
 
 function exportPNG() {
@@ -3672,12 +3686,37 @@ function exportPNG() {
 //  EXPORT PDF  (impression native navigateur, pas de CDN)
 // ══════════════════════════════════════════════════════════════
 function exportPDF() {
-  const finalCanvas = buildExportCanvas();
-  const projectName = document.getElementById('projectName').value || 'Plan électrique';
-  const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-  const imgData = finalCanvas.toDataURL('image/jpeg', 0.93);
+  const planCanvas   = buildPlanOnlyCanvas();
+  const legendItems  = getLegendItems();
+  const projectName  = document.getElementById('projectName').value || 'Plan électrique';
+  const date         = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const imgData      = planCanvas.toDataURL('image/jpeg', 0.93);
 
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // ── Génération HTML des items de légende ─────────────────────
+  const legendHTML = legendItems.map(item => {
+    let sym = '';
+    if (item.kind === 'cable') {
+      const color = (CABLE_COLORS[item.type] || '#8a9ab5');
+      sym = `<svg width="28" height="10" style="flex-shrink:0"><line x1="2" y1="5" x2="26" y2="5" stroke="${esc(color)}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+    } else {
+      // Mini canvas pour le symbole
+      const tmp = document.createElement('canvas');
+      tmp.width = 28; tmp.height = 28;
+      const tc = tmp.getContext('2d');
+      tc.translate(14, 14);
+      if (SYMBOLS[item.type]) {
+        try { tc.save(); SYMBOLS[item.type](tc, { type: item.type }); tc.restore(); }
+        catch(e) { /* ignore */ }
+      }
+      sym = `<img src="${tmp.toDataURL()}" width="22" height="22" style="flex-shrink:0;display:block;">`;
+    }
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;min-width:0;">
+      ${sym}
+      <span style="font-size:7.5px;color:#b0bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(item.label)}</span>
+    </div>`;
+  }).join('');
 
   const html = `<!DOCTYPE html><html lang="fr"><head>
   <meta charset="utf-8">
@@ -3685,29 +3724,38 @@ function exportPDF() {
   <style>
     @page { size: A4 landscape; margin: 0; }
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { width:297mm; height:210mm; background:#fff; font-family:system-ui,sans-serif;
+    body { width:297mm; height:210mm; background:#0d0f12; font-family:system-ui,sans-serif;
            print-color-adjust:exact; -webkit-print-color-adjust:exact; overflow:hidden; }
-    .hd  { background:#0d0f12; color:#f5a623; height:14mm; padding:0 14px;
-           display:flex; justify-content:space-between; align-items:center; }
-    .hd-title { font-size:13px; font-weight:700; }
-    .hd-meta  { font-size:9px; color:#8a9ab5; text-align:right; line-height:1.5; }
-    .plan { display:flex; justify-content:center; align-items:center;
-            padding:4mm; height:calc(210mm - 14mm - 8mm); }
-    .plan img { max-width:100%; max-height:100%; object-fit:contain;
-                box-shadow:0 0 0 1px #ddd; }
-    .ft  { height:8mm; display:flex; align-items:center; justify-content:center;
-           font-size:7px; color:#aaa; }
+    .hd { background:#0d0f12; border-bottom:1px solid rgba(245,166,35,0.25);
+          height:13mm; padding:0 12px; display:flex; justify-content:space-between; align-items:center; }
+    .hd-title { font-size:12px; font-weight:700; color:#f5a623; }
+    .hd-meta  { font-size:8px; color:#8a9ab5; text-align:right; line-height:1.5; }
+    .body { display:flex; height:calc(210mm - 13mm - 7mm); }
+    .plan { flex:1 1 auto; display:flex; justify-content:center; align-items:center; padding:4mm 3mm; min-width:0; }
+    .plan img { max-width:100%; max-height:100%; object-fit:contain; }
+    .legend { flex:0 0 42mm; background:#111418; border-left:1px solid rgba(245,166,35,0.18);
+              padding:6px 7px; display:flex; flex-direction:column; overflow:hidden; }
+    .leg-title { font-size:7px; font-weight:700; color:rgba(245,166,35,0.6);
+                 letter-spacing:.08em; text-transform:uppercase; margin-bottom:7px; padding-bottom:4px;
+                 border-bottom:1px solid rgba(255,255,255,0.07); }
+    .ft { height:7mm; display:flex; align-items:center; justify-content:center;
+          font-size:6.5px; color:#4a5568; border-top:1px solid rgba(255,255,255,0.06); }
   </style>
 </head><body>
   <div class="hd">
     <div class="hd-title">${esc(projectName)}</div>
     <div class="hd-meta">PlanElec Pro<br>${date}</div>
   </div>
-  <div class="plan"><img src="${imgData}"></div>
-  <div class="ft">Généré le ${date} — PlanElec Pro</div>
+  <div class="body">
+    <div class="plan"><img src="${imgData}"></div>
+    ${legendItems.length ? `<div class="legend">
+      <div class="leg-title">Légende</div>
+      ${legendHTML}
+    </div>` : ''}
+  </div>
+  <div class="ft">Généré le ${date} — Red Den Connexion • PlanElec Pro</div>
 </body></html>`;
 
-  // Iframe cachée dans la même page → contourne les restrictions popup/CSP
   const old = document.getElementById('_pdfFrame');
   if (old) old.remove();
   const iframe = document.createElement('iframe');
@@ -3725,8 +3773,8 @@ function exportPDF() {
     toast('Dialogue PDF ouvert — choisir "Enregistrer en PDF" ✓');
   };
 
-  const img = doc.querySelector('img');
-  if (!img || img.complete) { doPrint(); }
+  const img = doc.querySelector('.plan img');
+  if (!img || img.complete) { setTimeout(doPrint, 80); }
   else { img.onload = doPrint; img.onerror = doPrint; }
 }
 
