@@ -1319,6 +1319,11 @@ const FURNITURE_TYPES = new Set([
 // Echelle : 1 cm = CM_TO_UNITS unités canvas  (cohérent avec les meubles existants)
 const CM_TO_UNITS = 0.5;
 
+// Couleurs mobilier — déclarées ici pour éviter TDZ lors du draw au chargement
+const MOB = '#6b7a8d';
+const MOB_FILL  = 'rgba(107,122,141,0.12)';
+const MOB_FILL2 = 'rgba(107,122,141,0.24)';
+
 // ── initialisation différée : toutes les const sont prêtes ──
 loadFromLocalStorage();
 resizeCanvas();
@@ -1869,10 +1874,6 @@ function drawVolet(c) {
 //  MOBILIER — Vue de dessus, style plan d'architecte
 //  Gris-bleuté neutre pour ne pas confondre avec l'électricité
 // ══════════════════════════════════════════════════════════════
-
-const MOB = '#6b7a8d';
-const MOB_FILL  = 'rgba(107,122,141,0.12)';
-const MOB_FILL2 = 'rgba(107,122,141,0.24)';
 
 function drawCanape(c) {
   c.strokeStyle = MOB; c.lineWidth = 1.5; c.fillStyle = MOB_FILL;
