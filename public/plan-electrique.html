@@ -543,10 +543,12 @@
     <button class="btn" onclick="addWall()">🧱 Mur</button>
     <button class="btn" id="btnSelectMode" onclick="setMode('select')" >↖ Sélectionner</button>
     <button class="btn" id="btnResizeMode" onclick="setMode('resize')" title="Redimensionner tout le plan comme une fenêtre">⇲ Redimensionner</button>
+    <button class="btn" id="btnCotation" onclick="toggleCotation()" title="Afficher/masquer les cotations des murs">📏 Cotation</button>
     <button class="btn danger" onclick="deleteSelected()">🗑 Supprimer</button>
     <button class="btn" onclick="clearAll()">✕ Effacer tout</button>
   </div>
   <div class="header-right">
+    <button class="btn" onclick="openCableCalc()" style="border-color:#4fc3f7;color:#4fc3f7;" title="Calculer les longueurs de câble">📐 Câbles</button>
     <button class="btn" onclick="exportPNG()">📥 Export PNG</button>
     <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
     <button class="btn" onclick="loadProject()">📂 Charger</button>
@@ -886,6 +888,21 @@
       <button class="panel-mob-close" onclick="closePanels()">✕ Fermer</button>
     </div>
     <div class="panel-section">
+      <div class="panel-title">📐 Échelle du plan</div>
+      <div style="padding:4px 0;">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:5px;">1 carreau (20 px) =</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input id="scaleInput" type="number" class="prop-input" style="width:72px;" min="1" max="2000" step="1" value="20" oninput="setScale(this.value)" />
+          <span style="font-size:11px;color:var(--text2);">cm</span>
+        </div>
+        <div style="font-size:9px;color:var(--text2);margin-top:5px;line-height:1.6;">
+          Ex : 20 cm/carreau · 50 cm/carreau…<br/>
+          Activez <b>📏 Cotation</b> pour afficher les longueurs.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
       <div class="panel-title">📊 Statistiques</div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-val" id="statElements">0</div><div class="stat-lbl">Éléments</div></div>
@@ -1049,6 +1066,17 @@
   </div>
 </div>
 
+<!-- MODAL CALCUL CÂBLES -->
+<div class="modal-overlay" id="cableModal" style="display:none">
+  <div class="modal" style="width:500px;max-width:96vw;">
+    <h3 style="color:#4fc3f7;">📐 Calcul des longueurs de câble</h3>
+    <div id="cableCalcContent" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-btn-row" style="margin-top:14px;">
+      <button class="btn" onclick="document.getElementById('cableModal').style.display='none'">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 
 // Polyfill roundRect for older browsers
@@ -1101,6 +1129,8 @@ let state = {
   pan: { x: 60, y: 60 },
   zoom: 1,
   grid: 20,
+  scaleCm: 20,        // cm par carreau de grille (20px = 20cm par défaut)
+  showDimensions: false, // afficher les cotations sur les murs
   // cable drawing state
   cableStart: null,
   cablePoints: [],
@@ -1156,6 +1186,7 @@ function saveToLocalStorage() {
         circuits: state.circuits,
         pan:      state.pan,
         zoom:     state.zoom,
+        scaleCm:  state.scaleCm,
       }));
     } catch(e) {}
   }, 600);
@@ -1178,6 +1209,11 @@ function loadFromLocalStorage() {
     if (data.zoom) {
       state.zoom = data.zoom;
       document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+    }
+    if (data.scaleCm) {
+      state.scaleCm = data.scaleCm;
+      const si = document.getElementById('scaleInput');
+      if (si) si.value = data.scaleCm;
     }
     return true;
   } catch(e) { return false; }
@@ -1209,6 +1245,42 @@ function snapPoint(x, y) {
 //  TOOL / MODE MANAGEMENT
 // ══════════════════════════════════════════════════════════════
 const CABLE_TOOLS = ['cable-phase','cable-neutre','cable-terre','cable-telecom'];
+
+// ══════════════════════════════════════════════════════════════
+//  HELPERS D'ÉCHELLE
+// ══════════════════════════════════════════════════════════════
+// world units → mètres  (1 world unit = 1 px au zoom 1)
+function unitsToM(u) { return u * state.scaleCm / state.grid / 100; }
+// mètres → world units
+function mToUnits(m) { return m * 100 * state.grid / state.scaleCm; }
+// Formatage lisible
+function fmtLen(worldUnits) {
+  const m = unitsToM(worldUnits);
+  return m >= 1 ? m.toFixed(2) + ' m' : Math.round(m * 100) + ' cm';
+}
+
+function setScale(v) {
+  const n = parseFloat(v);
+  if (!isNaN(n) && n > 0) { state.scaleCm = n; draw(); }
+}
+
+function toggleCotation() {
+  state.showDimensions = !state.showDimensions;
+  document.getElementById('btnCotation').classList.toggle('active', state.showDimensions);
+  draw();
+}
+
+function resizeWallTo(m) {
+  const w = state.selected;
+  if (!w || w.x1 === undefined) return;
+  const dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+  const cur = Math.sqrt(dx*dx + dy*dy);
+  if (cur < 0.001) return;
+  const target = mToUnits(m);
+  w.x2 = w.x1 + dx * target / cur;
+  w.y2 = w.y1 + dy * target / cur;
+  draw();
+}
 const WALL_TOOLS = [];
 
 function selectTool(type) {
@@ -2275,6 +2347,63 @@ function drawWall(wall, isSelected) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  DRAW WALL DIMENSION
+// ══════════════════════════════════════════════════════════════
+function drawWallDimension(wall) {
+  const a = worldToScreen(wall.x1, wall.y1);
+  const b = worldToScreen(wall.x2, wall.y2);
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 20) return; // trop court pour annoter
+
+  // Vecteur perpendiculaire (normalisé)
+  const nx = -dy / len, ny = dx / len;
+  const off = 18; // décalage en px
+
+  // Points d'appui de la cotation
+  const ax2 = a.x + nx*off, ay2 = a.y + ny*off;
+  const bx2 = b.x + nx*off, by2 = b.y + ny*off;
+  const mx  = (ax2+bx2)/2,  my  = (ay2+by2)/2;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,116,139,0.7)'; ctx.lineWidth = 1;
+
+  // Traits de rappel (perpendiculaires aux extrémités)
+  ctx.beginPath();
+  ctx.moveTo(a.x + nx*6, a.y + ny*6); ctx.lineTo(a.x + nx*28, a.y + ny*28);
+  ctx.moveTo(b.x + nx*6, b.y + ny*6); ctx.lineTo(b.x + nx*28, b.y + ny*28);
+  ctx.stroke();
+
+  // Ligne de cote
+  ctx.setLineDash([2,2]);
+  ctx.beginPath(); ctx.moveTo(ax2, ay2); ctx.lineTo(bx2, by2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Flèches terminales
+  const ang = Math.atan2(dy, dx);
+  [{ px: ax2, py: ay2, a: ang }, { px: bx2, py: by2, a: ang + Math.PI }].forEach(({px,py,a}) => {
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + Math.cos(a-0.4)*7, py + Math.sin(a-0.4)*7);
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + Math.cos(a+0.4)*7, py + Math.sin(a+0.4)*7);
+    ctx.stroke();
+  });
+
+  // Texte (jamais à l'envers)
+  const worldLen = Math.sqrt((wall.x2-wall.x1)**2 + (wall.y2-wall.y1)**2);
+  const label = fmtLen(worldLen);
+  const textAng = (ang > Math.PI/2 || ang < -Math.PI/2) ? ang + Math.PI : ang;
+  ctx.fillStyle = 'rgba(148,163,184,0.9)';
+  ctx.font = `bold ${Math.max(9, 11 * state.zoom)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.translate(mx, my);
+  ctx.rotate(textAng);
+  ctx.fillText(label, 0, -2);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
 //  DRAW ROOMS
 // ══════════════════════════════════════════════════════════════
 function drawRoom(room, isSelected) {
@@ -2327,6 +2456,9 @@ function draw() {
 
   // Walls
   state.walls.forEach(w => drawWall(w, state.selected === w));
+
+  // Cotations (dimensions)
+  if (state.showDimensions) state.walls.forEach(drawWallDimension);
 
   // Cables
   state.cables.forEach(c => drawCable(c, state.selected === c));
@@ -2923,8 +3055,34 @@ function updateProps() {
       <input class="prop-input" value="${el.name||''}" oninput="updateProp('name',this.value)"/></div>`;
     html += `<div class="prop-row"><div class="prop-label">Points</div>
       <input class="prop-input" readonly value="${el.points.length} sommets"/></div>`;
+  } else if (el.x1 !== undefined) {
+    // ── Mur ──
+    const wLen = Math.sqrt((el.x2-el.x1)**2 + (el.y2-el.y1)**2);
+    const lenM = unitsToM(wLen);
+    html += `<div class="prop-row">
+      <div class="prop-label">Type de mur</div>
+      <select class="prop-input" onchange="updateProp('wallType',this.value)">
+        <option value="" ${!el.wallType?'selected':''}>Non défini</option>
+        <option value="exterior" ${el.wallType==='exterior'?'selected':''}>Mur extérieur</option>
+        <option value="interior" ${el.wallType==='interior'?'selected':''}>Cloison intérieure</option>
+      </select>
+    </div>`;
+    html += `<div class="prop-row">
+      <div class="prop-label">Longueur — <b style="color:var(--accent)">${lenM.toFixed(2)} m</b></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+        <input class="prop-input" type="number" id="propWallLen"
+          min="0.01" step="0.01" value="${lenM.toFixed(2)}"
+          oninput="resizeWallTo(parseFloat(this.value))" style="width:80px;"/>
+        <span style="font-size:10px;color:var(--text2);">m</span>
+      </div>
+      <div style="font-size:9px;color:var(--text2);margin-top:3px;">Ajusté depuis le point de départ.</div>
+    </div>`;
+    html += `<div class="prop-row">
+      <div class="prop-label">Étiquette</div>
+      <input class="prop-input" value="${el.label||''}" oninput="updateProp('label',this.value)"/>
+    </div>`;
   } else {
-    html += `<div class="prop-row"><div class="prop-label">Mur sélectionné</div></div>`;
+    html += `<div class="prop-row"><div class="prop-label">Sélection</div></div>`;
   }
 
   panel.innerHTML = html;
@@ -3391,6 +3549,138 @@ window.addEventListener('message', (e) => {
 // Signal au parent que l'iframe est prête
 window.parent?.postMessage({ type: 'planelec-ready' }, '*');
 
+// ══════════════════════════════════════════════════════════════
+//  CALCUL DES CÂBLES
+// ══════════════════════════════════════════════════════════════
+function openCableCalc() {
+  const byType = {};
+  CABLE_TOOLS.forEach(t => { byType[t] = { count:0, length:0 }; });
+
+  let grandTotal = 0;
+  state.cables.forEach(c => {
+    let len = 0;
+    for (let i = 1; i < c.points.length; i++) {
+      const dx = c.points[i].x - c.points[i-1].x;
+      const dy = c.points[i].y - c.points[i-1].y;
+      len += Math.sqrt(dx*dx + dy*dy);
+    }
+    const lenM = unitsToM(len);
+    if (!byType[c.type]) byType[c.type] = { count:0, length:0 };
+    byType[c.type].count++;
+    byType[c.type].length += lenM;
+    grandTotal += lenM;
+  });
+
+  // Longueur en tracé rectiligne (optimum théorique)
+  let optTotal = 0;
+  state.cables.forEach(c => {
+    if (c.points.length >= 2) {
+      const dx = c.points[c.points.length-1].x - c.points[0].x;
+      const dy = c.points[c.points.length-1].y - c.points[0].y;
+      optTotal += unitsToM(Math.sqrt(dx*dx + dy*dy));
+    }
+  });
+
+  // Par circuit
+  const byCircuit = {};
+  state.cables.forEach(c => {
+    if (!c.circuitId) return;
+    const circ = state.circuits.find(x => x.id === c.circuitId);
+    const name = circ ? circ.name : `Circuit ${c.circuitId}`;
+    if (!byCircuit[name]) byCircuit[name] = 0;
+    let len = 0;
+    for (let i = 1; i < c.points.length; i++) {
+      const dx = c.points[i].x - c.points[i-1].x;
+      const dy = c.points[i].y - c.points[i-1].y;
+      len += Math.sqrt(dx*dx + dy*dy);
+    }
+    byCircuit[name] += unitsToM(len);
+  });
+
+  const typeNames = {
+    'cable-phase':   '🔴 Phase (rouge)',
+    'cable-neutre':  '🔵 Neutre (bleu)',
+    'cable-terre':   '🟢 Terre (vert/jaune)',
+    'cable-telecom': '🟣 Télécom / Réseau',
+  };
+
+  let html = '';
+  if (!state.cables.length) {
+    html = '<div style="color:var(--text2);font-size:12px;padding:12px 0;text-align:center;">Aucun câble dessiné sur le plan.</div>';
+  } else {
+    const margin = grandTotal * 0.15;
+
+    // Tableau par type
+    html += `<div style="font-size:11px;font-weight:700;margin-bottom:8px;">Par type de conducteur</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;">
+      <thead><tr style="color:var(--text2);font-size:10px;border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:4px 2px;">Conducteur</th>
+        <th style="text-align:right;padding:4px 2px;">Nbre</th>
+        <th style="text-align:right;padding:4px 2px;">Longueur dessinée</th>
+      </tr></thead><tbody>`;
+    CABLE_TOOLS.forEach(t => {
+      const d = byType[t];
+      if (!d || !d.count) return;
+      html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:6px 2px;color:${CABLE_COLORS[t]};">${typeNames[t]||t}</td>
+        <td style="text-align:right;padding:6px 2px;color:var(--text2);">${d.count}</td>
+        <td style="text-align:right;padding:6px 2px;font-weight:600;">${d.length.toFixed(2)} m</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+
+    // Récap total
+    html += `<div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;color:var(--text2);">Total dessiné</span>
+        <span style="font-size:13px;font-weight:700;">${grandTotal.toFixed(2)} m</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;color:var(--text2);">Marge recommandée (+15%)</span>
+        <span style="font-size:11px;color:#f5a623;">+ ${margin.toFixed(2)} m</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;margin-top:2px;">
+        <span style="font-size:12px;font-weight:700;">Total à commander</span>
+        <span style="font-size:16px;font-weight:700;color:#66bb6a;">${(grandTotal + margin).toFixed(2)} m</span>
+      </div>
+    </div>`;
+
+    // Par circuit
+    if (Object.keys(byCircuit).length) {
+      html += `<div style="font-size:11px;font-weight:700;margin-bottom:6px;">Par circuit</div>`;
+      html += `<div style="margin-bottom:14px;">`;
+      Object.entries(byCircuit).sort((a,b)=>b[1]-a[1]).forEach(([name, len]) => {
+        const circ = state.circuits.find(c => c.name === name);
+        const col  = circ?.color || '#8a9ab5';
+        html += `<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,0.04);">
+          <span style="color:${col};">● ${name}</span>
+          <span style="font-weight:600;">${len.toFixed(2)} m</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Conseil d'optimisation
+    if (optTotal < grandTotal * 0.9 && grandTotal > 1) {
+      const savings = grandTotal - optTotal;
+      html += `<div style="background:rgba(102,187,106,0.08);border:1px solid rgba(102,187,106,0.3);border-radius:8px;padding:10px;font-size:11px;margin-bottom:10px;">
+        <div style="font-weight:700;color:#66bb6a;margin-bottom:4px;">💡 Optimisation possible</div>
+        <div style="color:var(--text2);line-height:1.5;">
+          Tracé rectiligne minimal : <b style="color:var(--text)">${optTotal.toFixed(2)} m</b>.<br/>
+          Potentiel d'économie : jusqu'à <b style="color:#66bb6a;">${savings.toFixed(2)} m</b> en optimisant les passages.
+        </div>
+      </div>`;
+    }
+
+    html += `<div style="font-size:9px;color:var(--text2);text-align:right;margin-top:4px;">
+      Échelle : 1 carreau = ${state.scaleCm} cm · Ces longueurs ne tiennent pas compte des hauteurs de pose (saignées, plinthes, faux-plafonds).
+    </div>`;
+  }
+
+  document.getElementById('cableCalcContent').innerHTML = html;
+  document.getElementById('cableModal').style.display = 'flex';
+}
+
 function openAIImport() {
   document.getElementById('aiModal').classList.add('open');
   aiImageBase64 = null;
@@ -3669,6 +3959,11 @@ function toast(msg) {
       if (p.circuits && p.circuits.length) state.circuits = p.circuits;
       if (p.pan)  state.pan  = p.pan;
       if (p.zoom) state.zoom = p.zoom;
+      if (p.scaleCm) {
+        state.scaleCm = p.scaleCm;
+        const si = document.getElementById('scaleInput');
+        if (si) si.value = p.scaleCm;
+      }
       state.selected = null;
       if (p.name) document.getElementById('projectName').value = p.name;
       document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
@@ -3882,6 +4177,7 @@ function saveToClient() {
     circuits: state.circuits,
     pan:      state.pan,
     zoom:     state.zoom,
+    scaleCm:  state.scaleCm,
   };
   window.parent.postMessage({ type: 'planelec-save', planData, thumbnail, planName: projectName }, '*');
 }
