@@ -3669,76 +3669,65 @@ function exportPNG() {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  EXPORT PDF  (jsPDF chargé à la demande)
+//  EXPORT PDF  (impression native navigateur, pas de CDN)
 // ══════════════════════════════════════════════════════════════
 function exportPDF() {
-  if (!window.jspdf?.jsPDF) {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    script.onload = exportPDF;
-    script.onerror = () => toast('Erreur chargement jsPDF');
-    document.head.appendChild(script);
-    toast('Chargement…');
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
   const finalCanvas = buildExportCanvas();
   const projectName = document.getElementById('projectName').value || 'Plan électrique';
   const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-
-  // ── A4 paysage ───────────────────────────────────────────────
-  const pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-  const PW = pdf.internal.pageSize.getWidth();   // 297 mm
-  const PH = pdf.internal.pageSize.getHeight();  // 210 mm
-
-  // Fond blanc
-  pdf.setFillColor(255,255,255);
-  pdf.rect(0,0,PW,PH,'F');
-
-  // Bandeau header sombre
-  const HH = 15;
-  pdf.setFillColor(13,15,18);
-  pdf.rect(0,0,PW,HH,'F');
-
-  pdf.setFont('helvetica','bold');
-  pdf.setFontSize(11);
-  pdf.setTextColor(245,166,35);
-  pdf.text(projectName, 8, HH - 4);
-
-  pdf.setFont('helvetica','normal');
-  pdf.setFontSize(7);
-  pdf.setTextColor(138,154,181);
-  pdf.text('PlanElec Pro', PW - 8, 5.5, { align:'right' });
-  pdf.text(date, PW - 8, HH - 4, { align:'right' });
-
-  // Image du plan (centrage, ratio conservé)
-  const FH = 7;   // hauteur footer
-  const M  = 5;   // marge latérale
-  const availW = PW - M * 2;
-  const availH = PH - HH - FH - M;
-  const aspect = finalCanvas.height / finalCanvas.width;
-  let imgW = availW, imgH = availW * aspect;
-  if (imgH > availH) { imgH = availH; imgW = availH / aspect; }
-  const imgX = (PW - imgW) / 2;
-  const imgY = HH + M / 2;
-
   const imgData = finalCanvas.toDataURL('image/jpeg', 0.93);
-  pdf.addImage(imgData, 'JPEG', imgX, imgY, imgW, imgH);
 
-  // Bordure fine autour de l'image
-  pdf.setDrawColor(220,220,220);
-  pdf.setLineWidth(0.3);
-  pdf.rect(imgX, imgY, imgW, imgH);
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // Footer
-  pdf.setFontSize(7);
-  pdf.setFont('helvetica','normal');
-  pdf.setTextColor(170,170,170);
-  pdf.text(`Généré le ${date} — PlanElec Pro`, PW / 2, PH - 2.5, { align:'center' });
+  const html = `<!DOCTYPE html><html lang="fr"><head>
+  <meta charset="utf-8">
+  <title>${esc(projectName)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 0; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:297mm; height:210mm; background:#fff; font-family:system-ui,sans-serif;
+           print-color-adjust:exact; -webkit-print-color-adjust:exact; overflow:hidden; }
+    .hd  { background:#0d0f12; color:#f5a623; height:14mm; padding:0 14px;
+           display:flex; justify-content:space-between; align-items:center; }
+    .hd-title { font-size:13px; font-weight:700; }
+    .hd-meta  { font-size:9px; color:#8a9ab5; text-align:right; line-height:1.5; }
+    .plan { display:flex; justify-content:center; align-items:center;
+            padding:4mm; height:calc(210mm - 14mm - 8mm); }
+    .plan img { max-width:100%; max-height:100%; object-fit:contain;
+                box-shadow:0 0 0 1px #ddd; }
+    .ft  { height:8mm; display:flex; align-items:center; justify-content:center;
+           font-size:7px; color:#aaa; }
+  </style>
+</head><body>
+  <div class="hd">
+    <div class="hd-title">${esc(projectName)}</div>
+    <div class="hd-meta">PlanElec Pro<br>${date}</div>
+  </div>
+  <div class="plan"><img src="${imgData}"></div>
+  <div class="ft">Généré le ${date} — PlanElec Pro</div>
+</body></html>`;
 
-  pdf.save(projectName + '.pdf');
-  toast('PDF exporté ✓');
+  // Iframe cachée dans la même page → contourne les restrictions popup/CSP
+  const old = document.getElementById('_pdfFrame');
+  if (old) old.remove();
+  const iframe = document.createElement('iframe');
+  iframe.id = '_pdfFrame';
+  iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:297mm;height:210mm;border:0;';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+
+  const doPrint = () => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 4000);
+    toast('Dialogue PDF ouvert — choisir "Enregistrer en PDF" ✓');
+  };
+
+  const img = doc.querySelector('img');
+  if (!img || img.complete) { doPrint(); }
+  else { img.onload = doPrint; img.onerror = doPrint; }
 }
 
 // ══════════════════════════════════════════════════════════════
