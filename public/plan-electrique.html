@@ -3248,17 +3248,111 @@ function drawResizeOverlay() {
   const { minX, minY, maxX, maxY } = bbox;
   const tl = worldToScreen(minX, minY);
   const br = worldToScreen(maxX, maxY);
+  const bl = worldToScreen(minX, maxY);
+  const W  = br.x - tl.x;
+  const H  = br.y - tl.y;
 
-  // Cadre englobant
+  const widthM  = unitsToM(maxX - minX).toFixed(2);
+  const heightM = unitsToM(maxY - minY).toFixed(2);
+
+  // ── Cadre englobant ───────────────────────────────────────────
   ctx.save();
   ctx.strokeStyle = 'rgba(79,195,247,0.7)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([8, 5]);
-  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  ctx.strokeRect(tl.x, tl.y, W, H);
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Poignées
+  // ── RÈGLE HORIZONTALE (largeur) ──────────────────────────────
+  const rulerH   = 22;
+  const rulerY   = tl.y - 34;
+  // Pas de graduation en world units (1/10 de la largeur totale, arrondi)
+  const rawStep  = (maxX - minX) / 10;
+  const mag      = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const tickStep = Math.ceil(rawStep / mag) * mag;
+  const tickStepPx = tickStep * state.zoom;
+
+  ctx.save();
+  // Fond
+  ctx.fillStyle = 'rgba(10,18,30,0.82)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(tl.x, rulerY, W, rulerH, 3);
+  else ctx.rect(tl.x, rulerY, W, rulerH);
+  ctx.fill();
+  // Ligne de base
+  ctx.strokeStyle = 'rgba(79,195,247,0.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(tl.x, rulerY + rulerH); ctx.lineTo(br.x, rulerY + rulerH); ctx.stroke();
+  // Graduations
+  ctx.strokeStyle = 'rgba(79,195,247,0.5)'; ctx.lineWidth = 1;
+  ctx.fillStyle   = 'rgba(148,210,240,0.9)';
+  ctx.font        = `${Math.max(8, Math.min(9, 9 * state.zoom))}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let wOff = 0; wOff <= (maxX - minX) + 0.001; wOff += tickStep) {
+    const px      = tl.x + wOff * state.zoom;
+    const sub     = Math.round(wOff / tickStep);
+    const isMajor = sub % 5 === 0;
+    ctx.beginPath();
+    ctx.moveTo(px, rulerY + rulerH);
+    ctx.lineTo(px, rulerY + rulerH - (isMajor ? 9 : 4));
+    ctx.stroke();
+    if (isMajor && tickStepPx * 5 > 30) {
+      const lm = unitsToM(wOff);
+      ctx.fillText(lm >= 1 ? lm.toFixed(1) + ' m' : Math.round(lm * 100) + ' cm', px, rulerY + rulerH / 2);
+    }
+  }
+  // Label total
+  ctx.fillStyle = '#4fc3f7';
+  ctx.font      = `bold ${Math.max(10, 11 * state.zoom)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`↔  ${widthM} m`, tl.x + W / 2, rulerY - 11);
+  ctx.restore();
+
+  // ── RÈGLE VERTICALE (hauteur) ─────────────────────────────────
+  const rulerW = 22;
+  const rulerX = tl.x - 34;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,18,30,0.82)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(rulerX, tl.y, rulerW, H, 3);
+  else ctx.rect(rulerX, tl.y, rulerW, H);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(79,195,247,0.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(rulerX + rulerW, tl.y); ctx.lineTo(rulerX + rulerW, bl.y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(79,195,247,0.5)'; ctx.lineWidth = 1;
+  ctx.fillStyle   = 'rgba(148,210,240,0.9)';
+  ctx.font        = `${Math.max(8, Math.min(9, 9 * state.zoom))}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let hOff = 0; hOff <= (maxY - minY) + 0.001; hOff += tickStep) {
+    const py      = tl.y + hOff * state.zoom;
+    const sub     = Math.round(hOff / tickStep);
+    const isMajor = sub % 5 === 0;
+    ctx.beginPath();
+    ctx.moveTo(rulerX + rulerW, py);
+    ctx.lineTo(rulerX + rulerW - (isMajor ? 9 : 4), py);
+    ctx.stroke();
+    if (isMajor && tickStepPx * 5 > 30) {
+      const lm = unitsToM(hOff);
+      ctx.save();
+      ctx.translate(rulerX + rulerW / 2, py);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(lm >= 1 ? lm.toFixed(1) + ' m' : Math.round(lm * 100) + ' cm', 0, 0);
+      ctx.restore();
+    }
+  }
+  // Label total
+  ctx.fillStyle = '#4fc3f7';
+  ctx.font      = `bold ${Math.max(10, 11 * state.zoom)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save();
+  ctx.translate(rulerX - 12, tl.y + H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(`↕  ${heightM} m`, 0, 0);
+  ctx.restore();
+  ctx.restore();
+
+  // ── Poignées ──────────────────────────────────────────────────
   getResizeHandles(bbox).forEach(h => {
     const s = worldToScreen(h.wx, h.wy);
     const isActive = _resizeHandle && _resizeHandle.id === h.id;
