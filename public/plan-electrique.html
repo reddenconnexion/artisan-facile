@@ -117,6 +117,12 @@
     flex-direction: column;
     flex-shrink: 0;
     overflow-y: auto;
+    transition: width 0.2s ease;
+  }
+  .panel-left.collapsed {
+    width: 0 !important;
+    border-right: none;
+    overflow: hidden;
   }
 
   .panel-section {
@@ -290,7 +296,38 @@
     flex-direction: column;
     flex-shrink: 0;
     overflow-y: auto;
+    transition: width 0.2s ease;
   }
+  .panel-right.collapsed {
+    width: 0 !important;
+    border-left: none;
+    overflow: hidden;
+  }
+
+  /* ── PANEL TOGGLE TABS ── */
+  .panel-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 52px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 11px;
+    color: var(--text2);
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    padding: 0;
+  }
+  .panel-toggle:hover { color: var(--accent); border-color: var(--accent); background: rgba(245,166,35,0.08); }
+  .panel-toggle-left  { left: 0;  border-left: none;  border-radius: 0 5px 5px 0; }
+  .panel-toggle-right { right: 0; border-right: none; border-radius: 5px 0 0 5px; }
+
+  @media (max-width: 768px) { .panel-toggle { display: none; } }
 
   .circuit-list { padding: 8px; }
   .circuit-item {
@@ -870,6 +907,8 @@
   <!-- CANVAS -->
   <div class="canvas-wrap" id="canvasWrap">
     <canvas id="canvas"></canvas>
+    <button class="panel-toggle panel-toggle-left"  id="toggleLeft"  onclick="toggleLeftPanel()"  title="Masquer/afficher le panneau gauche">‹</button>
+    <button class="panel-toggle panel-toggle-right" id="toggleRight" onclick="toggleRightPanel()" title="Masquer/afficher le panneau droit">›</button>
     <div class="mode-indicator" id="modeIndicator"></div>
     <div class="coords" id="coords">X: 0 — Y: 0</div>
     <div class="zoom-bar">
@@ -3190,6 +3229,21 @@ function zoom(delta) {
   state.zoom = Math.min(Math.max(state.zoom * factor, 0.2), 5);
   document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
   draw();
+}
+
+function toggleLeftPanel() {
+  const panel = document.getElementById('panelLeft');
+  const btn   = document.getElementById('toggleLeft');
+  panel.classList.toggle('collapsed');
+  btn.textContent = panel.classList.contains('collapsed') ? '›' : '‹';
+  setTimeout(resizeCanvas, 210);
+}
+function toggleRightPanel() {
+  const panel = document.getElementById('panelRight');
+  const btn   = document.getElementById('toggleRight');
+  panel.classList.toggle('collapsed');
+  btn.textContent = panel.classList.contains('collapsed') ? '‹' : '›';
+  setTimeout(resizeCanvas, 210);
 }
 
 function resetView() {
