@@ -1455,13 +1455,14 @@ loadFromLocalStorage();
 resizeCanvas();
 
 function getElHalfSizes(el) {
+  const sc = el.scale || 1;
   if (el.type === 'plan-travail-perso') {
     const hw = (el.widthCm || 120) * CM_TO_UNITS / 2;
     const hh = (el.depthCm || 60)  * CM_TO_UNITS / 2;
-    return { hw, hh };
+    return { hw: hw * sc, hh: hh * sc };
   }
   const sz = FURNITURE_TYPES.has(el.type) ? 38 : 18;
-  return { hw: sz, hh: sz };
+  return { hw: sz * sc, hh: sz * sc };
 }
 
 function drawElement(el, isSelected) {
@@ -1471,7 +1472,11 @@ function drawElement(el, isSelected) {
   ctx.scale(state.zoom, state.zoom);
   if (el.rotation) ctx.rotate(el.rotation * Math.PI / 180);
   if (isSelected) { ctx.shadowColor = '#f5a623'; ctx.shadowBlur = 14; }
+  // Le scale de l'élément n'affecte que le symbole dessiné, pas les poignées
+  ctx.save();
+  if (el.scale && el.scale !== 1) ctx.scale(el.scale, el.scale);
   (SYMBOLS[el.type] || drawGeneric)(ctx, el);
+  ctx.restore();
   if (isSelected) {
     ctx.shadowBlur = 0;
     const { hw, hh } = getElHalfSizes(el);
@@ -1481,6 +1486,18 @@ function drawElement(el, isSelected) {
     ctx.setLineDash([3,3]);
     ctx.strokeRect(-hw, -hh, hw*2, hh*2);
     ctx.setLineDash([]);
+    // Poignées de resize aux 4 coins (mobilier uniquement)
+    if (FURNITURE_TYPES.has(el.type)) {
+      const cr = 4.5 / state.zoom;
+      ctx.lineWidth = 1.5 / state.zoom;
+      [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].forEach(([cx,cy]) => {
+        ctx.fillStyle = '#1e2329';
+        ctx.strokeStyle = '#f5a623';
+        ctx.beginPath();
+        ctx.rect(cx - cr, cy - cr, cr * 2, cr * 2);
+        ctx.fill(); ctx.stroke();
+      });
+    }
     // Poignée de rotation : tige + cercle au-dessus
     const hDist = hh + 18;
     ctx.strokeStyle = 'rgba(245,166,35,0.5)';
@@ -1502,11 +1519,13 @@ function drawElement(el, isSelected) {
     ctx.lineTo(ax - 3.5/state.zoom, ay - 1/state.zoom);
     ctx.lineTo(ax + 1/state.zoom, ay - 3.5/state.zoom);
     ctx.closePath(); ctx.fill();
-    // Angle affiché si non nul
+    // Angle et échelle affichés
     const rot = el.rotation || 0;
+    const sc  = el.scale    || 1;
     ctx.font = `bold ${8/state.zoom}px sans-serif`;
     ctx.fillStyle = '#f5a623'; ctx.textAlign = 'center';
-    ctx.fillText(rot + '°', 0, -hDist - hr - 3/state.zoom);
+    const label = sc !== 1 ? `${rot}°  ×${sc.toFixed(2)}` : rot + '°';
+    ctx.fillText(label, 0, -hDist - hr - 3/state.zoom);
   }
   if (el.label) {
     const { hh: labelHh } = getElHalfSizes(el);
@@ -2571,6 +2590,24 @@ let mouseDragged = false;
 let mouseDownPos = null;  // pour détecter le glisser-pan gauche
 let isRotating = false, rotateStartAngle = 0, rotateStartRot = 0;
 let isDraggingEl = false, dragStartW = null, dragElOrigin = null;
+let isResizingEl = false, resizeElStartDist = 0, resizeElStartScale = 1;
+
+function getElCornerHandlesScreen(el) {
+  const s = worldToScreen(el.x, el.y);
+  const { hw, hh } = getElHalfSizes(el);
+  const theta = (el.rotation || 0) * Math.PI / 180;
+  const cosT = Math.cos(theta), sinT = Math.sin(theta);
+  return [
+    { lx: -hw, ly: -hh, cur: 'nwse-resize' },
+    { lx:  hw, ly: -hh, cur: 'nesw-resize' },
+    { lx:  hw, ly:  hh, cur: 'nwse-resize' },
+    { lx: -hw, ly:  hh, cur: 'nesw-resize' },
+  ].map(({ lx, ly, cur }) => ({
+    x: s.x + (lx * cosT - ly * sinT) * state.zoom,
+    y: s.y + (lx * sinT + ly * cosT) * state.zoom,
+    cur,
+  }));
+}
 
 function getRotHandleScreen(el) {
   const s = worldToScreen(el.x, el.y);
@@ -2624,6 +2661,20 @@ canvas.addEventListener('mousedown', (e) => {
   if (state.mode === 'select' && state.selected?.type) {
     const r = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    // Poignées de resize (mobilier) ?
+    if (FURNITURE_TYPES.has(state.selected.type)) {
+      const corners = getElCornerHandlesScreen(state.selected);
+      const hit = corners.find(c => Math.hypot(sx - c.x, sy - c.y) < 8);
+      if (hit) {
+        isResizingEl = true;
+        const sc = worldToScreen(state.selected.x, state.selected.y);
+        resizeElStartDist  = Math.hypot(sx - sc.x, sy - sc.y);
+        resizeElStartScale = state.selected.scale || 1;
+        mouseDownPos = null;
+        e.preventDefault();
+        return;
+      }
+    }
     // Poignée de rotation ?
     const h = getRotHandleScreen(state.selected);
     if (Math.hypot(sx - h.x, sy - h.y) < 12) {
@@ -2653,8 +2704,9 @@ canvas.addEventListener('mousemove', (e) => {
   if (e.buttons === 0) {
     mouseDownPos = null;
     if (isPanning && !spaceDown) { isPanning = false; canvas.style.cursor = ''; }
-    if (isDraggingEl) { isDraggingEl = false; updateProps(); draw(); return; }
-    if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
+    if (isDraggingEl)  { isDraggingEl = false;  updateProps(); draw(); return; }
+    if (isRotating)    { isRotating = false;    updateProps(); draw(); return; }
+    if (isResizingEl)  { isResizingEl = false;  updateProps(); draw(); return; }
   }
 
   const r = canvas.getBoundingClientRect();
@@ -2663,6 +2715,20 @@ canvas.addEventListener('mousemove', (e) => {
   const w = screenToWorld(state.mouseX, state.mouseY);
   const sp = snapPoint(w.x, w.y);
   document.getElementById('coords').textContent = `X: ${sp.x} — Y: ${sp.y}`;
+
+  if (isResizingEl && state.selected?.type) {
+    const sc = worldToScreen(state.selected.x, state.selected.y);
+    const dist = Math.hypot(state.mouseX - sc.x, state.mouseY - sc.y);
+    if (resizeElStartDist > 0) {
+      let newScale = resizeElStartScale * dist / resizeElStartDist;
+      newScale = Math.max(0.3, Math.min(5, newScale));
+      if (e.shiftKey) newScale = Math.round(newScale * 4) / 4; // snap 0.25
+      state.selected.scale = Math.round(newScale * 100) / 100;
+    }
+    mouseDragged = true;
+    updateProps(); draw();
+    return;
+  }
 
   if (isRotating && state.selected?.type) {
     const s = worldToScreen(state.selected.x, state.selected.y);
@@ -2715,7 +2781,7 @@ canvas.addEventListener('mousemove', (e) => {
 
   // Démarrage du pan par glisser-gauche — seuil généreux (15px) pour ne pas
   // confondre avec un simple clic légèrement bougé
-  if (!isPanning && !isRotating && !isDraggingEl && mouseDownPos && (e.buttons & 1)) {
+  if (!isPanning && !isRotating && !isDraggingEl && !isResizingEl && mouseDownPos && (e.buttons & 1)) {
     if (Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) >= 15) {
       isPanning = true;
       panStart  = mouseDownPos;
@@ -2753,6 +2819,12 @@ canvas.addEventListener('mousemove', (e) => {
     }
   } else if (state.mode === 'select' && state.selected?.type) {
     const sx = state.mouseX, sy = state.mouseY;
+    // Coins de resize (mobilier) ?
+    if (FURNITURE_TYPES.has(state.selected.type)) {
+      const corners = getElCornerHandlesScreen(state.selected);
+      const hit = corners.find(c => Math.hypot(sx - c.x, sy - c.y) < 8);
+      if (hit) { canvas.style.cursor = hit.cur; draw(); return; }
+    }
     const h = getRotHandleScreen(state.selected);
     if (Math.hypot(sx - h.x, sy - h.y) < 12) {
       canvas.style.cursor = 'grab';
@@ -2776,6 +2848,7 @@ canvas.addEventListener('mouseup', (e) => {
     draw();
     return;
   }
+  if (isResizingEl) { isResizingEl = false; mouseDragged = false; saveToLocalStorage(); updateProps(); draw(); return; }
   if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
   if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
   if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
