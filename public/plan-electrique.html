@@ -3916,13 +3916,14 @@ function handleFileLoad(e) {
 // ══════════════════════════════════════════════════════════════
 let aiImageBase64 = null;
 let aiImageMediaType = 'image/jpeg';
-let _sbUrl = null, _sbKey = null;
+let _sbUrl = null, _sbKey = null, _sbToken = null;
 
 // Réception de la config Supabase depuis la page parente
 window.addEventListener('message', (e) => {
   if (e.data?.type === 'planelec-config') {
     _sbUrl = e.data.supabaseUrl;
     _sbKey = e.data.supabaseAnonKey;
+    _sbToken = e.data.accessToken || null;
   }
 });
 
@@ -4183,12 +4184,19 @@ Retranscris ce plan manuscrit en JSON selon le format demandé.`;
       throw new Error('Configuration Supabase manquante. Rechargez la page depuis l\'application.');
     }
 
+    if (!_sbToken) {
+      throw new Error('Vous devez être connecté pour utiliser l\'analyse IA. Rechargez la page depuis l\'application.');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': _sbKey,
+      'Authorization': `Bearer ${_sbToken}`,
+    };
+
     const response = await fetch(`${_sbUrl}/functions/v1/plan-vision`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': _sbKey,
-      },
+      headers,
       body: JSON.stringify({
         imageBase64: aiImageBase64,
         mediaType: aiImageMediaType,
@@ -4198,7 +4206,10 @@ Retranscris ce plan manuscrit en JSON selon le format demandé.`;
     });
 
     if (!response.ok) {
-      const err = await response.json();
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 403) {
+        throw new Error('⭐ Cette fonctionnalité est réservée aux comptes Pro ou nécessite une clé API configurée dans votre profil.');
+      }
       throw new Error(err.error || `HTTP ${response.status}`);
     }
 
