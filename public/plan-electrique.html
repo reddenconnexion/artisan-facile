@@ -3503,7 +3503,7 @@ function renderCircuits() {
   // ── Compter les éléments électriques par circuit ───────────────
   const byCircuit = {};
   state.elements.forEach(e => {
-    if (CABLE_TOOLS.includes(e.type) || !e.circuitId) return;
+    if (CABLE_TOOLS.includes(e.type) || FURNITURE_TYPES.has(e.type) || !e.circuitId) return;
     if (!byCircuit[e.circuitId]) byCircuit[e.circuitId] = {};
     byCircuit[e.circuitId][e.type] = (byCircuit[e.circuitId][e.type] || 0) + 1;
   });
