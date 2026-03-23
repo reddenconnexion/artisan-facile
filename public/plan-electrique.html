@@ -870,20 +870,20 @@
       <div class="panel-title">🔧 Cheminements de câbles</div>
       <div class="tool-grid">
         <button class="tool-btn tool-btn-wide" data-type="cable-phase" onclick="selectTool('cable-phase')">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
-          Cheminement rouge
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffe082" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Éclairage
         </button>
         <button class="tool-btn tool-btn-wide" data-type="cable-neutre" onclick="selectTool('cable-neutre')">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#90caf9" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
-          Cheminement bleu
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Prises
         </button>
         <button class="tool-btn tool-btn-wide" data-type="cable-terre" onclick="selectTool('cable-terre')">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#66bb6a" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
-          Cheminement vert
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Équipements
         </button>
         <button class="tool-btn tool-btn-wide" data-type="cable-telecom" onclick="selectTool('cable-telecom')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ce93d8" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="4 2"/></svg>
-          Cheminement télécom
+          Télécom
         </button>
       </div>
 
@@ -934,10 +934,10 @@
     <div class="panel-section">
       <div class="panel-title">📖 Légende</div>
       <div style="padding:4px 0;">
-        <div class="legend-item"><div class="legend-dot" style="background:#ef5350"></div>Phase (rouge)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#90caf9"></div>Neutre (bleu)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#66bb6a"></div>Terre (vert/jaune)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div>Télécom</div>
+        <div class="legend-item"><div class="legend-line" style="background:#ffe082"></div>Éclairage</div>
+        <div class="legend-item"><div class="legend-line" style="background:#4fc3f7"></div>Prises</div>
+        <div class="legend-item"><div class="legend-line" style="background:#f5a623"></div>Équipements</div>
+        <div class="legend-item"><div class="legend-line" style="background:#ce93d8"></div>Télécom</div>
         <div class="legend-item"><div class="legend-line" style="background:#8a9ab5"></div>Mur</div>
         <div class="legend-item"><div class="legend-line" style="background:rgba(245,166,35,0.5)"></div>Pièce</div>
       </div>
@@ -1230,10 +1230,10 @@ let state = {
 //  CONSTANTES DE DESSIN (déclarées avant tout appel à draw())
 // ══════════════════════════════════════════════════════════════
 const CABLE_COLORS = {
-  'cable-phase': '#ef5350',
-  'cable-neutre': '#90caf9',
-  'cable-terre': '#66bb6a',
-  'cable-telecom': '#ce93d8',
+  'cable-phase':   '#ffe082',  // éclairage — jaune (comme luminaires)
+  'cable-neutre':  '#4fc3f7',  // prises — bleu (comme prise 16A)
+  'cable-terre':   '#f5a623',  // équipements — orange (comme tableau)
+  'cable-telecom': '#ce93d8',  // télécom — violet (comme RJ45)
 };
 const CABLE_DASH = {
   'cable-telecom': [6, 4],
@@ -3676,7 +3676,7 @@ function getLegendItems() {
   const getLabel = type => {
     const btn = document.querySelector(`[data-type="${type}"]`);
     if (btn) return btn.textContent.trim();
-    const fallback = { 'cable-phase':'Câble phase','cable-neutre':'Câble neutre','cable-terre':'Câble terre','cable-telecom':'Câble télécom' };
+    const fallback = { 'cable-phase':'Éclairage','cable-neutre':'Prises','cable-terre':'Équipements','cable-telecom':'Télécom' };
     return fallback[type] || type;
   };
   const usedElTypes  = [...new Set(state.elements.map(e => e.type))].filter(t => SYMBOLS[t]);
