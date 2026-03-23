@@ -703,6 +703,14 @@ const DevisForm = () => {
         }));
     };
 
+    const insertItemAfter = (index) => {
+        setFormData(prev => {
+            const newItems = [...prev.items];
+            newItems.splice(index + 1, 0, { id: Date.now(), description: '', quantity: 1, unit: tradeConfig.defaultUnit, price: 0, buying_price: 0, type: 'service' });
+            return { ...prev, items: newItems };
+        });
+    };
+
     const addSection = () => {
         setFormData(prev => ({
             ...prev,
@@ -2627,9 +2635,10 @@ Conditions de règlement : Paiement à réception de facture.`
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                         Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
                     </h3>
-                    <div className="space-y-4">
+                    <div>
                         {formData.items.map((item, index) => (
-                            item.type === 'section' ? (
+                            <React.Fragment key={item.id}>
+                            {item.type === 'section' ? (
                                 <div key={item.id} className="flex items-center gap-2 pt-2 pb-1 border-b-2 border-blue-200">
                                     <Layers className="w-4 h-4 text-blue-500 shrink-0" />
                                     <input
@@ -2847,7 +2856,23 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 </div>
                             </div>
-                            )
+                            )}
+                            {/* Zone d'insertion entre lignes */}
+                            {!isLocked && index < formData.items.length - 1 && (
+                                <div className="group relative flex items-center my-1 -mx-1">
+                                    <div className="flex-1 h-px bg-gray-100 group-hover:bg-blue-200 transition-colors" />
+                                    <button
+                                        type="button"
+                                        onClick={() => insertItemAfter(index)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity mx-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 bg-white border border-blue-200 hover:border-blue-400 rounded px-2 py-0.5 shadow-sm"
+                                        title="Insérer une ligne ici"
+                                    >
+                                        <Plus className="w-3 h-3" /> Insérer ici
+                                    </button>
+                                    <div className="flex-1 h-px bg-gray-100 group-hover:bg-blue-200 transition-colors" />
+                                </div>
+                            )}
+                            </React.Fragment>
                         ))}
                     </div>
 
