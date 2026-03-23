@@ -1148,10 +1148,10 @@
 
 <!-- MODAL CALCUL CÂBLES -->
 <div class="modal-overlay" id="cableModal" style="display:none">
-  <div class="modal" style="width:520px;max-width:96vw;">
-    <h3 style="color:#4fc3f7;">📐 Calcul des longueurs de câble</h3>
+  <div class="modal" style="width:520px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;">
+    <h3 style="color:#4fc3f7;flex-shrink:0;">📐 Calcul des longueurs de câble</h3>
     <!-- Paramètres de pose -->
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+    <div style="flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
       <span style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">⚙️ Paramètres</span>
       <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
         Haut. sous combles
@@ -1166,8 +1166,8 @@
           oninput="openCableCalc()"/> m
       </label>
     </div>
-    <div id="cableCalcContent" style="max-height:60vh;overflow-y:auto;"></div>
-    <div class="modal-btn-row" style="margin-top:14px;">
+    <div id="cableCalcContent" style="flex:1;min-height:0;overflow-y:auto;"></div>
+    <div class="modal-btn-row" style="flex-shrink:0;margin-top:14px;">
       <button class="btn" onclick="document.getElementById('cableModal').style.display='none'">Fermer</button>
     </div>
   </div>
