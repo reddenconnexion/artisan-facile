@@ -1148,8 +1148,24 @@
 
 <!-- MODAL CALCUL CÂBLES -->
 <div class="modal-overlay" id="cableModal" style="display:none">
-  <div class="modal" style="width:500px;max-width:96vw;">
+  <div class="modal" style="width:520px;max-width:96vw;">
     <h3 style="color:#4fc3f7;">📐 Calcul des longueurs de câble</h3>
+    <!-- Paramètres de pose -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">⚙️ Paramètres</span>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
+        Haut. sous combles
+        <input type="number" id="cableHCeil" value="2.5" min="0.5" max="15" step="0.1"
+          style="width:52px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:3px 6px;font-family:var(--font-mono);"
+          oninput="openCableCalc()"/> m
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
+        Haut. tableau
+        <input type="number" id="cableHPanel" value="1.5" min="0" max="5" step="0.1"
+          style="width:52px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:3px 6px;font-family:var(--font-mono);"
+          oninput="openCableCalc()"/> m
+      </label>
+    </div>
     <div id="cableCalcContent" style="max-height:60vh;overflow-y:auto;"></div>
     <div class="modal-btn-row" style="margin-top:14px;">
       <button class="btn" onclick="document.getElementById('cableModal').style.display='none'">Fermer</button>
@@ -4063,33 +4079,51 @@ function openCableCalc() {
     return;
   }
 
-  // ── Groupement par spécification (ex: "3G2.5") ──────────────────────────
+  // ── Paramètres de pose ───────────────────────────────────────────────────
+  const ceilH  = Math.max(0, parseFloat(document.getElementById('cableHCeil')?.value)  || 2.5);
+  const panelH = Math.max(0, parseFloat(document.getElementById('cableHPanel')?.value) || 1.5);
+  // Remontée : depuis le tableau jusqu'aux combles
+  const ascent = Math.max(0, ceilH - panelH);
+  // Redescente : depuis les combles jusqu'au sol (prises/interrupteurs/équipements)
+  //   → 0 pour l'éclairage (câble-phase) car les plafonniers sont en plafond
+  const withDescent  = ceilH;   // câbles non-éclairage
+  const noDescent    = 0;       // câbles éclairage (luminaires)
+
+  function verticalExtra(cableType) {
+    // cable-phase = éclairage → pas de redescente, juste la remontée
+    return cableType === 'cable-phase'
+      ? ascent              // remontée tableau→combles seulement
+      : ascent + withDescent; // remontée + redescente jusqu'au sol
+  }
+
+  // ── Groupement par spécification ────────────────────────────────────────
   const bySpec = {};
-  let grandTotal = 0;
+  let grandPlan = 0, grandVert = 0;
 
   state.cables.forEach(c => {
-    const lenM = cableLength(c);
-    grandTotal += lenM;
-    // Spec = nConductors + "G" + section  (ex: 3G2.5)
-    // Pour câbles anciens sans section, clé = type visuel
+    const planM = cableLength(c);
+    const vertM = verticalExtra(c.type);
+    grandPlan += planM;
+    grandVert += vertM;
     const spec = c.section
       ? `${c.nConductors || 3}G${c.section}`
       : (c.type === 'cable-telecom' ? 'Télécom' : 'Non spécifié');
-    if (!bySpec[spec]) bySpec[spec] = { count: 0, length: 0, color: CABLE_COLORS[c.type] || '#8a9ab5', section: c.section, nConductors: c.nConductors };
+    if (!bySpec[spec]) bySpec[spec] = { count: 0, planLen: 0, vertLen: 0, color: CABLE_COLORS[c.type] || '#8a9ab5', section: c.section, nConductors: c.nConductors };
     bySpec[spec].count++;
-    bySpec[spec].length += lenM;
+    bySpec[spec].planLen += planM;
+    bySpec[spec].vertLen += vertM;
   });
 
-  // ── Groupement par libellé (cheminements nommés) ─────────────────────────
+  // ── Groupement par libellé ───────────────────────────────────────────────
   const byLabel = {};
   state.cables.forEach(c => {
     if (!c.label) return;
+    const total = cableLength(c) + verticalExtra(c.type);
     if (!byLabel[c.label]) byLabel[c.label] = { length: 0, spec: c.section ? `${c.nConductors || 3}G${c.section}` : '', color: CABLE_COLORS[c.type] || '#8a9ab5' };
-    byLabel[c.label].length += cableLength(c);
+    byLabel[c.label].length += total;
   });
 
-  const MARGIN = 0.15;   // +15% chutes/saignées
-  const HEIGHT = 0.10;   // +10% montées en hauteur (faux-plafonds, saignées verticales)
+  const MARGIN = 0.15;  // +15% chutes et imprévus
 
   let html = '';
 
@@ -4098,8 +4132,9 @@ function openCableCalc() {
   html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
     <thead><tr style="color:var(--text2);font-size:10px;border-bottom:1px solid var(--border);">
       <th style="text-align:left;padding:5px 4px;">Spécification</th>
-      <th style="text-align:right;padding:5px 4px;">Tracé plan</th>
-      <th style="text-align:right;padding:5px 4px;">+hauteurs (+10%)</th>
+      <th style="text-align:right;padding:5px 4px;">Plan</th>
+      <th style="text-align:right;padding:5px 4px;">Verticaux</th>
+      <th style="text-align:right;padding:5px 4px;">Sous-total</th>
       <th style="text-align:right;padding:5px 4px;color:#66bb6a;">À commander</th>
     </tr></thead><tbody>`;
 
@@ -4111,16 +4146,17 @@ function openCableCalc() {
   });
 
   specsSorted.forEach(([spec, d]) => {
-    const withHeight = d.length * (1 + HEIGHT);
-    const toOrder    = withHeight * (1 + MARGIN);
-    const coil       = d.section ? nextCoil(toOrder) : null;
+    const subtotal = d.planLen + d.vertLen;
+    const toOrder  = subtotal * (1 + MARGIN);
+    const coil     = d.section ? nextCoil(toOrder) : null;
     html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
       <td style="padding:7px 4px;">
         <span style="font-weight:700;color:${d.color};">${spec}</span>
         <span style="color:var(--text2);font-size:10px;margin-left:5px;">(${d.count} tronçon${d.count>1?'s':''})</span>
       </td>
-      <td style="text-align:right;padding:7px 4px;">${d.length.toFixed(2)} m</td>
-      <td style="text-align:right;padding:7px 4px;color:var(--text2);">${withHeight.toFixed(2)} m</td>
+      <td style="text-align:right;padding:7px 4px;">${d.planLen.toFixed(2)} m</td>
+      <td style="text-align:right;padding:7px 4px;color:#4fc3f7;">+ ${d.vertLen.toFixed(2)} m</td>
+      <td style="text-align:right;padding:7px 4px;">${subtotal.toFixed(2)} m</td>
       <td style="text-align:right;padding:7px 4px;font-weight:700;color:#66bb6a;">
         ${toOrder.toFixed(1)} m
         ${coil ? `<div style="font-size:9px;color:var(--text2);">bobine ${coil} m</div>` : ''}
@@ -4129,22 +4165,32 @@ function openCableCalc() {
   });
   html += `</tbody></table>`;
 
-  // ── Section 2 : Récapitulatif global ────────────────────────────────────
-  const withHeight = grandTotal * (1 + HEIGHT);
-  const toOrder    = withHeight * (1 + MARGIN);
+  // ── Section 2 : Détail des verticaux ─────────────────────────────────────
+  html += `<div style="background:rgba(79,195,247,0.07);border:1px solid rgba(79,195,247,0.2);border-radius:6px;padding:10px;margin-bottom:14px;font-size:11px;">
+    <div style="font-weight:700;color:#4fc3f7;margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">↕ Verticaux calculés par câble</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;color:var(--text2);">
+      <span>↑ Remontée tableau→combles : <b style="color:var(--text);">${ascent.toFixed(2)} m</b> (${ceilH} − ${panelH} m)</span>
+      <span>↓ Redescente prises/inter. : <b style="color:var(--text);">${withDescent.toFixed(2)} m</b></span>
+      <span>↓ Redescente éclairage : <b style="color:var(--text);">0 m</b> (plafond)</span>
+    </div>
+  </div>`;
+
+  // ── Section 3 : Récapitulatif global ────────────────────────────────────
+  const grandTotal = grandPlan + grandVert;
+  const toOrder    = grandTotal * (1 + MARGIN);
   html += `<div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;">
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Récapitulatif</div>
     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-      <span style="font-size:11px;color:var(--text2);">Longueur plan dessinée</span>
-      <span style="font-size:12px;font-weight:600;">${grandTotal.toFixed(2)} m</span>
+      <span style="font-size:11px;color:var(--text2);">Longueur tracée sur le plan</span>
+      <span style="font-size:12px;font-weight:600;">${grandPlan.toFixed(2)} m</span>
     </div>
     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-      <span style="font-size:11px;color:var(--text2);">+ hauteurs de pose (+10%)</span>
-      <span style="font-size:11px;color:#f5a623;">+ ${(grandTotal * HEIGHT).toFixed(2)} m</span>
+      <span style="font-size:11px;color:var(--text2);">+ verticaux (remontées/redescentes)</span>
+      <span style="font-size:11px;color:#4fc3f7;">+ ${grandVert.toFixed(2)} m</span>
     </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-      <span style="font-size:11px;color:var(--text2);">+ marge chutes (+15%)</span>
-      <span style="font-size:11px;color:#f5a623;">+ ${(withHeight * MARGIN).toFixed(2)} m</span>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="font-size:11px;color:var(--text2);">+ marge chutes/saignées (+15%)</span>
+      <span style="font-size:11px;color:#f5a623;">+ ${(grandTotal * MARGIN).toFixed(2)} m</span>
     </div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;">
       <span style="font-size:13px;font-weight:700;">Total à commander</span>
@@ -4152,7 +4198,7 @@ function openCableCalc() {
     </div>
   </div>`;
 
-  // ── Section 3 : Par cheminement nommé ───────────────────────────────────
+  // ── Section 4 : Par cheminement nommé ───────────────────────────────────
   if (Object.keys(byLabel).length) {
     html += `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">🏷️ Par cheminement nommé</div>`;
     html += `<div style="margin-bottom:16px;">`;
@@ -4172,9 +4218,10 @@ function openCableCalc() {
   // ── Note de bas de page ──────────────────────────────────────────────────
   html += `<div style="font-size:9px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
     Échelle : 1 carreau = ${state.scaleCm} cm &nbsp;·&nbsp;
-    +10% hauteurs (saignées verticales, faux-plafonds) &nbsp;·&nbsp;
-    +15% chutes et imprévus &nbsp;·&nbsp;
-    Les bobines suggérées sont les conditionnements commerciaux standards (25/50/100 m).
+    Éclairage : remontée seule (plafonniers en plafond) &nbsp;·&nbsp;
+    Prises/équipements : remontée + redescente jusqu'au sol &nbsp;·&nbsp;
+    +15% marge chutes et saignées locales &nbsp;·&nbsp;
+    Bobines : conditionnements commerciaux standards (25/50/100 m).
   </div>`;
 
   document.getElementById('cableCalcContent').innerHTML = html;
