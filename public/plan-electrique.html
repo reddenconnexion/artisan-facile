@@ -39,32 +39,45 @@
   header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 16px;
-    min-height: 52px;
+    padding: 0 12px;
+    height: 46px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     z-index: 100;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 6px;
+    overflow: hidden;
   }
 
   .logo {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     letter-spacing: -0.5px;
     white-space: nowrap;
+    flex-shrink: 0;
   }
   .logo span { color: var(--accent); }
 
   .header-center {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex: 1;
-    justify-content: center;
-    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .header-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .header-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
   }
 
   .btn {
@@ -87,18 +100,18 @@
   .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
   .btn.danger:hover { border-color: var(--accent2); color: var(--accent2); }
 
-  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .header-right { display: flex; gap: 4px; align-items: center; }
 
   .project-name {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text2);
     padding: 4px 8px;
     border: 1px solid var(--border);
     border-radius: 4px;
     background: transparent;
     color: var(--text);
-    width: 160px;
+    width: 100%;
+    min-width: 120px;
   }
 
   /* ── MAIN LAYOUT ── */
@@ -108,9 +121,29 @@
     overflow: hidden;
   }
 
+  /* ── ACTIONS PANNEAU GAUCHE ── */
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .action-grid .btn {
+    padding: 5px 4px;
+    font-size: 10px;
+    justify-content: center;
+    min-width: 0;
+  }
+  .action-btn-full {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 10px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
   /* ── LEFT PANEL ── */
   .panel-left {
-    width: 220px;
+    width: 180px;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
@@ -441,8 +474,9 @@
       flex-wrap: wrap;
       gap: 6px;
     }
-    .header-center { display: none; }
-    .header-right   { display: none; }
+    .header-center  { flex: 1; min-width: 0; }
+    .header-sep     { display: none; }
+    .header-group   { display: none; }
     .project-name   { flex: 1; width: auto; min-width: 0; }
     .logo           { font-size: 13px; white-space: nowrap; }
 
@@ -576,23 +610,25 @@
   <div class="logo">Plan<span>Élec</span> Pro</div>
   <div class="header-center">
     <input class="project-name" type="text" value="Maison Dupont — Plan RDC" id="projectName" oninput="saveToLocalStorage()" />
-    <button class="btn" onclick="addRoom()">🏠 Pièce</button>
-    <button class="btn" onclick="addWall()">🧱 Mur</button>
-    <button class="btn" id="btnSelectMode" onclick="setMode('select')" >↖ Sélectionner</button>
-    <button class="btn" id="btnResizeMode" onclick="setMode('resize')" title="Redimensionner tout le plan comme une fenêtre">⇲ Redimensionner</button>
-    <button class="btn" id="btnCotation" onclick="toggleCotation()" title="Afficher/masquer les cotations des murs">📏 Cotation</button>
-    <button class="btn danger" onclick="deleteSelected()">🗑 Supprimer</button>
-    <button class="btn" onclick="clearAll()">✕ Effacer tout</button>
   </div>
-  <div class="header-right">
+  <!-- Fichier -->
+  <div class="header-group">
+    <button class="btn" onclick="saveProject()" title="Sauvegarder le projet">💾 Sauvegarder</button>
+    <button class="btn" onclick="loadProject()" title="Charger un projet">📂 Charger</button>
+  </div>
+  <div class="header-sep"></div>
+  <!-- Export & impression -->
+  <div class="header-group">
     <button class="btn" onclick="openCableCalc()" style="border-color:#4fc3f7;color:#4fc3f7;" title="Calculer les longueurs de câble">📐 Câbles</button>
-    <button class="btn" onclick="printPlan()" style="border-color:#a3e635;color:#a3e635;" title="Imprimer le plan sur fond blanc pour le chantier">🖨 Imprimer</button>
-    <button class="btn" onclick="exportPNG()">📥 Export PNG</button>
-    <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;">📄 Export PDF</button>
-    <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
-    <button class="btn" onclick="loadProject()">📂 Charger</button>
-    <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;">🤖 Importer photo</button>
-    <button class="btn" onclick="saveToClient()" style="border-color:#66bb6a;color:#66bb6a;">🏠 Fiche client</button>
+    <button class="btn" onclick="printPlan()" style="border-color:#a3e635;color:#a3e635;" title="Imprimer le plan chantier (fond blanc)">🖨 Imprimer</button>
+    <button class="btn" onclick="exportPNG()" title="Exporter en PNG">📥 PNG</button>
+    <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;" title="Exporter en PDF">📄 PDF</button>
+  </div>
+  <div class="header-sep"></div>
+  <!-- Intégrations -->
+  <div class="header-group header-right">
+    <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;" title="Importer un plan photo via IA">🤖 IA</button>
+    <button class="btn" onclick="saveToClient()" style="border-color:#66bb6a;color:#66bb6a;" title="Lier à la fiche client">🏠 Fiche</button>
   </div>
 </header>
 
@@ -603,6 +639,19 @@
     <div class="panel-mob-header">
       <span class="panel-mob-title">⚡ Outils</span>
       <button class="panel-mob-close" onclick="closePanels()">✕ Fermer</button>
+    </div>
+
+    <!-- ── ACTIONS ─────────────────────────────────────────────── -->
+    <div class="panel-section">
+      <div class="action-grid">
+        <button class="btn" id="btnSelectMode" onclick="setMode('select')" title="Mode sélection">↖ Sélect.</button>
+        <button class="btn" id="btnResizeMode" onclick="setMode('resize')" title="Redimensionner le plan">⇲ Redim.</button>
+        <button class="btn" onclick="addWall()" title="Dessiner un mur">🧱 Mur</button>
+        <button class="btn" onclick="addRoom()" title="Ajouter une pièce">🏠 Pièce</button>
+        <button class="btn" id="btnCotation" onclick="toggleCotation()" title="Afficher/masquer les cotations">📏 Cotation</button>
+        <button class="btn danger" onclick="deleteSelected()" title="Supprimer l'élément sélectionné">🗑 Suppr.</button>
+      </div>
+      <button class="btn action-btn-full danger" onclick="clearAll()" title="Effacer tout le plan">✕ Effacer tout</button>
     </div>
 
     <div class="panel-section">
