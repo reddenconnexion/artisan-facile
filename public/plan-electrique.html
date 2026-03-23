@@ -699,6 +699,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="8" width="14" height="10" rx="1"/><rect x="9" y="11" width="6" height="4" rx="0.5"/></svg>
           RJ45
         </button>
+        <button class="tool-btn" data-type="boite-raccordement" onclick="selectTool('boite-raccordement')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="1"/><circle cx="12" cy="12" r="3"/><line x1="4" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="20" y2="12"/><line x1="12" y1="4" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="20"/></svg>
+          Boîte racc.
+        </button>
       </div>
     </div>
 
@@ -1442,6 +1446,7 @@ const SYMBOLS = {
   clim: drawClim,
   vmc: drawVmc,
   'prise-rj45': drawRJ45,
+  'boite-raccordement': drawBoiteRaccordement,
   // Circuits spécialisés
   'lave-linge':     drawLaveLinge,
   'lave-vaisselle': drawLaveVaisselle,
@@ -1868,7 +1873,24 @@ function drawRJ45(c) {
   c.beginPath(); c.moveTo(-8, 7); c.lineTo(8, 7); c.stroke();
 }
 
-// ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
+/// ── BOÎTE DE RACCORDEMENT (NF C 15-100) : carré + cercle + 4 picots ──
+function drawBoiteRaccordement(c) {
+  c.strokeStyle = '#ffb74d'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
+  c.beginPath(); c.rect(-12, -12, 24, 24); c.fill(); c.stroke();
+  // cercle intérieur = boîte de dérivation
+  c.strokeStyle = '#ffb74d';
+  c.beginPath(); c.arc(0, 0, 5, 0, Math.PI*2); c.stroke();
+  // 4 picots de raccordement (haut, bas, gauche, droite)
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo( 0, -12); c.lineTo( 0, -6);  // haut
+  c.moveTo( 0,  12); c.lineTo( 0,  6);  // bas
+  c.moveTo(-12,  0); c.lineTo(-6,  0);  // gauche
+  c.moveTo( 12,  0); c.lineTo( 6,  0);  // droite
+  c.stroke();
+}
+
+/ ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
 function drawLaveLinge(c) {
   // Corps machine : carré arrondi
   c.strokeStyle = '#a5d6a7'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
@@ -4278,6 +4300,7 @@ Appareillage :
   - "clim"          → unité intérieure climatisation (rectangle horizontal)
   - "vmc"           → VMC (carré avec croix de ventilation)
   - "prise-rj45"    → prise réseau RJ45/téléphone
+  - "boite-raccordement" → boîte de raccordement/dérivation (carré + cercle + picots)
 
 Circuits spécialisés (repères visuels sur le plan) :
   - "lave-linge"    → symbole machine à laver
