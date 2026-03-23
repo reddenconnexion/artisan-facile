@@ -1075,7 +1075,6 @@
         <div class="stat-card"><div class="stat-val" id="statCircuits">0</div><div class="stat-lbl">Total</div></div>
         <div class="stat-card"><div class="stat-val" id="statCircuitsEcl">0</div><div class="stat-lbl">Éclairage</div></div>
         <div class="stat-card"><div class="stat-val" id="statCircuitsPrises">0</div><div class="stat-lbl">Prises</div></div>
-        <div class="stat-card" style="visibility:hidden;border:none;background:none;"></div>
       </div>
       <div class="circuit-list" id="circuitList">
         <button class="btn" style="width:100%;font-size:10px;margin-bottom:6px" onclick="addCircuit()">+ Nouveau circuit</button>
@@ -3134,6 +3133,7 @@ function placeElement(x, y) {
   state.elements.push(el);
   toast('Élément posé');
   draw();
+  renderCircuits();
 }
 
 function finishCable() {
@@ -3244,6 +3244,7 @@ function deleteSelected() {
   saveToLocalStorage();
   updateProps();
   draw();
+  renderCircuits();
   toast('Supprimé');
 }
 
@@ -3406,7 +3407,11 @@ function updateProps() {
 }
 
 function updateProp(key, val) {
-  if (state.selected) { state.selected[key] = val; draw(); }
+  if (state.selected) {
+    state.selected[key] = val;
+    draw();
+    if (key === 'circuitId') renderCircuits();
+  }
 }
 function updatePropCoord(key, val) {
   if (state.selected) { state.selected[key] = parseFloat(val) || 0; draw(); }
@@ -3447,19 +3452,95 @@ function getActiveCircuit() {
 
 function renderCircuits() {
   const list = document.getElementById('circuitList');
-  list.innerHTML = `<button class="btn" style="width:100%;font-size:10px;margin-bottom:6px" onclick="addCircuit()">+ Nouveau circuit</button>`;
-  state.circuits.forEach(c => {
+  list.innerHTML = '';
+
+  // ── Label lisible d'un type d'élément ─────────────────────────
+  const getLabel = type => {
+    const btn = document.querySelector(`[data-type="${type}"]`);
+    return btn ? btn.textContent.trim() : type;
+  };
+
+  // ── Compter les éléments électriques par circuit ───────────────
+  const byCircuit = {};
+  state.elements.forEach(e => {
+    if (CABLE_TOOLS.includes(e.type) || !e.circuitId) return;
+    if (!byCircuit[e.circuitId]) byCircuit[e.circuitId] = {};
+    byCircuit[e.circuitId][e.type] = (byCircuit[e.circuitId][e.type] || 0) + 1;
+  });
+
+  const activeId  = getActiveCircuit();
+  const usedIds   = new Set(Object.keys(byCircuit).map(Number));
+  const used      = state.circuits.filter(c => usedIds.has(c.id) || c.id === activeId);
+  const unused    = state.circuits.filter(c => !usedIds.has(c.id) && c.id !== activeId);
+
+  // ── Créer une carte de circuit ─────────────────────────────────
+  const makeCard = (c, dimmed = false) => {
+    const elsByType = byCircuit[c.id] || {};
+    const total     = Object.values(elsByType).reduce((s, v) => s + v, 0);
+    const summary   = Object.entries(elsByType)
+      .map(([type, n]) => n > 1 ? `${getLabel(type)} ×${n}` : getLabel(type))
+      .join(', ');
+
     const div = document.createElement('div');
-    div.className = 'circuit-item' + (getActiveCircuit() === c.id ? ' active' : '');
+    div.className  = 'circuit-item' + (activeId === c.id ? ' active' : '');
     div.dataset.id = c.id;
-    div.innerHTML = `<div class="circuit-name"><span class="circuit-dot" style="background:${c.color}"></span>${c.name}</div>
-      <div class="circuit-info">${c.ampere}</div>`;
+    if (dimmed) div.style.opacity = '0.45';
+
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+        <div class="circuit-name" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <span class="circuit-dot" style="background:${c.color};flex-shrink:0;"></span>${c.name}
+        </div>
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text2);flex-shrink:0;">${c.ampere}</span>
+      </div>
+      ${total > 0
+        ? `<div style="font-size:9px;color:var(--text2);margin-top:3px;line-height:1.4;">${summary}</div>
+           <div style="font-size:9px;font-weight:700;color:var(--accent);margin-top:2px;">${total} élément${total > 1 ? 's' : ''}</div>`
+        : `<div style="font-size:9px;color:var(--text2);margin-top:2px;font-style:italic;">Circuit actif — aucun élément</div>`
+      }`;
+
     div.onclick = () => {
       document.querySelectorAll('.circuit-item').forEach(el => el.classList.remove('active'));
       div.classList.add('active');
+      if (dimmed) div.style.opacity = '1';
     };
-    list.appendChild(div);
-  });
+    return div;
+  };
+
+  // ── Circuits utilisés (+ circuit actif) ───────────────────────
+  if (used.length === 0) {
+    const tip = document.createElement('div');
+    tip.style.cssText = 'font-size:10px;color:var(--text2);padding:6px 4px;font-style:italic;';
+    tip.textContent = 'Pose des éléments pour les voir apparaître ici.';
+    list.appendChild(tip);
+  }
+  used.forEach(c => list.appendChild(makeCard(c, false)));
+
+  // ── Circuits disponibles (non utilisés) ───────────────────────
+  if (unused.length > 0) {
+    const details = document.createElement('details');
+    details.style.cssText = 'margin-top:6px;';
+    const summary = document.createElement('summary');
+    summary.style.cssText = 'font-size:9px;color:var(--text2);cursor:pointer;padding:5px 4px;'
+      + 'text-transform:uppercase;letter-spacing:0.05em;list-style:none;user-select:none;';
+    const updateSummary = () => {
+      summary.textContent = (details.open ? '▾ ' : '▸ ')
+        + `${unused.length} circuit${unused.length > 1 ? 's' : ''} disponible${unused.length > 1 ? 's' : ''}`;
+    };
+    updateSummary();
+    details.ontoggle = updateSummary;
+    details.appendChild(summary);
+    unused.forEach(c => details.appendChild(makeCard(c, true)));
+    list.appendChild(details);
+  }
+
+  // ── Nouveau circuit ────────────────────────────────────────────
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.style.cssText = 'width:100%;font-size:10px;margin-top:6px;';
+  btn.textContent = '+ Nouveau circuit';
+  btn.onclick = addCircuit;
+  list.appendChild(btn);
 }
 
 function addCircuit() {
@@ -3591,7 +3672,7 @@ function clearAll() {
   showConfirm('Effacer tout le plan ?', () => {
     state.elements = []; state.walls = []; state.cables = []; state.rooms = [];
     state.selected = null;
-    saveToLocalStorage(); updateProps(); updateRoomList(); draw();
+    saveToLocalStorage(); updateProps(); updateRoomList(); draw(); renderCircuits();
     toast('Plan effacé');
   });
 }
