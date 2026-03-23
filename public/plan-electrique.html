@@ -586,6 +586,7 @@
   </div>
   <div class="header-right">
     <button class="btn" onclick="openCableCalc()" style="border-color:#4fc3f7;color:#4fc3f7;" title="Calculer les longueurs de câble">📐 Câbles</button>
+    <button class="btn" onclick="printPlan()" style="border-color:#a3e635;color:#a3e635;" title="Imprimer le plan sur fond blanc pour le chantier">🖨 Imprimer</button>
     <button class="btn" onclick="exportPNG()">📥 Export PNG</button>
     <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;">📄 Export PDF</button>
     <button class="btn" onclick="saveProject()">💾 Sauvegarder</button>
@@ -982,22 +983,51 @@
       </div>
     </div>
 
+    <!-- ── APPAREILLAGE ─────────────────────────────────────── -->
     <div class="panel-section">
-      <div class="panel-title">📊 Statistiques</div>
+      <div class="panel-title">📦 Appareillage</div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-val" id="statElements">0</div><div class="stat-lbl">Éléments</div></div>
+        <div class="stat-card"><div class="stat-val" id="statPrise16">0</div><div class="stat-lbl">Prises 16A</div></div>
+        <div class="stat-card"><div class="stat-val" id="statPrise20">0</div><div class="stat-lbl">Prises 20A</div></div>
+        <div class="stat-card"><div class="stat-val" id="statInter">0</div><div class="stat-lbl">Interrupteurs</div></div>
+        <div class="stat-card"><div class="stat-val" id="statVev">0</div><div class="stat-lbl">Va-et-vient</div></div>
+        <div class="stat-card"><div class="stat-val" id="statBouton">0</div><div class="stat-lbl">Boutons P.</div></div>
+        <div class="stat-card"><div class="stat-val" id="statVariateur">0</div><div class="stat-lbl">Variateurs</div></div>
         <div class="stat-card"><div class="stat-val" id="statLumiere">0</div><div class="stat-lbl">Luminaires</div></div>
-        <div class="stat-card"><div class="stat-val" id="statPrises">0</div><div class="stat-lbl">Prises</div></div>
-        <div class="stat-card"><div class="stat-val" id="statInterrupteurs">0</div><div class="stat-lbl">Interrupteurs</div></div>
-        <div class="stat-card"><div class="stat-val" id="statBoutons">0</div><div class="stat-lbl">Boutons P.</div></div>
-        <div class="stat-card"><div class="stat-val" id="statCircuits">0</div><div class="stat-lbl">Circuits</div></div>
-        <div class="stat-card"><div class="stat-val" id="statCircuitsEcl">0</div><div class="stat-lbl">Circuits écl.</div></div>
-        <div class="stat-card"><div class="stat-val" id="statCircuitsPrises">0</div><div class="stat-lbl">Circuits prises</div></div>
+        <div class="stat-card"><div class="stat-val" id="statRj45">0</div><div class="stat-lbl">RJ45</div></div>
+        <div class="stat-card"><div class="stat-val" id="statConvecteur">0</div><div class="stat-lbl">Convecteurs</div></div>
+        <div class="stat-card"><div class="stat-val" id="statBoite">0</div><div class="stat-lbl">Boîtes raccord.</div></div>
       </div>
     </div>
 
+    <!-- ── ÉQUIPEMENTS SPÉCIAUX ──────────────────────────────── -->
+    <div class="panel-section">
+      <div class="panel-title">🔌 Équipements spéciaux</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="statCumulus">0</div><div class="stat-lbl">Cumulus</div></div>
+        <div class="stat-card"><div class="stat-val" id="statVmc">0</div><div class="stat-lbl">VMC</div></div>
+        <div class="stat-card"><div class="stat-val" id="statSecheServ">0</div><div class="stat-lbl">Sèche-serv.</div></div>
+        <div class="stat-card"><div class="stat-val" id="statClimPac">0</div><div class="stat-lbl">Clim / PAC</div></div>
+        <div class="stat-card"><div class="stat-val" id="statTableauEl">0</div><div class="stat-lbl">Tableaux</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCompteur">0</div><div class="stat-lbl">Compteurs</div></div>
+      </div>
+    </div>
+
+    <!-- ── LONGUEURS DE CÂBLES ───────────────────────────────── -->
+    <div class="panel-section">
+      <div class="panel-title">📐 Câbles (longueur plan)</div>
+      <div id="statCablesList" style="padding:2px 8px 8px;font-size:11px;"></div>
+    </div>
+
+    <!-- ── CIRCUITS ─────────────────────────────────────────── -->
     <div class="panel-section">
       <div class="panel-title">⚡ Circuits</div>
+      <div class="stats-grid" style="margin-bottom:8px;">
+        <div class="stat-card"><div class="stat-val" id="statCircuits">0</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCircuitsEcl">0</div><div class="stat-lbl">Éclairage</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCircuitsPrises">0</div><div class="stat-lbl">Prises</div></div>
+        <div class="stat-card" style="visibility:hidden;border:none;background:none;"></div>
+      </div>
       <div class="circuit-list" id="circuitList">
         <button class="btn" style="width:100%;font-size:10px;margin-bottom:6px" onclick="addCircuit()">+ Nouveau circuit</button>
       </div>
@@ -1231,6 +1261,7 @@ let state = {
   grid: 20,
   scaleCm: 20,        // cm par carreau de grille (20px = 20cm par défaut)
   showDimensions: false, // afficher les cotations sur les murs
+  printMode: false,      // fond blanc pour impression chantier
   // cable drawing state
   cableStart: null,
   cablePoints: [],
@@ -2609,7 +2640,7 @@ function draw() {
 
   // Grid
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.strokeStyle = state.printMode ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.04)';
   ctx.lineWidth = 1;
   const gs = state.grid * state.zoom;
   const ox = ((state.pan.x % gs) + gs) % gs;
@@ -3396,29 +3427,65 @@ function addCircuit() {
 //  STATS
 // ══════════════════════════════════════════════════════════════
 function updateStats() {
-  const TYPES_PRISE        = e => ['prise','prise20','prise-rj45'].includes(e.type);
-  const TYPES_INTER        = e => ['interrupteur','va-et-vient','variateur'].includes(e.type);
-  const TYPES_BOUTON       = e => e.type === 'bouton-poussoir';
-  const TYPES_LUMIERE      = e => ['luminaire','spot','applique','hublot'].includes(e.type);
+  const count = type => state.elements.filter(e => e.type === type).length;
+  const countMulti = (...types) => state.elements.filter(e => types.includes(e.type)).length;
 
-  const prises        = state.elements.filter(TYPES_PRISE).length;
-  const interrupteurs = state.elements.filter(TYPES_INTER).length;
-  const boutons       = state.elements.filter(TYPES_BOUTON).length;
-  const lumiere       = state.elements.filter(TYPES_LUMIERE).length;
+  // ── Appareillage ────────────────────────────────────────────
+  document.getElementById('statPrise16').textContent    = count('prise');
+  document.getElementById('statPrise20').textContent    = count('prise20');
+  document.getElementById('statInter').textContent      = count('interrupteur');
+  document.getElementById('statVev').textContent        = count('va-et-vient');
+  document.getElementById('statBouton').textContent     = count('bouton-poussoir');
+  document.getElementById('statVariateur').textContent  = count('variateur');
+  document.getElementById('statLumiere').textContent    = countMulti('luminaire','spot','applique','hublot');
+  document.getElementById('statRj45').textContent       = count('prise-rj45');
+  document.getElementById('statConvecteur').textContent = count('convecteur');
+  document.getElementById('statBoite').textContent      = count('boite-raccordement');
 
-  // Circuits contenant au moins un luminaire (éclairage)
-  const circuitsEcl   = new Set(state.elements.filter(TYPES_LUMIERE).map(e => e.circuitId).filter(Boolean)).size;
-  // Circuits contenant au moins une prise
-  const circuitsPrise = new Set(state.elements.filter(TYPES_PRISE).map(e => e.circuitId).filter(Boolean)).size;
+  // ── Équipements spéciaux ─────────────────────────────────────
+  document.getElementById('statCumulus').textContent    = count('cumulus');
+  document.getElementById('statVmc').textContent        = count('vmc');
+  document.getElementById('statSecheServ').textContent  = count('seche-serviette');
+  document.getElementById('statClimPac').textContent    = countMulti('clim','pac');
+  document.getElementById('statTableauEl').textContent  = count('tableau');
+  document.getElementById('statCompteur').textContent   = count('compteur');
 
-  document.getElementById('statElements').textContent     = state.elements.length + state.walls.length + state.cables.length;
-  document.getElementById('statLumiere').textContent      = lumiere;
-  document.getElementById('statPrises').textContent       = prises;
-  document.getElementById('statInterrupteurs').textContent= interrupteurs;
-  document.getElementById('statBoutons').textContent      = boutons;
-  document.getElementById('statCircuits').textContent     = state.circuits.length;
-  document.getElementById('statCircuitsEcl').textContent  = circuitsEcl;
-  document.getElementById('statCircuitsPrises').textContent = circuitsPrise;
+  // ── Longueurs de câbles (tracé plan) ─────────────────────────
+  const CABLE_TYPES = [
+    { type:'cable-phase',   label:'Éclairage',   color:'#ffe082' },
+    { type:'cable-neutre',  label:'Prises',       color:'#4fc3f7' },
+    { type:'cable-terre',   label:'Équipements',  color:'#66bb6a' },
+    { type:'cable-telecom', label:'Télécom',      color:'#ce93d8' },
+  ];
+  let totalLen = 0;
+  const rows = CABLE_TYPES.map(ct => {
+    const len = state.cables.filter(c => c.type === ct.type).reduce((s,c) => s + cableLength(c), 0);
+    totalLen += len;
+    return { ...ct, len };
+  }).filter(r => r.len > 0);
+
+  const cablesEl = document.getElementById('statCablesList');
+  if (!rows.length) {
+    cablesEl.innerHTML = '<div style="color:var(--text2);font-size:10px;padding:4px 0;">Aucun câble tracé</div>';
+  } else {
+    cablesEl.innerHTML = rows.map(r =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span><span style="color:${r.color};">●</span> <span style="color:var(--text2);">${r.label}</span></span>
+        <span style="font-weight:700;color:var(--text);">${r.len.toFixed(1)} m</span>
+      </div>`
+    ).join('') +
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 0;">
+      <span style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);">Total plan</span>
+      <span style="font-weight:800;color:var(--accent);">${totalLen.toFixed(1)} m</span>
+    </div>`;
+  }
+
+  // ── Circuits ─────────────────────────────────────────────────
+  const ecl   = new Set(state.elements.filter(e => ['luminaire','spot','applique','hublot'].includes(e.type)).map(e=>e.circuitId).filter(Boolean)).size;
+  const prise = new Set(state.elements.filter(e => ['prise','prise20'].includes(e.type)).map(e=>e.circuitId).filter(Boolean)).size;
+  document.getElementById('statCircuits').textContent      = state.circuits.length;
+  document.getElementById('statCircuitsEcl').textContent   = ecl;
+  document.getElementById('statCircuitsPrises').textContent= prise;
 }
 
 function updateRoomList() {
@@ -3781,10 +3848,11 @@ function buildExportCanvas() {
   return finalCanvas;
 }
 
-// ── Helper : canvas plan haute résolution (sans légende, pour PDF) ──
+// ── Helper : canvas plan haute résolution (sans légende, pour PDF/impression) ──
 // Re-rend la scène à 2480×1748 px (~210 DPI A4) en recalculant zoom/pan
 // pour faire tenir tout le contenu, indépendamment du zoom écran.
-function buildPlanOnlyCanvas() {
+// bgColor : '#0d0f12' (défaut sombre) ou '#ffffff' (impression chantier)
+function buildPlanOnlyCanvas(bgColor = '#0d0f12') {
   const W = 2480, H = 1748; // A4 paysage ~210 DPI
 
   // ── Bounding box en coordonnées monde ──────────────────────────
@@ -3813,33 +3881,36 @@ function buildPlanOnlyCanvas() {
   const savedW    = canvas.width,  savedH    = canvas.height;
   const savedZoom = state.zoom,    savedPan  = { ...state.pan };
   const savedSel  = state.selected, savedMode = state.mode;
+  const savedPrint = state.printMode;
 
   // ── Render haute résolution ────────────────────────────────────
   canvas.width  = W;
   canvas.height = H;
-  state.zoom     = zoom;
-  state.pan      = { x: panX, y: panY };
-  state.selected = null;   // pas de surlignage sélection
-  state.mode     = 'select'; // pas de tracé en cours
+  state.zoom      = zoom;
+  state.pan       = { x: panX, y: panY };
+  state.selected  = null;
+  state.mode      = 'select';
+  state.printMode = (bgColor !== '#0d0f12'); // grille foncée si fond blanc
 
   draw();
 
-  // ── Copie sur canvas opaque (fond sombre) ─────────────────────
+  // ── Copie sur canvas opaque ────────────────────────────────────
   const out = document.createElement('canvas');
   out.width = W; out.height = H;
   const oc = out.getContext('2d');
-  oc.fillStyle = '#0d0f12';
+  oc.fillStyle = bgColor;
   oc.fillRect(0, 0, W, H);
   oc.drawImage(canvas, 0, 0);
 
   // ── Restauration ──────────────────────────────────────────────
   canvas.width  = savedW;
   canvas.height = savedH;
-  state.zoom     = savedZoom;
-  state.pan      = savedPan;
-  state.selected = savedSel;
-  state.mode     = savedMode;
-  draw(); // redessine le canvas écran
+  state.zoom      = savedZoom;
+  state.pan       = savedPan;
+  state.selected  = savedSel;
+  state.mode      = savedMode;
+  state.printMode = savedPrint;
+  draw();
 
   return out;
 }
@@ -4247,6 +4318,116 @@ function openCableCalc() {
 
   document.getElementById('cableCalcContent').innerHTML = html;
   document.getElementById('cableModal').style.display = 'flex';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  IMPRESSION CHANTIER (fond blanc)
+// ══════════════════════════════════════════════════════════════
+function printPlan() {
+  toast('Génération du plan chantier…');
+  setTimeout(() => {
+    const planCanvas = buildPlanOnlyCanvas('#ffffff');
+    const imgData    = planCanvas.toDataURL('image/jpeg', 0.95);
+    const projectName = document.getElementById('projectName').value || 'Plan électrique';
+    const date        = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // ── Résumé statistiques pour le chantier ─────────────────
+    const count = type => state.elements.filter(e => e.type === type).length;
+    const countMulti = (...types) => state.elements.filter(e => types.includes(e.type)).length;
+    const lenType = type => state.cables.filter(c => c.type === type).reduce((s,c) => s + cableLength(c), 0);
+
+    const statLines = [
+      ['Prises 16A',   count('prise')],
+      ['Prises 20A',   count('prise20')],
+      ['Interrupteurs',count('interrupteur')],
+      ['Va-et-vient',  count('va-et-vient')],
+      ['Boutons P.',   count('bouton-poussoir')],
+      ['Variateurs',   count('variateur')],
+      ['Luminaires',   countMulti('luminaire','spot','applique','hublot')],
+      ['RJ45',         count('prise-rj45')],
+      ['Convecteurs',  count('convecteur')],
+      ['Boîtes raccord.',count('boite-raccordement')],
+      ['Cumulus',      count('cumulus')],
+      ['VMC',          count('vmc')],
+    ].filter(([,v]) => v > 0);
+
+    const cableLines = [
+      ['Éclairage',   lenType('cable-phase'),   '#d97706'],
+      ['Prises',      lenType('cable-neutre'),   '#0284c7'],
+      ['Équipements', lenType('cable-terre'),    '#16a34a'],
+      ['Télécom',     lenType('cable-telecom'),  '#9333ea'],
+    ].filter(([,v]) => v > 0);
+
+    const statsHTML = statLines.map(([l,v]) =>
+      `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #e5e7eb;">
+        <span style="color:#6b7280;font-size:9px;">${esc(l)}</span>
+        <strong style="font-size:9px;">${v}</strong>
+      </div>`
+    ).join('');
+
+    const cablesHTML = cableLines.map(([l,v,col]) =>
+      `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #e5e7eb;">
+        <span style="color:${col};font-size:9px;">● ${esc(l)}</span>
+        <strong style="font-size:9px;">${v.toFixed(1)} m</strong>
+      </div>`
+    ).join('');
+
+    const legendItems = getLegendItems();
+    const legendHTML = legendItems.map(item => {
+      let sym = '';
+      if (item.kind === 'cable') {
+        const color = CABLE_COLORS[item.type] || '#555';
+        sym = `<svg width="22" height="8"><line x1="1" y1="4" x2="21" y2="4" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+      } else {
+        const tmp = document.createElement('canvas'); tmp.width=22; tmp.height=22;
+        const tc = tmp.getContext('2d'); tc.translate(11,11);
+        if (SYMBOLS[item.type]) { try { tc.save(); SYMBOLS[item.type](tc,{type:item.type}); tc.restore(); } catch(e){} }
+        sym = `<img src="${tmp.toDataURL()}" width="18" height="18" style="display:block;">`;
+      }
+      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+        ${sym}<span style="font-size:8px;color:#374151;">${esc(item.label)}</span>
+      </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html lang="fr"><head>
+  <meta charset="utf-8"><title>${esc(projectName)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 0; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:297mm; height:210mm; background:#fff; font-family:system-ui,sans-serif; overflow:hidden; }
+    .wrap { display:flex; width:297mm; height:210mm; }
+    .plan { flex:1; min-width:0; position:relative; }
+    .plan img { width:100%; height:210mm; object-fit:contain; object-position:top left; display:block; }
+    .sidebar { width:52mm; flex-shrink:0; border-left:1px solid #d1d5db; display:flex; flex-direction:column; padding:8px; gap:6px; }
+    .hd { border-bottom:2px solid #1e3a5f; padding-bottom:6px; margin-bottom:2px; }
+    .hd-title { font-size:11px; font-weight:800; color:#1e3a5f; }
+    .hd-sub { font-size:8px; color:#6b7280; margin-top:2px; }
+    .section-title { font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#374151; margin-bottom:3px; padding-bottom:2px; border-bottom:1px solid #d1d5db; }
+    .footer { margin-top:auto; font-size:7px; color:#9ca3af; border-top:1px solid #e5e7eb; padding-top:4px; }
+    @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  </style>
+</head><body>
+  <div class="wrap">
+    <div class="plan"><img src="${imgData}" alt="plan"/></div>
+    <div class="sidebar">
+      <div class="hd">
+        <div class="hd-title">${esc(projectName)}</div>
+        <div class="hd-sub">Plan chantier · ${esc(date)}</div>
+      </div>
+      ${statsHTML ? `<div><div class="section-title">Appareillage</div>${statsHTML}</div>` : ''}
+      ${cablesHTML ? `<div><div class="section-title">Câbles (plan)</div>${cablesHTML}</div>` : ''}
+      ${legendHTML ? `<div><div class="section-title">Légende</div>${legendHTML}</div>` : ''}
+      <div class="footer">Red Den Connexion · PlanElec Pro</div>
+    </div>
+  </div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=1100,height=800');
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  }, 80);
 }
 
 function openAIImport() {
