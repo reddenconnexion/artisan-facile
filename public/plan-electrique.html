@@ -3456,8 +3456,12 @@ function updateProps() {
 function updateProp(key, val) {
   if (state.selected) {
     state.selected[key] = val;
+    if (key === 'circuitId') {
+      const c = state.circuits.find(c => c.id === val);
+      state.selected.circuit = c ? c.name : '';
+      renderCircuits();
+    }
     draw();
-    if (key === 'circuitId') renderCircuits();
   }
 }
 function updatePropCoord(key, val) {
