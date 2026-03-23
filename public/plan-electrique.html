@@ -1890,7 +1890,7 @@ function drawBoiteRaccordement(c) {
   c.stroke();
 }
 
-/ ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
+// ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
 function drawLaveLinge(c) {
   // Corps machine : carré arrondi
   c.strokeStyle = '#a5d6a7'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
@@ -2793,9 +2793,9 @@ canvas.addEventListener('mousemove', (e) => {
   if (e.buttons === 0) {
     mouseDownPos = null;
     if (isPanning && !spaceDown) { isPanning = false; canvas.style.cursor = ''; }
-    if (isDraggingEl)  { isDraggingEl = false;  updateProps(); draw(); return; }
-    if (isRotating)    { isRotating = false;    updateProps(); draw(); return; }
-    if (isResizingEl)  { isResizingEl = false;  updateProps(); draw(); return; }
+    if (isDraggingEl)  { isDraggingEl = false;  saveToLocalStorage(); updateProps(); draw(); return; }
+    if (isRotating)    { isRotating = false;    saveToLocalStorage(); updateProps(); draw(); return; }
+    if (isResizingEl)  { isResizingEl = false;  saveToLocalStorage(); updateProps(); draw(); return; }
   }
 
   const r = canvas.getBoundingClientRect();
@@ -2938,8 +2938,8 @@ canvas.addEventListener('mouseup', (e) => {
     return;
   }
   if (isResizingEl) { isResizingEl = false; mouseDragged = false; saveToLocalStorage(); updateProps(); draw(); return; }
-  if (isRotating)   { isRotating = false;   updateProps(); draw(); return; }
-  if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); return; }
+  if (isRotating)   { isRotating = false;   saveToLocalStorage(); updateProps(); draw(); return; }
+  if (isDraggingEl) { isDraggingEl = false;  saveToLocalStorage(); updateProps(); draw(); return; }
   if (isPanning)    { isPanning = false; canvas.style.cursor = spaceDown ? 'grab' : ''; return; }
   if (mouseDragged) { mouseDragged = false; return; }
 });
@@ -3141,6 +3141,7 @@ function deleteSelected() {
   state.walls = state.walls.filter(w => w !== state.selected);
   state.rooms = state.rooms.filter(r => r !== state.selected);
   state.selected = null;
+  saveToLocalStorage();
   updateProps();
   draw();
   toast('Supprimé');
@@ -3437,7 +3438,7 @@ function clearAll() {
   showConfirm('Effacer tout le plan ?', () => {
     state.elements = []; state.walls = []; state.cables = []; state.rooms = [];
     state.selected = null;
-    updateProps(); updateRoomList(); draw();
+    saveToLocalStorage(); updateProps(); updateRoomList(); draw();
     toast('Plan effacé');
   });
 }
@@ -4656,8 +4657,8 @@ function toast(msg) {
 
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
-    if (isRotating)   { isRotating = false;   updateProps(); draw(); touch = {}; return; }
-    if (isDraggingEl) { isDraggingEl = false;  updateProps(); draw(); touch = {}; return; }
+    if (isRotating)   { isRotating = false;   saveToLocalStorage(); updateProps(); draw(); touch = {}; return; }
+    if (isDraggingEl) { isDraggingEl = false;  saveToLocalStorage(); updateProps(); draw(); touch = {}; return; }
     if (touch.fingers !== 1 || touch.moved) { touch = {}; return; }
     // Tap simple → même logique que click
     const t = e.changedTouches[0];
