@@ -1336,7 +1336,7 @@ function drawBoiteRaccordement(c) {
   c.stroke();
 }
 
-/ ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
+// ── LAVE-LINGE (NF C 15-100) : prise 2P+T + M (machine) ──
 function drawLaveLinge(c) {
   // Corps machine : carré arrondi
   c.strokeStyle = '#a5d6a7'; c.lineWidth = 1.8; c.fillStyle = '#161a1f';
@@ -2166,6 +2166,7 @@ function deleteSelected() {
   state.walls = state.walls.filter(w => w !== state.selected);
   state.rooms = state.rooms.filter(r => r !== state.selected);
   state.selected = null;
+  saveToLocalStorage();
   updateProps();
   draw();
   toast('Supprimé');
@@ -2353,7 +2354,7 @@ function clearAll() {
   showConfirm('Effacer tout le plan ?', () => {
     state.elements = []; state.walls = []; state.cables = []; state.rooms = [];
     state.selected = null;
-    updateProps(); updateRoomList(); draw();
+    saveToLocalStorage(); updateProps(); updateRoomList(); draw();
     toast('Plan effacé');
   });
 }
