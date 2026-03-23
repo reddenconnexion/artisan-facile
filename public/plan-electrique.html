@@ -630,6 +630,7 @@
     <button class="btn" onclick="printPlan()" style="border-color:#a3e635;color:#a3e635;" title="Imprimer le plan chantier (fond blanc)">🖨 Imprimer</button>
     <button class="btn" onclick="exportPNG()" title="Exporter en PNG">📥 PNG</button>
     <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;" title="Exporter en PDF">📄 PDF</button>
+    <button class="btn" onclick="exportDevis()" style="border-color:#a855f7;color:#a855f7;" title="Synthèse complète pour devis">📋 Devis</button>
   </div>
   <div class="header-sep"></div>
   <!-- Intégrations -->
@@ -4672,6 +4673,297 @@ function printPlan() {
     win.document.write(html);
     win.document.close();
     win.onload = () => { win.focus(); win.print(); };
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXPORT DEVIS — synthèse complète multi-pages
+// ══════════════════════════════════════════════════════════════
+function exportDevis() {
+  toast('Génération du devis…');
+  setTimeout(() => {
+    const projectName = document.getElementById('projectName').value || 'Plan électrique';
+    const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const getLabel = type => {
+      const btn = document.querySelector(`[data-type="${type}"]`);
+      const fallback = {
+        'cable-phase':'Câble éclairage','cable-neutre':'Câble prises',
+        'cable-terre':'Câble équipements','cable-telecom':'Câble télécom'
+      };
+      return btn ? btn.textContent.trim() : (fallback[type] || type);
+    };
+
+    // ── Catégories de matériaux ────────────────────────────
+    const CATEGORIES = [
+      { label: 'Distribution / TGBT', types: ['tableau','compteur','gaine-tech','boite-raccordement'] },
+      { label: 'Prises de courant',   types: ['prise','prise20'] },
+      { label: 'Commande / Variation',types: ['interrupteur','va-et-vient','bouton-poussoir','variateur','volet'] },
+      { label: 'Éclairage',           types: ['luminaire','spot','applique','hublot'] },
+      { label: 'Chauffage',           types: ['convecteur','seche-serviette','clim','pac'] },
+      { label: 'Ventilation',         types: ['vmc'] },
+      { label: 'Eau chaude',          types: ['cumulus','chaudiere'] },
+      { label: 'Électroménager dédié',types: ['lave-linge','lave-vaisselle','seche-linge','refrigerateur','four','plaque','micro-ondes','hotte','congelateur'] },
+      { label: 'Multimédia / Sécurité',types: ['prise-rj45','alarme','portail'] },
+    ];
+    const CABLE_META = [
+      { type:'cable-phase',   label:'Câble éclairage (1,5 mm²)',   color:'#d97706' },
+      { type:'cable-neutre',  label:'Câble prises (2,5 mm²)',       color:'#0284c7' },
+      { type:'cable-terre',   label:'Câble équipements (6 mm²)',    color:'#16a34a' },
+      { type:'cable-telecom', label:'Câble télécom / VDI',          color:'#9333ea' },
+    ];
+
+    // ── Agrégation : totaux matériaux ─────────────────────
+    const matTotals = {};
+    state.elements.forEach(e => {
+      if (CABLE_TOOLS.includes(e.type) || FURNITURE_TYPES.has(e.type)) return;
+      matTotals[e.type] = (matTotals[e.type] || 0) + 1;
+    });
+
+    // ── Agrégation : éléments par circuit ─────────────────
+    const byCircuit = {};
+    state.circuits.forEach(c => { byCircuit[c.id] = []; });
+    const unassigned = [];
+    state.elements.forEach(e => {
+      if (CABLE_TOOLS.includes(e.type) || FURNITURE_TYPES.has(e.type)) return;
+      if (e.circuitId && byCircuit[e.circuitId] !== undefined) byCircuit[e.circuitId].push(e);
+      else unassigned.push(e);
+    });
+
+    // ── Longueurs de câble ────────────────────────────────
+    const cabLengths = {};
+    state.cables.forEach(c => { cabLengths[c.type] = (cabLengths[c.type] || 0) + cableLength(c); });
+
+    // ── Mini-plan ─────────────────────────────────────────
+    const planCanvas = buildPlanOnlyCanvas('#ffffff');
+    const planImg = planCanvas.toDataURL('image/jpeg', 0.88);
+
+    // ── Totaux globaux ────────────────────────────────────
+    const totalEls  = Object.values(matTotals).reduce((s,v) => s+v, 0);
+    const totalCab  = Object.values(cabLengths).reduce((s,v) => s+v, 0);
+
+    // ══ SECTION 1 — PAGE DE SYNTHÈSE ══════════════════════
+    const circuitSummaryRows = state.circuits.map(c => {
+      const els = byCircuit[c.id] || [];
+      const byType = {};
+      els.forEach(e => { byType[e.type] = (byType[e.type]||0)+1; });
+      const detail = Object.entries(byType).map(([t,n]) => `${esc(getLabel(t))} ×${n}`).join(', ') || '<em style="color:#9ca3af">— aucun élément</em>';
+      return `<tr>
+        <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.color};margin-right:5px;"></span>${esc(c.name)}</td>
+        <td style="text-align:center;font-family:monospace;">${esc(c.ampere)}</td>
+        <td style="text-align:center;font-weight:700;">${els.length}</td>
+        <td style="font-size:9px;color:#374151;">${detail}</td>
+      </tr>`;
+    }).join('');
+
+    // ══ SECTION 2 — DÉTAIL PAR CIRCUIT ════════════════════
+    const circuitDetailBlocks = state.circuits.map(c => {
+      const els = byCircuit[c.id] || [];
+      if (els.length === 0) return '';
+      const rows = els.map(e =>
+        `<tr>
+          <td style="padding:4px 8px;">${esc(getLabel(e.type))}</td>
+          <td style="padding:4px 8px;color:#6b7280;">${esc(e.label || '—')}</td>
+          <td style="padding:4px 8px;text-align:center;">1</td>
+          <td style="padding:4px 8px;"></td>
+          <td style="padding:4px 8px;"></td>
+        </tr>`
+      ).join('');
+      return `
+        <div class="circuit-block">
+          <div class="circuit-header">
+            <span class="circuit-dot" style="background:${c.color};"></span>
+            <strong>${esc(c.name)}</strong>&nbsp;&nbsp;
+            <span class="badge">${esc(c.ampere)}</span>&nbsp;&nbsp;
+            <span style="color:#6b7280;font-size:10px;">${els.length} élément${els.length>1?'s':''}</span>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Désignation</th><th>Repère / étiquette</th><th>Qté</th><th>PU HT</th><th>Total HT</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    const unassignedBlock = unassigned.length > 0 ? `
+      <div class="circuit-block" style="border-color:#ef4444;">
+        <div class="circuit-header"><span class="circuit-dot" style="background:#ef4444;"></span><strong style="color:#ef4444;">Éléments non assignés</strong>&nbsp;&nbsp;<span style="color:#ef4444;font-size:10px;">${unassigned.length} élément${unassigned.length>1?'s':''}</span></div>
+        <table class="data-table">
+          <thead><tr><th>Désignation</th><th>Repère</th><th>Qté</th><th>PU HT</th><th>Total HT</th></tr></thead>
+          <tbody>${unassigned.map(e=>`<tr><td style="padding:4px 8px;">${esc(getLabel(e.type))}</td><td style="padding:4px 8px;color:#6b7280;">${esc(e.label||'—')}</td><td style="padding:4px 8px;text-align:center;">1</td><td></td><td></td></tr>`).join('')}</tbody>
+        </table>
+      </div>` : '';
+
+    // ══ SECTION 3 — NOMENCLATURE ══════════════════════════
+    const catRows = CATEGORIES.map(cat => {
+      const items = cat.types.filter(t => matTotals[t]);
+      if (!items.length) return '';
+      const rows = items.map(t =>
+        `<tr>
+          <td style="padding:4px 8px;">${esc(getLabel(t))}</td>
+          <td style="padding:4px 8px;text-align:center;font-weight:700;">${matTotals[t]}</td>
+          <td style="padding:4px 8px;">unité</td>
+          <td style="padding:4px 8px;"></td>
+          <td style="padding:4px 8px;"></td>
+        </tr>`
+      ).join('');
+      return `<tbody>
+        <tr class="cat-header"><td colspan="5">${esc(cat.label)}</td></tr>
+        ${rows}
+      </tbody>`;
+    }).join('');
+
+    const cableRows = CABLE_META.filter(m => cabLengths[m.type]).map(m => {
+      const raw = cabLengths[m.type];
+      const withMargin = Math.ceil(raw * 1.15);
+      return `<tr>
+        <td style="padding:4px 8px;"><span style="color:${m.color};margin-right:5px;">●</span>${esc(m.label)}</td>
+        <td style="padding:4px 8px;text-align:center;font-family:monospace;">${raw.toFixed(1)} m</td>
+        <td style="padding:4px 8px;text-align:center;font-family:monospace;font-weight:700;">${withMargin} m</td>
+        <td style="padding:4px 8px;">ml</td>
+        <td style="padding:4px 8px;"></td>
+        <td style="padding:4px 8px;"></td>
+      </tr>`;
+    }).join('');
+
+    // ══ HTML FINAL ═════════════════════════════════════════
+    const html = `<!DOCTYPE html><html lang="fr"><head>
+<meta charset="utf-8">
+<title>Devis — ${esc(projectName)}</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm 12mm 12mm 12mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, sans-serif; font-size: 10px; color: #1f2937; background: #fff; }
+  @media print { .page-break { page-break-before: always; } }
+
+  /* En-tête */
+  .doc-header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e3a5f; padding-bottom:8px; margin-bottom:12px; }
+  .doc-title { font-size:20px; font-weight:800; color:#1e3a5f; line-height:1.1; }
+  .doc-sub { font-size:10px; color:#6b7280; margin-top:3px; }
+  .doc-logo { text-align:right; font-size:9px; color:#9ca3af; }
+
+  /* Section titles */
+  .section-title { font-size:12px; font-weight:800; color:#1e3a5f; text-transform:uppercase; letter-spacing:0.06em; border-left:4px solid #f5a623; padding-left:8px; margin:14px 0 8px 0; }
+
+  /* Summary cards */
+  .summary-grid { display:flex; gap:8px; margin-bottom:12px; }
+  .stat-card { flex:1; border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px; text-align:center; }
+  .stat-card .val { font-size:22px; font-weight:800; color:#1e3a5f; }
+  .stat-card .lbl { font-size:8px; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; }
+
+  /* Plan miniature */
+  .plan-wrap { border:1px solid #d1d5db; border-radius:6px; overflow:hidden; margin-bottom:12px; }
+  .plan-wrap img { width:100%; display:block; max-height:160mm; object-fit:contain; }
+
+  /* Table circuits summary */
+  .data-table { width:100%; border-collapse:collapse; font-size:9px; }
+  .data-table th { background:#1e3a5f; color:#fff; padding:5px 8px; text-align:left; font-size:8px; text-transform:uppercase; letter-spacing:0.04em; }
+  .data-table td { border-bottom:1px solid #e5e7eb; vertical-align:middle; }
+  .data-table tr:nth-child(even) td { background:#f9fafb; }
+
+  /* Circuit blocks */
+  .circuit-block { border:1px solid #e5e7eb; border-radius:6px; margin-bottom:8px; overflow:hidden; }
+  .circuit-header { background:#f3f4f6; padding:6px 10px; display:flex; align-items:center; gap:6px; font-size:10px; }
+  .circuit-dot { display:inline-block; width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .badge { background:#1e3a5f; color:#fff; font-size:8px; font-family:monospace; padding:1px 5px; border-radius:3px; }
+
+  /* Nomenclature */
+  .cat-header td { background:#e5e7eb; font-weight:700; font-size:9px; color:#374151; padding:4px 8px; text-transform:uppercase; letter-spacing:0.04em; }
+
+  /* Signature */
+  .signature-grid { display:flex; gap:16px; margin-top:16px; }
+  .sig-box { flex:1; border:1px solid #d1d5db; border-radius:4px; padding:10px; }
+  .sig-label { font-size:8px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; }
+  .sig-line { border-bottom:1px solid #d1d5db; margin-top:24px; }
+
+  .footer-bar { font-size:7px; color:#9ca3af; border-top:1px solid #e5e7eb; padding-top:5px; margin-top:10px; display:flex; justify-content:space-between; }
+  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style>
+</head><body>
+
+<!-- ═══════ PAGE 1 — SYNTHÈSE ═══════ -->
+<div class="doc-header">
+  <div>
+    <div class="doc-title">${esc(projectName)}</div>
+    <div class="doc-sub">Synthèse électrique · Établi le ${esc(date)}</div>
+  </div>
+  <div class="doc-logo">Red Den Connexion<br>PlanElec Pro</div>
+</div>
+
+<div class="summary-grid">
+  <div class="stat-card"><div class="val">${state.circuits.length}</div><div class="lbl">Circuits</div></div>
+  <div class="stat-card"><div class="val">${totalEls}</div><div class="lbl">Points électriques</div></div>
+  <div class="stat-card"><div class="val">${totalCab > 0 ? totalCab.toFixed(0)+' m' : '—'}</div><div class="lbl">Câblage plan</div></div>
+  <div class="stat-card"><div class="val">${state.walls.length}</div><div class="lbl">Segments mur</div></div>
+</div>
+
+<div class="plan-wrap"><img src="${planImg}" alt="Plan électrique"/></div>
+
+<div class="section-title">Récapitulatif des circuits</div>
+<table class="data-table">
+  <thead><tr><th>Circuit</th><th>Calibre</th><th style="text-align:center;">Éléments</th><th>Contenu</th></tr></thead>
+  <tbody>${circuitSummaryRows}</tbody>
+</table>
+
+<div class="footer-bar"><span>${esc(projectName)} · ${esc(date)}</span><span>Page 1/3 — Synthèse</span></div>
+
+<!-- ═══════ PAGE 2 — DÉTAIL PAR CIRCUIT ═══════ -->
+<div class="page-break"></div>
+<div class="doc-header">
+  <div><div class="doc-title">${esc(projectName)}</div><div class="doc-sub">Détail par circuit</div></div>
+  <div class="doc-logo">Red Den Connexion<br>PlanElec Pro</div>
+</div>
+
+<div class="section-title">Éléments par circuit</div>
+${circuitDetailBlocks || '<p style="color:#9ca3af;font-size:10px;font-style:italic;">Aucun élément assigné à un circuit.</p>'}
+${unassignedBlock}
+
+<div class="footer-bar"><span>${esc(projectName)} · ${esc(date)}</span><span>Page 2/3 — Détail circuits</span></div>
+
+<!-- ═══════ PAGE 3 — NOMENCLATURE ═══════ -->
+<div class="page-break"></div>
+<div class="doc-header">
+  <div><div class="doc-title">${esc(projectName)}</div><div class="doc-sub">Nomenclature matériaux · Base de chiffrage</div></div>
+  <div class="doc-logo">Red Den Connexion<br>PlanElec Pro</div>
+</div>
+
+<div class="section-title">Appareillage</div>
+<table class="data-table">
+  <thead><tr><th>Désignation</th><th style="text-align:center;">Quantité</th><th>Unité</th><th>PU HT</th><th>Total HT</th></tr></thead>
+  ${catRows || '<tbody><tr><td colspan="5" style="padding:8px;color:#9ca3af;font-style:italic;">Aucun appareillage sur le plan.</td></tr></tbody>'}
+</table>
+
+${cableRows ? `
+<div class="section-title" style="margin-top:14px;">Câblage</div>
+<p style="font-size:8px;color:#6b7280;margin-bottom:6px;">Longueurs issues du plan · +15 % de marge recommandée pour la mise en œuvre.</p>
+<table class="data-table">
+  <thead><tr><th>Type de câble</th><th style="text-align:center;">Longueur plan</th><th style="text-align:center;">Avec marge 15 %</th><th>Unité</th><th>PU HT</th><th>Total HT</th></tr></thead>
+  <tbody>${cableRows}</tbody>
+</table>` : ''}
+
+<div class="section-title" style="margin-top:14px;">Conditions de règlement</div>
+<table class="data-table">
+  <thead><tr><th>Désignation</th><th>Montant HT</th><th>TVA</th><th>Montant TTC</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:5px 8px;">Fournitures</td><td style="padding:5px 8px;"></td><td style="padding:5px 8px;text-align:center;">20 %</td><td style="padding:5px 8px;"></td></tr>
+    <tr><td style="padding:5px 8px;">Main d'œuvre</td><td style="padding:5px 8px;"></td><td style="padding:5px 8px;text-align:center;">20 %</td><td style="padding:5px 8px;"></td></tr>
+    <tr style="background:#f3f4f6;font-weight:700;"><td style="padding:5px 8px;">TOTAL</td><td style="padding:5px 8px;border-top:2px solid #1e3a5f;"></td><td style="padding:5px 8px;border-top:2px solid #1e3a5f;"></td><td style="padding:5px 8px;border-top:2px solid #1e3a5f;"></td></tr>
+  </tbody>
+</table>
+
+<div class="signature-grid">
+  <div class="sig-box"><div class="sig-label">Bon pour accord client</div><div style="font-size:8px;color:#6b7280;margin-top:2px;">Nom, date et signature :</div><div class="sig-line"></div></div>
+  <div class="sig-box"><div class="sig-label">Artisan / Entreprise</div><div style="font-size:8px;color:#6b7280;margin-top:2px;">Cachet et signature :</div><div class="sig-line"></div></div>
+</div>
+
+<div class="footer-bar"><span>${esc(projectName)} · ${esc(date)}</span><span>Page 3/3 — Nomenclature</span></div>
+
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=900');
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+    toast('Synthèse devis générée ✓');
   }, 80);
 }
 
