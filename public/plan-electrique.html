@@ -878,7 +878,7 @@
           Prises
         </button>
         <button class="tool-btn tool-btn-wide" data-type="cable-terre" onclick="selectTool('cable-terre')">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#66bb6a" stroke-width="2.5"><line x1="2" y1="12" x2="22" y2="12"/></svg>
           Équipements
         </button>
         <button class="tool-btn tool-btn-wide" data-type="cable-telecom" onclick="selectTool('cable-telecom')">
@@ -936,7 +936,7 @@
       <div style="padding:4px 0;">
         <div class="legend-item"><div class="legend-line" style="background:#ffe082"></div>Éclairage</div>
         <div class="legend-item"><div class="legend-line" style="background:#4fc3f7"></div>Prises</div>
-        <div class="legend-item"><div class="legend-line" style="background:#f5a623"></div>Équipements</div>
+        <div class="legend-item"><div class="legend-line" style="background:#66bb6a"></div>Équipements</div>
         <div class="legend-item"><div class="legend-line" style="background:#ce93d8"></div>Télécom</div>
         <div class="legend-item"><div class="legend-line" style="background:#8a9ab5"></div>Mur</div>
         <div class="legend-item"><div class="legend-line" style="background:rgba(245,166,35,0.5)"></div>Pièce</div>
@@ -1232,7 +1232,7 @@ let state = {
 const CABLE_COLORS = {
   'cable-phase':   '#ffe082',  // éclairage — jaune (comme luminaires)
   'cable-neutre':  '#4fc3f7',  // prises — bleu (comme prise 16A)
-  'cable-terre':   '#f5a623',  // équipements — orange (comme tableau)
+  'cable-terre':   '#66bb6a',  // équipements — vert (distinct du jaune)
   'cable-telecom': '#ce93d8',  // télécom — violet (comme RJ45)
 };
 const CABLE_DASH = {
