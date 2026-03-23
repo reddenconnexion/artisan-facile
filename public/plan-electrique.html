@@ -986,9 +986,13 @@
       <div class="panel-title">📊 Statistiques</div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-val" id="statElements">0</div><div class="stat-lbl">Éléments</div></div>
-        <div class="stat-card"><div class="stat-val" id="statPrises">0</div><div class="stat-lbl">Prises</div></div>
         <div class="stat-card"><div class="stat-val" id="statLumiere">0</div><div class="stat-lbl">Luminaires</div></div>
+        <div class="stat-card"><div class="stat-val" id="statPrises">0</div><div class="stat-lbl">Prises</div></div>
+        <div class="stat-card"><div class="stat-val" id="statInterrupteurs">0</div><div class="stat-lbl">Interrupteurs</div></div>
+        <div class="stat-card"><div class="stat-val" id="statBoutons">0</div><div class="stat-lbl">Boutons P.</div></div>
         <div class="stat-card"><div class="stat-val" id="statCircuits">0</div><div class="stat-lbl">Circuits</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCircuitsEcl">0</div><div class="stat-lbl">Circuits écl.</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCircuitsPrises">0</div><div class="stat-lbl">Circuits prises</div></div>
       </div>
     </div>
 
@@ -3392,12 +3396,29 @@ function addCircuit() {
 //  STATS
 // ══════════════════════════════════════════════════════════════
 function updateStats() {
-  const prises = state.elements.filter(e => e.type.startsWith('prise') || e.type === 'prise-rj45').length;
-  const lumiere = state.elements.filter(e => ['luminaire','spot','applique','hublot'].includes(e.type)).length;
-  document.getElementById('statElements').textContent = state.elements.length + state.walls.length + state.cables.length;
-  document.getElementById('statPrises').textContent = prises;
-  document.getElementById('statLumiere').textContent = lumiere;
-  document.getElementById('statCircuits').textContent = state.circuits.length;
+  const TYPES_PRISE        = e => ['prise','prise20','prise-rj45'].includes(e.type);
+  const TYPES_INTER        = e => ['interrupteur','va-et-vient','variateur'].includes(e.type);
+  const TYPES_BOUTON       = e => e.type === 'bouton-poussoir';
+  const TYPES_LUMIERE      = e => ['luminaire','spot','applique','hublot'].includes(e.type);
+
+  const prises        = state.elements.filter(TYPES_PRISE).length;
+  const interrupteurs = state.elements.filter(TYPES_INTER).length;
+  const boutons       = state.elements.filter(TYPES_BOUTON).length;
+  const lumiere       = state.elements.filter(TYPES_LUMIERE).length;
+
+  // Circuits contenant au moins un luminaire (éclairage)
+  const circuitsEcl   = new Set(state.elements.filter(TYPES_LUMIERE).map(e => e.circuitId).filter(Boolean)).size;
+  // Circuits contenant au moins une prise
+  const circuitsPrise = new Set(state.elements.filter(TYPES_PRISE).map(e => e.circuitId).filter(Boolean)).size;
+
+  document.getElementById('statElements').textContent     = state.elements.length + state.walls.length + state.cables.length;
+  document.getElementById('statLumiere').textContent      = lumiere;
+  document.getElementById('statPrises').textContent       = prises;
+  document.getElementById('statInterrupteurs').textContent= interrupteurs;
+  document.getElementById('statBoutons').textContent      = boutons;
+  document.getElementById('statCircuits').textContent     = state.circuits.length;
+  document.getElementById('statCircuitsEcl').textContent  = circuitsEcl;
+  document.getElementById('statCircuitsPrises').textContent = circuitsPrise;
 }
 
 function updateRoomList() {
