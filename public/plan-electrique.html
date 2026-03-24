@@ -1398,7 +1398,14 @@ function loadFromLocalStorage() {
     state.walls    = uniq(data.walls);
     state.rooms    = uniq(data.rooms);
     state.cables   = uniq(data.cables);
-    if (data.circuits?.length) state.circuits = data.circuits;
+    if (data.circuits?.length) state.circuits = uniq(data.circuits); // dédoublonne aussi les circuits
+    // Resync _uid au-dessus de tous les ids existants pour éviter toute collision
+    const maxExisting = Math.max(
+      12, // plafond des circuits prédéfinis
+      ...state.elements.map(e => e.id || 0),
+      ...state.circuits.map(c => c.id || 0),
+    );
+    if (maxExisting >= _uid) _uid = maxExisting + 1;
     if (data.pan)  state.pan  = data.pan;
     if (data.zoom) {
       state.zoom = data.zoom;
@@ -3167,7 +3174,7 @@ document.addEventListener('wheel', (e) => {
 // ══════════════════════════════════════════════════════════════
 //  ACTIONS
 // ══════════════════════════════════════════════════════════════
-let _uid = 1;
+let _uid = 13; // ids 1-12 réservés aux circuits prédéfinis
 function uid() { return _uid++; }
 
 function placeElement(x, y) {
