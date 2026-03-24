@@ -3228,6 +3228,7 @@ function handleSelect(sx, sy) {
     if (d < 18 * state.zoom) {
       state.selected = el;
       updateProps();
+      focusPropsPanel();
       draw();
       return;
     }
@@ -3241,6 +3242,7 @@ function handleSelect(sx, sy) {
       if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 6) {
         state.selected = cable;
         updateProps();
+        focusPropsPanel();
         draw();
         return;
       }
@@ -3254,6 +3256,7 @@ function handleSelect(sx, sy) {
     if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 8) {
       state.selected = wall;
       updateProps();
+      focusPropsPanel();
       draw();
       return;
     }
@@ -3267,6 +3270,7 @@ function handleSelect(sx, sy) {
     if (Math.hypot(sc.x - sx, sc.y - sy) < 30) {
       state.selected = room;
       updateProps();
+      focusPropsPanel();
       draw();
       return;
     }
@@ -3765,6 +3769,35 @@ function toggleLeftPanel() {
   panel.classList.toggle('collapsed');
   btn.textContent = panel.classList.contains('collapsed') ? '›' : '‹';
   setTimeout(resizeCanvas, 210);
+}
+
+// ── Ouvre le panneau gauche et scrolle jusqu'aux propriétés ───
+function focusPropsPanel() {
+  const panel = document.getElementById('panelLeft');
+  // Ouvrir si réduit (desktop)
+  if (panel.classList.contains('collapsed')) {
+    panel.classList.remove('collapsed');
+    document.getElementById('toggleLeft').textContent = '‹';
+    setTimeout(resizeCanvas, 210);
+  }
+  // Ouvrir sur mobile
+  if (window.innerWidth <= 768 && !panel.classList.contains('mob-open')) {
+    panel.classList.add('mob-open');
+    document.getElementById('mobOverlay')?.classList.add('open');
+    document.getElementById('mobBtnTools')?.classList.add('active');
+  }
+  // Scroll + flash de la section
+  const section = document.getElementById('propsPanel')?.closest('.panel-section');
+  if (!section) return;
+  section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  section.style.transition = 'box-shadow 0.2s, background 0.2s';
+  section.style.boxShadow  = '0 0 0 2px var(--accent)';
+  section.style.background = 'rgba(245,166,35,0.08)';
+  clearTimeout(focusPropsPanel._t);
+  focusPropsPanel._t = setTimeout(() => {
+    section.style.boxShadow  = '';
+    section.style.background = '';
+  }, 700);
 }
 function toggleRightPanel() {
   const panel = document.getElementById('panelRight');
