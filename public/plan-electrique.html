@@ -3354,7 +3354,11 @@ function updateProps() {
       <input class="prop-input" id="propLabel" value="${el.label||''}" oninput="updateProp('label',this.value)"/></div>`;
     if (!CABLE_TOOLS.includes(el.type)) {
       html += `<div class="prop-row"><div class="prop-label">Circuit</div>
-        <select class="prop-input" onchange="updateProp('circuitId',parseInt(this.value))">${circuitOpts}</select></div>`;
+        <select class="prop-input"
+          onmousedown="this._pv=this.value;this.value=''"
+          onblur="if(!this.value)this.value=this._pv"
+          onchange="if(this.value){this._pv=this.value;updateProp('circuitId',parseInt(this.value))}"
+        >${circuitOpts}</select></div>`;
     }
     // Rotation — pour tous les éléments
     const rot = el.rotation || 0;
@@ -3573,6 +3577,15 @@ function renderCircuits() {
 
     div.onclick = () => {
       setActiveCircuit(c.id);
+      // Si un élément électrique est sélectionné, l'assigner à ce circuit
+      if (state.selected && state.selected.type
+          && !CABLE_TOOLS.includes(state.selected.type)
+          && !FURNITURE_TYPES.has(state.selected.type)) {
+        state.selected.circuitId = c.id;
+        state.selected.circuit   = c.name;
+        saveToLocalStorage();
+        updateProps();
+      }
       renderCircuits();
     };
     return div;
