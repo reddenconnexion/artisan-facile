@@ -107,6 +107,19 @@ const QuoteItemRow = memo(function QuoteItemRow({
                         onFocus={() => onFocus(`item-description-${index}`)}
                         onBlur={() => setTimeout(() => onBlur(), 200)}
                     />
+                    {/* Badge toggle Matériel / Main d'œuvre */}
+                    <button
+                        type="button"
+                        onClick={() => onUpdate(item.id, 'type', item.type === 'material' ? 'service' : 'material')}
+                        title={item.type === 'material' ? 'Matériel — cliquer pour passer en main d\'œuvre' : 'Main d\'œuvre — cliquer pour passer en matériel'}
+                        className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            item.type === 'material'
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        }`}
+                    >
+                        {item.type === 'material' ? 'MAT' : 'MO'}
+                    </button>
                     {onOpenVoice && (
                         <button
                             type="button"
@@ -164,7 +177,7 @@ const QuoteItemRow = memo(function QuoteItemRow({
                     </select>
                 </div>
 
-                <div className="col-span-3">
+                <div className="col-span-5">
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Prix unit. HT</label>
                     <div className="flex gap-1">
                         <input
@@ -185,18 +198,6 @@ const QuoteItemRow = memo(function QuoteItemRow({
                             </button>
                         )}
                     </div>
-                </div>
-
-                <div className="col-span-2">
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
-                    <select
-                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 dark:text-white"
-                        value={item.type || 'service'}
-                        onChange={(e) => onUpdate(item.id, 'type', e.target.value)}
-                    >
-                        <option value="service">Service</option>
-                        <option value="material">Matériel</option>
-                    </select>
                 </div>
 
                 <div className="col-span-2">

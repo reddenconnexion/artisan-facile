@@ -291,21 +291,39 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let currentTableY = tableStartY;
 
     if (hasSections) {
-        // Render items in order, with section rows as styled headers and type column
-        const tableColumnWithType = ["Type", "Description", "Quantité", "Prix U. HT", "Total HT"];
+        // Légende unique au-dessus du tableau (remplace la colonne répétée)
+        const hasMO  = allItems.some(i => i.type !== 'section' && i.type !== 'material');
+        const hasMat = allItems.some(i => i.type === 'material');
+        if (hasMO || hasMat) {
+            doc.setFontSize(7.5);
+            let lx = 14;
+            if (hasMO) {
+                doc.setFillColor(219, 234, 254);
+                doc.rect(lx, currentTableY - 5.5, 3, 3, 'F');
+                doc.setTextColor(29, 78, 216);
+                doc.text('Main d\'œuvre / Prestation', lx + 4.5, currentTableY - 3);
+                lx += 55;
+            }
+            if (hasMat) {
+                doc.setFillColor(255, 237, 213);
+                doc.rect(lx, currentTableY - 5.5, 3, 3, 'F');
+                doc.setTextColor(154, 52, 18);
+                doc.text('Fournitures / Matériel', lx + 4.5, currentTableY - 3);
+            }
+            doc.setTextColor(0, 0, 0);
+        }
+
+        // Tableau sans colonne "Type" — couleur de fond par ligne
+        const tableColumnNoType = ["Description", "Quantité", "Prix U. HT", "Total HT"];
         const rows = allItems.map(item => {
             if (item.type === 'section') {
                 return [{
                     content: item.description || '—',
-                    colSpan: 5,
+                    colSpan: 4,
                     styles: { fontStyle: 'bold', fillColor: [230, 236, 255], textColor: [37, 99, 235], halign: 'left', fontSize: 9 }
                 }];
             }
-            const typeLabel = item.type === 'material' ? 'Matériel' : 'Main d\'œuvre';
-            const typeColor = item.type === 'material' ? [255, 237, 213] : [219, 234, 254];
-            const typeTextColor = item.type === 'material' ? [154, 52, 18] : [29, 78, 216];
             return [
-                { content: typeLabel, styles: { fillColor: typeColor, textColor: typeTextColor, fontStyle: 'bold', fontSize: 8, halign: 'center' } },
                 item.description || '',
                 item.quantity ?? '',
                 `${parseFloat(item.price || 0).toFixed(2)} €`,
@@ -315,12 +333,19 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         autoTable(doc, {
             startY: currentTableY,
-            head: [tableColumnWithType],
+            head: [tableColumnNoType],
             body: rows,
             theme: 'grid',
             headStyles: { fillColor: headerColor },
             styles: { fontSize: 9 },
-            columnStyles: { 0: { cellWidth: 25 } },
+            didParseCell: (data) => {
+                if (data.section !== 'body') return;
+                const item = allItems[data.row.index];
+                if (!item || item.type === 'section') return;
+                data.cell.styles.fillColor = item.type === 'material'
+                    ? [255, 249, 243]   // orange très pâle → matériel
+                    : [245, 249, 255];  // bleu très pâle  → MO / prestation
+            },
         });
 
         currentTableY = doc.lastAutoTable.finalY + 15;
