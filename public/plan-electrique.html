@@ -3355,8 +3355,34 @@ function updateProps() {
   let html = '';
 
   if (el.type) {
-    html += `<div class="prop-row"><div class="prop-label">Type</div>
-      <input class="prop-input" readonly value="${el.type}"/></div>`;
+    if (CABLE_TOOLS.includes(el.type)) {
+      // ── Câble sélectionné : afficher la spec (3G2.5, 3G1.5…) ──
+      const CABLE_USAGE = { 'cable-phase':'Éclairage', 'cable-neutre':'Prises', 'cable-terre':'Équipements', 'cable-telecom':'Télécom' };
+      const usage  = CABLE_USAGE[el.type] || el.type;
+      const cond   = el.nConductors || (el.type === 'cable-telecom' ? 2 : 3);
+      const sec    = el.section || '';
+      const spec   = sec ? `${cond}G${sec}` : usage;
+      html += `<div class="prop-row">
+        <div class="prop-label">Câble — <b style="color:var(--accent)">${spec}</b> <span style="color:var(--text2);font-weight:400;">${usage}</span></div>
+        ${el.type !== 'cable-telecom' ? `<div style="display:flex;gap:4px;margin-top:4px;">
+          <select class="prop-input" style="flex:1;" onchange="updateProp('nConductors',parseInt(this.value))">
+            <option value="2" ${cond===2?'selected':''}>2G (L+N)</option>
+            <option value="3" ${cond===3?'selected':''}>3G (L+N+PE)</option>
+          </select>
+          <select class="prop-input" style="flex:1;" onchange="updateProp('section',this.value)">
+            <option value="1.5"  ${sec==='1.5' ?'selected':''}>1,5 mm²</option>
+            <option value="2.5"  ${sec==='2.5' ?'selected':''}>2,5 mm²</option>
+            <option value="4"    ${sec==='4'   ?'selected':''}>4 mm²</option>
+            <option value="6"    ${sec==='6'   ?'selected':''}>6 mm²</option>
+            <option value="10"   ${sec==='10'  ?'selected':''}>10 mm²</option>
+            <option value="16"   ${sec==='16'  ?'selected':''}>16 mm²</option>
+          </select>
+        </div>` : `<div style="font-size:10px;color:var(--text2);margin-top:4px;">Câble télécom / VDI</div>`}
+      </div>`;
+    } else {
+      html += `<div class="prop-row"><div class="prop-label">Type</div>
+        <input class="prop-input" readonly value="${el.type}"/></div>`;
+    }
     html += `<div class="prop-row"><div class="prop-label">Étiquette</div>
       <input class="prop-input" id="propLabel" value="${el.label||''}" oninput="updateProp('label',this.value)"/></div>`;
     if (!CABLE_TOOLS.includes(el.type)) {
@@ -3479,6 +3505,13 @@ function updateProp(key, val) {
       saveToLocalStorage();
       renderCircuits();
       updateProps(); // force resync visuel du select
+      draw();
+      return;
+    }
+    if (key === 'section' || key === 'nConductors') {
+      // Spec câble modifiée : rafraîchir l'en-tête pour refléter la nouvelle spec (ex: 3G2.5)
+      saveToLocalStorage();
+      updateProps();
       draw();
       return;
     }
