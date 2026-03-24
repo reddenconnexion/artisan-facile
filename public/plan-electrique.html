@@ -3554,7 +3554,8 @@ function renderCircuits() {
   const unused    = state.circuits.filter(c => !usedIds.has(c.id) && c.id !== activeId);
 
   // ── Créer une carte de circuit ─────────────────────────────────
-  const makeCard = (c, dimmed = false) => {
+  // cidx = index dans state.circuits (unique même si des ids sont dupliqués)
+  const makeCard = (c, cidx, dimmed = false) => {
     const elsByType = byCircuit[c.id] || {};
     const total     = Object.values(elsByType).reduce((s, v) => s + v, 0);
     const summary   = Object.entries(elsByType)
@@ -3562,8 +3563,9 @@ function renderCircuits() {
       .join(', ');
 
     const div = document.createElement('div');
-    div.className  = 'circuit-item' + (activeId === c.id ? ' active' : '');
-    div.dataset.id = c.id;
+    // active uniquement si c'est CE circuit précis (par référence) qui est actif
+    div.className    = 'circuit-item' + (activeId === c.id && state.circuits.indexOf(c) === cidx ? ' active' : '');
+    div.dataset.cidx = cidx;
     if (dimmed) div.style.opacity = '0.45';
 
     div.innerHTML = `
@@ -3573,7 +3575,7 @@ function renderCircuits() {
         </div>
         <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
           <span style="font-family:var(--font-mono);font-size:10px;color:var(--text2);">${c.ampere}</span>
-          <button class="circuit-edit-btn" title="Modifier" onclick="event.stopPropagation();editCircuit(${c.id})">✎</button>
+          <button class="circuit-edit-btn" title="Modifier" onclick="event.stopPropagation();editCircuit(${cidx})">✎</button>
         </div>
       </div>
       ${total > 0
@@ -3605,7 +3607,7 @@ function renderCircuits() {
     tip.textContent = 'Pose des éléments pour les voir apparaître ici.';
     list.appendChild(tip);
   }
-  used.forEach(c => list.appendChild(makeCard(c, false)));
+  used.forEach(c => list.appendChild(makeCard(c, state.circuits.indexOf(c), false)));
 
   // ── Circuits disponibles (non utilisés) ───────────────────────
   if (unused.length > 0) {
@@ -3621,7 +3623,7 @@ function renderCircuits() {
     updateSummary();
     details.ontoggle = updateSummary;
     details.appendChild(summary);
-    unused.forEach(c => details.appendChild(makeCard(c, true)));
+    unused.forEach(c => details.appendChild(makeCard(c, state.circuits.indexOf(c), true)));
     list.appendChild(details);
   }
 
@@ -3644,62 +3646,69 @@ function addCircuit() {
   renderCircuits();
 }
 
-function editCircuit(id) {
-  const c = state.circuits.find(c => c.id === id);
+// cidx = index dans state.circuits (insensible aux doublons d'id)
+function editCircuit(cidx) {
+  const c = state.circuits[cidx];
   if (!c) return;
-  const card = document.querySelector(`.circuit-item[data-id="${id}"]`);
+  const card = document.querySelector(`.circuit-item[data-cidx="${cidx}"]`);
   if (!card) return;
 
   const form = document.createElement('div');
   form.className = 'circuit-item';
-  form.dataset.id = id;
+  form.dataset.cidx = cidx;
   form.style.cssText = card.style.cssText;
   form.innerHTML = `
     <div style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">
-      <input type="color" id="ec_color_${id}" value="${c.color}"
+      <input type="color" id="ec_color_${cidx}" value="${c.color}"
         style="width:26px;height:26px;border:none;padding:1px;cursor:pointer;border-radius:4px;background:var(--surface2);flex-shrink:0;">
-      <input type="text" id="ec_name_${id}" value="${c.name}" placeholder="Nom"
+      <input type="text" id="ec_name_${cidx}" value="${c.name}" placeholder="Nom"
         style="flex:1;font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
-      <input type="text" id="ec_ampere_${id}" value="${c.ampere}" placeholder="16A"
+      <input type="text" id="ec_ampere_${cidx}" value="${c.ampere}" placeholder="16A"
         style="width:38px;font-size:10px;padding:3px 4px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font-mono);">
     </div>
     <div style="display:flex;gap:3px;">
-      <button class="btn" style="flex:1;font-size:9px;padding:3px;" onclick="saveCircuit(${id})">✓ Enregistrer</button>
+      <button class="btn" style="flex:1;font-size:9px;padding:3px;" onclick="saveCircuit(${cidx})">✓ Enregistrer</button>
       <button class="btn" style="font-size:9px;padding:3px 6px;" onclick="renderCircuits()">✕</button>
-      <button class="btn" style="font-size:9px;padding:3px 6px;color:#ef9a9a;" onclick="deleteCircuit(${id})">🗑</button>
+      <button class="btn" style="font-size:9px;padding:3px 6px;color:#ef9a9a;" onclick="deleteCircuit(${cidx})">🗑</button>
     </div>`;
   card.replaceWith(form);
-  const nameInput = document.getElementById(`ec_name_${id}`);
+  const nameInput = document.getElementById(`ec_name_${cidx}`);
   nameInput.focus(); nameInput.select();
 }
 
-function saveCircuit(id) {
-  const c = state.circuits.find(c => c.id === id);
+function saveCircuit(cidx) {
+  const c = state.circuits[cidx];
   if (!c) return;
-  const name   = document.getElementById(`ec_name_${id}`)?.value.trim();
-  const ampere = document.getElementById(`ec_ampere_${id}`)?.value.trim();
-  const color  = document.getElementById(`ec_color_${id}`)?.value;
+  const name   = document.getElementById(`ec_name_${cidx}`)?.value.trim();
+  const ampere = document.getElementById(`ec_ampere_${cidx}`)?.value.trim();
+  const color  = document.getElementById(`ec_color_${cidx}`)?.value;
   if (name)   c.name   = name;
   if (ampere) c.ampere = ampere;
   if (color)  c.color  = color;
-  // Synchroniser le nom dans les éléments assignés
-  state.elements.forEach(e => { if (e.circuitId === id) e.circuit = c.name; });
+  // Synchroniser le nom dans les éléments assignés à CE circuit précis
+  state.elements.forEach(e => { if (e.circuitId === c.id) e.circuit = c.name; });
   draw();
   renderCircuits();
 }
 
-function deleteCircuit(id) {
-  const c = state.circuits.find(c => c.id === id);
+function deleteCircuit(cidx) {
+  const c = state.circuits[cidx];
   if (!c) return;
   const count = state.elements.filter(e =>
-    e.circuitId === id && !CABLE_TOOLS.includes(e.type) && !FURNITURE_TYPES.has(e.type)
+    e.circuitId === c.id && !CABLE_TOOLS.includes(e.type) && !FURNITURE_TYPES.has(e.type)
   ).length;
   const msg = count > 0
     ? `Supprimer "${c.name}" ? ${count} élément${count > 1 ? 's perdront' : ' perdra'} son circuit.`
     : `Supprimer le circuit "${c.name}" ?`;
   showConfirm(msg, () => {
-    state.circuits = state.circuits.filter(c => c.id !== id);
-    state.elements.forEach(e => { if (e.circuitId === id) { e.circuitId = null; e.circuit = ''; } });
+    // Supprimer uniquement CE circuit (par référence, pas par id)
+    state.circuits.splice(cidx, 1);
+    // Ne désassigner les éléments que si aucun autre circuit ne partage le même id
+    const idStillUsed = state.circuits.some(x => x.id === c.id);
+    if (!idStillUsed) {
+      state.elements.forEach(e => { if (e.circuitId === c.id) { e.circuitId = null; e.circuit = ''; } });
+    }
+    saveToLocalStorage();
     draw();
     renderCircuits();
   });
