@@ -3464,7 +3464,11 @@ function updateProp(key, val) {
     if (key === 'circuitId') {
       const c = state.circuits.find(c => c.id === val);
       state.selected.circuit = c ? c.name : '';
+      saveToLocalStorage();
       renderCircuits();
+      updateProps(); // force resync visuel du select
+      draw();
+      return;
     }
     draw();
   }
@@ -3789,7 +3793,7 @@ function focusPropsPanel() {
   // Scroll + flash de la section
   const section = document.getElementById('propsPanel')?.closest('.panel-section');
   if (!section) return;
-  section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  section.scrollIntoView({ behavior: 'instant', block: 'nearest' });
   section.style.transition = 'box-shadow 0.2s, background 0.2s';
   section.style.boxShadow  = '0 0 0 2px var(--accent)';
   section.style.background = 'rgba(245,166,35,0.08)';
