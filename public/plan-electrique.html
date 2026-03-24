@@ -3464,6 +3464,7 @@ function updateProp(key, val) {
     if (key === 'circuitId') {
       const c = state.circuits.find(c => c.id === val);
       state.selected.circuit = c ? c.name : '';
+      setActiveCircuit(val); // le circuit choisi devient actif pour les prochains placements
       saveToLocalStorage();
       renderCircuits();
       updateProps(); // force resync visuel du select
@@ -3504,10 +3505,18 @@ function flipDoor(val) {
 // ══════════════════════════════════════════════════════════════
 //  CIRCUITS
 // ══════════════════════════════════════════════════════════════
+let _activeCircuitId = null; // circuit actif pour les nouveaux placements
+
 function getActiveCircuit() {
-  const items = document.querySelectorAll('.circuit-item.active');
-  if (items.length > 0) return parseInt(items[0].dataset.id);
-  return state.circuits[0]?.id;
+  if (_activeCircuitId !== null && state.circuits.find(c => c.id === _activeCircuitId)) {
+    return _activeCircuitId;
+  }
+  _activeCircuitId = state.circuits[0]?.id ?? null;
+  return _activeCircuitId;
+}
+
+function setActiveCircuit(id) {
+  _activeCircuitId = id;
 }
 
 function renderCircuits() {
@@ -3563,9 +3572,8 @@ function renderCircuits() {
       }`;
 
     div.onclick = () => {
-      document.querySelectorAll('.circuit-item').forEach(el => el.classList.remove('active'));
-      div.classList.add('active');
-      if (dimmed) div.style.opacity = '1';
+      setActiveCircuit(c.id);
+      renderCircuits();
     };
     return div;
   };
