@@ -4,6 +4,9 @@ import { Zap, X, Save, Search, Copy, FolderOpen, ChevronRight } from 'lucide-rea
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const Outils = () => {
     const iframeRef = useRef(null);
@@ -30,6 +33,7 @@ const Outils = () => {
     // Ref pour synchroniser l'envoi du plan avec la disponibilité de l'iframe
     const pendingPlanRef = useRef(null);
     const iframeReadyRef = useRef(false);
+    const pdfImportRef = useRef(null);
 
     const sendPlanToIframe = useCallback((plan) => {
         const iframe = iframeRef.current;
@@ -73,6 +77,32 @@ const Outils = () => {
         }, '*');
     }, []);
 
+    // Rendu PDF → dataURL pour le fond de plan (demandé par l'iframe)
+    const handlePdfImport = useCallback(async (file) => {
+        const iframe = iframeRef.current;
+        if (!file || !iframe?.contentWindow) return;
+        try {
+            toast.info('Rendu du PDF en cours…');
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf  = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const vp   = page.getViewport({ scale: 2 });
+            const off  = document.createElement('canvas');
+            off.width  = vp.width;
+            off.height = vp.height;
+            await page.render({ canvasContext: off.getContext('2d'), viewport: vp }).promise;
+            const dataUrl = off.toDataURL('image/png');
+            iframe.contentWindow.postMessage({
+                type: 'planelec-pdf-rendered',
+                dataUrl,
+                pageCount: pdf.numPages,
+            }, '*');
+        } catch (err) {
+            toast.error('Erreur rendu PDF : ' + err.message);
+            iframe.contentWindow.postMessage({ type: 'planelec-pdf-error', message: err.message }, '*');
+        }
+    }, []);
+
     // Réception des messages de l'iframe
     useEffect(() => {
         const handleMessage = async (e) => {
@@ -83,6 +113,10 @@ const Outils = () => {
                     sendPlanToIframe(pendingPlanRef.current);
                     pendingPlanRef.current = null;
                 }
+                return;
+            }
+            if (e.data?.type === 'planelec-render-pdf') {
+                pdfImportRef.current?.click();
                 return;
             }
             if (e.data?.type !== 'planelec-save') return;
@@ -226,6 +260,18 @@ const Outils = () => {
                     onLoad={injectConfig}
                 />
             </div>
+            {/* Input PDF caché — déclenché par planelec-render-pdf */}
+            <input
+                type="file"
+                ref={pdfImportRef}
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePdfImport(file);
+                    e.target.value = '';
+                }}
+            />
 
             {/* Modal sauvegarde dans fiche client */}
             {showSaveModal && (
