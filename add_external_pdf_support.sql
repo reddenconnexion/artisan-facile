@@ -6,10 +6,10 @@ add column if not exists manual_total_ht numeric default 0,
 add column if not exists manual_total_tva numeric default 0,
 add column if not exists manual_total_ttc numeric default 0;
 
--- Create bucket for quote files if not exists
+-- Create bucket for quote files, ou le passer en public s'il existe déjà
 insert into storage.buckets (id, name, public)
 values ('quote_files', 'quote_files', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
 -- Drop policies if they exist before creating them to avoid conflicts
 drop policy if exists "Users can upload quote files" on storage.objects;
