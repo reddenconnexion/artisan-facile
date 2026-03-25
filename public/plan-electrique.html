@@ -630,6 +630,7 @@
     <button class="btn" onclick="printPlan()" style="border-color:#a3e635;color:#a3e635;" title="Imprimer le plan chantier (fond blanc)">🖨 Imprimer</button>
     <button class="btn" onclick="exportPNG()" title="Exporter en PNG">📥 PNG</button>
     <button class="btn" onclick="exportPDF()" style="border-color:#ef5350;color:#ef5350;" title="Exporter en PDF">📄 PDF</button>
+    <button class="btn" id="btnImportPdfBg" onclick="importPDFBackground()" style="border-color:#f59e0b;color:#f59e0b;" title="Importer un plan PDF existant comme fond modifiable">🗺 Fond</button>
     <button class="btn" onclick="exportDevis()" style="border-color:#a855f7;color:#a855f7;" title="Synthèse complète pour devis">📋 Devis</button>
   </div>
   <div class="header-sep"></div>
@@ -1013,6 +1014,20 @@
     <button class="panel-toggle panel-toggle-left"  id="toggleLeft"  onclick="toggleLeftPanel()"  title="Masquer/afficher le panneau gauche">‹</button>
     <button class="panel-toggle panel-toggle-right" id="toggleRight" onclick="toggleRightPanel()" title="Masquer/afficher le panneau droit">›</button>
     <div class="mode-indicator" id="modeIndicator"></div>
+    <!-- Contrôles fond PDF (visibles uniquement quand un fond est actif) -->
+    <div id="bgPdfControls" style="display:none;position:absolute;top:10px;right:52px;
+      background:var(--surface);border:1px solid var(--border);border-radius:8px;
+      padding:6px 10px;display:none;align-items:center;gap:8px;z-index:50;font-size:12px;
+      color:var(--text2);box-shadow:0 2px 8px rgba(0,0,0,0.4);">
+      <span style="white-space:nowrap;">🗺 Fond PDF</span>
+      <input type="range" id="bgPdfOpacitySlider" min="0.05" max="1" step="0.05" value="0.35"
+        style="width:70px;cursor:pointer;accent-color:var(--accent);"
+        oninput="setBgPdfOpacity(this.value)" title="Opacité du fond" />
+      <span id="bgPdfOpacityLabel" style="min-width:28px;text-align:right;">35%</span>
+      <button onclick="removePDFBackground()"
+        style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:16px;padding:0 2px;"
+        title="Supprimer le fond PDF">✕</button>
+    </div>
     <div class="coords" id="coords">X: 0 — Y: 0</div>
     <div class="zoom-bar">
       <button onclick="zoom(-0.1)" title="Zoom arrière">−</button>
@@ -1335,6 +1350,8 @@ let state = {
   // mouse
   mouseX: 0,
   mouseY: 0,
+  // Fond de plan PDF importé
+  bgPdf: { dataUrl: null, image: null, opacity: 0.35 },
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -1381,6 +1398,8 @@ function saveToLocalStorage() {
         pan:      state.pan,
         zoom:     state.zoom,
         scaleCm:  state.scaleCm,
+        bgPdfDataUrl:    state.bgPdf.dataUrl,
+        bgPdfOpacity:    state.bgPdf.opacity,
       }));
     } catch(e) {}
   }, 600);
@@ -1415,6 +1434,9 @@ function loadFromLocalStorage() {
       state.scaleCm = data.scaleCm;
       const si = document.getElementById('scaleInput');
       if (si) si.value = data.scaleCm;
+    }
+    if (data.bgPdfDataUrl) {
+      _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35);
     }
     return true;
   } catch(e) { return false; }
@@ -2740,6 +2762,17 @@ function drawRoom(room, isSelected) {
 // ══════════════════════════════════════════════════════════════
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Fond PDF importé (calque derrière tout)
+  if (state.bgPdf.image) {
+    ctx.save();
+    ctx.globalAlpha = state.bgPdf.opacity;
+    const img = state.bgPdf.image;
+    const w = img.naturalWidth  * state.zoom;
+    const h = img.naturalHeight * state.zoom;
+    ctx.drawImage(img, state.pan.x, state.pan.y, w, h);
+    ctx.restore();
+  }
 
   // Grid
   ctx.save();
@@ -4407,6 +4440,8 @@ function saveProject() {
     cables: state.cables,
     rooms: state.rooms,
     circuits: state.circuits,
+    bgPdfDataUrl: state.bgPdf.dataUrl,
+    bgPdfOpacity: state.bgPdf.opacity,
   }, null, 2);
 
   // Affiche le JSON dans une modale (téléchargement direct bloqué en iframe)
@@ -4468,12 +4503,111 @@ function handleFileLoad(e) {
       state.rooms = data.rooms || [];
       state.circuits = data.circuits || state.circuits;
       state.selected = null;
+      if (data.bgPdfDataUrl) {
+        _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35);
+      } else {
+        removePDFBackground(true);
+      }
       renderCircuits(); updateProps(); updateRoomList(); draw();
       toast('Projet chargé');
     } catch { toast('Erreur de lecture du fichier'); }
   };
   reader.readAsText(file);
   e.target.value = '';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  IMPORT PDF COMME FOND DE PLAN
+// ══════════════════════════════════════════════════════════════
+let _pdfjsLib = null;
+
+async function _loadPdfjsLib() {
+  if (_pdfjsLib) return _pdfjsLib;
+  _pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.min.mjs');
+  _pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  return _pdfjsLib;
+}
+
+function _showBgPdfControls(opacity) {
+  const el = document.getElementById('bgPdfControls');
+  if (!el) return;
+  el.style.display = 'flex';
+  const slider = document.getElementById('bgPdfOpacitySlider');
+  if (slider) slider.value = opacity;
+  const label = document.getElementById('bgPdfOpacityLabel');
+  if (label) label.textContent = Math.round(opacity * 100) + '%';
+}
+
+function _hideBgPdfControls() {
+  const el = document.getElementById('bgPdfControls');
+  if (el) el.style.display = 'none';
+}
+
+function _restoreBgPdf(dataUrl, opacity) {
+  const img = new Image();
+  img.onload = () => {
+    state.bgPdf.dataUrl = dataUrl;
+    state.bgPdf.image   = img;
+    state.bgPdf.opacity = opacity;
+    _showBgPdfControls(opacity);
+    draw();
+  };
+  img.src = dataUrl;
+}
+
+async function importPDFBackground() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const btn = document.getElementById('btnImportPdfBg');
+    if (btn) { btn.textContent = '⏳ Chargement…'; btn.disabled = true; }
+    try {
+      toast('Chargement du PDF…');
+      const lib = await _loadPdfjsLib();
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf  = await lib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
+      const vp   = page.getViewport({ scale: 2 });  // ×2 pour une meilleure résolution
+      const off  = document.createElement('canvas');
+      off.width  = vp.width;
+      off.height = vp.height;
+      const octx = off.getContext('2d');
+      await page.render({ canvasContext: octx, viewport: vp }).promise;
+      const dataUrl = off.toDataURL('image/png');
+      _restoreBgPdf(dataUrl, state.bgPdf.opacity);
+      saveToLocalStorage();
+      if (pdf.numPages > 1)
+        toast(`Fond PDF importé ✓ (page 1/${pdf.numPages})`);
+      else
+        toast('Fond PDF importé ✓');
+    } catch (err) {
+      console.error('importPDFBackground:', err);
+      toast('Erreur import PDF : ' + err.message);
+    } finally {
+      if (btn) { btn.textContent = '🗺 Fond'; btn.disabled = false; }
+    }
+  };
+  input.click();
+}
+
+function removePDFBackground(silent) {
+  state.bgPdf.dataUrl = null;
+  state.bgPdf.image   = null;
+  _hideBgPdfControls();
+  draw();
+  saveToLocalStorage();
+  if (!silent) toast('Fond PDF supprimé');
+}
+
+function setBgPdfOpacity(v) {
+  state.bgPdf.opacity = parseFloat(v);
+  const label = document.getElementById('bgPdfOpacityLabel');
+  if (label) label.textContent = Math.round(state.bgPdf.opacity * 100) + '%';
+  draw();
+  saveToLocalStorage();
 }
 
 // ══════════════════════════════════════════════════════════════
