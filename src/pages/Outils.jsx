@@ -86,16 +86,28 @@ const Outils = () => {
             const arrayBuffer = await file.arrayBuffer();
             const pdf  = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const page = await pdf.getPage(1);
-            const vp   = page.getViewport({ scale: 2 });
+            // Rendre à ×5 (zoom max de l'éditeur) pour une qualité pixel-perfect
+            const RENDER_SCALE = 5;
+            const vp   = page.getViewport({ scale: RENDER_SCALE });
             const off  = document.createElement('canvas');
             off.width  = vp.width;
             off.height = vp.height;
-            await page.render({ canvasContext: off.getContext('2d'), viewport: vp }).promise;
-            const dataUrl = off.toDataURL('image/png');
+            const octx = off.getContext('2d');
+            // Fond blanc obligatoire pour JPEG (pas de canal alpha)
+            octx.fillStyle = '#ffffff';
+            octx.fillRect(0, 0, off.width, off.height);
+            await page.render({ canvasContext: octx, viewport: vp }).promise;
+            // JPEG 92 % : ~6× plus léger que PNG, qualité excellente pour un plan
+            const dataUrl = off.toDataURL('image/jpeg', 0.92);
             iframe.contentWindow.postMessage({
                 type: 'planelec-pdf-rendered',
                 dataUrl,
                 pageCount: pdf.numPages,
+                // Dimensions brutes du PDF (sans le facteur de rendu)
+                // → l'iframe les utilise pour le dessin afin d'être indépendant
+                //   de la résolution de rendu
+                basePdfWidth:  vp.width  / RENDER_SCALE,
+                basePdfHeight: vp.height / RENDER_SCALE,
             }, '*');
         } catch (err) {
             toast.error('Erreur rendu PDF : ' + err.message);

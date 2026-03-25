@@ -1351,7 +1351,7 @@ let state = {
   mouseX: 0,
   mouseY: 0,
   // Fond de plan PDF importé
-  bgPdf: { dataUrl: null, image: null, opacity: 0.35 },
+  bgPdf: { dataUrl: null, image: null, opacity: 0.35, basePdfWidth: null, basePdfHeight: null },
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -1398,8 +1398,10 @@ function saveToLocalStorage() {
         pan:      state.pan,
         zoom:     state.zoom,
         scaleCm:  state.scaleCm,
-        bgPdfDataUrl:    state.bgPdf.dataUrl,
-        bgPdfOpacity:    state.bgPdf.opacity,
+        bgPdfDataUrl:     state.bgPdf.dataUrl,
+        bgPdfOpacity:     state.bgPdf.opacity,
+        bgPdfWidth:       state.bgPdf.basePdfWidth,
+        bgPdfHeight:      state.bgPdf.basePdfHeight,
       }));
     } catch(e) {}
   }, 600);
@@ -1436,7 +1438,7 @@ function loadFromLocalStorage() {
       if (si) si.value = data.scaleCm;
     }
     if (data.bgPdfDataUrl) {
-      _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35);
+      _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35, data.bgPdfWidth, data.bgPdfHeight);
     }
     return true;
   } catch(e) { return false; }
@@ -2768,8 +2770,12 @@ function draw() {
     ctx.save();
     ctx.globalAlpha = state.bgPdf.opacity;
     const img = state.bgPdf.image;
-    const w = img.naturalWidth  * state.zoom;
-    const h = img.naturalHeight * state.zoom;
+    // Utiliser les dimensions brutes du PDF (sans le facteur de rendu) si disponibles,
+    // sinon fallback sur la taille naturelle de l'image (anciens plans sauvegardés).
+    // Cela garantit que l'image est dessinée à la bonne taille indépendamment
+    // de la résolution de rendu, et reste nette jusqu'au zoom maximum.
+    const w = (state.bgPdf.basePdfWidth  || img.naturalWidth)  * state.zoom;
+    const h = (state.bgPdf.basePdfHeight || img.naturalHeight) * state.zoom;
     ctx.drawImage(img, state.pan.x, state.pan.y, w, h);
     ctx.restore();
   }
@@ -4442,6 +4448,8 @@ function saveProject() {
     circuits: state.circuits,
     bgPdfDataUrl: state.bgPdf.dataUrl,
     bgPdfOpacity: state.bgPdf.opacity,
+    bgPdfWidth:   state.bgPdf.basePdfWidth,
+    bgPdfHeight:  state.bgPdf.basePdfHeight,
   }, null, 2);
 
   // Affiche le JSON dans une modale (téléchargement direct bloqué en iframe)
@@ -4504,7 +4512,7 @@ function handleFileLoad(e) {
       state.circuits = data.circuits || state.circuits;
       state.selected = null;
       if (data.bgPdfDataUrl) {
-        _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35);
+        _restoreBgPdf(data.bgPdfDataUrl, data.bgPdfOpacity ?? 0.35, data.bgPdfWidth, data.bgPdfHeight);
       } else {
         removePDFBackground(true);
       }
@@ -4537,12 +4545,14 @@ function _hideBgPdfControls() {
   if (el) el.style.display = 'none';
 }
 
-function _restoreBgPdf(dataUrl, opacity) {
+function _restoreBgPdf(dataUrl, opacity, basePdfWidth, basePdfHeight) {
   const img = new Image();
   img.onload = () => {
-    state.bgPdf.dataUrl = dataUrl;
-    state.bgPdf.image   = img;
-    state.bgPdf.opacity = opacity;
+    state.bgPdf.dataUrl      = dataUrl;
+    state.bgPdf.image        = img;
+    state.bgPdf.opacity      = opacity;
+    state.bgPdf.basePdfWidth  = basePdfWidth  || null;
+    state.bgPdf.basePdfHeight = basePdfHeight || null;
     _showBgPdfControls(opacity);
     draw();
   };
@@ -4554,7 +4564,7 @@ window.addEventListener('message', (e) => {
   if (e.data?.type === 'planelec-pdf-rendered') {
     const btn = document.getElementById('btnImportPdfBg');
     if (btn) { btn.textContent = '🗺 Fond'; btn.disabled = false; }
-    _restoreBgPdf(e.data.dataUrl, state.bgPdf.opacity);
+    _restoreBgPdf(e.data.dataUrl, state.bgPdf.opacity, e.data.basePdfWidth, e.data.basePdfHeight);
     saveToLocalStorage();
     const suffix = e.data.pageCount > 1 ? ` (page 1/${e.data.pageCount})` : '';
     toast('Fond PDF importé ✓' + suffix);
