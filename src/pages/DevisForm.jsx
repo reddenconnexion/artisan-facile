@@ -48,6 +48,8 @@ const DevisForm = () => {
     const [showReviewMenu, setShowReviewMenu] = useState(false);
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [showImportZone, setShowImportZone] = useState(!isEditing);
+    const [isDragOver, setIsDragOver] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
@@ -514,8 +516,9 @@ const DevisForm = () => {
                 notes: extraNotes ? (prev.notes ? prev.notes + '\n' + extraNotes : extraNotes) : prev.notes
             }));
 
+            setShowImportZone(false);
             if (newItems.length > 0) {
-                toast.success(`${newItems.length} éléments détectés. Mode Conversion activé.`);
+                toast.success(`${newItems.length} éléments détectés et importés.`);
             } else {
                 toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
             }
@@ -2270,6 +2273,50 @@ Conditions de règlement : Paiement à réception de facture.`
                     />
                 </div>
             </div>
+
+            {/* ── Zone d'import PDF (nouveau devis uniquement) ─────────────────── */}
+            {!isEditing && showImportZone && (
+                <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) processImportedFile(file);
+                    }}
+                    className={`relative mb-6 rounded-xl border-2 border-dashed transition-colors cursor-pointer
+                        ${isDragOver
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:border-blue-400 hover:bg-blue-50/40'
+                        }`}
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowImportZone(false); }}
+                        className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        title="Masquer"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex flex-col items-center justify-center gap-3 py-8 px-4 text-center select-none">
+                        {importing ? (
+                            <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+                        ) : (
+                            <Upload className={`w-10 h-10 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`} />
+                        )}
+                        <div>
+                            <p className="font-semibold text-gray-700 dark:text-gray-200">
+                                {importing ? 'Traitement en cours…' : 'Importer un devis existant (PDF ou Word)'}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* External PDF Mode / Manual Totals */}
             {formData.is_external ? (
