@@ -102,91 +102,125 @@ export const extractTextFromDocx = async (file) => {
     }
 };
 
+// Detects whether a description corresponds to a material/supply item
+const isMaterialKeyword = (desc) => {
+    const d = desc.toLowerCase();
+    return /fourniture|matériel|materiel|pièce|piece|câble|cable|tuyau|tube|joint|robinet|interrupteur|prise|vis|cheville|colle|dalle|carrelage|peinture|vernis|enduit|robinetterie|vanne|luminaire|ampoule|gaine|conduit|goulottes?|plaque|consommable/.test(d);
+};
+
 export const parseQuoteItems = (text) => {
     const items = [];
     const lines = text.split('\n');
     let notes = '';
-
-    // Regex strategies to detect items
-    // Strategy 1: "Description ... Quantity ... Unit Price ... Total"
-    // Capture: (Description) (Quantity) (Unit Price) (Total)
-    // Looking for: Something, then a number, then a number (price), then end or another number (total)
-
-    // Pattern: Description ending with space, then number (qty), "x" or space, number (price), optional "€"
-    const complexItemRegex = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:x|unites?|u)?\s*([\d\s.,]+)(?:€|EUR)?\s*([\d\s.,]+)?(?:€|EUR)?$/i;
-
-    // Strategy 2: "Description ... Price" (Quantity assumed 1)
-    const simpleItemRegex = /^(.+?)\s+([\d\s.,]+)(?:€|EUR)?$/i;
+    let inTable = false;
 
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        // Skip obvious headers/footers
-        if (/page \d|devis n°|facture n°|date:|client :/i.test(trimmed)) continue;
-
-        // Skip totals and legal jargon
-        if (/total|tva|montant|net à payer|bon pour accord|signature|siret|intracom|r\.c\.s|conditions/i.test(trimmed)) {
+        // ── Detect table header row (Description + Quantité/Prix columns) ──────
+        if (!inTable && /description/i.test(trimmed) && /(quantit|prix\s*u|p\.u\.)/i.test(trimmed)) {
+            inTable = true;
             continue;
         }
 
-        // Try complex strategy first (Qty + Price)
+        // ── TABLE MODE ────────────────────────────────────────────────────────
+        if (inTable) {
+            // End of table at the totals section
+            if (/^\s*total\s*h\.?t\.?(\s|$)/i.test(trimmed) || /^\s*sous[\s-]?total/i.test(trimmed)) {
+                inTable = false;
+                continue;
+            }
+            // Skip TVA / footer boilerplate
+            if (/^(t\.?v\.?a|tva\s*\(|valable|acompte|règlement|paiement|signature|bon pour accord|page\s+\d)/i.test(trimmed)) continue;
+            // Skip pure number/currency lines (subtotals)
+            if (/^[\d\s.,€%*]+$/.test(trimmed)) continue;
+
+            const numbers = trimmed.match(/\d+(?:[.,]\d+)?/g) || [];
+
+            if (numbers.length >= 2) {
+                // Try: description  qty  unit_price  [total]
+                const m =
+                    trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s+([\d.,]+)\s*€?\s+([\d.,]+)\s*€?\s*$/) ||
+                    trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s+([\d.,]+)\s*€?\s*$/);
+
+                if (m) {
+                    const desc  = m[1].trim();
+                    const qty   = parseFloat(m[2].replace(',', '.'));
+                    const price = parseFloat(m[3].replace(',', '.'));
+                    if (desc.length > 1 && qty > 0 && price > 0) {
+                        items.push({
+                            id: Date.now() + Math.random(),
+                            description: desc,
+                            quantity: qty,
+                            price,
+                            type: isMaterialKeyword(desc) ? 'material' : 'service',
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            // No numbers (or unmatched) → treat as section header
+            if (trimmed.length > 2 && !/^[\d.,€\s]+$/.test(trimmed)) {
+                items.push({
+                    id: Date.now() + Math.random(),
+                    description: trimmed,
+                    quantity: 1,
+                    price: 0,
+                    type: 'section',
+                });
+            }
+            continue;
+        }
+
+        // ── FALLBACK MODE (no table header detected yet) ──────────────────────
+        // Skip obvious headers/footers
+        if (/page \d|devis n°|facture n°|date:|client :/i.test(trimmed)) continue;
+        // Skip totals and legal jargon
+        if (/total|tva|montant|net à payer|bon pour accord|signature|siret|intracom|r\.c\.s|conditions/i.test(trimmed)) continue;
+
+        // Strategy 1: description + qty + unit price [+ total]
+        const complexItemRegex = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:x|unites?|u)?\s*([\d\s.,]+)(?:€|EUR)?\s*([\d\s.,]+)?(?:€|EUR)?$/i;
         let match = trimmed.match(complexItemRegex);
         if (match) {
             const description = match[1].trim();
-            const qtyStr = match[2].replace(',', '.');
-            const priceStr = match[3].replace(/\s/g, '').replace(',', '.');
-
-            const quantity = parseFloat(qtyStr);
-            const price = parseFloat(priceStr);
-
-            if (!isNaN(quantity) && !isNaN(price)) {
-                // Auto-detect type based on keywords
-                const descLower = description.toLowerCase();
-                let type = 'service';
-                if (descLower.includes('fourniture') || descLower.includes('matériel') || descLower.includes('materiel') || descLower.includes('pièce') || descLower.includes('consommable')) {
-                    type = 'material';
-                }
-
+            const qty   = parseFloat(match[2].replace(',', '.'));
+            const price = parseFloat(match[3].replace(/\s/g, '').replace(',', '.'));
+            if (!isNaN(qty) && !isNaN(price)) {
                 items.push({
                     id: Date.now() + Math.random(),
-                    description: description,
-                    quantity: quantity,
-                    price: price, // Unit price
-                    type: type
+                    description,
+                    quantity: qty,
+                    price,
+                    type: isMaterialKeyword(description) ? 'material' : 'service',
                 });
                 continue;
             }
         }
 
-        // Try simple strategy (Price only, assume qty 1)
+        // Strategy 2: description + price (qty assumed = 1)
+        const simpleItemRegex = /^(.+?)\s+([\d\s.,]+)(?:€|EUR)?$/i;
         match = trimmed.match(simpleItemRegex);
-        if (match) {
-            // Check if "price" looks like a real price (contains digits)
-            const priceStr = match[2].replace(/\s/g, '').replace(',', '.');
-            const price = parseFloat(priceStr);
-
+        if (match && match[1].length > 2) {
+            const price = parseFloat(match[2].replace(/\s/g, '').replace(',', '.'));
             if (!isNaN(price) && price > 0) {
-                // Double check description isn't just a date or nonsense
-                if (match[1].length > 2) {
-                    items.push({
-                        id: Date.now() + Math.random(),
-                        description: match[1].trim(),
-                        quantity: 1,
-                        price: price,
-                        type: (match[1].toLowerCase().match(/fourniture|matériel|materiel|pièce|consommable/)) ? 'material' : 'service'
-                    });
-                    continue;
-                }
+                items.push({
+                    id: Date.now() + Math.random(),
+                    description: match[1].trim(),
+                    quantity: 1,
+                    price,
+                    type: isMaterialKeyword(match[1]) ? 'material' : 'service',
+                });
+                continue;
             }
         }
 
-        // If no Item regex matched, treat as Description/Note line
-        // Avoid adding very short numbers or symbols
+        // Everything else → notes
         if (trimmed.length > 2 && !/^[\d.,€]+$/.test(trimmed)) {
             notes += trimmed + '\n';
         }
     }
 
-    return { items, notes };
+    return { items, notes: notes.trim() };
 };
