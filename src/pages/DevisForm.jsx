@@ -782,10 +782,8 @@ const DevisForm = () => {
         }
 
         const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-        if (!selectedClient || !selectedClient.email) {
-            toast.error('Le client sélectionné n\'a pas d\'adresse email');
-            return;
-        }
+        // Pas de blocage si l'email est absent — le mailto s'ouvre sans destinataire
+        // et l'utilisateur l'ajoute manuellement dans sa messagerie
 
         try {
             toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
