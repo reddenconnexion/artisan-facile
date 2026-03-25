@@ -4518,15 +4518,9 @@ function handleFileLoad(e) {
 
 // ══════════════════════════════════════════════════════════════
 //  IMPORT PDF COMME FOND DE PLAN
+//  Le rendu PDF est délégué à la page parente (React / Outils.jsx)
+//  via postMessage pour éviter les restrictions CSP.
 // ══════════════════════════════════════════════════════════════
-let _pdfjsLib = null;
-
-async function _loadPdfjsLib() {
-  if (_pdfjsLib) return _pdfjsLib;
-  _pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.449/build/pdf.min.mjs');
-  _pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  return _pdfjsLib;
-}
 
 function _showBgPdfControls(opacity) {
   const el = document.getElementById('bgPdfControls');
@@ -4555,42 +4549,28 @@ function _restoreBgPdf(dataUrl, opacity) {
   img.src = dataUrl;
 }
 
-async function importPDFBackground() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'application/pdf';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+// Écoute la réponse de la page parente (dataURL du PDF rendu)
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'planelec-pdf-rendered') {
     const btn = document.getElementById('btnImportPdfBg');
-    if (btn) { btn.textContent = '⏳ Chargement…'; btn.disabled = true; }
-    try {
-      toast('Chargement du PDF…');
-      const lib = await _loadPdfjsLib();
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf  = await lib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1);
-      const vp   = page.getViewport({ scale: 2 });  // ×2 pour une meilleure résolution
-      const off  = document.createElement('canvas');
-      off.width  = vp.width;
-      off.height = vp.height;
-      const octx = off.getContext('2d');
-      await page.render({ canvasContext: octx, viewport: vp }).promise;
-      const dataUrl = off.toDataURL('image/png');
-      _restoreBgPdf(dataUrl, state.bgPdf.opacity);
-      saveToLocalStorage();
-      if (pdf.numPages > 1)
-        toast(`Fond PDF importé ✓ (page 1/${pdf.numPages})`);
-      else
-        toast('Fond PDF importé ✓');
-    } catch (err) {
-      console.error('importPDFBackground:', err);
-      toast('Erreur import PDF : ' + err.message);
-    } finally {
-      if (btn) { btn.textContent = '🗺 Fond'; btn.disabled = false; }
-    }
-  };
-  input.click();
+    if (btn) { btn.textContent = '🗺 Fond'; btn.disabled = false; }
+    _restoreBgPdf(e.data.dataUrl, state.bgPdf.opacity);
+    saveToLocalStorage();
+    const suffix = e.data.pageCount > 1 ? ` (page 1/${e.data.pageCount})` : '';
+    toast('Fond PDF importé ✓' + suffix);
+  }
+  if (e.data?.type === 'planelec-pdf-error') {
+    const btn = document.getElementById('btnImportPdfBg');
+    if (btn) { btn.textContent = '🗺 Fond'; btn.disabled = false; }
+    toast('Erreur import PDF : ' + e.data.message);
+  }
+});
+
+function importPDFBackground() {
+  const btn = document.getElementById('btnImportPdfBg');
+  if (btn) { btn.textContent = '⏳ …'; btn.disabled = true; }
+  // Délègue l'ouverture du sélecteur et le rendu à la page parente (React)
+  window.parent?.postMessage({ type: 'planelec-render-pdf' }, '*');
 }
 
 function removePDFBackground(silent) {
