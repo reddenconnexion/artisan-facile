@@ -75,8 +75,7 @@ const ActionableDashboard = ({ user }) => {
                 .eq('status', 'sent')
                 .lt('date', sevenDaysAgo.toISOString()) // Created before 7 days ago
                 .or(`last_followup_at.is.null,last_followup_at.lt.${sevenDaysAgo.toISOString()}`)
-                .order('date', { ascending: true })
-                .limit(10);
+                .order('date', { ascending: true });
 
             // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
             // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
@@ -381,11 +380,22 @@ const ActionableDashboard = ({ user }) => {
                 {/* 2. Overdue Quotes */}
                 {actionItems.overdueQuotes.length > 0 && (
                     <div className="p-4 bg-amber-50/30 dark:bg-amber-900/10">
-                        <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider mb-3 flex items-center">
-                            <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
+                        <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider mb-3 flex items-center justify-between">
+                            <span className="flex items-center">
+                                <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
+                                <span className="ml-2 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                                    {actionItems.overdueQuotes.length}
+                                </span>
+                            </span>
+                            <button
+                                onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
+                                className="text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:underline normal-case tracking-normal"
+                            >
+                                Gérer les relances →
+                            </button>
                         </h4>
                         <div className="space-y-2">
-                            {actionItems.overdueQuotes.map(quote => {
+                            {actionItems.overdueQuotes.slice(0, 3).map(quote => {
                                 const daysOverdue = differenceInDays(new Date(), parseISO(quote.date));
                                 return (
                                     <div
@@ -418,6 +428,14 @@ const ActionableDashboard = ({ user }) => {
                                 );
                             })}
                         </div>
+                        {actionItems.overdueQuotes.length > 3 && (
+                            <button
+                                onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
+                                className="mt-2 w-full text-xs text-center text-amber-700 dark:text-amber-400 font-medium py-1.5 bg-amber-100/60 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded border border-amber-200 dark:border-amber-800 transition-colors"
+                            >
+                                Voir les {actionItems.overdueQuotes.length - 3} autres devis à relancer →
+                            </button>
+                        )}
                     </div>
                 )}
 
