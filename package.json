@@ -31,11 +31,11 @@
     "react-signature-canvas": "^1.1.0-alpha.2",
     "react-zoom-pan-pinch": "^3.7.0",
     "react-zxing": "^2.1.0",
+    "read-excel-file": "^8.0.2",
     "recharts": "^3.6.0",
     "serialize-javascript": "^7.0.5",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.1.17",
-    "xlsx": "^0.18.5"
+    "tailwindcss": "^4.1.17"
   },
   "overrides": {
     "serialize-javascript": "^7.0.5"

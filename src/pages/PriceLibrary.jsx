@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen } from 'lucide-react';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file';
 
 const PriceLibrary = () => {
     const { user } = useAuth();
@@ -95,22 +95,25 @@ const PriceLibrary = () => {
         });
     };
 
-    const parseExcel = (file) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                processImportedData(jsonData);
-            } catch (error) {
-                toast.error("Erreur lors de la lecture du fichier Excel");
-                console.error(error);
+    const parseExcel = async (file) => {
+        try {
+            const rows = await readXlsxFile(file);
+            if (rows.length < 2) {
+                toast.error("Le fichier Excel est vide ou ne contient que des en-têtes.");
+                return;
             }
-        };
-        reader.readAsArrayBuffer(file);
+            // Première ligne = en-têtes, lignes suivantes = données
+            const headers = rows[0].map(h => String(h ?? ''));
+            const jsonData = rows.slice(1).map(row => {
+                const obj = {};
+                headers.forEach((h, i) => { obj[h] = row[i]; });
+                return obj;
+            });
+            processImportedData(jsonData);
+        } catch (error) {
+            toast.error("Erreur lors de la lecture du fichier Excel");
+            console.error(error);
+        }
     };
 
     const processImportedData = async (data) => {
