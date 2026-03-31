@@ -1,23 +1,84 @@
-export default async function handler(req, res) {
+// Edge Runtime — persistant entre les requêtes, pas de cold start par invocation
+export const config = { runtime: 'edge' };
+
+// Rate limiting : 5 requêtes max / IP / minute (in-memory, par instance Edge)
+const rateLimit = new Map();
+const WINDOW_MS  = 60_000; // 1 minute
+const MAX_REQ    = 5;
+
+function checkRateLimit(ip) {
+    const now  = Date.now();
+    const entry = rateLimit.get(ip) ?? { count: 0, reset: now + WINDOW_MS };
+
+    if (now > entry.reset) {
+        entry.count = 0;
+        entry.reset = now + WINDOW_MS;
+    }
+
+    entry.count++;
+    rateLimit.set(ip, entry);
+
+    // Nettoyage périodique pour éviter les fuites mémoire
+    if (rateLimit.size > 10_000) {
+        for (const [key, val] of rateLimit) {
+            if (now > val.reset) rateLimit.delete(key);
+        }
+    }
+
+    return {
+        allowed:   entry.count <= MAX_REQ,
+        remaining: Math.max(0, MAX_REQ - entry.count),
+        reset:     Math.ceil(entry.reset / 1000),
+    };
+}
+
+export default async function handler(req) {
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
+    // Récupération de l'IP (Vercel fournit x-forwarded-for)
+    const ip =
+        req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+        req.headers.get('cf-connecting-ip') ||
+        'unknown';
+
+    const { allowed, remaining, reset } = checkRateLimit(ip);
+
+    const rateLimitHeaders = {
+        'Content-Type': 'application/json',
+        'X-RateLimit-Limit':     String(MAX_REQ),
+        'X-RateLimit-Remaining': String(remaining),
+        'X-RateLimit-Reset':     String(reset),
+    };
+
+    if (!allowed) {
+        return new Response(
+            JSON.stringify({ error: 'Trop de tentatives. Réessayez dans une minute.' }),
+            { status: 429, headers: { ...rateLimitHeaders, 'Retry-After': '60' } }
+        );
     }
 
     try {
-        const { toEmail, otpCode, clientName, companyName } = req.body;
+        const { toEmail, otpCode, clientName, companyName } = await req.json();
         const apiKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
 
-        // Log to console for local debugging if API key is missing
         if (!apiKey) {
             console.log(`[DEV MODE] Simulated email to ${toEmail}. OTP is: ${otpCode}`);
-            return res.status(200).json({ success: true, simulated: true, message: "Missing API Key, simulating email." });
+            return new Response(
+                JSON.stringify({ success: true, simulated: true, message: 'Missing API Key, simulating email.' }),
+                { status: 200, headers: rateLimitHeaders }
+            );
         }
 
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 from: 'Artisan Facile <onboarding@resend.dev>',
@@ -34,18 +95,28 @@ export default async function handler(req, res) {
                         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
                         <p style="color: #9ca3af; font-size: 12px; text-align: center;">${companyName || 'Artisan Facile'}</p>
                     </div>
-                `
-            })
+                `,
+            }),
         });
 
         const data = await response.json().catch(() => ({}));
-        
+
         if (!response.ok) {
-            return res.status(response.status).json({ error: data.message || "Failed to send email" });
+            return new Response(
+                JSON.stringify({ error: data.message || 'Failed to send email' }),
+                { status: response.status, headers: rateLimitHeaders }
+            );
         }
-        
-        return res.status(200).json(data);
-    } catch (error) {
-        return res.status(500).json({ error: 'Internal server error' });
+
+        return new Response(JSON.stringify({ success: true }), {
+            status: 200,
+            headers: rateLimitHeaders,
+        });
+
+    } catch {
+        return new Response(
+            JSON.stringify({ error: 'Internal server error' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
     }
 }
