@@ -9,10 +9,18 @@ export const useAuth = () => useContext(AuthContext);
 const SESSION_CACHE_KEY = 'cached_user_session';
 
 // Helper to cache user session for offline access
+// Stocke uniquement les champs nécessaires (pas les tokens ni app_metadata)
 const cacheUserSession = (user) => {
     if (user) {
+        const minimalUser = {
+            id: user.id,
+            email: user.email,
+            user_metadata: user.user_metadata,
+            aud: user.aud,
+            role: user.role,
+        };
         localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
-            user,
+            user: minimalUser,
             cachedAt: Date.now()
         }));
     } else {

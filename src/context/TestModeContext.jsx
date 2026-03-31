@@ -95,7 +95,10 @@ export function TestModeProvider({ children }) {
         const entry = { id: Date.now(), email, subject, body, timestamp: new Date().toISOString() };
         setCapturedEmails(prev => {
             const updated = [entry, ...prev].slice(0, 50);
-            localStorage.setItem(LS_EMAILS, JSON.stringify(updated));
+            // Ne persister en localStorage qu'en développement (contenu d'emails sensible)
+            if (import.meta.env.DEV) {
+                localStorage.setItem(LS_EMAILS, JSON.stringify(updated));
+            }
             return updated;
         });
     }, []);

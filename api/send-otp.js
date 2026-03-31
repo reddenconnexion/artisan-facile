@@ -10,7 +10,7 @@ export default async function handler(req, res) {
         // Log to console for local debugging if API key is missing
         if (!apiKey) {
             console.log(`[DEV MODE] Simulated email to ${toEmail}. OTP is: ${otpCode}`);
-            return res.status(200).json({ success: true, simulated: true, otp: otpCode, message: "Missing API Key, simulating email." });
+            return res.status(200).json({ success: true, simulated: true, message: "Missing API Key, simulating email." });
         }
 
         const response = await fetch('https://api.resend.com/emails', {
@@ -46,6 +46,6 @@ export default async function handler(req, res) {
         
         return res.status(200).json(data);
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }

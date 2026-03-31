@@ -99,7 +99,30 @@ export default defineConfig({
       'X-Frame-Options': 'SAMEORIGIN',
       'X-XSS-Protection': '1; mode=block',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+      'Content-Security-Policy': [
+        "default-src 'self'",
+        // Scripts : self + wasm pour pdf.js
+        "script-src 'self' 'wasm-unsafe-eval'",
+        // Styles : unsafe-inline requis par Tailwind CSS
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        // Fonts
+        "font-src 'self' https://fonts.gstatic.com",
+        // Images : data: pour les aperçus base64, blob: pour les PDF, https: pour Supabase Storage
+        "img-src 'self' data: blob: https:",
+        // Workers : blob: pour pdf.js worker
+        "worker-src 'self' blob:",
+        // Connexions API : Supabase + OpenStreetMap (géocodage) + OpenProductsFacts (EAN)
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://world.openproductsfacts.org https://ntfy.sh",
+        // Frames : autorise l'ouverture des PDFs Supabase Storage dans iframe
+        "frame-src 'self' blob: https://*.supabase.co",
+        // Médias : blob: pour les aperçus audio (notes vocales)
+        "media-src 'self' blob:",
+        // Objets PDF embarqués
+        "object-src 'none'",
+        // Upgrade HTTP → HTTPS
+        "upgrade-insecure-requests"
+      ].join('; ')
     }
   },
   define: {
