@@ -4,13 +4,139 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="description" content="Gestion simplifiée pour artisans" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <!-- SEO Primary -->
+    <title>Artisan Facile | Logiciel de Gestion Tout-en-Un pour Artisans</title>
+    <meta name="description" content="Artisan Facile : le logiciel de gestion tout-en-un pour artisans. Devis en 2 minutes, facturation, suivi des impayés, agenda, comptabilité et CRM. Essai gratuit, sans engagement." />
+    <meta name="keywords" content="logiciel gestion artisan, application artisan tout en un, devis facture artisan, gestion chantier artisan, logiciel artisan bâtiment, logiciel artisan plombier électricien, gestion administrative artisan, facturation artisan, application artisan France, suivi chantier artisan" />
+    <meta name="author" content="Artisan Facile" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://artisan-facile.app/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://artisan-facile.app/" />
+    <meta property="og:site_name" content="Artisan Facile" />
+    <meta property="og:title" content="Artisan Facile | Logiciel de Gestion Tout-en-Un pour Artisans" />
+    <meta property="og:description" content="Le logiciel de gestion tout-en-un pour artisans : devis en 2 minutes, facturation, suivi des impayés, agenda et comptabilité. Gagnez 5h/semaine et +15% de CA. Essai gratuit." />
+    <meta property="og:image" content="https://artisan-facile.app/images/og-preview.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Artisan Facile - Interface de gestion pour artisans" />
+    <meta property="og:locale" content="fr_FR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Artisan Facile | Logiciel de Gestion Tout-en-Un pour Artisans" />
+    <meta name="twitter:description" content="Devis en 2 min, facturation, agenda, comptabilité — tout ce qu'il faut pour gérer votre activité d'artisan. Essai gratuit sans CB." />
+    <meta name="twitter:image" content="https://artisan-facile.app/images/og-preview.png" />
+
+    <!-- PWA / Apple -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Artisan Facile" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
-    <title>Artisan Facile</title>
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://artisan-facile.app/#software",
+          "name": "Artisan Facile",
+          "url": "https://artisan-facile.app/",
+          "description": "Logiciel de gestion tout-en-un pour artisans : devis, facturation, suivi des impayés, agenda, CRM, comptabilité et bibliothèque de prix.",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web, iOS, Android",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "EUR",
+            "description": "Essai gratuit sans engagement"
+          },
+          "featureList": [
+            "Création de devis en 2 minutes",
+            "Facturation professionnelle",
+            "Suivi des impayés et relances automatiques",
+            "Agenda et planification des chantiers",
+            "CRM client",
+            "Comptabilité simplifiée",
+            "Bibliothèque de prix et ouvrages",
+            "Rapports d'intervention",
+            "Mode hors ligne",
+            "Signature électronique des devis"
+          ],
+          "screenshot": "https://artisan-facile.app/images/quote_mockup.png",
+          "inLanguage": "fr-FR",
+          "audience": {
+            "@type": "Audience",
+            "audienceType": "Artisans, Auto-entrepreneurs, TPE du bâtiment"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://artisan-facile.app/#organization",
+          "name": "Artisan Facile",
+          "url": "https://artisan-facile.app/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://artisan-facile.app/logo.svg"
+          },
+          "description": "Éditeur du logiciel de gestion tout-en-un pour artisans Artisan Facile.",
+          "inLanguage": "fr-FR"
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://artisan-facile.app/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Artisan Facile est-il gratuit ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Oui, Artisan Facile propose un essai gratuit sans engagement et sans frais cachés. Vous pouvez tester toutes les fonctionnalités sans carte bancaire."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Quelles fonctionnalités propose Artisan Facile ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Artisan Facile propose la création de devis en 2 minutes, la facturation professionnelle, le suivi des impayés avec relances automatiques, un agenda intelligent, un CRM client, une comptabilité simplifiée, une bibliothèque de prix et ouvrages, des rapports d'intervention et une signature électronique des devis."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Artisan Facile fonctionne-t-il sans connexion internet ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Oui, Artisan Facile fonctionne en mode hors ligne. Vous pouvez continuer à travailler sur vos chantiers sans connexion ; vos données se synchronisent automatiquement dès que vous retrouvez du réseau."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Pour quels types d'artisans est conçu Artisan Facile ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Artisan Facile est conçu pour tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Combien de temps faut-il pour créer un devis avec Artisan Facile ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Grâce à la bibliothèque de prix et d'ouvrages pré-remplie, vous créez un devis professionnel en moins de 2 minutes, directement depuis votre téléphone sur le chantier."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -17,8 +17,8 @@ export default defineConfig({
       manifest: {
         name: 'Artisan Facile',
         short_name: 'ArtisanFacile',
-        description: 'Gestion simplifiée pour artisans',
-        theme_color: '#ffffff',
+        description: 'Logiciel de gestion tout-en-un pour artisans : devis, facturation, agenda, CRM et comptabilité.',
+        theme_color: '#2563eb',
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',

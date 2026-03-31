@@ -290,6 +290,49 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* FAQ Section - SEO */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+                            Questions fréquentes
+                        </h2>
+                        <p className="mt-4 text-xl text-gray-600">
+                            Tout ce que vous devez savoir sur Artisan Facile
+                        </p>
+                    </div>
+                    <dl className="space-y-6">
+                        {[
+                            {
+                                question: "Pour quels types d'artisans est conçu Artisan Facile ?",
+                                answer: "Artisan Facile convient à tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aussi bien aux auto-entrepreneurs qu'aux artisans avec une équipe."
+                            },
+                            {
+                                question: "Combien de temps faut-il pour créer un devis ?",
+                                answer: "Moins de 2 minutes. Grâce à la bibliothèque d'ouvrages et de prix pré-remplie, vous sélectionnez vos prestations, ajoutez vos quantités et envoyez le devis directement depuis votre téléphone sur le chantier. Votre client peut signer en ligne instantanément."
+                            },
+                            {
+                                question: "Artisan Facile est-il gratuit ?",
+                                answer: "Oui, vous pouvez tester Artisan Facile gratuitement, sans carte bancaire et sans engagement. Toutes les fonctionnalités sont accessibles pendant la période d'essai."
+                            },
+                            {
+                                question: "Est-ce que ça fonctionne sans connexion internet ?",
+                                answer: "Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement même sans réseau sur le chantier, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion."
+                            },
+                            {
+                                question: "Quelles fonctionnalités sont incluses dans le logiciel ?",
+                                answer: "Artisan Facile intègre : devis et facturation professionnels, suivi des impayés avec relances automatiques, agenda et planification des chantiers, CRM client, comptabilité simplifiée, bibliothèque de prix et ouvrages, rapports d'intervention, gestion des stocks, notes vocales et signature électronique."
+                            }
+                        ].map(({ question, answer }, i) => (
+                            <div key={i} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                                <dt className="text-lg font-semibold text-gray-900 mb-2">{question}</dt>
+                                <dd className="text-gray-600 leading-relaxed">{answer}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            </section>
+
             {/* CTA Section */}
             <section className="py-20 bg-blue-600">
                 <div className="max-w-4xl mx-auto text-center px-4">
@@ -312,9 +355,11 @@ const LandingPage = () => {
             <footer className="bg-gray-900 text-gray-400 py-12">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row justify-between items-center">
-                        <div className="mb-4 md:mb-0">
+                        <div className="mb-6 md:mb-0">
                             <span className="text-2xl font-bold text-white">Artisan Facile</span>
-                            <p className="mt-2 text-sm">L'outil préféré des artisans connectés.</p>
+                            <p className="mt-2 text-sm max-w-xs">
+                                Le logiciel de gestion tout-en-un pour artisans : devis, facturation, agenda, CRM et comptabilité.
+                            </p>
                         </div>
                         <div className="flex gap-8">
                             <a href="#" className="hover:text-white transition-colors">Mentions légales</a>
@@ -323,7 +368,7 @@ const LandingPage = () => {
                         </div>
                     </div>
                     <div className="mt-8 text-center text-sm border-t border-gray-800 pt-8">
-                        © {new Date().getFullYear()} Artisan Facile. Tous droits réservés.
+                        © {new Date().getFullYear()} Artisan Facile. Tous droits réservés. — Logiciel de gestion pour artisans, auto-entrepreneurs et TPE du bâtiment.
                     </div>
                 </div>
             </footer>

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /api/
+Disallow: /auth/
+
+# Pages publiques autorisées
+Allow: /login
+Allow: /register
+
+Sitemap: https://artisan-facile.app/sitemap.xml
