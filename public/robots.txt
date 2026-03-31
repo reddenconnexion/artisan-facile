@@ -8,4 +8,4 @@ Disallow: /auth/
 Allow: /login
 Allow: /register
 
-Sitemap: https://artisan-facile.app/sitemap.xml
+Sitemap: https://artisanfacile.fr/sitemap.xml
