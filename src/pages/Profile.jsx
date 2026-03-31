@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -11,11 +11,10 @@ const Profile = () => {
     const { user } = useAuth();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
     const [loading, setLoading] = useState(false);
-    // API key: stored in a ref (not React state) to keep it out of DevTools
-    // and not displayed in the form input value
-    const storedApiKeyRef = useRef('');
+    // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
     const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
+    const [savingApiKey, setSavingApiKey] = useState(false);
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -55,9 +54,9 @@ const Profile = () => {
 
             if (data) {
                 const aiPrefs = data.ai_preferences || {};
-                // Store the API key in a ref — never put it in React state or form inputs
-                storedApiKeyRef.current = aiPrefs.openai_api_key || '';
+                // On ne retient que le statut configuré — la clé est immédiatement effacée de la mémoire
                 setApiKeyConfigured(!!aiPrefs.openai_api_key);
+                delete data.ai_preferences?.openai_api_key;
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',
@@ -175,8 +174,7 @@ const Profile = () => {
                     wero_phone: formData.wero_phone,
 
                     ai_preferences: {
-                        // Use newly typed key if provided, else preserve the existing stored key
-                        openai_api_key: apiKeyInput || storedApiKeyRef.current,
+                        // La clé API est gérée séparément via l'Edge Function save-openai-key
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
                         zone1_radius: formData.zone1_radius,
@@ -201,6 +199,61 @@ const Profile = () => {
             toast.error('Erreur lors de la mise à jour du profil');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveApiKey = async () => {
+        const key = apiKeyInput.trim();
+        if (!key) return;
+
+        setSavingApiKey(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const res = await fetch(`${supabaseUrl}/functions/v1/save-openai-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ api_key: key }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Erreur inconnue');
+
+            setApiKeyConfigured(result.configured);
+            setApiKeyInput('');
+            toast.success('Clé API sauvegardée avec succès');
+        } catch (err) {
+            toast.error(err.message || 'Erreur lors de la sauvegarde de la clé');
+        } finally {
+            setSavingApiKey(false);
+        }
+    };
+
+    const handleDeleteApiKey = async () => {
+        setSavingApiKey(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const res = await fetch(`${supabaseUrl}/functions/v1/save-openai-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ api_key: null }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Erreur inconnue');
+
+            setApiKeyConfigured(false);
+            setApiKeyInput('');
+            toast.success('Clé API supprimée');
+        } catch (err) {
+            toast.error(err.message || 'Erreur lors de la suppression de la clé');
+        } finally {
+            setSavingApiKey(false);
         }
     };
 
@@ -628,16 +681,34 @@ const Profile = () => {
                                     >
                                         Modifier
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteApiKey}
+                                        disabled={savingApiKey}
+                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm disabled:opacity-50"
+                                    >
+                                        Supprimer
+                                    </button>
                                 </div>
                             ) : (
-                                <input
-                                    type="password"
-                                    placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
-                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                                    value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
-                                    onChange={(e) => setApiKeyInput(e.target.value)}
-                                    autoFocus={apiKeyConfigured}
-                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="password"
+                                        placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
+                                        className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
+                                        onChange={(e) => setApiKeyInput(e.target.value)}
+                                        autoFocus={apiKeyConfigured}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveApiKey}
+                                        disabled={savingApiKey || !apiKeyInput.trim()}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm disabled:opacity-50 whitespace-nowrap"
+                                    >
+                                        {savingApiKey ? 'Sauvegarde…' : 'Sauvegarder'}
+                                    </button>
+                                </div>
                             )}
                         </div>
 
