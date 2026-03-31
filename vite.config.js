@@ -147,7 +147,7 @@ export default defineConfig({
           // React Query
           query: ['@tanstack/react-query'],
           // Autres
-          xlsx: ['xlsx']
+          excelReader: ['read-excel-file/browser']
         }
       }
     }

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen } from 'lucide-react';
 import Papa from 'papaparse';
-import readXlsxFile from 'read-excel-file';
+import readXlsxFile from 'read-excel-file/browser';
 
 const PriceLibrary = () => {
     const { user } = useAuth();
