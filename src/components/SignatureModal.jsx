@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 /**
  * Signature modal en 3 étapes :
@@ -123,7 +124,13 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     const save = () => {
         if (typeof sigCanvas.current?.isEmpty !== 'function') return;
         if (sigCanvas.current.isEmpty()) {
-            alert('Veuillez signer avant de valider.');
+            toast.error('Veuillez signer avant de valider.');
+            return;
+        }
+        // Défense en profondeur : si OTP requis, le code doit être présent même si
+        // l'étape OTP a été contournée côté UI (la vérification réelle est serveur)
+        if (requiresOtp && !/^\d{6}$/.test(otpInput.trim())) {
+            toast.error('Code de vérification manquant ou invalide.');
             return;
         }
         const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
