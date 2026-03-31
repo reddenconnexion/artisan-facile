@@ -32,9 +32,13 @@
     "react-zoom-pan-pinch": "^3.7.0",
     "react-zxing": "^2.1.0",
     "recharts": "^3.6.0",
+    "serialize-javascript": "^7.0.5",
     "sonner": "^2.0.7",
     "tailwindcss": "^4.1.17",
     "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
