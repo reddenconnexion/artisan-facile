@@ -181,22 +181,34 @@ const InterventionReportForm = () => {
         if (status !== 'completed' && status !== 'signed') return;
 
         const fetchLinkedInvoice = async () => {
-            let query = supabase
+            const base = supabase
                 .from('quotes')
                 .select('id, title, public_token, report_pdf_url, client_id, client_name')
                 .eq('user_id', user.id)
                 .eq('type', 'invoice');
 
+            // Essayer par parent_id (devis lié)
             if (formData.quote_id) {
-                query = query.eq('parent_id', formData.quote_id);
-            } else if (formData.report_pdf_url) {
-                query = query.eq('report_pdf_url', formData.report_pdf_url);
-            } else {
-                return;
+                const { data } = await base.eq('parent_id', formData.quote_id).maybeSingle();
+                if (data) { setLinkedInvoice(data); return; }
             }
 
-            const { data } = await query.maybeSingle();
-            if (data) setLinkedInvoice(data);
+            // Essayer par report_pdf_url (rapport sans devis préalable)
+            if (formData.report_pdf_url) {
+                const { data } = await base.eq('report_pdf_url', formData.report_pdf_url).maybeSingle();
+                if (data) { setLinkedInvoice(data); return; }
+            }
+
+            // Fallback : facture du même client à la même date
+            if (formData.client_id && formData.date) {
+                const { data } = await base
+                    .eq('client_id', formData.client_id)
+                    .eq('date', formData.date)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (data) { setLinkedInvoice(data); return; }
+            }
         };
 
         fetchLinkedInvoice();
@@ -595,6 +607,10 @@ const InterventionReportForm = () => {
 
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');
+
+            // Mettre à jour le state local pour que le bouton "Envoyer la facture" apparaisse
+            setLinkedInvoice(newInvoice);
+            setFormData(prev => ({ ...prev, status: 'completed' }));
 
             // --- 6. Préparer le modal email ---
             const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
