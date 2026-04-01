@@ -540,10 +540,10 @@ const InterventionReportForm = () => {
 
             // --- 5. Uploader le rapport PDF avant de créer la facture ---
             const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
-            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
+            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || 'INT'}-${Date.now()}.pdf`;
             const { error: uploadError } = await supabase.storage
                 .from('quote_files')
-                .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
+                .upload(reportPath, reportBlob, { contentType: 'application/pdf' });
 
             if (uploadError) {
                 console.error('Upload rapport PDF échoué :', uploadError);
