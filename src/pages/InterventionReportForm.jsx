@@ -184,6 +184,8 @@ const InterventionReportForm = () => {
             client_name: client?.name || '',
             quote_id: '',  // reset quote when client changes
             intervention_address: client?.address || prev.intervention_address,
+            intervention_postal_code: client?.postal_code || prev.intervention_postal_code,
+            intervention_city: client?.city || prev.intervention_city,
         }));
     };
 

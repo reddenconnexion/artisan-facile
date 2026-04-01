@@ -125,6 +125,8 @@ const ClientForm = () => {
         email: '',
         phone: '',
         address: '',
+        postal_code: '',
+        city: '',
         notes: '',
         status: 'lead',
         type: 'professional',
@@ -186,6 +188,8 @@ const ClientForm = () => {
                     email: data.email || '',
                     phone: data.phone || '',
                     address: data.address || '',
+                    postal_code: data.postal_code || '',
+                    city: data.city || '',
                     notes: data.notes || '',
                     status: data.status || 'lead',
                     portal_token: data.portal_token,
@@ -611,10 +615,10 @@ const ClientForm = () => {
                                 Adresse
                             </label>
                             <div className="flex items-center gap-2">
-                                {formData.address && (
+                                {(formData.address || formData.postal_code || formData.city) && (
                                     <>
                                         <a
-                                            href={`https://www.waze.com/ul?q=${encodeURIComponent(formData.address)}`}
+                                            href={`https://www.waze.com/ul?q=${encodeURIComponent([formData.address, formData.postal_code, formData.city].filter(Boolean).join(' '))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="p-1 text-blue-500 hover:bg-blue-50 rounded-full"
@@ -623,7 +627,7 @@ const ClientForm = () => {
                                             <Navigation className="w-4 h-4" />
                                         </a>
                                         <a
-                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address)}`}
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([formData.address, formData.postal_code, formData.city].filter(Boolean).join(' '))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="p-1 text-green-600 hover:bg-green-50 rounded-full"
@@ -635,14 +639,37 @@ const ClientForm = () => {
                                 )}
                             </div>
                         </div>
-                        <textarea
+                        <input
                             id="address"
                             name="address"
-                            rows={3}
+                            type="text"
+                            placeholder="N° et nom de rue"
                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.address}
                             onChange={handleChange}
                         />
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                            <div>
+                                <input
+                                    name="postal_code"
+                                    type="text"
+                                    placeholder="Code postal"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.postal_code}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                            <div className="col-span-2">
+                                <input
+                                    name="city"
+                                    type="text"
+                                    placeholder="Ville"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <div>
