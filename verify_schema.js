@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://vpqcmfsxrpctaiaydhsu.supabase.co';
-const supabaseKey = 'sb_publishable_2P8j1ssyYxqZQlFr4IPU5A_XNlkd9FT';
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkSchema() {

@@ -26,3 +26,6 @@ dist-ssr
 
 # Supabase CLI temp files
 supabase/.temp/
+
+# Dev utility scripts
+verify_schema.js
