@@ -207,7 +207,7 @@ const InterventionReportForm = () => {
 
         fetchLinkedInvoice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditing, formData.status, formData.quote_id, formData.report_pdf_url, user]);
+    }, [isEditing, formData.status, formData.quote_id, formData.invoice_id, formData.report_pdf_url, user]);
 
     // Sync client_name + adresse when client_id changes
     const handleClientChange = (clientId) => {
@@ -430,8 +430,35 @@ const InterventionReportForm = () => {
             toast.error(`Le client n'a pas d'email enregistré`);
             return;
         }
+
+        // Générer et uploader le PDF du rapport s'il n'existe pas encore
+        let reportUrl = linkedInvoice.report_pdf_url || formData.report_pdf_url;
+        if (!reportUrl) {
+            const toastId = 'uploading-report-pdf';
+            toast.loading('Génération du rapport PDF…', { id: toastId });
+            try {
+                const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
+                const reportPath = `interventions/${user.id}/rapport-${formData.report_number || 'INT'}-${Date.now()}.pdf`;
+                const { error: uploadError } = await supabase.storage
+                    .from('quote_files')
+                    .upload(reportPath, reportBlob, { contentType: 'application/pdf' });
+                if (uploadError) throw uploadError;
+                const { data: { publicUrl } } = supabase.storage.from('quote_files').getPublicUrl(reportPath);
+                reportUrl = publicUrl;
+                // Persister le lien PDF sur le rapport et la facture
+                await supabase.from('intervention_reports').update({ report_pdf_url: reportUrl }).eq('id', formData.id);
+                await supabase.from('quotes').update({ report_pdf_url: reportUrl }).eq('id', linkedInvoice.id);
+                setFormData(prev => ({ ...prev, report_pdf_url: reportUrl }));
+                setLinkedInvoice(prev => ({ ...prev, report_pdf_url: reportUrl }));
+                toast.dismiss(toastId);
+            } catch (err) {
+                toast.dismiss(toastId);
+                console.error('Upload rapport PDF échoué :', err);
+                toast.warning(`PDF non uploadé : ${err?.message || 'erreur inconnue'}`, { duration: 5000 });
+            }
+        }
+
         const invoiceUrl = `${window.location.origin}/q/${linkedInvoice.public_token}`;
-        const reportUrl = linkedInvoice.report_pdf_url || formData.report_pdf_url;
         const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
         const signatureBlock = [companyName, userProfile?.phone || '', userProfile?.professional_email || userProfile?.email || ''].filter(Boolean).join('\n');
         const subject = `Facture : ${linkedInvoice.title || formData.title} - ${companyName}`;
