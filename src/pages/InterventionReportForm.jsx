@@ -466,8 +466,8 @@ const InterventionReportForm = () => {
             `Bonjour ${client.name},\n\n` +
             `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
             `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
-            `📄 Facture :\n${invoiceUrl}\n\n` +
-            (reportUrl ? `📋 Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+            `Facture :\n${invoiceUrl}\n\n` +
+            (reportUrl ? `Rapport d'intervention :\n${reportUrl}\n\n` : '') +
             `Cordialement,\n${signatureBlock}`;
         setSendInvoiceModal({ email: client.email, subject, body });
     };
@@ -658,8 +658,8 @@ const InterventionReportForm = () => {
                 `Bonjour ${client.name},\n\n` +
                 `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
                 `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
-                `📄 Facture de clôture :\n${invoiceUrl}\n\n` +
-                (reportUrl ? `📋 Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+                `Facture de cloture :\n${invoiceUrl}\n\n` +
+                (reportUrl ? `Rapport d'intervention :\n${reportUrl}\n\n` : '') +
                 `Cordialement,\n${signatureBlock}`;
 
             setSendInvoiceModal({ email: client.email, subject, body });

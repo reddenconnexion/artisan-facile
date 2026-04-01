@@ -833,16 +833,15 @@ const DevisForm = () => {
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
             // Template Construction
-            const docEmoji = isInvoice ? '🧾' : '📄';
-            let subjectPrefix = isInvoice ? 'Facture' : 'Devis';
-            const subject = `${docEmoji} ${subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} – ${formData.title || 'Votre projet'} | ${companyName}`;
+            const subjectPrefix = isInvoice ? 'Facture' : 'Devis';
+            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${formData.title || 'Votre projet'} - ${companyName}`;
 
             const introduction = isInvoice
                 ? `Bonjour ${selectedClient.name},\n\nJe vous transmets votre facture pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour y accéder.`
                 : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour le consulter.`;
 
             const actionText = isInvoice ? 'Consulter et télécharger votre facture' : 'Consulter, télécharger et signer votre devis';
-            const callToAction = `${docEmoji} ${actionText} :\n${publicUrl}`;
+            const callToAction = `${actionText} :\n${publicUrl}`;
 
             // Client Portal Link Logic
             let portalUrl = null;
@@ -900,13 +899,10 @@ const DevisForm = () => {
             // Assembler les sections
             const bodyParts = [introduction, callToAction];
             if (reportPdfUrl) {
-                bodyParts.push(`📋 Rapport d'intervention :\n${reportPdfUrl}`);
+                bodyParts.push(`Rapport d'intervention :\n${reportPdfUrl}`);
             }
             if (portalUrl) {
-                bodyParts.push(`🏠 Votre espace client (documents & suivi de chantier) :\n${portalUrl}`);
-            }
-            if (showReviewRequest) {
-                bodyParts.push(`⭐ Un avis Google m'aiderait beaucoup à développer mon activité :\n${userProfile.google_review_url}`);
+                bodyParts.push(`Votre espace client (documents et suivi de chantier) :\n${portalUrl}`);
             }
             bodyParts.push(`N'hésitez pas à me contacter pour toute question.\n\nBien cordialement,`);
             bodyParts.push(signatureBlock);
@@ -1857,11 +1853,11 @@ Conditions de règlement : Paiement à réception de facture.`
                 window.open(reviewUrl, '_blank');
                 break;
             case 'email':
-                const reviewSubject = `⭐ Votre avis compte pour ${userProfile.company_name || 'nous'}`;
+                const reviewSubject = `Votre avis compte pour ${userProfile.company_name || 'nous'}`;
                 const reviewBody = [
                     `Bonjour,`,
                     `Merci de nous avoir fait confiance pour vos travaux !`,
-                    `⭐ Votre avis nous aiderait beaucoup. Cela ne prend que 30 secondes :\n${reviewUrl}`,
+                    `Votre avis nous aiderait beaucoup. Cela ne prend que 30 secondes :\n${reviewUrl}`,
                     `N'hésitez pas à nous contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile.full_name || ''}`
                 ].join('\n\n');
                 if (isTestMode) {
