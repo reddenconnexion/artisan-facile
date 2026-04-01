@@ -38,8 +38,9 @@ const InterventionReportForm = () => {
     const [exporting, setExporting] = useState(false);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
-    const [sendInvoiceModal, setSendInvoiceModal] = useState(null); // { email, subject, body }
+    const [sendInvoiceModal, setSendInvoiceModal] = useState(null);
     const [processingAudio, setProcessingAudio] = useState(false);
+    const [linkedInvoice, setLinkedInvoice] = useState(null);
 
     const { isRecording, audioBlob, duration: recordingDuration, startRecording, stopRecording, isSupported: micSupported } = useAudioRecorder();
 
@@ -172,6 +173,35 @@ const InterventionReportForm = () => {
             }
         }
     }, [formData.start_time, formData.end_time]);
+
+    // Charger la facture liée quand le rapport est terminé/signé
+    useEffect(() => {
+        if (!isEditing || !user) return;
+        const status = formData.status;
+        if (status !== 'completed' && status !== 'signed') return;
+
+        const fetchLinkedInvoice = async () => {
+            let query = supabase
+                .from('quotes')
+                .select('id, title, public_token, report_pdf_url, client_id, client_name')
+                .eq('user_id', user.id)
+                .eq('type', 'invoice');
+
+            if (formData.quote_id) {
+                query = query.eq('parent_id', formData.quote_id);
+            } else if (formData.report_pdf_url) {
+                query = query.eq('report_pdf_url', formData.report_pdf_url);
+            } else {
+                return;
+            }
+
+            const { data } = await query.maybeSingle();
+            if (data) setLinkedInvoice(data);
+        };
+
+        fetchLinkedInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isEditing, formData.status, formData.quote_id, formData.report_pdf_url, user]);
 
     // Sync client_name + adresse when client_id changes
     const handleClientChange = (clientId) => {
@@ -380,6 +410,33 @@ const InterventionReportForm = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleResendInvoice = async () => {
+        if (!linkedInvoice) return;
+        const clientId = formData.client_id || linkedInvoice.client_id;
+        let client = clients.find(c => String(c.id) === String(clientId));
+        if (!client && clientId) {
+            const { data } = await supabase.from('clients').select('*').eq('id', clientId).single();
+            client = data;
+        }
+        if (!client?.email) {
+            toast.error(`Le client n'a pas d'email enregistré`);
+            return;
+        }
+        const invoiceUrl = `${window.location.origin}/q/${linkedInvoice.public_token}`;
+        const reportUrl = linkedInvoice.report_pdf_url || formData.report_pdf_url;
+        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
+        const signatureBlock = [companyName, userProfile?.phone || '', userProfile?.professional_email || userProfile?.email || ''].filter(Boolean).join('\n');
+        const subject = `Facture : ${linkedInvoice.title || formData.title} - ${companyName}`;
+        const body =
+            `Bonjour ${client.name},\n\n` +
+            `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
+            `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
+            `📄 Facture :\n${invoiceUrl}\n\n` +
+            (reportUrl ? `📋 Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+            `Cordialement,\n${signatureBlock}`;
+        setSendInvoiceModal({ email: client.email, subject, body });
     };
 
     const handleMarkCompleted = async () => {
@@ -632,6 +689,15 @@ const InterventionReportForm = () => {
                         >
                             <CheckCircle className="w-4 h-4" />
                             Marquer terminé
+                        </button>
+                    )}
+                    {linkedInvoice && (formData.status === 'completed' || formData.status === 'signed') && (
+                        <button
+                            onClick={handleResendInvoice}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors font-medium"
+                        >
+                            <Send className="w-4 h-4" />
+                            Envoyer la facture
                         </button>
                     )}
                     <button
