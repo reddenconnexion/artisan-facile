@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -52,6 +52,24 @@ const DevisList = () => {
     const importInputRef = React.useRef(null);
 
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
+    const [mergeMode, setMergeMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
+    const toggleSelect = (e, id) => {
+        e.stopPropagation();
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const handleCancelMerge = () => { setMergeMode(false); setSelectedIds(new Set()); };
+
+    const handleMerge = () => {
+        if (selectedIds.size < 2) return;
+        navigate('/app/devis/new', { state: { mergeIds: [...selectedIds] } });
+    };
 
     // Reset filter if location state changes
     useEffect(() => {
@@ -100,20 +118,40 @@ const DevisList = () => {
                     Devis & Factures
                 </h2>
                 <div className="flex gap-2">
-                    <button
-                        onClick={handleImportClick}
-                        className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        <Upload className="w-5 h-5 mr-2" />
-                        Importer (PDF / Word)
-                    </button>
-                    <button
-                        onClick={() => navigate('/app/devis/new')}
-                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nouveau Devis
-                    </button>
+                    {!mergeMode ? (
+                        <>
+                            <button
+                                onClick={handleImportClick}
+                                className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                <Upload className="w-5 h-5 mr-2" />
+                                Importer (PDF / Word)
+                            </button>
+                            <button
+                                onClick={() => setMergeMode(true)}
+                                className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                title="Fusionner plusieurs devis en un seul"
+                            >
+                                <Layers className="w-5 h-5 mr-2" />
+                                Fusionner
+                            </button>
+                            <button
+                                onClick={() => navigate('/app/devis/new')}
+                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <Plus className="w-5 h-5 mr-2" />
+                                Nouveau Devis
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={handleCancelMerge}
+                            className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            <X className="w-5 h-5 mr-2" />
+                            Annuler
+                        </button>
+                    )}
                 </div>
                 <input
                     type="file"
@@ -184,6 +222,7 @@ const DevisList = () => {
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                             <thead className="bg-gray-50 dark:bg-gray-800/50">
                                 <tr>
+                                    {mergeMode && <th className="pl-4 pr-2 py-3 w-10" />}
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Numéro</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
@@ -194,7 +233,22 @@ const DevisList = () => {
                             </thead>
                             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                                 {filteredDevis.map((devis) => (
-                                    <tr key={devis.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => navigate(`/app/devis/${devis.id}`)}>
+                                    <tr
+                                        key={devis.id}
+                                        className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                                        onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
+                                    >
+                                        {mergeMode && (
+                                            <td className="pl-4 pr-2 py-4 w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(devis.id)}
+                                                    onChange={(e) => toggleSelect(e, devis.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                />
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
                                             {devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV')} #{devis.quote_number || devis.id}
                                         </td>
@@ -241,9 +295,21 @@ const DevisList = () => {
                         {filteredDevis.map((devis) => (
                             <div
                                 key={devis.id}
-                                className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
-                                onClick={() => navigate(`/app/devis/${devis.id}`)}
+                                className={`bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800'}`}
+                                onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
                             >
+                                {mergeMode && (
+                                    <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(devis.id)}
+                                            onChange={(e) => toggleSelect(e, devis.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span className="text-xs">{selectedIds.has(devis.id) ? 'Sélectionné' : 'Sélectionner'}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <span className={`text-xs font-semibold px-2 py-1 rounded ${devis.type === 'invoice' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : (devis.type === 'amendment' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30')}`}>
@@ -277,6 +343,31 @@ const DevisList = () => {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Barre flottante de fusion */}
+            {mergeMode && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-full shadow-xl border transition-all"
+                    style={{ background: selectedIds.size >= 2 ? '#2563eb' : '#f3f4f6', color: selectedIds.size >= 2 ? '#fff' : '#6b7280', borderColor: selectedIds.size >= 2 ? '#1d4ed8' : '#e5e7eb' }}
+                >
+                    <Layers className="w-4 h-4 flex-shrink-0" />
+                    {selectedIds.size < 2 ? (
+                        <span className="text-sm">Sélectionnez au moins 2 devis</span>
+                    ) : (
+                        <>
+                            <span className="text-sm font-medium">{selectedIds.size} devis sélectionnés</span>
+                            <button
+                                onClick={handleMerge}
+                                className="ml-2 px-4 py-1.5 bg-white text-blue-600 text-sm font-semibold rounded-full hover:bg-blue-50 transition-colors"
+                            >
+                                Fusionner
+                            </button>
+                        </>
+                    )}
+                    <button onClick={handleCancelMerge} className="ml-1 opacity-70 hover:opacity-100 transition-opacity">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
             )}
         </div>
     );

@@ -414,10 +414,10 @@ const DevisForm = () => {
 
             loadData();
 
-            fetchClients().then((loadedClients) => {
-                // Handle Navigation State (Client ID or Voice Data or Import File)
+            fetchClients().then(async (loadedClients) => {
+                // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile } = location.state;
+                    const { client_id, voiceData, importFile, mergeIds } = location.state;
 
                     if (client_id && loadedClients) {
                         const foundClient = loadedClients.find(c => c.id.toString() === client_id.toString());
@@ -457,6 +457,47 @@ const DevisForm = () => {
 
                     if (importFile) {
                         processImportedFile(importFile);
+                    }
+
+                    if (mergeIds?.length >= 2) {
+                        const { data: quotesToMerge } = await supabase
+                            .from('quotes')
+                            .select('id, title, quote_number, client_id, items, include_tva')
+                            .in('id', mergeIds)
+                            .order('created_at');
+
+                        if (quotesToMerge?.length >= 2) {
+                            const firstQuote = quotesToMerge[0];
+                            const now = Date.now();
+                            const mergedItems = [];
+
+                            quotesToMerge.forEach((q, qi) => {
+                                // Séparateur de section avec le titre du devis d'origine
+                                mergedItems.push({
+                                    id: now + qi * 10000,
+                                    description: q.title || `Devis #${q.quote_number || q.id}`,
+                                    quantity: 1,
+                                    unit: 'u',
+                                    price: 0,
+                                    buying_price: 0,
+                                    type: 'section',
+                                });
+                                // Items du devis avec de nouveaux IDs pour éviter les conflits
+                                (q.items || []).forEach((item, ii) => {
+                                    mergedItems.push({ ...item, id: now + qi * 10000 + ii + 1 });
+                                });
+                            });
+
+                            setFormData(prev => ({
+                                ...prev,
+                                client_id: firstQuote.client_id?.toString() || '',
+                                include_tva: firstQuote.include_tva ?? true,
+                                items: mergedItems,
+                                title: quotesToMerge.map(q => q.title || `Devis #${q.quote_number || q.id}`).join(' + '),
+                            }));
+
+                            toast.success(`${quotesToMerge.length} devis fusionnés — vérifiez et enregistrez`);
+                        }
                     }
                 }
             });
