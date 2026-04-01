@@ -542,13 +542,18 @@ const InterventionReportForm = () => {
             const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
             const reportPath = `interventions/${user.id}/rapport-${formData.report_number || Date.now()}.pdf`;
             const { error: uploadError } = await supabase.storage
-                .from('project-photos')
+                .from('quote_files')
                 .upload(reportPath, reportBlob, { contentType: 'application/pdf', upsert: true });
+
+            if (uploadError) {
+                console.error('Upload rapport PDF échoué :', uploadError);
+                toast.warning(`PDF non uploadé : ${uploadError.message}`, { duration: 5000 });
+            }
 
             let reportUrl = null;
             if (!uploadError) {
                 const { data: { publicUrl: rUrl } } = supabase.storage
-                    .from('project-photos')
+                    .from('quote_files')
                     .getPublicUrl(reportPath);
                 reportUrl = rUrl;
             }
