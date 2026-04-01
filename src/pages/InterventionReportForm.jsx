@@ -184,29 +184,23 @@ const InterventionReportForm = () => {
             const base = supabase
                 .from('quotes')
                 .select('id, title, public_token, report_pdf_url, client_id, client_name')
-                .eq('user_id', user.id)
                 .eq('type', 'invoice');
 
-            // Essayer par parent_id (devis lié)
+            // 1. Lien direct via invoice_id (le plus fiable)
+            if (formData.invoice_id) {
+                const { data } = await base.eq('id', formData.invoice_id).maybeSingle();
+                if (data) { setLinkedInvoice(data); return; }
+            }
+
+            // 2. Par parent_id (devis lié)
             if (formData.quote_id) {
                 const { data } = await base.eq('parent_id', formData.quote_id).maybeSingle();
                 if (data) { setLinkedInvoice(data); return; }
             }
 
-            // Essayer par report_pdf_url (rapport sans devis préalable)
+            // 3. Par report_pdf_url
             if (formData.report_pdf_url) {
                 const { data } = await base.eq('report_pdf_url', formData.report_pdf_url).maybeSingle();
-                if (data) { setLinkedInvoice(data); return; }
-            }
-
-            // Fallback : facture du même client à la même date
-            if (formData.client_id && formData.date) {
-                const { data } = await base
-                    .eq('client_id', formData.client_id)
-                    .eq('date', formData.date)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
                 if (data) { setLinkedInvoice(data); return; }
             }
         };
@@ -613,9 +607,15 @@ const InterventionReportForm = () => {
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');
 
+            // Stocker invoice_id sur le rapport pour retrouver la facture facilement
+            await supabase
+                .from('intervention_reports')
+                .update({ invoice_id: newInvoice.id })
+                .eq('id', savedId);
+
             // Mettre à jour le state local pour que le bouton "Envoyer la facture" apparaisse
             setLinkedInvoice(newInvoice);
-            setFormData(prev => ({ ...prev, status: 'completed' }));
+            setFormData(prev => ({ ...prev, status: 'completed', invoice_id: newInvoice.id }));
 
             // --- 6. Préparer le modal email ---
             const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
