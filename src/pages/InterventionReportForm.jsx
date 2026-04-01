@@ -144,6 +144,21 @@ const InterventionReportForm = () => {
         }
     }, [existingReport]);
 
+    // Auto-generate report number for new reports
+    useEffect(() => {
+        if (isEditing || !user) return;
+        const year = new Date().getFullYear();
+        supabase
+            .from('intervention_reports')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .then(({ count }) => {
+                const next = String((count || 0) + 1).padStart(3, '0');
+                setFormData(prev => ({ ...prev, report_number: `INT-${year}-${next}` }));
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
+
     // Auto-calculate duration when start/end times change
     useEffect(() => {
         if (formData.start_time && formData.end_time) {
