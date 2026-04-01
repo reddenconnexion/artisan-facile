@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
@@ -29,6 +29,10 @@ const InterventionReportForm = () => {
     const { data: allQuotes = [] } = useQuotes();
     const { data: userProfile } = useUserProfile();
     const { invalidateInterventionReports, invalidateInterventionReport } = useInvalidateCache();
+
+    const [clientSearch, setClientSearch] = useState('');
+    const [showClientDropdown, setShowClientDropdown] = useState(false);
+    const clientDropdownRef = useRef(null);
 
     const [saving, setSaving] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -116,6 +120,17 @@ const InterventionReportForm = () => {
         signer_name: '',
     });
 
+    // Close client dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target)) {
+                setShowClientDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     // Load existing report when editing
     useEffect(() => {
         if (existingReport) {
@@ -125,6 +140,7 @@ const InterventionReportForm = () => {
                     ? existingReport.materials_used
                     : [EMPTY_MATERIAL()],
             });
+            setClientSearch(existingReport.client_name || '');
         }
     }, [existingReport]);
 
@@ -142,14 +158,17 @@ const InterventionReportForm = () => {
         }
     }, [formData.start_time, formData.end_time]);
 
-    // Sync client_name when client_id changes
+    // Sync client_name + adresse when client_id changes
     const handleClientChange = (clientId) => {
         const client = clients.find(c => String(c.id) === String(clientId));
+        setClientSearch(client?.name || '');
+        setShowClientDropdown(false);
         setFormData(prev => ({
             ...prev,
             client_id: clientId,
             client_name: client?.name || '',
             quote_id: '',  // reset quote when client changes
+            intervention_address: client?.address || prev.intervention_address,
         }));
     };
 
@@ -689,20 +708,46 @@ const InterventionReportForm = () => {
                     Client
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="relative" ref={clientDropdownRef}>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Sélectionner un client
+                            Rechercher un client
                         </label>
-                        <select
-                            value={formData.client_id}
-                            onChange={e => handleClientChange(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">— Aucun client —</option>
-                            {clients.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
+                        <input
+                            type="text"
+                            value={clientSearch}
+                            onChange={e => {
+                                setClientSearch(e.target.value);
+                                setShowClientDropdown(true);
+                                if (!e.target.value) {
+                                    setFormData(prev => ({ ...prev, client_id: '', client_name: '', quote_id: '' }));
+                                }
+                            }}
+                            onFocus={() => setShowClientDropdown(true)}
+                            placeholder="Tapez pour rechercher..."
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {showClientDropdown && (
+                            <ul className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                                <li
+                                    className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    onMouseDown={() => handleClientChange('')}
+                                >
+                                    — Aucun client —
+                                </li>
+                                {clients
+                                    .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                                    .map(c => (
+                                        <li
+                                            key={c.id}
+                                            onMouseDown={() => handleClientChange(String(c.id))}
+                                            className="px-3 py-2 text-sm text-gray-900 dark:text-white cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                                        >
+                                            {c.name}
+                                        </li>
+                                    ))
+                                }
+                            </ul>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
