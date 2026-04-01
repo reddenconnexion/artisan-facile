@@ -177,10 +177,28 @@ async function sendAcknowledgedEmail(
 </body>
 </html>`;
 
+  const text = [
+    `Bonjour ${artisanName},`,
+    '',
+    `La plateforme ${serviceLabel} a bien reçu et validé votre facture électronique.`,
+    '',
+    invoiceLabel,
+    ...(pdpRef ? [`Référence ${serviceLabel} : ${pdpRef}`] : []),
+    'Transmise et accusée avec succès.',
+    '',
+    `Votre facture est maintenant enregistrée dans le circuit de facturation électronique. Conservez la référence ${serviceLabel} pour vos archives.`,
+  ].join('\n');
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: emailFrom, to: artisanEmail, subject: `📨 ${invoiceLabel} — Accusée de réception ${serviceLabel}`, html }),
+    body: JSON.stringify({
+      from: emailFrom,
+      to: artisanEmail,
+      subject: `${invoiceLabel} — Accusée de réception ${serviceLabel}`,
+      text,
+      html,
+    }),
   });
 
   if (!res.ok) {

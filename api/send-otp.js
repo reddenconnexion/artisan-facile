@@ -74,6 +74,20 @@ export default async function handler(req) {
             );
         }
 
+        const emailFrom = process.env.EMAIL_FROM ?? 'Artisan Facile <signature@artisanfacile.fr>';
+        const company = companyName || 'Artisan Facile';
+        const plainText = [
+            `Bonjour ${clientName || ''},`,
+            '',
+            'Voici votre code de vérification pour signer le devis en ligne :',
+            '',
+            `    ${otpCode}`,
+            '',
+            'Si vous n\'avez pas demandé ce code, veuillez l\'ignorer.',
+            '',
+            `— ${company}`,
+        ].join('\n');
+
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -81,9 +95,10 @@ export default async function handler(req) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                from: 'Artisan Facile <onboarding@resend.dev>',
+                from: emailFrom,
                 to: [toEmail],
-                subject: `Code de vérification - ${companyName || 'Signature'}`,
+                subject: `Code de vérification - ${company}`,
+                text: plainText,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2 style="color: #1f2937;">Bonjour ${clientName || ''},</h2>
@@ -93,7 +108,7 @@ export default async function handler(req) {
                         </div>
                         <p style="color: #6b7280; font-size: 14px;">Si vous n'avez pas demandé ce code, veuillez l'ignorer.</p>
                         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-                        <p style="color: #9ca3af; font-size: 12px; text-align: center;">${companyName || 'Artisan Facile'}</p>
+                        <p style="color: #9ca3af; font-size: 12px; text-align: center;">${company}</p>
                     </div>
                 `,
             }),

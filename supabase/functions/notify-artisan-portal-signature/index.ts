@@ -144,7 +144,8 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
                 from: emailFrom,
                 to: artisanEmail,
-                subject: `✅ ${clientName} a signé votre devis`,
+                subject: `${clientName} a signé votre devis`,
+                text: buildEmailText({ artisanName, clientName, quoteLabel, amount }),
                 html: buildEmailHtml({ artisanName, clientName, quoteLabel, amount }),
             }),
         });
@@ -166,6 +167,26 @@ function json(body: unknown, status = 200) {
         status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+}
+
+function buildEmailText({ artisanName, clientName, quoteLabel, amount }: {
+    artisanName: string;
+    clientName: string;
+    quoteLabel: string;
+    amount: string | null;
+}): string {
+    const lines = [
+        `Bonjour ${artisanName},`,
+        '',
+        `${clientName} vient de signer votre devis via le portail client.`,
+        '',
+        `Devis : ${quoteLabel}`,
+        ...(amount ? [`Montant : ${amount}`] : []),
+        `Client : ${clientName}`,
+        '',
+        'Connectez-vous à votre espace Artisan Facile pour consulter le devis signé et générer la facture.',
+    ];
+    return lines.join('\n');
 }
 
 function buildEmailHtml({ artisanName, clientName, quoteLabel, amount }: {

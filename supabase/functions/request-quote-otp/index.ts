@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
                 to: normalizedEmail,
                 ...(replyTo ? { reply_to: replyTo } : {}),
                 subject: 'Votre code de signature – Artisan Facile',
+                text: buildEmailText(otp),
                 html: buildEmailHtml(otp),
             }),
         });
@@ -153,6 +154,19 @@ async function sha256hex(input: string): Promise<string> {
     return Array.from(new Uint8Array(buf))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
+}
+
+function buildEmailText(otp: string): string {
+    return [
+        'Code de vérification – Artisan Facile',
+        '',
+        'Utilisez ce code pour signer votre devis :',
+        '',
+        `    ${otp}`,
+        '',
+        'Ce code est valable 15 minutes.',
+        'Ne le partagez avec personne. Artisan Facile ne vous demandera jamais ce code par téléphone.',
+    ].join('\n');
 }
 
 function buildEmailHtml(otp: string): string {
