@@ -464,10 +464,10 @@ const InterventionReportForm = () => {
         const subject = `Facture : ${linkedInvoice.title || formData.title} - ${companyName}`;
         const body =
             `Bonjour ${client.name},\n\n` +
-            `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
-            `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
+            `Le rapport d'intervention "${formData.title}" est termine.\n\n` +
+            `Vous trouverez ci-dessous le lien pour consulter et telecharger les documents :\n\n` +
             `Facture :\n${invoiceUrl}\n\n` +
-            (reportUrl ? `Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+            (reportUrl ? `Le rapport d'intervention est egalement disponible depuis ce lien.\n\n` : '') +
             `Cordialement,\n${signatureBlock}`;
         setSendInvoiceModal({ email: client.email, subject, body });
     };
@@ -657,9 +657,9 @@ const InterventionReportForm = () => {
             const body =
                 `Bonjour ${client.name},\n\n` +
                 `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
-                `Vous trouverez ci-dessous les liens pour consulter et télécharger les documents :\n\n` +
+                `Vous trouverez ci-dessous le lien pour consulter et telecharger les documents :\n\n` +
                 `Facture de cloture :\n${invoiceUrl}\n\n` +
-                (reportUrl ? `Rapport d'intervention :\n${reportUrl}\n\n` : '') +
+                (reportUrl ? `Le rapport d'intervention est egalement disponible depuis ce lien.\n\n` : '') +
                 `Cordialement,\n${signatureBlock}`;
 
             setSendInvoiceModal({ email: client.email, subject, body });

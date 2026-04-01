@@ -896,15 +896,16 @@ const DevisForm = () => {
                 userProfile?.website || ''
             ].filter(Boolean).join('\n');
 
-            // Assembler les sections
+            // Assembler les sections — uniquement des URLs du domaine artisanfacile.fr
+            // Le rapport PDF est accessible depuis le lien de la facture (pas besoin d'URL Supabase)
             const bodyParts = [introduction, callToAction];
             if (reportPdfUrl) {
-                bodyParts.push(`Rapport d'intervention :\n${reportPdfUrl}`);
+                bodyParts.push(`Le rapport d'intervention est egalement disponible depuis ce lien.`);
             }
             if (portalUrl) {
                 bodyParts.push(`Votre espace client (documents et suivi de chantier) :\n${portalUrl}`);
             }
-            bodyParts.push(`N'hésitez pas à me contacter pour toute question.\n\nBien cordialement,`);
+            bodyParts.push(`N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`);
             bodyParts.push(signatureBlock);
 
             const body = bodyParts.join('\n\n');
