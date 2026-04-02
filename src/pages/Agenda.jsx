@@ -83,11 +83,13 @@ const Agenda = () => {
 
             // If clientName is present, try to find the client
             if (clientName) {
-                supabase.from('clients').select('id, name').ilike('name', `%${clientName}%`).limit(1)
+                supabase.from('clients').select('id, name, address, postal_code, city').ilike('name', `%${clientName}%`).limit(1)
                     .then(({ data }) => {
                         if (data && data.length > 0) {
-                            setNewEvent(prev => ({ ...prev, client_name: data[0].name, client_id: data[0].id }));
-                            toast.success(`Client ${data[0].name} associé`);
+                            const c = data[0];
+                            const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
+                            setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}) }));
+                            toast.success(`Client ${c.name} associé`);
                         } else {
                             // If not found, just use the spoken name
                             setNewEvent(prev => ({ ...prev, client_name: clientName }));
@@ -501,10 +503,12 @@ const Agenda = () => {
                                     onChange={e => setNewEvent({ ...newEvent, client_name: e.target.value })}
                                     onBlur={async () => {
                                         if (newEvent.client_name) {
-                                            const { data } = await supabase.from('clients').select('id, name').ilike('name', newEvent.client_name).limit(1);
+                                            const { data } = await supabase.from('clients').select('id, name, address, postal_code, city').ilike('name', newEvent.client_name).limit(1);
                                             if (data && data.length > 0) {
-                                                setNewEvent(prev => ({ ...prev, client_name: data[0].name, client_id: data[0].id }));
-                                                toast.success('Client identifié : ' + data[0].name);
+                                                const c = data[0];
+                                                const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
+                                                setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}) }));
+                                                toast.success('Client identifié : ' + c.name);
                                             } else {
                                                 setNewEvent(prev => ({ ...prev, client_id: null }));
                                             }
