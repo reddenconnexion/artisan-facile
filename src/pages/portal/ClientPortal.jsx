@@ -435,6 +435,70 @@ const ClientPortal = () => {
                             </div>
                         )}
 
+                        {/* ── Photos avant / après (si disponibles et projets terminés) ── */}
+                        {reports.length > 0 && (photoGroups.before.length > 0 || photoGroups.after.length > 0) && (
+                            <div className="space-y-3">
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <Camera className="w-4 h-4" />
+                                    Photos du projet
+                                </h2>
+                                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                                    <div className="grid grid-cols-2 divide-x divide-gray-100">
+                                        {/* Avant */}
+                                        <div className="p-4">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Avant</p>
+                                            {photoGroups.before.length > 0 ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {photoGroups.before.slice(0, 4).map((p) => (
+                                                        <a key={p.id} href={p.photo_url} target="_blank" rel="noopener noreferrer"
+                                                            className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 block">
+                                                            <img src={p.photo_url} alt="Avant travaux"
+                                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                                <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            </div>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-400 italic">Pas de photo avant</p>
+                                            )}
+                                        </div>
+                                        {/* Après */}
+                                        <div className="p-4">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Après</p>
+                                            {photoGroups.after.length > 0 ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {photoGroups.after.slice(0, 4).map((p) => (
+                                                        <a key={p.id} href={p.photo_url} target="_blank" rel="noopener noreferrer"
+                                                            className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 block">
+                                                            <img src={p.photo_url} alt="Après travaux"
+                                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                                <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            </div>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-400 italic">Pas de photo après</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {(photoGroups.before.length + photoGroups.after.length) > 4 && (
+                                        <div className="border-t border-gray-100 px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => setActiveTab('photos')}
+                                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                            >
+                                                Voir toutes les photos ({photoGroups.before.length + photoGroups.after.length})
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* ── CTA Avis Google ── */}
                         {artisan.google_review_url && quotes.some(q => q.status === 'accepted' || q.status === 'paid') && (
                             <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl p-5 flex flex-col sm:flex-row items-center gap-4">
