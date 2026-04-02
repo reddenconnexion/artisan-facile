@@ -364,18 +364,15 @@ const ClientForm = () => {
                         </button>
                     )}
                     {isEditing && formData.portal_token && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const url = `${window.location.origin}/p/${formData.portal_token}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success('Lien du portail copié !');
-                            }}
+                        <a
+                            href={`${window.location.origin}/p/${formData.portal_token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
                         >
                             <Globe className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">Portail</span>
-                        </button>
+                        </a>
                     )}
                     {isEditing && (
                         <button
