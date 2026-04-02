@@ -353,7 +353,7 @@ const ClientForm = () => {
                                     prefill: {
                                         client_id: id,
                                         client_name: formData.name,
-                                        address: formData.address
+                                        address: [formData.address, formData.postal_code, formData.city].filter(Boolean).join(', ')
                                     }
                                 }
                             })}
