@@ -65,17 +65,19 @@ const LandingPage = () => {
             {/* Hero Section */}
             <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-blue-50 to-white">
                 <div className="max-w-7xl mx-auto text-center">
-                    <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight mb-8">
-                        Ne perdez plus d'argent. <br />
-                        <span className="text-blue-600">Gagnez du temps pour vos chantiers.</span>
+                    {/* Gratuit badge */}
+                    <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-5 py-2 rounded-full text-sm font-bold mb-8 border border-green-200">
+                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                        100% Gratuit pour démarrer — sans carte bancaire, sans engagement
+                    </div>
+
+                    <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight mb-6">
+                        Vous lancez votre activité ?<br />
+                        <span className="text-blue-600">Gérez tout gratuitement.</span>
                     </h1>
                     <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto mb-10">
-                        Artisan Facile est l'outil qui rentabilise votre activité.
-                        <span className="block mt-2 font-semibold text-gray-900">
-                            💰 Augmentez votre Chiffre d'Affaires de +15%
-                            <span className="mx-2 hidden sm:inline">•</span>
-                            ⏳ Économisez 5h/semaine de gestion
-                        </span>
+                        Artisan Facile est le logiciel tout-en-un <strong>gratuit</strong> pensé pour les artisans débutants et auto-entrepreneurs.
+                        Devis pro, facturation, agenda, CRM — opérationnel en 5 minutes.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         {user ? (
@@ -88,36 +90,43 @@ const LandingPage = () => {
                             </Link>
                         ) : (
                             <>
-                                <Link
-                                    to="/register"
-                                    className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
-                                >
-                                    Commencer gratuitement
-                                    <ArrowRight className="ml-2 w-5 h-5" />
-                                </Link>
+                                <div className="flex flex-col items-center gap-1">
+                                    <Link
+                                        to="/register"
+                                        className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                                    >
+                                        Créer mon compte gratuit
+                                        <ArrowRight className="ml-2 w-5 h-5" />
+                                    </Link>
+                                    <span className="text-xs text-gray-500">Gratuit · Sans CB · Sans engagement</span>
+                                </div>
                                 <button
                                     onClick={handleDemoLogin}
                                     className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
                                 >
-                                    Accès Démo (sans inscription)
+                                    Voir la démo (sans inscription)
                                 </button>
                             </>
                         )}
                     </div>
 
                     {/* Trust Badges / Stats */}
-                    <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto border-t border-gray-200 pt-8">
+                    <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-4xl mx-auto border-t border-gray-200 pt-8">
                         <div>
-                            <p className="text-3xl font-bold text-gray-900">100%</p>
-                            <p className="text-gray-600">Conforme</p>
+                            <p className="text-3xl font-bold text-green-600">Gratuit</p>
+                            <p className="text-gray-600 text-sm">Pour toujours sur l'essentiel</p>
                         </div>
                         <div>
                             <p className="text-3xl font-bold text-gray-900">0€</p>
-                            <p className="text-gray-600">Frais cachés</p>
+                            <p className="text-gray-600 text-sm">Sans carte bancaire</p>
                         </div>
                         <div>
-                            <p className="text-3xl font-bold text-gray-900">24/7</p>
-                            <p className="text-gray-600">Accessible</p>
+                            <p className="text-3xl font-bold text-gray-900">2 min</p>
+                            <p className="text-gray-600 text-sm">Pour créer un devis</p>
+                        </div>
+                        <div>
+                            <p className="text-3xl font-bold text-gray-900">5 min</p>
+                            <p className="text-gray-600 text-sm">Pour être opérationnel</p>
                         </div>
                     </div>
                 </div>
@@ -375,6 +384,94 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* Pricing / Offer Section */}
+            <section className="py-20 bg-blue-600">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold text-white sm:text-4xl">
+                            Démarrez gratuitement.<br />Évoluez quand vous êtes prêt.
+                        </h2>
+                        <p className="mt-4 text-blue-100 text-lg max-w-2xl mx-auto">
+                            Pas de mauvaise surprise. Tout ce qu'il faut pour lancer votre activité est 100% gratuit, pour toujours.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Free Plan */}
+                        <div className="bg-white rounded-2xl p-8 relative">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="bg-green-500 text-white text-xs font-bold px-4 py-1 rounded-full">RECOMMANDÉ POUR DÉMARRER</span>
+                            </div>
+                            <div className="mb-6">
+                                <p className="text-lg font-semibold text-gray-700 mb-1">Plan Essentiel</p>
+                                <div className="flex items-end gap-1">
+                                    <span className="text-5xl font-extrabold text-gray-900">0€</span>
+                                    <span className="text-gray-500 mb-2">/mois, pour toujours</span>
+                                </div>
+                                <p className="text-sm text-green-700 font-medium mt-1">Aucune carte bancaire requise</p>
+                            </div>
+                            <ul className="space-y-3 mb-8">
+                                {[
+                                    'Devis & factures illimités',
+                                    'Bibliothèque de prix pré-remplie',
+                                    'Agenda & planification chantiers',
+                                    'CRM clients intégré',
+                                    'Tableau de bord des impayés',
+                                    'Signature électronique des devis',
+                                    'Mode hors ligne (sans WiFi)',
+                                    'Accès depuis mobile, tablette, PC',
+                                ].map((f) => (
+                                    <li key={f} className="flex items-center gap-3 text-gray-700 text-sm">
+                                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                        {f}
+                                    </li>
+                                ))}
+                            </ul>
+                            <Link
+                                to="/register"
+                                className="block w-full text-center bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors"
+                            >
+                                Commencer gratuitement
+                            </Link>
+                        </div>
+
+                        {/* Pro Plan */}
+                        <div className="bg-white/10 rounded-2xl p-8 border border-white/20 text-white">
+                            <div className="mb-6">
+                                <p className="text-lg font-semibold text-blue-100 mb-1">Plan Pro</p>
+                                <div className="flex items-end gap-1">
+                                    <span className="text-5xl font-extrabold">Bientôt</span>
+                                </div>
+                                <p className="text-sm text-blue-200 mt-1">Fonctionnalités avancées pour scaler votre activité</p>
+                            </div>
+                            <ul className="space-y-3 mb-8">
+                                {[
+                                    'Tout du plan Essentiel, plus :',
+                                    'Relances automatiques impayés',
+                                    'Comptabilité avancée & export',
+                                    'Rapports d\'intervention PDF',
+                                    'Gestion des stocks',
+                                    'Notes vocales transcrites',
+                                    'Portail client personnalisé',
+                                    'Support prioritaire',
+                                ].map((f, i) => (
+                                    <li key={f} className={`flex items-center gap-3 text-sm ${i === 0 ? 'font-semibold text-white' : 'text-blue-100'}`}>
+                                        <CheckCircle className={`w-5 h-5 flex-shrink-0 ${i === 0 ? 'text-blue-300' : 'text-blue-300'}`} />
+                                        {f}
+                                    </li>
+                                ))}
+                            </ul>
+                            <button
+                                disabled
+                                className="block w-full text-center bg-white/20 text-white font-bold py-3 rounded-xl cursor-not-allowed opacity-70"
+                            >
+                                Disponible prochainement
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* FAQ Section - SEO */}
             <section className="py-20 bg-white border-b border-gray-100">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -389,24 +486,24 @@ const LandingPage = () => {
                     <dl className="space-y-6">
                         {[
                             {
-                                question: "Pour quels types d'artisans est conçu Artisan Facile ?",
-                                answer: "Artisan Facile convient à tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aussi bien aux auto-entrepreneurs qu'aux artisans avec une équipe."
+                                question: "Artisan Facile est-il vraiment gratuit ?",
+                                answer: "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Un plan Pro avec des fonctionnalités avancées sera disponible prochainement pour ceux qui souhaitent aller plus loin."
+                            },
+                            {
+                                question: "Je démarre mon activité d'artisan, est-ce fait pour moi ?",
+                                answer: "Absolument. Artisan Facile a été conçu spécialement pour les artisans en début d'activité et les auto-entrepreneurs. L'interface est simple et en français, aucune formation n'est nécessaire. Vous êtes opérationnel en moins de 5 minutes et vous créez votre premier devis professionnel dès le premier jour."
+                            },
+                            {
+                                question: "Pour quels corps de métier est conçu Artisan Facile ?",
+                                answer: "Artisan Facile convient à tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aussi bien aux auto-entrepreneurs qui démarrent qu'aux artisans avec une équipe."
                             },
                             {
                                 question: "Combien de temps faut-il pour créer un devis ?",
                                 answer: "Moins de 2 minutes. Grâce à la bibliothèque d'ouvrages et de prix pré-remplie, vous sélectionnez vos prestations, ajoutez vos quantités et envoyez le devis directement depuis votre téléphone sur le chantier. Votre client peut signer en ligne instantanément."
                             },
                             {
-                                question: "Artisan Facile est-il gratuit ?",
-                                answer: "Oui, vous pouvez tester Artisan Facile gratuitement, sans carte bancaire et sans engagement. Toutes les fonctionnalités sont accessibles pendant la période d'essai."
-                            },
-                            {
                                 question: "Est-ce que ça fonctionne sans connexion internet ?",
                                 answer: "Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement même sans réseau sur le chantier, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion."
-                            },
-                            {
-                                question: "Quelles fonctionnalités sont incluses dans le logiciel ?",
-                                answer: "Artisan Facile intègre : devis et facturation professionnels, suivi des impayés avec relances automatiques, agenda et planification des chantiers, CRM client, comptabilité simplifiée, bibliothèque de prix et ouvrages, rapports d'intervention, gestion des stocks, notes vocales et signature électronique."
                             }
                         ].map(({ question, answer }, i) => (
                             <div key={i} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
@@ -419,20 +516,38 @@ const LandingPage = () => {
             </section>
 
             {/* CTA Section */}
-            <section className="py-20 bg-blue-600">
+            <section className="py-20 bg-gray-900">
                 <div className="max-w-4xl mx-auto text-center px-4">
-                    <h2 className="text-3xl font-bold text-white mb-8">
-                        Prêt à simplifier votre quotidien ?
+                    <div className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-1.5 rounded-full text-sm font-bold mb-6 border border-green-500/30">
+                        <CheckCircle className="w-4 h-4" />
+                        Gratuit — sans carte bancaire — sans engagement
+                    </div>
+                    <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-5">
+                        Vous lancez votre activité ?<br />
+                        Commencez à zéro. Progressez sans limites.
                     </h2>
-                    <p className="text-blue-100 text-xl mb-10">
-                        Rejoignez les artisans qui nous font confiance pour gérer leur activité.
+                    <p className="text-gray-400 text-lg mb-10 max-w-2xl mx-auto">
+                        Rejoignez les artisans débutants qui gèrent leur activité avec Artisan Facile.
+                        Devis, facturation, agenda, clients — tout en un, gratuit, depuis votre téléphone.
                     </p>
-                    <Link
-                        to="/register"
-                        className="inline-block bg-white text-blue-600 font-bold px-8 py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg"
-                    >
-                        Créer mon compte gratuit
-                    </Link>
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                        <Link
+                            to="/register"
+                            className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-blue-500 transition-colors shadow-lg text-lg"
+                        >
+                            Créer mon compte gratuit
+                            <ArrowRight className="w-5 h-5" />
+                        </Link>
+                        <button
+                            onClick={handleDemoLogin}
+                            className="text-gray-400 hover:text-white transition-colors text-sm underline underline-offset-2"
+                        >
+                            Voir la démo sans inscription
+                        </button>
+                    </div>
+                    <p className="mt-5 text-xs text-gray-600">
+                        Aucune carte bancaire requise · Inscription en 1 minute · Données hébergées en Europe
+                    </p>
                 </div>
             </section>
 
