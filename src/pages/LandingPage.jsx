@@ -122,18 +122,103 @@ const LandingPage = () => {
                     </div>
                 </div>
 
-                {/* PDF Preview */}
-                <div className="max-w-5xl mx-auto mt-16 relative z-10">
+                {/* Devis Mockup */}
+                <div className="max-w-3xl mx-auto mt-16 relative z-10">
                     <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 transform rotate-1 hover:rotate-0 transition-transform duration-500">
-                        <img
-                            src="/images/quote_mockup.png"
-                            alt="Exemple de devis professionnel généré par Artisan Facile"
-                            className="w-full h-auto"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
-                        <div className="absolute bottom-4 left-4 right-4 text-center">
-                            <span className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium text-gray-800 shadow-sm">
-                                👆 Voici exactement ce que reçoivent vos clients
+                        {/* En-tête du devis */}
+                        <div className="p-6 sm:p-8">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mb-2">
+                                        <span className="text-white font-bold text-lg">M</span>
+                                    </div>
+                                    <p className="font-bold text-gray-900 text-sm">Martin Plomberie</p>
+                                    <p className="text-xs text-gray-500">12 rue des Artisans, 69003 Lyon</p>
+                                    <p className="text-xs text-gray-500">SIRET : 812 345 678 00019</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-extrabold text-blue-600">DEVIS</p>
+                                    <p className="text-xs text-gray-500 mt-1">N° DEV-2025-0047</p>
+                                    <p className="text-xs text-gray-500">Date : 02/04/2025</p>
+                                    <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">En attente</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-3 mb-5 text-xs">
+                                <p className="font-semibold text-gray-900">Client :</p>
+                                <p className="text-gray-700">M. Dupont Bernard — 8 allée des Roses, 69006 Lyon</p>
+                                <p className="text-gray-500">06 12 34 56 78 — bernard.dupont@email.fr</p>
+                            </div>
+
+                            {/* Lignes du devis */}
+                            <table className="w-full text-xs mb-5">
+                                <thead>
+                                    <tr className="border-b border-gray-200 text-gray-500">
+                                        <th className="text-left pb-2 font-medium">Description</th>
+                                        <th className="text-right pb-2 font-medium">Qté</th>
+                                        <th className="text-right pb-2 font-medium">P.U.</th>
+                                        <th className="text-right pb-2 font-medium">Total HT</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-gray-700">
+                                    <tr className="border-b border-gray-100">
+                                        <td className="py-2">Remplacement robinet mitigeur cuisine</td>
+                                        <td className="text-right py-2">1</td>
+                                        <td className="text-right py-2">85,00 €</td>
+                                        <td className="text-right py-2 font-medium">85,00 €</td>
+                                    </tr>
+                                    <tr className="border-b border-gray-100">
+                                        <td className="py-2">Main d'œuvre plomberie (2h)</td>
+                                        <td className="text-right py-2">2</td>
+                                        <td className="text-right py-2">55,00 €</td>
+                                        <td className="text-right py-2 font-medium">110,00 €</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2">Fournitures et joints</td>
+                                        <td className="text-right py-2">1</td>
+                                        <td className="text-right py-2">18,50 €</td>
+                                        <td className="text-right py-2 font-medium">18,50 €</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Totaux */}
+                            <div className="flex justify-end">
+                                <div className="w-48 text-xs space-y-1">
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>Total HT</span>
+                                        <span>213,50 €</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-600">
+                                        <span>TVA 10%</span>
+                                        <span>21,35 €</span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-gray-900 text-sm border-t border-gray-200 pt-1 mt-1">
+                                        <span>Total TTC</span>
+                                        <span className="text-blue-600">234,85 €</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Signature */}
+                            <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+                                <p className="text-xs text-gray-400">Valable 30 jours · Paiement à réception</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-24 h-7 border border-dashed border-gray-300 rounded flex items-center justify-center">
+                                        <span className="text-xs text-gray-400">Signature client</span>
+                                    </div>
+                                    <div className="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center">
+                                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-600 px-6 py-3 text-center">
+                            <span className="text-white text-sm font-medium">
+                                Voici exactement ce que reçoivent vos clients · Signature électronique incluse
                             </span>
                         </div>
                     </div>
@@ -362,8 +447,8 @@ const LandingPage = () => {
                             </p>
                         </div>
                         <div className="flex gap-8">
-                            <a href="#" className="hover:text-white transition-colors">Mentions légales</a>
-                            <a href="#" className="hover:text-white transition-colors">Contact</a>
+                            <Link to="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
+                            <a href="mailto:contact@artisanfacile.fr" className="hover:text-white transition-colors">Contact</a>
                             <a href="#" className="hover:text-white transition-colors">Aide</a>
                         </div>
                     </div>
