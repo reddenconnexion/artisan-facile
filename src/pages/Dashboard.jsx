@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useDashboardData } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -448,6 +449,23 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
     const { isTestMode, testClient } = useTestMode();
+
+    // Show welcome toast after email confirmation
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = `welcome_pending_${user.id}`;
+        if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+            // Small delay so the toast appears after layout settles
+            const t = setTimeout(() => {
+                toast.success('Email confirmé ! Bienvenue sur Artisan Facile.', {
+                    description: 'Commencez par compléter votre profil pour des devis conformes.',
+                    duration: 6000,
+                });
+            }, 500);
+            return () => clearTimeout(t);
+        }
+    }, [user?.id]);
 
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();

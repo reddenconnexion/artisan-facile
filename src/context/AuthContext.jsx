@@ -116,6 +116,14 @@ export const AuthProvider = ({ children }) => {
                 setUser(currentUser);
                 cacheUserSession(currentUser);
                 setLoading(false);
+
+                // Detect email confirmation redirect (hash contains type=signup)
+                if (_event === 'SIGNED_IN' && currentUser) {
+                    const hash = window.location.hash;
+                    if (hash.includes('type=signup') || hash.includes('type=email_confirmation')) {
+                        localStorage.setItem(`welcome_pending_${currentUser.id}`, '1');
+                    }
+                }
             }
         });
 

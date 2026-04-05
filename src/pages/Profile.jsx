@@ -316,6 +316,19 @@ const Profile = () => {
             </div>
 
             <form onSubmit={updateProfile} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {!loading && (!formData.company_name || !formData.siret) && (
+                    <div className="px-8 pt-6">
+                        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
+                            <span className="text-amber-500 text-lg flex-shrink-0 leading-none mt-0.5">⚠️</span>
+                            <div>
+                                <p className="font-semibold text-amber-800 mb-1">Complétez ces 2 champs pour valider vos devis légalement</p>
+                                <p className="text-amber-700">
+                                    Le <strong>nom de l'entreprise</strong> et le <strong>SIRET</strong> sont obligatoires sur tous vos documents (devis, factures). Sans eux, vos documents ne sont pas conformes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className="p-8 space-y-8">
                     {/* Identité */}
                     <div>
@@ -325,14 +338,16 @@ const Profile = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'entreprise</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nom de l'entreprise <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                     type="text"
                                     name="company_name"
                                     value={formData.company_name}
                                     onChange={handleChange}
                                     placeholder="Ex: Martin Rénovation"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.company_name ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}
                                 />
                             </div>
                             <div>
@@ -346,14 +361,16 @@ const Profile = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro SIRET</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Numéro SIRET <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                     type="text"
                                     name="siret"
                                     value={formData.siret}
                                     onChange={handleChange}
                                     placeholder="14 chiffres"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}
                                 />
                             </div>
                             <div>
