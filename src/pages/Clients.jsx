@@ -339,17 +339,40 @@ const Clients = () => {
                 )
             }
 
-            {
-                filteredClients.length === 0 && (
+            {filteredClients.length === 0 && (
+                clients.length === 0 ? (
+                    /* État vide réel — aucun client en base */
+                    <div className="text-center py-16">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                            <Users className="h-10 w-10 text-blue-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                            Vous n'avez pas encore de clients
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-xs mx-auto">
+                            Ajoutez votre premier client pour lui créer un devis professionnel en 2 minutes.
+                        </p>
+                        <button
+                            onClick={() => navigate('/app/clients/new')}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Ajouter mon premier client
+                        </button>
+                    </div>
+                ) : (
+                    /* Aucun résultat pour la recherche */
                     <div className="text-center py-12">
                         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
                             <Search className="h-8 w-8 text-gray-400" />
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aucun client trouvé</h3>
-                        <p className="text-gray-500 mt-1">Essayez de modifier vos termes de recherche.</p>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aucun résultat</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Aucun client ne correspond à "<span className="font-medium">{searchTerm}</span>".
+                        </p>
                     </div>
                 )
-            }
+            )}
         </div >
     );
 };
