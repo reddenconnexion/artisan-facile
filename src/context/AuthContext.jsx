@@ -172,8 +172,9 @@ export const AuthProvider = ({ children }) => {
                 // Fallback: local UI-only demo (no database access)
                 const fakeUser = {
                     id: 'demo-local-fallback',
-                    email: 'demo@local',
-                    user_metadata: { full_name: 'Mode Démo (Hors Ligne)', job_type: 'peintre' },
+                    email: null,
+                    is_anonymous: true,
+                    user_metadata: { full_name: 'Électricité Moreau (Démo)', job_type: 'electricien' },
                     aud: 'authenticated',
                     role: 'authenticated'
                 };

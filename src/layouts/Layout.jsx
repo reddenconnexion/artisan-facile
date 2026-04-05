@@ -274,11 +274,10 @@ const Layout = () => {
   const [showConvertModal, setShowConvertModal] = React.useState(false);
 
   React.useEffect(() => {
-    if (user?.email?.endsWith('@artisan-facile.local')) {
-      setIsDemo(true);
-    } else {
-      setIsDemo(false);
-    }
+    // Supabase anonymous auth sets is_anonymous = true
+    // Fallback: detect local demo user by id
+    const anonymous = user?.is_anonymous === true || user?.id === 'demo-local-fallback';
+    setIsDemo(!!anonymous);
   }, [user]);
 
   const handleConvertAccount = async (e) => {
@@ -307,39 +306,69 @@ const Layout = () => {
 
       {/* Demo Banner */}
       {isDemo && (
-        <div className="h-10 bg-indigo-600 dark:bg-indigo-800 text-white flex-shrink-0 z-[60] flex items-center justify-center text-sm px-4 shadow-md">
-          <span className="truncate mr-2">Vous êtes en mode Démo. Vos données sont temporaires.</span>
-          <button
-            onClick={() => setShowConvertModal(true)}
-            className="bg-white text-indigo-600 px-3 py-0.5 rounded-full text-xs font-bold hover:bg-gray-100 transition-colors flex items-center"
-          >
-            <Save className="w-3 h-3 mr-1" />
-            Sauvegarder mon compte
-          </button>
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex-shrink-0 z-[60] flex items-center justify-center gap-3 text-sm px-4 py-2 shadow-md flex-wrap">
+          <span className="font-medium">🧪 Mode démo — compte <strong>Électricité Moreau</strong>, données fictives</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowConvertModal(true)}
+              className="bg-white text-indigo-600 px-3 py-1 rounded-full text-xs font-bold hover:bg-gray-100 transition-colors flex items-center gap-1"
+            >
+              <Save className="w-3 h-3" />
+              Créer mon vrai compte
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Convert Modal */}
+      {/* Convert Demo → Real Account Modal */}
       {showConvertModal && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200">
-            <h2 className="text-xl font-bold mb-4 dark:text-white">Sauvegarder mon travail</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm">
-              Transformez ce compte démo en compte réel pour conserver vos devis et clients.
-              Entrez simplement vos vrais identifiants.
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center">
+                <Save className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Créer votre vrai compte</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gratuit · Sans CB · Vos données démo seront conservées</p>
+              </div>
+              <button onClick={() => setShowConvertModal(false)} className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">
+              Entrez un email et un mot de passe pour transformer cette session démo en compte permanent.
+              Tous les devis et clients créés durant la démo seront conservés.
             </p>
+
             <form onSubmit={handleConvertAccount} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre Email réel</label>
-                <input type="email" name="email" required className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2" placeholder="jean@artisan.fr" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email professionnel</label>
+                <input
+                  type="email" name="email" required
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="jean@electricite-moreau.fr"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Choisir un mot de passe</label>
-                <input type="password" name="password" required className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2" minLength={6} placeholder="******" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe (8 caractères min.)</label>
+                <input
+                  type="password" name="password" required minLength={8}
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="••••••••"
+                />
               </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowConvertModal(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Annuler</button>
-                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">Sauvegarder</button>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Un email de confirmation vous sera envoyé. Gratuit pour toujours sur l'essentiel.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowConvertModal(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                  Annuler
+                </button>
+                <button type="submit" className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                  Créer mon compte
+                </button>
               </div>
             </form>
           </div>
