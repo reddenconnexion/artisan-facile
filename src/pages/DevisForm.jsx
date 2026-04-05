@@ -341,7 +341,7 @@ const DevisForm = () => {
 
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
-    const { clearAutoSave } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
+    const { clearAutoSave, lastSaved } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
 
     // Immediately save to localStorage when the tab becomes hidden, bypassing the debounce.
     // This prevents losing the last typed line when the user switches tabs before the 1-second
@@ -740,10 +740,10 @@ const DevisForm = () => {
 
     const tradeConfig = getTradeConfig(userProfile?.trade || 'general');
 
-    const addItem = () => {
+    const addItem = (type = 'service') => {
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, unit: tradeConfig.defaultUnit, price: 0, buying_price: 0, type: 'service' }]
+            items: [...prev.items, { id: Date.now(), description: '', quantity: 1, unit: tradeConfig.defaultUnit, price: 0, buying_price: 0, type }]
         }));
     };
 
@@ -2124,7 +2124,14 @@ Conditions de règlement : Paiement à réception de facture.`
                     )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                    {/* Auto-save indicator */}
+                    {lastSaved && !isEditing && (
+                        <span className="hidden sm:flex items-center gap-1 text-xs text-gray-400" title={`Brouillon sauvegardé à ${lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}>
+                            <Clock className="w-3 h-3" />
+                            Brouillon
+                        </span>
+                    )}
                     {/* Primary Actions */}
                     <button
                         type="button"
@@ -2156,11 +2163,13 @@ Conditions de règlement : Paiement à réception de facture.`
                         </button>
 
                         {showActionsMenu && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                            <div className="absolute right-0 mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                                {/* ─── Partage & Signature ─── */}
+                                <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Partage & Signature</p>
                                 {/* Mobile only Send button */}
                                 <button
                                     onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
-                                    className="sm:hidden flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                 >
                                     <Send className="w-4 h-4 mr-3 text-blue-600" />
                                     Envoyer le devis
@@ -2191,6 +2200,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 )}
 
+                                <div className="border-t border-gray-100 my-1"></div>
+                                {/* ─── PDF ─── */}
+                                <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">PDF</p>
                                 <button
                                     onClick={() => { handlePreview(); setShowActionsMenu(false); }}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -2209,6 +2221,8 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
                                     <>
+                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>
                                         <button
                                             onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
                                             className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -2718,6 +2732,14 @@ Conditions de règlement : Paiement à réception de facture.`
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                         Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
                     </h3>
+                    {/* Column headers — desktop only */}
+                    <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
+                        <div className="flex-1 pl-1">Désignation</div>
+                        <div className="w-20 text-right">Qté</div>
+                        <div className="w-28 text-right">Prix U. HT</div>
+                        <div className="w-28 text-right">Total HT</div>
+                        <div className="w-16"></div>
+                    </div>
                     <div>
                         {formData.items.map((item, index) => (
                             <React.Fragment key={item.id}>
@@ -2777,7 +2799,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <div className="flex-1 relative">
                                             <textarea
                                                 placeholder="Description"
-                                                rows={3}
+                                                rows={2}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm"
                                                 value={item.description}
                                                 onChange={(e) => {
@@ -2959,33 +2981,42 @@ Conditions de règlement : Paiement à réception de facture.`
                         ))}
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-4">
+                    <div className="mt-4 flex flex-wrap gap-2">
                         <button
-                            onClick={addItem}
-                            className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                            onClick={() => addItem('service')}
+                            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors disabled:opacity-50"
                             disabled={isLocked}
                         >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Ajouter une ligne
+                            <Plus className="w-4 h-4" />
+                            Main d'œuvre
+                        </button>
+
+                        <button
+                            onClick={() => addItem('material')}
+                            className="flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-800 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100 transition-colors disabled:opacity-50"
+                            disabled={isLocked}
+                        >
+                            <Plus className="w-4 h-4" />
+                            Matériel
                         </button>
 
                         <button
                             type="button"
                             onClick={addSection}
-                            className="flex items-center text-sm font-medium text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
                             disabled={isLocked}
                         >
-                            <Layers className="w-4 h-4 mr-1" />
-                            Ajouter une section
+                            <Layers className="w-4 h-4" />
+                            Section
                         </button>
 
                         <button
                             onClick={() => setShowAIModal(true)}
-                            className="flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm transition-all disabled:opacity-50 ml-auto"
                             disabled={isLocked}
                         >
-                            <Sparkles className="w-3 h-3 mr-2" />
-                            Assistant Devis IA
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Générer avec l'IA
                         </button>
                     </div>
                 </div>
