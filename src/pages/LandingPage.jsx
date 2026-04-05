@@ -1,21 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 const LandingPage = () => {
     const { user, loading, loginAsDemo } = useAuth();
     const navigate = useNavigate();
+    const [demoLoading, setDemoLoading] = useState(false);
 
     const handleDemoLogin = async () => {
+        if (demoLoading) return;
+        setDemoLoading(true);
         try {
             await loginAsDemo();
-            toast.success("Bienvenue sur la version de démonstration !");
+            toast.success("Bienvenue sur la démo — compte Électricité Moreau prêt !");
             navigate('/app');
         } catch (error) {
             console.error(error);
             toast.error("Impossible de créer une session démo.");
+        } finally {
+            setDemoLoading(false);
         }
     };
 
@@ -100,12 +105,19 @@ const LandingPage = () => {
                                     </Link>
                                     <span className="text-xs text-gray-500">Gratuit · Sans CB · Sans engagement</span>
                                 </div>
-                                <button
-                                    onClick={handleDemoLogin}
-                                    className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
-                                >
-                                    Voir la démo (sans inscription)
-                                </button>
+                                <div className="flex flex-col items-center gap-1">
+                                    <button
+                                        onClick={handleDemoLogin}
+                                        disabled={demoLoading}
+                                        className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-60"
+                                    >
+                                        {demoLoading ? (
+                                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                        ) : null}
+                                        Tester sans inscription
+                                    </button>
+                                    <span className="text-xs text-gray-500">Compte démo pré-rempli · Aucune donnée requise</span>
+                                </div>
                             </>
                         )}
                     </div>
@@ -139,16 +151,16 @@ const LandingPage = () => {
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mb-2">
-                                        <span className="text-white font-bold text-lg">M</span>
+                                        <span className="text-white font-bold text-lg">E</span>
                                     </div>
-                                    <p className="font-bold text-gray-900 text-sm">Martin Plomberie</p>
-                                    <p className="text-xs text-gray-500">12 rue des Artisans, 69003 Lyon</p>
+                                    <p className="font-bold text-gray-900 text-sm">Électricité Moreau</p>
+                                    <p className="text-xs text-gray-500">14 avenue Berthelot, 69007 Lyon</p>
                                     <p className="text-xs text-gray-500">SIRET : 812 345 678 00019</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-2xl font-extrabold text-blue-600">DEVIS</p>
-                                    <p className="text-xs text-gray-500 mt-1">N° DEV-2025-0047</p>
-                                    <p className="text-xs text-gray-500">Date : 02/04/2025</p>
+                                    <p className="text-xs text-gray-500 mt-1">N° DEV-2026-0012</p>
+                                    <p className="text-xs text-gray-500">Date : 02/04/2026</p>
                                     <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">En attente</span>
                                 </div>
                             </div>
@@ -171,22 +183,22 @@ const LandingPage = () => {
                                 </thead>
                                 <tbody className="text-gray-700">
                                     <tr className="border-b border-gray-100">
-                                        <td className="py-2">Remplacement robinet mitigeur cuisine</td>
+                                        <td className="py-2">Mise en place tableau électrique 36 modules</td>
                                         <td className="text-right py-2">1</td>
-                                        <td className="text-right py-2">85,00 €</td>
-                                        <td className="text-right py-2 font-medium">85,00 €</td>
+                                        <td className="text-right py-2">320,00 €</td>
+                                        <td className="text-right py-2 font-medium">320,00 €</td>
                                     </tr>
                                     <tr className="border-b border-gray-100">
-                                        <td className="py-2">Main d'œuvre plomberie (2h)</td>
-                                        <td className="text-right py-2">2</td>
-                                        <td className="text-right py-2">55,00 €</td>
-                                        <td className="text-right py-2 font-medium">110,00 €</td>
+                                        <td className="py-2">Point lumineux + câblage</td>
+                                        <td className="text-right py-2">6</td>
+                                        <td className="text-right py-2">45,00 €</td>
+                                        <td className="text-right py-2 font-medium">270,00 €</td>
                                     </tr>
                                     <tr>
-                                        <td className="py-2">Fournitures et joints</td>
-                                        <td className="text-right py-2">1</td>
-                                        <td className="text-right py-2">18,50 €</td>
-                                        <td className="text-right py-2 font-medium">18,50 €</td>
+                                        <td className="py-2">Pose prises électriques (dont 2 USB)</td>
+                                        <td className="text-right py-2">8</td>
+                                        <td className="text-right py-2">28,00 €</td>
+                                        <td className="text-right py-2 font-medium">224,00 €</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -196,15 +208,15 @@ const LandingPage = () => {
                                 <div className="w-48 text-xs space-y-1">
                                     <div className="flex justify-between text-gray-600">
                                         <span>Total HT</span>
-                                        <span>213,50 €</span>
+                                        <span>814,00 €</span>
                                     </div>
                                     <div className="flex justify-between text-gray-600">
                                         <span>TVA 10%</span>
-                                        <span>21,35 €</span>
+                                        <span>81,40 €</span>
                                     </div>
                                     <div className="flex justify-between font-bold text-gray-900 text-sm border-t border-gray-200 pt-1 mt-1">
                                         <span>Total TTC</span>
-                                        <span className="text-blue-600">234,85 €</span>
+                                        <span className="text-blue-600">895,40 €</span>
                                     </div>
                                 </div>
                             </div>
@@ -540,9 +552,11 @@ const LandingPage = () => {
                         </Link>
                         <button
                             onClick={handleDemoLogin}
-                            className="text-gray-400 hover:text-white transition-colors text-sm underline underline-offset-2"
+                            disabled={demoLoading}
+                            className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm underline underline-offset-2 disabled:opacity-60"
                         >
-                            Voir la démo sans inscription
+                            {demoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            Tester sans inscription
                         </button>
                     </div>
                     <p className="mt-5 text-xs text-gray-600">
