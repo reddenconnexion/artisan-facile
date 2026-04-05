@@ -19,7 +19,7 @@ const MentionsLegales = () => {
 
             <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Mentions légales</h1>
-                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : avril 2025</p>
+                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : avril 2026</p>
 
                 <div className="space-y-10 text-gray-700">
 
@@ -125,8 +125,12 @@ const MentionsLegales = () => {
                 </div>
             </main>
 
-            <footer className="border-t border-gray-200 mt-16 py-8 text-center text-sm text-gray-500">
-                © {new Date().getFullYear()} Artisan Facile. Tous droits réservés.
+            <footer className="border-t border-gray-200 mt-16 py-8 text-center text-sm text-gray-500 space-y-2">
+                <div className="flex justify-center gap-6">
+                    <Link to="/politique-confidentialite" className="hover:text-blue-600 transition-colors">Politique de confidentialité</Link>
+                    <a href="mailto:contact@artisanfacile.fr" className="hover:text-blue-600 transition-colors">Contact</a>
+                </div>
+                <p>© {new Date().getFullYear()} Artisan Facile. Tous droits réservés.</p>
             </footer>
         </div>
     );
