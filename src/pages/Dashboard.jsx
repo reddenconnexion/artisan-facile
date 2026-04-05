@@ -14,6 +14,7 @@ import QuickActions from '../components/QuickActions';
 import SetupChecklist from '../components/SetupChecklist';
 import FeatureTips from '../components/FeatureTips';
 import PushNotificationBanner from '../components/PushNotificationBanner';
+import OnboardingGuide from '../components/OnboardingGuide';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -539,6 +540,7 @@ const Dashboard = () => {
                 </h2>
             </div>
 
+            <OnboardingGuide />
             <SetupChecklist />
             <PushNotificationBanner />
             <QuickActions />
