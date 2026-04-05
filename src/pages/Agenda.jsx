@@ -445,10 +445,41 @@ const Agenda = () => {
                                     </div>
                                 </div>
                             ))
+                        ) : events.length === 0 ? (
+                            /* Aucun événement en base — premier usage */
+                            <div className="text-center py-8 px-2">
+                                <div className="bg-violet-50 rounded-full h-14 w-14 flex items-center justify-center mx-auto mb-4">
+                                    <Calendar className="w-7 h-7 text-violet-400" />
+                                </div>
+                                <p className="font-semibold text-gray-800 mb-1">Planifiez vos interventions</p>
+                                <p className="text-sm text-gray-500 mb-5">
+                                    Cliquez sur un jour du calendrier ou ajoutez directement votre premier rendez-vous.
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        setNewEvent(prev => ({ ...prev, date: format(selectedDate, 'yyyy-MM-dd') }));
+                                        setShowModal(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-semibold rounded-lg hover:bg-violet-700 transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Ajouter un rendez-vous
+                                </button>
+                            </div>
                         ) : (
+                            /* Jour sélectionné sans événement */
                             <div className="text-center py-8 text-gray-500">
-                                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                <p>Aucun rendez-vous prévu</p>
+                                <Clock className="w-10 h-10 mx-auto mb-3 text-gray-200" />
+                                <p className="text-sm font-medium text-gray-500 mb-3">Aucun rendez-vous ce jour</p>
+                                <button
+                                    onClick={() => {
+                                        setNewEvent(prev => ({ ...prev, date: format(selectedDate, 'yyyy-MM-dd') }));
+                                        setShowModal(true);
+                                    }}
+                                    className="text-sm text-violet-600 hover:text-violet-700 font-medium hover:underline"
+                                >
+                                    + Ajouter un rendez-vous
+                                </button>
                             </div>
                         )}
                     </div>
