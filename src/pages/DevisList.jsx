@@ -92,8 +92,12 @@ const DevisList = () => {
     const filteredDevis = devisList.filter(devis => {
         if (!isTestMode && (devis.client_name?.includes('⚗️') || (testClient?.id && devis.client_id === testClient.id))) return false;
 
-        const matchesSearch = (devis.client_name && devis.client_name.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-            devis.id.toString().includes(debouncedSearch);
+        const q = debouncedSearch.toLowerCase();
+        const matchesSearch = !q ||
+            (devis.client_name && devis.client_name.toLowerCase().includes(q)) ||
+            devis.id.toString().includes(q) ||
+            (devis.title && devis.title.toLowerCase().includes(q)) ||
+            (devis.quote_number && devis.quote_number.toString().includes(q));
 
         const matchesStatus = statusFilter === 'all' ||
             (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) :
@@ -102,6 +106,28 @@ const DevisList = () => {
 
         return matchesSearch && matchesStatus;
     });
+
+    // Counts per filter tab (excluding test data)
+    const visibleDevis = devisList.filter(d =>
+        isTestMode || (!d.client_name?.includes('⚗️') && !(testClient?.id && d.client_id === testClient.id))
+    );
+    const countFor = (status) => {
+        if (status === 'all') return visibleDevis.length;
+        if (status === 'pending') return visibleDevis.filter(d => ['draft', 'sent'].includes(d.status)).length;
+        if (status === 'rejected') return visibleDevis.filter(d => ['rejected', 'refused'].includes(d.status)).length;
+        return visibleDevis.filter(d => d.status === status).length;
+    };
+
+    // Expiry warning: sent/draft devis with valid_until within 7 days
+    const isExpiringSoon = (devis) => {
+        if (!['sent', 'draft'].includes(devis.status) || !devis.valid_until) return false;
+        const daysLeft = Math.ceil((new Date(devis.valid_until) - new Date()) / (1000 * 60 * 60 * 24));
+        return daysLeft >= 0 && daysLeft <= 7;
+    };
+    const isExpired = (devis) => {
+        if (!['sent', 'draft'].includes(devis.status) || !devis.valid_until) return false;
+        return new Date(devis.valid_until) < new Date();
+    };
 
     // Sous-onglet actif : 'liste' ou 'relances'
     const isFollowUpsTab = statusFilter === 'followups';
@@ -179,34 +205,39 @@ const DevisList = () => {
                     </div>
                 )}
                 <div className={`flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto ${isFollowUpsTab ? 'flex-1' : ''}`}>
-                    {['all', 'pending', 'draft', 'sent', 'accepted', 'rejected', 'billed', 'paid', 'postponed', 'followups'].map((status) => (
-                        <button
-                            key={status}
-                            onClick={() => setStatusFilter(status)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap flex-shrink-0 ${status === 'followups' ? 'ml-auto' : ''} ${statusFilter === status
-                                ? status === 'followups'
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                                }`}
-                        >
-                            {status === 'all' && 'Tous'}
-                            {status === 'pending' && 'En attente'}
-                            {status === 'draft' && 'Brouillons'}
-                            {status === 'sent' && 'Envoyés'}
-                            {status === 'accepted' && 'Signés'}
-                            {status === 'rejected' && 'Refusés'}
-                            {status === 'billed' && 'Facturés'}
-                            {status === 'paid' && 'Payés'}
-                            {status === 'postponed' && 'Reportés'}
-                            {status === 'followups' && (
-                                <span className="flex items-center gap-1">
-                                    <Send className="w-3 h-3" />
-                                    Relances
-                                </span>
-                            )}
-                        </button>
-                    ))}
+                    {['all', 'pending', 'sent', 'accepted', 'paid', 'billed', 'draft', 'rejected', 'postponed', 'followups'].map((status) => {
+                        const count = status !== 'followups' ? countFor(status) : null;
+                        const labels = {
+                            all: 'Tous', pending: 'En attente', draft: 'Brouillons',
+                            sent: 'Envoyés', accepted: 'Signés', rejected: 'Refusés',
+                            billed: 'Facturés', paid: 'Payés', postponed: 'Reportés'
+                        };
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => setStatusFilter(status)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${status === 'followups' ? 'ml-auto' : ''} ${statusFilter === status
+                                    ? status === 'followups'
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                    }`}
+                            >
+                                {status === 'followups' ? (
+                                    <><Send className="w-3 h-3" />Relances</>
+                                ) : (
+                                    <>
+                                        {labels[status]}
+                                        {count > 0 && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${statusFilter === status ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -224,7 +255,7 @@ const DevisList = () => {
                                 <tr>
                                     {mergeMode && <th className="pl-4 pr-2 py-3 w-10" />}
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Numéro</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Client / Objet</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Montant TTC</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</th>
@@ -235,7 +266,7 @@ const DevisList = () => {
                                 {filteredDevis.map((devis) => (
                                     <tr
                                         key={devis.id}
-                                        className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                                        className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : isExpired(devis) ? 'bg-red-50/40 dark:bg-red-900/10' : isExpiringSoon(devis) ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
                                         onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
                                     >
                                         {mergeMode && (
@@ -252,21 +283,30 @@ const DevisList = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
                                             {devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV')} #{devis.quote_number || devis.id}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                        <td className="px-6 py-4 text-sm">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (devis.client_id) {
-                                                        navigate(`/app/clients/${devis.client_id}`);
-                                                    }
+                                                    if (devis.client_id) navigate(`/app/clients/${devis.client_id}`);
                                                 }}
-                                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium block"
                                             >
                                                 {devis.client_name || 'Client inconnu'}
                                             </button>
+                                            {devis.title && (
+                                                <span className="text-xs text-gray-400 dark:text-gray-500 truncate block max-w-[220px]">{devis.title}</span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {new Date(devis.date).toLocaleDateString()}
+                                            <div>{new Date(devis.date).toLocaleDateString()}</div>
+                                            {isExpired(devis) && (
+                                                <span className="text-xs font-medium text-red-600 dark:text-red-400">Expiré</span>
+                                            )}
+                                            {isExpiringSoon(devis) && !isExpired(devis) && (
+                                                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                                    Expire bientôt
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
@@ -316,10 +356,15 @@ const DevisList = () => {
                                             {devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis')} #{devis.quote_number || devis.id}
                                         </span>
                                         <h3 className="font-bold text-gray-900 dark:text-white mt-2">{devis.client_name || 'Client inconnu'}</h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            {new Date(devis.date).toLocaleDateString()}
+                                        {devis.title && (
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{devis.title}</p>
+                                        )}
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
+                                            <span>{new Date(devis.date).toLocaleDateString()}</span>
+                                            {isExpired(devis) && <span className="text-red-600 dark:text-red-400 font-medium">Expiré</span>}
+                                            {isExpiringSoon(devis) && !isExpired(devis) && <span className="text-amber-600 dark:text-amber-400 font-medium">Expire bientôt</span>}
                                             {devis.last_followup_at && (
-                                                <span className="ml-2 text-orange-600 dark:text-orange-400 inline-flex items-center gap-0.5">
+                                                <span className="text-orange-600 dark:text-orange-400 inline-flex items-center gap-0.5">
                                                     <Send className="w-2.5 h-2.5" />
                                                     {formatFollowUpDate(devis.last_followup_at)}
                                                 </span>
