@@ -13,6 +13,7 @@ const PublicQuote = () => {
     const [error, setError] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [savingSignature, setSavingSignature] = useState(false);
+    const [justSigned, setJustSigned] = useState(false);
 
     useEffect(() => {
         fetchQuote();
@@ -130,7 +131,6 @@ const PublicQuote = () => {
             if (error) throw error;
             if (data?.success === false) throw new Error(data.error || 'Échec de la signature');
 
-            toast.success('Devis signé avec succès !');
             setShowSignatureModal(false);
 
             // Notification artisan côté serveur (ntfy.sh + email) – fiable même app fermée
@@ -145,7 +145,6 @@ const PublicQuote = () => {
                 body: JSON.stringify({ lookup_token: token }),
             }).catch(err => console.error('Erreur notification artisan:', err));
 
-            // Fetch latest data to get server timestamp if needed, but we can construct local object for immediate download speed
             const signedQuote = {
                 ...quote,
                 signature: signatureData,
@@ -153,19 +152,8 @@ const PublicQuote = () => {
                 status: 'accepted'
             };
 
-            // Update UI
             setQuote(signedQuote);
-
-            // Offer download immediately
-            if (window.confirm("Merci pour votre signature ! Voulez-vous télécharger le devis signé maintenant ?")) {
-                setTimeout(() => {
-                    // small delay to ensure UI or simple logic buffer
-                    generateDevisPDF(signedQuote, signedQuote.client, signedQuote.artisan, true); // true for invoice style? or keep as Devis? Let's keep based on context.
-                    // Actually status 'accepted' usually means it stays a Devis but signed.
-                    // Only if we convert to Invoice it becomes Facture.
-                    // Let's pass isInvoice=false but with signature it will show "Bon pour accord".
-                }, 500);
-            }
+            setJustSigned(true);
 
         } catch (err) {
             console.error('Error saving signature:', err);
@@ -283,16 +271,33 @@ const PublicQuote = () => {
                             </div>
                         </div>
                         <div className="mt-6 md:mt-0 text-right">
-                            <div className="inline-flex flex-col items-end">
-                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            <div className="inline-flex flex-col items-end gap-1">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                     {isSigned || isInvoiceView ? 'Facture N°' : 'Devis N°'}
                                 </span>
                                 <span className="text-2xl font-bold text-gray-900">
                                     {quote.quote_number || quote.id}
                                 </span>
-                                <div className="mt-2 text-sm text-gray-500">
-                                    Du {formatDate(quote.date)}
+                                <div className="text-sm text-gray-500">
+                                    Émis le {formatDate(quote.date)}
                                 </div>
+                                {!isSigned && !isInvoiceView && quote.valid_until && (() => {
+                                    const expiry = new Date(quote.valid_until);
+                                    const now = new Date();
+                                    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+                                    const expired = daysLeft < 0;
+                                    const urgent = daysLeft >= 0 && daysLeft <= 7;
+                                    return (
+                                        <div className={`mt-1 text-xs font-semibold px-2.5 py-1 rounded-full ${expired ? 'bg-red-100 text-red-700' : urgent ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            {expired
+                                                ? `Expiré le ${formatDate(quote.valid_until)}`
+                                                : urgent
+                                                    ? `Expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}`
+                                                    : `Valable jusqu'au ${formatDate(quote.valid_until)}`
+                                            }
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -668,7 +673,41 @@ const PublicQuote = () => {
                     )
                 }
 
+                {/* Post-signature success banner */}
+                {justSigned && (
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center space-y-4">
+                        <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                            <FileCheck className="w-7 h-7 text-green-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-green-800">Devis signé — merci !</h3>
+                            <p className="text-green-700 text-sm mt-1">
+                                {artisan.company_name || artisan.full_name} a été notifié(e) de votre accord.
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                                onClick={handleDownload}
+                                className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-all"
+                            >
+                                <Download className="w-4 h-4" />
+                                Télécharger le devis signé
+                            </button>
+                            {artisan.phone && (
+                                <a
+                                    href={`tel:${artisan.phone}`}
+                                    className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white hover:bg-green-700 font-medium rounded-xl shadow-sm transition-all"
+                                >
+                                    <Phone className="w-4 h-4" />
+                                    Contacter {artisan.company_name || artisan.full_name}
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Actions Bar */}
+                {!justSigned && (
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0">
                     <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 justify-end">
                         <button
@@ -694,19 +733,17 @@ const PublicQuote = () => {
                         {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
                             <button
                                 onClick={() => setShowSignatureModal(true)}
-                                className="flex items-center justify-center px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+                                className="flex items-center justify-center gap-2 px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
                             >
-                                <PenTool className="w-5 h-5 mr-2" />
+                                <PenTool className="w-5 h-5" />
                                 Signer le devis
                             </button>
                         ) : null}
 
-                        {/* Payment Info for Invoices - REMOVED ABSOLUTE BLOCK */}
-
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
                                 <FileCheck className="w-5 h-5 mr-2" />
-                                Devis signé le {formatDate(quote.signed_at || quote.updated_at)}
+                                Signé le {formatDate(quote.signed_at || quote.updated_at)}
                             </div>
                         )}
 
@@ -718,6 +755,7 @@ const PublicQuote = () => {
                         )}
                     </div>
                 </div>
+                )}
 
                 {/* Spacer for fixed bottom bar on mobile */}
                 <div className="h-24 md:hidden"></div>
