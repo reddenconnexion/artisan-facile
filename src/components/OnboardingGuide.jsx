@@ -258,6 +258,7 @@ const SLIDES = [
 
 const OnboardingGuide = () => {
     const { user } = useAuth();
+    const isDemo = user?.is_anonymous === true || user?.id === 'demo-local-fallback';
     const navigate = useNavigate();
     const dismissKey = `onboarding_guide_shown_${user?.id}`;
     const [open, setOpen] = useState(false);
@@ -267,11 +268,11 @@ const OnboardingGuide = () => {
     const { data: quotes = [], isLoading: loadingQuotes } = useQuotes();
 
     // Show for new users who haven't seen it yet
+    // In demo mode, always show (demo has pre-seeded data so skip the empty check)
     useEffect(() => {
         if (!user?.id || loadingClients || loadingQuotes) return;
         if (localStorage.getItem(dismissKey) === '1') return;
-        // New user = no quotes and no clients (or very fresh)
-        if (clients.length === 0 && quotes.length === 0) {
+        if (isDemo || (clients.length === 0 && quotes.length === 0)) {
             const t = setTimeout(() => setOpen(true), 1200);
             return () => clearTimeout(t);
         }
@@ -285,6 +286,10 @@ const OnboardingGuide = () => {
     const goNext = () => {
         if (currentSlide < SLIDES.length - 1) {
             setCurrentSlide(s => s + 1);
+        } else if (isDemo) {
+            // Demo user: last slide → invite to register
+            dismiss();
+            navigate('/register');
         } else {
             dismiss();
         }
@@ -372,13 +377,20 @@ const OnboardingGuide = () => {
                         )}
                         <button
                             onClick={goNext}
-                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${isLast && isDemo ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
                             {isLast ? (
-                                <>
-                                    <Check className="w-4 h-4" />
-                                    Démarrer
-                                </>
+                                isDemo ? (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        Créer mon compte
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        Démarrer
+                                    </>
+                                )
                             ) : (
                                 <>
                                     Suivant

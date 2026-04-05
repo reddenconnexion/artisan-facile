@@ -2077,7 +2077,7 @@ Conditions de règlement : Paiement à réception de facture.`
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-12">
+        <div className="max-w-4xl mx-auto pb-12 sm:pb-12 pb-28">
             {isLocked && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
@@ -2156,11 +2156,11 @@ Conditions de règlement : Paiement à réception de facture.`
                     <button
                         type="button"
                         onClick={handleSendQuoteEmail}
-                        className="hidden sm:flex items-center px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                        className="flex items-center px-3 sm:px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
                         title="Envoyer par email"
                     >
-                        <Send className="w-4 h-4 mr-2" />
-                        Envoyer
+                        <Send className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Envoyer</span>
                     </button>
 
                     <button
@@ -3647,6 +3647,28 @@ Conditions de règlement : Paiement à réception de facture.`
                 quote={{ ...formData, id: id }}
                 onSave={handleSaveSituation}
             />
+
+            {/* Mobile sticky bottom bar — Send + Save */}
+            {!isLocked && (
+                <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 flex gap-3 safe-area-bottom">
+                    <button
+                        type="button"
+                        onClick={handleSendQuoteEmail}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-700 bg-blue-50 border border-blue-200 rounded-xl font-semibold text-sm active:bg-blue-100"
+                    >
+                        <Send className="w-4 h-4" />
+                        Envoyer
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-white bg-blue-600 rounded-xl font-semibold text-sm disabled:opacity-50 active:bg-blue-700"
+                    >
+                        <Save className="w-4 h-4" />
+                        {loading ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
+                </div>
+            )}
         </div>
     );
 
