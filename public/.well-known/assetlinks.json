@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "fr.artisanfacile.app",
+    "sha256_cert_fingerprints": [
+      "REMPLACER_PAR_LE_SHA256_DE_VOTRE_CERTIFICAT_DE_SIGNATURE"
+    ]
+  }
+}]

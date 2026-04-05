@@ -17,11 +17,15 @@ export default defineConfig({
       manifest: {
         name: 'Artisan Facile',
         short_name: 'ArtisanFacile',
-        description: 'Logiciel de gestion tout-en-un pour artisans : devis, facturation, agenda, CRM et comptabilité.',
+        description: 'Logiciel de gestion gratuit pour artisans : devis, facturation, agenda, CRM et comptabilité.',
         theme_color: '#2563eb',
-        start_url: '/',
-        display: 'standalone',
         background_color: '#ffffff',
+        start_url: '/?source=pwa',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        lang: 'fr-FR',
+        categories: ['business', 'productivity', 'finance'],
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -32,7 +36,13 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
