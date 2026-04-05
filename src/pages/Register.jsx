@@ -3,7 +3,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Mail } from 'lucide-react';
+import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+
+const JOB_OPTIONS = [
+    { value: 'electricien', label: 'Électricien' },
+    { value: 'plombier', label: 'Plombier' },
+    { value: 'chauffagiste', label: 'Chauffagiste' },
+    { value: 'peintre', label: 'Peintre' },
+    { value: 'carreleur', label: 'Carreleur' },
+    { value: 'macon', label: 'Maçon' },
+    { value: 'plaquiste', label: 'Plaquiste' },
+    { value: 'menuisier', label: 'Menuisier' },
+    { value: 'charpentier', label: 'Charpentier' },
+    { value: 'paysagiste', label: 'Paysagiste' },
+    { value: 'multiservice', label: 'Multi-services / Bricolage' },
+    { value: 'autre', label: 'Autre' },
+];
+
+const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
 
 const Register = () => {
     const navigate = useNavigate();
@@ -28,16 +45,12 @@ const Register = () => {
             const { data, error } = await signUp({
                 email,
                 password,
-                options: {
-                    data: {
-                        job_type: jobType
-                    }
-                }
+                options: { data: { job_type: jobType } }
             });
             if (error) throw error;
 
             if (data.session) {
-                toast.success('Inscription réussie ! Vous êtes connecté.');
+                toast.success('Compte créé ! Bienvenue sur Artisan Facile.');
                 navigate('/app');
             } else {
                 setConfirmedEmail(email);
@@ -45,9 +58,11 @@ const Register = () => {
         } catch (error) {
             console.error('Registration error:', error);
             if (error.message.includes('valid email')) {
-                toast.error('Adresse email invalide. Veuillez utiliser une adresse réelle.');
+                toast.error('Adresse email invalide. Utilisez une adresse réelle.');
+            } else if (error.message.includes('already registered')) {
+                toast.error('Cette adresse email est déjà utilisée. Connectez-vous.');
             } else {
-                toast.error(error.message || 'Erreur lors de l\'inscription');
+                toast.error(error.message || "Erreur lors de l'inscription");
             }
         } finally {
             setLoading(false);
@@ -61,7 +76,7 @@ const Register = () => {
             if (error) throw error;
             toast.success('Email renvoyé ! Vérifiez votre boîte mail.');
         } catch (error) {
-            toast.error(error.message || 'Erreur lors de l\'envoi');
+            toast.error(error.message || "Erreur lors de l'envoi");
         } finally {
             setResendLoading(false);
         }
@@ -69,34 +84,30 @@ const Register = () => {
 
     if (confirmedEmail) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
                 <div className="max-w-md w-full text-center space-y-6">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                        <Mail className="w-8 h-8 text-blue-600" />
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                        <Mail className="w-8 h-8 text-green-600" />
                     </div>
                     <div>
                         <h2 className="text-2xl font-extrabold text-gray-900">Vérifiez votre boîte mail</h2>
                         <p className="mt-3 text-gray-600">
-                            Un email de confirmation a été envoyé à{' '}
+                            Un lien de confirmation a été envoyé à{' '}
                             <strong className="text-gray-900">{confirmedEmail}</strong>.
                         </p>
                         <p className="mt-2 text-sm text-gray-500">
-                            Cliquez sur le lien dans l'email pour activer votre compte.
-                            Pensez à vérifier vos spams.
+                            Cliquez sur le lien pour activer votre compte. Pensez à vérifier vos spams.
                         </p>
                     </div>
                     <div className="space-y-3">
                         <button
                             onClick={handleResend}
                             disabled={resendLoading}
-                            className="w-full py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                            className="w-full py-3 px-4 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
-                            {resendLoading ? 'Envoi...' : 'Renvoyer l\'email de confirmation'}
+                            {resendLoading ? 'Envoi...' : "Renvoyer l'email de confirmation"}
                         </button>
-                        <Link
-                            to="/login"
-                            className="block text-sm text-blue-600 hover:text-blue-500"
-                        >
+                        <Link to="/login" className="block text-sm text-blue-600 hover:text-blue-500">
                             Retour à la connexion
                         </Link>
                     </div>
@@ -106,105 +117,139 @@ const Register = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Créer un compte
-                    </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
-                        Déjà inscrit ?{' '}
-                        <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                            Se connecter
-                        </Link>
-                    </p>
-                </div>
+        <div className="min-h-screen flex flex-col bg-gray-50">
+            {/* Header */}
+            <div className="px-6 pt-6">
+                <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                    <ArrowLeft className="w-4 h-4" />
+                    Retour à l'accueil
+                </Link>
+            </div>
 
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
+            <div className="flex-1 flex items-center justify-center py-10 px-4">
+                <div className="w-full max-w-md">
+                    {/* Branding */}
+                    <div className="text-center mb-8">
+                        <span className="text-3xl font-extrabold text-blue-600">Artisan Facile</span>
+                        <div className="mt-3 inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-xs font-bold px-3 py-1.5 rounded-full border border-green-200">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            100% Gratuit — sans carte bancaire
                         </div>
-                        <div className="ml-3">
-                            <p className="text-sm text-blue-700">
-                                Une adresse email valide est requise. Vous devrez cliquer sur le lien de confirmation envoyé par email avant de pouvoir vous connecter.
-                            </p>
-                        </div>
+                        <h1 className="mt-4 text-2xl font-bold text-gray-900">Créer mon compte</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Déjà inscrit ?{' '}
+                            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+                                Se connecter
+                            </Link>
+                        </p>
                     </div>
-                </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="rounded-md shadow-sm -space-y-px">
-                        <div>
-                            <label htmlFor="register-email" className="sr-only">Adresse email</label>
-                            <input
-                                id="register-email"
-                                name="email"
-                                type="email"
-                                required
-                                autoComplete="email"
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                placeholder="Adresse email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="register-password" className="sr-only">Mot de passe</label>
-                            <input
-                                id="register-password"
-                                name="password"
-                                type="password"
-                                required
-                                minLength={8}
-                                autoComplete="new-password"
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                placeholder="Mot de passe (8 caractères minimum)"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                            {password.length > 0 && password.length < 8 && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    Encore {8 - password.length} caractère(s) requis
+                    {/* Form card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label htmlFor="register-email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Adresse email
+                                </label>
+                                <input
+                                    id="register-email"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    autoComplete="email"
+                                    className={inputClass}
+                                    placeholder="votre@email.fr"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+
+                            <div>
+                                <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Mot de passe
+                                </label>
+                                <input
+                                    id="register-password"
+                                    name="password"
+                                    type="password"
+                                    required
+                                    minLength={8}
+                                    autoComplete="new-password"
+                                    className={inputClass}
+                                    placeholder="8 caractères minimum"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                {password.length > 0 && password.length < 8 && (
+                                    <p className="mt-1.5 text-xs text-red-500">
+                                        Encore {8 - password.length} caractère{8 - password.length > 1 ? 's' : ''} requis
+                                    </p>
+                                )}
+                                {password.length >= 8 && (
+                                    <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" /> Mot de passe valide
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label htmlFor="register-job" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Corps de métier
+                                </label>
+                                <select
+                                    id="register-job"
+                                    required
+                                    className={inputClass + ' bg-white'}
+                                    value={jobType}
+                                    onChange={(e) => setJobType(e.target.value)}
+                                >
+                                    <option value="" disabled>Sélectionnez votre métier…</option>
+                                    {JOB_OPTIONS.map(({ value, label }) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1.5 text-xs text-gray-400">
+                                    Utilisé pour pré-remplir votre bibliothèque de prix
                                 </p>
-                            )}
-                        </div>
-                        <div>
-                            <select
-                                required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                value={jobType}
-                                onChange={(e) => setJobType(e.target.value)}
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full flex items-center justify-center gap-2 py-3 px-4 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-60 shadow-sm"
                             >
-                                <option value="" disabled>Quel est votre corps de métier ?</option>
-                                <option value="plombier">Plombier</option>
-                                <option value="chauffagiste">Chauffagiste</option>
-                                <option value="electricien">Électricien</option>
-                                <option value="peintre">Peintre</option>
-                                <option value="carreleur">Carreleur</option>
-                                <option value="macon">Maçon</option>
-                                <option value="plaquiste">Plaquiste</option>
-                                <option value="menuisier">Menuisier</option>
-                                <option value="charpentier">Charpentier</option>
-                                <option value="paysagiste">Paysagiste</option>
-                                <option value="multiservice">Multi-services / Bricolage</option>
-                                <option value="autre">Autre (Partir de zéro)</option>
-                            </select>
-                        </div>
+                                {loading ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> Création du compte…</>
+                                ) : (
+                                    'Créer mon compte gratuit'
+                                )}
+                            </button>
+                        </form>
+
+                        <p className="text-xs text-gray-400 text-center leading-relaxed">
+                            En créant un compte, vous acceptez nos{' '}
+                            <Link to="/mentions-legales" className="underline hover:text-gray-600">mentions légales</Link>
+                            {' '}et notre{' '}
+                            <Link to="/politique-confidentialite" className="underline hover:text-gray-600">politique de confidentialité</Link>.
+                        </p>
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                        >
-                            {loading ? 'Inscription...' : 'S\'inscrire & Configurer mon espace'}
-                        </button>
+                    {/* Value props */}
+                    <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-gray-500">
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                            <p className="font-bold text-gray-700 text-base">0€</p>
+                            <p>Sans CB</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                            <p className="font-bold text-gray-700 text-base">2 min</p>
+                            <p>Pour un devis</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                            <p className="font-bold text-gray-700 text-base">5 min</p>
+                            <p>Pour démarrer</p>
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     );
