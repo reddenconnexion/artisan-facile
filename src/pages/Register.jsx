@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
+import { Mail } from 'lucide-react';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -10,11 +12,12 @@ const Register = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [jobType, setJobType] = useState('');
+    const [confirmedEmail, setConfirmedEmail] = useState(null);
+    const [resendLoading, setResendLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Enforce minimum password requirements
         if (password.length < 8) {
             toast.error('Le mot de passe doit contenir au moins 8 caractères.');
             return;
@@ -37,8 +40,7 @@ const Register = () => {
                 toast.success('Inscription réussie ! Vous êtes connecté.');
                 navigate('/app');
             } else {
-                toast.success('Inscription réussie ! Veuillez vérifier votre email pour confirmer votre compte.');
-                navigate('/login');
+                setConfirmedEmail(email);
             }
         } catch (error) {
             console.error('Registration error:', error);
@@ -51,6 +53,57 @@ const Register = () => {
             setLoading(false);
         }
     };
+
+    const handleResend = async () => {
+        setResendLoading(true);
+        try {
+            const { error } = await supabase.auth.resend({ type: 'signup', email: confirmedEmail });
+            if (error) throw error;
+            toast.success('Email renvoyé ! Vérifiez votre boîte mail.');
+        } catch (error) {
+            toast.error(error.message || 'Erreur lors de l\'envoi');
+        } finally {
+            setResendLoading(false);
+        }
+    };
+
+    if (confirmedEmail) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full text-center space-y-6">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                        <Mail className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-extrabold text-gray-900">Vérifiez votre boîte mail</h2>
+                        <p className="mt-3 text-gray-600">
+                            Un email de confirmation a été envoyé à{' '}
+                            <strong className="text-gray-900">{confirmedEmail}</strong>.
+                        </p>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Cliquez sur le lien dans l'email pour activer votre compte.
+                            Pensez à vérifier vos spams.
+                        </p>
+                    </div>
+                    <div className="space-y-3">
+                        <button
+                            onClick={handleResend}
+                            disabled={resendLoading}
+                            className="w-full py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                            {resendLoading ? 'Envoi...' : 'Renvoyer l\'email de confirmation'}
+                        </button>
+                        <Link
+                            to="/login"
+                            className="block text-sm text-blue-600 hover:text-blue-500"
+                        >
+                            Retour à la connexion
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

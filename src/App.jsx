@@ -40,6 +40,7 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import MentionsLegales from './pages/MentionsLegales';
+import ResetPassword from './pages/ResetPassword';
 
 // Pages publiques chargées immédiatement (liens clients /q/:token et /p/:token)
 // Pas de lazy loading = pas de chunk séparé = affichage direct sur Safari/iPhone
@@ -109,6 +110,7 @@ function App() {
               <Route path="/mentions-legales" element={<MentionsLegales />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               <Route path="/p/:token" element={<ClientPortal />} />
               <Route path="/q/:token" element={<PublicQuote />} />
