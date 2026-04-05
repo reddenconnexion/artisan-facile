@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
-import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
@@ -360,6 +360,17 @@ const Accounting = () => {
 
   const quarters = ['T1 (Jan-Mar)', 'T2 (Avr-Jun)', 'T3 (Jul-Sep)', 'T4 (Oct-Déc)'];
 
+  // Années disponibles : de la première facture payée jusqu'à l'année en cours
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const allYears = new Set([currentYear]);
+    filteredInvoices.forEach(inv => {
+      const d = new Date(inv.date || inv.created_at);
+      if (!isNaN(d.getTime())) allYears.add(d.getFullYear());
+    });
+    return Array.from(allYears).sort((a, b) => b - a); // Plus récent en premier
+  }, [filteredInvoices]);
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
   };
@@ -610,7 +621,7 @@ const Accounting = () => {
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {[2024, 2025, 2026].map(year => (
+                  {availableYears.map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
@@ -751,40 +762,77 @@ const Accounting = () => {
 
             {/* Résultat du calcul */}
             {calculateCharges && (
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-blue-100">Charges URSSAF à déclarer</p>
-                  <button
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="text-blue-200 hover:text-white flex items-center text-sm"
-                  >
-                    {showDetails ? 'Masquer' : 'Détails'}
-                    {showDetails ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-                  </button>
-                </div>
-                <p className="text-4xl font-bold">{formatCurrency(calculateCharges.total)}</p>
-
-                {showDetails && (
-                  <div className="mt-4 pt-4 border-t border-blue-400">
-                    {calculateCharges.details ? (
-                      <>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span>Services: {formatCurrency(calculateCharges.details.services.ca)} × {(calculateCharges.details.services.rate * 100).toFixed(1)}%</span>
-                          <span>{formatCurrency(calculateCharges.details.services.charges)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Vente: {formatCurrency(calculateCharges.details.vente.ca)} × {(calculateCharges.details.vente.rate * 100).toFixed(1)}%</span>
-                          <span>{formatCurrency(calculateCharges.details.vente.charges)}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex justify-between text-sm">
-                        <span>{formatCurrency(calculateCharges.ca)} × {(calculateCharges.rate * 100).toFixed(1)}%</span>
-                        <span>{formatCurrency(calculateCharges.total)}</span>
-                      </div>
-                    )}
+              <div className="space-y-3">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-blue-100">Charges URSSAF à déclarer</p>
+                    <button
+                      onClick={() => setShowDetails(!showDetails)}
+                      className="text-blue-200 hover:text-white flex items-center text-sm"
+                    >
+                      {showDetails ? 'Masquer' : 'Détails'}
+                      {showDetails ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+                    </button>
                   </div>
-                )}
+                  <p className="text-4xl font-bold">{formatCurrency(calculateCharges.total)}</p>
+
+                  {showDetails && (
+                    <div className="mt-4 pt-4 border-t border-blue-400">
+                      {calculateCharges.details ? (
+                        <>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Services: {formatCurrency(calculateCharges.details.services.ca)} × {(calculateCharges.details.services.rate * 100).toFixed(1)}%</span>
+                            <span>{formatCurrency(calculateCharges.details.services.charges)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-3">
+                            <span>Vente: {formatCurrency(calculateCharges.details.vente.ca)} × {(calculateCharges.details.vente.rate * 100).toFixed(1)}%</span>
+                            <span>{formatCurrency(calculateCharges.details.vente.charges)}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between text-sm mb-3">
+                          <span>{formatCurrency(calculateCharges.ca)} × {(calculateCharges.rate * 100).toFixed(1)}%</span>
+                          <span>{formatCurrency(calculateCharges.total)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm pt-3 border-t border-blue-400">
+                        <span className="text-blue-100">Revenu net estimé</span>
+                        <span className="font-semibold">
+                          {formatCurrency(effectiveCa - calculateCharges.total)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions post-calcul */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => {
+                      const caStr = calculateCharges.details
+                        ? `Services: ${effectiveCaService.toFixed(2)} € / Vente: ${effectiveCaVente.toFixed(2)} €`
+                        : effectiveCa.toFixed(2);
+                      navigator.clipboard.writeText(
+                        calculateCharges.details
+                          ? `CA Services: ${effectiveCaService.toFixed(2)}\nCA Vente: ${effectiveCaVente.toFixed(2)}\nCharges: ${calculateCharges.total.toFixed(2)}`
+                          : `CA: ${effectiveCa.toFixed(2)}\nCharges: ${calculateCharges.total.toFixed(2)}`
+                      ).then(() => toast.success('Montants copiés dans le presse-papier'));
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copier les montants
+                  </button>
+                  <a
+                    href="https://www.autoentrepreneur.urssaf.fr/portail/accueil/declarer-et-payer.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Déclarer sur URSSAF
+                  </a>
+                </div>
               </div>
             )}
           </div>
@@ -1011,7 +1059,7 @@ const Accounting = () => {
                 onChange={(e) => setRecettesYear(parseInt(e.target.value))}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
               >
-                {[2024, 2025, 2026].map(year => (
+                {availableYears.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
