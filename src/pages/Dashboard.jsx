@@ -10,6 +10,8 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
+import SetupChecklist from '../components/SetupChecklist';
+import FeatureTips from '../components/FeatureTips';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -518,7 +520,9 @@ const Dashboard = () => {
                 </h2>
             </div>
 
+            <SetupChecklist />
             <QuickActions />
+            <FeatureTips />
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 

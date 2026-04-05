@@ -14,7 +14,7 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
-import { usePendingCounts } from '../hooks/useDataCache';
+import { usePendingCounts, useUserProfile } from '../hooks/useDataCache';
 
 const Layout = () => {
   const location = useLocation();
@@ -27,6 +27,12 @@ const Layout = () => {
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
   const { plan, isPro, isOwner } = usePlanLimits();
+  const { data: profile } = useUserProfile();
+  const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
+  const [profileBannerDismissed, setProfileBannerDismissed] = useState(
+    () => localStorage.getItem(profileBannerKey) === '1'
+  );
+  const profileIncomplete = profile && (!profile.company_name || !profile.siret);
 
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
@@ -510,6 +516,29 @@ const Layout = () => {
             <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center px-4 md:hidden flex-shrink-0">
               <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
             </div>
+
+            {/* Bannière profil incomplet */}
+            {profileIncomplete && !profileBannerDismissed && (
+              <div className="mx-4 md:mx-8 mt-4 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-4 py-3 text-sm">
+                <span className="text-amber-500 text-lg flex-shrink-0">⚠️</span>
+                <p className="text-amber-800 dark:text-amber-300 flex-1">
+                  <span className="font-semibold">Profil incomplet —</span> vos devis n'ont pas toutes les mentions légales obligatoires (nom d'entreprise, SIRET).{' '}
+                  <Link to="/app/settings" className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-200">
+                    Compléter maintenant
+                  </Link>
+                </p>
+                <button
+                  onClick={() => {
+                    localStorage.setItem(profileBannerKey, '1');
+                    setProfileBannerDismissed(true);
+                  }}
+                  className="p-1 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 rounded flex-shrink-0"
+                  title="Masquer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             <div className="p-4 md:p-8 pb-24 md:pb-8">
               <Outlet />

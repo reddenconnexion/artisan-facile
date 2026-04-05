@@ -338,9 +338,48 @@ const DevisList = () => {
                     </div>
 
                     {filteredDevis.length === 0 && (
-                        <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <p className="text-gray-500 dark:text-gray-400">Aucun devis trouvé.</p>
-                        </div>
+                        devisList.length === 0 ? (
+                            /* Aucun devis en base — premier usage */
+                            <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 px-6">
+                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                                    <FileText className="h-10 w-10 text-blue-400" />
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                                    Créez votre premier devis
+                                </h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                                    Envoyez un document professionnel à votre client en moins de 2 minutes, directement depuis votre téléphone.
+                                </p>
+                                <button
+                                    onClick={() => navigate('/app/devis/new')}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Créer mon premier devis
+                                </button>
+                                <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
+                                    Vous avez déjà des devis ?{' '}
+                                    <button onClick={handleImportClick} className="text-blue-500 hover:underline">
+                                        Importez un PDF ou Word
+                                    </button>
+                                </p>
+                            </div>
+                        ) : searchTerm ? (
+                            /* Recherche sans résultat */
+                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                                <Search className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"
+                                </p>
+                            </div>
+                        ) : (
+                            /* Filtre actif sans résultat */
+                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    Aucun devis dans cette catégorie.
+                                </p>
+                            </div>
+                        )
                     )}
                 </>
             )}
