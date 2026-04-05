@@ -87,7 +87,18 @@ const Layout = () => {
               .insert(itemsToInsert);
 
             if (!insertError) {
-              toast.success(`Espace configuré pour : ${jobType}. Bibliothèque de prix chargée.`);
+              const labels = {
+                electricien: 'Électricien', plombier: 'Plombier', peintre: 'Peintre',
+                macon: 'Maçon', menuisier: 'Menuisier', paysagiste: 'Paysagiste',
+                chauffagiste: 'Chauffagiste', carreleur: 'Carreleur', plaquiste: 'Plaquiste',
+                charpentier: 'Charpentier', multiservice: 'Multi-service',
+              };
+              const label = labels[jobType] || jobType;
+              toast.success(`📚 Bibliothèque ${label} chargée`, {
+                description: `${itemsToInsert.length} références prêtes à utiliser dans vos devis.`,
+                duration: 6000,
+                action: { label: 'Voir', onClick: () => navigate('/app/library') },
+              });
               localStorage.setItem(`library_imported_${user.id}`, 'true');
             }
           } else {
