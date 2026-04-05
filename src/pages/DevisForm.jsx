@@ -24,6 +24,7 @@ import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import SituationModal from '../components/SituationModal';
 
 const DevisForm = () => {
@@ -40,6 +41,7 @@ const DevisForm = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [signature, setSignature] = useState(null);
     const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
+    const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
     const [voiceContext, setVoiceContext] = useState(null); // 'quote_item' or 'note'
@@ -1005,6 +1007,24 @@ const DevisForm = () => {
         }
 
         setEmailPreview(null);
+
+        // After send: nudge user to enable push notifications if not yet subscribed
+        if (isPushSupported && !isPushSubscribed) {
+            setTimeout(() => {
+                toast('Activez les notifications pour savoir quand votre client signe', {
+                    duration: 8000,
+                    action: {
+                        label: 'Activer',
+                        onClick: async () => {
+                            const result = await subscribePush();
+                            if (result.success) {
+                                toast.success('Notifications activées !');
+                            }
+                        },
+                    },
+                });
+            }, 1500);
+        }
     };
 
     const handleMarkAsFollowedUp = async () => {
