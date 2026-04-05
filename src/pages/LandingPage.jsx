@@ -575,10 +575,10 @@ const LandingPage = () => {
                                 Le logiciel de gestion tout-en-un pour artisans : devis, facturation, agenda, CRM et comptabilité.
                             </p>
                         </div>
-                        <div className="flex gap-8">
+                        <div className="flex flex-wrap gap-6 justify-center md:justify-end">
                             <Link to="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
+                            <Link to="/politique-confidentialite" className="hover:text-white transition-colors">Confidentialité</Link>
                             <a href="mailto:contact@artisanfacile.fr" className="hover:text-white transition-colors">Contact</a>
-                            <a href="#" className="hover:text-white transition-colors">Aide</a>
                         </div>
                     </div>
                     <div className="mt-8 text-center text-sm border-t border-gray-800 pt-8">
