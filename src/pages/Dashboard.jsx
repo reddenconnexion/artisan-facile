@@ -13,6 +13,7 @@ import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
 import SetupChecklist from '../components/SetupChecklist';
 import FeatureTips from '../components/FeatureTips';
+import PushNotificationBanner from '../components/PushNotificationBanner';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -539,6 +540,7 @@ const Dashboard = () => {
             </div>
 
             <SetupChecklist />
+            <PushNotificationBanner />
             <QuickActions />
             <FeatureTips />
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
