@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 const SetupChecklist = () => {
     const { user } = useAuth();
+    const isDemo = user?.is_anonymous === true || user?.id === 'demo-local-fallback';
     const dismissKey = `setup_checklist_dismissed_${user?.id}`;
     const [dismissed, setDismissed] = useState(() => localStorage.getItem(dismissKey) === '1');
 
@@ -17,7 +18,30 @@ const SetupChecklist = () => {
     const hasClient = clients.length > 0;
     const hasQuote = quotes.length > 0;
 
-    const steps = [
+    // En mode démo, le profil est pré-rempli — on invite à s'inscrire plutôt qu'à configurer
+    const steps = isDemo ? [
+        {
+            id: 'quote',
+            label: 'Créer un devis d\'essai',
+            description: 'Testez le formulaire — client et profil déjà remplis',
+            done: hasQuote,
+            href: '/app/devis/new',
+        },
+        {
+            id: 'client',
+            label: 'Ajouter un client',
+            description: 'Créez une fiche client en quelques secondes',
+            done: false,
+            href: '/app/clients/new',
+        },
+        {
+            id: 'register',
+            label: 'Créer mon compte gratuit',
+            description: 'Conservez vos données et accédez à toutes les fonctionnalités',
+            done: false,
+            href: '/register',
+        },
+    ] : [
         {
             id: 'profile',
             label: 'Compléter votre profil',
@@ -68,7 +92,7 @@ const SetupChecklist = () => {
                 </div>
                 <div className="flex-1 min-w-0 pr-6">
                     <p className="font-bold text-gray-900 dark:text-white text-sm">
-                        Démarrez votre activité — {completedCount}/{steps.length} étapes
+                        {isDemo ? 'Explorez l\'app — tout est déjà prêt' : `Démarrez votre activité — ${completedCount}/${steps.length} étapes`}
                     </p>
                     <div className="flex items-center gap-2 mt-1.5">
                         <div className="flex-1 bg-white/70 dark:bg-gray-800/60 rounded-full h-2 overflow-hidden">

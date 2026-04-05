@@ -494,37 +494,6 @@ const Layout = () => {
               {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode Clair' : 'Mode Sombre')}
             </button>
 
-            {/* Mode Test */}
-            {isTestMode ? (
-              <button
-                onClick={() => setShowTestPanel(true)}
-                className={`flex items-center w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-400 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              >
-                <div className="relative flex-shrink-0">
-                  <Inbox className={`w-5 h-5 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                  {capturedEmails.length > 0 && (
-                    <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                      {capturedEmails.length > 9 ? '9+' : capturedEmails.length}
-                    </span>
-                  )}
-                </div>
-                {(!isCollapsed || isMobileMenuOpen) && (
-                  <span className="flex items-center gap-2">
-                    Inbox test
-                    <span className="text-[10px] bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded-full font-bold">TEST</span>
-                  </span>
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={enableTestMode}
-                className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              >
-                <FlaskConical className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                {(!isCollapsed || isMobileMenuOpen) && 'Mode test'}
-              </button>
-            )}
-
             <button
               onClick={() => setShowShortcuts(true)}
               className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
