@@ -164,6 +164,7 @@ const Layout = () => {
 
     nav.push({ name: 'Outils', href: '/app/outils', icon: Zap });
     nav.push({ name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic });
+    nav.push({ name: 'Guide', href: '/app/guide', icon: HelpCircle });
     nav.push({ name: 'Abonnement', href: '/app/subscription', icon: Crown });
 
     return nav;
