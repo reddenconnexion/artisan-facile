@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Circle, ChevronRight, X, Rocket } from 'lucide-react';
+import { CheckCircle2, ChevronRight, X, Rocket } from 'lucide-react';
 import { useClients, useQuotes, useUserProfile } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
 
@@ -109,7 +109,7 @@ const SetupChecklist = () => {
             </div>
 
             <div className="space-y-2">
-                {steps.map((step) => (
+                {steps.map((step, index) => (
                     step.done ? (
                         <div
                             key={step.id}
@@ -124,9 +124,11 @@ const SetupChecklist = () => {
                         <Link
                             key={step.id}
                             to={step.href}
-                            className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-gray-700 transition-all"
+                            className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-gray-700 transition-all border-2 border-blue-100 dark:border-blue-900/40"
                         >
-                            <Circle className="w-5 h-5 text-blue-300 dark:text-blue-600 flex-shrink-0" />
+                            <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-bold text-white">{index + 1}</span>
+                            </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
                                     {step.label}
@@ -135,7 +137,7 @@ const SetupChecklist = () => {
                                     {step.description}
                                 </p>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />
                         </Link>
                     )
                 ))}
