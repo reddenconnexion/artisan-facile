@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen } from 'lucide-react';
+import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
 import Papa from 'papaparse';
 import readXlsxFile from 'read-excel-file/browser';
 
@@ -13,6 +13,7 @@ const PriceLibrary = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showImportModal, setShowImportModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showAdvancedFields, setShowAdvancedFields] = useState(false);
     const fileInputRef = useRef(null);
 
     // New Item State
@@ -261,7 +262,7 @@ const PriceLibrary = () => {
                             <BookOpen className="w-8 h-8 text-blue-600" />
                             Bibliothèque de Prix
                         </h1>
-                        <p className="text-gray-500 dark:text-gray-400">Gérez vos ouvrages et tarifs</p>
+                        <p className="text-gray-500 dark:text-gray-400">Enregistrez vos prestations et tarifs pour les réutiliser en un clic dans vos devis</p>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -276,6 +277,7 @@ const PriceLibrary = () => {
                         onClick={() => {
                             setEditingItem(null);
                             setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+                            setShowAdvancedFields(false);
                             setShowAddModal(true);
                         }}
                         className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -317,8 +319,25 @@ const PriceLibrary = () => {
                                 </tr>
                             ) : filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                                        Aucun article trouvé. Ajoutez-en un ou importez une liste.
+                                    <td colSpan="4" className="px-6 py-16 text-center">
+                                        <p className="text-3xl mb-3">⚡</p>
+                                        <p className="font-semibold text-gray-900 dark:text-white mb-1">
+                                            {searchTerm ? 'Aucun résultat' : 'Votre bibliothèque est vide'}
+                                        </p>
+                                        <p className="text-sm text-gray-500 mb-4 max-w-xs mx-auto">
+                                            {searchTerm
+                                                ? `Aucune prestation ne correspond à "${searchTerm}".`
+                                                : 'Ajoutez vos prestations habituelles (déplacement, pose, fournitures…) pour les insérer en un clic dans n\'importe quel devis.'}
+                                        </p>
+                                        {!searchTerm && (
+                                            <button
+                                                onClick={() => { setEditingItem(null); setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' }); setShowAddModal(true); }}
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                Ajouter ma première prestation
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ) : (
@@ -474,27 +493,39 @@ const PriceLibrary = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Référence Fabricant</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        value={newItem.reference || ''}
-                                        onChange={e => setNewItem({ ...newItem, reference: e.target.value })}
-                                        placeholder="Ex: REF-123"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres (EAN)</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        value={newItem.barcode || ''}
-                                        onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
-                                        placeholder="Scan..."
-                                    />
-                                </div>
+                            <div className="border-t border-gray-100 pt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvancedFields(v => !v)}
+                                    className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvancedFields ? 'rotate-180' : ''}`} />
+                                    Options avancées (référence fabricant, code-barres)
+                                </button>
+                                {showAdvancedFields && (
+                                    <div className="grid grid-cols-2 gap-4 mt-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Référence Fabricant</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                                value={newItem.reference || ''}
+                                                onChange={e => setNewItem({ ...newItem, reference: e.target.value })}
+                                                placeholder="Ex: REF-123"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres (EAN)</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                                value={newItem.barcode || ''}
+                                                onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
+                                                placeholder="Scan..."
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <button
                                 type="submit"
