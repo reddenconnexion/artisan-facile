@@ -50,7 +50,7 @@ const DevisForm = () => {
     const [showReviewMenu, setShowReviewMenu] = useState(false);
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [showImportZone, setShowImportZone] = useState(!isEditing);
+    const [showImportZone, setShowImportZone] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
