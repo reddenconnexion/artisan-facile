@@ -506,7 +506,7 @@ const ClientForm = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label htmlFor="siren" className="block text-sm font-medium text-gray-700 mb-1">
-                                    SIREN (9 chiffres) *
+                                    SIREN (9 chiffres)
                                 </label>
                                 <input
                                     type="text"

@@ -65,6 +65,7 @@ const DevisForm = () => {
     const [initialStatus, setInitialStatus] = useState('draft');
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
+    const [showAdvancedQuoteOptions, setShowAdvancedQuoteOptions] = useState(false);
 
     // Follow-up state
     const [followUpSteps, setFollowUpSteps] = useState([]);
@@ -2637,45 +2638,59 @@ Conditions de règlement : Paiement à réception de facture.`
                             </div>
                         </>
                     )}
-                    {/* Factur-X Options */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
-                            value={formData.operation_category}
-                            onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
-                            disabled={isLocked}
+                    {/* Options avancées (Factur-X, TVA, OTP) */}
+                    <div className="border-t border-gray-100 pt-3 mt-1">
+                        <button
+                            type="button"
+                            onClick={() => setShowAdvancedQuoteOptions(v => !v)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
                         >
-                            <option value="service">Prestation de services</option>
-                            <option value="goods">Livraison de biens</option>
-                            <option value="mixed">Mixte</option>
-                        </select>
-                        <div className="flex items-center gap-2 mt-2">
-                            <input
-                                type="checkbox"
-                                id="vat_on_debits"
-                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
-                                checked={formData.vat_on_debits}
-                                onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
-                                disabled={isLocked}
-                            />
-                            <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
-                                Option TVA sur les débits
-                            </label>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                            <input
-                                type="checkbox"
-                                id="require_otp"
-                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
-                                checked={formData.require_otp}
-                                onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
-                                disabled={isLocked}
-                            />
-                            <label htmlFor="require_otp" className="text-sm text-gray-700">
-                                Exiger la vérification par email (OTP) pour signer
-                            </label>
-                        </div>
+                            <svg className={`w-3.5 h-3.5 transition-transform ${showAdvancedQuoteOptions ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            Options avancées
+                        </button>
+                        {showAdvancedQuoteOptions && (
+                            <div className="mt-3 space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
+                                    <select
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
+                                        value={formData.operation_category}
+                                        onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
+                                        disabled={isLocked}
+                                    >
+                                        <option value="service">Prestation de services</option>
+                                        <option value="goods">Livraison de biens</option>
+                                        <option value="mixed">Mixte</option>
+                                    </select>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="vat_on_debits"
+                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                            checked={formData.vat_on_debits}
+                                            onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
+                                            disabled={isLocked}
+                                        />
+                                        <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
+                                            Option TVA sur les débits
+                                        </label>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="require_otp"
+                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                            checked={formData.require_otp}
+                                            onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
+                                            disabled={isLocked}
+                                        />
+                                        <label htmlFor="require_otp" className="text-sm text-gray-700">
+                                            Exiger la vérification par email (OTP) pour signer
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Intervention Address Toggle - Full Width */}
