@@ -541,6 +541,27 @@ const Accounting = () => {
       {/* ========== ONGLET CHARGES URSSAF ========== */}
       {activeTab === 'charges' && (
       <>
+      {/* Aide débutant */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl px-5 py-4 mb-6 flex gap-3 items-start">
+        <span className="text-2xl leading-none mt-0.5">💡</span>
+        <div>
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Comment ça marche ?</p>
+          <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+            Chaque mois (ou trimestre), vous devez déclarer votre chiffre d'affaires à l'URSSAF et payer vos
+            cotisations sociales. Cette page calcule automatiquement le montant à partir de vos factures marquées
+            «&nbsp;Payé&nbsp;». Sélectionnez la période, vérifiez le montant, puis déclarez sur{' '}
+            <a
+              href="https://autoentrepreneur.urssaf.fr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              autoentrepreneur.urssaf.fr
+            </a>.
+          </p>
+        </div>
+      </div>
+
       {/* Statut actuel */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -662,17 +683,23 @@ const Accounting = () => {
               </div>
             </div>
 
-            <div className="flex items-center mt-4">
+            <div className="flex items-start mt-4 gap-2">
               <input
                 type="checkbox"
                 id="acre"
                 checked={hasAcre}
                 onChange={(e) => setHasAcre(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
               />
-              <label htmlFor="acre" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Je bénéficie de l'ACRE (1ère année d'activité - taux réduit de 50%)
-              </label>
+              <div>
+                <label htmlFor="acre" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Je bénéficie de l'ACRE <span className="text-gray-400 font-normal">(taux de cotisations réduit de moitié la 1re année)</span>
+                </label>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  Cochez uniquement si vous avez créé votre entreprise il y a moins d'un an et avez demandé l'ACRE à l'URSSAF.{' '}
+                  <a href="https://www.urssaf.fr/portail/home/independant/je-beneficie-dexonerations/lacre-pour-les-createurs-ou-repr.html" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">En savoir plus</a>
+                </p>
+              </div>
             </div>
           </div>
 

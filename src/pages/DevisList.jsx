@@ -219,12 +219,12 @@ const DevisList = () => {
                     </div>
                 )}
                 <div className={`flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto ${isFollowUpsTab ? 'flex-1' : ''}`}>
-                    {['all', 'pending', 'sent', 'accepted', 'paid', 'billed', 'draft', 'rejected', 'postponed', 'followups'].map((status) => {
+                    {['all', 'pending', 'accepted', 'paid', 'rejected', 'followups'].map((status) => {
                         const count = status !== 'followups' ? countFor(status) : null;
                         const labels = {
-                            all: 'Tous', pending: 'En attente', draft: 'Brouillons',
-                            sent: 'Envoyés', accepted: 'Signés', rejected: 'Refusés',
-                            billed: 'Facturés', paid: 'Payés', postponed: 'Reportés'
+                            all: 'Tous', pending: 'En cours',
+                            accepted: 'Signés', rejected: 'Refusés',
+                            paid: 'Payés'
                         };
                         return (
                             <button
