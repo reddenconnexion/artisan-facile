@@ -128,6 +128,8 @@ const Layout = () => {
       enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
       enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType),
       enable_intervention_reports: userSettings.enable_intervention_reports ?? true,
+      enable_portfolio: userSettings.enable_portfolio ?? false,
+      enable_marketing: userSettings.enable_marketing ?? false,
     };
 
     const nav = [
@@ -154,9 +156,13 @@ const Layout = () => {
 
     nav.push({ name: 'Comptabilité', href: '/app/accounting', icon: Calculator });
 
-    nav.push({ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon });
+    if (settings.enable_portfolio) {
+      nav.push({ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon });
+    }
 
-    nav.push({ name: 'Marketing', href: '/app/marketing', icon: Megaphone });
+    if (settings.enable_marketing) {
+      nav.push({ name: 'Marketing', href: '/app/marketing', icon: Megaphone });
+    }
 
     if (settings.enable_price_library) {
       nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
