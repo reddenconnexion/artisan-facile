@@ -478,6 +478,7 @@ const Dashboard = () => {
         () => (data?.allQuotes || []).filter(q => isTestMode || !isTestQuote(q)),
         [data?.allQuotes, isTestMode, testClient?.id]
     );
+    const hasNoQuotes = allQuotes.length === 0;
     const clientCount = data?.clientCount || 0;
     const pendingQuotesCount = allQuotes.filter(q => ['draft', 'sent'].includes(q.status)).length;
     const recentActivity = useMemo(
@@ -548,51 +549,69 @@ const Dashboard = () => {
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <RichStatCard
-                    title="Chiffre d'affaires"
-                    allQuotes={allQuotes}
-                    type="revenue"
-                    icon={TrendingUp}
-                    colorClass="bg-green-500"
-                    colorHex="#10B981"
-                    formatValue={(v) => `${v.toFixed(0)} €`}
-                    onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
-                />
-                <RichStatCard
-                    title="Résultat Net"
-                    allQuotes={allQuotes}
-                    type="netIncome"
-                    staticSubText="(Hors Matériel)"
-                    icon={TrendingUp}
-                    colorClass="bg-emerald-600"
-                    colorHex="#059669"
-                    formatValue={(v) => `${v.toFixed(0)} €`}
-                    onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'Résultat' })}
-                />
-                <RichStatCard
-                    title="Volume de Devis"
-                    allQuotes={allQuotes}
-                    type="quotes"
-                    staticSubText={`${pendingQuotesCount} en attente`}
-                    icon={FileCheck}
-                    colorClass="bg-orange-500"
-                    colorHex="#F97316"
-                    formatValue={(v) => `${v.toFixed(0)} €`}
-                    onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
-                />
-                <RichStatCard
-                    title="Taux de conversion"
-                    allQuotes={allQuotes}
-                    type="conversion"
-                    staticSubText="Devis signés / Total"
-                    icon={BarChart3}
-                    colorClass="bg-blue-500"
-                    colorHex="#3B82F6"
-                    formatValue={(v) => `${v.toFixed(1)} %`}
-                    chartFormatter={(v) => `${v} Signé(s)`}
-                />
-            </div>
+            {hasNoQuotes ? (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl p-8 text-center">
+                    <p className="text-3xl mb-3">📋</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-lg mb-2">
+                        Créez votre premier devis !
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-sm mx-auto">
+                        Vos statistiques de chiffre d'affaires et de conversion apparaîtront ici dès que vous aurez créé et envoyé des devis.
+                    </p>
+                    <button
+                        onClick={() => navigate('/app/devis/new')}
+                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                    >
+                        Créer mon premier devis
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <RichStatCard
+                        title="Chiffre d'affaires"
+                        allQuotes={allQuotes}
+                        type="revenue"
+                        icon={TrendingUp}
+                        colorClass="bg-green-500"
+                        colorHex="#10B981"
+                        formatValue={(v) => `${v.toFixed(0)} €`}
+                        onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
+                    />
+                    <RichStatCard
+                        title="Résultat Net"
+                        allQuotes={allQuotes}
+                        type="netIncome"
+                        staticSubText="(Hors Matériel)"
+                        icon={TrendingUp}
+                        colorClass="bg-emerald-600"
+                        colorHex="#059669"
+                        formatValue={(v) => `${v.toFixed(0)} €`}
+                        onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'Résultat' })}
+                    />
+                    <RichStatCard
+                        title="Volume de Devis"
+                        allQuotes={allQuotes}
+                        type="quotes"
+                        staticSubText={`${pendingQuotesCount} en attente`}
+                        icon={FileCheck}
+                        colorClass="bg-orange-500"
+                        colorHex="#F97316"
+                        formatValue={(v) => `${v.toFixed(0)} €`}
+                        onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
+                    />
+                    <RichStatCard
+                        title="Taux de conversion"
+                        allQuotes={allQuotes}
+                        type="conversion"
+                        staticSubText="Devis signés / Total"
+                        icon={BarChart3}
+                        colorClass="bg-blue-500"
+                        colorHex="#3B82F6"
+                        formatValue={(v) => `${v.toFixed(1)} %`}
+                        chartFormatter={(v) => `${v} Signé(s)`}
+                    />
+                </div>
+            )}
 
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>

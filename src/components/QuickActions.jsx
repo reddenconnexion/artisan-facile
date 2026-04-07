@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, Calendar, ClipboardList, FileText, Zap } from 'lucide-react';
+import { Users, Calendar, FileText, Zap } from 'lucide-react';
 
 const actions = [
     {
@@ -28,14 +28,6 @@ const actions = [
         path: '/app/agenda',
         state: { openNewEvent: true },
     },
-    {
-        label: 'Nouveau rapport',
-        shortcut: 'Alt+I',
-        icon: ClipboardList,
-        color: 'bg-orange-500 hover:bg-orange-600',
-        iconColor: 'text-white',
-        path: '/app/interventions/new',
-    },
 ];
 
 const QuickActions = () => {
@@ -47,7 +39,7 @@ const QuickActions = () => {
                 <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions rapides</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
                 {actions.map((action) => (
                     <button
                         key={action.label}

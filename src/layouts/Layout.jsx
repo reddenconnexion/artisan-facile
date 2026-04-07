@@ -30,7 +30,7 @@ const Layout = () => {
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
   const [profileBannerDismissed, setProfileBannerDismissed] = useState(
-    () => localStorage.getItem(profileBannerKey) === '1'
+    () => sessionStorage.getItem(profileBannerKey) === '1'
   );
   const profileIncomplete = profile && (!profile.company_name || !profile.siret);
 
@@ -132,6 +132,7 @@ const Layout = () => {
 
     const nav = [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
+      { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
     ];
 
     if (settings.enable_agenda) {
@@ -175,7 +176,6 @@ const Layout = () => {
 
     nav.push({ name: 'Outils', href: '/app/outils', icon: Zap });
     nav.push({ name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic });
-    nav.push({ name: 'Guide', href: '/app/guide', icon: HelpCircle });
     nav.push({ name: 'Abonnement', href: '/app/subscription', icon: Crown });
 
     return nav;
@@ -532,18 +532,18 @@ const Layout = () => {
               <div className="mx-4 md:mx-8 mt-4 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-4 py-3 text-sm">
                 <span className="text-amber-500 text-lg flex-shrink-0">⚠️</span>
                 <p className="text-amber-800 dark:text-amber-300 flex-1">
-                  <span className="font-semibold">Profil incomplet —</span> vos devis n'ont pas toutes les mentions légales obligatoires (nom d'entreprise, SIRET).{' '}
+                  <span className="font-semibold">Profil incomplet —</span> vos devis n'auront pas les mentions légales obligatoires (nom d'entreprise, SIRET).{' '}
                   <Link to="/app/settings" className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-200">
-                    Compléter maintenant
+                    Compléter mon profil →
                   </Link>
                 </p>
                 <button
                   onClick={() => {
-                    localStorage.setItem(profileBannerKey, '1');
+                    sessionStorage.setItem(profileBannerKey, '1');
                     setProfileBannerDismissed(true);
                   }}
                   className="p-1 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 rounded flex-shrink-0"
-                  title="Masquer"
+                  title="Masquer pour cette session"
                 >
                   <X className="w-4 h-4" />
                 </button>

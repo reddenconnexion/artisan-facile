@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, Sparkles, Keyboard, Calculator, X, Lightbulb, ChevronRight } from 'lucide-react';
+import { Mic, Sparkles, Send, Calculator, X, Lightbulb, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const TIPS = [
@@ -23,13 +23,13 @@ const TIPS = [
         cta: 'Créer un devis',
     },
     {
-        id: 'shortcuts',
-        icon: Keyboard,
-        color: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
-        title: 'Raccourcis clavier',
-        description: 'Alt+D → Nouveau devis · Alt+C → Nouveau client · Alt+R → Nouveau RDV. Gagnez du temps au bureau.',
-        href: null,
-        cta: null,
+        id: 'send',
+        icon: Send,
+        color: 'bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400',
+        title: 'Envoi & signature en ligne',
+        description: 'Envoyez votre devis par email en un clic. Votre client le signe directement depuis son téléphone, sans compte.',
+        href: '/app/devis',
+        cta: 'Voir mes devis',
     },
     {
         id: 'calculator',
