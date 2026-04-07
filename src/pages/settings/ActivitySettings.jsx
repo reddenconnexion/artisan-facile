@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 
 const ActivitySettings = () => {
@@ -23,7 +23,9 @@ const ActivitySettings = () => {
         enable_calculator: true,
         enable_accounting: true,
         enable_inventory: true,
-        enable_intervention_reports: true
+        enable_intervention_reports: true,
+        enable_portfolio: false,
+        enable_marketing: false
     });
 
     useEffect(() => {
@@ -130,9 +132,21 @@ const ActivitySettings = () => {
         },
         {
             key: 'enable_crm',
-            label: 'Gestion Clients (CRM)',
-            description: 'Suivi des fiches clients, historique et notes.',
-            icon: Users
+            label: 'Suivi de Chantiers (Kanban)',
+            description: 'Gérez l\'avancement de vos chantiers en colonnes : acompte reçu, commande matériel, en cours, terminé.',
+            icon: Kanban
+        },
+        {
+            key: 'enable_portfolio',
+            label: 'Portfolio & Réalisations',
+            description: 'Publiez vos photos de chantiers terminés pour les partager avec des prospects.',
+            icon: ImageIcon
+        },
+        {
+            key: 'enable_marketing',
+            label: 'Calendrier Marketing',
+            description: 'Planifiez vos publications sur les réseaux sociaux (Facebook, Instagram…).',
+            icon: Megaphone
         },
         {
             key: 'enable_agenda',
