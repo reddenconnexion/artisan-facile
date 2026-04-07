@@ -420,7 +420,7 @@ const Agenda = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100">
                                         <button
                                             onClick={() => addToGoogleCalendar(event)}
                                             className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
