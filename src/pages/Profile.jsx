@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 
@@ -13,6 +13,7 @@ const Profile = () => {
     const [loading, setLoading] = useState(false);
     // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
     const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
     const [formData, setFormData] = useState({
@@ -372,6 +373,10 @@ const Profile = () => {
                                     placeholder="14 chiffres"
                                     className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
+                                    <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">autoentrepreneur.urssaf.fr</a>
+                                </p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Métier principal</label>
@@ -413,12 +418,12 @@ const Profile = () => {
                                     onChange={handleChange}
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
-                                    <option value="services">Prestations de services artisanaux (BIC)</option>
-                                    <option value="vente">Achat/revente de marchandises (BIC)</option>
-                                    <option value="mixte">Activité mixte (Services + Vente)</option>
-                                    <option value="liberal">Profession libérale (BNC)</option>
+                                    <option value="services">Prestations de services (peinture, plomberie, électricité…)</option>
+                                    <option value="vente">Vente de produits / fournitures</option>
+                                    <option value="mixte">Les deux : services ET vente de produits</option>
+                                    <option value="liberal">Profession libérale</option>
                                 </select>
-                                <p className="mt-1 text-xs text-gray-500">Détermine le taux de cotisations URSSAF applicable</p>
+                                <p className="mt-1 text-xs text-gray-500">Détermine votre taux de cotisations URSSAF</p>
                             </div>
                         </div>
                     </div>
@@ -652,8 +657,19 @@ const Profile = () => {
                 </div>
             </div>
 
-            {/* AI Settings */}
-            <div className="mt-8 bg-purple-50 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+            {/* AI Settings — Paramètres avancés */}
+            <div className="mt-8">
+                <button
+                    type="button"
+                    onClick={() => setShowAdvanced(v => !v)}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors mb-3"
+                >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                    Paramètres avancés (IA, zones de déplacement)
+                </button>
+            </div>
+            {showAdvanced && (
+            <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
                         <span className="mr-2">✨</span>
@@ -818,6 +834,7 @@ const Profile = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Zone de Danger / Maintenance */}
             <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

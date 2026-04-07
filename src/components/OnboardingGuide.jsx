@@ -30,8 +30,12 @@ const SLIDES = [
                         </div>
                     ))}
                 </div>
+                <p className="text-xs text-center text-gray-400 dark:text-gray-500 pt-1">
+                    Suivez le guide ci-dessous — 3 étapes simples pour démarrer.
+                </p>
             </div>
         ),
+        action: { label: 'Configurer mon profil maintenant', href: '/app/settings' },
     },
     {
         id: 'profile',
