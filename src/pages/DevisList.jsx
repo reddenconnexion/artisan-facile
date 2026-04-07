@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -54,6 +54,7 @@ const DevisList = () => {
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
     const [mergeMode, setMergeMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [showMoreOptions, setShowMoreOptions] = useState(false);
 
     const toggleSelect = (e, id) => {
         e.stopPropagation();
@@ -143,24 +144,37 @@ const DevisList = () => {
                     <FileText className="w-8 h-8 text-blue-600" />
                     Devis & Factures
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative">
                     {!mergeMode ? (
                         <>
-                            <button
-                                onClick={handleImportClick}
-                                className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                <Upload className="w-5 h-5 mr-2" />
-                                Importer (PDF / Word)
-                            </button>
-                            <button
-                                onClick={() => setMergeMode(true)}
-                                className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                title="Fusionner plusieurs devis en un seul"
-                            >
-                                <Layers className="w-5 h-5 mr-2" />
-                                Fusionner
-                            </button>
+                            {/* Options avancées (Import, Fusion) */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowMoreOptions(v => !v)}
+                                    className="flex items-center justify-center px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                    title="Plus d'options"
+                                >
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                                {showMoreOptions && (
+                                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                                        <button
+                                            onClick={() => { handleImportClick(); setShowMoreOptions(false); }}
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <Upload className="w-4 h-4 text-gray-400" />
+                                            Importer (PDF / Word)
+                                        </button>
+                                        <button
+                                            onClick={() => { setMergeMode(true); setShowMoreOptions(false); }}
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                                        >
+                                            <Layers className="w-4 h-4 text-gray-400" />
+                                            Fusionner des devis
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <button
                                 onClick={() => navigate('/app/devis/new')}
                                 className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
