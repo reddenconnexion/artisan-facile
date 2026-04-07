@@ -97,7 +97,8 @@ const GuidePage = () => {
                     <Step number="4" title="Renseignez vos coordonnées bancaires" detail="Apparaissent sur les factures pour faciliter le paiement" />
                 </div>
                 <Tip>
-                    Le SIRET est à 14 chiffres. Vous le trouvez sur votre attestation URSSAF ou sur papiers.fr.
+                    Le SIRET est à 14 chiffres. Vous le trouvez sur votre attestation URSSAF ou sur{' '}
+                    <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="underline">autoentrepreneur.urssaf.fr</a>.
                 </Tip>
                 <div className="mt-4">
                     <Link to="/app/settings" className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
@@ -294,7 +295,6 @@ const GuidePage = () => {
                                     ['Alt + D', 'Nouveau devis'],
                                     ['Alt + C', 'Nouveau client'],
                                     ['Alt + R', 'Nouveau RDV'],
-                                    ['Alt + I', 'Nouveau rapport d\'intervention'],
                                 ].map(([key, label]) => (
                                     <div key={key} className="flex items-center gap-2">
                                         <kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-700">
@@ -362,16 +362,27 @@ const GuidePage = () => {
             </Section>
 
             {/* Footer CTA */}
-            <div className="text-center mt-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <div className="text-center mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
                     Une question ? Un problème ?
                 </p>
-                <Link
-                    to="/app/settings"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                    Accéder aux paramètres <ChevronRight className="w-4 h-4" />
-                </Link>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    Consultez les sections ci-dessus ou retournez au tableau de bord pour continuer.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Link
+                        to="/app"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Tableau de bord <ChevronRight className="w-4 h-4" />
+                    </Link>
+                    <Link
+                        to="/app/settings"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        Mes paramètres
+                    </Link>
+                </div>
             </div>
         </div>
     );
