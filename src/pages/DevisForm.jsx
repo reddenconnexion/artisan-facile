@@ -35,6 +35,17 @@ const DevisForm = () => {
     const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
+
+    // Bandeau d'aide premier devis
+    const tipDismissKey = user ? `devis_tip_dismissed_${user.id}` : null;
+    const [showFirstDevisTip, setShowFirstDevisTip] = useState(() => {
+        if (!tipDismissKey || (!!id && id !== 'new')) return false;
+        return localStorage.getItem(tipDismissKey) !== '1';
+    });
+    const dismissDevisTip = () => {
+        if (tipDismissKey) localStorage.setItem(tipDismissKey, '1');
+        setShowFirstDevisTip(false);
+    };
     const [dataLoaded, setDataLoaded] = useState(!isEditing);
     const [clients, setClients] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
@@ -2093,6 +2104,40 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
             )}
+            {/* Bandeau premier devis — masquable, localStorage */}
+            {showFirstDevisTip && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 relative">
+                    <button
+                        type="button"
+                        onClick={dismissDevisTip}
+                        className="absolute top-3 right-3 p-1 text-blue-300 hover:text-blue-500 rounded transition-colors"
+                        title="Ne plus afficher"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-start gap-3 pr-6">
+                        <span className="text-xl flex-shrink-0">💡</span>
+                        <div>
+                            <p className="text-sm font-semibold text-blue-800 mb-2">Créez votre devis en 3 étapes</p>
+                            <ol className="space-y-1.5">
+                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                    <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">1</span>
+                                    <span><strong>Choisissez un client</strong> — recherchez son nom ou cliquez "Nouveau client" juste en dessous</span>
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                    <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">2</span>
+                                    <span><strong>Ajoutez vos prestations</strong> — cliquez "+ Main d'œuvre" pour votre travail, "+ Matériel" pour vos fournitures</span>
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                    <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">3</span>
+                                    <span><strong>Envoyez et faites signer</strong> — votre client reçoit un lien et signe directement depuis son téléphone</span>
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={() => navigate('/app/devis')}
