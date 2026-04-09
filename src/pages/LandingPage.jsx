@@ -67,24 +67,80 @@ const LandingPage = () => {
                 </div>
             </header>
 
-            {/* Hero Section */}
-            <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-blue-50 to-white">
-                <div className="max-w-7xl mx-auto text-center">
-                    {/* Gratuit badge */}
-                    <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-5 py-2 rounded-full text-sm font-bold mb-8 border border-green-200">
-                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                        100% Gratuit pour démarrer — sans carte bancaire, sans engagement
+            {/* Hero Section — Problème / Solution */}
+            <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-50 to-white">
+                <div className="max-w-5xl mx-auto">
+
+                    {/* Cible */}
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-5 py-2 rounded-full text-sm font-bold border border-blue-200">
+                            Pour les artisans et auto-entrepreneurs qui se lancent
+                        </div>
                     </div>
 
-                    <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight mb-6">
-                        Vous lancez votre activité ?<br />
-                        <span className="text-blue-600">Gérez tout gratuitement.</span>
-                    </h1>
-                    <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto mb-10">
-                        Artisan Facile est le logiciel tout-en-un <strong>gratuit</strong> pensé pour les artisans débutants et auto-entrepreneurs.
-                        Devis pro, facturation, agenda, CRM — opérationnel en 5 minutes.
-                    </p>
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    {/* Titre problème */}
+                    <div className="text-center mb-10">
+                        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight mb-4">
+                            Vous venez de vous lancer.<br />
+                            <span className="text-red-500">L'administratif ne devrait pas vous bloquer.</span>
+                        </h1>
+                        <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+                            Ces questions vous bloquent probablement en ce moment :
+                        </p>
+                    </div>
+
+                    {/* Points de douleur */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-5 text-left">
+                            <div className="text-2xl mb-3">😰</div>
+                            <p className="font-semibold text-gray-800 text-sm leading-snug">
+                                "Comment je fais un devis professionnel ? Je n'ai aucun modèle..."
+                            </p>
+                        </div>
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-5 text-left">
+                            <div className="text-2xl mb-3">😤</div>
+                            <p className="font-semibold text-gray-800 text-sm leading-snug">
+                                "Je vais passer mes soirées sur la paperasse au lieu de me reposer..."
+                            </p>
+                        </div>
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-5 text-left">
+                            <div className="text-2xl mb-3">😟</div>
+                            <p className="font-semibold text-gray-800 text-sm leading-snug">
+                                "Et si j'oublie une mention légale ? Et si un client ne me paie pas ?"
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Transition */}
+                    <div className="flex items-center justify-center gap-4 mb-10">
+                        <div className="h-px flex-1 max-w-20 bg-gray-200" />
+                        <div className="flex items-center gap-2 text-green-700 font-bold text-base">
+                            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                            Artisan Facile résout tout ça — dès le premier jour
+                        </div>
+                        <div className="h-px flex-1 max-w-20 bg-gray-200" />
+                    </div>
+
+                    {/* Solution */}
+                    <div className="text-center mb-8">
+                        <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
+                            Votre premier devis pro{' '}
+                            <span className="text-blue-600">en 2 minutes.</span><br />
+                            Toutes les mentions légales. Votre logo. Prêt à envoyer.
+                        </h2>
+                        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-4">
+                            Artisan Facile vous guide pas à pas. Pas de formation, pas de comptable nécessaire.
+                            Juste un outil simple qui fait le travail à votre place —{' '}
+                            <strong>gratuitement</strong>.
+                        </p>
+                        <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-5 py-2 rounded-full text-sm font-bold border border-green-200">
+                            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                            100% Gratuit pour démarrer — sans carte bancaire, sans engagement
+                        </div>
+                    </div>
+
+                    {/* CTAs */}
+                    <div className="flex flex-col sm:flex-row justify-center gap-4 mb-14">
                         {user ? (
                             <Link
                                 to="/app"
@@ -122,8 +178,8 @@ const LandingPage = () => {
                         )}
                     </div>
 
-                    {/* Trust Badges / Stats */}
-                    <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-4xl mx-auto border-t border-gray-200 pt-8">
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto border-t border-gray-200 pt-8 text-center">
                         <div>
                             <p className="text-3xl font-bold text-green-600">Gratuit</p>
                             <p className="text-gray-600 text-sm">Pour toujours sur l'essentiel</p>
