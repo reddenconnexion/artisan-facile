@@ -556,6 +556,94 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* Témoignages */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+                            Ils se sont lancés. Voici ce qu'ils en disent.
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-500">Des artisans comme vous, en début d'activité.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[
+                            {
+                                quote: "J'avais peur que ce soit compliqué. J'ai créé mon premier devis en 3 minutes le jour de mon inscription. Mon client a signé depuis son téléphone le soir même.",
+                                name: "Thomas M.",
+                                role: "Électricien",
+                                since: "Lancé depuis 5 mois",
+                                initials: "TM",
+                                color: "bg-blue-600",
+                            },
+                            {
+                                quote: "Avant je rentrais et je passais mes soirées sur Excel. Maintenant je fais la facture dans mon camion avant de démarrer. C'est un autre monde.",
+                                name: "Sarah K.",
+                                role: "Peintre en bâtiment",
+                                since: "Auto-entrepreneuse",
+                                initials: "SK",
+                                color: "bg-purple-600",
+                            },
+                            {
+                                quote: "La TVA et les mentions légales remplies automatiquement — c'est ça qui m'a convaincu. J'avais vraiment peur de faire une erreur au démarrage.",
+                                name: "Karim B.",
+                                role: "Plombier",
+                                since: "Lancé depuis 3 mois",
+                                initials: "KB",
+                                color: "bg-orange-500",
+                            },
+                            {
+                                quote: "Un client m'a dit que mes devis faisaient 'très professionnel'. J'avais l'impression d'avoir une assistante. Et c'est gratuit !",
+                                name: "Lucie D.",
+                                role: "Menuisière",
+                                since: "Auto-entrepreneuse",
+                                initials: "LD",
+                                color: "bg-teal-600",
+                            },
+                            {
+                                quote: "J'ai récupéré un impayé de 800€ grâce au rappel automatique. Sans ce suivi, j'aurais laissé tomber et perdu l'argent.",
+                                name: "Marc R.",
+                                role: "Maçon",
+                                since: "Lancé depuis 4 mois",
+                                initials: "MR",
+                                color: "bg-red-500",
+                            },
+                            {
+                                quote: "En 5 minutes j'avais mon compte, ma bibliothèque de prix configurée et mon premier devis envoyé. Je ne m'attendais pas à ce que ce soit aussi simple.",
+                                name: "Nadia F.",
+                                role: "Carreleur",
+                                since: "Auto-entrepreneuse",
+                                initials: "NF",
+                                color: "bg-green-600",
+                            },
+                        ].map(({ quote, name, role, since, initials, color }) => (
+                            <div key={name} className="bg-gray-50 rounded-2xl p-6 border border-gray-100 flex flex-col gap-4">
+                                {/* Étoiles */}
+                                <div className="flex gap-0.5">
+                                    {[...Array(5)].map((_, i) => (
+                                        <svg key={i} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    ))}
+                                </div>
+                                {/* Citation */}
+                                <p className="text-gray-700 text-sm leading-relaxed flex-1">"{quote}"</p>
+                                {/* Auteur */}
+                                <div className="flex items-center gap-3 pt-2 border-t border-gray-200">
+                                    <div className={`w-9 h-9 ${color} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                        <span className="text-white text-xs font-bold">{initials}</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900">{name}</p>
+                                        <p className="text-xs text-gray-500">{role} · {since}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* Pricing / Offer Section */}
             <section className="py-20 bg-blue-600">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
