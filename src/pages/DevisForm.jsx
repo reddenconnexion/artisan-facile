@@ -3300,6 +3300,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                     TVA non applicable, art. 293 B du CGI
                                 </div>
                             )}
+                            {/* Marge estimée — visible seulement si coût matière renseigné */}
+                            {totalCost > 0 && subtotal > 0 && (() => {
+                                const margin = (subtotal - totalCost) / subtotal;
+                                const pct = Math.round(margin * 100);
+                                const color = margin >= 0.35 ? 'text-green-600' : margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                                return (
+                                    <div className="flex justify-between text-sm pt-2 border-t border-dashed border-gray-100">
+                                        <span className="text-gray-400">Marge estimée</span>
+                                        <span className={`font-semibold ${color}`} title={`Coût matière : ${totalCost.toFixed(2)} €`}>
+                                            {pct} %
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                             <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
                                 <span>Total TTC</span>
                                 <span>{total.toFixed(2)} €</span>
