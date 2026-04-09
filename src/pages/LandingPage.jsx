@@ -547,6 +547,50 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* Pour votre métier */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+                            Fait pour <span className="text-blue-600">votre métier</span>
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
+                            Artisan Facile s'adapte à tous les corps de métier du bâtiment et des services.
+                            Quel que soit votre activité, vous êtes au bon endroit.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Électricien',       emoji: '⚡' },
+                            { label: 'Plombier',          emoji: '🔧' },
+                            { label: 'Maçon',             emoji: '🧱' },
+                            { label: 'Peintre',           emoji: '🖌️' },
+                            { label: 'Menuisier',         emoji: '🪚' },
+                            { label: 'Carreleur',         emoji: '🟫' },
+                            { label: 'Couvreur',          emoji: '🏠' },
+                            { label: 'Chauffagiste',      emoji: '🔥' },
+                            { label: 'Paysagiste',        emoji: '🌿' },
+                            { label: 'Serrurier',         emoji: '🔑' },
+                            { label: 'Climaticien',       emoji: '❄️' },
+                            { label: 'Multi-services',    emoji: '🛠️' },
+                        ].map(({ label, emoji }) => (
+                            <div
+                                key={label}
+                                className="flex items-center gap-3 bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3.5 transition-colors group cursor-default"
+                            >
+                                <span className="text-2xl flex-shrink-0">{emoji}</span>
+                                <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">{label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <p className="text-center text-sm text-gray-400 mt-8">
+                        Vous ne voyez pas votre métier ? Artisan Facile fonctionne pour tout artisan indépendant.
+                    </p>
+                </div>
+            </section>
+
             {/* Témoignages */}
             <section className="py-20 bg-white border-b border-gray-100">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
