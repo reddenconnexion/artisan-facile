@@ -156,6 +156,9 @@ const Layout = () => {
 
     nav.push({ name: 'Comptabilité', href: '/app/accounting', icon: Calculator });
 
+    // Séparateur visuel : flux quotidien ↑ / modules secondaires ↓
+    nav.push({ type: 'divider', label: 'Modules' });
+
     if (settings.enable_portfolio) {
       nav.push({ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon });
     }
@@ -418,8 +421,20 @@ const Layout = () => {
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-2 mt-4 md:mt-0 overflow-y-auto">
-            {navigation.map((item) => {
+          <nav className="flex-1 px-4 space-y-1 mt-4 md:mt-0 overflow-y-auto">
+            {navigation.map((item, idx) => {
+              // Render section divider
+              if (item.type === 'divider') {
+                if (isCollapsed && !isMobileMenuOpen) {
+                  return <div key={`div-${idx}`} className="my-2 mx-1 border-t border-gray-200 dark:border-gray-700" />;
+                }
+                return (
+                  <div key={`div-${idx}`} className="px-2 pt-4 pb-1">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">{item.label}</p>
+                  </div>
+                );
+              }
+
               const isActive = location.pathname === item.href;
               const showBadge = item.name === 'Devis & Factures' && pendingCount > 0;
               return (
