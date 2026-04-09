@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -2771,7 +2771,13 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
                         <div className="flex-1 pl-1">Désignation</div>
                         <div className="w-20 text-right">Qté</div>
-                        <div className="w-28 text-right">Prix U. HT</div>
+                        <div
+                            className="w-28 text-right cursor-help flex items-center justify-end gap-1"
+                            title="Prix Unitaire Hors Taxes — la TVA est calculée automatiquement en bas du devis"
+                        >
+                            Prix U. HT
+                            <Info className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                        </div>
                         <div className="w-28 text-right">Total HT</div>
                         <div className="w-16"></div>
                     </div>
@@ -3021,6 +3027,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             onClick={() => addItem('service')}
                             className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors disabled:opacity-50"
                             disabled={isLocked}
+                            title="Votre temps de travail : pose, installation, déplacement, diagnostic..."
                         >
                             <Plus className="w-4 h-4" />
                             Main d'œuvre
@@ -3030,6 +3037,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             onClick={() => addItem('material')}
                             className="flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-800 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100 transition-colors disabled:opacity-50"
                             disabled={isLocked}
+                            title="Fournitures et pièces : câbles, raccords, carrelage, peinture... Les matériaux que vous achetez pour le chantier."
                         >
                             <Plus className="w-4 h-4" />
                             Matériel
@@ -3040,6 +3048,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             onClick={addSection}
                             className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
                             disabled={isLocked}
+                            title="Ajoute un titre de groupe pour organiser vos lignes (ex: Cuisine, Salle de bain, Extérieur). Facultatif."
                         >
                             <Layers className="w-4 h-4" />
                             Section
@@ -3054,6 +3063,17 @@ Conditions de règlement : Paiement à réception de facture.`
                             Générer avec l'IA
                         </button>
                     </div>
+
+                    {/* Légende pour les débutants */}
+                    <p className="mt-3 text-xs text-gray-400 flex items-start gap-1.5">
+                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                            <strong className="text-gray-500">Main d'œuvre</strong> = votre temps de travail ·{' '}
+                            <strong className="text-gray-500">Matériel</strong> = fournitures achetées ·{' '}
+                            <strong className="text-gray-500">Section</strong> = titre de regroupement (facultatif) ·{' '}
+                            <strong className="text-gray-500">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas
+                        </span>
+                    </p>
                 </div>
 
                 {/* AI Modal */}

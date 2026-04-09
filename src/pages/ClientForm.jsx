@@ -674,9 +674,7 @@ const ClientForm = () => {
                             <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
                                 Notes internes
                             </label>
-                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-                                Notes internes
-                            </label>
+                            <span className="text-xs text-gray-400 italic">Visible uniquement par vous</span>
                         </div>
                         <textarea
                             id="notes"
