@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2 } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -399,69 +399,76 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Why Choose Us - ROI Section */}
-            <section className="py-20 bg-white border-b border-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-                            Pourquoi les artisans gagnent plus avec nous ?
+            {/* Avant / Avec Artisan Facile */}
+            <section className="py-20 bg-gray-50 border-b border-gray-100">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+                            Votre quotidien,{' '}
+                            <span className="text-blue-600">avant et après</span>
                         </h2>
-                        <p className="mt-4 text-xl text-gray-600">
-                            Des résultats concrets sur votre quotidien et votre compte en banque.
+                        <p className="mt-4 text-lg text-gray-500">
+                            Ce que vivent la plupart des artisans qui se lancent — et ce que vous évitez.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                        {/* Money Benefit */}
-                        <div className="bg-blue-50 rounded-2xl p-8 border border-blue-100 relative overflow-hidden group hover:shadow-lg transition-all">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Zap className="w-48 h-48 text-blue-600" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden shadow-xl border border-gray-200">
+                        {/* Colonne AVANT */}
+                        <div className="bg-red-50 p-8 md:p-10">
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-8 h-8 bg-red-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <X className="w-5 h-5 text-red-600" />
+                                </div>
+                                <h3 className="text-base font-extrabold text-red-600 uppercase tracking-widest">Avant</h3>
                             </div>
-                            <div className="relative z-10">
-                                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">RENTABILITÉ</span>
-                                <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                                    + 15% de Chiffre d'Affaires
-                                </h3>
-                                <p className="text-lg text-gray-700 mb-6">
-                                    Ne laissez plus aucuns devis sans réponse. Avec les <strong>relances automatiques</strong> et des devis ultra-professionnels, vous signez plus de chantiers.
-                                </p>
-                                <ul className="space-y-3">
-                                    <li className="flex items-center text-gray-600">
-                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                                        Relances de factures impayées automatisées
+                            <ul className="space-y-6">
+                                {[
+                                    { text: 'Devis griffonné à la main ou bricolé sur Word', sub: 'Le client doute de votre sérieux' },
+                                    { text: 'Soirées entières sur la paperasse', sub: 'Fatigue, erreurs, week-end gâché' },
+                                    { text: '"Est-ce que ce client m\'a payé ?"', sub: 'Impayés oubliés, argent perdu' },
+                                    { text: 'Peur d\'oublier la TVA ou une mention légale', sub: 'Risque de litige avec le client' },
+                                    { text: 'Attendre des jours pour avoir une signature', sub: 'Le chantier part à la concurrence' },
+                                ].map(({ text, sub }, i) => (
+                                    <li key={i} className="flex items-start gap-3">
+                                        <div className="w-5 h-5 rounded-full bg-red-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <X className="w-3 h-3 text-red-500" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-800 text-sm leading-snug">{text}</p>
+                                            <p className="text-xs text-red-400 mt-0.5">{sub}</p>
+                                        </div>
                                     </li>
-                                    <li className="flex items-center text-gray-600">
-                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                                        Devis signés en ligne instantanément
-                                    </li>
-                                </ul>
-                            </div>
+                                ))}
+                            </ul>
                         </div>
 
-                        {/* Time Benefit */}
-                        <div className="bg-green-50 rounded-2xl p-8 border border-green-100 relative overflow-hidden group hover:shadow-lg transition-all">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Calendar className="w-48 h-48 text-green-600" />
+                        {/* Colonne AVEC */}
+                        <div className="bg-green-50 p-8 md:p-10 border-t md:border-t-0 md:border-l border-gray-200">
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-8 h-8 bg-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <CheckCircle className="w-5 h-5 text-green-600" />
+                                </div>
+                                <h3 className="text-base font-extrabold text-green-700 uppercase tracking-widest">Avec Artisan Facile</h3>
                             </div>
-                            <div className="relative z-10">
-                                <span className="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold mb-4">TEMPS LIBRE</span>
-                                <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                                    5 Heures gagnées par semaine
-                                </h3>
-                                <p className="text-lg text-gray-700 mb-6">
-                                    Fini l'administratif le soir et le week-end. Créez vos devis dans votre camion en <strong>moins de 2 minutes</strong> grâce à la bibliothèque de prix.
-                                </p>
-                                <ul className="space-y-3">
-                                    <li className="flex items-center text-gray-600">
-                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                                        Bibliothèque d'ouvrages pré-remplie
+                            <ul className="space-y-6">
+                                {[
+                                    { text: 'Devis pro en 2 minutes, depuis votre téléphone', sub: 'Logo, SIRET, TVA : tout est inclus automatiquement' },
+                                    { text: '10 minutes d\'admin par semaine, pas plus', sub: 'Devis → Facture en 1 clic' },
+                                    { text: 'Tableau de bord : qui vous doit quoi, en temps réel', sub: 'Relances automatiques pour les impayés' },
+                                    { text: 'Mentions légales et TVA générées automatiquement', sub: 'Zéro risque d\'oubli, zéro prise de tête' },
+                                    { text: 'Le client signe en ligne depuis son téléphone', sub: 'Chantier bloqué en quelques minutes' },
+                                ].map(({ text, sub }, i) => (
+                                    <li key={i} className="flex items-start gap-3">
+                                        <div className="w-5 h-5 rounded-full bg-green-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <CheckCircle className="w-3 h-3 text-green-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-800 text-sm leading-snug">{text}</p>
+                                            <p className="text-xs text-green-600 mt-0.5">{sub}</p>
+                                        </div>
                                     </li>
-                                    <li className="flex items-center text-gray-600">
-                                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                                        Transformation Devis → Facture en 1 clic
-                                    </li>
-                                </ul>
-                            </div>
+                                ))}
+                            </ul>
                         </div>
                     </div>
                 </div>
