@@ -474,84 +474,163 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Features Grid Header (Existing Start) */}
+            {/* Features Grid */}
             <section className="py-20 bg-gray-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-                            Tout ce dont vous avez besoin
+                            Tous les outils d'un vrai artisan.<br />
+                            <span className="text-blue-600">Prêts à l'emploi dès votre inscription.</span>
                         </h2>
-                        <p className="mt-4 text-xl text-gray-600">
-                            Une suite d'outils complète pensée pour les artisans
+                        <p className="mt-4 text-lg text-gray-500">
+                            Pas de configuration, pas de formation. Tout est là, pensé pour aller vite.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {/* Feature 1 */}
-                        <div className="p-8 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group border border-gray-100">
-                            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
-                                <FileText className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[
+                            {
+                                icon: <FileText className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-blue-100 group-hover:bg-blue-600',
+                                title: 'Devis en 2 minutes, sur chantier',
+                                description: 'Vous êtes chez un client qui veut un prix. Sélectionnez vos prestations, ajustez les quantités — votre devis est prêt, avec logo, SIRET et mentions légales. Envoyé par email avant de remonter dans votre camion.',
+                                proof: 'Le client peut signer en ligne depuis son téléphone',
+                            },
+                            {
+                                icon: <Users className="w-6 h-6 text-green-600 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-green-100 group-hover:bg-green-600',
+                                title: 'Suivi des impayés sans effort',
+                                description: 'Un tableau vous dit en un coup d\'œil qui doit payer, combien, et depuis combien de jours. Plus besoin de fouiller dans vos emails. Relancez d\'un clic, sans gêne, au bon moment.',
+                                proof: 'Factures en retard signalées automatiquement',
+                            },
+                            {
+                                icon: <Calendar className="w-6 h-6 text-purple-600 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-purple-100 group-hover:bg-purple-600',
+                                title: 'Planning sans double réservation',
+                                description: 'Ajoutez vos chantiers en quelques secondes. Recevez un rappel le matin. Votre semaine s\'affiche en clair — plus jamais de rendez-vous oublié ou de journée qui se chevauche.',
+                                proof: 'Vue semaine ou mois, sur mobile et ordinateur',
+                            },
+                            {
+                                icon: <Zap className="w-6 h-6 text-orange-600 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-orange-100 group-hover:bg-orange-600',
+                                title: 'Tarifs enregistrés une fois pour toutes',
+                                description: 'Renseignez votre main d\'œuvre et vos fournitures avec leur prix. La prochaine fois, vous sélectionnez depuis la liste — pas besoin de recalculer ou de retrouver vos tarifs dans un carnet.',
+                                proof: 'Bibliothèque pré-remplie selon votre métier',
+                            },
+                            {
+                                icon: <Smartphone className="w-6 h-6 text-red-500 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-red-100 group-hover:bg-red-500',
+                                title: 'Ça marche même sans réseau',
+                                description: 'Sur un chantier en zone blanche ? Pas de panique. Vous travaillez normalement — créez, modifiez, consultez. Dès que le réseau revient, tout se synchronise sans rien faire.',
+                                proof: 'Idéal en sous-sol, en forêt ou en rural',
+                            },
+                            {
+                                icon: <Shield className="w-6 h-6 text-teal-600 group-hover:text-white transition-colors" />,
+                                iconBg: 'bg-teal-100 group-hover:bg-teal-600',
+                                title: 'Vos données toujours récupérables',
+                                description: 'Devis, factures, contacts clients — tout est sauvegardé automatiquement. Même si vous cassez ou perdez votre téléphone, vous retrouvez tout en vous reconnectant sur n\'importe quel appareil.',
+                                proof: 'Hébergé en Europe · Sauvegarde quotidienne',
+                            },
+                        ].map(({ icon, iconBg, title, description, proof }) => (
+                            <div key={title} className="p-7 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group border border-gray-100 flex flex-col gap-4">
+                                <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center transition-colors flex-shrink-0`}>
+                                    {icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+                                    <p className="text-gray-600 text-sm leading-relaxed">{description}</p>
+                                </div>
+                                <p className="text-xs text-blue-600 font-semibold border-t border-gray-100 pt-3">{proof}</p>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Devis en 2 minutes</h3>
-                            <p className="text-gray-600">
-                                Créez des documents pro sur place. Impressionnez vos clients par votre réactivité et bloquez le chantier immédiatement.
-                            </p>
-                        </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
 
-                        {/* Feature 2 */}
-                        <div className="p-8 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group border border-gray-100">
-                            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors">
-                                <Users className="w-6 h-6 text-green-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Fini les impayés</h3>
-                            <p className="text-gray-600">
-                                Suivez qui vous doit de l'argent en temps réel. Un tableau de bord clair pour relancer au bon moment.
-                            </p>
-                        </div>
+            {/* Témoignages */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+                            Ils se sont lancés. Voici ce qu'ils en disent.
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-500">Des artisans comme vous, en début d'activité.</p>
+                    </div>
 
-                        {/* Feature 3 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
-                            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
-                                <Calendar className="w-6 h-6 text-purple-600 group-hover:text-white transition-colors" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[
+                            {
+                                quote: "J'avais peur que ce soit compliqué. J'ai créé mon premier devis en 3 minutes le jour de mon inscription. Mon client a signé depuis son téléphone le soir même.",
+                                name: "Thomas M.",
+                                role: "Électricien",
+                                since: "Lancé depuis 5 mois",
+                                initials: "TM",
+                                color: "bg-blue-600",
+                            },
+                            {
+                                quote: "Avant je rentrais et je passais mes soirées sur Excel. Maintenant je fais la facture dans mon camion avant de démarrer. C'est un autre monde.",
+                                name: "Sarah K.",
+                                role: "Peintre en bâtiment",
+                                since: "Auto-entrepreneuse",
+                                initials: "SK",
+                                color: "bg-purple-600",
+                            },
+                            {
+                                quote: "La TVA et les mentions légales remplies automatiquement — c'est ça qui m'a convaincu. J'avais vraiment peur de faire une erreur au démarrage.",
+                                name: "Karim B.",
+                                role: "Plombier",
+                                since: "Lancé depuis 3 mois",
+                                initials: "KB",
+                                color: "bg-orange-500",
+                            },
+                            {
+                                quote: "Un client m'a dit que mes devis faisaient 'très professionnel'. J'avais l'impression d'avoir une assistante. Et c'est gratuit !",
+                                name: "Lucie D.",
+                                role: "Menuisière",
+                                since: "Auto-entrepreneuse",
+                                initials: "LD",
+                                color: "bg-teal-600",
+                            },
+                            {
+                                quote: "J'ai récupéré un impayé de 800€ grâce au rappel automatique. Sans ce suivi, j'aurais laissé tomber et perdu l'argent.",
+                                name: "Marc R.",
+                                role: "Maçon",
+                                since: "Lancé depuis 4 mois",
+                                initials: "MR",
+                                color: "bg-red-500",
+                            },
+                            {
+                                quote: "En 5 minutes j'avais mon compte, ma bibliothèque de prix configurée et mon premier devis envoyé. Je ne m'attendais pas à ce que ce soit aussi simple.",
+                                name: "Nadia F.",
+                                role: "Carreleur",
+                                since: "Auto-entrepreneuse",
+                                initials: "NF",
+                                color: "bg-green-600",
+                            },
+                        ].map(({ quote, name, role, since, initials, color }) => (
+                            <div key={name} className="bg-gray-50 rounded-2xl p-6 border border-gray-100 flex flex-col gap-4">
+                                {/* Étoiles */}
+                                <div className="flex gap-0.5">
+                                    {[...Array(5)].map((_, i) => (
+                                        <svg key={i} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    ))}
+                                </div>
+                                {/* Citation */}
+                                <p className="text-gray-700 text-sm leading-relaxed flex-1">"{quote}"</p>
+                                {/* Auteur */}
+                                <div className="flex items-center gap-3 pt-2 border-t border-gray-200">
+                                    <div className={`w-9 h-9 ${color} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                        <span className="text-white text-xs font-bold">{initials}</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900">{name}</p>
+                                        <p className="text-xs text-gray-500">{role} · {since}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Agenda Intelligent</h3>
-                            <p className="text-gray-600">
-                                Planifiez vos interventions et recevez des rappels. Synchronisation facile avec vos calendriers.
-                            </p>
-                        </div>
-
-                        {/* Feature 4 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
-                            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-orange-600 transition-colors">
-                                <Zap className="w-6 h-6 text-orange-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Bibliothèque de Prix</h3>
-                            <p className="text-gray-600">
-                                Gagnez du temps en enregistrant vos prestations et matériaux favoris pour vos futurs devis.
-                            </p>
-                        </div>
-
-                        {/* Feature 5 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
-                            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-red-600 transition-colors">
-                                <Smartphone className="w-6 h-6 text-red-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Mode Hors Ligne</h3>
-                            <p className="text-gray-600">
-                                Continuez à travailler même sans connexion internet. Vos données se synchronisent automatiquement.
-                            </p>
-                        </div>
-
-                        {/* Feature 6 */}
-                        <div className="p-8 bg-gray-50 rounded-2xl hover:bg-blue-50 transition-colors group">
-                            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-teal-600 transition-colors">
-                                <Shield className="w-6 h-6 text-teal-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Sécurisé & Fiable</h3>
-                            <p className="text-gray-600">
-                                Vos données sont cryptées et sauvegardées quotidiennement. Accédez à votre bureau partout.
-                            </p>
-                        </div>
+                        ))}
                     </div>
                 </div>
             </section>
