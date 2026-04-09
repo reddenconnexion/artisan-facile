@@ -302,6 +302,103 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* Comment ça marche — 3 étapes */}
+            <section className="py-20 bg-white border-b border-gray-100">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                        <span className="inline-block px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-bold mb-4">
+                            Aucune formation requise
+                        </span>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+                            De zéro à votre premier devis envoyé<br />
+                            <span className="text-blue-600">en moins de 10 minutes</span>
+                        </h2>
+                        <p className="mt-4 text-lg text-gray-500">Vraiment. Voici comment ça se passe.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr,auto,1fr] gap-6 items-start">
+                        {/* Étape 1 */}
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex flex-col items-center justify-center shadow-lg mb-5">
+                                <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 -mb-1">Étape</span>
+                                <span className="text-4xl font-extrabold leading-none">1</span>
+                            </div>
+                            <span className="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full mb-3">30 secondes</span>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Créez votre compte</h3>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Votre nom, votre métier, votre SIRET. C'est tout.
+                                Pas de carte bancaire, pas de formulaire interminable.
+                            </p>
+                        </div>
+
+                        {/* Flèche 1→2 */}
+                        <div className="hidden md:flex items-center justify-center pt-10">
+                            <ArrowRight className="w-7 h-7 text-blue-200" />
+                        </div>
+
+                        {/* Étape 2 */}
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex flex-col items-center justify-center shadow-lg mb-5">
+                                <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 -mb-1">Étape</span>
+                                <span className="text-4xl font-extrabold leading-none">2</span>
+                            </div>
+                            <span className="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full mb-3">2 minutes</span>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Rédigez votre devis</h3>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Choisissez vos prestations dans la bibliothèque, ajoutez les quantités.
+                                TVA, mentions légales, logo : tout se génère automatiquement.
+                            </p>
+                        </div>
+
+                        {/* Flèche 2→3 */}
+                        <div className="hidden md:flex items-center justify-center pt-10">
+                            <ArrowRight className="w-7 h-7 text-blue-200" />
+                        </div>
+
+                        {/* Étape 3 */}
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-20 h-20 bg-green-500 text-white rounded-2xl flex flex-col items-center justify-center shadow-lg mb-5">
+                                <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 -mb-1">Étape</span>
+                                <span className="text-4xl font-extrabold leading-none">3</span>
+                            </div>
+                            <span className="inline-block bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-3">Instantané</span>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Envoyez &amp; faites-vous payer</h3>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Votre client reçoit le devis par email, le signe depuis son téléphone.
+                                Transformez-le en facture en 1 clic dès la fin du chantier.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Encart de réassurance + CTA */}
+                    <div className="mt-14 bg-blue-50 rounded-2xl p-8 text-center border border-blue-100">
+                        <p className="text-lg font-semibold text-gray-800 mb-1">
+                            Pas besoin d'être à l'aise avec les logiciels.
+                        </p>
+                        <p className="text-gray-600 mb-6">
+                            Si vous savez utiliser WhatsApp, vous saurez utiliser Artisan Facile.
+                        </p>
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                            <Link
+                                to="/register"
+                                className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-bold px-7 py-3.5 rounded-xl hover:bg-blue-700 transition-colors shadow text-base"
+                            >
+                                Je démarre maintenant — c'est gratuit
+                                <ArrowRight className="w-4 h-4" />
+                            </Link>
+                            <button
+                                onClick={handleDemoLogin}
+                                disabled={demoLoading}
+                                className="inline-flex items-center gap-1.5 text-gray-500 hover:text-blue-600 transition-colors text-sm font-medium disabled:opacity-60 underline underline-offset-2"
+                            >
+                                {demoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                Voir la démo sans inscription
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Why Choose Us - ROI Section */}
             <section className="py-20 bg-white border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
