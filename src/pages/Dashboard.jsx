@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -326,7 +326,7 @@ const calculateStats = (allQuotes, referenceDate) => {
 };
 
 // --- Reusable Smart Card with Individual Navigation ---
-const RichStatCard = ({ title, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick }) => {
+const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick }) => {
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
@@ -363,6 +363,12 @@ const RichStatCard = ({ title, allQuotes, type, icon: Icon, colorClass, colorHex
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</span>
+                        {tooltip && (
+                            <HelpCircle
+                                className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 cursor-help flex-shrink-0"
+                                title={tooltip}
+                            />
+                        )}
                         {/* Mini Navigation Controls in Title Area */}
                         {period !== 'lastYear' && (
                             <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded px-1 ml-2">
@@ -569,6 +575,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <RichStatCard
                         title="Chiffre d'affaires"
+                        tooltip="Total des devis acceptés et facturés sur la période. C'est le montant que vos clients vous ont commandé."
                         allQuotes={allQuotes}
                         type="revenue"
                         icon={TrendingUp}
@@ -579,6 +586,7 @@ const Dashboard = () => {
                     />
                     <RichStatCard
                         title="Résultat Net"
+                        tooltip="Chiffre d'affaires moins le coût de vos matériaux. C'est ce qui reste pour couvrir vos charges et votre rémunération."
                         allQuotes={allQuotes}
                         type="netIncome"
                         staticSubText="(Hors Matériel)"
@@ -590,6 +598,7 @@ const Dashboard = () => {
                     />
                     <RichStatCard
                         title="Volume de Devis"
+                        tooltip="Montant total de tous les devis créés sur la période, signés ou non. Cliquez pour voir ceux en attente de réponse."
                         allQuotes={allQuotes}
                         type="quotes"
                         staticSubText={`${pendingQuotesCount} en attente`}
@@ -601,6 +610,7 @@ const Dashboard = () => {
                     />
                     <RichStatCard
                         title="Taux de conversion"
+                        tooltip="Part de vos devis acceptés par vos clients. Ex : 60% signifie que 6 devis sur 10 ont été signés. Plus c'est élevé, mieux c'est."
                         allQuotes={allQuotes}
                         type="conversion"
                         staticSubText="Devis signés / Total"
