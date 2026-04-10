@@ -832,6 +832,23 @@ const Accounting = () => {
                   )}
                 </div>
 
+                {/* Provision mensuelle suggérée */}
+                {calculateCharges.total > 0 && (
+                  <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-lg px-4 py-3 text-sm">
+                    <span className="text-amber-500 flex-shrink-0 mt-0.5">💡</span>
+                    <p className="text-amber-800 dark:text-amber-200">
+                      <strong>À mettre de côté</strong> — pour ne pas être pris au dépourvu le jour de la déclaration,
+                      provisionnez{' '}
+                      <strong>
+                        {selectedPeriod === 'month'
+                          ? `${formatCurrency(calculateCharges.total)} ce mois`
+                          : `${formatCurrency(calculateCharges.total / 3)} par mois`}
+                      </strong>{' '}
+                      sur un compte dédié.
+                    </p>
+                  </div>
+                )}
+
                 {/* Actions post-calcul */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
