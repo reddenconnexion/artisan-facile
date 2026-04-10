@@ -295,21 +295,32 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const hasMO  = allItems.some(i => i.type !== 'section' && i.type !== 'material');
         const hasMat = allItems.some(i => i.type === 'material');
         if (hasMO || hasMat) {
-            doc.setFontSize(7.5);
+            doc.setFontSize(8);
             let lx = 14;
             if (hasMO) {
+                // Bande bleue (identique à la bande gauche des lignes MO)
+                doc.setFillColor(59, 130, 246);
+                doc.rect(lx, currentTableY - 6, 3, 4.5, 'F');
+                // Fond bleu clair à côté
                 doc.setFillColor(219, 234, 254);
-                doc.rect(lx, currentTableY - 5.5, 3, 3, 'F');
+                doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
                 doc.setTextColor(29, 78, 216);
-                doc.text('Main d\'œuvre / Prestation', lx + 4.5, currentTableY - 3);
-                lx += 55;
+                doc.setFont(undefined, 'bold');
+                doc.text('Main d\'œuvre / Prestation', lx + 15, currentTableY - 2.5);
+                lx += 72;
             }
             if (hasMat) {
+                // Bande orange (identique à la bande gauche des lignes matériel)
+                doc.setFillColor(249, 115, 22);
+                doc.rect(lx, currentTableY - 6, 3, 4.5, 'F');
+                // Fond orange clair à côté
                 doc.setFillColor(255, 237, 213);
-                doc.rect(lx, currentTableY - 5.5, 3, 3, 'F');
+                doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
                 doc.setTextColor(154, 52, 18);
-                doc.text('Fournitures / Matériel', lx + 4.5, currentTableY - 3);
+                doc.setFont(undefined, 'bold');
+                doc.text('Fournitures / Matériel', lx + 15, currentTableY - 2.5);
             }
+            doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
         }
 
@@ -342,9 +353,21 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 if (data.section !== 'body') return;
                 const item = allItems[data.row.index];
                 if (!item || item.type === 'section') return;
+                // Couleurs alignées sur la légende pour cohérence visuelle
                 data.cell.styles.fillColor = item.type === 'material'
-                    ? [255, 249, 243]   // orange très pâle → matériel
-                    : [245, 249, 255];  // bleu très pâle  → MO / prestation
+                    ? [255, 237, 213]   // orange clair → matériel
+                    : [219, 234, 254];  // bleu clair   → MO / prestation
+            },
+            didDrawCell: (data) => {
+                if (data.section !== 'body') return;
+                const item = allItems[data.row.index];
+                if (!item || item.type === 'section') return;
+                // Bande colorée sur le bord gauche (premier renforcement visuel)
+                if (data.column.index === 0) {
+                    const isMaterial = item.type === 'material';
+                    doc.setFillColor(...(isMaterial ? [249, 115, 22] : [59, 130, 246]));
+                    doc.rect(data.cell.x, data.cell.y, 2.5, data.cell.height, 'F');
+                }
             },
         });
 
