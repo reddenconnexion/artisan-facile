@@ -12,6 +12,7 @@ const ActivitySettings = () => {
 
     // Default settings
     const [settings, setSettings] = useState({
+        skill_level: 'debutant',
         enable_price_library: true,
         enable_maintenance: false,
         enable_deposits: true,
@@ -174,14 +175,68 @@ const ActivitySettings = () => {
         }
     ];
 
+    const LEVELS = [
+        {
+            id: 'debutant',
+            emoji: '🌱',
+            label: 'Débutant',
+            description: 'Devis et clients uniquement — l\'essentiel pour démarrer',
+        },
+        {
+            id: 'intermediaire',
+            emoji: '⚡',
+            label: 'Intermédiaire',
+            description: 'Ajoute l\'agenda, les chantiers et la comptabilité',
+        },
+        {
+            id: 'confirme',
+            emoji: '🚀',
+            label: 'Confirmé',
+            description: 'Tous les modules activés selon vos préférences ci-dessous',
+        },
+    ];
+
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">Mon Activité</h1>
-                <p className="text-gray-500 mt-1">Activez uniquement les fonctionnalités dont vous avez besoin pour simplifier votre interface.</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mon Activité</h1>
+                <p className="text-gray-500 dark:text-gray-400 mt-1">Adaptez l'interface à votre niveau d'utilisation, puis activez les modules dont vous avez besoin.</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+            {/* Sélecteur de niveau */}
+            <div className="mb-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Niveau d'expérience</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Choisissez votre niveau pour adapter la navigation à votre utilisation.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {LEVELS.map(level => {
+                        const isSelected = (settings.skill_level ?? 'debutant') === level.id;
+                        return (
+                            <button
+                                key={level.id}
+                                onClick={() => setSettings(prev => ({ ...prev, skill_level: level.id }))}
+                                className={`flex flex-col items-start p-4 rounded-xl border-2 text-left transition-all ${
+                                    isSelected
+                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-900'
+                                }`}
+                            >
+                                <span className="text-2xl mb-2">{level.emoji}</span>
+                                <span className={`text-sm font-bold ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                                    {level.label}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{level.description}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                    💡 Le niveau <strong>Confirmé</strong> respecte les activations ci-dessous. Les autres niveaux ont une sélection prédéfinie.
+                </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
                 {features.map((feature) => {
                     const isEnabled = settings[feature.key];
                     const Icon = feature.icon;
