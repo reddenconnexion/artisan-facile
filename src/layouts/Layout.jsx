@@ -574,7 +574,7 @@ const Layout = () => {
 
             <button
               onClick={() => setShowShortcuts(true)}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className={`hidden md:flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
               title="Raccourcis clavier (?)"
             >
               <Keyboard className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
