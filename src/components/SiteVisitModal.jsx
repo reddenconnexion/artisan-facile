@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-    X, Mic, MicOff, Camera, Image, Trash2, ChevronRight,
+    X, Mic, MicOff, Camera, Image as ImageIcon, Trash2, ChevronRight,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, TrendingUp,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -389,7 +389,7 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
                                         onClick={() => galleryInputRef.current?.click()}
                                         className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 rounded-2xl flex flex-col items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors active:scale-[0.97]"
                                     >
-                                        <Image className="w-7 h-7" />
+                                        <ImageIcon className="w-7 h-7" />
                                         <span className="text-xs font-medium">Depuis la galerie</span>
                                     </button>
                                 </div>
