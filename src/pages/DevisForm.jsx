@@ -128,7 +128,8 @@ const DevisForm = () => {
         try {
             const context = {
                 hourlyRate: userProfile?.ai_hourly_rate || '',
-                instructions: userProfile?.ai_instructions || ''
+                instructions: userProfile?.ai_instructions || '',
+                customSystemPrompt: userProfile?.ai_preferences?.quote_system_prompt || userProfile?.quote_system_prompt || ''
             };
 
             const result = await generateQuoteItems(aiPrompt, context);

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
+import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
 
 const Profile = () => {
     // Component for managing artisan profile settings
@@ -87,7 +88,8 @@ const Profile = () => {
                     zone3_radius: aiPrefs.zone3_radius || '',
                     zone3_price: aiPrefs.zone3_price || '',
 
-                    ai_instructions: aiPrefs.ai_instructions || ''
+                    ai_instructions: aiPrefs.ai_instructions || '',
+                    quote_system_prompt: aiPrefs.quote_system_prompt || ''
                 });
             }
         } catch (error) {
@@ -185,6 +187,7 @@ const Profile = () => {
                         zone3_radius: formData.zone3_radius,
                         zone3_price: formData.zone3_price,
                         ai_instructions: formData.ai_instructions,
+                        quote_system_prompt: formData.quote_system_prompt || null,
                         artisan_status: formData.artisan_status,
                         activity_type: formData.activity_type
                     },
@@ -830,6 +833,45 @@ const Profile = () => {
                                     setFormData({ ...formData, ai_instructions: e.target.value });
                                 }}
                             />
+                        </div>
+
+                        {/* Prompt de génération de devis */}
+                        <div className="border-t border-purple-100 pt-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-xs font-medium text-purple-800">
+                                    Prompt de génération de devis
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    {formData.quote_system_prompt && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, quote_system_prompt: '' }))}
+                                            className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 transition-colors"
+                                            title="Restaurer le prompt par défaut"
+                                        >
+                                            <RotateCcw className="w-3 h-3" />
+                                            Restaurer défaut
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-purple-600 mb-2">
+                                Ce prompt est envoyé à l'IA à chaque génération de devis (vocal, IA, visite chantier).
+                                Modifiez-le pour adapter les règles de tarification, les unités, ou le style.
+                                {!formData.quote_system_prompt && ' Le prompt par défaut est actuellement utilisé.'}
+                            </p>
+                            <textarea
+                                rows={10}
+                                placeholder={DEFAULT_QUOTE_PROMPT}
+                                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-xs font-mono resize-y"
+                                value={formData.quote_system_prompt || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, quote_system_prompt: e.target.value }))}
+                            />
+                            {!formData.quote_system_prompt && (
+                                <p className="text-[10px] text-purple-500 mt-1 italic">
+                                    Laissez vide pour utiliser le prompt par défaut (visible en transparence ci-dessus).
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -178,6 +178,7 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
             const context = {
                 hourlyRate: profile?.ai_hourly_rate || '',
                 instructions: profile?.ai_instructions || '',
+                customSystemPrompt: profile?.ai_preferences?.quote_system_prompt || profile?.quote_system_prompt || '',
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
 

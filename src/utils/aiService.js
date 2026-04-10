@@ -16,77 +16,60 @@ const callAiProxy = async (systemPrompt, userMessage) => {
 };
 
 /**
+ * Prompt système par défaut pour la génération de devis.
+ * Exporté pour permettre l'affichage et la personnalisation dans l'interface.
+ */
+export const DEFAULT_QUOTE_PROMPT = `Tu es un expert artisan du bâtiment français. Génère un devis précis à partir de la description des travaux.
+
+RÈGLES DE TARIFICATION:
+- Matériaux électriques: prix catalogue TTC 123elec.com × 1.25 (= prix client HT si TVA applicable, sinon prix TTC direct)
+- Autres matériaux/fournitures: prix négoce français + marge 20-30% selon la filière
+- Main d'œuvre: taux horaire marché selon la spécialité (électricien, plombier, peintre…)
+
+RÈGLES GÉNÉRALES:
+- type "service" = main d'œuvre/prestation | type "material" = fourniture/matériau
+- Unités: u | m2 | ml | h | forfait
+- Inclure consommables, protections sols/meubles, évacuation déchets si pertinent
+- Descriptions courtes et précises (max 8 mots)
+- Prix HT réalistes, compétitifs mais rentables
+
+JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
+{"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
+
+/**
+ * Parses the raw JSON response from the AI proxy.
+ */
+function parseQuoteResponse(raw) {
+    let s = raw.trim();
+    const m = s.match(/\{[\s\S]*\}/);
+    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
+    try {
+        const p = JSON.parse(s);
+        if (Array.isArray(p)) return { items: p, suggestions: [], estimated_duration: null };
+        return { items: p.items || [], suggestions: p.suggestions || [], estimated_duration: p.estimated_duration || null };
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+}
+
+/**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work
- * @param {object} context - Optional context (hourlyRate, instructions, etc.)
- * @returns {Promise<Array>} - Array of items
+ * @param {object} context - Optional context (hourlyRate, instructions, customSystemPrompt, etc.)
+ * @returns {Promise<{items, suggestions, estimated_duration}>}
  */
 export const generateQuoteItems = async (userDescription, context = {}) => {
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
+    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
-    let constraints = "";
-    if (hourlyRate) constraints += `- Utilise un taux horaire de main d'oeuvre de ${hourlyRate}€/h.\n`;
-    if (instructions) constraints += `- RESPECTE CES INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
+    let extras = '';
+    if (hourlyRate) extras += `\nTaux horaire MO imposé: ${hourlyRate}€/h.`;
+    if (instructions) extras += `\nINSTRUCTIONS SPÉCIALES: ${instructions}`;
 
-    const systemPrompt = `
-    Tu es un expert artisan du bâtiment (plomberie, électricité, peinture, etc.).
-    Ton rôle est de convertir une description de travaux en une liste détaillée d'articles pour un devis,
-    ET de fournir des conseils enrichis pour ne rien oublier.
-
-    RÈGLES :
-    1. Analyse la demande et déduis les matériaux nécessaires, la main d'oeuvre, et les consommables.
-    2. Estime des prix réalistes du marché français (en Euros HT).
-    3. Pour chaque ligne, détermine le type: 'service' (Main d'oeuvre) ou 'material' (Matériel).
-    4. Sois précis mais concis dans les descriptions.
-    5. Identifie les postes souvent oubliés pour ce type de travaux (protection, évacuation déchets, etc.).
-    6. Estime la durée totale du chantier (ex: "1 jour", "2-3 jours", "1 semaine").
-
-    ${constraints}
-
-    FORMAT DE RÉPONSE ATTENDU (JSON pur, sans markdown):
-    {
-        "items": [
-            {
-                "description": "Désignation de l'article",
-                "quantity": 1,
-                "unit": "u" | "m2" | "ml" | "h" | "forfait",
-                "price": 0.00,
-                "type": "service" | "material"
-            }
-        ],
-        "suggestions": [
-            "Protection des sols et meubles",
-            "Évacuation et tri des déchets de chantier"
-        ],
-        "estimated_duration": "2-3 jours"
-    }
-    `;
-
-    const rawResponse = await callAiProxy(systemPrompt, `DESCRIPTION UTILISATEUR: "${userDescription}"`);
-
-    let jsonString = rawResponse.trim();
-    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        jsonString = jsonMatch[0];
-    } else {
-        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
-    }
-
-    try {
-        const parsed = JSON.parse(jsonString);
-        // Support both new enriched format and legacy array format
-        if (Array.isArray(parsed)) {
-            return { items: parsed, suggestions: [], estimated_duration: null };
-        }
-        return {
-            items: parsed.items || [],
-            suggestions: parsed.suggestions || [],
-            estimated_duration: parsed.estimated_duration || null
-        };
-    } catch {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
+    const systemPrompt = basePrompt + extras;
+    const rawResponse = await callAiProxy(systemPrompt, `TRAVAUX: "${userDescription}"`);
+    return parseQuoteResponse(rawResponse);
 };
 
 /**
@@ -247,68 +230,30 @@ FORMAT JSON pur (sans markdown) :
 export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
     const parts = [];
     if (voiceTranscripts.length > 0) {
-        parts.push('NOTES VOCALES TRANSCRITES :\n' + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
+        parts.push('NOTES VOCALES:\n' + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
     }
     if (photoAnalyses.length > 0) {
-        parts.push('ANALYSES DES PHOTOS :\n' + photoAnalyses.map((a, i) => `Photo ${i + 1} : ${a}`).join('\n'));
+        parts.push('PHOTOS:\n' + photoAnalyses.map((a, i) => `Photo ${i + 1}: ${a}`).join('\n'));
     }
-
     const combined = parts.join('\n\n');
+
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
+    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
-    let constraints = '';
-    if (hourlyRate) constraints += `- Taux horaire main d'œuvre : ${hourlyRate}€/h.\n`;
-    if (instructions) constraints += `- INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
+    let extras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:';
+    extras += '\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    if (hourlyRate) extras += `\nTaux horaire MO: ${hourlyRate}€/h.`;
+    if (instructions) extras += `\nINSTRUCTIONS: ${instructions}`;
 
-    const systemPrompt = `
-Tu es un expert artisan du bâtiment spécialisé dans l'analyse de visites chantier.
-L'artisan t'envoie des notes vocales transcrites et/ou des descriptions de photos prises sur le chantier.
-Génère un devis complet, ou une fourchette de prix si l'information est insuffisante.
+    const rawResponse = await callAiProxy(basePrompt + extras, `VISITE CHANTIER:\n\n${combined}`);
 
-RÈGLES :
-1. Analyse toutes les informations pour comprendre précisément les travaux à réaliser.
-2. Détermine un titre court et précis pour le devis (max 8 mots).
-3. Liste TOUS les postes : matériaux, main d'œuvre, consommables, frais annexes.
-4. Pour chaque ligne : type "service" (main d'œuvre) ou "material" (matériel/fourniture).
-5. Estime des prix réalistes du marché français (HT en Euros).
-6. Fournis une fourchette de prix (price_range min/max) pour tenir compte des aléas.
-7. Indique le niveau de confiance : "high" si les infos sont détaillées, "medium" si partielles, "low" si très vagues.
-8. Estime la durée totale du chantier.
-
-${constraints}
-
-FORMAT JSON pur (sans markdown) :
-{
-    "title": "Titre court du devis",
-    "items": [
-        {
-            "description": "Désignation",
-            "quantity": 1,
-            "unit": "u" | "m2" | "ml" | "h" | "forfait",
-            "price": 0.00,
-            "type": "service" | "material"
-        }
-    ],
-    "suggestions": ["Poste souvent oublié 1"],
-    "estimated_duration": "X jours",
-    "price_range": { "min": 0.00, "max": 0.00 },
-    "confidence": "high" | "medium" | "low"
-}
-`;
-
-    const rawResponse = await callAiProxy(systemPrompt, `DONNÉES DE VISITE CHANTIER :\n\n${combined}`);
-
-    let jsonString = rawResponse.trim();
-    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        jsonString = jsonMatch[0];
-    } else {
-        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
-    }
+    let s = rawResponse.trim();
+    const m = s.match(/\{[\s\S]*\}/);
+    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
 
     try {
-        const parsed = JSON.parse(jsonString);
+        const parsed = JSON.parse(s);
         return {
             title: parsed.title || 'Devis visite chantier',
             items: (parsed.items || []).map(item => ({

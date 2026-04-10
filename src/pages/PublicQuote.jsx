@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { FileCheck, Download, Loader2, Phone, Mail, MapPin, Globe, PenTool } from 'lucide-react';
+import { FileCheck, Download, Loader2, Phone, PenTool } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -14,20 +14,11 @@ const PublicQuote = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [savingSignature, setSavingSignature] = useState(false);
     const [justSigned, setJustSigned] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
 
     useEffect(() => {
         fetchQuote();
-
-        // 1. Join Presence Channel for Realtime "Client Online" status
-        // We use a specific channel per quote
-        if (token) {
-            // Need to fetch quote first to get ID? No, we can use token or subsequent ID. 
-            // Better to use ID, but we might not have it yet.
-            // Let's rely on fetchQuote setting 'quote.id' and then joining?
-            // Or just join 'quote_presence_token:${token}'
-            // The artisan side needs to know the ID.
-            // So we must wait for quote data.
-        }
     }, [token]);
 
     // Separate effect for presence once quote is loaded
@@ -37,7 +28,7 @@ const PublicQuote = () => {
         const channel = supabase.channel(`quote_presence:${quote.id}`, {
             config: {
                 presence: {
-                    key: 'client', // Identify as 'client'
+                    key: 'client',
                 },
             },
         });
@@ -45,10 +36,8 @@ const PublicQuote = () => {
         channel
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
-                    // Track presence
                     await channel.track({
                         online_at: new Date().toISOString()
-                        // NOTE: token intentionally omitted to prevent leakage via presence state
                     });
                 }
             });
@@ -94,8 +83,6 @@ const PublicQuote = () => {
         const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
         generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
     };
-
-
 
     const handleRequestOtp = async (email) => {
         try {
@@ -163,6 +150,19 @@ const PublicQuote = () => {
         }
     };
 
+    // Generate PDF client-side whenever quote data changes (or signature is added)
+    useEffect(() => {
+        if (!quote) return;
+        let blobUrl = null;
+        setPdfLoading(true);
+        const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
+        generateDevisPDF(quote, quote.client, quote.artisan, isInv, 'bloburl')
+            .then(url => { blobUrl = url; setPdfUrl(url); })
+            .catch(e => console.error('PDF generation error:', e))
+            .finally(() => setPdfLoading(false));
+        return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+    }, [quote?.id, quote?.signature, quote?.status]);
+
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -183,33 +183,14 @@ const PublicQuote = () => {
 
     if (!quote) return null;
 
-    const { artisan, client } = quote;
+    const { artisan } = quote;
     const isSigned = quote.status === 'accepted';
     const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
-    const isAmendment = quote.type === 'amendment';
 
-    let amendmentDetails = {};
-    if (isAmendment && quote.amendment_details) {
-        try {
-            amendmentDetails = typeof quote.amendment_details === 'string'
-                ? JSON.parse(quote.amendment_details)
-                : quote.amendment_details;
-        } catch (e) {
-            console.error("Error parsing amendment details", e);
-        }
-    }
-    // Ensure it's an object
-    amendmentDetails = amendmentDetails || {};
-
-    // Safe number formatting (prevent .toFixed crash on null/undefined)
-    const fmt = (value) => (parseFloat(value) || 0).toFixed(2);
-
-    // Safe Date Parsing Helper
     const formatDate = (dateString) => {
         if (!dateString) return '';
         try {
             const date = new Date(dateString);
-            // Check if date is valid
             if (isNaN(date.getTime())) return '';
             return date.toLocaleDateString();
         } catch (e) {
@@ -218,461 +199,127 @@ const PublicQuote = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+        <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
             <Toaster position="top-right" richColors />
-            <div className="max-w-4xl mx-auto space-y-6">
 
-                {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
-                    {quote.status === 'paid' && (
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none select-none">
-                            <div className="border-4 border-red-600 text-red-600 font-bold text-5xl md:text-7xl p-4 rounded-lg -rotate-12 opacity-25 uppercase tracking-widest">
-                                ACQUITTÉE
+            {/* Sticky top bar */}
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+                    {/* Left: artisan identity */}
+                    <div className="flex items-center gap-3 min-w-0">
+                        {artisan.logo_url && (
+                            <img src={artisan.logo_url} alt="Logo" className="w-8 h-8 object-contain rounded" />
+                        )}
+                        <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 text-sm truncate">
+                                {artisan.company_name || artisan.full_name}
                             </div>
-                        </div>
-                    )}
-                    <div className="p-6 sm:p-8 md:flex justify-between items-start gap-6 bg-gradient-to-r from-blue-600/5 to-transparent">
-                        <div className="flex gap-5">
-                            {artisan.logo_url && (
-                                <img
-                                    src={artisan.logo_url}
-                                    alt="Logo"
-                                    className="w-20 h-20 object-contain bg-white rounded-3xl shadow-sm p-1"
-                                />
-                            )}
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">{artisan.company_name || artisan.full_name}</h1>
-                                {artisan.address && (
-                                    <p className="text-sm text-gray-500 mt-1">
-                                        {artisan.address}
-                                        {artisan.postal_code || artisan.city ? `, ${artisan.postal_code} ${artisan.city}` : ''}
-                                    </p>
-                                )}
-                                <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                    {artisan.phone && (
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4" />
-                                            <a href={`tel:${artisan.phone}`} className="hover:text-blue-600">{artisan.phone}</a>
-                                        </div>
-                                    )}
-                                    {artisan.email && (
-                                        <div className="flex items-center gap-2">
-                                            <Mail className="w-4 h-4" />
-                                            <a href={`mailto:${artisan.email}`} className="hover:text-blue-600">{artisan.email}</a>
-                                        </div>
-                                    )}
-                                    {artisan.website && isSafeHttpsUrl(artisan.website) && (
-                                        <div className="flex items-center gap-2">
-                                            <Globe className="w-4 h-4" />
-                                            <a href={artisan.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">{artisan.website}</a>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-6 md:mt-0 text-right">
-                            <div className="inline-flex flex-col items-end gap-1">
-                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                    {isSigned || isInvoiceView ? 'Facture N°' : 'Devis N°'}
-                                </span>
-                                <span className="text-2xl font-bold text-gray-900">
-                                    {quote.quote_number || quote.id}
-                                </span>
-                                <div className="text-sm text-gray-500">
-                                    Émis le {formatDate(quote.date)}
-                                </div>
-                                {!isSigned && !isInvoiceView && quote.valid_until && (() => {
-                                    const expiry = new Date(quote.valid_until);
-                                    const now = new Date();
-                                    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-                                    const expired = daysLeft < 0;
-                                    const urgent = daysLeft >= 0 && daysLeft <= 7;
-                                    return (
-                                        <div className={`mt-1 text-xs font-semibold px-2.5 py-1 rounded-full ${expired ? 'bg-red-100 text-red-700' : urgent ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
-                                            {expired
-                                                ? `Expiré le ${formatDate(quote.valid_until)}`
-                                                : urgent
-                                                    ? `Expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}`
-                                                    : `Valable jusqu'au ${formatDate(quote.valid_until)}`
-                                            }
-                                        </div>
-                                    );
-                                })()}
+                            <div className="text-xs text-gray-500 truncate">
+                                {isInvoiceView ? 'Facture' : isSigned ? 'Devis accepté' : 'Devis'} N° {quote.quote_number || quote.id}
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Main Content */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                    {/* Client Info */}
-                    <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Pour le client</h3>
-                        <div className="font-medium text-gray-900 text-lg">{client.name}</div>
-                        <div className="text-gray-600 whitespace-pre-line">{client.address}</div>
-                        {client.email && <div className="text-gray-600 mt-1">{client.email}</div>}
-
-                        {(quote.intervention_address) && (
-                            <div className="mt-4 pt-3 border-t border-gray-200/50">
-                                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lieu d'intervention</h3>
-                                <div className="text-gray-700">
-                                    {quote.intervention_address}
-                                    {(quote.intervention_postal_code || quote.intervention_city) && <br />}
-                                    {quote.intervention_postal_code} {quote.intervention_city}
-                                </div>
+                    {/* Right: action buttons */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {quote.report_pdf_url && isSafeHttpsUrl(quote.report_pdf_url) && (
+                            <a
+                                href={quote.report_pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-orange-700 border border-orange-200 bg-orange-50 hover:bg-orange-100 text-sm font-medium rounded-lg transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                Rapport
+                            </a>
+                        )}
+                        <button
+                            onClick={handleDownload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium rounded-lg transition-colors"
+                        >
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">Télécharger</span>
+                        </button>
+                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                            <button
+                                onClick={() => setShowSignatureModal(true)}
+                                className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold rounded-lg shadow-sm transition-colors"
+                            >
+                                <PenTool className="w-4 h-4" />
+                                Signer
+                            </button>
+                        )}
+                        {isSigned && quote.type !== 'invoice' && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-bold rounded-lg border border-green-200">
+                                <FileCheck className="w-4 h-4" />
+                                <span className="hidden sm:inline">Signé le {formatDate(quote.signed_at || quote.updated_at)}</span>
+                                <span className="sm:hidden">Signé</span>
+                            </div>
+                        )}
+                        {quote.status === 'paid' && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-800 text-sm font-bold rounded-lg border border-red-200">
+                                <FileCheck className="w-4 h-4" />
+                                Acquittée
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
 
-                    {/* Title */}
-                    {quote.title && (
-                        <div className="mb-8">
-                            <h2 className="text-xl font-bold text-gray-900 border-l-4 border-blue-500 pl-4 py-1">
-                                {quote.title}
-                            </h2>
-                        </div>
-                    )}
-
-                    {/* Content: External PDF or Items Table */}
-                    {/* Amendment Specific Sections */}
-                    {isAmendment && (
-                        <div className="mb-8 space-y-6">
-                            {/* Constat */}
-                            <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
-                                <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-4">Constat Terrain</h3>
-                                <div className="space-y-3 text-amber-900">
-                                    {amendmentDetails.constat_date && (
-                                        <p><strong>Date du constat :</strong> {formatDate(amendmentDetails.constat_date)}</p>
-                                    )}
-                                    {amendmentDetails.constat_description && (
-                                        <p className="whitespace-pre-line">{amendmentDetails.constat_description}</p>
-                                    )}
-                                    {amendmentDetails.constat_reason && (
-                                        <p className="font-medium mt-2">
-                                            → Impossibilité de réaliser la solution initiale pour cause de {amendmentDetails.constat_reason}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Solution */}
-                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                                <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-4">Nouvelle Solution Technique</h3>
-                                <div className="space-y-3 text-blue-900">
-                                    {amendmentDetails.solution_description && (
-                                        <p className="whitespace-pre-line">{amendmentDetails.solution_description}</p>
-                                    )}
-
-                                    <div className="mt-4 pt-4 border-t border-blue-200">
-                                        <p><strong>Matériel complémentaire nécessaire :</strong> voir ci-dessous.</p>
-                                        {amendmentDetails.solution_technical_value && (
-                                            <p className="mt-2 text-sm text-blue-800">Plus-value technique : {amendmentDetails.solution_technical_value}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Content: External PDF or Items Table */}
-                    {(quote.is_external && quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) ? (
-                        <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden h-[800px]">
-                            <object
-                                data={quote.original_pdf_url}
-                                type="application/pdf"
-                                className="w-full h-full bg-gray-50"
-                            >
-                                <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
-                                    <div className="bg-white p-6 rounded-xl shadow-sm max-w-sm">
-                                        <p className="text-gray-500 mb-4">L'aperçu du document original n'est pas supporté sur cet appareil.</p>
-                                        <a
-                                            href={quote.original_pdf_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center font-medium shadow-sm transition-colors"
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Télécharger le document
-                                        </a>
-                                    </div>
-                                </div>
-                            </object>
-                        </div>
-                    ) : (
-                        <div className="mb-8 space-y-8">
-                            {/* Helper to render Table */}
-                            {(() => {
-                                const renderTable = (items, title, borderColor, bgColor) => (
-                                    <div className="overflow-x-auto">
-                                        {title && <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</h4>}
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className={`border-b-2 ${borderColor || 'border-gray-100'} ${bgColor || 'bg-gray-50'}`}>
-                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
-                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-24">Qté</th>
-                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Prix U.</th>
-                                                    <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-32">Total HT</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-50">
-                                                {items.map((item, idx) => (
-                                                    <tr key={idx} className="group hover:bg-gray-50/50">
-                                                        <td className="py-4 px-2 text-gray-900 font-medium">
-                                                            {item.description}
-                                                        </td>
-                                                        <td className="py-4 px-2 text-gray-600 text-right">
-                                                            {item.quantity}
-                                                        </td>
-                                                        <td className="py-4 px-2 text-gray-600 text-right">
-                                                            {fmt(item.price)} €
-                                                        </td>
-                                                        <td className="py-4 px-2 text-gray-900 font-medium text-right">
-                                                            {fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0))} €
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                );
-
-                                const items = quote.items || [];
-                                const hasSections = items.some(i => i.type === 'section');
-
-                                if (hasSections) {
-                                    return (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse">
-                                                <thead>
-                                                    <tr className="border-b-2 border-blue-200 bg-blue-50/50">
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase w-28">Type</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase">Description</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-20">Qté</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-28">Prix U.</th>
-                                                        <th className="py-3 px-2 text-sm font-semibold text-gray-500 uppercase text-right w-28">Total HT</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {items.map((item, idx) => (
-                                                        item.type === 'section' ? (
-                                                            <tr key={idx} className="bg-blue-50">
-                                                                <td colSpan={5} className="py-2 px-2 text-sm font-bold text-blue-700 uppercase tracking-wide">
-                                                                    {item.description || '—'}
-                                                                </td>
-                                                            </tr>
-                                                        ) : (
-                                                            <tr key={idx} className="group hover:bg-gray-50/50">
-                                                                <td className="py-3 px-2">
-                                                                    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${item.type === 'material' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                                        {item.type === 'material' ? 'Matériel' : 'Main d\'œuvre'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="py-3 px-2 text-gray-900 font-medium">{item.description}</td>
-                                                                <td className="py-3 px-2 text-gray-600 text-right">{item.quantity}</td>
-                                                                <td className="py-3 px-2 text-gray-600 text-right">{fmt(item.price)} €</td>
-                                                                <td className="py-3 px-2 text-gray-900 font-medium text-right">{fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0))} €</td>
-                                                            </tr>
-                                                        )
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    );
-                                }
-
-                                const services = items.filter(i => i.type === 'service' || !i.type);
-                                const materials = items.filter(i => i.type === 'material');
-
-                                return (
-                                    <>
-                                        {services.length > 0 && renderTable(services, materials.length > 0 ? "Main d'Oeuvre & Prestations" : null, 'border-blue-200', 'bg-blue-50/50')}
-                                        {materials.length > 0 && renderTable(materials, "Matériel & Fournitures", 'border-orange-200', 'bg-orange-50')}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    )}
-
-                    {/* Totals */}
-                    {/* Totals or Financial Adjustment */}
-                    <div className="border-t border-gray-100 pt-6 flex justify-end">
-                        <div className="w-full sm:w-1/2 md:w-5/12 space-y-3">
-                            {isAmendment ? (
-                                <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Ajustement Financier</h3>
-
-                                    <div className="space-y-3 text-sm">
-                                        <div className="flex justify-between text-gray-600">
-                                            <span>Devis Initial TTC</span>
-                                            <span>{fmt(quote.parent_quote_data?.total_ttc)} €</span>
-                                        </div>
-
-                                        {/* SCENARIO A : SITUATION EXISTE (On remplace le devis initial) */}
-                                        {(quote.parent_quote_data?.progress_total > 0) ? (
-                                            <>
-                                                <div className="flex justify-between text-gray-800 font-medium">
-                                                    <span>Facturé à ce jour (Situation)</span>
-                                                    <span>{fmt(quote.parent_quote_data?.progress_total)} €</span>
-                                                </div>
-                                                <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(incluant acompte)</div>
-
-                                                <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
-                                                    <span>Montant Avenant TTC</span>
-                                                    <span>+{fmt(quote.total_ttc)} €</span>
-                                                </div>
-
-                                                <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
-                                                    <span>Nouveau Total Projet</span>
-                                                    <span>
-                                                        {fmt((parseFloat(quote.parent_quote_data?.progress_total) || 0) + (parseFloat(quote.total_ttc) || 0))} €
-                                                    </span>
-                                                </div>
-                                                <div className="text-xs text-right text-gray-500 mt-1">
-                                                    (Solde à régler sur cet avenant : {fmt(quote.total_ttc)} €)
-                                                </div>
-                                            </>
-                                        ) : (
-                                            /* SCENARIO B : PAS DE SITUATION (On cumule) */
-                                            <>
-                                                {/* Acompte / Deposit */}
-                                                <div className="flex justify-between text-gray-600">
-                                                    <span>Acompte versé</span>
-                                                    <span>{fmt(amendmentDetails.initial_deposit_amount)} €</span>
-                                                </div>
-                                                <div className="text-xs text-right text-gray-500 -mt-2 mb-2">(conservé)</div>
-
-                                                <div className="flex justify-between font-bold text-blue-600 pt-2 border-t border-gray-200">
-                                                    <span>Complément Avenant TTC</span>
-                                                    <span>+{fmt(quote.total_ttc)} €</span>
-                                                </div>
-
-                                                <div className="flex justify-between text-lg font-bold text-gray-900 pt-4 border-t border-gray-300">
-                                                    <span>Nouveau Solde à Régler</span>
-                                                    <span>{fmt(
-                                                        (parseFloat(quote.parent_quote_data?.total_ttc) || 0) +
-                                                        (parseFloat(quote.total_ttc) || 0) -
-                                                        (parseFloat(amendmentDetails.initial_deposit_amount) || 0)
-                                                    )} €</span>
-                                                </div>
-                                                <div className="text-xs text-right text-gray-500 mt-1">
-                                                    (Total Projet: {fmt((parseFloat(quote.parent_quote_data?.total_ttc) || 0) + (parseFloat(quote.total_ttc) || 0))} € TTC)
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between text-gray-600">
-                                        <span>Total HT</span>
-                                        <span>{fmt(quote.total_ht)} €</span>
-                                    </div>
-                                    {(parseFloat(quote.total_tva) || 0) > 0 ? (
-                                        <div className="flex justify-between text-gray-600">
-                                            <span>TVA (20%)</span>
-                                            <span>{fmt(quote.total_tva)} €</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-right text-gray-400 italic">TVA non applicable</div>
-                                    )}
-                                    <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t border-gray-200">
-                                        <span>Total TTC</span>
-                                        <span>{fmt(quote.total_ttc)} €</span>
-                                    </div>
-                                </>
-                            )}
+            {/* PDF area */}
+            <div className="flex-1 flex flex-col" style={{ minHeight: 'calc(100vh - 56px)' }}>
+                {pdfLoading ? (
+                    <div className="flex-1 flex items-center justify-center bg-gray-100" style={{ minHeight: 'calc(100vh - 56px)' }}>
+                        <div className="flex flex-col items-center gap-3">
+                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                            <p className="text-sm text-gray-500">Génération du document...</p>
                         </div>
                     </div>
-
-                    {/* Notes with Auto Calculation */}
-                    {(quote.notes || (!isInvoiceView && (quote.items || []).some(i => i.type === 'material'))) && quote.status !== 'paid' && (
-                        <div className="mt-8 pt-8 border-t border-gray-100">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes & Conditions</h4>
-                            <div className="text-gray-600 text-sm whitespace-pre-line bg-gray-50 p-4 rounded-xl">
-                                {quote.notes}
-                                {!isInvoiceView && (quote.items || []).some(i => i.type === 'material') && quote.has_material_deposit === true && (
-                                    <div className="mt-4 pt-4 border-t border-gray-200/50">
-                                        <strong>--- ACOMPTE MATÉRIEL ---</strong><br />
-                                        Montant des fournitures : {(() => {
-                                            const mItems = (quote.items || []).filter(i => i.type === 'material');
-                                            const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                                            // Infer tax applied if total_ttc > total_ht globally (simplified check)
-                                            // Or use a strict rule. Assuming standard 1.2 if VAT enabled.
-                                            // PublicQuote doesn't have 'include_tva' flag easily accessible if it's not in DB distinct column (it is in formData).
-                                            // Wait, quote object has fields. Let's check quote struct.
-                                            // Ideally we infer from total_tva > 0.
-                                            const hasTva = quote.total_tva > 0;
-                                            const mTTC = hasTva ? mHT * 1.2 : mHT;
-                                            return mTTC.toFixed(2);
-                                        })()} € TTC.<br />
-                                        Un acompte correspondant à la totalité du matériel est requis à la signature.<br />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Legal Terms Footer (Common) */}
-                <div className="text-[10px] text-gray-400 leading-relaxed text-justify px-8 mb-8">
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Règlement :</strong> Le paiement est dû {(isInvoiceView && quote.valid_until) ? `le ${formatDate(quote.valid_until)}` : 'à réception de la facture'}.
-                        {(() => {
-                            const isInstallment = (quote.notes && /(plusieurs fois|mensualité|échéance|paiement en \d+ fois)/i.test(quote.notes));
-                            return isInstallment
-                                ? ` Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${artisan.company_name || artisan.full_name}.`
-                                : ` Le règlement s'effectue par virement bancaire.`;
-                        })()}
-                    </p>
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Pénalités de retard :</strong> Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.
-                    </p>
-                    <p className="mb-2">
-                        <strong className="text-gray-500">Frais de recouvrement (Clients Pros) :</strong> Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).
-                    </p>
-                    <p>
-                        <strong className="text-gray-500">Réserve de propriété :</strong> Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix.
-                    </p>
-                </div>
-
-                {/* Payment Information (Visible for Invoices/Signed Quotes OR if IBAN present) */}
-                {/* Logic: PDF shows it always if IBAN exists. Web should match. */}
-                {
-                    quote.status !== 'paid' && artisan.iban && (
-                        <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                                <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
-                                Moyens de paiement acceptés
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
-                                    <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
-                                        {artisan.iban}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-2 flex items-center">
-                                        Reference à rappeler : <span className="font-bold ml-1">{quote.quote_number || quote.id}</span>
-                                    </p>
+                ) : pdfUrl ? (
+                    <>
+                        {/* Desktop: full-height iframe */}
+                        <iframe
+                            src={pdfUrl}
+                            className="hidden sm:block w-full border-0"
+                            style={{ height: 'calc(100vh - 56px)' }}
+                            title="Document PDF"
+                        />
+                        {/* Mobile: download prompt (iframes with blob URLs don't work on iOS) */}
+                        <div className="sm:hidden flex-1 flex items-center justify-center p-6 bg-gray-100">
+                            <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                                    <Download className="w-8 h-8 text-blue-600" />
                                 </div>
-                                {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                        <p className="text-slate-900 font-medium">
-                                            {artisan.wero_phone}
-                                            {(artisan.full_name || artisan.company_name) && (
-                                                <span className="text-slate-500 font-normal text-sm ml-1">
-                                                    ({artisan.full_name || artisan.company_name})
-                                                </span>
-                                            )}
-                                        </p>
-                                        <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
-                                    </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900">
+                                        {isInvoiceView ? 'Votre facture' : 'Votre devis'}
+                                    </h2>
+                                    <p className="text-sm text-gray-500 mt-1">N° {quote.quote_number || quote.id}</p>
+                                </div>
+                                <button
+                                    onClick={handleDownload}
+                                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                >
+                                    <Download className="w-5 h-5" />
+                                    Télécharger le PDF
+                                </button>
+                                {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                    <button
+                                        onClick={() => setShowSignatureModal(true)}
+                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
+                                    >
+                                        <PenTool className="w-5 h-5" />
+                                        Signer le devis
+                                    </button>
                                 )}
                             </div>
                         </div>
-                    )
-                }
+                    </>
+                ) : null}
+            </div>
 
+            {/* Below PDF: post-sign success + payment info */}
+            <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
                 {/* Post-signature success banner */}
                 {justSigned && (
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center space-y-4">
@@ -706,60 +353,41 @@ const PublicQuote = () => {
                     </div>
                 )}
 
-                {/* Actions Bar */}
-                {!justSigned && (
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0">
-                    <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 justify-end">
-                        <button
-                            onClick={handleDownload}
-                            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-all"
-                        >
-                            <Download className="w-5 h-5 mr-2" />
-                            Télécharger PDF
-                        </button>
-
-                        {quote.report_pdf_url && isSafeHttpsUrl(quote.report_pdf_url) && (
-                            <a
-                                href={quote.report_pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center px-6 py-3 bg-white text-orange-700 border border-orange-300 hover:bg-orange-50 font-medium rounded-xl shadow-sm transition-all"
-                            >
-                                <Download className="w-5 h-5 mr-2" />
-                                Rapport d'intervention
-                            </a>
-                        )}
-
-                        {!isSigned && !isInvoiceView && quote.status !== 'paid' ? (
-                            <button
-                                onClick={() => setShowSignatureModal(true)}
-                                className="flex items-center justify-center gap-2 px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
-                            >
-                                <PenTool className="w-5 h-5" />
-                                Signer le devis
-                            </button>
-                        ) : null}
-
-                        {isSigned && quote.type !== 'invoice' && (
-                            <div className="flex items-center justify-center px-8 py-3 bg-green-100 text-green-800 font-bold rounded-xl border border-green-200 cursor-default">
-                                <FileCheck className="w-5 h-5 mr-2" />
-                                Signé le {formatDate(quote.signed_at || quote.updated_at)}
+                {/* Payment information */}
+                {quote.status !== 'paid' && artisan.iban && (
+                    <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                            <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
+                            Moyens de paiement acceptés
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
+                                <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
+                                    {artisan.iban}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-2 flex items-center">
+                                    Référence à rappeler : <span className="font-bold ml-1">{quote.quote_number || quote.id}</span>
+                                </p>
                             </div>
-                        )}
-
-                        {quote.status === 'paid' && (
-                            <div className="flex items-center justify-center px-8 py-3 bg-red-100 text-red-800 font-bold rounded-xl border border-red-200 cursor-default">
-                                <FileCheck className="w-5 h-5 mr-2" />
-                                FACTURE ACQUITTÉE
-                            </div>
-                        )}
+                            {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
+                                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
+                                    <p className="text-slate-900 font-medium">
+                                        {artisan.wero_phone}
+                                        {(artisan.full_name || artisan.company_name) && (
+                                            <span className="text-slate-500 font-normal text-sm ml-1">
+                                                ({artisan.full_name || artisan.company_name})
+                                            </span>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
                 )}
-
-                {/* Spacer for fixed bottom bar on mobile */}
-                <div className="h-24 md:hidden"></div>
-            </div >
+            </div>
 
             <SignatureModal
                 isOpen={showSignatureModal}
@@ -768,7 +396,7 @@ const PublicQuote = () => {
                 onRequestOtp={handleRequestOtp}
                 requiresOtp={quote?.require_otp === true && Boolean(quote?.client?.email)}
             />
-        </div >
+        </div>
     );
 };
 
