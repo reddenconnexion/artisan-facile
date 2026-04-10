@@ -168,6 +168,11 @@ const Layout = () => {
       { name: 'Outils', href: '/app/outils', icon: Zap },
     ];
 
+    // Skill level filtering — 'debutant' | 'intermediaire' | 'confirme'
+    const skillLevel = userSettings.skill_level ?? 'debutant';
+    const showInter = skillLevel === 'intermediaire' || skillLevel === 'confirme';
+    const showConfirme = skillLevel === 'confirme';
+
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
@@ -176,24 +181,24 @@ const Layout = () => {
         icon: FileText,
         children: [
           { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
-          { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
+          ...(showInter ? [{ name: 'Comptabilité', href: '/app/accounting', icon: Calculator }] : []),
         ],
       },
-      ...(chantierChildren.length > 0 ? [{
+      ...(showInter && chantierChildren.length > 0 ? [{
         name: 'Chantiers',
         icon: Calendar,
         children: chantierChildren,
       }] : []),
-      ...(activiteChildren.length > 0 ? [{
+      ...(showConfirme && activiteChildren.length > 0 ? [{
         name: 'Mon Activité',
         icon: ImageIcon,
         children: activiteChildren,
       }] : []),
-      {
+      ...(showInter ? [{
         name: 'Outils',
         icon: Zap,
-        children: outilsChildren,
-      },
+        children: outilsChildren.filter(c => showConfirme || c.href !== '/app/rentals'),
+      }] : []),
       { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
     ];
   }, [user]);
