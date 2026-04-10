@@ -431,7 +431,25 @@ const DevisForm = () => {
             fetchClients().then(async (loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile, mergeIds } = location.state;
+                    const { client_id, voiceData, importFile, mergeIds, siteVisitItems, siteVisitTitle } = location.state;
+
+                    if (siteVisitItems?.length > 0) {
+                        const now = Date.now();
+                        setFormData(prev => ({
+                            ...prev,
+                            title: siteVisitTitle || prev.title,
+                            items: siteVisitItems.map((item, i) => ({
+                                id: now + i,
+                                description: item.description || '',
+                                quantity: parseFloat(item.quantity) || 1,
+                                unit: item.unit || 'u',
+                                price: parseFloat(item.price) || 0,
+                                buying_price: parseFloat(item.buying_price) || 0,
+                                type: item.type || 'service',
+                            })),
+                        }));
+                        toast.success(`${siteVisitItems.length} lignes importées depuis la visite chantier ✓`);
+                    }
 
                     if (client_id && loadedClients) {
                         const foundClient = loadedClients.find(c => c.id.toString() === client_id.toString());

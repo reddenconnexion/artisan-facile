@@ -1,9 +1,10 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Camera } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTestMode } from '../context/TestModeContext';
+import SiteVisitModal from '../components/SiteVisitModal';
 
 const FollowUps = lazy(() => import('./FollowUps'));
 
@@ -55,6 +56,7 @@ const DevisList = () => {
     const [mergeMode, setMergeMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showMoreOptions, setShowMoreOptions] = useState(false);
+    const [showSiteVisit, setShowSiteVisit] = useState(false);
 
     const toggleSelect = (e, id) => {
         e.stopPropagation();
@@ -175,6 +177,14 @@ const DevisList = () => {
                                     </div>
                                 )}
                             </div>
+                            <button
+                                onClick={() => setShowSiteVisit(true)}
+                                className="flex items-center justify-center gap-2 px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
+                                title="Créer un devis depuis une visite chantier"
+                            >
+                                <Camera className="w-4 h-4" />
+                                <span className="hidden sm:inline text-sm font-medium">Visite chantier</span>
+                            </button>
                             <button
                                 onClick={() => navigate('/app/devis/new')}
                                 className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -442,6 +452,9 @@ const DevisList = () => {
                     )}
                 </>
             )}
+
+            {/* Modale visite chantier */}
+            <SiteVisitModal isOpen={showSiteVisit} onClose={() => setShowSiteVisit(false)} />
 
             {/* Barre flottante de fusion */}
             {mergeMode && (

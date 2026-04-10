@@ -238,6 +238,99 @@ FORMAT JSON pur (sans markdown) :
 };
 
 /**
+ * Generates a quote from a site visit (voice notes + photos).
+ * @param {string[]} voiceTranscripts - Transcriptions of voice notes
+ * @param {string[]} photoAnalyses - Descriptions of photos from vision AI
+ * @param {object} context - Optional context (hourlyRate, instructions)
+ * @returns {Promise<object>} { title, items, suggestions, estimated_duration, price_range, confidence }
+ */
+export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
+    const parts = [];
+    if (voiceTranscripts.length > 0) {
+        parts.push('NOTES VOCALES TRANSCRITES :\n' + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
+    }
+    if (photoAnalyses.length > 0) {
+        parts.push('ANALYSES DES PHOTOS :\n' + photoAnalyses.map((a, i) => `Photo ${i + 1} : ${a}`).join('\n'));
+    }
+
+    const combined = parts.join('\n\n');
+    const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
+    const instructions = context.instructions || context.ai_instructions;
+
+    let constraints = '';
+    if (hourlyRate) constraints += `- Taux horaire main d'œuvre : ${hourlyRate}€/h.\n`;
+    if (instructions) constraints += `- INSTRUCTIONS SPÉCIALES : ${instructions}\n`;
+
+    const systemPrompt = `
+Tu es un expert artisan du bâtiment spécialisé dans l'analyse de visites chantier.
+L'artisan t'envoie des notes vocales transcrites et/ou des descriptions de photos prises sur le chantier.
+Génère un devis complet, ou une fourchette de prix si l'information est insuffisante.
+
+RÈGLES :
+1. Analyse toutes les informations pour comprendre précisément les travaux à réaliser.
+2. Détermine un titre court et précis pour le devis (max 8 mots).
+3. Liste TOUS les postes : matériaux, main d'œuvre, consommables, frais annexes.
+4. Pour chaque ligne : type "service" (main d'œuvre) ou "material" (matériel/fourniture).
+5. Estime des prix réalistes du marché français (HT en Euros).
+6. Fournis une fourchette de prix (price_range min/max) pour tenir compte des aléas.
+7. Indique le niveau de confiance : "high" si les infos sont détaillées, "medium" si partielles, "low" si très vagues.
+8. Estime la durée totale du chantier.
+
+${constraints}
+
+FORMAT JSON pur (sans markdown) :
+{
+    "title": "Titre court du devis",
+    "items": [
+        {
+            "description": "Désignation",
+            "quantity": 1,
+            "unit": "u" | "m2" | "ml" | "h" | "forfait",
+            "price": 0.00,
+            "type": "service" | "material"
+        }
+    ],
+    "suggestions": ["Poste souvent oublié 1"],
+    "estimated_duration": "X jours",
+    "price_range": { "min": 0.00, "max": 0.00 },
+    "confidence": "high" | "medium" | "low"
+}
+`;
+
+    const rawResponse = await callAiProxy(systemPrompt, `DONNÉES DE VISITE CHANTIER :\n\n${combined}`);
+
+    let jsonString = rawResponse.trim();
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+        jsonString = jsonMatch[0];
+    } else {
+        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    }
+
+    try {
+        const parsed = JSON.parse(jsonString);
+        return {
+            title: parsed.title || 'Devis visite chantier',
+            items: (parsed.items || []).map(item => ({
+                id: Date.now() + Math.random(),
+                description: item.description,
+                quantity: parseFloat(item.quantity) || 1,
+                unit: item.unit || 'u',
+                price: parseFloat(item.price) || 0,
+                buying_price: 0,
+                type: item.type || 'service',
+            })),
+            suggestions: parsed.suggestions || [],
+            estimated_duration: parsed.estimated_duration || null,
+            price_range: parsed.price_range || null,
+            confidence: parsed.confidence || 'medium',
+        };
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+};
+
+/**
  * Generates a follow-up email content using AI.
  * @param {object|object[]} quotes - A single quote or array of quotes (for grouped relances)
  * @param {object} client - The client object
