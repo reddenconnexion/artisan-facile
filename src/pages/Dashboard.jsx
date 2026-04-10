@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears } from 'date-fns';
+import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useDashboardData } from '../hooks/useDataCache';
+import { useDashboardData, useNextEvent } from '../hooks/useDataCache';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 
@@ -81,6 +81,119 @@ const RecentVoiceMemos = ({ userId, navigate }) => {
                     );
                 })}
             </div>
+        </div>
+    );
+};
+
+// --- KPI Strip (4 essentiels d'un coup d'oeil) ---
+
+const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`flex-1 min-w-0 bg-white dark:bg-gray-900 rounded-xl border shadow-sm p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
+            urgent
+                ? 'border-amber-200 dark:border-amber-700/50'
+                : 'border-gray-100 dark:border-gray-800'
+        }`}
+    >
+        <div className="flex items-center justify-between mb-2.5">
+            <div className={`p-2 rounded-lg ${iconBg}`}>
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+            </div>
+            {urgent && (
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
+                    À faire
+                </span>
+            )}
+        </div>
+        <p className={`text-xl font-bold leading-tight ${urgent ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-white'}`}>
+            {value}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
+        {sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{sub}</p>}
+    </button>
+);
+
+const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
+    const now = new Date();
+    const thisMonthStart = startOfMonth(now);
+
+    const caThisMonth = allQuotes
+        .filter(q => q.status === 'paid' && new Date(q.date || q.created_at) >= thisMonthStart)
+        .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
+
+    const pendingBilled = allQuotes.filter(q => q.status === 'billed');
+    const pendingTotal = pendingBilled.reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const toRelanceCount = allQuotes.filter(q =>
+        q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
+    ).length;
+
+    let nextRdvLabel = 'Aucun RDV';
+    let nextRdvSub = 'Pas de rendez-vous prévu';
+    if (nextEvent) {
+        const evDate = new Date(nextEvent.date);
+        const [h, m] = (nextEvent.time || '09:00').split(':');
+        evDate.setHours(parseInt(h), parseInt(m), 0, 0);
+        if (isToday(evDate)) {
+            nextRdvLabel = `Aujourd'hui à ${format(evDate, 'HH:mm')}`;
+        } else if (isTomorrow(evDate)) {
+            nextRdvLabel = `Demain à ${format(evDate, 'HH:mm')}`;
+        } else {
+            nextRdvLabel = format(evDate, 'EEE dd MMM', { locale: fr });
+        }
+        nextRdvSub = nextEvent.title || 'Rendez-vous';
+    }
+
+    const fmtEur = (v) => v >= 10000
+        ? `${(v / 1000).toFixed(0)} k€`
+        : v >= 1000
+        ? `${(v / 1000).toFixed(1)} k€`
+        : `${Math.round(v)} €`;
+
+    return (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+                icon={TrendingUp}
+                iconBg="bg-green-100 dark:bg-green-900/30"
+                iconColor="text-green-600 dark:text-green-400"
+                value={fmtEur(caThisMonth)}
+                label={`CA ${format(now, 'MMMM', { locale: fr })}`}
+                sub="Encaissé ce mois"
+                onClick={() => navigate('/app/accounting')}
+            />
+            <KpiCard
+                icon={Clock}
+                iconBg={pendingTotal > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-800'}
+                iconColor={pendingTotal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}
+                value={fmtEur(pendingTotal)}
+                label="En attente de paiement"
+                sub={pendingBilled.length > 0
+                    ? `${pendingBilled.length} facture${pendingBilled.length > 1 ? 's' : ''} émise${pendingBilled.length > 1 ? 's' : ''}`
+                    : 'Aucune facture en cours'}
+                urgent={pendingTotal > 0}
+                onClick={() => navigate('/app/devis')}
+            />
+            <KpiCard
+                icon={FileText}
+                iconBg={toRelanceCount > 0 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-800'}
+                iconColor={toRelanceCount > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400'}
+                value={toRelanceCount > 0 ? `${toRelanceCount} devis` : 'Aucun'}
+                label="Devis à relancer"
+                sub={toRelanceCount > 0 ? 'Sans réponse depuis 7j' : 'Tout est à jour ✓'}
+                urgent={toRelanceCount > 0}
+                onClick={() => navigate('/app/devis')}
+            />
+            <KpiCard
+                icon={Calendar}
+                iconBg="bg-blue-100 dark:bg-blue-900/30"
+                iconColor="text-blue-600 dark:text-blue-400"
+                value={nextRdvLabel}
+                label="Prochain RDV"
+                sub={nextRdvSub !== 'Pas de rendez-vous prévu' ? nextRdvSub : undefined}
+                onClick={() => navigate('/app/agenda')}
+            />
         </div>
     );
 };
@@ -477,6 +590,9 @@ const Dashboard = () => {
 
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();
+    const { data: nextEvent } = useNextEvent();
+    const skillLevel = user?.user_metadata?.activity_settings?.skill_level ?? 'debutant';
+    const showAdvancedStats = skillLevel !== 'debutant';
 
     const isTestQuote = (q) => q.clients?.name?.includes('⚗️') || (testClient?.id && q.client_id === testClient.id);
 
@@ -550,12 +666,17 @@ const Dashboard = () => {
             <OnboardingGuide />
             <SetupChecklist />
             <PushNotificationBanner />
+
+            {/* KPI Strip — 4 métriques essentielles d'un coup d'oeil */}
+            <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
+
             <QuickActions />
             <FeatureTips />
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 
-            {hasNoQuotes ? (
+            {/* Statistiques avancées — visibles à partir du niveau Intermédiaire */}
+            {showAdvancedStats && (hasNoQuotes ? (
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl p-8 text-center">
                     <p className="text-3xl mb-3">📋</p>
                     <p className="font-bold text-gray-900 dark:text-white text-lg mb-2">
@@ -621,7 +742,7 @@ const Dashboard = () => {
                         chartFormatter={(v) => `${v} Signé(s)`}
                     />
                 </div>
-            )}
+            ))}
 
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>

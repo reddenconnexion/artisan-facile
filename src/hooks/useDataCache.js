@@ -214,6 +214,30 @@ export function useAgendaEvents(startDate, endDate) {
     });
 }
 
+// Prochain événement agenda (pour le dashboard KPI)
+export function useNextEvent() {
+    const { user } = useAuth();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    return useQuery({
+        queryKey: ['nextEvent', user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('events')
+                .select('id, title, date, time, type')
+                .eq('user_id', user.id)
+                .gte('date', today)
+                .order('date', { ascending: true })
+                .limit(1);
+            if (error) throw error;
+            return data?.length > 0 ? data[0] : null;
+        },
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+    });
+}
+
 // Compteurs d'actions en attente (pour badges de navigation)
 // Dérivé du cache useQuotes — pas de requête supplémentaire
 export function usePendingCounts() {
