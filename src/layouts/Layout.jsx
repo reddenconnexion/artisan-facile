@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
@@ -33,6 +33,23 @@ const Layout = () => {
     () => sessionStorage.getItem(profileBannerKey) === '1'
   );
   const profileIncomplete = profile && (!profile.company_name || !profile.siret);
+
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nav_expanded_groups');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGroup = useCallback((groupName) => {
+    setExpandedGroups(prev => {
+      const next = { ...prev, [groupName]: !prev[groupName] };
+      localStorage.setItem('nav_expanded_groups', JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
@@ -114,8 +131,7 @@ const Layout = () => {
     initLibrary();
   }, [user]);
 
-  const navigation = React.useMemo(() => {
-    // Default settings if not set
+  const navigationGroups = React.useMemo(() => {
     const jobType = user?.user_metadata?.job_type;
     const userSettings = user?.user_metadata?.activity_settings || {};
 
@@ -132,62 +148,54 @@ const Layout = () => {
       enable_marketing: userSettings.enable_marketing ?? false,
     };
 
-    const nav = [
-      { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
-      { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
+    const chantierChildren = [
+      ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
+      ...(settings.enable_crm ? [{ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban }] : []),
+      ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
     ];
 
-    if (settings.enable_agenda) {
-      nav.push({ name: 'Agenda', href: '/app/agenda', icon: Calendar });
-    }
+    const activiteChildren = [
+      ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon }] : []),
+      ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
+      ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
+      ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
+    ];
 
-    // Clients is always visible (core feature), but CRM (Kanban) is optional
-    nav.push({ name: 'Clients', href: '/app/clients', icon: Users });
+    const outilsChildren = [
+      ...(settings.enable_price_library ? [{ name: 'Bibliothèque prix', href: '/app/library', icon: BookOpen }] : []),
+      { name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic },
+      ...(settings.enable_rentals ? [{ name: 'Locations', href: '/app/rentals', icon: Truck }] : []),
+      { name: 'Outils', href: '/app/outils', icon: Zap },
+    ];
 
-    if (settings.enable_crm) {
-      nav.push({ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban });
-    }
-
-    nav.push({ name: 'Devis & Factures', href: '/app/devis', icon: FileText });
-
-    if (settings.enable_intervention_reports) {
-      nav.push({ name: 'Rapports d\'intervention', href: '/app/interventions', icon: ClipboardList });
-    }
-
-    nav.push({ name: 'Comptabilité', href: '/app/accounting', icon: Calculator });
-
-    // Séparateur visuel : flux quotidien ↑ / modules secondaires ↓
-    nav.push({ type: 'divider', label: 'Modules' });
-
-    if (settings.enable_portfolio) {
-      nav.push({ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon });
-    }
-
-    if (settings.enable_marketing) {
-      nav.push({ name: 'Marketing', href: '/app/marketing', icon: Megaphone });
-    }
-
-    if (settings.enable_price_library) {
-      nav.push({ name: 'Bibliothèque', href: '/app/library', icon: BookOpen });
-    }
-
-    if (settings.enable_inventory) {
-      nav.push({ name: 'Stock', href: '/app/inventory', icon: Box });
-    }
-
-    if (settings.enable_maintenance) {
-      nav.push({ name: 'Maintenance', href: '/app/maintenance', icon: Wrench });
-    }
-
-    if (settings.enable_rentals) {
-      nav.push({ name: 'Locations', href: '/app/rentals', icon: Truck });
-    }
-
-    nav.push({ name: 'Outils', href: '/app/outils', icon: Zap });
-    nav.push({ name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic });
-    nav.push({ name: 'Abonnement', href: '/app/subscription', icon: Crown });
-
-    return nav;
+    return [
+      { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
+      { name: 'Clients', href: '/app/clients', icon: Users },
+      {
+        name: 'Devis & Factures',
+        icon: FileText,
+        children: [
+          { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+          { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
+        ],
+      },
+      ...(chantierChildren.length > 0 ? [{
+        name: 'Chantiers',
+        icon: Calendar,
+        children: chantierChildren,
+      }] : []),
+      ...(activiteChildren.length > 0 ? [{
+        name: 'Mon Activité',
+        icon: ImageIcon,
+        children: activiteChildren,
+      }] : []),
+      {
+        name: 'Outils',
+        icon: Zap,
+        children: outilsChildren,
+      },
+      { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
+    ];
   }, [user]);
 
   React.useEffect(() => {
@@ -421,50 +429,94 @@ const Layout = () => {
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-1 mt-4 md:mt-0 overflow-y-auto">
-            {navigation.map((item, idx) => {
-              // Render section divider
-              if (item.type === 'divider') {
-                if (isCollapsed && !isMobileMenuOpen) {
-                  return <div key={`div-${idx}`} className="my-2 mx-1 border-t border-gray-200 dark:border-gray-700" />;
-                }
+          <nav className="flex-1 px-4 space-y-0.5 mt-4 md:mt-0 overflow-y-auto">
+            {navigationGroups.map((group) => {
+              const hasChildren = !!group.children;
+
+              if (!hasChildren) {
+                // Single link item
+                const isActive = group.href === '/app'
+                  ? location.pathname === '/app'
+                  : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
                 return (
-                  <div key={`div-${idx}`} className="px-2 pt-4 pb-1">
-                    <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">{item.label}</p>
-                  </div>
+                  <Link
+                    key={group.name}
+                    to={group.href}
+                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                      : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                      } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+                  >
+                    <group.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                    {(!isCollapsed || isMobileMenuOpen) && group.name}
+                  </Link>
                 );
               }
 
-              const isActive = location.pathname === item.href;
-              const showBadge = item.name === 'Devis & Factures' && pendingCount > 0;
+              // Group with collapsible children
+              const groupActive = group.children.some(child =>
+                location.pathname === child.href || location.pathname.startsWith(child.href + '/')
+              );
+              const groupExpanded = groupActive || (expandedGroups[group.name] ?? false);
+              const showBadge = group.name === 'Devis & Factures' && pendingCount > 0;
+
               return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                <div key={group.name}>
+                  <button
+                    onClick={() => toggleGroup(group.name)}
+                    className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      groupActive
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                        : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                     } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <item.icon className={`w-5 h-5 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                    {showBadge && (
-                      <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                        {pendingCount > 9 ? '9+' : pendingCount}
-                      </span>
-                    )}
-                  </div>
-                  {(!isCollapsed || isMobileMenuOpen) && (
-                    <span className="flex-1 flex items-center justify-between">
-                      {item.name}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <group.icon className={`w-5 h-5 ${groupActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
                       {showBadge && (
-                        <span className="ml-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                          {pendingCount}
+                        <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                          {pendingCount > 9 ? '9+' : pendingCount}
                         </span>
                       )}
-                    </span>
+                    </div>
+                    {(!isCollapsed || isMobileMenuOpen) && (
+                      <>
+                        <span className="flex-1 text-left flex items-center gap-2">
+                          {group.name}
+                          {showBadge && (
+                            <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </span>
+                        {groupExpanded
+                          ? <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                          : <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        }
+                      </>
+                    )}
+                  </button>
+                  {groupExpanded && (!isCollapsed || isMobileMenuOpen) && (
+                    <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l-2 border-gray-100 dark:border-gray-800 pl-3">
+                      {group.children.map(child => {
+                        const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
+                        return (
+                          <Link
+                            key={child.name}
+                            to={child.href}
+                            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap ${
+                              childActive
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            <child.icon className={`w-4 h-4 mr-2.5 flex-shrink-0 ${childActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                            {child.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                </Link>
+                </div>
               );
             })}
           </nav>
@@ -666,7 +718,7 @@ const Layout = () => {
           { name: 'Clients', href: '/app/clients', icon: Users },
           { name: 'Devis', href: '/app/devis', icon: FileText },
           // Check if Agenda is enabled
-          ...(navigation.find(n => n.name === 'Agenda') ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
+          ...(navigationGroups.some(g => g.children?.some(c => c.name === 'Agenda')) ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
         ].map((item) => {
           const isActive = location.pathname === item.href;
           return (
