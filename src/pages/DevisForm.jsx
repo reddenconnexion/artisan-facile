@@ -7,6 +7,7 @@ import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { generateQuoteItems } from '../utils/aiService';
+import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
@@ -31,6 +32,7 @@ const DevisForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const location = useLocation();
+    const confirm = useConfirm();
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
@@ -1365,7 +1367,7 @@ const DevisForm = () => {
             const depositAmount = (total * percentage) / 100;
 
             // Ask user if this deposit is for materials (to exclude from Net Result)
-            const isForMaterial = window.confirm("Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nSi OUI, il sera comptabilisé comme 'Matériel' et n'augmentera pas artificiellement votre Résultat Net.\nSi NON, il sera considéré comme du Service (Marge 100%).");
+            const isForMaterial = await confirm({ title: "Type d'acompte", message: "Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nOui → comptabilisé comme Matériel (exclu du Résultat Net)\nNon → comptabilisé comme Service (Marge 100%)", confirmLabel: 'Oui (Matériel)', cancelLabel: 'Non (Service)' });
 
             const depositItem = {
                 id: Date.now(),
@@ -1447,9 +1449,8 @@ Conditions de règlement : Paiement à réception de facture.`
 
         const materialTotalTTC = formData.include_tva ? materialTotalHT * 1.2 : materialTotalHT;
 
-        if (!window.confirm(`Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)}€ TTC) ?`)) {
-            return;
-        }
+        const okMat = await confirm({ title: 'Acompte matériel', message: `Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)} € TTC) ?`, confirmLabel: 'Générer' });
+        if (!okMat) return;
 
         try {
             setLoading(true);
@@ -1627,9 +1628,8 @@ Conditions de règlement : Paiement à réception de facture.`
             return;
         }
 
-        if (!window.confirm("Générer la facture de clôture ? Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.")) {
-            return;
-        }
+        const okClose = await confirm({ title: 'Facture de clôture', message: "Cela créera une nouvelle facture reprenant l'ensemble du devis moins les acomptes déjà versés.", confirmLabel: 'Générer' });
+        if (!okClose) return;
 
         setLoading(true);
         try {
@@ -1743,9 +1743,8 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible.')) {
-            return;
-        }
+        const okDel = await confirm({ title: 'Supprimer ce devis', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!okDel) return;
 
         try {
             const { error } = await supabase
@@ -1877,9 +1876,8 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleConvertToInvoice = async () => {
-        if (!window.confirm('Voulez-vous convertir ce devis en facture ? Cela changera son statut en "Accepté".')) {
-            return;
-        }
+        const okConv = await confirm({ title: 'Convertir en facture', message: 'Le statut du devis sera changé en « Accepté ».', confirmLabel: 'Convertir' });
+        if (!okConv) return;
 
         try {
             const { error } = await supabase

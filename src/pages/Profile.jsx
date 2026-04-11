@@ -6,10 +6,12 @@ import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, 
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
+import { useConfirm } from '../context/ConfirmContext';
 
 const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
+    const confirm = useConfirm();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
     const [loading, setLoading] = useState(false);
     // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
@@ -955,7 +957,8 @@ const Profile = () => {
                         <button
                             type="button"
                             onClick={async () => {
-                                if (window.confirm('Attention : Cela va effacer les données en mémoire locale et recharger l\'application. Vos données sur le serveur ne seront pas effacées. Continuer ?')) {
+                                const okCache = await confirm({ title: 'Vider le cache local', message: 'Les données en mémoire locale seront effacées et l\'application rechargée.\nVos données sur le serveur ne seront pas affectées.', confirmLabel: 'Vider et recharger' });
+                                if (okCache) {
                                     localStorage.clear();
                                     if ('caches' in window) {
                                         const cacheNames = await caches.keys();

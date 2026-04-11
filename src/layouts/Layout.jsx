@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
+import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
 import TestModePanel from '../components/TestModePanel';
@@ -323,6 +324,7 @@ const Layout = () => {
   };
 
   return (
+    <ConfirmProvider>
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden transition-colors duration-200">
       <Toaster position="top-right" richColors theme={isDarkMode ? 'dark' : 'light'} />
 
@@ -655,6 +657,27 @@ const Layout = () => {
 
           {/* Voice Pipeline Button */}
           <VoiceRecorderButton />
+
+          {/* Contextual FAB — mobile only, action principale de la page courante */}
+          {(() => {
+            const FAB_ACTIONS = {
+              '/app/clients':       { label: 'Nouveau client',  Icon: Users,         to: '/app/clients/new' },
+              '/app/devis':         { label: 'Nouveau devis',   Icon: FileText,      to: '/app/devis/new' },
+              '/app/interventions': { label: 'Nouveau rapport', Icon: ClipboardList, to: '/app/interventions/new' },
+            };
+            const fab = FAB_ACTIONS[location.pathname];
+            if (!fab) return null;
+            return (
+              <button
+                onClick={() => navigate(fab.to)}
+                className="fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all"
+                aria-label={fab.label}
+              >
+                <Plus className="w-5 h-5 shrink-0" />
+                <span className="text-sm font-semibold">{fab.label}</span>
+              </button>
+            );
+          })()}
           {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
             <button
               onClick={() => setShowVoiceHelp(true)}
@@ -749,6 +772,7 @@ const Layout = () => {
         </button>
       </div>
     </div>
+    </ConfirmProvider>
   );
 };
 

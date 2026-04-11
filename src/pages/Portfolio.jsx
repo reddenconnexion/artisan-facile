@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, Loader2, ArrowRight, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useConfirm } from '../context/ConfirmContext';
 
 /**
  * Portfolio Page
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
  */
 const Portfolio = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [montages, setMontages] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -101,7 +103,8 @@ const Portfolio = () => {
     };
 
     const handleDelete = async (item) => {
-        if (!window.confirm('Voulez-vous vraiment supprimer ce montage du portfolio ?')) return;
+        const ok = await confirm({ title: 'Supprimer ce montage', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
 
         try {
             // 1. Delete from Database

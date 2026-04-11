@@ -4,10 +4,12 @@ import { supabase } from '../utils/supabase';
 import { Trash2, Plus, GripVertical, Droplet, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTradeConfig } from '../constants/trades';
+import { useConfirm } from '../context/ConfirmContext';
 
 const ClientReferences = ({ clientId }) => {
     const [references, setReferences] = useState([]);
     const [loading, setLoading] = useState(true);
+    const confirm = useConfirm();
     const [tradeConfig, setTradeConfig] = useState(null);
     const [newRef, setNewRef] = useState({
         category: '',
@@ -89,7 +91,8 @@ const ClientReferences = ({ clientId }) => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer cette référence ?')) return;
+        const ok = await confirm({ title: 'Supprimer cette référence', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
         try {
             const { error } = await supabase
                 .from('client_references')
