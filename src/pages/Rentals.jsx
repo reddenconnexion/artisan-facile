@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Truck, Calendar, CheckCircle, AlertTriangle, Trash2, X } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { toast } from 'sonner';
 import { format, isPast, addDays, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const Rentals = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [rentals, setRentals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('active'); // 'active', 'returned', 'all'
@@ -94,7 +96,8 @@ const Rentals = () => {
     };
 
     const handleReturn = async (id) => {
-        if (!window.confirm("Marquer ce matériel comme rendu ?")) return;
+        const ok = await confirm({ title: 'Marquer comme rendu', message: 'Le matériel sera enregistré comme retourné.', confirmLabel: 'Confirmer' });
+        if (!ok) return;
         try {
             const { error } = await supabase
                 .from('project_rentals')
@@ -110,7 +113,8 @@ const Rentals = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Supprimer cette location ?")) return;
+        const ok2 = await confirm({ title: 'Supprimer cette location', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok2) return;
         try {
             const { error } = await supabase
                 .from('project_rentals')

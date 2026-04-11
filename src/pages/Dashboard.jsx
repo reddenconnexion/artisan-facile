@@ -672,6 +672,64 @@ const Dashboard = () => {
 
             <QuickActions />
             <FeatureTips />
+
+            {/* Derniers documents — 5 devis/factures les plus récents */}
+            {allQuotes.length > 0 && (() => {
+                const STATUS_LABEL = { draft: 'Brouillon', sent: 'Envoyé', accepted: 'Signé', billed: 'Facturé', paid: 'Payé' };
+                const STATUS_COLOR = {
+                    draft:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                    sent:     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                    accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    billed:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                    paid:     'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                };
+                const recent = [...allQuotes]
+                    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+                    .slice(0, 5);
+                return (
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                <FileText size={15} className="text-blue-500" />
+                                Derniers documents
+                            </h3>
+                            <button
+                                onClick={() => navigate('/app/devis')}
+                                className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                            >
+                                Voir tout <ChevronRightIcon size={12} />
+                            </button>
+                        </div>
+                        <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                            {recent.map(q => (
+                                <button
+                                    key={q.id}
+                                    onClick={() => navigate(`/app/devis/${q.id}`)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                            {q.clients?.name || q.title || `Devis #${q.id}`}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                            {q.title && q.clients?.name ? q.title : q.quote_number || ''}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[q.status] || STATUS_COLOR.draft}`}>
+                                            {STATUS_LABEL[q.status] || q.status}
+                                        </span>
+                                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                            {(q.total_ttc || 0).toFixed(0)} €
+                                        </span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
+
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
             <ActionableDashboard user={user} />
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { toast } from 'sonner';
 import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
 import Papa from 'papaparse';
@@ -8,6 +9,7 @@ import readXlsxFile from 'read-excel-file/browser';
 
 const PriceLibrary = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -230,7 +232,8 @@ const PriceLibrary = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer cet article ?')) return;
+        const ok = await confirm({ title: 'Supprimer cet article', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
         try {
             const { error } = await supabase
                 .from('price_library')

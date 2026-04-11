@@ -6,9 +6,11 @@ import Cropper from 'react-easy-crop';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [photos, setPhotos] = useState([]);
     const [projects, setProjects] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState('all'); // 'all', 'uncategorized', or UUID
@@ -568,7 +570,8 @@ const ProjectPhotos = ({ clientId }) => {
     };
 
     const handleDelete = async (photoId, photoUrl) => {
-        if (!window.confirm('Voulez-vous vraiment supprimer cette photo ?')) return;
+        const ok = await confirm({ title: 'Supprimer cette photo', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
 
         try {
             // 1. Delete from Database
@@ -735,7 +738,8 @@ const ProjectPhotos = ({ clientId }) => {
 
     const handleBulkDelete = async () => {
         if (selectedPhotos.size === 0) return;
-        if (!window.confirm(`Voulez - vous vraiment supprimer ces ${selectedPhotos.size} photos ? `)) return;
+        const ok = await confirm({ title: `Supprimer ${selectedPhotos.size} photo${selectedPhotos.size > 1 ? 's' : ''}`, message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
 
         try {
             // Delete from DB
@@ -876,7 +880,8 @@ const ProjectPhotos = ({ clientId }) => {
                                 {selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized' && (
                                     <button
                                         onClick={async () => {
-                                            if (!window.confirm("Voulez-vous vraiment supprimer ce dossier ? Les photos seront marquées comme 'Non classé'.")) return;
+                                            const okFolder = await confirm({ title: 'Supprimer ce dossier', message: 'Les photos seront marquées comme « Non classé ». Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+                                            if (!okFolder) return;
                                             try {
                                                 const { error } = await supabase
                                                     .from('projects')

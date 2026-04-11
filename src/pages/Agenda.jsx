@@ -18,10 +18,12 @@ import { fr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { toast } from 'sonner';
 
 const Agenda = () => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [events, setEvents] = useState([]);
@@ -277,21 +279,21 @@ const Agenda = () => {
     };
 
     const handleDeleteClick = async (eventId) => {
-        if (window.confirm('Êtes-vous sûr de vouloir supprimer ce rendez-vous ?')) {
-            try {
-                const { error } = await supabase
-                    .from('events')
-                    .delete()
-                    .eq('id', eventId);
+        const ok = await confirm({ title: 'Supprimer ce rendez-vous', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
+        try {
+            const { error } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', eventId);
 
-                if (error) throw error;
+            if (error) throw error;
 
-                setEvents(events.filter(ev => ev.id !== eventId));
-                toast.success('Rendez-vous supprimé');
-            } catch (error) {
-                toast.error('Erreur lors de la suppression');
-                console.error('Error deleting event:', error);
-            }
+            setEvents(events.filter(ev => ev.id !== eventId));
+            toast.success('Rendez-vous supprimé');
+        } catch (error) {
+            toast.error('Erreur lors de la suppression');
+            console.error('Error deleting event:', error);
         }
     };
 

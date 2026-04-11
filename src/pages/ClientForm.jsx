@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { toast } from 'sonner';
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal';
@@ -114,6 +115,7 @@ const ClientForm = () => {
     const location = useLocation();
     const { user } = useAuth();
     const isEditing = !!id && id !== 'new';
+    const confirm = useConfirm();
     const [loading, setLoading] = useState(false);
 
     // const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice(); // Removed
@@ -240,9 +242,8 @@ const ClientForm = () => {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Voulez-vous vraiment supprimer ce client ? Cette action est irréversible.')) {
-            return;
-        }
+        const ok = await confirm({ title: 'Supprimer ce client', message: 'Toutes les données associées seront supprimées. Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
 
         try {
             const { error } = await supabase

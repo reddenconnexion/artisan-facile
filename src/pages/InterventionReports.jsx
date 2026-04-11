@@ -9,6 +9,7 @@ import { useInterventionReports, useInvalidateCache } from '../hooks/useDataCach
 import { useUserProfile } from '../hooks/useDataCache';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useTestMode } from '../context/TestModeContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const STATUS_CONFIG = {
     draft: { label: 'Brouillon', bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: Clock },
@@ -29,6 +30,7 @@ const StatusBadge = ({ status }) => {
 
 const InterventionReports = () => {
     const navigate = useNavigate();
+    const confirm = useConfirm();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [deletingId, setDeletingId] = useState(null);
@@ -50,7 +52,8 @@ const InterventionReports = () => {
     });
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer ce rapport d\'intervention ?')) return;
+        const ok = await confirm({ title: 'Supprimer ce rapport', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
         setDeletingId(id);
         try {
             const { error } = await supabase.from('intervention_reports').delete().eq('id', id);

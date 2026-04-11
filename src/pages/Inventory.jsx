@@ -8,6 +8,7 @@ import {
 import { useZxing } from 'react-zxing';
 import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useConfirm } from '../context/ConfirmContext';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -47,6 +48,7 @@ const Inventory = () => {
     // Utilisation du cache React Query
     const { data: items = [], isLoading: loading } = useInventory();
     const { invalidateInventory } = useInvalidateCache();
+    const confirm = useConfirm();
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
@@ -85,7 +87,8 @@ const Inventory = () => {
     };
 
     const handleDeleteItem = async (id) => {
-        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet article du stock ?")) return;
+        const ok = await confirm({ title: 'Supprimer cet article', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
         try {
             const { error } = await supabase.from('price_library').delete().eq('id', id);
             if (error) throw error;
