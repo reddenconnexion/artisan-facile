@@ -582,6 +582,16 @@ const Layout = () => {
               <Keyboard className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
               {(!isCollapsed || isMobileMenuOpen) && 'Raccourcis clavier'}
             </button>
+            {/* Mode terrain — accès rapide depuis la sidebar */}
+            <button
+              onClick={() => navigate('/terrain')}
+              className={`flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              title="Mode terrain — vue simplifiée sur chantier"
+            >
+              <Wrench className={`w-5 h-5 flex-shrink-0 text-orange-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              {(!isCollapsed || isMobileMenuOpen) && 'Mode terrain'}
+            </button>
+
             <button
               onClick={() => navigate('/app/settings')}
               className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
@@ -661,6 +671,7 @@ const Layout = () => {
           {/* Contextual FAB — mobile only, action principale de la page courante */}
           {(() => {
             const FAB_ACTIONS = {
+              '/app':               { label: 'Mode terrain',    Icon: Wrench,        to: '/terrain' },
               '/app/clients':       { label: 'Nouveau client',  Icon: Users,         to: '/app/clients/new' },
               '/app/devis':         { label: 'Nouveau devis',   Icon: FileText,      to: '/app/devis/new' },
               '/app/interventions': { label: 'Nouveau rapport', Icon: ClipboardList, to: '/app/interventions/new' },
@@ -670,10 +681,17 @@ const Layout = () => {
             return (
               <button
                 onClick={() => navigate(fab.to)}
-                className="fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all"
+                className={`fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 ${
+                  fab.to === '/terrain'
+                    ? 'bg-orange-500 hover:bg-orange-600'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
                 aria-label={fab.label}
               >
-                <Plus className="w-5 h-5 shrink-0" />
+                {fab.to === '/terrain'
+                  ? <fab.Icon className="w-5 h-5 shrink-0" />
+                  : <Plus className="w-5 h-5 shrink-0" />
+                }
                 <span className="text-sm font-semibold">{fab.label}</span>
               </button>
             );
