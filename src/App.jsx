@@ -88,6 +88,7 @@ const VoiceMemos = lazyWithRetry(() => import('./pages/VoiceMemos'));
 const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
+const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -117,6 +118,13 @@ function App() {
 
               <Route path="/p/:token" element={<ClientPortal />} />
               <Route path="/q/:token" element={<PublicQuote />} />
+
+              {/* Mode terrain — page standalone sans sidebar, protégée */}
+              <Route path="/terrain" element={
+                <ProtectedRoute>
+                  <TerrainMode />
+                </ProtectedRoute>
+              } />
 
               <Route path="/app" element={
                 <ProtectedRoute>
