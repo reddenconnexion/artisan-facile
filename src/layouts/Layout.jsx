@@ -421,9 +421,7 @@ const Layout = () => {
           {/* Desktop Header / Logo */}
           <div className={`p-6 md:flex items-center hidden ${isCollapsed ? 'justify-center' : 'justify-start'}`}>
             <div className="flex items-center">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <LayoutDashboard className="w-6 h-6 text-white" />
-              </div>
+              <img src="/favicon.svg" alt="Logo Artisan Facile" className="w-10 h-10 rounded-lg" />
               {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">Artisan Facile</h1>}
             </div>
           </div>
@@ -614,7 +612,10 @@ const Layout = () => {
           <main className="flex-1 overflow-y-auto">
             {/* Mobile Header - Scrolls with content */}
             <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center px-4 md:hidden flex-shrink-0">
-              <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
+              <div className="flex items-center gap-2">
+                <img src="/favicon.svg" alt="Logo Artisan Facile" className="w-7 h-7 rounded-md" />
+                <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
+              </div>
             </div>
 
             {/* Bannière profil incomplet */}
