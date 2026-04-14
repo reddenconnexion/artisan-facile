@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Camera } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Camera, Zap, TrendingUp, BarChart2, ChevronUp } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -135,6 +135,34 @@ const DevisList = () => {
     // Sous-onglet actif : 'liste' ou 'relances'
     const isFollowUpsTab = statusFilter === 'followups';
 
+    // --- Statistiques de création de devis ---
+    const [showCreationStats, setShowCreationStats] = useState(false);
+    const quotesWithTiming = visibleDevis.filter(
+        d => d.type === 'quote' && d.creation_time_seconds > 0
+    );
+    const traditionalQuotes = quotesWithTiming.filter(d => !d.used_ai_generation);
+    const aiQuotes = quotesWithTiming.filter(d => d.used_ai_generation);
+
+    const avg = (arr) =>
+        arr.length === 0 ? null : Math.round(arr.reduce((s, d) => s + d.creation_time_seconds, 0) / arr.length);
+
+    const avgTrad = avg(traditionalQuotes);
+    const avgAi = avg(aiQuotes);
+    const avgGain = avgTrad !== null && avgAi !== null ? avgTrad - avgAi : null;
+    const gainPct = avgGain !== null && avgTrad > 0 ? Math.round((avgGain / avgTrad) * 100) : null;
+
+    const fmtTime = (sec) => {
+        if (!sec) return '—';
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        if (m === 0) return `${s} sec`;
+        if (s === 0) return `${m} min`;
+        return `${m} min ${s} sec`;
+    };
+
+    // Afficher la bannière uniquement s'il y a des données
+    const hasStats = quotesWithTiming.length >= 1;
+
     if (loading) {
         return <div className="flex justify-center items-center h-64">Chargement...</div>;
     }
@@ -211,6 +239,92 @@ const DevisList = () => {
                     className="hidden"
                 />
             </div>
+
+            {/* Statistiques de création de devis */}
+            {hasStats && (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                    <button
+                        onClick={() => setShowCreationStats(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            <BarChart2 size={16} className="text-purple-500" />
+                            Statistiques de création
+                            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">
+                                ({quotesWithTiming.length} devis chronométré{quotesWithTiming.length > 1 ? 's' : ''})
+                            </span>
+                        </div>
+                        {showCreationStats
+                            ? <ChevronUp size={16} className="text-gray-400" />
+                            : <ChevronDown size={16} className="text-gray-400" />
+                        }
+                    </button>
+
+                    {showCreationStats && (
+                        <div className="border-t border-gray-100 dark:border-gray-800 px-4 pb-4 pt-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {/* Temps moyen traditionnel */}
+                                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+                                    <Clock size={16} className="text-gray-400 mx-auto mb-1" />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+                                        Moy. sans IA
+                                    </p>
+                                    <p className="text-base font-bold text-gray-700 dark:text-gray-200">
+                                        {avgTrad !== null ? fmtTime(avgTrad) : '—'}
+                                    </p>
+                                    {traditionalQuotes.length > 0 && (
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {traditionalQuotes.length} devis
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Temps moyen avec IA */}
+                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
+                                    <Zap size={16} className="text-purple-500 mx-auto mb-1" />
+                                    <p className="text-xs text-purple-600 dark:text-purple-400 mb-0.5">
+                                        Moy. avec IA
+                                    </p>
+                                    <p className="text-base font-bold text-purple-700 dark:text-purple-300">
+                                        {avgAi !== null ? fmtTime(avgAi) : '—'}
+                                    </p>
+                                    {aiQuotes.length > 0 && (
+                                        <p className="text-xs text-purple-400 mt-0.5">
+                                            {aiQuotes.length} devis
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Gain moyen */}
+                                <div className={`col-span-2 sm:col-span-1 rounded-xl p-3 text-center ${avgGain !== null && avgGain > 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                    <TrendingUp size={16} className={`mx-auto mb-1 ${avgGain !== null && avgGain > 0 ? 'text-green-500' : 'text-gray-400'}`} />
+                                    <p className={`text-xs mb-0.5 ${avgGain !== null && avgGain > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        Gain moyen / devis
+                                    </p>
+                                    <p className={`text-base font-bold ${avgGain !== null && avgGain > 0 ? 'text-green-700 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {avgGain !== null && avgGain > 0 ? fmtTime(avgGain) : '—'}
+                                    </p>
+                                    {gainPct !== null && gainPct > 0 && (
+                                        <p className="text-xs text-green-500 mt-0.5">
+                                            -{gainPct}% de temps
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Message si une seule méthode renseignée */}
+                            {(avgTrad === null || avgAi === null) && quotesWithTiming.length > 0 && (
+                                <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-3">
+                                    {avgAi === null
+                                        ? "Créez un devis avec l'IA pour comparer les temps."
+                                        : "Créez un devis manuellement pour comparer les temps."
+                                    }
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Filtres et Recherche */}
             <div className="flex flex-col md:flex-row gap-4">
