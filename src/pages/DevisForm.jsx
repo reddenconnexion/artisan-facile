@@ -27,6 +27,8 @@ import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import SituationModal from '../components/SituationModal';
+import AITrialOfferModal from '../components/AITrialOfferModal';
+import AITrialComparisonModal from '../components/AITrialComparisonModal';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -95,6 +97,19 @@ const DevisForm = () => {
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
 
+    // --- Chronométrage et essai IA ---
+    // Heure de début de création (ref pour ne pas déclencher de re-render)
+    const creationStartRef = useRef(Date.now());
+    // Indique si l'IA a généré des lignes pendant cette session
+    const [usedAiInSession, setUsedAiInSession] = useState(false);
+    // Nombre de devis existants au moment de l'ouverture du formulaire (null = pas encore chargé)
+    const [existingQuoteCount, setExistingQuoteCount] = useState(null);
+    // Affichage de la modale d'offre d'essai IA
+    const [showAiTrialOffer, setShowAiTrialOffer] = useState(false);
+    // Données pour la modale de comparaison post-essai
+    const [comparisonData, setComparisonData] = useState(null);
+    const [showComparisonModal, setShowComparisonModal] = useState(false);
+
     useEffect(() => {
         if (!id || id === 'new') return;
 
@@ -121,7 +136,33 @@ const DevisForm = () => {
 
     // Voice Dictation for AI (reusing hook from line 29)
 
+    // --- Effet : comptage des devis existants (une seule fois à l'ouverture) ---
+    useEffect(() => {
+        if (isEditing || !user) return;
+        supabase
+            .from('quotes')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('type', 'quote')
+            .then(({ count }) => {
+                setExistingQuoteCount(count ?? 0);
+            });
+    }, [user?.id, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // --- Effet : déclencher l'offre essai IA quand toutes les données sont prêtes ---
+    const hasTrialOfferBeenEvaluated = useRef(false);
+    useEffect(() => {
+        if (
+            !isEditing &&
+            existingQuoteCount === 1 &&
+            userProfile &&
+            !userProfile.has_used_ai_trial &&
+            !hasTrialOfferBeenEvaluated.current
+        ) {
+            hasTrialOfferBeenEvaluated.current = true;
+            setShowAiTrialOffer(true);
+        }
+    }, [existingQuoteCount, userProfile?.has_used_ai_trial, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) return;
@@ -152,6 +193,9 @@ const DevisForm = () => {
                     ...prev,
                     items: [...prev.items, ...newItems]
                 }));
+
+                // Marquer que l'IA a été utilisée dans cette session
+                setUsedAiInSession(true);
 
                 setAiSuggestions(suggestions || []);
                 setAiDuration(estimated_duration || null);
@@ -1152,6 +1196,11 @@ const DevisForm = () => {
         try {
             const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
 
+            // Calcul de la durée de création (uniquement pour les nouveaux devis)
+            const creationTimeSec = !isEditing
+                ? Math.round((Date.now() - creationStartRef.current) / 1000)
+                : undefined;
+
             const quoteData = {
                 user_id: user.id,
                 client_id: formData.client_id,
@@ -1184,7 +1233,9 @@ const DevisForm = () => {
                 paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null),
                 operation_category: formData.operation_category || 'service',
                 vat_on_debits: formData.vat_on_debits || false,
-                require_otp: formData.require_otp || false
+                require_otp: formData.require_otp || false,
+                ...(creationTimeSec !== undefined && { creation_time_seconds: creationTimeSec }),
+                ...(!isEditing && { used_ai_generation: usedAiInSession })
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -1334,10 +1385,45 @@ const DevisForm = () => {
             // Update CRM
             updateClientCRMStatus(formData.client_id, formData.status);
 
+            // --- Suivi du 1er devis traditionnel (pour comparaison future) ---
+            if (!isEditing && existingQuoteCount === 0 && !usedAiInSession && creationTimeSec > 0) {
+                // Premier devis créé manuellement : stocker la durée dans le profil
+                await supabase
+                    .from('profiles')
+                    .update({ first_traditional_quote_time: creationTimeSec })
+                    .eq('id', user.id);
+            }
+
+            // --- Comparaison post-essai IA ---
+            // Conditions : devis non édité, c'était le 2ème devis, l'IA a été utilisée, essai pas encore consommé
+            const isAiTrial =
+                !isEditing &&
+                existingQuoteCount === 1 &&
+                usedAiInSession &&
+                userProfile &&
+                !userProfile.has_used_ai_trial;
+
+            if (isAiTrial) {
+                // Marquer l'essai comme consommé dans le profil
+                await supabase
+                    .from('profiles')
+                    .update({ has_used_ai_trial: true })
+                    .eq('id', user.id);
+
+                // Ouvrir la modale de comparaison
+                const firstTime = userProfile?.first_traditional_quote_time ?? null;
+                setComparisonData({
+                    traditionalTime: firstTime,
+                    aiTime: creationTimeSec,
+                    hourlyRate: userProfile?.ai_hourly_rate || 50,
+                });
+                setShowComparisonModal(true);
+                // Ne pas naviguer : la modale prend le relais
+                return;
+            }
+
             // Check if we switched to Paid
-            console.log('Status check:', { current: formData.status, initial: initialStatus });
             if (formData.status === 'paid' && initialStatus !== 'paid') {
-                console.log('Triggering Review Modal');
                 setShowReviewRequestModal(true);
                 setInitialStatus('paid');
                 // Don't navigate yet, let user see the modal
@@ -3758,6 +3844,35 @@ Conditions de règlement : Paiement à réception de facture.`
                 quote={{ ...formData, id: id }}
                 onSave={handleSaveSituation}
             />
+
+            {/* Modale d'offre d'essai IA (2ème devis) */}
+            <AITrialOfferModal
+                isOpen={showAiTrialOffer}
+                firstQuoteTime={userProfile?.first_traditional_quote_time ?? null}
+                onTryAI={() => {
+                    setShowAiTrialOffer(false);
+                    setShowAIModal(true);
+                }}
+                onSkip={() => setShowAiTrialOffer(false)}
+            />
+
+            {/* Modale de comparaison après essai IA */}
+            {comparisonData && (
+                <AITrialComparisonModal
+                    isOpen={showComparisonModal}
+                    traditionalTime={comparisonData.traditionalTime}
+                    aiTime={comparisonData.aiTime}
+                    hourlyRate={comparisonData.hourlyRate}
+                    onSubscribe={() => {
+                        setShowComparisonModal(false);
+                        navigate('/app/subscription');
+                    }}
+                    onClose={() => {
+                        setShowComparisonModal(false);
+                        navigate('/app/devis');
+                    }}
+                />
+            )}
 
             {/* Mobile sticky bottom bar — Send + Save */}
             {!isLocked && (
