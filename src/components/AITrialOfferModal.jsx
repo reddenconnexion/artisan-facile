@@ -74,7 +74,7 @@ const AITrialOfferModal = ({ isOpen, onTryAI, onSkip, firstQuoteTime }) => {
                     <ul className="space-y-2 mb-6">
                         {[
                             'Décrivez votre chantier librement',
-                            'L'IA génère les lignes avec quantités et prix',
+                            "L'IA génère les lignes avec quantités et prix",
                             'Vous ajustez et enregistrez en un clic',
                         ].map((item, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
