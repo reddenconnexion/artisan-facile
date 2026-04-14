@@ -157,12 +157,13 @@ const DevisForm = () => {
             existingQuoteCount === 1 &&
             userProfile &&
             !userProfile.has_used_ai_trial &&
+            !['pro', 'owner'].includes(userProfile.plan) && // Inutile pour les abonnés Pro
             !hasTrialOfferBeenEvaluated.current
         ) {
             hasTrialOfferBeenEvaluated.current = true;
             setShowAiTrialOffer(true);
         }
-    }, [existingQuoteCount, userProfile?.has_used_ai_trial, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [existingQuoteCount, userProfile?.has_used_ai_trial, userProfile?.plan, isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) return;
@@ -231,6 +232,7 @@ const DevisForm = () => {
                 type: 'service'
             }]
         }));
+        setUsedAiInSession(true);
         setAiSuggestions(prev => prev.filter(s => s !== suggestion));
         toast.success('Ligne ajoutée — pensez à renseigner le prix');
     };
@@ -1395,13 +1397,14 @@ const DevisForm = () => {
             }
 
             // --- Comparaison post-essai IA ---
-            // Conditions : devis non édité, c'était le 2ème devis, l'IA a été utilisée, essai pas encore consommé
+            // Conditions : 2ème devis, IA utilisée, essai pas encore consommé, plan free
             const isAiTrial =
                 !isEditing &&
                 existingQuoteCount === 1 &&
                 usedAiInSession &&
                 userProfile &&
-                !userProfile.has_used_ai_trial;
+                !userProfile.has_used_ai_trial &&
+                !['pro', 'owner'].includes(userProfile.plan);
 
             if (isAiTrial) {
                 // Marquer l'essai comme consommé dans le profil
@@ -2294,6 +2297,16 @@ Conditions de règlement : Paiement à réception de facture.`
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Indicateur de chronométrage (nouveau devis uniquement) */}
+                    {!isEditing && (
+                        <span
+                            className="hidden sm:flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
+                            title="Votre temps de création est mesuré pour générer des statistiques"
+                        >
+                            <Clock className="w-3 h-3" />
+                            Chrono actif
+                        </span>
+                    )}
                     {/* Auto-save indicator */}
                     {lastSaved && !isEditing && (
                         <span className="hidden sm:flex items-center gap-1 text-xs text-gray-400" title={`Brouillon sauvegardé à ${lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}>
