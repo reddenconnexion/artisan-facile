@@ -106,6 +106,8 @@ const DevisForm = () => {
     const [existingQuoteCount, setExistingQuoteCount] = useState(null);
     // Affichage de la modale d'offre d'essai IA
     const [showAiTrialOffer, setShowAiTrialOffer] = useState(false);
+    // L'utilisateur a accepté l'essai IA et la session est en cours
+    const [isAiTrialSession, setIsAiTrialSession] = useState(false);
     // Données pour la modale de comparaison post-essai
     const [comparisonData, setComparisonData] = useState(null);
     const [showComparisonModal, setShowComparisonModal] = useState(false);
@@ -2210,6 +2212,15 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
             )}
+            {/* Bandeau "Essai IA actif" — visible pendant toute la session d'essai */}
+            {isAiTrialSession && !isEditing && (
+                <div className="bg-indigo-600 text-white rounded-xl px-4 py-2.5 mb-4 flex items-center gap-2 text-sm">
+                    <Sparkles className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-medium">Essai IA actif</span>
+                    <span className="text-indigo-200">— Le temps de création est mesuré. Enregistrez quand votre devis est prêt.</span>
+                </div>
+            )}
+
             {/* Bandeau premier devis — masquable, localStorage */}
             {showFirstDevisTip && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 relative">
@@ -3864,6 +3875,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 firstQuoteTime={userProfile?.first_traditional_quote_time ?? null}
                 onTryAI={() => {
                     setShowAiTrialOffer(false);
+                    setIsAiTrialSession(true);
                     setShowAIModal(true);
                 }}
                 onSkip={() => setShowAiTrialOffer(false)}
