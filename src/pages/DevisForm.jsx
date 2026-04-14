@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Crown } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import QuoteTimeComparisonModal from '../components/QuoteTimeComparisonModal';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
@@ -37,6 +38,21 @@ const DevisForm = () => {
     const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
+
+    // --- CREATION TIMER ---
+    // Tracks elapsed time for new quotes (not edits) to compute creation statistics.
+    const creationStartRef = useRef(!isEditing ? Date.now() : null);
+
+    // --- AI TRIAL ONBOARDING ---
+    // isAITrialSession: user accepted the free AI trial for this quote
+    const [isAITrialSession, setIsAITrialSession] = useState(false);
+    // showAITrialBanner: show the "essayez l'IA gratuitement" banner
+    const [showAITrialBanner, setShowAITrialBanner] = useState(false);
+    // manualQuoteSeconds: creation time of their first manual quote (for comparison)
+    const [manualQuoteSeconds, setManualQuoteSeconds] = useState(null);
+    // showComparisonModal: show ROI comparison after AI trial is saved
+    const [showComparisonModal, setShowComparisonModal] = useState(false);
+    const [comparisonData, setComparisonData] = useState(null);
 
     // Bandeau d'aide premier devis
     const tipDismissKey = user ? `devis_tip_dismissed_${user.id}` : null;
@@ -537,8 +553,40 @@ const DevisForm = () => {
                 }
             });
             fetchUserProfile();
+
+            // Check AI trial eligibility for new quotes only
+            if (!isEditing) {
+                checkAITrialEligibility();
+            }
         }
     }, [user, id]);
+
+    // Check whether to show the free AI trial banner:
+    // Conditions: user has exactly 1 manual quote AND hasn't used the trial yet.
+    const checkAITrialEligibility = async () => {
+        if (!user) return;
+        try {
+            const [profileRes, quotesRes] = await Promise.all([
+                supabase.from('profiles').select('ai_trial_used').eq('id', user.id).single(),
+                supabase.from('quotes').select('creation_time_seconds, creation_method').eq('user_id', user.id).eq('type', 'quote')
+            ]);
+
+            const aiTrialUsed = profileRes.data?.ai_trial_used === true;
+            if (aiTrialUsed) return;
+
+            const allQuotes = quotesRes.data || [];
+            const manualQuotes = allQuotes.filter(q => !q.creation_method || q.creation_method === 'manual');
+
+            // Show banner only after exactly 1 manual quote exists
+            if (manualQuotes.length === 1) {
+                const firstManualTime = manualQuotes[0].creation_time_seconds;
+                setManualQuoteSeconds(firstManualTime || null);
+                setShowAITrialBanner(true);
+            }
+        } catch (err) {
+            console.error('AI trial check error:', err);
+        }
+    };
 
     // Reusable function to process imported file
     const processImportedFile = async (file) => {
@@ -1152,6 +1200,15 @@ const DevisForm = () => {
         try {
             const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
 
+            // Compute elapsed creation time for new quotes
+            const elapsedSeconds = !isEditing && creationStartRef.current
+                ? Math.round((Date.now() - creationStartRef.current) / 1000)
+                : null;
+
+            const creationMethod = !isEditing
+                ? (isAITrialSession ? 'ai' : 'manual')
+                : undefined;
+
             const quoteData = {
                 user_id: user.id,
                 client_id: formData.client_id,
@@ -1184,7 +1241,9 @@ const DevisForm = () => {
                 paid_at: formData.paid_at ? new Date(formData.paid_at).toISOString() : (formData.status === 'paid' ? new Date().toISOString() : null),
                 operation_category: formData.operation_category || 'service',
                 vat_on_debits: formData.vat_on_debits || false,
-                require_otp: formData.require_otp || false
+                require_otp: formData.require_otp || false,
+                ...(elapsedSeconds !== null && { creation_time_seconds: elapsedSeconds }),
+                ...(creationMethod !== undefined && { creation_method: creationMethod }),
             };
 
             // If status is reverted from accepted/signed to draft/sent/refused, clear signature data
@@ -1333,6 +1392,23 @@ const DevisForm = () => {
 
             // Update CRM
             updateClientCRMStatus(formData.client_id, formData.status);
+
+            // --- AI TRIAL: mark trial as used and show comparison modal ---
+            if (!isEditing && isAITrialSession) {
+                try {
+                    await supabase.from('profiles').update({ ai_trial_used: true }).eq('id', user.id);
+                } catch (err) {
+                    console.error('Failed to mark AI trial used:', err);
+                }
+                const aiSeconds = elapsedSeconds || 0;
+                setComparisonData({
+                    manualSeconds: manualQuoteSeconds || 0,
+                    aiSeconds,
+                    hourlyRate: userProfile?.ai_hourly_rate || userProfile?.ai_preferences?.ai_hourly_rate || 45,
+                });
+                setShowComparisonModal(true);
+                return; // Don't navigate yet — modal handles navigation on close
+            }
 
             // Check if we switched to Paid
             console.log('Status check:', { current: formData.status, initial: initialStatus });
@@ -2121,6 +2197,54 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
             )}
+            {/* Bandeau essai IA gratuit — affiché après le 1er devis manuel */}
+            {showAITrialBanner && !isAITrialSession && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border border-indigo-200 dark:border-indigo-700 rounded-xl p-4 mb-4 relative">
+                    <button
+                        type="button"
+                        onClick={() => setShowAITrialBanner(false)}
+                        className="absolute top-3 right-3 p-1 text-indigo-300 hover:text-indigo-500 rounded transition-colors"
+                        title="Fermer"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-start gap-3 pr-6">
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center flex-shrink-0">
+                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+                                Essayez la création par IA — offert une fois
+                            </p>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-300 mt-0.5">
+                                Décrivez votre chantier en quelques mots et l'IA génère toutes les lignes du devis pour vous. Nous comparerons ensuite le temps gagné.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAITrialSession(true);
+                                    setShowAITrialBanner(false);
+                                    setShowAIModal(true);
+                                }}
+                                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Générer avec l'IA maintenant
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bandeau confirmation essai IA en cours */}
+            {isAITrialSession && (
+                <div className="bg-indigo-600 text-white rounded-xl px-4 py-2.5 mb-4 flex items-center gap-2 text-sm">
+                    <Sparkles className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-medium">Essai IA actif</span>
+                    <span className="text-indigo-200">— Le temps de création est mesuré. Enregistrez quand votre devis est prêt.</span>
+                </div>
+            )}
+
             {/* Bandeau premier devis — masquable, localStorage */}
             {showFirstDevisTip && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 relative">
@@ -3429,6 +3553,19 @@ Conditions de règlement : Paiement à réception de facture.`
                 client={clients.find(c => c.id == formData.client_id)}
                 userProfile={userProfile}
             />
+
+            {/* AI Trial Time Comparison Modal */}
+            {showComparisonModal && comparisonData && (
+                <QuoteTimeComparisonModal
+                    manualSeconds={comparisonData.manualSeconds}
+                    aiSeconds={comparisonData.aiSeconds}
+                    hourlyRate={comparisonData.hourlyRate}
+                    onClose={() => {
+                        setShowComparisonModal(false);
+                        navigate('/app/devis');
+                    }}
+                />
+            )}
 
             {/* Preview Modal */}
             {(previewUrl || previewLoading) && (
