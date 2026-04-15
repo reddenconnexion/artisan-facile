@@ -1,11 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="128" fill="url(#grad1)" />
-  <path d="M374.6 183.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0l-80-80c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l57.4 57.4 137.4-137.4c12.5-12.5 32.8-12.5 45.3 0z" fill="white" stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M150 350 L100 350 L100 150 L256 50 L412 150 L412 250" fill="none" stroke="white" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" opacity="0.2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Artisan Facile">
+  <!-- Blue background -->
+  <rect width="100" height="100" fill="#1A5DA8"/>
+
+  <!-- A — left diagonal leg -->
+  <polygon points="4,90 17,90 36,10 23,10" fill="white"/>
+
+  <!-- A right leg / F diagonal (the ruler element) -->
+  <polygon points="23,10 38,10 63,90 48,90" fill="white"/>
+
+  <!-- F — top horizontal bar -->
+  <rect x="23" y="10" width="69" height="13" fill="white"/>
+
+  <!-- F — middle horizontal bar -->
+  <rect x="47" y="44" width="43" height="11" fill="white"/>
+
+  <!-- Ruler tick marks -->
+  <line x1="32" y1="31" x2="42" y2="28" stroke="#0B2E5C" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="39" y1="52" x2="49" y2="49" stroke="#0B2E5C" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="46" y1="72" x2="56" y2="69" stroke="#0B2E5C" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Ruler numbers -->
+  <text x="37" y="27" font-size="6" font-family="Arial,sans-serif" fill="#0B2E5C" font-weight="bold">1</text>
+  <text x="44" y="48" font-size="6" font-family="Arial,sans-serif" fill="#0B2E5C" font-weight="bold">2</text>
+  <text x="51" y="68" font-size="6" font-family="Arial,sans-serif" fill="#0B2E5C" font-weight="bold">3</text>
 </svg>
