@@ -39,7 +39,7 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
                         <div className="flex items-center">
-                            <img src="/favicon.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded-md mr-2" />
+                            <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded-md mr-2" />
                             <span className="text-2xl font-bold text-blue-600">Artisan Facile</span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -855,7 +855,7 @@ const LandingPage = () => {
                     <div className="flex flex-col md:flex-row justify-between items-center">
                         <div className="mb-6 md:mb-0">
                             <div className="flex items-center gap-2">
-                                <img src="/favicon.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded-md" />
+                                <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded-md" />
                                 <span className="text-2xl font-bold text-white">Artisan Facile</span>
                             </div>
                             <p className="mt-2 text-sm max-w-xs">
