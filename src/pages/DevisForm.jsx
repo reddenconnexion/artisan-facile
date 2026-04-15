@@ -482,7 +482,24 @@ const DevisForm = () => {
             fetchClients().then(async (loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile, mergeIds, siteVisitItems, siteVisitTitle } = location.state;
+                    const { client_id, voiceData, importFile, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
+
+                    // Pré-remplissage depuis un rapport d'intervention
+                    if (fromReport) {
+                        const now = Date.now();
+                        setFormData(prev => ({
+                            ...prev,
+                            client_id: fromReport.client_id || prev.client_id,
+                            title: fromReport.title || prev.title,
+                            type: 'invoice',
+                            status: 'draft',
+                            notes: fromReport.notes || prev.notes,
+                            items: fromReport.items?.length
+                                ? fromReport.items.map((item, i) => ({ ...item, id: now + i }))
+                                : prev.items,
+                        }));
+                        toast.success('Facture pré-remplie depuis le rapport d\'intervention');
+                    }
 
                     if (siteVisitItems?.length > 0) {
                         const now = Date.now();
@@ -1967,7 +1984,11 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleConvertToInvoice = async () => {
-        const okConv = await confirm({ title: 'Convertir en facture', message: 'Le statut du devis sera changé en « Accepté ».', confirmLabel: 'Convertir' });
+        const okConv = await confirm({
+            title: 'Convertir en facture',
+            message: 'Ce devis sera transformé en facture (statut : Accepté). Vous pourrez ensuite la télécharger et l\'envoyer au client.',
+            confirmLabel: 'Convertir en facture',
+        });
         if (!okConv) return;
 
         try {
@@ -1978,13 +1999,12 @@ Conditions de règlement : Paiement à réception de facture.`
 
             if (error) throw error;
 
-            if (error) throw error;
-
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
-            toast.success('Devis converti en facture');
+            setInitialStatus('accepted');
+            toast.success('Devis converti en facture — pensez à l\'envoyer au client');
             invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'accepted');
-            await handleDownloadPDF(true); // Auto-generate invoice PDF
+            await handleDownloadPDF(true);
         } catch (error) {
             toast.error('Erreur lors de la conversion');
             console.error('Error converting to invoice:', error);
@@ -2336,6 +2356,18 @@ Conditions de règlement : Paiement à réception de facture.`
                         <span className="hidden sm:inline">Envoyer</span>
                     </button>
 
+                    {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                        <button
+                            type="button"
+                            onClick={handleConvertToInvoice}
+                            className="flex items-center px-3 sm:px-4 py-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
+                            title="Convertir ce devis en facture"
+                        >
+                            <FileCheck className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Facturer</span>
+                        </button>
+                    )}
+
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
@@ -2411,6 +2443,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <Download className="w-4 h-4 mr-3 text-gray-400" />
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
+
+                                {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                                    <>
+                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
+                                        <button
+                                            onClick={() => { handleConvertToInvoice(); setShowActionsMenu(false); }}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50"
+                                        >
+                                            <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
+                                            Convertir en facture
+                                        </button>
+                                    </>
+                                )}
 
                                 {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
                                     <>
@@ -2735,7 +2781,37 @@ Conditions de règlement : Paiement à réception de facture.`
                         )}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                        {/* Pipeline visuel cliquable */}
+                        {(() => {
+                            const pipeline = formData.type === 'invoice'
+                                ? [{ key: 'accepted', label: 'Émise' }, { key: 'billed', label: 'Facturée' }, { key: 'paid', label: 'Payée' }]
+                                : [{ key: 'draft', label: 'Brouillon' }, { key: 'sent', label: 'Envoyé' }, { key: 'accepted', label: 'Accepté' }, { key: 'billed', label: 'Facturé' }, { key: 'paid', label: 'Payé' }];
+                            const currentIdx = pipeline.findIndex(s => s.key === formData.status);
+                            if (currentIdx === -1) return null;
+                            return (
+                                <div className="flex items-center mb-2">
+                                    {pipeline.map((step, idx) => (
+                                        <React.Fragment key={step.key}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, status: step.key }))}
+                                                className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
+                                                    idx === currentIdx ? 'bg-blue-600 text-white' :
+                                                    idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                                                    'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {step.label}
+                                            </button>
+                                            {idx < pipeline.length - 1 && (
+                                                <div className={`h-px flex-1 mx-0.5 min-w-[4px] ${idx < currentIdx ? 'bg-blue-300' : 'bg-gray-200'}`} />
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                         <select
                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.status}
