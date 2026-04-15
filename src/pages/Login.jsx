@@ -92,7 +92,7 @@ const Login = () => {
                 <div className="flex-1 flex items-center justify-center py-10 px-4">
                     <div className="w-full max-w-md">
                         <div className="text-center mb-8">
-                            <img src="/logo-bleu.png" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
+                            <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
                             <h1 className="text-2xl font-bold text-gray-900">Mot de passe oublié</h1>
                             <p className="mt-1 text-sm text-gray-500">
                                 Entrez votre email pour recevoir un lien de réinitialisation.
@@ -167,7 +167,7 @@ const Login = () => {
                 <div className="w-full max-w-md">
                     {/* Branding */}
                     <div className="text-center mb-8">
-                        <img src="/logo-bleu.png" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
+                        <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
                         <h1 className="text-2xl font-bold text-gray-900">Connexion</h1>
                         <p className="mt-1 text-sm text-gray-500">
                             Pas encore de compte ?{' '}
