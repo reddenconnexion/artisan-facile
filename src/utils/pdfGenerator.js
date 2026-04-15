@@ -154,6 +154,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.text(addressLines, clientX, clientAddressY);
         clientAddressY += (addressLines.length * 5);
     }
+    if (client.postal_code || client.city) {
+        doc.text(`${client.postal_code || ''} ${client.city || ''}`.trim(), clientX, clientAddressY);
+        clientAddressY += 5;
+    }
 
     // Display SIREN/TVA if present (Required for Factur-X visual consistency)
     if (client.siren) {
