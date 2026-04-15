@@ -130,7 +130,7 @@ const Register = () => {
                 <div className="w-full max-w-md">
                     {/* Branding */}
                     <div className="text-center mb-8">
-                        <img src="/logo-bleu.png" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
+                        <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-48 h-auto mx-auto mb-4" />
                         <div className="mt-3 inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-xs font-bold px-3 py-1.5 rounded-full border border-green-200">
                             <CheckCircle className="w-3.5 h-3.5" />
                             100% Gratuit — sans carte bancaire
