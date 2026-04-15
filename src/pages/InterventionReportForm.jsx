@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
-    CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles
+    CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
+    ExternalLink, FileCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -499,10 +500,9 @@ const InterventionReportForm = () => {
                     .from('clients').select('*').eq('id', clientId).single();
                 client = dbClient;
             }
-            if (!client?.email) {
-                toast.dismiss(toastId);
-                toast.error(`Le client "${client?.name || 'inconnu'}" n'a pas d'email — facture non envoyée`);
-                return;
+            const hasEmail = !!client?.email;
+            if (!hasEmail) {
+                toast.warning(`Facture créée — ${client?.name || 'ce client'} n'a pas d'email, vous devrez l'envoyer manuellement`);
             }
 
             // --- 1. Base : items du devis signé lié ---
@@ -662,13 +662,69 @@ const InterventionReportForm = () => {
                 (reportUrl ? `Le rapport d'intervention est egalement disponible depuis ce lien.\n\n` : '') +
                 `Cordialement,\n${signatureBlock}`;
 
-            setSendInvoiceModal({ email: client.email, subject, body });
+            if (hasEmail) {
+                setSendInvoiceModal({ email: client.email, subject, body });
+            }
 
         } catch (err) {
             toast.dismiss(toastId);
             console.error('handleMarkCompleted error:', err);
             toast.error(`Erreur : ${err?.message || err?.code || 'inconnue'}`, { duration: 8000 });
         }
+    };
+
+    const handleCreateInvoiceFromReport = () => {
+        const now = Date.now();
+        const materials = (formData.materials_used || [])
+            .filter(m => m.description?.trim())
+            .map((m, i) => ({
+                id: now + i + 100,
+                description: m.description,
+                quantity: parseFloat(m.quantity) || 1,
+                unit: m.unit || 'unité',
+                price: parseFloat(m.price) || 0,
+                buying_price: 0,
+                type: 'material',
+            }));
+
+        const hours = parseFloat(formData.duration_hours);
+        const hourlyRate = parseFloat(userProfile?.ai_hourly_rate) || 0;
+        const laborItems = (hours > 0 && hourlyRate > 0)
+            ? [{
+                id: now,
+                description: `Main d'œuvre — ${formData.title || 'Intervention'} (${hours}h)`,
+                quantity: hours,
+                unit: 'h',
+                price: hourlyRate,
+                buying_price: 0,
+                type: 'service',
+            }]
+            : [{
+                id: now,
+                description: formData.work_done || formData.description || formData.title || 'Intervention',
+                quantity: 1,
+                unit: 'forfait',
+                price: 0,
+                buying_price: 0,
+                type: 'service',
+            }];
+
+        const items = [...laborItems, ...materials];
+        const notes = [
+            `Rapport d'intervention ${formData.report_number || ''} du ${formData.date || ''}`,
+            formData.work_done || formData.description || '',
+        ].filter(Boolean).join('\n\n').trim();
+
+        navigate('/app/devis/new', {
+            state: {
+                fromReport: {
+                    client_id: formData.client_id,
+                    title: formData.title,
+                    items,
+                    notes,
+                },
+            },
+        });
     };
 
     const handleExportPDF = async () => {
@@ -746,6 +802,24 @@ const InterventionReportForm = () => {
                         >
                             <Send className="w-4 h-4" />
                             Envoyer la facture
+                        </button>
+                    )}
+                    {linkedInvoice && (
+                        <button
+                            onClick={() => navigate(`/app/devis/${linkedInvoice.id}`)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors font-medium"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            Voir la facture
+                        </button>
+                    )}
+                    {isEditing && !linkedInvoice && (formData.status === 'completed' || formData.status === 'signed') && (
+                        <button
+                            onClick={handleCreateInvoiceFromReport}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors font-medium"
+                        >
+                            <FileCheck className="w-4 h-4" />
+                            Créer une facture
                         </button>
                     )}
                     <button
