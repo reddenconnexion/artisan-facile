@@ -182,12 +182,16 @@ const VisiteTechniqueMode = ({ onBack }) => {
             if (voiceNotes.length > 0) {
                 setActivePhase('voice');
                 for (const note of voiceNotes) {
-                    const audioBase64 = await blobToBase64(note.blob);
-                    const { data, error: fnErr } = await supabase.functions.invoke('voice-transcribe', {
-                        body: { audioBase64, mimeType: note.mimeType }
-                    });
-                    if (fnErr) throw new Error(fnErr.message || 'Erreur transcription');
-                    if (data?.transcript) transcripts.push(data.transcript);
+                    try {
+                        const audioBase64 = await blobToBase64(note.blob);
+                        const { data, error: fnErr } = await supabase.functions.invoke('voice-transcribe', {
+                            body: { audioBase64, mimeType: note.mimeType }
+                        });
+                        if (fnErr) { console.warn('Transcription skipped:', fnErr.message); continue; }
+                        if (data?.transcript) transcripts.push(data.transcript);
+                    } catch (noteErr) {
+                        console.warn('Transcription error, skipping note:', noteErr);
+                    }
                 }
             }
 
@@ -197,17 +201,21 @@ const VisiteTechniqueMode = ({ onBack }) => {
             if (photos.length > 0) {
                 setActivePhase('photos');
                 for (const photo of photos) {
-                    const imageBase64 = await imageFileToBase64(photo.file);
-                    const { data, error: fnErr } = await supabase.functions.invoke('plan-vision', {
-                        body: {
-                            imageBase64,
-                            mediaType: photo.mediaType,
-                            systemPrompt: 'Tu es un expert en travaux de bâtiment. Décris précisément ce que tu vois sur cette photo de chantier : matériaux visibles, type de travaux, état des surfaces, dimensions approximatives si possible, anomalies ou points d\'attention.',
-                            userPrompt: 'Analyse cette photo pour aider à estimer les travaux à réaliser.',
-                        }
-                    });
-                    if (fnErr) throw new Error(fnErr.message || 'Erreur analyse photo');
-                    if (data?.text) photoAnalyses.push(data.text);
+                    try {
+                        const imageBase64 = await imageFileToBase64(photo.file);
+                        const { data, error: fnErr } = await supabase.functions.invoke('plan-vision', {
+                            body: {
+                                imageBase64,
+                                mediaType: photo.mediaType,
+                                systemPrompt: 'Tu es un expert en travaux de bâtiment. Décris précisément ce que tu vois sur cette photo de chantier : matériaux visibles, type de travaux, état des surfaces, dimensions approximatives si possible, anomalies ou points d\'attention.',
+                                userPrompt: 'Analyse cette photo pour aider à estimer les travaux à réaliser.',
+                            }
+                        });
+                        if (fnErr) { console.warn('Photo analysis skipped:', fnErr.message); continue; }
+                        if (data?.text) photoAnalyses.push(data.text);
+                    } catch (photoErr) {
+                        console.warn('Photo analysis error, skipping:', photoErr);
+                    }
                 }
             }
 
@@ -243,6 +251,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         status: 'draft',
                         date: new Date().toISOString().split('T')[0],
                         report_number: reportNumber,
+                        report_type: 'site_visit',
                     }).select('id').single();
                     if (saved?.id) setSavedReportId(saved.id);
                 } catch (saveErr) {
@@ -551,7 +560,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                             )}
                             <input
                                 ref={cameraInputRef}
-                                type="file" accept="image/*" capture="environment"
+                                type="file" accept="image/*" multiple
                                 className="hidden"
                                 onChange={e => { handlePhotosSelected(e.target.files); e.target.value = ''; }}
                             />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Plus, Search, Trash2, Edit, FileDown, CheckCircle, Clock, PenLine } from 'lucide-react';
+import { ClipboardList, Plus, Search, Trash2, Edit, FileDown, CheckCircle, Clock, PenLine, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -27,6 +27,15 @@ const StatusBadge = ({ status }) => {
         </span>
     );
 };
+
+const VisiteBadge = () => (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
+        <Sparkles className="w-3 h-3" />
+        Visite
+    </span>
+);
+
+const isVisiteTechnique = (r) => r.report_type === 'site_visit' || r.report_number?.startsWith('VT-');
 
 const InterventionReports = () => {
     const navigate = useNavigate();
@@ -196,12 +205,15 @@ const InterventionReports = () => {
                                             {report.date ? format(parseISO(report.date), 'd MMM yyyy', { locale: fr }) : '—'}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button
-                                                onClick={() => navigate(`/app/interventions/${report.id}`)}
-                                                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline text-left"
-                                            >
-                                                {report.title}
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/app/interventions/${report.id}`)}
+                                                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline text-left"
+                                                >
+                                                    {report.title}
+                                                </button>
+                                                {isVisiteTechnique(report) && <VisiteBadge />}
+                                            </div>
                                             {report.report_number && (
                                                 <p className="text-xs text-gray-400 mt-0.5">#{report.report_number}</p>
                                             )}
@@ -272,7 +284,10 @@ const InterventionReports = () => {
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{report.client_name}</p>
                                         )}
                                     </div>
-                                    <StatusBadge status={report.status} />
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        {isVisiteTechnique(report) && <VisiteBadge />}
+                                        <StatusBadge status={report.status} />
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                                     {report.date && (
