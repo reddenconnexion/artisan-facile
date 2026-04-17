@@ -6,9 +6,9 @@ import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
-    ChevronDown, Clock, ExternalLink, Sparkles,
+    ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
 } from 'lucide-react';
-import SiteVisitModal from '../components/SiteVisitModal';
+import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,8 +24,8 @@ const TerrainMode = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // ── Navigation entre onglets ──────────────────────────────────────────────
-    const [tab, setTab] = useState('rapport'); // 'rapport' | 'photos' | 'signature'
+    // ── Mode selection ────────────────────────────────────────────────────────
+    const [mode, setMode] = useState(null); // null | 'depannage' | 'visite'
 
     // ── Champs du rapport ─────────────────────────────────────────────────────
     const [title, setTitle] = useState(defaultTitle);
@@ -34,9 +34,6 @@ const TerrainMode = () => {
     const [description, setDescription] = useState('');
     const [workDone, setWorkDone] = useState('');
     const [notes, setNotes] = useState('');
-
-    // ── Visite chantier → Devis ───────────────────────────────────────────────
-    const [showSiteVisit, setShowSiteVisit] = useState(false);
 
     // ── Autocomplete clients ──────────────────────────────────────────────────
     const [clients, setClients] = useState([]);
@@ -134,6 +131,7 @@ const TerrainMode = () => {
     const [hasSig, setHasSig] = useState(false);
     const [signerName, setSignerName] = useState('');
     const lastPos = useRef(null);
+    const [tab, setTab] = useState('rapport'); // 'rapport' | 'photos' | 'signature'
 
     // Adapter canvas au conteneur à l'affichage de l'onglet
     useEffect(() => {
@@ -200,6 +198,7 @@ const TerrainMode = () => {
         user_id: user.id,
         title: title.trim() || 'Intervention terrain',
         date: today(),
+        client_id: clientId || null,
         client_name: clientName.trim(),
         description: description.trim(),
         work_done: workDone.trim(),
@@ -271,7 +270,76 @@ const TerrainMode = () => {
         }
     };
 
-    // ─── UI ───────────────────────────────────────────────────────────────────
+    // ─── Rendu : sélection du mode ────────────────────────────────────────────
+
+    if (!mode) {
+        return (
+            <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
+                <Toaster position="top-center" richColors />
+
+                {/* Header */}
+                <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-2">
+                    <button
+                        onClick={() => navigate('/app')}
+                        className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
+                        aria-label="Retour"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div>
+                        <p className="font-bold text-gray-900 text-base leading-tight">Mode terrain</p>
+                        <p className="text-xs text-gray-500">Choisissez le type d'intervention</p>
+                    </div>
+                </div>
+
+                {/* Cards */}
+                <div className="flex-1 flex flex-col justify-center p-5 gap-4">
+                    <button
+                        onClick={() => setMode('depannage')}
+                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 bg-blue-100 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
+                                <Wrench className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-lg leading-tight">Intervention / Dépannage</p>
+                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                    Chronomètre, rapport d'intervention, photos avant/après, signature client sur place.
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => setMode('visite')}
+                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-violet-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 bg-violet-100 group-hover:bg-violet-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
+                                <ClipboardList className="w-7 h-7 text-violet-600 group-hover:text-white transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-lg leading-tight">Visite technique</p>
+                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                    Relevé précis : notes vocales, photos, analyse IA → prédevis ou devis immédiat, attaché au client.
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ─── Rendu : visite technique ─────────────────────────────────────────────
+
+    if (mode === 'visite') {
+        return <VisiteTechniqueMode onBack={() => setMode(null)} />;
+    }
+
+    // ─── Rendu : intervention / dépannage ─────────────────────────────────────
+
     const tabConfig = [
         { id: 'rapport', Icon: FileText, label: 'Rapport' },
         { id: 'photos', Icon: Camera, label: photos.length > 0 ? `Photos (${photos.length})` : 'Photos' },
@@ -285,9 +353,9 @@ const TerrainMode = () => {
             {/* ── Barre de titre + chrono ─────────────────────────────────── */}
             <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm">
                 <div className="px-3 py-3 flex items-center gap-2">
-                    {/* Retour */}
+                    {/* Retour à la sélection */}
                     <button
-                        onClick={() => navigate('/app')}
+                        onClick={() => setMode(null)}
                         className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
                         aria-label="Retour"
                     >
@@ -472,15 +540,6 @@ const TerrainMode = () => {
                                 Signature
                             </button>
                         </div>
-
-                        {/* Visite chantier → Devis IA */}
-                        <button
-                            onClick={() => setShowSiteVisit(true)}
-                            className="w-full flex items-center justify-center gap-2 py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white rounded-2xl text-sm font-semibold transition-colors"
-                        >
-                            <Sparkles className="w-4 h-4" />
-                            Visite chantier → Devis IA
-                        </button>
                     </div>
                 )}
 
@@ -642,14 +701,6 @@ const TerrainMode = () => {
                     </div>
                 )}
             </div>
-
-            {/* ── Visite chantier modale ──────────────────────────────────── */}
-            <SiteVisitModal
-                isOpen={showSiteVisit}
-                onClose={() => setShowSiteVisit(false)}
-                clientId={clientId}
-                clientName={clientName || undefined}
-            />
 
             {/* ── Barre d'onglets ─────────────────────────────────────────── */}
             <div className="shrink-0 bg-white border-t border-gray-200 flex safe-area-bottom">
