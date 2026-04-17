@@ -6,6 +6,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserProfile } from '../hooks/useDataCache';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
@@ -77,8 +78,9 @@ const CONFIDENCE_LABELS = { high: 'Précis', medium: 'Estimé', low: 'Approximat
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-const SiteVisitModal = ({ isOpen, onClose }) => {
+const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null }) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { data: profile } = useUserProfile();
 
     const [step, setStep] = useState(1); // 1=capture, 2=processing, 3=preview
@@ -87,6 +89,7 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
     const [activePhase, setActivePhase] = useState(null); // null|'voice'|'photos'|'quote'|'done'
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [savedReportId, setSavedReportId] = useState(null);
 
     const { isRecording, duration, startRecording, stopRecording, cancelRecording, isSupported } = useAudioRecorder();
 
@@ -186,6 +189,33 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
             setResult(quoteResult);
             setStep(3);
 
+            // Save site visit to intervention_reports
+            if (user) {
+                try {
+                    const reportNumber = `VIS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+                    const { data: saved } = await supabase.from('intervention_reports').insert({
+                        user_id: user.id,
+                        client_id: clientId || null,
+                        client_name: clientName || null,
+                        title: quoteResult.title,
+                        description: transcripts.join('\n') || null,
+                        notes: JSON.stringify({
+                            suggestions: quoteResult.suggestions,
+                            price_range: quoteResult.price_range,
+                            estimated_duration: quoteResult.estimated_duration,
+                            confidence: quoteResult.confidence,
+                        }),
+                        materials_used: quoteResult.items,
+                        status: 'draft',
+                        date: new Date().toISOString().split('T')[0],
+                        report_number: reportNumber,
+                    }).select('id').single();
+                    if (saved?.id) setSavedReportId(saved.id);
+                } catch (saveErr) {
+                    console.error('Error saving site visit:', saveErr);
+                }
+            }
+
         } catch (err) {
             console.error('Site visit error:', err);
             setError(err.message || "Erreur lors de l'analyse. Veuillez réessayer.");
@@ -198,11 +228,12 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
 
     const handleCreateDevis = () => {
         if (!result) return;
-        handleClose(false); // close without resetting yet (navigate handles unmount)
+        handleClose(false);
         navigate('/app/devis/new', {
             state: {
                 siteVisitItems: result.items,
                 siteVisitTitle: result.title,
+                ...(clientId ? { client_id: clientId } : {}),
             }
         });
     };
@@ -217,6 +248,7 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
             setResult(null);
             setError(null);
             setActivePhase(null);
+            setSavedReportId(null);
         }
         onClose();
     };
@@ -559,6 +591,20 @@ const SiteVisitModal = ({ isOpen, onClose }) => {
                                             </li>
                                         ))}
                                     </ul>
+                                </div>
+                            )}
+
+                            {savedReportId && (
+                                <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                                    Visite sauvegardée
+                                    {clientName && <span>· {clientName}</span>}
+                                    <button
+                                        onClick={() => navigate(`/app/interventions/${savedReportId}`)}
+                                        className="text-blue-600 dark:text-blue-400 underline ml-1"
+                                    >
+                                        Voir
+                                    </button>
                                 </div>
                             )}
                         </div>

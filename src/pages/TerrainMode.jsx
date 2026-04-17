@@ -6,8 +6,9 @@ import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
-    ChevronDown, Clock, ExternalLink,
+    ChevronDown, Clock, ExternalLink, Sparkles,
 } from 'lucide-react';
+import SiteVisitModal from '../components/SiteVisitModal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,10 +29,14 @@ const TerrainMode = () => {
 
     // ── Champs du rapport ─────────────────────────────────────────────────────
     const [title, setTitle] = useState(defaultTitle);
+    const [clientId, setClientId] = useState(null);
     const [clientName, setClientName] = useState('');
     const [description, setDescription] = useState('');
     const [workDone, setWorkDone] = useState('');
     const [notes, setNotes] = useState('');
+
+    // ── Visite chantier → Devis ───────────────────────────────────────────────
+    const [showSiteVisit, setShowSiteVisit] = useState(false);
 
     // ── Autocomplete clients ──────────────────────────────────────────────────
     const [clients, setClients] = useState([]);
@@ -364,7 +369,7 @@ const TerrainMode = () => {
                                 <input
                                     type="text"
                                     value={clientName}
-                                    onChange={e => setClientName(e.target.value)}
+                                    onChange={e => { setClientName(e.target.value); setClientId(null); }}
                                     onFocus={() => setShowClientList(true)}
                                     onBlur={() => setTimeout(() => setShowClientList(false), 200)}
                                     placeholder="Nom du client"
@@ -385,7 +390,7 @@ const TerrainMode = () => {
                                     {filteredClients.map(c => (
                                         <button
                                             key={c.id}
-                                            onMouseDown={() => { setClientName(c.name); setShowClientList(false); }}
+                                            onMouseDown={() => { setClientId(c.id); setClientName(c.name); setShowClientList(false); }}
                                             className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm font-medium text-gray-800 border-b border-gray-50 last:border-0 first:rounded-t-2xl last:rounded-b-2xl"
                                         >
                                             {c.name}
@@ -467,6 +472,15 @@ const TerrainMode = () => {
                                 Signature
                             </button>
                         </div>
+
+                        {/* Visite chantier → Devis IA */}
+                        <button
+                            onClick={() => setShowSiteVisit(true)}
+                            className="w-full flex items-center justify-center gap-2 py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white rounded-2xl text-sm font-semibold transition-colors"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            Visite chantier → Devis IA
+                        </button>
                     </div>
                 )}
 
@@ -628,6 +642,14 @@ const TerrainMode = () => {
                     </div>
                 )}
             </div>
+
+            {/* ── Visite chantier modale ──────────────────────────────────── */}
+            <SiteVisitModal
+                isOpen={showSiteVisit}
+                onClose={() => setShowSiteVisit(false)}
+                clientId={clientId}
+                clientName={clientName || undefined}
+            />
 
             {/* ── Barre d'onglets ─────────────────────────────────────────── */}
             <div className="shrink-0 bg-white border-t border-gray-200 flex safe-area-bottom">
