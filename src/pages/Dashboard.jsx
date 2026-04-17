@@ -673,6 +673,8 @@ const Dashboard = () => {
             <QuickActions />
             <FeatureTips />
 
+            <ActionableDashboard user={user} />
+
             {/* Derniers documents — 5 devis/factures les plus récents */}
             {allQuotes.length > 0 && (() => {
                 const STATUS_LABEL = { draft: 'Brouillon', sent: 'Envoyé', accepted: 'Signé', billed: 'Facturé', paid: 'Payé' };
@@ -731,7 +733,6 @@ const Dashboard = () => {
             })()}
 
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
-            <ActionableDashboard user={user} />
 
             {/* Statistiques avancées — visibles à partir du niveau Intermédiaire */}
             {showAdvancedStats && (hasNoQuotes ? (
