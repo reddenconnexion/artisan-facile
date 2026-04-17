@@ -4,7 +4,7 @@ import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
-    ExternalLink, FileCheck
+    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
@@ -739,6 +739,31 @@ const InterventionReportForm = () => {
         }
     };
 
+    const isSiteVisit = formData.report_type === 'site_visit' || formData.report_number?.startsWith('VT-');
+
+    let siteVisitMeta = null;
+    if (isSiteVisit && formData.notes) {
+        try { siteVisitMeta = JSON.parse(formData.notes); } catch {}
+    }
+
+    const handleCreateDevisFromVisit = () => {
+        const items = (formData.materials_used || []).filter(m => m.description?.trim());
+        navigate('/app/devis/new', {
+            state: {
+                siteVisitItems: items,
+                siteVisitTitle: formData.title,
+                ...(formData.client_id ? { client_id: formData.client_id } : {}),
+            }
+        });
+    };
+
+    const fmtEur = (val) => {
+        if (!val && val !== 0) return '—';
+        if (val >= 10000) return `${Math.round(val / 1000)} k€`;
+        if (val >= 1000) return `${(val / 1000).toFixed(1)} k€`;
+        return `${Math.round(val)} €`;
+    };
+
     const materialsTotal = formData.materials_used
         .filter(m => m.description.trim())
         .reduce((sum, m) => sum + (parseFloat(m.quantity) || 0) * (parseFloat(m.price) || 0), 0);
@@ -764,8 +789,12 @@ const InterventionReportForm = () => {
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <ClipboardList className="w-6 h-6 text-blue-600" />
-                            {isEditing ? 'Modifier le rapport' : 'Nouveau rapport d\'intervention'}
+                            {isSiteVisit
+                                ? <Sparkles className="w-6 h-6 text-violet-600" />
+                                : <ClipboardList className="w-6 h-6 text-blue-600" />}
+                            {isSiteVisit
+                                ? (isEditing ? 'Visite technique' : 'Nouvelle visite technique')
+                                : (isEditing ? 'Modifier le rapport' : 'Nouveau rapport d\'intervention')}
                         </h1>
                         {formData.status === 'signed' && (
                             <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-0.5">
@@ -776,7 +805,16 @@ const InterventionReportForm = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {formData.status !== 'signed' && (
+                    {isSiteVisit && (
+                        <button
+                            onClick={handleCreateDevisFromVisit}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors font-medium"
+                        >
+                            <FilePlus className="w-4 h-4" />
+                            Créer le devis final
+                        </button>
+                    )}
+                    {!isSiteVisit && formData.status !== 'signed' && (
                         <button
                             onClick={() => setShowSignatureModal(true)}
                             className="flex items-center gap-2 px-3 py-2 text-sm text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors font-medium"
@@ -1033,7 +1071,59 @@ const InterventionReportForm = () => {
                 </div>
             </div>
 
+            {/* Site Visit Metadata */}
+            {isSiteVisit && siteVisitMeta && (
+                <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl border border-violet-200 dark:border-violet-700 p-6 space-y-4">
+                    <h2 className="font-semibold text-violet-900 dark:text-violet-300 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-violet-600" />
+                        Résultats de l'analyse IA
+                    </h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        {siteVisitMeta.price_range && (
+                            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-violet-100 dark:border-violet-700">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Fourchette estimée</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {fmtEur(siteVisitMeta.price_range.min)} – {fmtEur(siteVisitMeta.price_range.max)}
+                                </p>
+                            </div>
+                        )}
+                        {siteVisitMeta.estimated_duration && (
+                            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-violet-100 dark:border-violet-700">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Durée estimée</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{siteVisitMeta.estimated_duration}</p>
+                            </div>
+                        )}
+                    </div>
+                    {siteVisitMeta.suggestions?.length > 0 && (
+                        <div>
+                            <p className="text-xs font-semibold text-violet-700 dark:text-violet-400 mb-2 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                Points d'attention
+                            </p>
+                            <ul className="space-y-1">
+                                {siteVisitMeta.suggestions.map((s, i) => (
+                                    <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0 mt-1.5" />
+                                        {s}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="pt-2 border-t border-violet-200 dark:border-violet-700">
+                        <button
+                            onClick={handleCreateDevisFromVisit}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors font-medium text-sm"
+                        >
+                            <FilePlus className="w-4 h-4" />
+                            Créer le devis final à partir de cette visite
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Time Tracking */}
+            {!isSiteVisit && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-500" />
@@ -1072,15 +1162,16 @@ const InterventionReportForm = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Work Description */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Wrench className="w-5 h-5 text-blue-500" />
-                        Description des travaux
+                        {isSiteVisit ? 'Notes de visite' : 'Description des travaux'}
                     </h2>
-                    {micSupported && (
+                    {!isSiteVisit && micSupported && (
                         <button
                             type="button"
                             onClick={handleDictate}
@@ -1115,6 +1206,7 @@ const InterventionReportForm = () => {
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
                 </div>
+                {!isSiteVisit && (
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Travaux réalisés
@@ -1127,6 +1219,7 @@ const InterventionReportForm = () => {
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
                 </div>
+                )}
             </div>
 
             {/* Materials */}
@@ -1134,7 +1227,7 @@ const InterventionReportForm = () => {
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Package className="w-5 h-5 text-blue-500" />
-                        Matériaux utilisés
+                        {isSiteVisit ? 'Prestations estimées' : 'Matériaux utilisés'}
                     </h2>
                     <button
                         onClick={addMaterial}
@@ -1268,6 +1361,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Notes */}
+            {!isSiteVisit && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <StickyNote className="w-5 h-5 text-blue-500" />
@@ -1281,9 +1375,10 @@ const InterventionReportForm = () => {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
             </div>
+            )}
 
             {/* Signature Section */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            {!isSiteVisit && <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <PenLine className="w-5 h-5 text-blue-500" />
                     Signature client
@@ -1351,7 +1446,7 @@ const InterventionReportForm = () => {
                         </button>
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* Bottom Save */}
             <div className="flex justify-end gap-3 pb-4">
