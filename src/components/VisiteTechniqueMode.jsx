@@ -114,7 +114,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         if (!user) return;
         supabase.from('clients')
             .select('id, name')
-            .order('name', { ascending: true })
+            .order('created_at', { ascending: false })
             .limit(100)
             .then(({ data }) => setClients(data || []));
     }, [user]);
