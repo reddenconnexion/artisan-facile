@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
-    X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText,
+    X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
 } from 'lucide-react';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -105,6 +105,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const [result, setResult] = useState(null);
     const [savedReportId, setSavedReportId] = useState(null);
     const [error, setError] = useState(null);
+
+    // Tips panel
+    const [showTips, setShowTips] = useState(false);
 
     const { isRecording, duration, startRecording, stopRecording, cancelRecording, isSupported } = useAudioRecorder();
     const galleryInputRef = useRef(null);
@@ -397,6 +400,58 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                     </span>
                                 )}
                             </div>
+
+                            {/* Tips panel */}
+                            <button
+                                onClick={() => setShowTips(v => !v)}
+                                className="w-full flex items-center gap-2 px-3 py-2 mb-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                            >
+                                <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="flex-1 text-left">Comment bien dicter pour l'IA ?</span>
+                                {showTips ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />}
+                            </button>
+
+                            {showTips && (
+                                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+                                    {/* Example */}
+                                    <div className="px-4 pt-3 pb-2">
+                                        <p className="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wide">Exemple de bonne note vocale</p>
+                                        <div className="bg-white border border-amber-200 rounded-xl p-3 text-sm text-gray-700 leading-relaxed font-mono">
+                                            <span className="text-violet-600 font-semibold not-italic">[Lieu]</span>{' '}
+                                            "Salle de bain, 1er étage.{' '}
+                                            <span className="text-blue-600 font-semibold">[Constat]</span>{' '}
+                                            Carrelage mural décollé côté douche, environ 1m².{' '}
+                                            <span className="text-orange-600 font-semibold">[Matériaux]</span>{' '}
+                                            Carreaux 20×20 beige à remplacer, même teinte.{' '}
+                                            <span className="text-green-600 font-semibold">[Action]</span>{' '}
+                                            Dépose des carreaux, traitement anti-humidité, repose et rejointoiement. 2m² au total."
+                                        </div>
+                                    </div>
+
+                                    {/* Rules */}
+                                    <div className="px-4 pb-3 pt-1 space-y-2">
+                                        <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Les 4 règles</p>
+                                        {[
+                                            { color: 'bg-violet-500', label: '1. Commencez par le lieu', tip: 'Pièce, étage, façade… l\'IA structure le devis par zone.' },
+                                            { color: 'bg-blue-500', label: '2. Décrivez ce que vous constatez', tip: 'État actuel, défaut, anomalie. Soyez précis.' },
+                                            { color: 'bg-orange-500', label: '3. Citez les matériaux & dimensions', tip: '"parquet chêne 120cm", "peinture lessivable", "3m de linéaire".' },
+                                            { color: 'bg-green-500', label: '4. Terminez par l\'action à faire', tip: '"à déposer", "à reprendre", "à remplacer entièrement".' },
+                                        ].map(({ color, label, tip }) => (
+                                            <div key={label} className="flex gap-2.5">
+                                                <div className={`w-2 h-2 rounded-full ${color} flex-shrink-0 mt-1.5`} />
+                                                <div>
+                                                    <p className="text-xs font-semibold text-gray-800">{label}</p>
+                                                    <p className="text-xs text-gray-500">{tip}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2 mt-1">
+                                            💡 <strong>Astuce :</strong> faites une note par pièce ou par poste de travail. L'IA génère une ligne de devis par sujet distinct.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {isSupported ? (
                                 <button
                                     onClick={isRecording ? handleStopRecording : startRecording}
