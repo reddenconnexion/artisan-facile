@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     let usingServerKey = false;
 
     if (!effectiveApiKey) {
-      const serverGeminiKey = Deno.env.get('GEMINI_API_KEY');
+      const serverAnthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
 
       if (!isPro) {
         // Free user: check monthly quota before allowing server key usage
@@ -82,15 +82,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (!serverGeminiKey) {
+      if (!serverAnthropicKey) {
         return new Response(
           JSON.stringify({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }),
           { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      effectiveApiKey = serverGeminiKey;
-      effectiveProvider = 'gemini';
+      effectiveApiKey = serverAnthropicKey;
+      effectiveProvider = 'anthropic';
       usingServerKey = true;
     }
 
@@ -105,7 +105,35 @@ Deno.serve(async (req) => {
 
     let rawResponse: string;
 
-    if (effectiveProvider === 'gemini') {
+    if (effectiveProvider === 'anthropic') {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': effectiveApiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        return new Response(
+          JSON.stringify({ error: `Erreur Anthropic (${response.status}): ${errData.error?.message || response.statusText}` }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const data = await response.json();
+      rawResponse = data.content?.find((b: { type: string; text?: string }) => b.type === 'text')?.text;
+      if (!rawResponse) throw new Error('Réponse Anthropic vide');
+
+    } else if (effectiveProvider === 'gemini') {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${effectiveApiKey}`;
       const response = await fetch(url, {
         method: 'POST',
