@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuoteItems } from '../utils/aiService';
+import { checkLimit } from '../utils/planLimits';
 
 /**
  * Modale pour générer des lignes de devis avec l'IA
@@ -18,6 +19,22 @@ export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, use
 
         setLoading(true);
         try {
+            // Check quota for free users without a personal API key
+            const hasPersonalKey = !!userProfile?.ai_preferences?.openai_api_key;
+            const plan = userProfile?.plan || 'free';
+            const isPro = plan === 'pro' || plan === 'owner';
+
+            if (!hasPersonalKey && !isPro && userProfile?.id) {
+                const { allowed, remaining, limit } = await checkLimit(userProfile.id, 'ai_generation', plan);
+                if (!allowed) {
+                    toast.error(`Limite atteinte : ${limit} générations IA/mois. Passez au plan Pro pour un accès illimité.`);
+                    return;
+                }
+                if (remaining === 1) {
+                    toast.info(`Dernière génération IA disponible ce mois-ci (${limit}/${limit}).`);
+                }
+            }
+
             const context = {
                 hourlyRate: userProfile?.ai_hourly_rate || '',
                 instructions: userProfile?.ai_instructions || ''
