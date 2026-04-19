@@ -20,16 +20,34 @@ jobs:
 
       - name: Deploy Edge Functions
         run: |
-          supabase functions deploy ai-proxy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy plan-vision --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy voice-transcribe --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy create-checkout-session --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy stripe-portal --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy stripe-webhook --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy transmit-invoice --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy request-quote-otp --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy save-openai-key --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy notify-artisan-portal-signature --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-          supabase functions deploy pdp-webhook --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          FAILED=()
+          FUNCTIONS=(
+            ai-proxy
+            plan-vision
+            voice-transcribe
+            create-checkout-session
+            stripe-portal
+            stripe-webhook
+            transmit-invoice
+            request-quote-otp
+            save-openai-key
+            notify-artisan-portal-signature
+            pdp-webhook
+          )
+          for fn in "${FUNCTIONS[@]}"; do
+            echo "→ Deploying $fn..."
+            if ! supabase functions deploy "$fn" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}; then
+              echo "✗ FAILED: $fn"
+              FAILED+=("$fn")
+            else
+              echo "✓ OK: $fn"
+            fi
+          done
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo ""
+            echo "The following functions failed to deploy:"
+            for fn in "${FAILED[@]}"; do echo "  - $fn"; done
+            exit 1
+          fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
