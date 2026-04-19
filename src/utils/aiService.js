@@ -9,11 +9,11 @@ const callAiProxy = async (systemPrompt, userMessage) => {
         body: { systemPrompt, userMessage }
     });
 
-    if (error) {
-        // data may contain the actual error body from the Edge Function
-        const message = data?.error || error.message || 'Erreur du proxy IA';
-        throw new Error(message);
-    }
+    // Check data.error first — supabase-js v2 may return data=null on non-2xx,
+    // so also fall back to error.message as a last resort.
+    if (data?.error) throw new Error(data.error);
+    if (error) throw new Error(error.message || 'Erreur du proxy IA');
+
     if (data?.error) throw new Error(data.error);
 
     return data.rawResponse;
