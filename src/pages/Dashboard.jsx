@@ -1,4 +1,31 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+
+// Animate a number from its previous value to `target` each time target changes.
+const useCountUp = (target, duration = 900) => {
+    const [val, setVal] = useState(target ?? 0);
+    const fromRef = useRef(target ?? 0);
+    const rafRef = useRef(null);
+
+    useEffect(() => {
+        const to = target ?? 0;
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        const from = fromRef.current;
+        if (from === to) return;
+        let startTs = null;
+        const step = (ts) => {
+            if (!startTs) startTs = ts;
+            const t = Math.min((ts - startTs) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            setVal(from + (to - from) * eased);
+            if (t < 1) { rafRef.current = requestAnimationFrame(step); }
+            else { setVal(to); fromRef.current = to; rafRef.current = null; }
+        };
+        rafRef.current = requestAnimationFrame(step);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [target, duration]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return val;
+};
 import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
@@ -87,32 +114,37 @@ const RecentVoiceMemos = ({ userId, navigate }) => {
 
 // --- KPI Strip (4 essentiels d'un coup d'oeil) ---
 
-const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`flex-1 min-w-0 bg-white dark:bg-gray-900 rounded-xl border shadow-sm p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
-            urgent
-                ? 'border-amber-200 dark:border-amber-700/50'
-                : 'border-gray-100 dark:border-gray-800'
-        }`}
-    >
-        <div className="flex items-center justify-between mb-2.5">
-            <div className={`p-2 rounded-lg ${iconBg}`}>
-                <Icon className={`w-4 h-4 ${iconColor}`} />
+const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn }) => {
+    const counted = useCountUp(typeof rawValue === 'number' ? rawValue : 0, 900);
+    const displayValue = typeof rawValue === 'number' && formatFn ? formatFn(counted) : value;
+    return (
+        <button
+            onClick={onClick}
+            className={`flex-1 min-w-0 bg-white dark:bg-gray-900 rounded-xl border shadow-sm p-4 text-left transition-all hover:shadow-md active:scale-[0.98] animate-card-entrance ${
+                urgent
+                    ? 'border-amber-200 dark:border-amber-700/50'
+                    : 'border-gray-100 dark:border-gray-800'
+            }`}
+            style={{ animationDelay: `${index * 60}ms` }}
+        >
+            <div className="flex items-center justify-between mb-2.5">
+                <div className={`p-2 rounded-lg ${iconBg}`}>
+                    <Icon className={`w-4 h-4 ${iconColor}`} />
+                </div>
+                {urgent && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
+                        À faire
+                    </span>
+                )}
             </div>
-            {urgent && (
-                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
-                    À faire
-                </span>
-            )}
-        </div>
-        <p className={`text-xl font-bold leading-tight ${urgent ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-white'}`}>
-            {value}
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
-        {sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{sub}</p>}
-    </button>
-);
+            <p className={`text-xl font-bold leading-tight ${urgent ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-white'}`}>
+                {displayValue}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
+            {sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{sub}</p>}
+        </button>
+    );
+};
 
 const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const now = new Date();
@@ -155,6 +187,9 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard
+                index={0}
+                rawValue={caThisMonth}
+                formatFn={fmtEur}
                 icon={TrendingUp}
                 iconBg="bg-green-100 dark:bg-green-900/30"
                 iconColor="text-green-600 dark:text-green-400"
@@ -164,6 +199,9 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 onClick={() => navigate('/app/accounting')}
             />
             <KpiCard
+                index={1}
+                rawValue={pendingTotal}
+                formatFn={fmtEur}
                 icon={Clock}
                 iconBg={pendingTotal > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-800'}
                 iconColor={pendingTotal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}
@@ -176,6 +214,9 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 onClick={() => navigate('/app/devis')}
             />
             <KpiCard
+                index={2}
+                rawValue={toRelanceCount}
+                formatFn={(v) => Math.round(v) > 0 ? `${Math.round(v)} devis` : 'Aucun'}
                 icon={FileText}
                 iconBg={toRelanceCount > 0 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-800'}
                 iconColor={toRelanceCount > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400'}
@@ -186,6 +227,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 onClick={() => navigate('/app/devis')}
             />
             <KpiCard
+                index={3}
                 icon={Calendar}
                 iconBg="bg-blue-100 dark:bg-blue-900/30"
                 iconColor="text-blue-600 dark:text-blue-400"
@@ -439,7 +481,7 @@ const calculateStats = (allQuotes, referenceDate) => {
 };
 
 // --- Reusable Smart Card with Individual Navigation ---
-const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick }) => {
+const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick, cardIndex = 0 }) => {
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
@@ -453,6 +495,7 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
     if (displayValue === undefined) return null;
 
     const tooltipFormatter = chartFormatter || formatValue;
+    const animatedDisplayValue = useCountUp(displayValue, 900);
 
     // Navigation Logic
     const navigateDate = (amount) => {
@@ -471,7 +514,10 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
     }, [localDate, period]);
 
     return (
-        <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between transition-all duration-300">
+        <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between transition-all duration-300 animate-card-entrance"
+            style={{ animationDelay: `${cardIndex * 80}ms` }}
+        >
             <div className="flex items-center justify-between mb-4">
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -497,7 +543,7 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
                         onClick={() => onValueClick && onValueClick(period, type === 'conversion' ? [] : currentData?.details || [], localDate)}
                         title={onValueClick ? "Voir le détail" : ""}
                     >
-                        {formatValue(displayValue)}
+                        {formatValue(animatedDisplayValue)}
                     </p>
                     {staticSubText && !showChart && <p className="text-xs text-gray-400 mt-1">{staticSubText}</p>}
                 </div>
@@ -754,6 +800,7 @@ const Dashboard = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <RichStatCard
+                        cardIndex={0}
                         title="Chiffre d'affaires"
                         tooltip="Total des devis acceptés et facturés sur la période. C'est le montant que vos clients vous ont commandé."
                         allQuotes={allQuotes}
@@ -765,6 +812,7 @@ const Dashboard = () => {
                         onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
                     />
                     <RichStatCard
+                        cardIndex={1}
                         title="Résultat Net"
                         tooltip="Chiffre d'affaires moins le coût de vos matériaux. C'est ce qui reste pour couvrir vos charges et votre rémunération."
                         allQuotes={allQuotes}
@@ -777,6 +825,7 @@ const Dashboard = () => {
                         onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'Résultat' })}
                     />
                     <RichStatCard
+                        cardIndex={2}
                         title="Volume de Devis"
                         tooltip="Montant total de tous les devis créés sur la période, signés ou non. Cliquez pour voir ceux en attente de réponse."
                         allQuotes={allQuotes}
@@ -789,6 +838,7 @@ const Dashboard = () => {
                         onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
                     />
                     <RichStatCard
+                        cardIndex={3}
                         title="Taux de conversion"
                         tooltip="Part de vos devis acceptés par vos clients. Ex : 60% signifie que 6 devis sur 10 ont été signés. Plus c'est élevé, mieux c'est."
                         allQuotes={allQuotes}

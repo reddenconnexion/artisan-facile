@@ -1,3 +1,113 @@
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
+
+/* ─── Card cascade entrance ─────────────────────────────── */
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Page slide in from right (new quote) ──────────────── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(36px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Page slide out to right (back navigation) ─────────── */
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(36px); }
+}
+
+/* ─── Nav icon bounce on tab change ─────────────────────── */
+@keyframes navBounce {
+  0%   { transform: translateY(0) scale(1); }
+  30%  { transform: translateY(-5px) scale(1.2); }
+  65%  { transform: translateY(2px) scale(0.9); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* ─── Shimmer for active pipeline step ──────────────────── */
+@keyframes shimmerStep {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ─── Success circle pop ─────────────────────────────────── */
+@keyframes circlePop {
+  0%   { transform: scale(0); opacity: 0; }
+  55%  { transform: scale(1.18); opacity: 1; }
+  80%  { transform: scale(0.94); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── Check draw ─────────────────────────────────────────── */
+@keyframes checkDraw {
+  from { stroke-dashoffset: 60; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ─── Success overlay fade+scale ────────────────────────── */
+@keyframes fadeAndScale {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  72%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.04); }
+}
+
+/* ─── Global button press feedback ──────────────────────── */
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+/* ─── Utility classes ────────────────────────────────────── */
+.animate-card-entrance {
+  animation: cardEntrance 0.38s ease-out both;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-slide-out-right {
+  animation: slideOutRight 0.25s ease-in both;
+}
+
+.animate-nav-bounce {
+  animation: navBounce 0.42s ease-out;
+}
+
+.animate-shimmer-step {
+  background: linear-gradient(90deg, #1e40af 0%, #3b82f6 35%, #93c5fd 50%, #3b82f6 65%, #1e40af 100%);
+  background-size: 250% auto;
+  animation: shimmerStep 1.8s linear infinite;
+}
+
+.animate-circle-pop {
+  animation: circlePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-check-draw {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: checkDraw 0.45s ease-out 0.4s both;
+}
+
+.animate-send-success {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  animation: fadeAndScale 2.4s ease-out 0.1s forwards;
+}
+
+/* ─── Input focus blue glow ──────────────────────────────── */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  border-color: #3b82f6 !important;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}

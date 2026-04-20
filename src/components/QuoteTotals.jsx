@@ -1,5 +1,30 @@
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import MarginGauge from './MarginGauge';
+
+// Smooth transition between consecutive values (real-time edit feedback)
+const useAnimatedValue = (target, duration = 500) => {
+    const [val, setVal] = useState(target);
+    const fromRef = useRef(target);
+    const rafRef = useRef(null);
+    useEffect(() => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        const from = fromRef.current;
+        if (Math.abs(from - target) < 0.005) { setVal(target); fromRef.current = target; return; }
+        let startTs = null;
+        const step = (ts) => {
+            if (!startTs) startTs = ts;
+            const t = Math.min((ts - startTs) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            const current = from + (target - from) * eased;
+            setVal(current);
+            if (t < 1) { rafRef.current = requestAnimationFrame(step); }
+            else { setVal(target); fromRef.current = target; rafRef.current = null; }
+        };
+        rafRef.current = requestAnimationFrame(step);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [target, duration]); // eslint-disable-line react-hooks/exhaustive-deps
+    return val;
+};
 
 /**
  * Composant pour afficher les totaux d'un devis
@@ -19,6 +44,7 @@ const QuoteTotals = memo(function QuoteTotals({
 }) {
     const margin = subtotal > 0 ? ((subtotal - totalCost) / subtotal) * 100 : 0;
     const netIncome = subtotal - totalCost;
+    const animatedTotal = useAnimatedValue(total, 500);
 
     return (
         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 space-y-4">
@@ -80,7 +106,7 @@ const QuoteTotals = memo(function QuoteTotals({
 
                 <div className="flex justify-between text-lg pt-2 border-t border-gray-200 dark:border-gray-700">
                     <span className="font-semibold text-gray-900 dark:text-white">Total TTC</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{total.toFixed(2)} €</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400 tabular-nums">{animatedTotal.toFixed(2)} €</span>
                 </div>
             </div>
 

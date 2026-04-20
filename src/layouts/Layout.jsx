@@ -272,6 +272,18 @@ const Layout = () => {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  // Track which bottom nav item is bouncing
+  const [bouncingHref, setBouncingHref] = React.useState(null);
+  const prevPathnameRef = React.useRef(location.pathname);
+  React.useEffect(() => {
+    if (prevPathnameRef.current !== location.pathname) {
+      setBouncingHref(location.pathname);
+      prevPathnameRef.current = location.pathname;
+      const t = setTimeout(() => setBouncingHref(null), 500);
+      return () => clearTimeout(t);
+    }
+  }, [location.pathname]);
+
   // Desktop Hover Logic
   const handleMouseEnter = () => {
     if (window.innerWidth >= 768) setIsCollapsed(false);
@@ -775,7 +787,7 @@ const Layout = () => {
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
                 }`}
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className={`w-5 h-5 ${bouncingHref === item.href ? 'animate-nav-bounce' : ''}`} />
               <span className="text-[10px] font-medium">{item.name}</span>
             </Link>
           );

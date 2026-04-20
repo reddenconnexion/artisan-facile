@@ -82,6 +82,8 @@ const DevisForm = () => {
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
     const [showAdvancedQuoteOptions, setShowAdvancedQuoteOptions] = useState(false);
+    const [isExiting, setIsExiting] = useState(false);
+    const [showSendSuccess, setShowSendSuccess] = useState(false);
 
     // Follow-up state
     const [followUpSteps, setFollowUpSteps] = useState([]);
@@ -1093,6 +1095,9 @@ const DevisForm = () => {
             window.location.href = mailtoUrl;
             toast.success('Application de messagerie ouverte');
         }
+
+        setShowSendSuccess(true);
+        setTimeout(() => setShowSendSuccess(false), 2600);
 
         // Log interaction
         if (formData.client_id) {
@@ -2220,6 +2225,11 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
+    const handleBack = () => {
+        setIsExiting(true);
+        setTimeout(() => navigate('/app/devis'), 260);
+    };
+
     // Verrouillage si Signé/Facturé/Payé/Annulé
     const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
 
@@ -2235,7 +2245,7 @@ Conditions de règlement : Paiement à réception de facture.`
     }
 
     return (
-        <div className="max-w-4xl mx-auto pb-12 sm:pb-12 pb-28">
+        <div className={`max-w-4xl mx-auto pb-12 sm:pb-12 pb-28 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
             {isLocked && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
@@ -2295,7 +2305,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             <div className="flex items-center justify-between mb-6">
                 <button
-                    onClick={() => navigate('/app/devis')}
+                    onClick={handleBack}
                     className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                 >
                     <ArrowLeft className="w-5 h-5 sm:mr-2" />
@@ -2815,7 +2825,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 type="button"
                                                 onClick={() => setFormData(p => ({ ...p, status: step.key }))}
                                                 className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
-                                                    idx === currentIdx ? 'bg-blue-600 text-white' :
+                                                    idx === currentIdx ? 'animate-shimmer-step text-white' :
                                                     idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
                                                     'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                                 }`}
@@ -4012,6 +4022,29 @@ Conditions de règlement : Paiement à réception de facture.`
                         <Save className="w-4 h-4" />
                         {loading ? 'Enregistrement…' : 'Enregistrer'}
                     </button>
+                </div>
+            )}
+
+            {/* ── Animation de succès après envoi au client ── */}
+            {showSendSuccess && (
+                <div className="fixed inset-0 z-[300] pointer-events-none">
+                    <div className="animate-send-success flex flex-col items-center gap-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl px-10 py-8 border border-gray-100 dark:border-gray-800">
+                        <div className="animate-circle-pop w-20 h-20 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+                            <svg viewBox="0 0 50 50" width="50" height="50" fill="none">
+                                <circle cx="25" cy="25" r="20" stroke="#22c55e" strokeWidth="2.5" />
+                                <polyline
+                                    points="14,26 22,34 36,17"
+                                    stroke="#22c55e"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="animate-check-draw"
+                                />
+                            </svg>
+                        </div>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">Envoyé au client !</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Application de messagerie ouverte</p>
+                    </div>
                 </div>
             )}
         </div>
