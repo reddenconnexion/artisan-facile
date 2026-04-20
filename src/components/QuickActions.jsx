@@ -39,7 +39,7 @@ const QuickActions = () => {
                 <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions rapides</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {actions.map((action) => (
                     <button
                         key={action.label}
