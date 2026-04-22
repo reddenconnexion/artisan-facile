@@ -1,7 +1,7 @@
 /**
  * Factur-X XML Generator — Profil EN 16931 (Confort)
  *
- * Norme : CEN EN 16931 / Factur-X v1.0
+ * Norme : CEN EN 16931 / Factur-X v1.08
  * Guideline : urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:en16931
  *
  * Changements par rapport à l'ancienne version :
@@ -195,6 +195,11 @@ export const generateFacturXXML = (devis, client, userProfile) => {
     ? `\n    <ram:IncludedNote>\n      <ram:Content>TVA non applicable, art. 293 B du CGI</ram:Content>\n    </ram:IncludedNote>`
     : '';
 
+  // Note option TVA sur les débits (ABL = regulatory information, UN/EDIFACT)
+  const vatOnDebitsNote = (includeTva && devis.vat_on_debits)
+    ? `\n    <ram:IncludedNote>\n      <ram:Content>Option pour le paiement de la TVA d'après les débits</ram:Content>\n      <ram:SubjectCode>ABL</ram:SubjectCode>\n    </ram:IncludedNote>`
+    : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
   xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -214,7 +219,7 @@ export const generateFacturXXML = (devis, client, userProfile) => {
     <ram:TypeCode>${typeCode}</ram:TypeCode>
     <ram:IssueDateTime>
       <udt:DateTimeString format="102">${issueDate}</udt:DateTimeString>
-    </ram:IssueDateTime>${franchiseNote}
+    </ram:IssueDateTime>${franchiseNote}${vatOnDebitsNote}
   </rsm:ExchangedDocument>
 
   <rsm:SupplyChainTradeTransaction>
@@ -255,7 +260,18 @@ export const generateFacturXXML = (devis, client, userProfile) => {
       </ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
 
-    <ram:ApplicableHeaderTradeDelivery />
+    ${devis.intervention_address
+      ? `<ram:ApplicableHeaderTradeDelivery>
+      <ram:ShipToTradeParty>
+        <ram:PostalTradeAddress>
+          <ram:PostcodeCode>${escapeXml(devis.intervention_postal_code || '')}</ram:PostcodeCode>
+          <ram:LineOne>${escapeXml(devis.intervention_address)}</ram:LineOne>
+          <ram:CityName>${escapeXml(devis.intervention_city || '')}</ram:CityName>
+          <ram:CountryID>FR</ram:CountryID>
+        </ram:PostalTradeAddress>
+      </ram:ShipToTradeParty>
+    </ram:ApplicableHeaderTradeDelivery>`
+      : `<ram:ApplicableHeaderTradeDelivery />`}
 
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>${currency}</ram:InvoiceCurrencyCode>
