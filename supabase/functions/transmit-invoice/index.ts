@@ -59,14 +59,16 @@ async function transmitToPDP(
   quoteNumber: string,
   sellerSiret: string,
   buyerSiren: string,
+  userPdpConfig?: { pdp_url?: string; pdp_key?: string; pdp_service?: string } | null,
 ): Promise<TransmitResult> {
-  const pdpUrl = Deno.env.get('PDP_API_URL');
-  const pdpApiKey = Deno.env.get('PDP_API_KEY');
+  // Priorité : credentials de l'utilisateur > variables d'environnement globales
+  const pdpUrl = userPdpConfig?.pdp_url || Deno.env.get('PDP_API_URL');
+  const pdpApiKey = userPdpConfig?.pdp_key || Deno.env.get('PDP_API_KEY');
 
   if (!pdpUrl || !pdpApiKey) {
     return {
       success: false,
-      error: 'PDP non configurée : variables PDP_API_URL et PDP_API_KEY manquantes.',
+      error: 'PDP non configurée : renseignez votre Plateforme Agréée dans les paramètres du profil.',
     };
   }
 
@@ -192,7 +194,7 @@ Deno.serve(async (req) => {
     // --- Récupération du profil vendeur ---
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('siret, company_name, full_name')
+      .select('siret, company_name, full_name, pdp_config')
       .eq('id', user.id)
       .single();
 
@@ -212,8 +214,9 @@ Deno.serve(async (req) => {
       .eq('id', quote_id);
 
     // --- Transmission ---
-    const pdpServiceName = Deno.env.get('PDP_SERVICE_NAME') || 'pdp';
-    const result = await transmitToPDP(pdf_base64, quoteNumber, sellerSiret, buyerSiren);
+    const userPdpConfig = (profile as { pdp_config?: { pdp_url?: string; pdp_key?: string; pdp_service?: string } | null })?.pdp_config;
+    const pdpServiceName = userPdpConfig?.pdp_service || Deno.env.get('PDP_SERVICE_NAME') || 'pdp';
+    const result = await transmitToPDP(pdf_base64, quoteNumber, sellerSiret, buyerSiren, userPdpConfig);
 
     // --- Mise à jour du statut ---
     const updatePayload = result.success

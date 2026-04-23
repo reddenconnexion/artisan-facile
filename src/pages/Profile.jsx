@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
@@ -19,6 +19,13 @@ const Profile = () => {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
+
+    // Plateforme Agréée (PA) — clé API jamais exposée côté client
+    const [pdpKeyConfigured, setPdpKeyConfigured] = useState(false);
+    const [pdpUrlInput, setPdpUrlInput] = useState('');
+    const [pdpServiceInput, setPdpServiceInput] = useState('');
+    const [pdpKeyInput, setPdpKeyInput] = useState('');
+    const [savingPdpConfig, setSavingPdpConfig] = useState(false);
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -61,6 +68,12 @@ const Profile = () => {
                 // On ne retient que le statut configuré — la clé est immédiatement effacée de la mémoire
                 setApiKeyConfigured(!!aiPrefs.openai_api_key);
                 delete data.ai_preferences?.openai_api_key;
+
+                // Config PDP : l'URL et le service sont affichés, la clé reste côté serveur
+                const pdpCfg = data.pdp_config || {};
+                setPdpKeyConfigured(!!pdpCfg.pdp_key);
+                setPdpUrlInput(pdpCfg.pdp_url || '');
+                setPdpServiceInput(pdpCfg.pdp_service || '');
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',
@@ -260,6 +273,56 @@ const Profile = () => {
             toast.error(err.message || 'Erreur lors de la suppression de la clé');
         } finally {
             setSavingApiKey(false);
+        }
+    };
+
+    const handleSavePdpConfig = async () => {
+        const url = pdpUrlInput.trim();
+        const service = pdpServiceInput.trim();
+        if (!url) { toast.error("L'URL de la Plateforme Agréée est requise"); return; }
+
+        setSavingPdpConfig(true);
+        try {
+            const pdpConfig = {
+                pdp_url: url,
+                pdp_service: service || 'pa',
+                ...(pdpKeyInput.trim() ? { pdp_key: pdpKeyInput.trim() } : {}),
+            };
+            // Si aucune nouvelle clé n'est saisie, préserver la clé existante via un merge Supabase
+            let updatePayload;
+            if (pdpKeyInput.trim()) {
+                updatePayload = { pdp_config: pdpConfig };
+                setPdpKeyConfigured(true);
+            } else {
+                // Merge uniquement url et service sans toucher à la clé
+                const { data: current } = await supabase.from('profiles').select('pdp_config').eq('id', user.id).single();
+                updatePayload = { pdp_config: { ...(current?.pdp_config || {}), pdp_url: url, pdp_service: service || 'pa' } };
+            }
+            const { error } = await supabase.from('profiles').update(updatePayload).eq('id', user.id);
+            if (error) throw error;
+            setPdpKeyInput('');
+            toast.success('Configuration PDP sauvegardée');
+        } catch (err) {
+            toast.error(err.message || 'Erreur lors de la sauvegarde');
+        } finally {
+            setSavingPdpConfig(false);
+        }
+    };
+
+    const handleDeletePdpConfig = async () => {
+        setSavingPdpConfig(true);
+        try {
+            const { error } = await supabase.from('profiles').update({ pdp_config: null }).eq('id', user.id);
+            if (error) throw error;
+            setPdpKeyConfigured(false);
+            setPdpUrlInput('');
+            setPdpServiceInput('');
+            setPdpKeyInput('');
+            toast.success('Configuration PDP supprimée');
+        } catch (err) {
+            toast.error(err.message || 'Erreur lors de la suppression');
+        } finally {
+            setSavingPdpConfig(false);
         }
     };
 
@@ -879,6 +942,86 @@ const Profile = () => {
                 </div>
             </div>
             )}
+
+            {/* Plateforme Agréée (e-facture) */}
+            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center">
+                        <Send className="w-5 h-5 mr-2 text-indigo-600" />
+                        Plateforme Agréée — Facturation électronique
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-5">
+                        Connectez votre Plateforme Agréée (PA) pour transmettre automatiquement vos factures à l'administration fiscale.
+                        Obligatoire à partir de septembre 2027 pour les micro-entreprises.{' '}
+                        <a href="https://www.impots.gouv.fr/je-consulte-la-liste-des-plateformes-agreees" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                            Consulter la liste des PA immatriculées →
+                        </a>
+                    </p>
+
+                    {pdpKeyConfigured && !pdpKeyInput && (
+                        <div className="flex items-center gap-2 mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>Plateforme Agréée configurée — {pdpUrlInput || 'URL enregistrée'}</span>
+                        </div>
+                    )}
+
+                    <div className="space-y-3 max-w-lg">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'API de la PA</label>
+                            <input
+                                type="url"
+                                value={pdpUrlInput}
+                                onChange={e => setPdpUrlInput(e.target.value)}
+                                placeholder="https://api.ma-plateforme-agreee.fr/v1"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la plateforme</label>
+                            <input
+                                type="text"
+                                value={pdpServiceInput}
+                                onChange={e => setPdpServiceInput(e.target.value)}
+                                placeholder="ex: chorus_pro, yooz, pennylane…"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Clé API / Bearer token {pdpKeyConfigured && <span className="text-green-600 font-normal">(déjà configurée)</span>}
+                            </label>
+                            <input
+                                type="password"
+                                value={pdpKeyInput}
+                                onChange={e => setPdpKeyInput(e.target.value)}
+                                placeholder={pdpKeyConfigured ? "Laissez vide pour conserver la clé existante" : "Entrez votre clé API…"}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={handleSavePdpConfig}
+                                disabled={savingPdpConfig || !pdpUrlInput.trim()}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                {savingPdpConfig ? 'Sauvegarde…' : 'Sauvegarder la configuration PDP'}
+                            </button>
+                            {pdpKeyConfigured && (
+                                <button
+                                    type="button"
+                                    onClick={handleDeletePdpConfig}
+                                    disabled={savingPdpConfig}
+                                    className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 font-medium text-sm transition-colors"
+                                >
+                                    Supprimer
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* Zone de Danger / Maintenance */}
             <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
