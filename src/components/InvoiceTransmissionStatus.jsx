@@ -130,11 +130,12 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
       </button>
 
       {/* Avertissement si PDP non configurée */}
-      {!import.meta.env.VITE_PDP_CONFIGURED && currentStatus === 'rejected' && (
+      {currentStatus === 'rejected' && currentError?.includes('non configurée') && (
         <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          La PDP n'est pas encore configurée. Renseignez les variables{' '}
-          <code className="font-mono">PDP_API_URL</code> et{' '}
-          <code className="font-mono">PDP_API_KEY</code> dans les secrets Supabase.
+          Aucune Plateforme Agréée n'est configurée.{' '}
+          <a href="/profile" className="font-medium underline hover:text-amber-700">
+            Configurez votre PA dans les paramètres du profil →
+          </a>
         </p>
       )}
     </div>
