@@ -70,7 +70,7 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
                         <textarea
                             value={body}
                             onChange={(e) => setBody(e.target.value)}
-                            rows={12}
+                            rows={8}
                             className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                         />
                     </div>
@@ -80,7 +80,7 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
                     </p>
                 </div>
 
-                <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 p-4 border-t bg-gray-50">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
@@ -89,7 +89,7 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
                     </button>
                     <button
                         onClick={handleSend}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <Send className="w-4 h-4" />
                         Ouvrir dans ma messagerie
