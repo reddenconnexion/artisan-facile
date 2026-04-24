@@ -23,8 +23,8 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+            <div className="bg-white rounded-t-xl sm:rounded-xl shadow-2xl max-w-2xl w-full h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b bg-gray-50">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <Mail className="w-5 h-5 text-blue-600" />
@@ -38,7 +38,7 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
                     </button>
                 </div>
 
-                <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Destinataire
