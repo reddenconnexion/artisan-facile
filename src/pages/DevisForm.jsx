@@ -2486,7 +2486,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </>
                                 )}
 
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
+                                {id && (formData.status === 'accepted' || formData.status === 'sent' || formData.status === 'billed') && !formData.parent_id && (
                                     <>
                                         <div className="border-t border-gray-100 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>

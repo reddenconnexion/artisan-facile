@@ -178,7 +178,7 @@ const ActionableDashboard = ({ user }) => {
                 .from('quotes')
                 .update({
                     type: 'invoice',
-                    status: 'billed',
+                    status: 'accepted',
                     date: new Date().toISOString().split('T')[0]
                 })
                 .eq('id', quote.id);
