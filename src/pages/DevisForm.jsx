@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
 import { supabase } from '../utils/supabase';
@@ -3796,7 +3797,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             {/* Email Preview Modal */}
             {
-                emailPreview && (
+                emailPreview && createPortal(
                     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
                         <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl max-w-2xl w-full flex flex-col h-[92vh] sm:h-auto sm:max-h-[90vh]">
                             <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
@@ -3886,7 +3887,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )
             }
             {/* Full Screen Description Editor (Mobile) */}
