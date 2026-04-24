@@ -3797,9 +3797,9 @@ Conditions de règlement : Paiement à réception de facture.`
             {/* Email Preview Modal */}
             {
                 emailPreview && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
+                        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl max-w-2xl w-full flex flex-col h-[92vh] sm:h-auto sm:max-h-[90vh]">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                                     <Mail className="w-5 h-5 mr-2 text-blue-600" />
                                     Prévisualisation de l'email
@@ -3812,7 +3812,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </button>
                             </div>
 
-                            <div className="p-6 space-y-4 overflow-y-auto">
+                            <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
                                     <input
@@ -3837,7 +3837,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 navigator.clipboard.writeText(emailPreview.rawSubject);
                                                 toast.success('Objet copié !');
                                             }}
-                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg"
+                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
                                             title="Copier l'objet"
                                         >
                                             <Copy className="w-5 h-5" />
@@ -3848,7 +3848,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                                     <div className="relative">
                                         <textarea
-                                            rows={12}
+                                            rows={8}
                                             value={emailPreview.rawBody}
                                             onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
@@ -3867,24 +3867,24 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-xl">
-                            <button
-                                type="button"
-                                onClick={() => setEmailPreview(null)}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center"
-                            >
-                                <Send className="w-4 h-4 mr-2" />
-                                Envoyer
-                            </button>
+                            <div className="p-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setEmailPreview(null)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
+                                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
+                                >
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Envoyer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )
