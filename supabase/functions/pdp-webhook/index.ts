@@ -1,32 +1,30 @@
 /**
  * Edge Function : pdp-webhook
  *
- * Reçoit les callbacks de statut envoyés par la PDP/PPF après transmission
+ * Reçoit les callbacks de statut envoyés par la PA/PDP/PPF après transmission
  * d'une facture Factur-X. Met à jour transmission_status dans la table quotes
  * et envoie une notification email à l'artisan si la facture est accusée.
  *
  * Endpoint public (pas de JWT Supabase) — sécurisé par signature HMAC-SHA256.
- * URL à déclarer auprès de votre PDP :
+ * URL à déclarer auprès de votre PA :
  *   https://<project>.supabase.co/functions/v1/pdp-webhook
  *
  * Variables d'environnement requises :
- *   - PDP_WEBHOOK_SECRET  : secret partagé pour vérifier la signature HMAC
- *   - RESEND_API_KEY      : (optionnel) pour les notifications email
- *   - EMAIL_FROM          : expéditeur des emails
+ *   - PDP_WEBHOOK_SECRET     : secret HMAC pour les PDP génériques
+ *   - B2BROUTER_WEBHOOK_SECRET : secret HMAC pour B2BRouter
+ *   - RESEND_API_KEY         : (optionnel) pour les notifications email
+ *   - EMAIL_FROM             : expéditeur des emails
  *
- * Format de payload attendu (commun à la plupart des PDP françaises) :
- * {
- *   "invoiceReference": "FAC-2026-0042",   // notre quote_number OU transmission_ref
- *   "depositId":        "pdp-ref-xyz",     // référence PDP (alias de invoiceReference)
- *   "status":           "ACKNOWLEDGED",    // voir STATUS_MAP ci-dessous
- *   "statusDate":       "2026-09-15T10:30:00Z",
- *   "message":          "Facture reçue et validée",  // optionnel
- *   "rejectionReason":  null               // renseigné si status = REJECTED
- * }
+ * Formats supportés :
  *
- * Chorus Pro (PPF) utilise le même schéma avec les champs :
- *   "identifiantDePieceJointePDP" → mappé sur depositId
- *   "statut"                       → mappé sur status
+ *   B2BRouter — header : X-B2Brouter-Signature: t=<timestamp>,s=<hmac_hex>
+ *   Payload signé : "<timestamp>.<rawBody>"
+ *   Champs payload : { id, state, ... }
+ *   États : sent | delivered | acknowledged | registered | accepted | refused | error | invalid
+ *
+ *   Générique PDP — header : X-PDP-Signature | X-Webhook-Signature | X-Signature (hex brut)
+ *   Payload signé : rawBody
+ *   Champs payload : { invoiceReference, depositId, status, ... }
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -47,6 +45,7 @@ const STATUS_MAP: Record<string, string> = {
   PROCESSING: 'sent',
   EN_COURS: 'sent',
   RECU: 'sent',
+  SENT: 'sent',        // B2BRouter : envoyé à la PA destinataire
 
   // Statuts "accusé de réception / validé"
   ACKNOWLEDGED: 'acknowledged',
@@ -56,6 +55,9 @@ const STATUS_MAP: Record<string, string> = {
   VALIDE: 'acknowledged',
   TRAITE: 'acknowledged',
   CHORUS_INTEGRE: 'acknowledged',
+  DELIVERED: 'acknowledged',    // B2BRouter : livré au destinataire
+  REGISTERED: 'acknowledged',   // B2BRouter : enregistré côté acheteur
+  APPROVED: 'acknowledged',
 
   // Statuts "rejeté / erreur"
   REJECTED: 'rejected',
@@ -76,15 +78,59 @@ const normalizeStatus = (raw: string): string | null => {
 // Vérification signature HMAC-SHA256
 // ---------------------------------------------------------------------------
 
+const hmacHex = async (secret: string, message: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
+const timingSafeEqual = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
 /**
- * Vérifie la signature HMAC-SHA256 envoyée par la PDP.
- * La PDP doit envoyer : HMAC-SHA256(secret, rawBody) en hex
- * dans l'un des headers : X-PDP-Signature | X-Webhook-Signature | X-Signature
+ * Vérifie la signature HMAC-SHA256.
+ *
+ * B2BRouter  → header X-B2Brouter-Signature: t=<ts>,s=<hex>
+ *              message signé = "<ts>.<rawBody>", secret = B2BROUTER_WEBHOOK_SECRET
+ *
+ * Générique → header X-PDP-Signature | X-Webhook-Signature | X-Signature (hex brut)
+ *              message signé = rawBody, secret = PDP_WEBHOOK_SECRET
  */
 async function verifySignature(req: Request, rawBody: string): Promise<boolean> {
+  const b2bHeader = req.headers.get('x-b2brouter-signature');
+
+  if (b2bHeader) {
+    // Format B2BRouter : "t=<timestamp>,s=<hmac_hex>"
+    const secret = Deno.env.get('B2BROUTER_WEBHOOK_SECRET');
+    if (!secret) {
+      console.warn('[pdp-webhook] B2BROUTER_WEBHOOK_SECRET non configuré — signature non vérifiée');
+      return true;
+    }
+    const parts = Object.fromEntries(b2bHeader.split(',').map((p) => p.split('=')));
+    const timestamp = parts['t'];
+    const receivedSig = parts['s'];
+    if (!timestamp || !receivedSig) {
+      console.error('[pdp-webhook] Header X-B2Brouter-Signature malformé');
+      return false;
+    }
+    const expected = await hmacHex(secret, `${timestamp}.${rawBody}`);
+    return timingSafeEqual(expected, receivedSig);
+  }
+
+  // Format PDP générique
   const secret = Deno.env.get('PDP_WEBHOOK_SECRET');
   if (!secret) {
-    // En mode dev / PDP non configurée, on accepte sans vérification
     console.warn('[pdp-webhook] PDP_WEBHOOK_SECRET non configuré — signature non vérifiée');
     return true;
   }
@@ -100,29 +146,8 @@ async function verifySignature(req: Request, rawBody: string): Promise<boolean> 
     return false;
   }
 
-  // Calculer le HMAC attendu
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signatureBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
-  const expectedSig = Array.from(new Uint8Array(signatureBytes))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  // Comparaison en temps constant pour éviter les timing attacks
-  const sigToCompare = receivedSig.replace(/^sha256=/, '');
-  if (expectedSig.length !== sigToCompare.length) return false;
-
-  let diff = 0;
-  for (let i = 0; i < expectedSig.length; i++) {
-    diff |= expectedSig.charCodeAt(i) ^ sigToCompare.charCodeAt(i);
-  }
-  return diff === 0;
+  const expected = await hmacHex(secret, rawBody);
+  return timingSafeEqual(expected, receivedSig.replace(/^sha256=/, ''));
 }
 
 // ---------------------------------------------------------------------------
@@ -246,15 +271,18 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Extraire les champs (support multi-format PDP)
+  // Extraire les champs (support multi-format PA/PDP)
+  // B2BRouter utilise "state" ; les autres PA utilisent "status" / "statut"
   const rawStatus =
+    (payload.state as string) ||
     (payload.status as string) ||
     (payload.statut as string) ||
     (payload.invoiceStatus as string) ||
     '';
 
-  // Référence PDP : peut être depositId, invoiceReference, ou identifiantDePieceJointePDP
+  // Référence PA : B2BRouter = payload.id ; autres PDP = depositId / invoiceReference / …
   const pdpRef =
+    (payload.id != null ? String(payload.id) : null) ||
     (payload.depositId as string) ||
     (payload.invoiceReference as string) ||
     (payload.identifiantDePieceJointePDP as string) ||
