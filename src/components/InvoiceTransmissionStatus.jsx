@@ -78,7 +78,7 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
         >
           {statusCfg.icon}
           <span>{statusCfg.label}</span>
-          {currentRef && (
+          {(currentRef || currentError) && (
             <button
               onClick={() => setShowDetail(!showDetail)}
               className="ml-1 opacity-60 hover:opacity-100"
@@ -92,14 +92,14 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
 
       {/* Détail de la référence PDP / erreur */}
       {showDetail && (currentRef || currentError) && (
-        <div className="text-xs text-gray-500 pl-1 space-y-0.5">
+        <div className="text-xs pl-1 space-y-0.5">
           {currentRef && (
-            <p>
+            <p className="text-gray-500">
               Référence {serviceLabel} : <span className="font-mono font-medium">{currentRef}</span>
             </p>
           )}
           {currentError && (
-            <p className="text-red-500">Erreur : {currentError}</p>
+            <p className="text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{currentError}</p>
           )}
         </div>
       )}
