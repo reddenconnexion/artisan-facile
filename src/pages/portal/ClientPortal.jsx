@@ -87,7 +87,12 @@ const ClientPortal = () => {
         try {
             const blobUrl = await generateDevisPDF(quote, data.client, data.artisan, quote.type === 'invoice', 'bloburl');
             const label = quote.type === 'invoice' ? `Facture · ${quote.title || `#${quote.quote_number || quote.id}`}` : `Devis · ${quote.title || `#${quote.quote_number || quote.id}`}`;
-            setPdfViewer({ url: blobUrl, title: label });
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.open(blobUrl, '_blank');
+            } else {
+                setPdfViewer({ url: blobUrl, title: label });
+            }
         } catch {
             toast.error('Impossible de générer le PDF');
         } finally {
@@ -105,14 +110,24 @@ const ClientPortal = () => {
 
     const handleViewReport = async (report) => {
         const key = `r-${report.id}`;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (report.report_pdf_url) {
-            setPdfViewer({ url: report.report_pdf_url, title: report.title || 'Rapport d\'intervention' });
+            if (isMobile) {
+                window.open(report.report_pdf_url, '_blank');
+            } else {
+                setPdfViewer({ url: report.report_pdf_url, title: report.title || 'Rapport d\'intervention' });
+            }
             return;
         }
         setGeneratingPdf(key);
         try {
             const blob = await generateInterventionReportPDF(report, data.artisan, true);
-            setPdfViewer({ url: URL.createObjectURL(blob), title: report.title || 'Rapport d\'intervention' });
+            const blobUrl = URL.createObjectURL(blob);
+            if (isMobile) {
+                window.open(blobUrl, '_blank');
+            } else {
+                setPdfViewer({ url: blobUrl, title: report.title || 'Rapport d\'intervention' });
+            }
         } catch {
             toast.error('Impossible de générer le rapport');
         } finally {
