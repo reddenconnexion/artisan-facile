@@ -238,9 +238,14 @@ Deno.serve(async (req) => {
       .select('id, quote_number, type, user_id, client_id, transmission_status, date, valid_until, items, include_tva, total_ht, total_tva, total_ttc, title')
       .eq('id', quote_id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (quoteError || !quote) {
+    if (quoteError) {
+      console.error('[transmit-invoice] Erreur DB:', JSON.stringify(quoteError));
+      return new Response(JSON.stringify({ error: `Erreur base de données : ${quoteError.message}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!quote) {
+      console.error(`[transmit-invoice] Facture introuvable : quote_id=${quote_id} user_id=${user.id}`);
       return new Response(JSON.stringify({ error: 'Facture introuvable' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     if (quote.type !== 'invoice') {
