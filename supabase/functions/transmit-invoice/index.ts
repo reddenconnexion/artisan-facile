@@ -149,9 +149,12 @@ async function transmitToB2BRouter(
   const data = await res.json().catch(() => ({ message: res.statusText }));
 
   if (!res.ok) {
+    const detail = typeof data === 'object'
+      ? (data?.message || data?.error || data?.errors || JSON.stringify(data))
+      : String(data);
     return {
       success: false,
-      error: `B2BRouter HTTP ${res.status} — ${data?.message || data?.error || JSON.stringify(data)}`,
+      error: `B2BRouter HTTP ${res.status} — ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`,
     };
   }
 
