@@ -565,11 +565,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFont(undefined, 'normal');
         // ... Totals rendering ...
         doc.text(`Total HT :`, labelX, finalY);
-        doc.text(`${devis.total_ht.toFixed(2)} €`, valueX, finalY, { align: 'right' });
+        doc.text(`${(Number(devis.total_ht) || 0).toFixed(2)} €`, valueX, finalY, { align: 'right' });
 
         if (devis.include_tva !== false) {
             doc.text(`TVA (20%) :`, labelX, finalY + 6);
-            doc.text(`${devis.total_tva.toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
+            doc.text(`${(Number(devis.total_tva) || 0).toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
         } else {
             doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
@@ -579,7 +579,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
         doc.text(`Total TTC :`, labelX, finalY + 14);
-        doc.text(`${devis.total_ttc.toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
+        doc.text(`${(Number(devis.total_ttc) || 0).toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
     }
 
     // Position for Notes
