@@ -136,16 +136,16 @@ async function transmitToB2BRouter(
     },
   };
 
-  // Découverte des comptes disponibles pour cette clé API
-  const accountsRes = await fetch(`${base}/accounts`, {
+  // Vérification que le chemin invoices existe sur ce compte
+  const listRes = await fetch(`${base}/accounts/${accountId}/invoices`, {
     headers: {
       'X-B2B-API-Key': apiKey,
       'Authorization': `Bearer ${apiKey}`,
       'Accept': 'application/json',
     },
   });
-  const accountsText = await accountsRes.text();
-  console.log(`[B2BRouter] GET /accounts → ${accountsRes.status} | ${accountsText.slice(0, 500)}`);
+  const listText = await listRes.text();
+  console.log(`[B2BRouter] GET /accounts/${accountId}/invoices → ${listRes.status} | ${listText.slice(0, 300)}`);
 
   const url = `${base}/accounts/${accountId}/invoices`;
   console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
