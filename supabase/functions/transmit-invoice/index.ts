@@ -136,7 +136,10 @@ async function transmitToB2BRouter(
     },
   };
 
-  const res = await fetch(`${base}/accounts/${accountId}/invoices`, {
+  const url = `${base}/accounts/${accountId}/invoices`;
+  console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'X-B2B-API-Key': apiKey,
@@ -146,12 +149,18 @@ async function transmitToB2BRouter(
     body: JSON.stringify(body),
   });
 
-  const data = await res.json().catch(() => ({ message: res.statusText }));
+  const rawText = await res.text();
+  console.log(`[B2BRouter] response ${res.status} | body=${rawText.slice(0, 300)}`);
+  let data: Record<string, unknown>;
+  try { data = JSON.parse(rawText); } catch { data = { message: rawText || res.statusText }; }
 
   if (!res.ok) {
+    const detail = typeof data === 'object'
+      ? (data?.message || data?.error || data?.errors || JSON.stringify(data))
+      : String(data);
     return {
       success: false,
-      error: `B2BRouter HTTP ${res.status} — ${data?.message || data?.error || JSON.stringify(data)}`,
+      error: `B2BRouter HTTP ${res.status} — ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`,
     };
   }
 
