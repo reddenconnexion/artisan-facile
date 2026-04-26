@@ -109,7 +109,6 @@ async function transmitToB2BRouter(
     postalcode: (client?.postal_code as string) || '',
     city: (client?.city as string) || '',
     country: 'fr',
-    transport_type_code: 'fr.dgfip', // B2B secteur privé DGFiP
   };
   if (client?.siren) {
     contact.cin_scheme = '0002'; // SIREN 9 chiffres
