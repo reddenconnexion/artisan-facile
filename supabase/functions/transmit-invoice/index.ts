@@ -143,13 +143,16 @@ async function transmitToB2BRouter(
     method: 'POST',
     headers: {
       'X-B2B-API-Key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
     body: JSON.stringify(body),
   });
 
   const rawText = await res.text();
-  console.log(`[B2BRouter] response ${res.status} | body=${rawText.slice(0, 300)}`);
+  const resHeaders = Object.fromEntries(res.headers.entries());
+  console.log(`[B2BRouter] response ${res.status} | headers=${JSON.stringify(resHeaders)} | body=${rawText.slice(0, 500)}`);
   let data: Record<string, unknown>;
   try { data = JSON.parse(rawText); } catch { data = { message: rawText || res.statusText }; }
 
