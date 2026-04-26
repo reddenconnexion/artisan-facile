@@ -136,20 +136,23 @@ async function transmitToB2BRouter(
     },
   };
 
-  const url = `${base}/api/accounts/${accountId}/invoices`;
+  const url = `${base}/accounts/${accountId}/invoices`;
   console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'X-B2B-API-Key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
     body: JSON.stringify(body),
   });
 
   const rawText = await res.text();
-  console.log(`[B2BRouter] response ${res.status} | body=${rawText.slice(0, 300)}`);
+  const resHeaders = Object.fromEntries(res.headers.entries());
+  console.log(`[B2BRouter] response ${res.status} | headers=${JSON.stringify(resHeaders)} | body=${rawText.slice(0, 500)}`);
   let data: Record<string, unknown>;
   try { data = JSON.parse(rawText); } catch { data = { message: rawText || res.statusText }; }
 
