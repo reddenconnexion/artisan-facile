@@ -136,6 +136,17 @@ async function transmitToB2BRouter(
     },
   };
 
+  // Découverte des comptes disponibles pour cette clé API
+  const accountsRes = await fetch(`${base}/accounts`, {
+    headers: {
+      'X-B2B-API-Key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
+      'Accept': 'application/json',
+    },
+  });
+  const accountsText = await accountsRes.text();
+  console.log(`[B2BRouter] GET /accounts → ${accountsRes.status} | ${accountsText.slice(0, 500)}`);
+
   const url = `${base}/accounts/${accountId}/invoices`;
   console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
 
