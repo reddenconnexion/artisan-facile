@@ -62,8 +62,8 @@ async function transmitToB2BRouter(
   }
 
   const base = sandbox
-    ? 'https://app-staging.b2brouter.net'
-    : 'https://app.b2brouter.net';
+    ? 'https://api-staging.b2brouter.net'
+    : 'https://api.b2brouter.net';
 
   const includeTva = quote.include_tva !== false;
   const items = Array.isArray(quote.items) ? quote.items : [];
@@ -136,14 +136,13 @@ async function transmitToB2BRouter(
     },
   };
 
-  const url = `${base}/api/accounts/${accountId}/invoices`;
+  const url = `${base}/accounts/${accountId}/invoices`;
   console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'X-B2B-API-Key': apiKey,
-      'X-B2B-API-Version': '2025-01-01',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
