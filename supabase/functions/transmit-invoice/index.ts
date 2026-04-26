@@ -63,7 +63,7 @@ async function transmitToB2BRouter(
 
   const base = sandbox
     ? 'https://api-staging.b2brouter.net'
-    : 'https://app.b2brouter.net';
+    : 'https://api.b2brouter.net';
 
   const includeTva = quote.include_tva !== false;
   const items = Array.isArray(quote.items) ? quote.items : [];
