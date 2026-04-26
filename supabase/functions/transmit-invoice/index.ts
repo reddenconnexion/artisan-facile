@@ -136,7 +136,7 @@ async function transmitToB2BRouter(
     },
   };
 
-  const url = `${base}/accounts/${accountId}/invoices`;
+  const url = `${base}/api/accounts/${accountId}/invoices`;
   console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
 
   const res = await fetch(url, {
