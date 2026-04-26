@@ -141,6 +141,7 @@ async function transmitToB2BRouter(
     headers: {
       'X-B2B-API-Key': apiKey,
       'Authorization': `Bearer ${apiKey}`,
+      'X-B2B-API-Version': '2026-03-02',
       'Accept': 'application/json',
     },
   });
@@ -155,6 +156,7 @@ async function transmitToB2BRouter(
     headers: {
       'X-B2B-API-Key': apiKey,
       'Authorization': `Bearer ${apiKey}`,
+      'X-B2B-API-Version': '2026-03-02',
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
