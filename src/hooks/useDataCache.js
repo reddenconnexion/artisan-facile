@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
@@ -64,7 +65,20 @@ export function useClients() {
 // Cache des devis/factures
 export function useQuotes(filters = {}) {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const filterKey = JSON.stringify(filters);
+
+    useEffect(() => {
+        if (!user) return;
+        const channel = supabase
+            .channel(`quotes_realtime_${user.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${user.id}` }, () => {
+                queryClient.invalidateQueries({ queryKey: ['quotes', user.id] });
+                queryClient.invalidateQueries({ queryKey: ['quote'] });
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [user?.id, queryClient]);
 
     return useQuery({
         queryKey: ['quotes', user?.id, filters],
