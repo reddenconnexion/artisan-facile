@@ -84,6 +84,7 @@ const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
 const Marketing = lazyWithRetry(() => import('./pages/Marketing'));
 const InterventionReports = lazyWithRetry(() => import('./pages/InterventionReports'));
 const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionReportForm'));
+const ReceivedInvoices = lazyWithRetry(() => import('./pages/ReceivedInvoices'));
 const VoiceMemos = lazyWithRetry(() => import('./pages/VoiceMemos'));
 const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
@@ -148,6 +149,7 @@ function App() {
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<ActivitySettings />} />
                 <Route path="accounting" element={<Accounting />} />
+                <Route path="received-invoices" element={<ReceivedInvoices />} />
                 <Route path="marketing" element={<Marketing />} />
                 <Route path="interventions" element={<InterventionReports />} />
                 <Route path="interventions/:id" element={<InterventionReportForm />} />

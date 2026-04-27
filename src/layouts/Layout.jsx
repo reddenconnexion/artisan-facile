@@ -182,6 +182,7 @@ const Layout = () => {
         icon: FileText,
         children: [
           { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+          { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
           ...(showInter ? [{ name: 'Comptabilité', href: '/app/accounting', icon: Calculator }] : []),
         ],
       },
