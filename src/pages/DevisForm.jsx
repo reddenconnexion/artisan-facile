@@ -3101,7 +3101,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 </div>
                             ) : (
-                            <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-start border-b border-gray-100 pb-4 last:border-0">
+                            <div key={item.id} className={`flex flex-col sm:flex-row gap-4 items-start border-b pb-4 last:border-0 ${item.is_optional ? 'border-purple-100 border-l-2 border-l-purple-300 pl-2 -ml-2' : 'border-gray-100'}`}>
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
@@ -3275,6 +3275,15 @@ Conditions de règlement : Paiement à réception de facture.`
                                         disabled={isLocked}
                                     >
                                         <Trash2 className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => updateItem(item.id, 'is_optional', !item.is_optional)}
+                                        disabled={isLocked}
+                                        className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' : 'text-gray-300 border-gray-200 hover:text-gray-500 hover:border-gray-300'}`}
+                                        title={item.is_optional ? 'Option — cliquer pour rendre obligatoire' : 'Rendre cette ligne optionnelle'}
+                                    >
+                                        OPT
                                     </button>
                                 </div>
                             </div>
