@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { FileCheck, Download, Loader2, Phone, PenTool } from 'lucide-react';
+import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -16,6 +16,8 @@ const PublicQuote = () => {
     const [justSigned, setJustSigned] = useState(false);
     const [pdfUrl, setPdfUrl] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [selectedOptionals, setSelectedOptionals] = useState(null); // null = not yet initialized
+    const [optionsExpanded, setOptionsExpanded] = useState(true);
 
     useEffect(() => {
         fetchQuote();
@@ -108,6 +110,16 @@ const PublicQuote = () => {
     const handleSignatureSave = async (signatureData, otpCode) => {
         try {
             setSavingSignature(true);
+
+            // Confirm optional item selection in DB before signing
+            const hasOptionals = (quote?.items || []).some(i => i.is_optional);
+            if (hasOptionals && selectedOptionals !== null) {
+                await supabase.rpc('select_quote_options', {
+                    p_token: token,
+                    p_selected_ids: [...selectedOptionals],
+                });
+            }
+
             const { data, error } = await supabase
                 .rpc('sign_public_quote', {
                     lookup_token: token,
@@ -150,18 +162,29 @@ const PublicQuote = () => {
         }
     };
 
-    // Generate PDF client-side whenever quote data changes (or signature is added)
+    // Initialize selectedOptionals when quote loads (all optional items pre-checked)
     useEffect(() => {
-        if (!quote) return;
+        if (!quote || selectedOptionals !== null) return;
+        const ids = (quote.items || []).filter(i => i.is_optional).map(i => String(i.id));
+        setSelectedOptionals(new Set(ids));
+    }, [quote]);
+
+    // Generate PDF client-side — depends on quote and optional item selection
+    useEffect(() => {
+        if (!quote || selectedOptionals === null) return;
         let blobUrl = null;
         setPdfLoading(true);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
-        generateDevisPDF(quote, quote.client, quote.artisan, isInv, 'bloburl')
+        const quoteForPdf = {
+            ...quote,
+            items: (quote.items || []).filter(item => !item.is_optional || selectedOptionals.has(String(item.id))),
+        };
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'bloburl')
             .then(url => { blobUrl = url; setPdfUrl(url); })
             .catch(e => console.error('PDF generation error:', e))
             .finally(() => setPdfLoading(false));
         return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
-    }, [quote?.id, quote?.signature, quote?.status]);
+    }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -186,6 +209,21 @@ const PublicQuote = () => {
     const { artisan } = quote;
     const isSigned = quote.status === 'accepted';
     const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
+
+    const optionalItems = (quote.items || []).filter(i => i.is_optional && i.type !== 'section');
+    const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView;
+    const includeTva = quote.include_tva !== false;
+    const tvaRate = 0.20;
+
+    const itemTotal = (item) => (parseFloat(item.quantity) || 1) * (parseFloat(item.price) || 0);
+    const mandatoryHT = (quote.items || [])
+        .filter(i => !i.is_optional && i.type !== 'section')
+        .reduce((s, i) => s + itemTotal(i), 0);
+    const selectedOptionsHT = optionalItems
+        .filter(i => selectedOptionals?.has(String(i.id)))
+        .reduce((s, i) => s + itemTotal(i), 0);
+    const totalHT = mandatoryHT + selectedOptionsHT;
+    const totalTTC = includeTva ? totalHT * (1 + tvaRate) : totalHT;
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -265,6 +303,62 @@ const PublicQuote = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Options panel — visible only when there are optional items */}
+            {hasOptions && (
+                <div className="bg-white border-b border-purple-100 shadow-sm">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <button
+                            className="w-full flex items-center justify-between py-3 text-sm font-semibold text-purple-700"
+                            onClick={() => setOptionsExpanded(v => !v)}
+                        >
+                            <span>⚙️ Personnalisez votre devis ({optionalItems.length} option{optionalItems.length > 1 ? 's' : ''})</span>
+                            {optionsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {optionsExpanded && (
+                            <div className="pb-4 space-y-2">
+                                {optionalItems.map(item => {
+                                    const checked = selectedOptionals?.has(String(item.id)) ?? true;
+                                    const ht = itemTotal(item);
+                                    const ttc = includeTva ? ht * (1 + tvaRate) : ht;
+                                    return (
+                                        <label key={item.id} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checked ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) => setSelectedOptionals(prev => {
+                                                    const next = new Set(prev);
+                                                    if (e.target.checked) next.add(String(item.id));
+                                                    else next.delete(String(item.id));
+                                                    return next;
+                                                })}
+                                                className="mt-0.5 w-4 h-4 accent-purple-600 shrink-0"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium ${checked ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                                                    {item.description}
+                                                </p>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-400'}`}>
+                                                    +{ttc.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}
+                                                </p>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+
+                                <div className="flex items-center justify-between pt-2 border-t border-purple-100 text-sm">
+                                    <span className="text-gray-500">Total avec vos options</span>
+                                    <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}</span>
+                                </div>
+                                <p className="text-xs text-gray-400">Le PDF se met à jour automatiquement selon votre sélection.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* PDF area */}
             <div className="flex-1 flex flex-col" style={{ minHeight: 'calc(100vh - 56px)' }}>

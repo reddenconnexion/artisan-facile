@@ -363,7 +363,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 }];
             }
             return [
-                item.description || '',
+                item.is_optional ? `(Option) ${item.description || ''}` : (item.description || ''),
                 item.quantity ?? '',
                 `${parseFloat(item.price || 0).toFixed(2)} €`,
                 `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
@@ -405,7 +405,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
 
         const generateRows = (items) => items.map(item => [
-            item.description,
+            item.is_optional ? `(Option) ${item.description || ''}` : (item.description || ''),
             item.quantity,
             `${parseFloat(item.price || 0).toFixed(2)} €`,
             `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
