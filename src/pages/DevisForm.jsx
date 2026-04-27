@@ -2246,7 +2246,8 @@ Conditions de règlement : Paiement à réception de facture.`
     }
 
     return (
-        <div className={`max-w-4xl mx-auto pb-12 sm:pb-12 pb-28 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
+        <div className={`flex flex-col lg:flex-row lg:items-start max-w-[1440px] mx-auto ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
+        <div className="flex-1 min-w-0 max-w-4xl mx-auto lg:mx-0 w-full pb-28 sm:pb-12">
             {isLocked && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
@@ -3645,10 +3646,83 @@ Conditions de règlement : Paiement à réception de facture.`
                 userProfile={userProfile}
             />
 
-            {/* Preview Modal */}
+        </div>{/* end left column */}
+
+            {/* Sticky PDF preview panel — desktop only */}
+            <div className="hidden lg:flex w-[440px] xl:w-[520px] flex-shrink-0 sticky top-0 h-screen flex-col border-l border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <Eye className="w-4 h-4 text-blue-500" />
+                        Aperçu PDF
+                    </div>
+                    {previewUrl && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handlePreview}
+                                disabled={previewLoading}
+                                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
+                                title="Regénérer l'aperçu"
+                            >
+                                <Loader2 className={`w-3.5 h-3.5 ${previewLoading ? 'animate-spin' : ''}`} />
+                                Actualiser
+                            </button>
+                            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Nouvel onglet
+                            </a>
+                        </div>
+                    )}
+                </div>
+                <div className="flex-1 relative bg-gray-200 dark:bg-gray-950 overflow-hidden">
+                    {previewLoading && !previewUrl ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-3">
+                            <div className="relative">
+                                <div className="w-14 h-18 bg-white dark:bg-gray-800 rounded-lg shadow-lg flex items-center justify-center p-3">
+                                    <FileText className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                                    <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Génération du document…</p>
+                        </div>
+                    ) : previewUrl ? (
+                        <iframe
+                            src={previewUrl}
+                            title="Aperçu PDF"
+                            className="w-full h-full border-0"
+                            style={{ background: '#525659' }}
+                        />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+                            <div className="w-16 h-20 bg-white dark:bg-gray-800 rounded-xl shadow-md flex items-center justify-center">
+                                <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Aperçu du document</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    {(!id || id === 'new') ? 'Enregistrez d\'abord le document' : 'Cliquez pour générer l\'aperçu'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handlePreview}
+                                disabled={previewLoading || !id || id === 'new'}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <Eye className="w-4 h-4" />
+                                Générer l'aperçu
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Preview Modal — mobile/tablet uniquement */}
             {(previewUrl || previewLoading) && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 lg:hidden"
                     onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
                     onKeyDown={(e) => { if (e.key === 'Escape') setPreviewUrl(null); }}
                 >
