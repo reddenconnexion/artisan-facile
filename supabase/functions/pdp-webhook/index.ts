@@ -233,6 +233,72 @@ async function sendAcknowledgedEmail(
 }
 
 // ---------------------------------------------------------------------------
+// Réception de facture fournisseur (ReceivedInvoice B2BRouter)
+// ---------------------------------------------------------------------------
+
+async function handleReceivedInvoice(
+  invoice: Record<string, unknown>,
+  rawPayload: Record<string, unknown>,
+): Promise<void> {
+  const contact = (invoice.contact as Record<string, unknown>) ?? {};
+  const company = (invoice.company as Record<string, unknown>) ?? {};
+  const buyerSiren = (contact.cin_value as string) ?? null;
+  const b2brouterId = invoice.id != null ? String(invoice.id) : null;
+
+  // Retrouver l'artisan par SIREN/SIRET de l'acheteur
+  let userId: string | null = null;
+  if (buyerSiren) {
+    const { data: byExact } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('siret', buyerSiren)
+      .maybeSingle();
+    userId = byExact?.id ?? null;
+
+    if (!userId) {
+      // SIRET = SIREN + NIC (5 chiffres) — essai préfixe
+      const { data: byPrefix } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .like('siret', `${buyerSiren}%`)
+        .maybeSingle();
+      userId = byPrefix?.id ?? null;
+    }
+  }
+
+  if (!userId) {
+    console.warn(`[pdp-webhook] ReceivedInvoice #${b2brouterId} : artisan introuvable pour SIREN=${buyerSiren} — stockage ignoré`);
+    return;
+  }
+
+  const record = {
+    user_id: userId,
+    b2brouter_id: b2brouterId,
+    supplier_name: (company.name as string) ?? null,
+    supplier_siren: (company.cin_value as string) ?? null,
+    supplier_tin: (company.tin_value as string) ?? null,
+    invoice_number: (invoice.number as string) ?? null,
+    invoice_date: (invoice.date as string) ?? null,
+    due_date: (invoice.due_date as string) ?? null,
+    total_ht: invoice.total_before_tax != null ? Number(invoice.total_before_tax) : null,
+    total_ttc: invoice.total != null ? Number(invoice.total) : null,
+    currency: (invoice.currency as string) ?? 'EUR',
+    status: (invoice.state as string) ?? 'new',
+    raw_payload: rawPayload,
+  };
+
+  const { error } = await supabaseAdmin
+    .from('received_invoices')
+    .upsert(record, { onConflict: 'b2brouter_id' });
+
+  if (error) {
+    console.error('[pdp-webhook] Erreur insertion received_invoices:', error.message);
+  } else {
+    console.log(`[pdp-webhook] ReceivedInvoice #${b2brouterId} stockée pour user=${userId}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Handler principal
 // ---------------------------------------------------------------------------
 
@@ -267,6 +333,19 @@ Deno.serve(async (req) => {
   } catch {
     return new Response(JSON.stringify({ error: 'JSON invalide' }), {
       status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Détection facture reçue (ReceivedInvoice) — à traiter avant la logique émission
+  // ---------------------------------------------------------------------------
+  const invoiceData = (payload.invoice as Record<string, unknown>) ?? payload;
+  const invoiceType = String(invoiceData.type ?? payload.type ?? '');
+
+  if (invoiceType === 'ReceivedInvoice') {
+    await handleReceivedInvoice(invoiceData, payload);
+    return new Response(JSON.stringify({ received: true, type: 'ReceivedInvoice' }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
