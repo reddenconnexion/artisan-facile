@@ -217,9 +217,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(50, 50, 50);
-        doc.text(`Objet : ${devis.title}`, 14, titleY);
+        const titleLines = doc.splitTextToSize(`Objet : ${devis.title}`, 182);
+        doc.text(titleLines, 14, titleY);
 
-        tableStartY = titleY + 8;
+        tableStartY = titleY + titleLines.length * 6 + 2;
     }
 
     if (isAmendment) {
