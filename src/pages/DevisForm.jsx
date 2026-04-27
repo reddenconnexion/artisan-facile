@@ -769,7 +769,8 @@ const DevisForm = () => {
                     payment_method: data.payment_method || '',
                     paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
                     report_pdf_url: data.report_pdf_url || null,
-                    require_otp: data.require_otp === true
+                    require_otp: data.require_otp === true,
+                    quote_number: data.quote_number || null
                 });
 
                 if (data.intervention_address || data.intervention_city) {
