@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -25,6 +25,25 @@ const StatusBadge = ({ status }) => {
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
             <Icon className="w-3 h-3 mr-1" />
             {style.label}
+        </span>
+    );
+};
+
+const TransmissionBadge = ({ status }) => {
+    if (!status) return null;
+    const cfg = {
+        sending:     { label: 'Transmission…', color: 'text-blue-500',   Icon: Radio },
+        sent:        { label: 'Transmise',      color: 'text-green-600',  Icon: CheckCircle },
+        acknowledged:{ label: 'Accusée',        color: 'text-green-700',  Icon: CheckCircle },
+        rejected:    { label: 'Rejet PA',       color: 'text-red-600',    Icon: XCircle },
+        pending:     { label: 'En attente PA',  color: 'text-yellow-600', Icon: Clock },
+    }[status];
+    if (!cfg) return null;
+    const { label, color, Icon } = cfg;
+    return (
+        <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${color}`} title={`Transmission e-facture : ${label}`}>
+            <Icon className="w-3 h-3" />
+            {label}
         </span>
     );
 };
@@ -440,7 +459,10 @@ const DevisList = () => {
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <StatusBadge status={devis.status} />
+                                            <div className="flex flex-col gap-1">
+                                                <StatusBadge status={devis.status} />
+                                                {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                                             {devis.last_followup_at ? (
@@ -499,8 +521,9 @@ const DevisList = () => {
                                             )}
                                         </p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                         <StatusBadge status={devis.status} />
+                                        {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>
