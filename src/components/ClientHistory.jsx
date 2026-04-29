@@ -216,7 +216,11 @@ const ClientHistory = ({ clientId }) => {
                                 </tr>
                             ) : (
                                 history.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => navigate(`/app/devis/${item.id}`)}
+                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                    >
                                         <td className="px-4 py-3 text-sm text-gray-900">
                                             {new Date(item.date).toLocaleDateString()}
                                         </td>
@@ -230,12 +234,7 @@ const ClientHistory = ({ clientId }) => {
                                             <StatusBadge status={item.status} />
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button
-                                                onClick={() => navigate(`/app/devis/${item.id}`)}
-                                                className="text-gray-400 hover:text-blue-600"
-                                            >
-                                                <ArrowRight className="w-5 h-5" />
-                                            </button>
+                                            <ArrowRight className="w-5 h-5 text-gray-400" />
                                         </td>
                                     </tr>
                                 ))

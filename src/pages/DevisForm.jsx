@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
 import { supabase } from '../utils/supabase';
@@ -27,6 +28,7 @@ import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
 import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
@@ -100,6 +102,10 @@ const DevisForm = () => {
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
 
+    // Quote View History State
+    const [showViewHistory, setShowViewHistory] = useState(false);
+    const [viewCount, setViewCount] = useState(0);
+
     // --- Chronométrage et essai IA ---
     // Heure de début de création (ref pour ne pas déclencher de re-render)
     const creationStartRef = useRef(Date.now());
@@ -136,6 +142,41 @@ const DevisForm = () => {
 
         return () => {
             supabase.removeChannel(channel);
+        };
+    }, [id]);
+
+    // Subscription Realtime aux ouvertures du devis par le client
+    useEffect(() => {
+        if (!id || id === 'new') return;
+
+        // Charger le nombre d'ouvertures existantes
+        supabase
+            .from('quote_views')
+            .select('id', { count: 'exact', head: true })
+            .eq('quote_id', id)
+            .then(({ count }) => setViewCount(count ?? 0));
+
+        const viewChannel = supabase
+            .channel(`quote_views:${id}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'quote_views', filter: `quote_id=eq.${id}` },
+                (payload) => {
+                    setViewCount(prev => prev + 1);
+                    toast.info('Votre devis vient d\'être consulté !', {
+                        icon: '👁️',
+                        duration: 5000,
+                        action: {
+                            label: 'Voir l\'historique',
+                            onClick: () => setShowViewHistory(true),
+                        },
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(viewChannel);
         };
     }, [id]);
 
@@ -774,6 +815,7 @@ const DevisForm = () => {
                     paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
                     report_pdf_url: data.report_pdf_url || null,
                     require_otp: data.require_otp === true,
+                    quote_number: data.quote_number || null,
                     transmission_status: data.transmission_status ?? null,
                     transmission_ref: data.transmission_ref ?? null,
                     transmitted_at: data.transmitted_at ?? null,
@@ -2358,10 +2400,19 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
                     )}
                     {!isClientOnline && formData.last_viewed_at && (
-                        <div className="flex items-center gap-1 text-gray-400 text-[10px]" title={new Date(formData.last_viewed_at).toLocaleString()}>
+                        <button
+                            onClick={() => setShowViewHistory(true)}
+                            className="flex items-center gap-1 text-gray-400 hover:text-blue-500 text-[10px] transition-colors"
+                            title={`Dernière ouverture : ${new Date(formData.last_viewed_at).toLocaleString()}`}
+                        >
                             <Eye className="w-3 h-3" />
                             Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
-                        </div>
+                            {viewCount > 1 && (
+                                <span className="bg-blue-100 text-blue-600 font-bold px-1 rounded text-[9px]">
+                                    ×{viewCount}
+                                </span>
+                            )}
+                        </button>
                     )}
                 </div>
 
@@ -2496,7 +2547,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </>
                                 )}
 
-                                {id && (formData.status === 'accepted' || formData.status === 'sent') && !formData.parent_id && (
+                                {id && (formData.status === 'accepted' || formData.status === 'sent' || formData.status === 'billed') && !formData.parent_id && (
                                     <>
                                         <div className="border-t border-gray-100 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>
@@ -3663,13 +3714,19 @@ Conditions de règlement : Paiement à réception de facture.`
                 userProfile={userProfile}
             />
 
+            {showViewHistory && (
+                <QuoteViewHistory
+                    quoteId={id}
+                    onClose={() => setShowViewHistory(false)}
+                />
+            )}
 
             {/* Email Preview Modal */}
             {
-                emailPreview && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[90vh]">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                emailPreview && createPortal(
+                    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
+                        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl max-w-2xl w-full flex flex-col h-[92vh] sm:h-auto sm:max-h-[90vh]">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                                     <Mail className="w-5 h-5 mr-2 text-blue-600" />
                                     Prévisualisation de l'email
@@ -3682,7 +3739,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </button>
                             </div>
 
-                            <div className="p-6 space-y-4 overflow-y-auto">
+                            <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
                                     <input
@@ -3707,7 +3764,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 navigator.clipboard.writeText(emailPreview.rawSubject);
                                                 toast.success('Objet copié !');
                                             }}
-                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg"
+                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
                                             title="Copier l'objet"
                                         >
                                             <Copy className="w-5 h-5" />
@@ -3718,7 +3775,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                                     <div className="relative">
                                         <textarea
-                                            rows={12}
+                                            rows={8}
                                             value={emailPreview.rawBody}
                                             onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
                                             className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
@@ -3737,26 +3794,27 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-xl">
-                            <button
-                                type="button"
-                                onClick={() => setEmailPreview(null)}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center"
-                            >
-                                <Send className="w-4 h-4 mr-2" />
-                                Envoyer
-                            </button>
+                            <div className="p-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setEmailPreview(null)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
+                                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
+                                >
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Envoyer
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )
             }
             {/* Full Screen Description Editor (Mobile) */}
