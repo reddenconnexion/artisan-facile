@@ -271,6 +271,26 @@ export function usePendingCounts() {
     return { overdueQuotes, pendingInvoices, signedNotBilled, total };
 }
 
+// Hook : nombre de factures fournisseurs non traitées (status = 'new')
+export function useNewReceivedInvoicesCount() {
+    const { user } = useAuth();
+    const { data: count = 0 } = useQuery({
+        queryKey: ['newReceivedInvoices', user?.id],
+        queryFn: async () => {
+            if (!user) return 0;
+            const { count, error } = await supabase
+                .from('received_invoices')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('status', 'new');
+            return error ? 0 : (count ?? 0);
+        },
+        enabled: !!user,
+        staleTime: 60 * 1000, // 1 minute
+    });
+    return count;
+}
+
 // Hook pour invalider le cache après une modification
 export function useInvalidateCache() {
     const queryClient = useQueryClient();

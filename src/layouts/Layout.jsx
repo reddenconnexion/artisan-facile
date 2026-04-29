@@ -15,7 +15,7 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
-import { usePendingCounts, useUserProfile } from '../hooks/useDataCache';
+import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount } from '../hooks/useDataCache';
 
 const Layout = () => {
   const location = useLocation();
@@ -27,6 +27,7 @@ const Layout = () => {
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
+  const newReceivedCount = useNewReceivedInvoicesCount();
   const { plan, isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
@@ -517,6 +518,8 @@ const Layout = () => {
                     <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l-2 border-gray-100 dark:border-gray-800 pl-3">
                       {group.children.map(child => {
                         const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
+                        const isReceivedInvoices = child.href === '/app/received-invoices';
+                        const childBadge = isReceivedInvoices && newReceivedCount > 0 ? newReceivedCount : 0;
                         return (
                           <Link
                             key={child.name}
@@ -528,7 +531,12 @@ const Layout = () => {
                             }`}
                           >
                             <child.icon className={`w-4 h-4 mr-2.5 flex-shrink-0 ${childActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                            {child.name}
+                            <span className="flex-1">{child.name}</span>
+                            {childBadge > 0 && (
+                              <span className="ml-1.5 bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {childBadge > 9 ? '9+' : childBadge}
+                              </span>
+                            )}
                           </Link>
                         );
                       })}
