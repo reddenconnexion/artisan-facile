@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText } from 'lucide-react';
+import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const STATUS_CONFIG = {
   new:          { label: 'Nouvelle',        color: 'bg-blue-100 text-blue-700 border-blue-200',   icon: Clock },
@@ -22,10 +23,23 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const InvoiceDrawer = ({ inv, onClose }) => {
+const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
   if (!inv) return null;
+  const [actioning, setActioning] = useState(null); // 'acknowledged' | 'rejected'
   const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
   const Icon = cfg.icon;
+
+  const handleStatusChange = async (newStatus) => {
+    setActioning(newStatus);
+    const { error } = await supabase
+      .from('received_invoices')
+      .update({ status: newStatus })
+      .eq('id', inv.id);
+    setActioning(null);
+    if (!error) onStatusChange(inv.id, newStatus);
+  };
+
+  const canAct = !['acknowledged', 'rejected'].includes(inv.status);
 
   return (
     <>
@@ -127,6 +141,28 @@ const InvoiceDrawer = ({ inv, onClose }) => {
             </div>
           )}
         </div>
+
+        {/* Actions */}
+        {canAct && (
+          <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+            <button
+              onClick={() => handleStatusChange('acknowledged')}
+              disabled={!!actioning}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              {actioning === 'acknowledged' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+              Intégrée
+            </button>
+            <button
+              onClick={() => handleStatusChange('rejected')}
+              disabled={!!actioning}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-red-50 disabled:opacity-50 text-red-600 border border-red-200 text-sm font-semibold rounded-xl transition-colors"
+            >
+              {actioning === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
+              Rejeter
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -134,10 +170,17 @@ const InvoiceDrawer = ({ inv, onClose }) => {
 
 const ReceivedInvoices = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+
+  const handleStatusChange = (id, newStatus) => {
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv));
+    setSelected(prev => prev?.id === id ? { ...prev, status: newStatus } : prev);
+    queryClient.invalidateQueries({ queryKey: ['newReceivedInvoices', user?.id] });
+  };
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -288,7 +331,7 @@ const ReceivedInvoices = () => {
         </div>
       )}
 
-      <InvoiceDrawer inv={selected} onClose={() => setSelected(null)} />
+      <InvoiceDrawer inv={selected} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />
     </div>
   );
 };

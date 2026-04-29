@@ -28,6 +28,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3';
 
 // ---------------------------------------------------------------------------
 // Normalisation des statuts PDP → statut interne
@@ -233,6 +234,74 @@ async function sendAcknowledgedEmail(
 }
 
 // ---------------------------------------------------------------------------
+// Notification push — nouvelle facture fournisseur reçue
+// ---------------------------------------------------------------------------
+
+async function notifyReceivedInvoice(
+  userId: string,
+  supplierName: string | null,
+  invoiceNumber: string | null,
+  totalTtc: number | null,
+  currency: string,
+  invoiceDbId: string,
+): Promise<void> {
+  const supplier = supplierName || 'Un fournisseur';
+  const amount = totalTtc != null
+    ? `${Number(totalTtc).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`
+    : null;
+  const title = `Facture reçue — ${supplier}`;
+  const body = [
+    invoiceNumber ? `N° ${invoiceNumber}` : null,
+    amount,
+  ].filter(Boolean).join(' · ') || 'Nouvelle facture fournisseur';
+
+  // 1. Web Push
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  if (vapidPublicKey && vapidPrivateKey) {
+    webpush.setVapidDetails('mailto:admin@artisanfacile.fr', vapidPublicKey, vapidPrivateKey);
+    const { data: pushSubs } = await supabaseAdmin
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .eq('user_id', userId);
+
+    for (const sub of pushSubs ?? []) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify({
+            title,
+            body,
+            url: '/app/received-invoices',
+            tag: `received-invoice-${invoiceDbId}`,
+          }),
+        );
+      } catch (err: any) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        }
+        console.error('[pdp-webhook] Web Push error:', err.statusCode, err.message);
+      }
+    }
+  }
+
+  // 2. ntfy.sh
+  try {
+    await fetch(`https://ntfy.sh/artisan-facile-${userId}`, {
+      method: 'POST',
+      body,
+      headers: {
+        'Title': title,
+        'Priority': 'high',
+        'Tags': 'inbox_tray,euro',
+      },
+    });
+  } catch (ntfyErr) {
+    console.error('[pdp-webhook] ntfy.sh error:', ntfyErr);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Réception de facture fournisseur (ReceivedInvoice B2BRouter)
 // ---------------------------------------------------------------------------
 
@@ -287,14 +356,31 @@ async function handleReceivedInvoice(
     raw_payload: rawPayload,
   };
 
-  const { error } = await supabaseAdmin
+  const { data: inserted, error } = await supabaseAdmin
     .from('received_invoices')
-    .upsert(record, { onConflict: 'b2brouter_id' });
+    .upsert(record, { onConflict: 'b2brouter_id' })
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.error('[pdp-webhook] Erreur insertion received_invoices:', error.message);
-  } else {
-    console.log(`[pdp-webhook] ReceivedInvoice #${b2brouterId} stockée pour user=${userId}`);
+    return;
+  }
+
+  console.log(`[pdp-webhook] ReceivedInvoice #${b2brouterId} stockée pour user=${userId}`);
+
+  // Notifier l'artisan (push + ntfy) — non bloquant
+  try {
+    await notifyReceivedInvoice(
+      userId,
+      record.supplier_name,
+      record.invoice_number,
+      record.total_ttc,
+      record.currency,
+      inserted?.id ?? b2brouterId ?? '',
+    );
+  } catch (notifErr) {
+    console.error('[pdp-webhook] Erreur notification received invoice:', notifErr);
   }
 }
 
