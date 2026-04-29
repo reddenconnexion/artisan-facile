@@ -456,7 +456,12 @@ const DevisForm = () => {
         intervention_city: '',
         payment_method: '',
         paid_at: '',
-        require_otp: false
+        require_otp: false,
+        transmission_status: null,
+        transmission_ref: null,
+        transmitted_at: null,
+        transmission_error: null,
+        transmission_service: null,
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
@@ -810,7 +815,12 @@ const DevisForm = () => {
                     paid_at: data.paid_at ? data.paid_at.split('T')[0] : '',
                     report_pdf_url: data.report_pdf_url || null,
                     require_otp: data.require_otp === true,
-                    quote_number: data.quote_number || null
+                    quote_number: data.quote_number || null,
+                    transmission_status: data.transmission_status ?? null,
+                    transmission_ref: data.transmission_ref ?? null,
+                    transmitted_at: data.transmitted_at ?? null,
+                    transmission_error: data.transmission_error ?? null,
+                    transmission_service: data.transmission_service ?? null,
                 });
 
                 if (data.intervention_address || data.intervention_city) {
