@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,11 +15,129 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 const fmtAmount = (v, currency = 'EUR') =>
   v != null ? `${Number(v).toFixed(2)} ${currency}` : '—';
 
+const DetailRow = ({ label, value }) => (
+  <div className="flex justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <span className="text-sm text-gray-500 shrink-0">{label}</span>
+    <span className="text-sm text-gray-900 dark:text-white font-medium text-right">{value}</span>
+  </div>
+);
+
+const InvoiceDrawer = ({ inv, onClose }) => {
+  if (!inv) return null;
+  const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
+  const Icon = cfg.icon;
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 bg-black/30 z-40"
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-200 dark:border-gray-700">
+          <div className="min-w-0">
+            <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight truncate">
+              {fmt(inv.supplier_name)}
+            </p>
+            {inv.supplier_siren && (
+              <p className="text-xs text-gray-400 mt-0.5">SIREN {inv.supplier_siren}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${cfg.color}`}>
+              <Icon className="w-3 h-3" />
+              {cfg.label}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* PDF */}
+          {inv.pdf_url ? (
+            <a
+              href={inv.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Ouvrir le PDF
+            </a>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500">
+              <FileText className="w-4 h-4 shrink-0" />
+              Aucun PDF joint à cette facture
+            </div>
+          )}
+
+          {/* Détails */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Détails de la facture</p>
+            <div>
+              <DetailRow label="N° facture" value={fmt(inv.invoice_number)} />
+              <DetailRow label="Date de facture" value={fmtDate(inv.invoice_date)} />
+              <DetailRow label="Date d'échéance" value={fmtDate(inv.due_date)} />
+              <DetailRow label="Reçue le" value={fmtDate(inv.received_at)} />
+            </div>
+          </div>
+
+          {/* Montants */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Montants</p>
+            <div>
+              <DetailRow label="Montant HT" value={fmtAmount(inv.total_ht, inv.currency)} />
+              <DetailRow label="TVA" value={fmtAmount(
+                inv.total_ttc != null && inv.total_ht != null ? inv.total_ttc - inv.total_ht : null,
+                inv.currency
+              )} />
+              <DetailRow label="Montant TTC" value={
+                <span className="text-base font-bold text-gray-900 dark:text-white">
+                  {fmtAmount(inv.total_ttc, inv.currency)}
+                </span>
+              } />
+            </div>
+          </div>
+
+          {/* Fournisseur */}
+          {(inv.supplier_siren || inv.supplier_tin) && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Fournisseur</p>
+              <div>
+                {inv.supplier_siren && <DetailRow label="SIREN" value={inv.supplier_siren} />}
+                {inv.supplier_tin && <DetailRow label="N° TVA" value={inv.supplier_tin} />}
+              </div>
+            </div>
+          )}
+
+          {/* ID B2BRouter */}
+          {inv.b2brouter_id && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Référence plateforme</p>
+              <p className="text-xs font-mono text-gray-500 break-all">{inv.b2brouter_id}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
 const ReceivedInvoices = () => {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -94,7 +212,11 @@ const ReceivedInvoices = () => {
                   const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
                   const Icon = cfg.icon;
                   return (
-                    <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <tr
+                      key={inv.id}
+                      onClick={() => setSelected(inv)}
+                      className="hover:bg-indigo-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(inv.received_at)}</td>
                       <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                         <div>{fmt(inv.supplier_name)}</div>
@@ -111,7 +233,7 @@ const ReceivedInvoices = () => {
                           {cfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {inv.pdf_url && (
                           <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer"
                             className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors inline-flex"
@@ -134,7 +256,11 @@ const ReceivedInvoices = () => {
               const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
               const Icon = cfg.icon;
               return (
-                <div key={inv.id} className="p-4 space-y-2">
+                <div
+                  key={inv.id}
+                  onClick={() => setSelected(inv)}
+                  className="p-4 space-y-2 active:bg-gray-50 cursor-pointer"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">{fmt(inv.supplier_name)}</p>
@@ -161,6 +287,8 @@ const ReceivedInvoices = () => {
           </div>
         </div>
       )}
+
+      <InvoiceDrawer inv={selected} onClose={() => setSelected(null)} />
     </div>
   );
 };
