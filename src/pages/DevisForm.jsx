@@ -28,6 +28,7 @@ import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
 import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
@@ -101,6 +102,10 @@ const DevisForm = () => {
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
 
+    // Quote View History State
+    const [showViewHistory, setShowViewHistory] = useState(false);
+    const [viewCount, setViewCount] = useState(0);
+
     // --- Chronométrage et essai IA ---
     // Heure de début de création (ref pour ne pas déclencher de re-render)
     const creationStartRef = useRef(Date.now());
@@ -137,6 +142,41 @@ const DevisForm = () => {
 
         return () => {
             supabase.removeChannel(channel);
+        };
+    }, [id]);
+
+    // Subscription Realtime aux ouvertures du devis par le client
+    useEffect(() => {
+        if (!id || id === 'new') return;
+
+        // Charger le nombre d'ouvertures existantes
+        supabase
+            .from('quote_views')
+            .select('id', { count: 'exact', head: true })
+            .eq('quote_id', id)
+            .then(({ count }) => setViewCount(count ?? 0));
+
+        const viewChannel = supabase
+            .channel(`quote_views:${id}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'quote_views', filter: `quote_id=eq.${id}` },
+                (payload) => {
+                    setViewCount(prev => prev + 1);
+                    toast.info('Votre devis vient d\'être consulté !', {
+                        icon: '👁️',
+                        duration: 5000,
+                        action: {
+                            label: 'Voir l\'historique',
+                            onClick: () => setShowViewHistory(true),
+                        },
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(viewChannel);
         };
     }, [id]);
 
@@ -2350,10 +2390,19 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
                     )}
                     {!isClientOnline && formData.last_viewed_at && (
-                        <div className="flex items-center gap-1 text-gray-400 text-[10px]" title={new Date(formData.last_viewed_at).toLocaleString()}>
+                        <button
+                            onClick={() => setShowViewHistory(true)}
+                            className="flex items-center gap-1 text-gray-400 hover:text-blue-500 text-[10px] transition-colors"
+                            title={`Dernière ouverture : ${new Date(formData.last_viewed_at).toLocaleString()}`}
+                        >
                             <Eye className="w-3 h-3" />
                             Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
-                        </div>
+                            {viewCount > 1 && (
+                                <span className="bg-blue-100 text-blue-600 font-bold px-1 rounded text-[9px]">
+                                    ×{viewCount}
+                                </span>
+                            )}
+                        </button>
                     )}
                 </div>
 
@@ -3655,6 +3704,12 @@ Conditions de règlement : Paiement à réception de facture.`
                 userProfile={userProfile}
             />
 
+            {showViewHistory && (
+                <QuoteViewHistory
+                    quoteId={id}
+                    onClose={() => setShowViewHistory(false)}
+                />
+            )}
 
             {/* Email Preview Modal */}
             {
