@@ -2942,6 +2942,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                 })()}
                             </button>
                         )}
+                        {/* Accusé de réception : visible pour tous les devis envoyés */}
+                        {formData.status === 'sent' && id && id !== 'new' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowViewHistory(true)}
+                                className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors
+                                    border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            >
+                                <Eye className="w-4 h-4" />
+                                {viewCount === 0
+                                    ? 'Pas encore consulté'
+                                    : `Consulté ${viewCount} fois — voir l'historique`}
+                            </button>
+                        )}
                     </div>
                     {/* Mode de règlement - visible quand statut = Payé */}
                     {formData.status === 'paid' && (
