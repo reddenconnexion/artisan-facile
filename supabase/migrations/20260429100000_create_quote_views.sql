@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.quote_views (
 -- RLS : l'artisan peut lire les vues de ses propres devis
 ALTER TABLE public.quote_views ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "artisan_can_read_own_quote_views" ON public.quote_views;
 CREATE POLICY "artisan_can_read_own_quote_views"
   ON public.quote_views FOR SELECT
   USING (user_id = auth.uid());
