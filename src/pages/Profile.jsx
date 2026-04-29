@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2 } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
@@ -19,6 +19,10 @@ const Profile = () => {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
+
+    // Statut enregistrement annuaire DGFIP via B2BRouter
+    const [b2bReceiverStatus, setB2bReceiverStatus] = useState(null); // null | 'registered' | 'error' | 'loading'
+    const [b2bReceiverError, setB2bReceiverError] = useState(null);
 
     // Plateforme Agréée (PA) — clé API jamais exposée côté client
     const [pdpKeyConfigured, setPdpKeyConfigured] = useState(false);
@@ -106,6 +110,8 @@ const Profile = () => {
                     ai_instructions: aiPrefs.ai_instructions || '',
                     quote_system_prompt: aiPrefs.quote_system_prompt || ''
                 });
+                setB2bReceiverStatus(data.b2b_receiver_status ?? null);
+                setB2bReceiverError(data.b2b_receiver_error ?? null);
             }
         } catch (error) {
             console.error('Error loading profile:', error);
@@ -213,11 +219,46 @@ const Profile = () => {
 
             if (error) throw error;
             toast.success('Profil mis à jour avec succès');
+
+            // Si le SIRET est renseigné, enregistrer le SIREN dans l'annuaire DGFIP via B2BRouter
+            const siret = (formData.siret || '').replace(/\s/g, '');
+            if (siret.length >= 9 && b2bReceiverStatus !== 'registered') {
+                registerB2BReceiver();
+            }
         } catch (error) {
             console.error('Error updating profile:', error);
             toast.error('Erreur lors de la mise à jour du profil');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const registerB2BReceiver = async () => {
+        setB2bReceiverStatus('loading');
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const res = await fetch(`${supabaseUrl}/functions/v1/register-b2brouter-receiver`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+            });
+            const result = await res.json();
+            if (result.success) {
+                setB2bReceiverStatus('registered');
+                setB2bReceiverError(null);
+            } else if (!result.skipped) {
+                setB2bReceiverStatus('error');
+                setB2bReceiverError(result.error || 'Erreur inconnue');
+            } else {
+                // B2BRouter non configuré côté serveur — pas bloquant
+                setB2bReceiverStatus(null);
+            }
+        } catch (err) {
+            setB2bReceiverStatus('error');
+            setB2bReceiverError(String(err));
         }
     };
 
@@ -445,6 +486,35 @@ const Profile = () => {
                                     14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
                                     <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">autoentrepreneur.urssaf.fr</a>
                                 </p>
+                                {/* Statut enregistrement annuaire DGFIP */}
+                                {b2bReceiverStatus === 'loading' && (
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-600">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        Enregistrement dans l'annuaire DGFIP…
+                                    </div>
+                                )}
+                                {b2bReceiverStatus === 'registered' && (
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
+                                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                                        <span>Enregistré dans l'annuaire DGFIP — vos fournisseurs peuvent vous envoyer des factures électroniques</span>
+                                    </div>
+                                )}
+                                {b2bReceiverStatus === 'error' && (
+                                    <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 space-y-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <XCircle className="w-3.5 h-3.5 shrink-0" />
+                                            <span>Échec de l'enregistrement annuaire DGFIP</span>
+                                        </div>
+                                        {b2bReceiverError && <p className="font-mono text-[10px] opacity-70 break-all">{b2bReceiverError}</p>}
+                                        <button type="button" onClick={registerB2BReceiver} className="text-red-600 underline hover:text-red-800">Réessayer</button>
+                                    </div>
+                                )}
+                                {!b2bReceiverStatus && formData.siret?.length >= 9 && (
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                                        <Radio className="w-3.5 h-3.5 shrink-0" />
+                                        <span>Sauvegardez le profil pour vous enregistrer dans l'annuaire DGFIP</span>
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Métier principal</label>
