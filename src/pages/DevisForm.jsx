@@ -3718,11 +3718,12 @@ Conditions de règlement : Paiement à réception de facture.`
                 userProfile={userProfile}
             />
 
-            {showViewHistory && (
+            {showViewHistory && createPortal(
                 <QuoteViewHistory
                     quoteId={id}
                     onClose={() => setShowViewHistory(false)}
-                />
+                />,
+                document.body
             )}
 
             {/* Email Preview Modal */}
