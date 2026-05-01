@@ -355,10 +355,14 @@ const DevisForm = () => {
     };
 
     const handleClientChange = async (clientId) => {
-        setFormData(prev => ({ ...prev, client_id: clientId }));
+        const client = clients.find(c => c.id.toString() === clientId?.toString());
+        setFormData(prev => ({
+            ...prev,
+            client_id: clientId,
+            client_name: client?.name || prev.client_name,
+        }));
         if (!clientId) return;
 
-        const client = clients.find(c => c.id.toString() === clientId.toString());
         if (!client || !userProfile) return;
 
         // Auto-calculate travel fee if zones are configured
