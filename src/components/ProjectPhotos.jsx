@@ -933,22 +933,22 @@ const ProjectPhotos = ({ clientId }) => {
                     </div>
 
                     {!creatingProject && (
-                        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             {projectCounts['uncategorized'] > 0 && projects.length > 0 && (
                                 <button
                                     onClick={handleMoveUncategorized}
-                                    className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                                    className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors min-w-0"
                                     title={`Déplacer les ${projectCounts['uncategorized']} photos non classées vers un dossier`}
                                 >
-                                    <FolderInput className="w-4 h-4" />
-                                    Ranger les non classées ({projectCounts['uncategorized']})
+                                    <FolderInput className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate">Ranger les non classées ({projectCounts['uncategorized']})</span>
                                 </button>
                             )}
                             <button
                                 onClick={() => setCreatingProject(true)}
-                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors whitespace-nowrap"
                             >
-                                <FolderPlus className="w-4 h-4" />
+                                <FolderPlus className="w-4 h-4 flex-shrink-0" />
                                 Nouveau chantier
                             </button>
                         </div>
