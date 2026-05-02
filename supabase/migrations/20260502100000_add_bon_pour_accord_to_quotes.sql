@@ -1,0 +1,2 @@
+ALTER TABLE quotes
+  ADD COLUMN IF NOT EXISTS bon_pour_accord TEXT DEFAULT NULL;

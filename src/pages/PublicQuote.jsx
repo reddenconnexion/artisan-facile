@@ -107,7 +107,7 @@ const PublicQuote = () => {
         }
     };
 
-    const handleSignatureSave = async (signatureData, otpCode) => {
+    const handleSignatureSave = async (signatureData, otpCode, bonPourAccord) => {
         try {
             setSavingSignature(true);
 
@@ -126,6 +126,14 @@ const PublicQuote = () => {
                     signature_base64: signatureData,
                     otp_code: otpCode || null,
                 });
+
+            // Save "bon pour accord" mention separately (non-blocking if column missing)
+            if (!error && bonPourAccord) {
+                await supabase
+                    .from('quotes')
+                    .update({ bon_pour_accord: bonPourAccord })
+                    .eq('public_token', token);
+            }
 
             if (error) throw error;
             if (data?.success === false) throw new Error(data.error || 'Échec de la signature');
@@ -148,7 +156,8 @@ const PublicQuote = () => {
                 ...quote,
                 signature: signatureData,
                 signed_at: new Date().toISOString(),
-                status: 'accepted'
+                status: 'accepted',
+                bon_pour_accord: bonPourAccord || null,
             };
 
             setQuote(signedQuote);
