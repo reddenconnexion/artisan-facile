@@ -1650,7 +1650,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 unit: 'forfait',
                 price: 0, // Will be set below
                 buying_price: 0,
-                type: 'service'
+                type: 'material'
             };
 
             if (formData.include_tva) {
