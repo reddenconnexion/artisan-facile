@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2, X } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2, X, Radio, Building2, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -75,8 +75,14 @@ const LandingPage = () => {
 
                         {/* Colonne gauche : texte */}
                         <div>
-                            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-semibold mb-6">
-                                Pour les artisans qui se lancent
+                            <div className="flex flex-wrap items-center gap-2 mb-6">
+                                <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-semibold">
+                                    Pour les artisans qui se lancent
+                                </div>
+                                <div className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-xs font-bold border border-amber-200">
+                                    <BadgeCheck className="w-3.5 h-3.5" />
+                                    Conforme réforme 2026
+                                </div>
                             </div>
 
                             <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight mb-5">
@@ -486,6 +492,101 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* Réforme facture électronique */}
+            <section className="py-20 bg-gradient-to-br from-slate-900 to-blue-950 border-b border-blue-900">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-14">
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-400 text-amber-900 rounded-full text-sm font-bold mb-6">
+                            ⚡ Réforme obligatoire — Facture électronique B2B dès septembre 2026
+                        </span>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+                            Artisan Facile est déjà prêt.<br />
+                            <span className="text-blue-300">Vous n'avez rien à configurer.</span>
+                        </h2>
+                        <p className="text-blue-200 text-lg max-w-2xl mx-auto">
+                            La loi impose à toutes les entreprises françaises de recevoir des factures
+                            électroniques dès septembre 2026. Votre application est conforme au format
+                            officiel <strong className="text-white">Factur-X 1.08</strong> — sans abonnement supplémentaire, sans démarche.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-14">
+                        {[
+                            {
+                                icon: <FileText className="w-6 h-6 text-blue-300" />,
+                                title: 'Factur-X 1.08',
+                                desc: 'Vos factures PDF embarquent un fichier XML conforme à la norme européenne EN 16931, reconnu par toutes les plateformes agréées.',
+                            },
+                            {
+                                icon: <Radio className="w-6 h-6 text-blue-300" />,
+                                title: 'Réception automatique',
+                                desc: 'Vos fournisseurs vous envoient leurs factures directement dans l\'appli, via le réseau inter-PDP et Peppol. Zéro email, zéro PDF à saisir.',
+                            },
+                            {
+                                icon: <Building2 className="w-6 h-6 text-blue-300" />,
+                                title: 'Annuaire DGFIP',
+                                desc: 'Votre SIREN est enregistré automatiquement dans l\'annuaire officiel de la DGFIP dès que vous renseignez votre SIRET dans votre profil.',
+                            },
+                            {
+                                icon: <Shield className="w-6 h-6 text-blue-300" />,
+                                title: 'Transmission sécurisée',
+                                desc: 'Chaque facture transmise est tracée : envoi, accusé de réception ou rejet — le statut s\'affiche en temps réel dans votre tableau de bord.',
+                            },
+                        ].map(({ icon, title, desc }) => (
+                            <div key={title} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-3 hover:bg-white/10 transition-colors">
+                                <div className="w-11 h-11 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                    {icon}
+                                </div>
+                                <h3 className="font-bold text-white text-base">{title}</h3>
+                                <p className="text-blue-200 text-sm leading-relaxed">{desc}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+                        <h3 className="text-white font-bold text-lg mb-6 text-center">Calendrier de la réforme</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            {[
+                                {
+                                    date: 'Janvier 2026',
+                                    label: 'Grandes entreprises',
+                                    desc: 'Obligation d\'émettre et de recevoir des factures électroniques pour les grandes entreprises.',
+                                    done: true,
+                                },
+                                {
+                                    date: 'Septembre 2026',
+                                    label: 'Toutes les entreprises',
+                                    desc: 'Toutes les entreprises — y compris les artisans et auto-entrepreneurs — doivent pouvoir recevoir des factures électroniques.',
+                                    done: false,
+                                    highlight: true,
+                                },
+                                {
+                                    date: '2027',
+                                    label: 'Emission obligatoire',
+                                    desc: 'Les PME et micro-entreprises devront aussi émettre leurs factures au format électronique.',
+                                    done: false,
+                                },
+                            ].map(({ date, label, desc, done, highlight }) => (
+                                <div key={date} className={`rounded-xl p-5 border ${highlight ? 'bg-amber-400/10 border-amber-400/40' : 'bg-white/5 border-white/10'}`}>
+                                    <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${highlight ? 'text-amber-400' : done ? 'text-green-400' : 'text-blue-300'}`}>
+                                        {done ? '✓ ' : ''}{date}
+                                    </div>
+                                    <div className="text-white font-semibold text-sm mb-2">{label}</div>
+                                    <div className="text-blue-200 text-xs leading-relaxed">{desc}</div>
+                                    {highlight && (
+                                        <div className="mt-3 inline-flex items-center gap-1.5 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Artisan Facile prêt
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Pour votre métier */}
             <section className="py-20 bg-white border-b border-gray-100">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -654,6 +755,7 @@ const LandingPage = () => {
                                     'Signature électronique des devis',
                                     'Mode hors ligne (sans WiFi)',
                                     'Accès depuis mobile, tablette, PC',
+                                    'Factur-X 1.08 — Conforme réforme 2026',
                                 ].map((f) => (
                                     <li key={f} className="flex items-center gap-3 text-gray-700 text-sm">
                                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -738,6 +840,10 @@ const LandingPage = () => {
                             {
                                 question: "Est-ce que ça fonctionne sans connexion internet ?",
                                 answer: "Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement même sans réseau sur le chantier, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion."
+                            },
+                            {
+                                question: "Artisan Facile est-il compatible avec la réforme de la facturation électronique 2026 ?",
+                                answer: "Oui, entièrement. Artisan Facile génère des factures au format Factur-X 1.08, la norme officielle française basée sur la norme européenne EN 16931. Dès que vous renseignez votre SIRET dans votre profil, votre SIREN est automatiquement enregistré dans l'annuaire DGFIP via notre plateforme agréée — vos fournisseurs peuvent vous envoyer des factures électroniques sans que vous ayez rien à configurer. À partir de septembre 2026 (obligation de réception pour toutes les entreprises), vous serez déjà en conformité."
                             }
                         ].map(({ question, answer }, i) => (
                             <div key={i} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
