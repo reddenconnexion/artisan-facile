@@ -34,8 +34,22 @@ const LandingPage = () => {
 
     return (
         <div className="min-h-screen bg-white">
+            {/* Barre de certification — Facture électronique */}
+            <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white text-center py-2.5 px-4">
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span className="text-sm font-semibold tracking-wide">
+                        Certifié conforme — Facture électronique Factur-X 1.08
+                    </span>
+                    <span className="hidden sm:inline text-blue-300 text-xs">·</span>
+                    <span className="hidden sm:inline text-xs text-blue-200 font-medium">
+                        Réforme obligatoire dès septembre 2026 — déjà intégré, sans aucune démarche
+                    </span>
+                </div>
+            </div>
+
             {/* Header */}
-            <header className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+            <header className="sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
                         <div className="flex items-center">
@@ -69,7 +83,7 @@ const LandingPage = () => {
             </header>
 
             {/* Hero Section */}
-            <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-white to-white">
+            <section className="pt-12 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-white to-white">
                 <div className="max-w-6xl mx-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
