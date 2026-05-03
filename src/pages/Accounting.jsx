@@ -160,6 +160,7 @@ const Accounting = () => {
       totalMaterial += materialAmt;
       detail.push({
         id: inv.id,
+        quoteNumber: inv.quote_number,
         docType: inv.type || 'quote',
         client: inv.client_name || 'Client inconnu',
         title: inv.title || '',
@@ -1350,7 +1351,7 @@ const Accounting = () => {
                       {rows.map(inv => (
                         <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                           <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {inv.docType === 'invoice' ? 'F' : 'D'}{inv.id}
+                            {inv.quoteNumber || `${inv.docType === 'invoice' ? 'F' : 'D'}${inv.id}`}
                           </td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {inv.date.toLocaleDateString('fr-FR')}
