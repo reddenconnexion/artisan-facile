@@ -1338,6 +1338,7 @@ const Accounting = () => {
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/80">
                       <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                        <th className="text-left px-4 py-3">Réf.</th>
                         <th className="text-left px-4 py-3">Date</th>
                         <th className="text-left px-4 py-3">Client</th>
                         <th className="text-left px-4 py-3">Objet</th>
@@ -1348,6 +1349,9 @@ const Accounting = () => {
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                       {rows.map(inv => (
                         <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                          <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {inv.docType === 'invoice' ? 'F' : 'D'}{inv.id}
+                          </td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {inv.date.toLocaleDateString('fr-FR')}
                           </td>
@@ -1372,7 +1376,7 @@ const Accounting = () => {
                     </tbody>
                     <tfoot className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                       <tr className="font-semibold text-gray-900 dark:text-white">
-                        <td colSpan={3} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                        <td colSpan={4} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
                           Total ({rows.length} facture{rows.length > 1 ? 's' : ''})
                         </td>
                         {showServices && (
