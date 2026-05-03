@@ -2096,21 +2096,23 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleSignatureSave = async (signatureData) => {
+    const handleSignatureSave = async (signatureData, _otpCode, bonPourAccord) => {
         try {
+            const now = new Date().toISOString();
             const { error } = await supabase
                 .from('quotes')
                 .update({
                     signature: signatureData,
                     status: 'accepted',
-                    signed_at: new Date().toISOString()
+                    signed_at: now,
+                    bon_pour_accord: bonPourAccord || null
                 })
                 .eq('id', id);
 
             if (error) throw error;
 
             setSignature(signatureData);
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
+            setFormData(prev => ({ ...prev, status: 'accepted', signature: signatureData, signed_at: now, bon_pour_accord: bonPourAccord || null }));
             invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
