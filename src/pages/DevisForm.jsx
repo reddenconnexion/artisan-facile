@@ -1826,7 +1826,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
-                .select('id, title, date, total_ht, total_ttc, type, status')
+                .select('id, title, date, total_ht, total_ttc, type, status, items')
                 .eq('parent_id', quoteId)
                 .neq('status', 'cancelled');
 
@@ -1856,6 +1856,12 @@ Conditions de règlement : Paiement à réception de facture.`
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
                 totalDeducted += amountHT;
+                // Inherit the type from the deposit's items so the deduction offsets
+                // the right category (material vs service) in accounting and net income.
+                const depositItems = Array.isArray(inv.items) ? inv.items : [];
+                const materialSum = depositItems.filter(i => i.type === 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const serviceSum = depositItems.filter(i => i.type !== 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const deductionType = materialSum >= serviceSum ? 'material' : 'service';
                 return {
                     id: Date.now() + Math.random(),
                     description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
@@ -1863,7 +1869,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     unit: 'forfait',
                     price: -Math.abs(amountHT),
                     buying_price: 0,
-                    type: 'service'
+                    type: deductionType
                 };
             });
 
