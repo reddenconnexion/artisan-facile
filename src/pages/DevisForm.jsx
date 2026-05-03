@@ -1553,6 +1553,9 @@ const DevisForm = () => {
             setLoading(true);
             const depositAmount = (total * percentage) / 100;
 
+            // Ask user if this deposit is for materials (to exclude from Net Result)
+            const isForMaterial = await confirm({ title: "Type d'acompte", message: "Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nOui → comptabilisé comme Matériel (exclu du Résultat Net)\nNon → comptabilisé comme Service (Marge 100%)", confirmLabel: 'Oui (Matériel)', cancelLabel: 'Non (Service)' });
+
             const depositItem = {
                 id: Date.now(),
                 description: `Acompte de ${percentage}% sur devis n°${id} - ${formData.title} `,
@@ -1560,7 +1563,7 @@ const DevisForm = () => {
                 unit: 'forfait',
                 price: depositAmount,
                 buying_price: 0,
-                type: 'material'
+                type: isForMaterial ? 'material' : 'service'
             };
 
             if (formData.include_tva) {
