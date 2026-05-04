@@ -1020,19 +1020,25 @@ const DevisForm = () => {
         try {
             toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
 
-            // Ensure public_token exists
+            // Ensure public_token exists and refresh its validity (un-revoke + extend expiry)
+            // so re-sharing an old quote always produces a working link.
             let token = formData.public_token;
+            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             if (!token) {
                 token = crypto.randomUUID();
-                const { error: tokenError } = await supabase
-                    .from('quotes')
-                    .update({ public_token: token })
-                    .eq('id', id);
-
-                if (tokenError) throw tokenError;
-
-                setFormData(prev => ({ ...prev, public_token: token }));
             }
+            const { error: tokenError } = await supabase
+                .from('quotes')
+                .update({
+                    public_token: token,
+                    token_revoked: false,
+                    token_expires_at: newExpiry,
+                })
+                .eq('id', id);
+
+            if (tokenError) throw tokenError;
+
+            setFormData(prev => ({ ...prev, public_token: token }));
 
             const publicUrl = `${window.location.origin}/q/${token}`;
             const isInvoice = formData.type === 'invoice';
@@ -2518,11 +2524,20 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && formData.public_token && (
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const url = `${window.location.origin}/q/${formData.public_token}`;
                                             navigator.clipboard.writeText(url);
-                                            toast.success('Lien de signature copié !');
                                             setShowActionsMenu(false);
+                                            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                                            const { error: refreshError } = await supabase
+                                                .from('quotes')
+                                                .update({ token_revoked: false, token_expires_at: newExpiry })
+                                                .eq('id', id);
+                                            if (refreshError) {
+                                                toast.error('Lien copié, mais la validité n\'a pas pu être prolongée');
+                                            } else {
+                                                toast.success('Lien de signature copié !');
+                                            }
                                         }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     >
