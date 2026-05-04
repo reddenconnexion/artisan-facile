@@ -914,6 +914,21 @@ const DevisForm = () => {
     }, [formData.original_pdf_url]);
     // ------------------------------------------
 
+    // Auto-derive operation_category from item types so the Factur-X category
+    // always reflects the actual content without manual intervention.
+    useEffect(() => {
+        const locked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+        if (locked) return;
+        const billableItems = (formData.items || []).filter(i => i.type !== 'section');
+        if (billableItems.length === 0) return;
+        const hasService = billableItems.some(i => (i.type || 'service') !== 'material');
+        const hasMaterial = billableItems.some(i => i.type === 'material');
+        const derived = hasService && hasMaterial ? 'mixed' : hasMaterial ? 'goods' : 'service';
+        if (derived !== formData.operation_category) {
+            setFormData(prev => ({ ...prev, operation_category: derived }));
+        }
+    }, [formData.items]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const tradeConfig = getTradeConfig(userProfile?.trade || 'general');
 
     const addItem = (type = 'service') => {
@@ -3014,9 +3029,12 @@ Conditions de règlement : Paiement à réception de facture.`
                         {showAdvancedQuoteOptions && (
                             <div className="mt-3 space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Catégorie (Factur-X)
+                                        <span className="ml-2 text-xs font-normal text-blue-600">— calculée automatiquement</span>
+                                    </label>
                                     <select
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
                                         value={formData.operation_category}
                                         onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
                                         disabled={isLocked}
