@@ -647,7 +647,7 @@ const InterventionReportForm = () => {
             // --- 6. Préparer le modal email ---
             const invoiceUrl = `${window.location.origin}/q/${invoiceToken}`;
             const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
-            const subject = `Facture N°${newInvoice.id} : ${newInvoice.title} - ${companyName}`;
+            const subject = `Facture N°${newInvoice.quote_number || newInvoice.id} : ${newInvoice.title} - ${companyName}`;
             const signatureBlock = [
                 companyName,
                 userProfile?.phone || '',
