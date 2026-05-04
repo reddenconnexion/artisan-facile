@@ -3029,20 +3029,6 @@ Conditions de règlement : Paiement à réception de facture.`
                         {showAdvancedQuoteOptions && (
                             <div className="mt-3 space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Catégorie (Factur-X)
-                                        <span className="ml-2 text-xs font-normal text-blue-600">— calculée automatiquement</span>
-                                    </label>
-                                    <select
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
-                                        value={formData.operation_category}
-                                        onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
-                                        disabled={isLocked}
-                                    >
-                                        <option value="service">Prestation de services</option>
-                                        <option value="goods">Livraison de biens</option>
-                                        <option value="mixed">Mixte</option>
-                                    </select>
                                     <div className="flex items-center gap-2 mt-2">
                                         <input
                                             type="checkbox"
