@@ -764,6 +764,14 @@ const DevisForm = () => {
                 email: user.email,
                 ...settings
             });
+
+            // Pour un nouveau devis (pas d'id en URL), un artisan en franchise
+            // de TVA (micro-entreprise / auto-entrepreneur) ne facture pas la
+            // TVA — décocher par défaut pour faire apparaître la mention
+            // « TVA non applicable, art. 293 B du CGI » sur le PDF.
+            if (!id && aiPrefs.artisan_status === 'micro_entreprise') {
+                setFormData(prev => ({ ...prev, include_tva: false }));
+            }
         }
     };
 
@@ -797,7 +805,9 @@ const DevisForm = () => {
                     notes: data.notes || '',
                     status: data.status || 'draft',
                     type: data.type || 'quote',
-                    include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0),
+                    include_tva: typeof data.include_tva === 'boolean'
+                        ? data.include_tva
+                        : (data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0)),
                     original_pdf_url: data.original_pdf_url || null,
                     is_external: data.is_external || false,
                     manual_total_ht: data.is_external ? data.total_ht : 0,
@@ -3618,6 +3628,11 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Appliquer la TVA (20%)
                                 </label>
                             </div>
+                            {!formData.include_tva && (
+                                <p className="text-xs text-gray-500 -mt-3 mb-4 text-right">
+                                    La mention « TVA non applicable, art. 293 B du CGI » sera ajoutée au PDF.
+                                </p>
+                            )}
                             <div className="flex items-center justify-end mb-4">
                                 <input
                                     type="checkbox"
