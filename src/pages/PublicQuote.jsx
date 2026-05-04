@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
+
+// Client anonyme dédié à la page publique : pas de session, pas de refresh token.
+// Évite le timeout de vérification de session de l'artisan qui cause data=null sur le RPC.
+const supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY,
+    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+);
 
 const PublicQuote = () => {
     const { token } = useParams();
