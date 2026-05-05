@@ -2929,7 +2929,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                 ? [{ key: 'accepted', label: 'Émise' }, { key: 'billed', label: 'Facturée' }, { key: 'paid', label: 'Payée' }]
                                 : [{ key: 'draft', label: 'Brouillon' }, { key: 'sent', label: 'Envoyé' }, { key: 'accepted', label: 'Accepté' }, { key: 'billed', label: 'Facturé' }, { key: 'paid', label: 'Payé' }];
                             const currentIdx = pipeline.findIndex(s => s.key === formData.status);
-                            if (currentIdx === -1) return null;
                             return (
                                 <div className="flex items-center mb-2">
                                     {pipeline.map((step, idx) => (
@@ -2939,34 +2938,43 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 onClick={() => setFormData(p => ({ ...p, status: step.key }))}
                                                 className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
                                                     idx === currentIdx ? 'animate-shimmer-step text-white' :
-                                                    idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                                                    currentIdx >= 0 && idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
                                                     'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                                 }`}
                                             >
                                                 {step.label}
                                             </button>
                                             {idx < pipeline.length - 1 && (
-                                                <div className={`h-px flex-1 mx-0.5 min-w-[4px] ${idx < currentIdx ? 'bg-blue-300' : 'bg-gray-200'}`} />
+                                                <div className={`h-px flex-1 mx-0.5 min-w-[4px] ${currentIdx >= 0 && idx < currentIdx ? 'bg-blue-300' : 'bg-gray-200'}`} />
                                             )}
                                         </React.Fragment>
                                     ))}
                                 </div>
                             );
                         })()}
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté / Signé</option>
-                            <option value="refused">Refusé</option>
-                            <option value="billed">Facturé</option>
-                            <option value="paid">Payé</option>
-                            <option value="postponed">Reporté</option>
-                            <option value="cancelled">Annulé</option>
-                        </select>
+                        {/* Statuts d'exception (hors flux normal) */}
+                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider">Cas particuliers :</span>
+                            {[
+                                { key: 'refused', label: 'Refusé', activeColor: 'bg-red-100 text-red-700 border-red-300' },
+                                { key: 'postponed', label: 'Reporté', activeColor: 'bg-amber-100 text-amber-700 border-amber-300' },
+                                { key: 'cancelled', label: 'Annulé', activeColor: 'bg-gray-200 text-gray-700 border-gray-400' },
+                            ].map(opt => {
+                                const isActive = formData.status === opt.key;
+                                return (
+                                    <button
+                                        key={opt.key}
+                                        type="button"
+                                        onClick={() => setFormData(p => ({ ...p, status: isActive ? 'draft' : opt.key }))}
+                                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${
+                                            isActive ? opt.activeColor : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                         {formData.last_followup_at && (
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
