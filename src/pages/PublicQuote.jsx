@@ -84,6 +84,32 @@ const PublicQuote = () => {
         }
     };
 
+    // Builds a quote object with optional items filtered out and totals
+    // recomputed from the remaining items. The PDF generator reads
+    // total_ht/total_tva/total_ttc directly, so simply filtering items isn't
+    // enough — we have to recompute the totals or the footer keeps showing
+    // the original sum (which made the PDF appear "not updated" when toggling
+    // options).
+    const buildQuoteForPdf = () => {
+        if (!quote) return null;
+        const includeTva = quote.include_tva !== false;
+        const tvaRate = 0.20;
+        const filteredItems = (quote.items || []).filter(
+            item => !item.is_optional || (selectedOptionals?.has(String(item.id)) ?? true)
+        );
+        const ht = filteredItems
+            .filter(i => i.type !== 'section')
+            .reduce((s, i) => s + (parseFloat(i.quantity) || 1) * (parseFloat(i.price) || 0), 0);
+        const tva = includeTva ? ht * tvaRate : 0;
+        return {
+            ...quote,
+            items: filteredItems,
+            total_ht: ht,
+            total_tva: tva,
+            total_ttc: ht + tva,
+        };
+    };
+
     const handleDownload = () => {
         if (!quote) return;
         if (quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
@@ -91,7 +117,8 @@ const PublicQuote = () => {
             return;
         }
         const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
-        generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
+        const quoteForPdf = buildQuoteForPdf() || quote;
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInvoice);
     };
 
     const handleRequestOtp = async (email) => {
@@ -192,15 +219,13 @@ const PublicQuote = () => {
         let blobUrl = null;
         setPdfLoading(true);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
-        const quoteForPdf = {
-            ...quote,
-            items: (quote.items || []).filter(item => !item.is_optional || selectedOptionals.has(String(item.id))),
-        };
+        const quoteForPdf = buildQuoteForPdf();
         generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'bloburl')
             .then(url => { blobUrl = url; setPdfUrl(url); })
             .catch(e => console.error('PDF generation error:', e))
             .finally(() => setPdfLoading(false));
         return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
 
     if (loading) return (
