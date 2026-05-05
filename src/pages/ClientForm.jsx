@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash, RefreshCw, Ban, Copy, CheckCircle, Clock } from 'lucide-react';
+import { toastError } from '../utils/supabaseErrorHandler';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -109,6 +110,150 @@ const ClientPlans = ({ clientId, clientName }) => {
     );
 };
 
+/* ─── Gestion du lien portail client ───────────────────────────────────────── */
+const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) => {
+    const confirm = useConfirm();
+    const [busy, setBusy] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    if (!token) return null;
+
+    const url = `${window.location.origin}/p/${token}`;
+    const isExpired = expiresAt && new Date(expiresAt) < new Date();
+    const daysLeft = expiresAt
+        ? Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
+        : null;
+
+    let statusBadge;
+    if (revoked) {
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><Ban className="w-3 h-3" />Révoqué</span>;
+    } else if (isExpired) {
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expiré</span>;
+    } else if (daysLeft !== null && daysLeft <= 30) {
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expire dans {daysLeft}j</span>;
+    } else {
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><CheckCircle className="w-3 h-3" />Actif</span>;
+    }
+
+    const expireText = expiresAt
+        ? `jusqu'au ${new Date(expiresAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+        : 'sans expiration';
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast.error('Impossible de copier le lien');
+        }
+    };
+
+    const handleRegenerate = async () => {
+        const ok = await confirm({
+            title: 'Régénérer le lien portail ?',
+            message: 'L\'ancien lien deviendra immédiatement invalide. Vous devrez renvoyer le nouveau lien à votre client.',
+            confirmLabel: 'Régénérer',
+        });
+        if (!ok) return;
+        setBusy(true);
+        const { data, error } = await supabase.rpc('regenerate_client_portal_token', { p_client_id: clientId });
+        setBusy(false);
+        if (error || !data?.success) {
+            return toastError(error || data, 'Impossible de régénérer le lien.');
+        }
+        toast.success('Nouveau lien portail généré.', { description: `Valide ${expireText.replace("jusqu'au", "jusqu'au ").includes('sans') ? '1 an' : 'à nouveau 1 an'}.` });
+        onUpdate({ portal_token: data.token, portal_token_expires_at: data.expires_at, portal_token_revoked: false });
+    };
+
+    const handleRevoke = async () => {
+        const ok = await confirm({
+            title: 'Révoquer le lien portail ?',
+            message: 'Le lien deviendra immédiatement invalide. Le client n\'aura plus accès à son espace tant que vous ne régénérerez pas un nouveau lien.',
+            confirmLabel: 'Révoquer',
+            danger: true,
+        });
+        if (!ok) return;
+        setBusy(true);
+        const { data, error } = await supabase.rpc('revoke_client_portal_token', { p_client_id: clientId });
+        setBusy(false);
+        if (error || !data?.success) {
+            return toastError(error || data, 'Impossible de révoquer le lien.');
+        }
+        toast.success('Lien portail révoqué.');
+        onUpdate({ portal_token_revoked: true });
+    };
+
+    return (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+            <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span className="font-semibold text-sm text-blue-900">Espace client partagé</span>
+                    {statusBadge}
+                </div>
+                <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
+                >
+                    <ExternalLink className="w-3 h-3" />
+                    Ouvrir
+                </a>
+            </div>
+
+            <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2 mb-3">
+                <input
+                    readOnly
+                    value={url}
+                    onClick={(e) => e.target.select()}
+                    className="flex-1 min-w-0 text-xs font-mono text-gray-700 bg-transparent border-0 focus:outline-none truncate"
+                />
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${copied ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                    title="Copier le lien"
+                >
+                    {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+            </div>
+
+            <p className="text-xs text-blue-700 mb-3">
+                {revoked
+                    ? 'Ce lien a été révoqué — régénérez-en un nouveau pour redonner l\'accès au client.'
+                    : isExpired
+                        ? 'Ce lien est expiré — régénérez-en un nouveau pour redonner l\'accès au client.'
+                        : `Lien valide ${expireText}. Partagez-le par email ou SMS avec votre client.`}
+            </p>
+
+            <div className="flex items-center gap-2 flex-wrap">
+                <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                    <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+                    {revoked || isExpired ? 'Générer un nouveau lien' : 'Régénérer'}
+                </button>
+                {!revoked && !isExpired && (
+                    <button
+                        type="button"
+                        onClick={handleRevoke}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                        <Ban className="w-3.5 h-3.5" />
+                        Révoquer
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const ClientForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -135,6 +280,8 @@ const ClientForm = () => {
         siren: '',
         tva_intracom: '',
         portal_token: null,
+        portal_token_expires_at: null,
+        portal_token_revoked: false,
         contacts: []
     });
 
@@ -195,6 +342,8 @@ const ClientForm = () => {
                     notes: data.notes || '',
                     status: data.status || 'lead',
                     portal_token: data.portal_token,
+                    portal_token_expires_at: data.portal_token_expires_at || null,
+                    portal_token_revoked: data.portal_token_revoked || false,
                     type: data.type || 'professional',
                     siren: data.siren || '',
                     tva_intracom: data.tva_intracom || '',
@@ -364,17 +513,6 @@ const ClientForm = () => {
                             <span className="hidden sm:inline">RDV</span>
                         </button>
                     )}
-                    {isEditing && formData.portal_token && (
-                        <a
-                            href={`${window.location.origin}/p/${formData.portal_token}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-                        >
-                            <Globe className="w-4 h-4 mr-2" />
-                            <span className="hidden sm:inline">Portail</span>
-                        </a>
-                    )}
                     {isEditing && (
                         <button
                             type="button"
@@ -449,6 +587,16 @@ const ClientForm = () => {
             </div>
 
             {activeTab === 'info' && (
+                <>
+                    {isEditing && formData.portal_token && (
+                        <PortalTokenManager
+                            clientId={parseInt(id, 10)}
+                            token={formData.portal_token}
+                            expiresAt={formData.portal_token_expires_at}
+                            revoked={formData.portal_token_revoked}
+                            onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+                        />
+                    )}
                 <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
                     <div>
                         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -705,6 +853,7 @@ const ClientForm = () => {
                         </button>
                     </div>
                 </form>
+                </>
             )}
 
             {activeTab === 'contacts' && (
