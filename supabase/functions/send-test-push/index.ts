@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,10 @@ Deno.serve(async (req) => {
 
         const { data: { user }, error: userErr } = await userClient.auth.getUser();
         if (userErr || !user) return json({ error: 'Non authentifié' }, 401);
+
+        // Rate limit : 3 tests / minute / utilisateur (anti-spam du bouton)
+        const rl = await enforceRateLimit('send-test-push', user.id, 3, 60);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
         const vapidPublic  = Deno.env.get('VAPID_PUBLIC_KEY');
         const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');

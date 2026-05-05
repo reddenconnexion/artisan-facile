@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +34,10 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Rate limit : 5 analyses vision / heure / utilisateur (très coûteux)
+    const rl = await enforceRateLimit('plan-vision', user.id, 5, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     // Récupération du profil (clé API + plan)
     const { data: profile, error: profileError } = await supabase
