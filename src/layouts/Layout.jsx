@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -154,7 +154,6 @@ const Layout = () => {
     ];
 
     const activiteChildren = [
-      ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon }] : []),
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
@@ -203,7 +202,6 @@ const Layout = () => {
         icon: Zap,
         children: ressourcesChildren,
       }] : []),
-      { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
     ];
   }, [user]);
 
@@ -592,14 +590,14 @@ const Layout = () => {
               )}
             </button>
 
-            {/* Mode terrain — accès rapide depuis la sidebar */}
+            {/* Mode terrain — accès rapide en mobile uniquement (FAB sur dashboard prend le relais en desktop) */}
             <button
               onClick={() => navigate('/terrain')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className="md:hidden flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap"
               title="Mode terrain — vue simplifiée sur chantier"
             >
-              <Wrench className={`w-5 h-5 flex-shrink-0 text-orange-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Mode terrain'}
+              <Wrench className="w-5 h-5 flex-shrink-0 text-orange-500 mr-3" />
+              Mode terrain
             </button>
 
             <button
