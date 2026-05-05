@@ -112,7 +112,11 @@ const PublicQuote = () => {
 
     const handleDownload = () => {
         if (!quote) return;
-        if (quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
+        // Only fall back to the originally-imported PDF for "external" quotes
+        // where items aren't the source of truth. For normal quotes we always
+        // regenerate to reflect the artisan's edits and the client's option
+        // selections — otherwise the download silently differs from the iframe.
+        if (quote.is_external && quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
             window.open(quote.original_pdf_url, '_blank', 'noopener,noreferrer');
             return;
         }
