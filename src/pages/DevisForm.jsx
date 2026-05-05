@@ -1390,6 +1390,7 @@ const DevisForm = () => {
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
+                include_tva: formData.include_tva,
                 notes: formData.notes,
                 status: formData.status,
                 type: formData.type,
