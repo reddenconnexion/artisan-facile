@@ -399,7 +399,7 @@ const PublicQuote = () => {
                                         <div key={`group-${groupName}`} className="rounded-xl border border-purple-200 bg-purple-50/40 p-3">
                                             <p className="text-xs font-semibold text-purple-700 mb-2">
                                                 {groupName}
-                                                {required && <span className="ml-1 text-purple-500">(choix obligatoire)</span>}
+                                                {required && <span className="ml-1 text-purple-500">(choix nécessaire)</span>}
                                             </p>
                                             <div className="space-y-1.5">
                                                 {groupItems.map(item => {

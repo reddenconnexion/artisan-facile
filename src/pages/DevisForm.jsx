@@ -3425,7 +3425,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                         disabled={isLocked}
                                                         className="w-3.5 h-3.5 accent-purple-600"
                                                     />
-                                                    Choix obligatoire
+                                                    Choix nécessaire
                                                 </label>
                                             )}
                                         </div>
