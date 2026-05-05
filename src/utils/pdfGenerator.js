@@ -827,7 +827,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'italic');
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, elementY + 28);
+            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.quote_number || devis.id}" lors du paiement.`, 20, elementY + 28);
         }
 
         elementY += boxHeight + 10;
