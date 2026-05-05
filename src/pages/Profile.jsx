@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
@@ -68,6 +69,22 @@ const PreferencesSection = () => {
                         </span>
                         <span className="text-xs font-mono text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">?</span>
                     </button>
+
+                    <Link
+                        to="/app/guide"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            <HelpCircle className="w-5 h-5 text-gray-500" />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">Guide d'utilisation</span>
+                                <span className="block text-xs text-gray-500">
+                                    Tutoriels, astuces et raccourcis du quotidien
+                                </span>
+                            </span>
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </Link>
                 </div>
             </div>
         </div>
