@@ -1033,6 +1033,21 @@ const DevisForm = () => {
         }));
     };
 
+    // Toggling option_group_required affects every item in the same group, so
+    // they stay consistent (the public client view reads this flag from the
+    // first item of the group).
+    const setOptionGroupRequired = (groupName, required) => {
+        if (!groupName) return;
+        setFormData(prev => ({
+            ...prev,
+            items: prev.items.map(item =>
+                item.option_group === groupName
+                    ? { ...item, option_group_required: required }
+                    : item
+            )
+        }));
+    };
+
     const calculateTotal = () => {
         if (formData.is_external) {
             return {
@@ -3390,6 +3405,31 @@ Conditions de règlement : Paiement à réception de facture.`
                                             </button>
                                         </div>
                                     </div>
+                                    {item.is_optional && (
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                            <input
+                                                type="text"
+                                                placeholder="Groupe d'exclusivité (ex: Revêtement)"
+                                                className="px-2 py-1 border border-purple-200 bg-purple-50/50 rounded text-xs w-56 focus:ring-purple-400 focus:border-purple-400"
+                                                value={item.option_group || ''}
+                                                onChange={(e) => updateItem(item.id, 'option_group', e.target.value)}
+                                                disabled={isLocked}
+                                                title="Les options partageant le même nom de groupe deviennent mutuellement exclusives côté client (un seul choix possible)."
+                                            />
+                                            {item.option_group && (
+                                                <label className="flex items-center gap-1.5 text-xs text-purple-700 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!item.option_group_required}
+                                                        onChange={(e) => setOptionGroupRequired(item.option_group, e.target.checked)}
+                                                        disabled={isLocked}
+                                                        className="w-3.5 h-3.5 accent-purple-600"
+                                                    />
+                                                    Choix obligatoire
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <div className="w-20 relative">
