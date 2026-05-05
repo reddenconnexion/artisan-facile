@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -15,7 +15,7 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
-import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount } from '../hooks/useDataCache';
+import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
 
 const Layout = () => {
   const location = useLocation();
@@ -28,6 +28,7 @@ const Layout = () => {
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
   const newReceivedCount = useNewReceivedInvoicesCount();
+  const unreadPortalMessages = useUnreadPortalMessagesCount();
   const { plan, isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
@@ -178,6 +179,7 @@ const Layout = () => {
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
+      { name: 'Messages', href: '/app/portal-messages', icon: MessageSquare, badge: unreadPortalMessages },
       {
         name: 'Devis & Factures',
         icon: FileText,
@@ -468,6 +470,7 @@ const Layout = () => {
                 const isActive = group.href === '/app'
                   ? location.pathname === '/app'
                   : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
+                const itemBadge = group.badge ?? 0;
                 return (
                   <Link
                     key={group.name}
@@ -477,8 +480,24 @@ const Layout = () => {
                       : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                       } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                   >
-                    <group.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                    {(!isCollapsed || isMobileMenuOpen) && group.name}
+                    <div className="relative flex-shrink-0">
+                      <group.icon className={`w-5 h-5 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                      {itemBadge > 0 && (
+                        <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                          {itemBadge > 9 ? '9+' : itemBadge}
+                        </span>
+                      )}
+                    </div>
+                    {(!isCollapsed || isMobileMenuOpen) && (
+                      <span className="flex-1 flex items-center gap-2">
+                        {group.name}
+                        {itemBadge > 0 && (
+                          <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {itemBadge}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 );
               }
