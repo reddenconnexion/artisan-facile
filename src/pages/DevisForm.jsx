@@ -3118,18 +3118,30 @@ Conditions de règlement : Paiement à réception de facture.`
                                             Option TVA sur les débits
                                         </label>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <input
-                                            type="checkbox"
-                                            id="require_otp"
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
-                                            checked={formData.require_otp}
-                                            onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
-                                            disabled={isLocked}
-                                        />
-                                        <label htmlFor="require_otp" className="text-sm text-gray-700">
-                                            Exiger la vérification par email (OTP) pour signer
-                                        </label>
+                                    <div className="mt-2">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                id="require_otp"
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                                checked={formData.require_otp}
+                                                onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
+                                                disabled={isLocked}
+                                            />
+                                            <label htmlFor="require_otp" className="text-sm text-gray-700">
+                                                Exiger la vérification par email (OTP) pour signer
+                                            </label>
+                                        </div>
+                                        {total >= 5000 && !formData.require_otp && (
+                                            <div className="mt-2 ml-6 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                                                <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                                                <div>
+                                                    <span className="font-semibold">Recommandé pour ce montant.</span>{' '}
+                                                    Au-delà de 5 000 €, activer l'OTP renforce la valeur juridique de la signature
+                                                    en cas de contestation (identification du signataire par email).
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
