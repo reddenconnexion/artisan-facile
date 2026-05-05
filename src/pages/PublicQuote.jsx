@@ -454,7 +454,7 @@ const PublicQuote = () => {
                 ) : null}
             </div>
 
-            {/* Below PDF: post-sign success + payment info */}
+            {/* Below PDF: post-sign success banner */}
             <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
                 {/* Post-signature success banner */}
                 {justSigned && (
@@ -484,41 +484,6 @@ const PublicQuote = () => {
                                     <Phone className="w-4 h-4" />
                                     Contacter {artisan.company_name || artisan.full_name}
                                 </a>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Payment information */}
-                {quote.status !== 'paid' && artisan.iban && (
-                    <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                            <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
-                            Moyens de paiement acceptés
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
-                                <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
-                                    {artisan.iban}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-2 flex items-center">
-                                    Référence à rappeler : <span className="font-bold ml-1">{quote.quote_number || quote.id}</span>
-                                </p>
-                            </div>
-                            {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
-                                <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                    <p className="text-slate-900 font-medium">
-                                        {artisan.wero_phone}
-                                        {(artisan.full_name || artisan.company_name) && (
-                                            <span className="text-slate-500 font-normal text-sm ml-1">
-                                                ({artisan.full_name || artisan.company_name})
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
-                                </div>
                             )}
                         </div>
                     </div>
