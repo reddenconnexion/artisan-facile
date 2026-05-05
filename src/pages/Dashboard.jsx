@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
+import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -38,10 +38,7 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
-import SetupChecklist from '../components/SetupChecklist';
-import FeatureTips from '../components/FeatureTips';
-import PushNotificationBanner from '../components/PushNotificationBanner';
-import OnboardingGuide from '../components/OnboardingGuide';
+import WelcomeCard from '../components/WelcomeCard';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -154,9 +151,6 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         .filter(q => q.status === 'paid' && new Date(q.date || q.created_at) >= thisMonthStart)
         .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
 
-    const pendingBilled = allQuotes.filter(q => q.status === 'billed');
-    const pendingTotal = pendingBilled.reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
-
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const toRelanceCount = allQuotes.filter(q =>
         q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
@@ -185,7 +179,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         : `${Math.round(v)} €`;
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <KpiCard
                 index={0}
                 rawValue={caThisMonth}
@@ -200,21 +194,6 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
             />
             <KpiCard
                 index={1}
-                rawValue={pendingTotal}
-                formatFn={fmtEur}
-                icon={Clock}
-                iconBg={pendingTotal > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-800'}
-                iconColor={pendingTotal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}
-                value={fmtEur(pendingTotal)}
-                label="En attente de paiement"
-                sub={pendingBilled.length > 0
-                    ? `${pendingBilled.length} facture${pendingBilled.length > 1 ? 's' : ''} émise${pendingBilled.length > 1 ? 's' : ''}`
-                    : 'Aucune facture en cours'}
-                urgent={pendingTotal > 0}
-                onClick={() => navigate('/app/devis')}
-            />
-            <KpiCard
-                index={2}
                 rawValue={toRelanceCount}
                 formatFn={(v) => Math.round(v) > 0 ? `${Math.round(v)} devis` : 'Aucun'}
                 icon={FileText}
@@ -227,7 +206,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 onClick={() => navigate('/app/devis')}
             />
             <KpiCard
-                index={3}
+                index={2}
                 icon={Calendar}
                 iconBg="bg-blue-100 dark:bg-blue-900/30"
                 iconColor="text-blue-600 dark:text-blue-400"
@@ -615,7 +594,16 @@ const Dashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
+    const [statsExpanded, setStatsExpanded] = useState(() => localStorage.getItem('dashboard_stats_expanded') === '1');
     const { isTestMode, testClient } = useTestMode();
+
+    const toggleStats = () => {
+        setStatsExpanded(prev => {
+            const next = !prev;
+            localStorage.setItem('dashboard_stats_expanded', next ? '1' : '0');
+            return next;
+        });
+    };
 
     // Show welcome toast after email confirmation
     useEffect(() => {
@@ -709,15 +697,12 @@ const Dashboard = () => {
                 </h2>
             </div>
 
-            <OnboardingGuide />
-            <SetupChecklist />
-            <PushNotificationBanner />
+            <WelcomeCard />
 
-            {/* KPI Strip — 4 métriques essentielles d'un coup d'oeil */}
+            {/* KPI Strip — 3 métriques essentielles d'un coup d'oeil */}
             <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
 
             <QuickActions />
-            <FeatureTips />
 
             <ActionableDashboard user={user} />
 
@@ -780,78 +765,77 @@ const Dashboard = () => {
 
             <RecentVoiceMemos userId={user?.id} navigate={navigate} />
 
-            {/* Statistiques avancées — visibles à partir du niveau Intermédiaire */}
-            {showAdvancedStats && (hasNoQuotes ? (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl p-8 text-center">
-                    <p className="text-3xl mb-3">📋</p>
-                    <p className="font-bold text-gray-900 dark:text-white text-lg mb-2">
-                        Créez votre premier devis !
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-sm mx-auto">
-                        Vos statistiques de chiffre d'affaires et de conversion apparaîtront ici dès que vous aurez créé et envoyé des devis.
-                    </p>
+            {/* Statistiques avancées — pliable, visibles à partir du niveau Intermédiaire */}
+            {showAdvancedStats && !hasNoQuotes && (
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <button
-                        onClick={() => navigate('/app/devis/new')}
-                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        onClick={toggleStats}
+                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                        aria-expanded={statsExpanded}
                     >
-                        Créer mon premier devis
+                        <span className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-sm">
+                            <BarChart3 className="w-4 h-4 text-blue-500" />
+                            Mes statistiques (CA, résultat net, conversion)
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${statsExpanded ? 'rotate-180' : ''}`} />
                     </button>
+                    {statsExpanded && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border-t border-gray-100 dark:border-gray-800">
+                            <RichStatCard
+                                cardIndex={0}
+                                title="Chiffre d'affaires"
+                                tooltip="Total des devis acceptés et facturés sur la période. C'est le montant que vos clients vous ont commandé."
+                                allQuotes={allQuotes}
+                                type="revenue"
+                                icon={TrendingUp}
+                                colorClass="bg-green-500"
+                                colorHex="#10B981"
+                                formatValue={(v) => `${v.toFixed(0)} €`}
+                                onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
+                            />
+                            <RichStatCard
+                                cardIndex={1}
+                                title="Résultat Net"
+                                tooltip="Chiffre d'affaires moins le coût de vos matériaux. C'est ce qui reste pour couvrir vos charges et votre rémunération."
+                                allQuotes={allQuotes}
+                                type="netIncome"
+                                staticSubText="(Hors Matériel)"
+                                icon={TrendingUp}
+                                colorClass="bg-emerald-600"
+                                colorHex="#059669"
+                                formatValue={(v) => `${v.toFixed(0)} €`}
+                                onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'Résultat' })}
+                            />
+                            <RichStatCard
+                                cardIndex={2}
+                                title="Volume de Devis"
+                                tooltip="Montant total de tous les devis créés sur la période, signés ou non. Cliquez pour voir ceux en attente de réponse."
+                                allQuotes={allQuotes}
+                                type="quotes"
+                                staticSubText={`${pendingQuotesCount} en attente`}
+                                icon={FileCheck}
+                                colorClass="bg-orange-500"
+                                colorHex="#F97316"
+                                formatValue={(v) => `${v.toFixed(0)} €`}
+                                onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
+                            />
+                            <RichStatCard
+                                cardIndex={3}
+                                title="Taux de conversion"
+                                tooltip="Part de vos devis acceptés par vos clients. Ex : 60% signifie que 6 devis sur 10 ont été signés. Plus c'est élevé, mieux c'est."
+                                allQuotes={allQuotes}
+                                type="conversion"
+                                staticSubText="Devis signés / Total"
+                                icon={BarChart3}
+                                colorClass="bg-blue-500"
+                                colorHex="#3B82F6"
+                                formatValue={(v) => `${v.toFixed(1)} %`}
+                                chartFormatter={(v) => `${v} Signé(s)`}
+                            />
+                        </div>
+                    )}
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <RichStatCard
-                        cardIndex={0}
-                        title="Chiffre d'affaires"
-                        tooltip="Total des devis acceptés et facturés sur la période. C'est le montant que vos clients vous ont commandé."
-                        allQuotes={allQuotes}
-                        type="revenue"
-                        icon={TrendingUp}
-                        colorClass="bg-green-500"
-                        colorHex="#10B981"
-                        formatValue={(v) => `${v.toFixed(0)} €`}
-                        onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
-                    />
-                    <RichStatCard
-                        cardIndex={1}
-                        title="Résultat Net"
-                        tooltip="Chiffre d'affaires moins le coût de vos matériaux. C'est ce qui reste pour couvrir vos charges et votre rémunération."
-                        allQuotes={allQuotes}
-                        type="netIncome"
-                        staticSubText="(Hors Matériel)"
-                        icon={TrendingUp}
-                        colorClass="bg-emerald-600"
-                        colorHex="#059669"
-                        formatValue={(v) => `${v.toFixed(0)} €`}
-                        onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'Résultat' })}
-                    />
-                    <RichStatCard
-                        cardIndex={2}
-                        title="Volume de Devis"
-                        tooltip="Montant total de tous les devis créés sur la période, signés ou non. Cliquez pour voir ceux en attente de réponse."
-                        allQuotes={allQuotes}
-                        type="quotes"
-                        staticSubText={`${pendingQuotesCount} en attente`}
-                        icon={FileCheck}
-                        colorClass="bg-orange-500"
-                        colorHex="#F97316"
-                        formatValue={(v) => `${v.toFixed(0)} €`}
-                        onValueClick={() => navigate('/app/devis', { state: { filter: 'pending' } })}
-                    />
-                    <RichStatCard
-                        cardIndex={3}
-                        title="Taux de conversion"
-                        tooltip="Part de vos devis acceptés par vos clients. Ex : 60% signifie que 6 devis sur 10 ont été signés. Plus c'est élevé, mieux c'est."
-                        allQuotes={allQuotes}
-                        type="conversion"
-                        staticSubText="Devis signés / Total"
-                        icon={BarChart3}
-                        colorClass="bg-blue-500"
-                        colorHex="#3B82F6"
-                        formatValue={(v) => `${v.toFixed(1)} %`}
-                        chartFormatter={(v) => `${v} Signé(s)`}
-                    />
-                </div>
-            ))}
+            )}
 
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>

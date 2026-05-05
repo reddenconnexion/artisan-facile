@@ -2,11 +2,77 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2 } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
+
+const PreferencesSection = () => {
+    const [isDarkMode, setIsDarkMode] = useState(() =>
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    );
+
+    useEffect(() => {
+        const sync = () => setIsDarkMode(document.documentElement.classList.contains('dark'));
+        const observer = new MutationObserver(sync);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
+    const handleToggleTheme = () => window.dispatchEvent(new Event('artisan:toggle-theme'));
+    const handleOpenShortcuts = () => window.dispatchEvent(new Event('artisan:open-shortcuts'));
+
+    return (
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-gray-500" />
+                    Préférences de l'application
+                </h3>
+                <div className="space-y-3">
+                    <button
+                        type="button"
+                        onClick={handleToggleTheme}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            {isDarkMode
+                                ? <Sun className="w-5 h-5 text-yellow-500" />
+                                : <Moon className="w-5 h-5 text-gray-500" />}
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">
+                                    {isDarkMode ? 'Mode clair' : 'Mode sombre'}
+                                </span>
+                                <span className="block text-xs text-gray-500">
+                                    Basculer entre l'apparence claire et sombre
+                                </span>
+                            </span>
+                        </span>
+                        <span className="text-xs font-medium text-blue-600">Basculer</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleOpenShortcuts}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            <Keyboard className="w-5 h-5 text-gray-500" />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">Raccourcis clavier</span>
+                                <span className="block text-xs text-gray-500">
+                                    Voir la liste des raccourcis disponibles
+                                </span>
+                            </span>
+                        </span>
+                        <span className="text-xs font-mono text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">?</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const Profile = () => {
     // Component for managing artisan profile settings
@@ -794,6 +860,9 @@ const Profile = () => {
                     )}
                 </div>
             </div>
+
+            {/* Préférences de l'application */}
+            <PreferencesSection />
 
             {/* AI Settings — Paramètres avancés */}
             <div className="mt-8">

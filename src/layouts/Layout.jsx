@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -75,8 +75,6 @@ const Layout = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
-
-  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   // Job Library Hydration Logic
   React.useEffect(() => {
@@ -175,6 +173,10 @@ const Layout = () => {
     const showInter = skillLevel === 'intermediaire' || skillLevel === 'confirme';
     const showConfirme = skillLevel === 'confirme';
 
+    const ressourcesChildren = outilsChildren
+      .filter(c => showConfirme || c.href !== '/app/rentals')
+      .map(c => c.href === '/app/outils' ? { ...c, name: 'Calculatrices' } : c);
+
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
@@ -182,9 +184,9 @@ const Layout = () => {
         name: 'Devis & Factures',
         icon: FileText,
         children: [
-          { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+          { name: 'Tous les devis', href: '/app/devis', icon: FileText },
           { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
-          ...(showInter ? [{ name: 'Comptabilité', href: '/app/accounting', icon: Calculator }] : []),
+          { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
         ],
       },
       ...(showInter && chantierChildren.length > 0 ? [{
@@ -198,9 +200,9 @@ const Layout = () => {
         children: activiteChildren,
       }] : []),
       ...(showInter ? [{
-        name: 'Outils',
+        name: 'Ressources',
         icon: Zap,
-        children: outilsChildren.filter(c => showConfirme || c.href !== '/app/rentals'),
+        children: ressourcesChildren,
       }] : []),
       { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
     ];
@@ -271,6 +273,18 @@ const Layout = () => {
     document.addEventListener('keydown', handleKeyboardShortcuts);
     return () => document.removeEventListener('keydown', handleKeyboardShortcuts);
   }, [handleKeyboardShortcuts]);
+
+  // Allow Profile/Settings page to control theme & shortcuts modal via window events
+  useEffect(() => {
+    const onToggleTheme = () => setIsDarkMode(prev => !prev);
+    const onOpenShortcuts = () => setShowShortcuts(true);
+    window.addEventListener('artisan:toggle-theme', onToggleTheme);
+    window.addEventListener('artisan:open-shortcuts', onOpenShortcuts);
+    return () => {
+      window.removeEventListener('artisan:toggle-theme', onToggleTheme);
+      window.removeEventListener('artisan:open-shortcuts', onOpenShortcuts);
+    };
+  }, []);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -579,28 +593,6 @@ const Layout = () => {
               )}
             </button>
 
-            {/* Dark Mode Toggle Button */}
-            <button
-              onClick={toggleDarkMode}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              title={isDarkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              {isDarkMode ? (
-                <Sun className={`w-5 h-5 flex-shrink-0 text-yellow-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              ) : (
-                <Moon className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              )}
-              {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode Clair' : 'Mode Sombre')}
-            </button>
-
-            <button
-              onClick={() => setShowShortcuts(true)}
-              className={`hidden md:flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              title="Raccourcis clavier (?)"
-            >
-              <Keyboard className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Raccourcis clavier'}
-            </button>
             {/* Mode terrain — accès rapide depuis la sidebar */}
             <button
               onClick={() => navigate('/terrain')}
