@@ -291,6 +291,46 @@ export function useNewReceivedInvoicesCount() {
     return count;
 }
 
+// Nombre de messages non lus dans les portails clients (pour badge nav)
+export function useUnreadPortalMessagesCount() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        if (!user) return;
+        const channel = supabase
+            .channel(`portal_msg_count_${user.id}`)
+            .on('postgres_changes', {
+                event:  'INSERT',
+                schema: 'public',
+                table:  'portal_messages',
+                filter: `user_id=eq.${user.id}`,
+            }, () => {
+                queryClient.invalidateQueries({ queryKey: ['portalMessagesCount', user.id] });
+            })
+            .subscribe();
+        return () => supabase.removeChannel(channel);
+    }, [user?.id, queryClient]);
+
+    const { data: count = 0 } = useQuery({
+        queryKey: ['portalMessagesCount', user?.id],
+        queryFn: async () => {
+            if (!user) return 0;
+            const { count, error } = await supabase
+                .from('portal_messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('sender_type', 'client')
+                .is('read_at', null);
+            return error ? 0 : (count ?? 0);
+        },
+        enabled: !!user,
+        staleTime: 30 * 1000,
+    });
+
+    return count;
+}
+
 // Hook pour invalider le cache après une modification
 export function useInvalidateCache() {
     const queryClient = useQueryClient();

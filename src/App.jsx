@@ -89,6 +89,7 @@ const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
+const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -156,6 +157,7 @@ function App() {
                 <Route path="subscription" element={<Subscription />} />
                 <Route path="outils" element={<Outils />} />
                 <Route path="guide" element={<GuidePage />} />
+                <Route path="portal-messages" element={<PortalMessages />} />
               </Route>
             </Routes >
           </Suspense >
