@@ -210,11 +210,24 @@ const PublicQuote = () => {
         }
     };
 
-    // Initialize selectedOptionals when quote loads (all optional items pre-checked)
+    // Initialize selectedOptionals when quote loads.
+    //  - Ungrouped options: pre-checked (independent checkboxes).
+    //  - Grouped options (mutually exclusive): only the first item of each
+    //    group is pre-checked, regardless of whether the group is "required".
     useEffect(() => {
         if (!quote || selectedOptionals !== null) return;
-        const ids = (quote.items || []).filter(i => i.is_optional).map(i => String(i.id));
-        setSelectedOptionals(new Set(ids));
+        const optItems = (quote.items || []).filter(i => i.is_optional);
+        const ids = new Set();
+        const seenGroups = new Set();
+        for (const it of optItems) {
+            if (!it.option_group) {
+                ids.add(String(it.id));
+            } else if (!seenGroups.has(it.option_group)) {
+                ids.add(String(it.id));
+                seenGroups.add(it.option_group);
+            }
+        }
+        setSelectedOptionals(ids);
     }, [quote]);
 
     // Generate PDF client-side — depends on quote and optional item selection
@@ -258,6 +271,21 @@ const PublicQuote = () => {
 
     const optionalItems = (quote.items || []).filter(i => i.is_optional && i.type !== 'section');
     const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView;
+
+    // Split optional items into mutually-exclusive groups (rendered as radios)
+    // and standalone options (rendered as independent checkboxes). Insertion
+    // order is preserved so the artisan controls grouping visually.
+    const optionGroups = {};
+    const ungroupedOptions = [];
+    for (const it of optionalItems) {
+        const g = (it.option_group || '').trim();
+        if (g) {
+            if (!optionGroups[g]) optionGroups[g] = [];
+            optionGroups[g].push(it);
+        } else {
+            ungroupedOptions.push(it);
+        }
+    }
     const includeTva = quote.include_tva !== false;
     const tvaRate = 0.20;
 
@@ -363,8 +391,75 @@ const PublicQuote = () => {
                         </button>
 
                         {optionsExpanded && (
-                            <div className="pb-4 space-y-2">
-                                {optionalItems.map(item => {
+                            <div className="pb-4 space-y-3">
+                                {/* Grouped options: mutually exclusive radio groups */}
+                                {Object.entries(optionGroups).map(([groupName, groupItems]) => {
+                                    const required = groupItems.some(i => i.option_group_required);
+                                    return (
+                                        <div key={`group-${groupName}`} className="rounded-xl border border-purple-200 bg-purple-50/40 p-3">
+                                            <p className="text-xs font-semibold text-purple-700 mb-2">
+                                                {groupName}
+                                                {required && <span className="ml-1 text-purple-500">(choix obligatoire)</span>}
+                                            </p>
+                                            <div className="space-y-1.5">
+                                                {groupItems.map(item => {
+                                                    const checked = selectedOptionals?.has(String(item.id)) ?? false;
+                                                    const ht = itemTotal(item);
+                                                    const ttc = includeTva ? ht * (1 + tvaRate) : ht;
+                                                    return (
+                                                        <label key={item.id} className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-white border border-purple-300' : 'hover:bg-white/60'}`}>
+                                                            <input
+                                                                type="radio"
+                                                                name={`option-group-${groupName}`}
+                                                                checked={checked}
+                                                                onChange={() => setSelectedOptionals(prev => {
+                                                                    const next = new Set(prev);
+                                                                    for (const sibling of groupItems) {
+                                                                        next.delete(String(sibling.id));
+                                                                    }
+                                                                    next.add(String(item.id));
+                                                                    return next;
+                                                                })}
+                                                                className="mt-0.5 w-4 h-4 accent-purple-600 shrink-0"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm font-medium ${checked ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                                    {item.description}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-400'}`}>
+                                                                    +{ttc.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}
+                                                                </p>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                                {!required && (
+                                                    <label className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${groupItems.every(i => !selectedOptionals?.has(String(i.id))) ? 'bg-white border border-gray-300' : 'hover:bg-white/60'}`}>
+                                                        <input
+                                                            type="radio"
+                                                            name={`option-group-${groupName}`}
+                                                            checked={groupItems.every(i => !selectedOptionals?.has(String(i.id)))}
+                                                            onChange={() => setSelectedOptionals(prev => {
+                                                                const next = new Set(prev);
+                                                                for (const sibling of groupItems) {
+                                                                    next.delete(String(sibling.id));
+                                                                }
+                                                                return next;
+                                                            })}
+                                                            className="w-4 h-4 accent-gray-500 shrink-0"
+                                                        />
+                                                        <span className="text-sm text-gray-500">Aucune de ces options</span>
+                                                    </label>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Ungrouped options: independent checkboxes */}
+                                {ungroupedOptions.map(item => {
                                     const checked = selectedOptionals?.has(String(item.id)) ?? true;
                                     const ht = itemTotal(item);
                                     const ttc = includeTva ? ht * (1 + tvaRate) : ht;
