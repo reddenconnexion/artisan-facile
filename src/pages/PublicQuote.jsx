@@ -29,6 +29,7 @@ const PublicQuote = () => {
     const [pdfUrl, setPdfUrl] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
     const [pdfPageImages, setPdfPageImages] = useState([]);
+    const [pdfRenderError, setPdfRenderError] = useState(false);
     const [selectedOptionals, setSelectedOptionals] = useState(null); // null = not yet initialized
     const [optionsExpanded, setOptionsExpanded] = useState(true);
 
@@ -239,45 +240,73 @@ const PublicQuote = () => {
     useEffect(() => {
         if (!quote || selectedOptionals === null) return;
         let blobUrl = null;
+        let pageBlobUrls = [];
         let cancelled = false;
         setPdfLoading(true);
+        setPdfRenderError(false);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
         const quoteForPdf = buildQuoteForPdf();
-        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'bloburl')
-            .then(async url => {
+
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'blob')
+            .then(async pdfBlob => {
                 if (cancelled) return;
-                blobUrl = url;
-                setPdfUrl(url);
+                blobUrl = URL.createObjectURL(pdfBlob);
+                setPdfUrl(blobUrl);
+
                 // Render every page as an image so the mobile view (and any
-                // browser that won't render blob: PDFs in iframes — iOS Safari
-                // in particular) can show the document inline instead of
-                // forcing a download.
+                // browser that won't render blob: PDFs in iframes — iOS Safari,
+                // some Android Chrome versions) can show the document inline.
+                // We pass the raw bytes to pdfjs (more reliable than blob URLs
+                // across mobile browsers) and emit JPEG via canvas.toBlob to
+                // keep memory footprint low on multi-page quotes.
                 try {
-                    const pdf = await pdfjsLib.getDocument({ url }).promise;
-                    const images = [];
+                    const arrayBuffer = await pdfBlob.arrayBuffer();
+                    if (cancelled) return;
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                    const targetWidth = Math.min(window.innerWidth, 1200);
+                    const newPageUrls = [];
                     for (let i = 1; i <= pdf.numPages; i++) {
+                        if (cancelled) break;
                         const page = await pdf.getPage(i);
-                        // Aim for ~1.5x density on a 600px viewport for
-                        // legibility without bloating memory.
-                        const viewport = page.getViewport({ scale: 1.5 });
+                        const baseViewport = page.getViewport({ scale: 1 });
+                        const scale = (targetWidth / baseViewport.width) * dpr;
+                        const viewport = page.getViewport({ scale });
                         const canvas = document.createElement('canvas');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-                        images.push(canvas.toDataURL('image/png'));
-                        if (cancelled) return;
+                        canvas.width = Math.floor(viewport.width);
+                        canvas.height = Math.floor(viewport.height);
+                        const ctx = canvas.getContext('2d');
+                        await page.render({ canvasContext: ctx, viewport }).promise;
+                        const pageBlob = await new Promise(resolve =>
+                            canvas.toBlob(resolve, 'image/jpeg', 0.85)
+                        );
+                        if (!pageBlob) continue;
+                        newPageUrls.push(URL.createObjectURL(pageBlob));
                     }
-                    if (!cancelled) setPdfPageImages(images);
+                    if (cancelled) {
+                        newPageUrls.forEach(u => URL.revokeObjectURL(u));
+                        return;
+                    }
+                    pageBlobUrls = newPageUrls;
+                    setPdfPageImages(newPageUrls);
                 } catch (renderErr) {
                     console.error('PDF page rendering failed:', renderErr);
-                    if (!cancelled) setPdfPageImages([]);
+                    if (!cancelled) {
+                        setPdfPageImages([]);
+                        setPdfRenderError(true);
+                    }
                 }
             })
-            .catch(e => console.error('PDF generation error:', e))
+            .catch(e => {
+                console.error('PDF generation error:', e);
+                if (!cancelled) setPdfRenderError(true);
+            })
             .finally(() => { if (!cancelled) setPdfLoading(false); });
+
         return () => {
             cancelled = true;
             if (blobUrl) URL.revokeObjectURL(blobUrl);
+            pageBlobUrls.forEach(u => URL.revokeObjectURL(u));
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
@@ -594,14 +623,22 @@ const PublicQuote = () => {
                             ) : (
                                 <div className="flex-1 flex items-center justify-center p-6">
                                     <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
-                                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                        <div className={`w-16 h-16 ${pdfRenderError ? 'bg-amber-100' : 'bg-blue-100'} rounded-full flex items-center justify-center mx-auto`}>
+                                            {pdfRenderError ? (
+                                                <Download className="w-8 h-8 text-amber-600" />
+                                            ) : (
+                                                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                            )}
                                         </div>
                                         <div>
                                             <h2 className="text-lg font-bold text-gray-900">
                                                 {isInvoiceView ? 'Votre facture' : 'Votre devis'}
                                             </h2>
-                                            <p className="text-sm text-gray-500 mt-1">Préparation de l'aperçu…</p>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                {pdfRenderError
+                                                    ? "Aperçu indisponible sur ce navigateur. Téléchargez le PDF pour le consulter."
+                                                    : "Préparation de l'aperçu…"}
+                                            </p>
                                         </div>
                                         <button
                                             onClick={handleDownload}
