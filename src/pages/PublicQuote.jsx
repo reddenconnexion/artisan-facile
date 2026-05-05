@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
+
+// pdf.js worker is hosted in /public and shared with documentParser.js.
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // Client anonyme dédié à la page publique : pas de session, pas de refresh token.
 // Évite le timeout de vérification de session de l'artisan qui cause data=null sur le RPC.
@@ -24,6 +28,7 @@ const PublicQuote = () => {
     const [justSigned, setJustSigned] = useState(false);
     const [pdfUrl, setPdfUrl] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfPageImages, setPdfPageImages] = useState([]);
     const [selectedOptionals, setSelectedOptionals] = useState(null); // null = not yet initialized
     const [optionsExpanded, setOptionsExpanded] = useState(true);
 
@@ -234,14 +239,46 @@ const PublicQuote = () => {
     useEffect(() => {
         if (!quote || selectedOptionals === null) return;
         let blobUrl = null;
+        let cancelled = false;
         setPdfLoading(true);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
         const quoteForPdf = buildQuoteForPdf();
         generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'bloburl')
-            .then(url => { blobUrl = url; setPdfUrl(url); })
+            .then(async url => {
+                if (cancelled) return;
+                blobUrl = url;
+                setPdfUrl(url);
+                // Render every page as an image so the mobile view (and any
+                // browser that won't render blob: PDFs in iframes — iOS Safari
+                // in particular) can show the document inline instead of
+                // forcing a download.
+                try {
+                    const pdf = await pdfjsLib.getDocument({ url }).promise;
+                    const images = [];
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        // Aim for ~1.5x density on a 600px viewport for
+                        // legibility without bloating memory.
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                        images.push(canvas.toDataURL('image/png'));
+                        if (cancelled) return;
+                    }
+                    if (!cancelled) setPdfPageImages(images);
+                } catch (renderErr) {
+                    console.error('PDF page rendering failed:', renderErr);
+                    if (!cancelled) setPdfPageImages([]);
+                }
+            })
             .catch(e => console.error('PDF generation error:', e))
-            .finally(() => setPdfLoading(false));
-        return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+            .finally(() => { if (!cancelled) setPdfLoading(false); });
+        return () => {
+            cancelled = true;
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
 
@@ -519,35 +556,72 @@ const PublicQuote = () => {
                             style={{ height: 'calc(100vh - 56px)' }}
                             title="Document PDF"
                         />
-                        {/* Mobile: download prompt (iframes with blob URLs don't work on iOS) */}
-                        <div className="sm:hidden flex-1 flex items-center justify-center p-6 bg-gray-100">
-                            <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                    <Download className="w-8 h-8 text-blue-600" />
+                        {/* Mobile: render every PDF page as an image because
+                            iOS Safari refuses to display blob: PDFs in iframes.
+                            Falls back to a download CTA while pages are still
+                            being rendered or if rendering failed. */}
+                        <div className="sm:hidden flex-1 flex flex-col bg-gray-100">
+                            {pdfPageImages.length > 0 ? (
+                                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                                    {pdfPageImages.map((src, i) => (
+                                        <img
+                                            key={i}
+                                            src={src}
+                                            alt={`Page ${i + 1}`}
+                                            className="w-full rounded-lg shadow bg-white"
+                                            loading={i === 0 ? 'eager' : 'lazy'}
+                                        />
+                                    ))}
+                                    <div className="pt-2 pb-6 space-y-2">
+                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                            <button
+                                                onClick={() => setShowSignatureModal(true)}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                            >
+                                                <PenTool className="w-5 h-5" />
+                                                Signer le devis
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleDownload}
+                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-colors"
+                                        >
+                                            <Download className="w-5 h-5" />
+                                            Télécharger le PDF
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-gray-900">
-                                        {isInvoiceView ? 'Votre facture' : 'Votre devis'}
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mt-1">N° {quote.quote_number || quote.id}</p>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center p-6">
+                                    <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
+                                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-bold text-gray-900">
+                                                {isInvoiceView ? 'Votre facture' : 'Votre devis'}
+                                            </h2>
+                                            <p className="text-sm text-gray-500 mt-1">Préparation de l'aperçu…</p>
+                                        </div>
+                                        <button
+                                            onClick={handleDownload}
+                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                        >
+                                            <Download className="w-5 h-5" />
+                                            Télécharger le PDF
+                                        </button>
+                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                            <button
+                                                onClick={() => setShowSignatureModal(true)}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
+                                            >
+                                                <PenTool className="w-5 h-5" />
+                                                Signer le devis
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={handleDownload}
-                                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
-                                >
-                                    <Download className="w-5 h-5" />
-                                    Télécharger le PDF
-                                </button>
-                                {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
-                                    <button
-                                        onClick={() => setShowSignatureModal(true)}
-                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
-                                    >
-                                        <PenTool className="w-5 h-5" />
-                                        Signer le devis
-                                    </button>
-                                )}
-                            </div>
+                            )}
                         </div>
                     </>
                 ) : null}
