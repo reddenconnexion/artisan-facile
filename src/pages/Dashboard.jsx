@@ -39,6 +39,7 @@ import { useTestMode } from '../context/TestModeContext';
 import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -698,6 +699,10 @@ const Dashboard = () => {
             </div>
 
             <WelcomeCard />
+
+            {/* Checklist d'onboarding — affichée tant que les étapes essentielles
+                ne sont pas validées (ou jusqu'à dismiss explicite) */}
+            <OnboardingChecklist />
 
             {/* KPI Strip — 3 métriques essentielles d'un coup d'oeil */}
             <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
