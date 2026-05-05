@@ -581,7 +581,7 @@ const PublicQuote = () => {
                         {/* Desktop: full-height iframe */}
                         <iframe
                             src={pdfUrl}
-                            className="hidden sm:block w-full border-0"
+                            className="hidden lg:block w-full border-0"
                             style={{ height: 'calc(100vh - 56px)' }}
                             title="Document PDF"
                         />
@@ -589,7 +589,7 @@ const PublicQuote = () => {
                             iOS Safari refuses to display blob: PDFs in iframes.
                             Falls back to a download CTA while pages are still
                             being rendered or if rendering failed. */}
-                        <div className="sm:hidden flex-1 flex flex-col bg-gray-100">
+                        <div className="lg:hidden flex-1 flex flex-col bg-gray-100">
                             {pdfPageImages.length > 0 ? (
                                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
                                     {pdfPageImages.map((src, i) => (
