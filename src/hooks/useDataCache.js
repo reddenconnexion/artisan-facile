@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
+import { toastError } from '../utils/supabaseErrorHandler';
 
 /**
  * Hooks de cache pour les données principales
@@ -382,6 +383,7 @@ export function useSaveQuote() {
             queryClient.invalidateQueries({ queryKey: ['quotes'] });
             queryClient.invalidateQueries({ queryKey: ['quote', data.id] });
         },
+        onError: (error) => toastError(error, 'Impossible d\'enregistrer le devis.'),
     });
 }
 
@@ -522,5 +524,6 @@ export function useSaveClient() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
         },
+        onError: (error) => toastError(error, 'Impossible d\'enregistrer le client.'),
     });
 }
