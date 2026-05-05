@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
-import { generateQuoteItems } from '../utils/aiService';
+import { generateQuoteItems, extractQuoteFromPdfText } from '../utils/aiService';
 import { checkLimit } from '../utils/planLimits';
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
@@ -17,7 +17,7 @@ import MarginGauge from '../components/MarginGauge';
 
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
-import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems } from '../utils/documentParser';
+import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -717,19 +717,61 @@ const DevisForm = () => {
                 text = await extractTextFromDocx(file);
             }
 
-            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+            // 2a. Local regex parsing — fast, free, handles most well-structured PDFs.
+            const { items: regexItems, notes: regexNotes } = parseQuoteItems(text);
+            const meta = extractQuoteMetadata(text);
+
+            // 2b. Decide whether to also try the AI parser.
+            // The regex is good but fails on unusual layouts (e.g. multi-line
+            // descriptions, columns split across positions, rare formats).
+            // We escalate to the AI when results look weak and the user has
+            // either a personal API key or remaining free quota.
+            const zeroPriced = regexItems.filter(i => !i.price).length;
+            const looksWeak =
+                regexItems.length === 0 ||
+                regexItems.length < 3 ||
+                (regexItems.length > 0 && zeroPriced / regexItems.length > 0.5);
+
+            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const planNow = userProfile?.plan || 'free';
+            const isPro = planNow === 'pro' || planNow === 'owner';
+            const canUseAi = (hasPersonalKey || isPro || isAiTrialSession) && text && text.trim().length > 50;
+
+            let finalItems = regexItems;
+            let finalNotes = regexNotes;
+            let finalTitle = meta.title;
+            let aiUsed = false;
+
+            if (looksWeak && canUseAi) {
+                try {
+                    toast.info("Affinage de l'extraction par IA…");
+                    const aiResult = await extractQuoteFromPdfText(text);
+                    if (aiResult.items.length > regexItems.length) {
+                        finalItems = aiResult.items;
+                        finalNotes = aiResult.notes || regexNotes;
+                        finalTitle = aiResult.title || meta.title;
+                        aiUsed = true;
+                    }
+                } catch (aiErr) {
+                    console.warn('AI extraction fallback failed, keeping regex result:', aiErr);
+                    // Silent: regex result still applies.
+                }
+            }
 
             // Update Form Data
             setFormData(prev => ({
                 ...prev,
                 original_pdf_url: publicUrl,
-                items: newItems.length > 0 ? newItems : prev.items,
-                notes: extraNotes ? (prev.notes ? prev.notes + '\n' + extraNotes : extraNotes) : prev.notes
+                title: prev.title || (finalTitle || ''),
+                items: finalItems.length > 0 ? finalItems : prev.items,
+                notes: finalNotes ? (prev.notes ? prev.notes + '\n' + finalNotes : finalNotes) : prev.notes
             }));
 
             setShowImportZone(false);
-            if (newItems.length > 0) {
-                toast.success(`${newItems.length} éléments détectés et importés.`);
+            if (finalItems.length > 0) {
+                toast.success(
+                    `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`
+                );
             } else {
                 toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
             }
