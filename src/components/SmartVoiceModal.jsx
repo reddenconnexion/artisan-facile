@@ -3,6 +3,7 @@ import { X, Mic, Check, Sparkles, Wand2 } from 'lucide-react';
 import { useVoice } from '../hooks/useVoice';
 import { parseClientVoice, parseQuoteItemVoice } from '../utils/voiceParser';
 import { toast } from 'sonner';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
  * Smart Voice Interface ("Free AI")
@@ -11,6 +12,7 @@ import { toast } from 'sonner';
 const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
     const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
     const [localTranscript, setLocalTranscript] = useState('');
+    const containerRef = useModalA11y(isOpen, onClose);
 
     useEffect(() => {
         if (isOpen) {
@@ -80,8 +82,16 @@ const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col relative">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Saisie vocale"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col relative"
+            >
 
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center relative overflow-hidden">
@@ -89,6 +99,7 @@ const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                        aria-label="Fermer la modal"
                     >
                         <X className="w-5 h-5" />
                     </button>

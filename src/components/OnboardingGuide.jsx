@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, Check, Rocket, Building2, Users, FileText, Send, BarChart3, Sparkles, Mic, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useClients, useQuotes } from '../hooks/useDataCache';
+import { useModalA11y } from './../hooks/useModalA11y';
 
 const SLIDES = [
     {
@@ -287,6 +288,8 @@ const OnboardingGuide = () => {
         setOpen(false);
     };
 
+    const containerRef = useModalA11y(open, dismiss);
+
     const goNext = () => {
         if (currentSlide < SLIDES.length - 1) {
             setCurrentSlide(s => s + 1);
@@ -315,8 +318,16 @@ const OnboardingGuide = () => {
     const isLast = currentSlide === SLIDES.length - 1;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Guide de démarrage"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 pt-5 pb-4">
                     <div className="flex items-center gap-3">
