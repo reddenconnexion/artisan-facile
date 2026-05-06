@@ -1,6 +1,15 @@
 // Edge Runtime — persistant entre les requêtes, pas de cold start par invocation
 export const config = { runtime: 'edge' };
 
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 // Rate limiting : 5 requêtes max / IP / minute (in-memory, par instance Edge)
 const rateLimit = new Map();
 const WINDOW_MS  = 60_000; // 1 minute
@@ -101,14 +110,14 @@ export default async function handler(req) {
                 text: plainText,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #1f2937;">Bonjour ${clientName || ''},</h2>
+                        <h2 style="color: #1f2937;">Bonjour ${escapeHtml(clientName)},</h2>
                         <p style="color: #4b5563; line-height: 1.5;">Voici votre code de vérification sécurisé pour signer le devis en ligne :</p>
                         <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
-                            <h1 style="letter-spacing: 10px; color: #2563EB; margin: 0; font-size: 32px;">${otpCode}</h1>
+                            <h1 style="letter-spacing: 10px; color: #2563EB; margin: 0; font-size: 32px;">${escapeHtml(otpCode)}</h1>
                         </div>
                         <p style="color: #6b7280; font-size: 14px;">Si vous n'avez pas demandé ce code, veuillez l'ignorer.</p>
                         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-                        <p style="color: #9ca3af; font-size: 12px; text-align: center;">${company}</p>
+                        <p style="color: #9ca3af; font-size: 12px; text-align: center;">${escapeHtml(company)}</p>
                     </div>
                 `,
             }),
@@ -128,7 +137,8 @@ export default async function handler(req) {
             headers: rateLimitHeaders,
         });
 
-    } catch {
+    } catch (err) {
+        console.error('[send-otp] Unhandled error:', err);
         return new Response(
             JSON.stringify({ error: 'Internal server error' }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }
