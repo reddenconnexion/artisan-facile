@@ -19,6 +19,8 @@ import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Ca
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 
 const Agenda = () => {
@@ -44,24 +46,14 @@ const Agenda = () => {
     useEffect(() => {
         if (user) {
             fetchEvents();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('events_list_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'events' },
-                    () => {
-                        fetchEvents(); // Refresh events on any change
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user, currentDate]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'events_list_subscription' : null,
+        { table: 'events' },
+        () => fetchEvents()
+    );
 
     // Handle Voice Data, Direct Prefill, or Simple Date Focus
     useEffect(() => {
@@ -323,6 +315,7 @@ const Agenda = () => {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Calendar className="w-8 h-8 text-blue-600" />
                     Agenda
+                    <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                 </h2>
                 <button
                     onClick={openNewEventModal}
