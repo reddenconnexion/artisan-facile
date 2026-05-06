@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield } from 'lucide-react';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -70,6 +70,22 @@ const PreferencesSection = () => {
                         </span>
                         <span className="text-xs font-mono text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">?</span>
                     </button>
+
+                    <Link
+                        to="/app/audit-log"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            <Shield className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900 dark:text-white">Journal d'audit</span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                    Historique des signatures, paiements et suppressions
+                                </span>
+                            </span>
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    </Link>
 
                     <Link
                         to="/app/guide"
