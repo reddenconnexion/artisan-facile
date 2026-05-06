@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
+import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
@@ -230,9 +231,18 @@ const Layout = () => {
 
   // Keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = React.useState(false);
+  const [showSearch, setShowSearch] = React.useState(false);
 
   const handleKeyboardShortcuts = useCallback((e) => {
-    // Ignore shortcuts when typing in inputs/textareas
+    // Cmd+K / Ctrl+K : recherche globale (fonctionne MÊME dans les inputs,
+    // car c'est le standard universel pour les palettes de commande)
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setShowSearch(prev => !prev);
+      return;
+    }
+
+    // Les autres raccourcis sont désactivés dans les inputs/textareas
     const tag = document.activeElement?.tagName?.toLowerCase();
     if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
 
@@ -640,10 +650,21 @@ const Layout = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
           <main className="flex-1 overflow-y-auto">
             {/* Mobile Header - Scrolls with content */}
-            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center px-4 md:hidden flex-shrink-0">
+            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:hidden flex-shrink-0">
+              <div className="flex-1" />
               <div className="flex items-center gap-2">
                 <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-7 h-7 rounded-md" />
                 <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
+              </div>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Recherche"
+                  aria-label="Recherche globale"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
@@ -747,6 +768,9 @@ const Layout = () => {
         </div>
       </div>
 
+      {/* Palette de recherche globale (Cmd+K / Ctrl+K) */}
+      <SearchPalette isOpen={showSearch} onClose={() => setShowSearch(false)} />
+
       {/* Keyboard Shortcuts Help Modal */}
       {showShortcuts && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
@@ -762,6 +786,7 @@ const Layout = () => {
             </div>
             <div className="space-y-2 text-sm">
               {[
+                { keys: ['⌘', 'K'], label: 'Recherche globale (clients, devis, rapports)' },
                 { keys: ['Alt', 'D'], label: 'Nouveau devis' },
                 { keys: ['Alt', 'C'], label: 'Nouveau client' },
                 { keys: ['Alt', 'R'], label: 'Nouveau RDV (agenda)' },
