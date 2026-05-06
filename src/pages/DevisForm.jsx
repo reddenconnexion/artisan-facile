@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
+import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -684,13 +685,15 @@ const DevisForm = () => {
     const processImportedFile = async (file, mode = 'archive') => {
         if (!file) return;
 
-        const isPdf = file.type === 'application/pdf';
-        const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx');
-
-        if (!isPdf && !isDocx) {
-            toast.error('Seuls les fichiers PDF et Word (.docx) sont supportés');
+        // Validation stricte : magic bytes + taille (PDF ou DOCX uniquement, max 20 MB)
+        const validation = await validateFileForUpload(file, UPLOAD_PRESETS.quoteDocument);
+        if (!validation.ok) {
+            toast.error(validation.error);
             return;
         }
+
+        const isPdf = file.type === 'application/pdf';
+        const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx');
 
         try {
             setImporting(true);

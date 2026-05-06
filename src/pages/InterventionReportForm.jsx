@@ -6,6 +6,7 @@ import {
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
     ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag
 } from 'lucide-react';
+import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -290,10 +291,24 @@ const InterventionReportForm = () => {
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (!files.length) return;
+
+        // Validation stricte : magic bytes, taille max, type MIME réel
+        const { valid, errors } = await validateFiles(files, UPLOAD_PRESETS.image);
+        if (errors.length > 0) {
+            toast.error(`${errors.length} fichier(s) refusé(s)`, {
+                description: errors.slice(0, 3).join(' · '),
+                duration: 6000,
+            });
+        }
+        if (valid.length === 0) {
+            e.target.value = '';
+            return;
+        }
+
         setUploadingPhotos(true);
         try {
             const uploaded = [];
-            for (const file of files) {
+            for (const file of valid) {
                 const ext = file.name.split('.').pop();
                 const path = `interventions/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
                 const { error: uploadError } = await supabase.storage
@@ -363,6 +378,14 @@ const InterventionReportForm = () => {
         e.target.value = '';
         if (!file || !capturingMilestone) {
             setCapturingMilestone(null);
+            return;
+        }
+
+        // Validation stricte (magic bytes + taille)
+        const validation = await validateFileForUpload(file, UPLOAD_PRESETS.image);
+        if (!validation.ok) {
+            setCapturingMilestone(null);
+            toast.error(validation.error);
             return;
         }
 

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight } from 'lucide-react';
+import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
@@ -211,26 +212,15 @@ const Profile = () => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('Le fichier est trop volumineux (max 5 Mo)');
+            // Validation stricte : magic bytes + taille + type MIME réel
+            // (SVG retiré pour des raisons de sécurité — risque XSS via <script> embarqué)
+            const validation = await validateFileForUpload(file, UPLOAD_PRESETS.logo);
+            if (!validation.ok) {
+                toast.error(validation.error);
                 return;
             }
 
-            // Whitelist allowed MIME types for logos
-            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp', 'image/gif'];
-            if (!allowedMimeTypes.includes(file.type)) {
-                toast.error('Format de fichier non autorisé. Utilisez JPG, PNG, SVG, WebP ou GIF.');
-                return;
-            }
-
-            // Whitelist allowed extensions
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg', 'webp', 'gif'];
             const fileExt = file.name.split('.').pop().toLowerCase();
-            if (!allowedExtensions.includes(fileExt)) {
-                toast.error('Extension de fichier non autorisée.');
-                return;
-            }
 
             // Use cryptographically secure random filename to prevent guessing
             const randomBytes = new Uint8Array(16);
