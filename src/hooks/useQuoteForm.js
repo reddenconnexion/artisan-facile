@@ -60,21 +60,34 @@ export function useQuoteForm() {
 
     // Calcul des totaux (mémorisé pour éviter les recalculs inutiles)
     const totals = useMemo(() => {
+        // Coerce to a finite number; warn (and use 0) if the input is malformed
+        // so silent data corruption surfaces in the console instead of skewing
+        // the totals to a "looks right" value.
+        const safeNum = (value, fieldName) => {
+            if (value === null || value === undefined || value === '') return 0;
+            const num = typeof value === 'number' ? value : parseFloat(value);
+            if (!Number.isFinite(num)) {
+                console.warn(`[useQuoteForm] Invalid numeric ${fieldName}: ${JSON.stringify(value)}`);
+                return 0;
+            }
+            return num;
+        };
+
         if (formData.is_external) {
             return {
-                subtotal: parseFloat(formData.manual_total_ht) || 0,
-                tva: parseFloat(formData.manual_total_tva) || 0,
-                total: parseFloat(formData.manual_total_ttc) || 0,
+                subtotal: safeNum(formData.manual_total_ht, 'manual_total_ht'),
+                tva: safeNum(formData.manual_total_tva, 'manual_total_tva'),
+                total: safeNum(formData.manual_total_ttc, 'manual_total_ttc'),
                 totalCost: 0
             };
         }
         const lineItems = formData.items.filter(item => item.type !== 'section');
         const subtotal = lineItems.reduce(
-            (sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)),
+            (sum, item) => sum + (safeNum(item.quantity, 'item.quantity') * safeNum(item.price, 'item.price')),
             0
         );
         const totalCost = lineItems.reduce(
-            (sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)),
+            (sum, item) => sum + (safeNum(item.quantity, 'item.quantity') * safeNum(item.buying_price, 'item.buying_price')),
             0
         );
         const tva = formData.include_tva ? subtotal * 0.20 : 0;
