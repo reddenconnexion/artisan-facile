@@ -1,16 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { toast } from 'sonner';
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal';
-import ProjectPhotos from '../components/ProjectPhotos';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
+
+// ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
+// canvas compositing logic (~80 KB). Only edit-mode users with photos
+// actually need it, so we ship it as a separate chunk loaded on demand.
+const ProjectPhotos = lazy(() => import('../components/ProjectPhotos'));
+
+const ProjectPhotosFallback = () => (
+    <div className="flex items-center justify-center py-8 text-gray-400 text-sm gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Chargement de la galerie photos…
+    </div>
+);
 
 // ── Plans électriques d'un client ────────────────────────────────────────────
 const ClientPlans = ({ clientId, clientName }) => {
@@ -745,7 +756,11 @@ const ClientForm = () => {
                 </div>
             )}
 
-            {isEditing && <ProjectPhotos clientId={id} />}
+            {isEditing && (
+                <Suspense fallback={<ProjectPhotosFallback />}>
+                    <ProjectPhotos clientId={id} />
+                </Suspense>
+            )}
 
             <SmartVoiceModal
                 isOpen={showVoiceModal}
