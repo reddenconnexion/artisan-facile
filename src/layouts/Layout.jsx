@@ -368,7 +368,11 @@ const Layout = () => {
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">Créer votre vrai compte</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Gratuit · Sans CB · Vos données démo seront conservées</p>
               </div>
-              <button onClick={() => setShowConvertModal(false)} className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Fermer la modal"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -441,7 +445,11 @@ const Layout = () => {
           {/* Mobile Sidebar Header */}
           <div className="md:hidden p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <span className="font-bold text-lg dark:text-white">Menu</span>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="dark:text-white">
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="dark:text-white"
+              aria-label="Fermer le menu"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>

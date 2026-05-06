@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Keyboard } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const Kbd = ({ children }) => (
     <kbd className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 text-xs font-mono font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm">
@@ -39,6 +40,8 @@ const SECTIONS = [
 ];
 
 const KeyboardShortcutsHelp = ({ open, onClose }) => {
+    const containerRef = useModalA11y(open, onClose);
+
     if (!open) return null;
 
     return (
@@ -50,6 +53,7 @@ const KeyboardShortcutsHelp = ({ open, onClose }) => {
             aria-label="Raccourcis clavier"
         >
             <div
+                ref={containerRef}
                 className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full overflow-hidden max-h-[90vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
