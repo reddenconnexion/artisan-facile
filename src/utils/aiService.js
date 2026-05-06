@@ -1,4 +1,13 @@
 import { supabase } from './supabase';
+import {
+    toSafeNumber,
+    validateQuoteItem,
+    extractJsonObject,
+    parseQuoteResponse,
+} from './quoteValidation';
+
+// Re-exported so callers that already import these from aiService keep working.
+export { toSafeNumber };
 
 /**
  * Calls the ai-proxy Edge Function which securely retrieves the API key
@@ -43,77 +52,6 @@ RÈGLES GÉNÉRALES:
 
 JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
 {"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
-
-/**
- * Coerces a value to a finite number. Returns `fallback` and logs a warning
- * when the value is missing, NaN, Infinity or otherwise non-numeric. This
- * prevents silent data corruption (e.g. parseFloat("abc") || 1 turning a
- * malformed quantity into 1 with no signal to the caller).
- */
-export function toSafeNumber(value, fallback, fieldName = 'value') {
-    if (value === null || value === undefined || value === '') return fallback;
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (!Number.isFinite(num)) {
-        console.warn(`[aiService] Invalid numeric ${fieldName}: ${JSON.stringify(value)} → using ${fallback}`);
-        return fallback;
-    }
-    return num;
-}
-
-/**
- * Validates an AI-generated quote item and returns a normalised version.
- * Throws on missing/invalid description (the only field we cannot recover
- * from); coerces numeric fields with a warning when malformed.
- */
-function validateQuoteItem(item, index) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
-        throw new Error(`Item ${index} : structure invalide.`);
-    }
-    if (typeof item.description !== 'string' || item.description.trim() === '') {
-        throw new Error(`Item ${index} : description manquante.`);
-    }
-    return {
-        description: item.description.trim(),
-        quantity: toSafeNumber(item.quantity, 1, `items[${index}].quantity`),
-        unit: typeof item.unit === 'string' && item.unit ? item.unit : 'u',
-        price: toSafeNumber(item.price, 0, `items[${index}].price`),
-        type: item.type === 'material' ? 'material' : 'service',
-    };
-}
-
-/**
- * Extracts a JSON object from a possibly-noisy AI response (markdown fences,
- * leading prose, etc.) and parses it. Throws a user-facing error on failure.
- */
-function extractJsonObject(raw) {
-    let s = String(raw ?? '').trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
-    try {
-        return JSON.parse(s);
-    } catch {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
-}
-
-/**
- * Parses and validates the raw JSON response from the AI proxy.
- */
-function parseQuoteResponse(raw) {
-    const parsed = extractJsonObject(raw);
-    const rawItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);
-    if (!Array.isArray(rawItems)) {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
-    const items = rawItems.map(validateQuoteItem);
-    const suggestions = Array.isArray(parsed.suggestions)
-        ? parsed.suggestions.filter((s) => typeof s === 'string')
-        : [];
-    const estimated_duration = typeof parsed.estimated_duration === 'string'
-        ? parsed.estimated_duration
-        : null;
-    return { items, suggestions, estimated_duration };
-}
 
 /**
  * Generates quote items based on a natural language description.

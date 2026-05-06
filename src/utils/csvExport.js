@@ -1,17 +1,37 @@
 import Papa from 'papaparse';
 
-const sanitizeCell = (value) => {
+/**
+ * Prevent CSV formula injection in spreadsheet apps (Excel, LibreOffice, Numbers).
+ * Cells starting with =, +, -, @, tab or CR are interpreted as formulas — we
+ * prefix them with a single quote so spreadsheet apps treat the cell as text.
+ * Exported for testability.
+ */
+export const sanitizeCell = (value) => {
     if (value === null || value === undefined) return '';
     const str = typeof value === 'string' ? value : String(value);
-    // Prevent CSV formula injection in spreadsheet apps (Excel, LibreOffice, Numbers).
-    // Cells starting with =, +, -, @, tab or CR are interpreted as formulas.
     if (/^[=+\-@\t\r]/.test(str)) return `'${str}`;
     return str;
 };
 
-const buildFilename = (prefix) => {
-    const stamp = new Date().toISOString().slice(0, 10);
+export const buildFilename = (prefix, now = new Date()) => {
+    const stamp = now.toISOString().slice(0, 10);
     return `${prefix}_${stamp}.csv`;
+};
+
+/**
+ * Build a CSV string from rows + column descriptors. Pure function: no DOM,
+ * no download — easy to test. Use exportToCSV for the full download flow.
+ */
+export const buildCsv = (rows, columns) => {
+    const data = rows.map((row) => {
+        const out = {};
+        for (const { key, label, format } of columns) {
+            const raw = typeof key === 'function' ? key(row) : row[key];
+            out[label] = sanitizeCell(format ? format(raw, row) : raw);
+        }
+        return out;
+    });
+    return Papa.unparse(data, { delimiter: ';' });
 };
 
 const triggerDownload = (csv, filename) => {
@@ -28,15 +48,6 @@ const triggerDownload = (csv, filename) => {
 };
 
 export const exportToCSV = (rows, columns, filenamePrefix) => {
-    const data = rows.map((row) => {
-        const out = {};
-        for (const { key, label, format } of columns) {
-            const raw = typeof key === 'function' ? key(row) : row[key];
-            out[label] = sanitizeCell(format ? format(raw, row) : raw);
-        }
-        return out;
-    });
-
-    const csv = Papa.unparse(data, { delimiter: ';' });
+    const csv = buildCsv(rows, columns);
     triggerDownload(csv, buildFilename(filenamePrefix));
 };
