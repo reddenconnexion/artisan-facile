@@ -45,19 +45,74 @@ JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
 {"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
 
 /**
- * Parses the raw JSON response from the AI proxy.
+ * Coerces a value to a finite number. Returns `fallback` and logs a warning
+ * when the value is missing, NaN, Infinity or otherwise non-numeric. This
+ * prevents silent data corruption (e.g. parseFloat("abc") || 1 turning a
+ * malformed quantity into 1 with no signal to the caller).
  */
-function parseQuoteResponse(raw) {
-    let s = raw.trim();
+export function toSafeNumber(value, fallback, fieldName = 'value') {
+    if (value === null || value === undefined || value === '') return fallback;
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (!Number.isFinite(num)) {
+        console.warn(`[aiService] Invalid numeric ${fieldName}: ${JSON.stringify(value)} → using ${fallback}`);
+        return fallback;
+    }
+    return num;
+}
+
+/**
+ * Validates an AI-generated quote item and returns a normalised version.
+ * Throws on missing/invalid description (the only field we cannot recover
+ * from); coerces numeric fields with a warning when malformed.
+ */
+function validateQuoteItem(item, index) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        throw new Error(`Item ${index} : structure invalide.`);
+    }
+    if (typeof item.description !== 'string' || item.description.trim() === '') {
+        throw new Error(`Item ${index} : description manquante.`);
+    }
+    return {
+        description: item.description.trim(),
+        quantity: toSafeNumber(item.quantity, 1, `items[${index}].quantity`),
+        unit: typeof item.unit === 'string' && item.unit ? item.unit : 'u',
+        price: toSafeNumber(item.price, 0, `items[${index}].price`),
+        type: item.type === 'material' ? 'material' : 'service',
+    };
+}
+
+/**
+ * Extracts a JSON object from a possibly-noisy AI response (markdown fences,
+ * leading prose, etc.) and parses it. Throws a user-facing error on failure.
+ */
+function extractJsonObject(raw) {
+    let s = String(raw ?? '').trim();
     const m = s.match(/\{[\s\S]*\}/);
     if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
     try {
-        const p = JSON.parse(s);
-        if (Array.isArray(p)) return { items: p, suggestions: [], estimated_duration: null };
-        return { items: p.items || [], suggestions: p.suggestions || [], estimated_duration: p.estimated_duration || null };
+        return JSON.parse(s);
     } catch {
         throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
     }
+}
+
+/**
+ * Parses and validates the raw JSON response from the AI proxy.
+ */
+function parseQuoteResponse(raw) {
+    const parsed = extractJsonObject(raw);
+    const rawItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);
+    if (!Array.isArray(rawItems)) {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+    const items = rawItems.map(validateQuoteItem);
+    const suggestions = Array.isArray(parsed.suggestions)
+        ? parsed.suggestions.filter((s) => typeof s === 'string')
+        : [];
+    const estimated_duration = typeof parsed.estimated_duration === 'string'
+        ? parsed.estimated_duration
+        : null;
+    return { items, suggestions, estimated_duration };
 }
 
 /**
@@ -259,31 +314,31 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
         ? await callAiProxy({ systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
         : await callAiProxy({ preset: 'quote-site-visit', extras, userMessage });
 
-    let s = rawResponse.trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = extractJsonObject(rawResponse);
+    const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+    const items = rawItems.map((item, i) => {
+        const v = validateQuoteItem(item, i);
+        return { ...v, id: Date.now() + Math.random(), buying_price: 0 };
+    });
 
-    try {
-        const parsed = JSON.parse(s);
-        return {
-            title: parsed.title || 'Devis visite chantier',
-            items: (parsed.items || []).map(item => ({
-                id: Date.now() + Math.random(),
-                description: item.description,
-                quantity: parseFloat(item.quantity) || 1,
-                unit: item.unit || 'u',
-                price: parseFloat(item.price) || 0,
-                buying_price: 0,
-                type: item.type || 'service',
-            })),
-            suggestions: parsed.suggestions || [],
-            estimated_duration: parsed.estimated_duration || null,
-            price_range: parsed.price_range || null,
-            confidence: parsed.confidence || 'medium',
-        };
-    } catch {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
+    const priceRange = parsed.price_range && typeof parsed.price_range === 'object'
+        ? {
+            min: toSafeNumber(parsed.price_range.min, 0, 'price_range.min'),
+            max: toSafeNumber(parsed.price_range.max, 0, 'price_range.max'),
+        }
+        : null;
+
+    const allowedConfidence = ['high', 'medium', 'low'];
+    const confidence = allowedConfidence.includes(parsed.confidence) ? parsed.confidence : 'medium';
+
+    return {
+        title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : 'Devis visite chantier',
+        items,
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter((s) => typeof s === 'string') : [],
+        estimated_duration: typeof parsed.estimated_duration === 'string' ? parsed.estimated_duration : null,
+        price_range: priceRange,
+        confidence,
+    };
 };
 
 /**
