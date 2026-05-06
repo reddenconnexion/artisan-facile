@@ -223,7 +223,7 @@ const DevisForm = () => {
         setAiLoading(true);
         try {
             // Check quota for free users without a personal API key
-            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const plan = userProfile?.plan || 'free';
             const isPro = plan === 'pro' || plan === 'owner';
 
@@ -740,7 +740,7 @@ const DevisForm = () => {
                 regexItems.length < 3 ||
                 (regexItems.length > 0 && zeroPriced / regexItems.length > 0.5);
 
-            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const planNow = userProfile?.plan || 'free';
             const isPro = planNow === 'pro' || planNow === 'owner';
             const canUseAi = (hasPersonalKey || isPro || isAiTrialSession) && text && text.trim().length > 50;

@@ -160,23 +160,19 @@ const Profile = () => {
     const getProfile = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
+            // RPC `get_my_profile_safe` : strippe les clés API sensibles côté serveur
+            // → la clé OpenAI/PDP n'arrive jamais dans la mémoire du navigateur.
+            const { data, error } = await supabase.rpc('get_my_profile_safe');
 
             if (error) throw error;
 
             if (data) {
-                const aiPrefs = data.ai_preferences || {};
-                // On ne retient que le statut configuré — la clé est immédiatement effacée de la mémoire
-                setApiKeyConfigured(!!aiPrefs.openai_api_key);
-                delete data.ai_preferences?.openai_api_key;
+                // Le serveur fournit directement les flags `has_openai_api_key` etc.
+                setApiKeyConfigured(!!data.has_openai_api_key);
 
-                // Config PDP : l'URL et le service sont affichés, la clé reste côté serveur
+                // Config PDP : URL et service publics, clé jamais reçue
                 const pdpCfg = data.pdp_config || {};
-                setPdpKeyConfigured(!!pdpCfg.pdp_key);
+                setPdpKeyConfigured(!!data.has_pdp_api_key);
                 setPdpUrlInput(pdpCfg.pdp_url || '');
                 setPdpServiceInput(pdpCfg.pdp_service || '');
                 setFormData({

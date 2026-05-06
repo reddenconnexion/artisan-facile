@@ -149,19 +149,17 @@ export function usePriceLibrary() {
     });
 }
 
-// Cache du profil utilisateur
+// Cache du profil utilisateur — utilise la RPC `get_my_profile_safe` qui
+// strippe les clés API sensibles côté serveur (jamais transmises au frontend).
 export function useUserProfile() {
     const { user } = useAuth();
 
     return useQuery({
         queryKey: ['profile', user?.id],
         queryFn: withOfflineCache(`profile_${user?.id}`, async () => {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
+            const { data, error } = await supabase.rpc('get_my_profile_safe');
             if (error) throw error;
+            if (!data) return null;
 
             const aiPrefs = data?.ai_preferences || {};
             const settings = user.user_metadata?.activity_settings || {};

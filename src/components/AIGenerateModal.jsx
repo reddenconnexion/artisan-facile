@@ -20,7 +20,7 @@ export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, use
         setLoading(true);
         try {
             // Check quota for free users without a personal API key
-            const hasPersonalKey = !!userProfile?.ai_preferences?.openai_api_key;
+            const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const plan = userProfile?.plan || 'free';
             const isPro = plan === 'pro' || plan === 'owner';
 
