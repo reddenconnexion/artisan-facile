@@ -70,6 +70,7 @@ const DevisForm = () => {
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
     const [showImportZone, setShowImportZone] = useState(false);
+    const [competitorImport, setCompetitorImport] = useState(null);   // { filename, importedAt } quand on est en contre-proposition
     const [isDragOver, setIsDragOver] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -556,7 +557,7 @@ const DevisForm = () => {
             fetchClients().then(async (loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
+                    const { client_id, voiceData, importFile, importMode, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
 
                     // Pré-remplissage depuis un rapport d'intervention
                     if (fromReport) {
@@ -630,7 +631,7 @@ const DevisForm = () => {
                     }
 
                     if (importFile) {
-                        processImportedFile(importFile);
+                        processImportedFile(importFile, importMode);
                     }
 
                     if (mergeIds?.length >= 2) {
@@ -680,7 +681,7 @@ const DevisForm = () => {
     }, [user, id]);
 
     // Reusable function to process imported file
-    const processImportedFile = async (file) => {
+    const processImportedFile = async (file, mode = 'archive') => {
         if (!file) return;
 
         const isPdf = file.type === 'application/pdf';
@@ -762,19 +763,31 @@ const DevisForm = () => {
                 }
             }
 
-            // Update Form Data
+            // Pour une contre-proposition, on préfixe le titre et on bascule en mode externe
+            // (preserve l'original PDF pour comparaison) — l'artisan ajustera les prix.
+            const isCompetitor = mode === 'competitor';
+            const proposedTitle = finalTitle || '';
+            const competitorTitle = proposedTitle
+                ? `Contre-proposition — ${proposedTitle}`
+                : 'Contre-proposition';
+
             setFormData(prev => ({
                 ...prev,
                 original_pdf_url: publicUrl,
-                title: prev.title || (finalTitle || ''),
+                title: prev.title || (isCompetitor ? competitorTitle : proposedTitle),
                 items: finalItems.length > 0 ? finalItems : prev.items,
                 notes: finalNotes ? (prev.notes ? prev.notes + '\n' + finalNotes : finalNotes) : prev.notes
             }));
 
+            // Mémoriser le mode pour afficher le bandeau d'aide à la contre-proposition
+            if (isCompetitor) setCompetitorImport({ filename: file.name, importedAt: Date.now() });
+
             setShowImportZone(false);
             if (finalItems.length > 0) {
                 toast.success(
-                    `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`
+                    isCompetitor
+                        ? `Devis concurrent analysé : ${finalItems.length} lignes importées${aiUsed ? ' (IA)' : ''}. Ajustez vos prix pour la contre-proposition.`
+                        : `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`,
                 );
             } else {
                 toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
@@ -2457,6 +2470,45 @@ Conditions de règlement : Paiement à réception de facture.`
 
     return (
         <div className={`max-w-4xl mx-auto pb-12 sm:pb-12 pb-28 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
+
+            {/* Bandeau contre-proposition — affiché tant que l'artisan n'a pas masqué */}
+            {competitorImport && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4 mb-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                        <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-blue-900 dark:text-blue-200">
+                            Contre-proposition à partir de {competitorImport.filename}
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300/90 mt-1 leading-relaxed">
+                            Les lignes du devis concurrent ont été importées. Ajustez les prix unitaires pour proposer
+                            une offre compétitive — pensez à utiliser le Copilot (✨ en bas à droite) pour vérifier vos
+                            marges ou suggérer un prix.
+                        </p>
+                        {formData.original_pdf_url && (
+                            <a
+                                href={formData.original_pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-300 hover:underline mt-2"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                Ouvrir le devis original
+                            </a>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setCompetitorImport(null)}
+                        className="p-1 text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 rounded flex-shrink-0"
+                        title="Masquer ce bandeau"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {isLocked && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">

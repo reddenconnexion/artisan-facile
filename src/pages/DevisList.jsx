@@ -142,14 +142,18 @@ const DevisList = () => {
         }
     }, [location.state]);
 
-    const handleImportClick = () => {
+    // Mode d'import : 'archive' (votre devis) | 'competitor' (offre concurrente, contre-proposition)
+    const [importMode, setImportMode] = useState('archive');
+
+    const handleImportClick = (mode = 'archive') => {
+        setImportMode(mode);
         importInputRef.current?.click();
     };
 
     const handleFileChange = (event) => {
         const file = event.target.files?.[0];
         if (file) {
-            navigate('/app/devis/new', { state: { importFile: file } });
+            navigate('/app/devis/new', { state: { importFile: file, importMode } });
         }
     };
 
@@ -248,13 +252,26 @@ const DevisList = () => {
                                     <ChevronDown className="w-4 h-4" />
                                 </button>
                                 {showMoreOptions && (
-                                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
                                         <button
-                                            onClick={() => { handleImportClick(); setShowMoreOptions(false); }}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                            onClick={() => { handleImportClick('archive'); setShowMoreOptions(false); }}
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
                                         >
-                                            <Upload className="w-4 h-4 text-gray-400" />
-                                            Importer (PDF / Word)
+                                            <Upload className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <div className="font-medium">Importer un devis archivé</div>
+                                                <div className="text-xs text-gray-400">Récupérer un de vos anciens devis (PDF/Word)</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={() => { handleImportClick('competitor'); setShowMoreOptions(false); }}
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left border-t border-gray-100"
+                                        >
+                                            <Layers className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <div className="font-medium">Faire une contre-proposition</div>
+                                                <div className="text-xs text-gray-400">Importer le devis d'un concurrent comme base</div>
+                                            </div>
                                         </button>
                                         <button
                                             onClick={() => { setMergeMode(true); setShowMoreOptions(false); }}
@@ -601,7 +618,7 @@ const DevisList = () => {
                                 </button>
                                 <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
                                     Vous avez déjà des devis ?{' '}
-                                    <button onClick={handleImportClick} className="text-blue-500 hover:underline">
+                                    <button onClick={() => handleImportClick('archive')} className="text-blue-500 hover:underline">
                                         Importez un PDF ou Word
                                     </button>
                                 </p>
