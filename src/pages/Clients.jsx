@@ -6,6 +6,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useClients, useQuotes, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 
 const Clients = () => {
@@ -91,6 +92,8 @@ const Clients = () => {
             ? String(aValue).localeCompare(String(bValue))
             : String(bValue).localeCompare(String(aValue));
     });
+
+    const { visibleItems: visibleClients, hasMore, hiddenCount, loadMore, showAll } = useProgressiveList(filteredClients, { pageSize: 100 });
 
     if (loading) {
         return <div className="flex justify-center items-center h-64">Chargement...</div>;
@@ -432,16 +435,38 @@ const Clients = () => {
 
             {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClients.map((client) => (
+                    {visibleClients.map((client) => (
                         <ClientCard key={client.id} client={client} />
                     ))}
                 </div>
             ) : (
                 <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredClients.map((client) => (
+                        {visibleClients.map((client) => (
                             <ClientListItem key={client.id} client={client} />
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {hasMore && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {visibleClients.length} affichés sur {filteredClients.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={loadMore}
+                            className="px-4 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Voir {Math.min(100, hiddenCount)} de plus
+                        </button>
+                        <button
+                            onClick={showAll}
+                            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                        >
+                            Tout afficher
+                        </button>
                     </div>
                 </div>
             )}

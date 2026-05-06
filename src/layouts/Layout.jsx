@@ -16,6 +16,8 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount } from '../hooks/useDataCache';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 
 const Layout = () => {
   const location = useLocation();
@@ -230,47 +232,43 @@ const Layout = () => {
   // Keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = React.useState(false);
 
-  const handleKeyboardShortcuts = useCallback((e) => {
-    // Ignore shortcuts when typing in inputs/textareas
-    const tag = document.activeElement?.tagName?.toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
-
-    if (e.altKey) {
-      switch (e.key.toLowerCase()) {
-        case 'd':
-          e.preventDefault();
-          navigate('/app/devis/new');
-          break;
-        case 'c':
-          e.preventDefault();
-          navigate('/app/clients/new');
-          break;
-        case 'r':
-          e.preventDefault();
-          navigate('/app/agenda', { state: { openNewEvent: true } });
-          break;
-        case 'i':
-          e.preventDefault();
-          navigate('/app/interventions/new');
-          break;
-        case 'h':
-          e.preventDefault();
-          navigate('/app');
-          break;
-        default:
-          break;
-      }
+  const focusSearchInput = useCallback(() => {
+    const input = document.querySelector(
+      'input[type="search"], input[placeholder*="echerch" i], input[aria-label*="echerch" i]'
+    );
+    if (input) {
+      input.focus();
+      if (typeof input.select === 'function') input.select();
     }
+  }, []);
 
-    if (e.key === '?' && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      setShowShortcuts(prev => !prev);
-    }
-  }, [navigate]);
+  const newOnCurrentPage = useCallback(() => {
+    const path = location.pathname;
+    if (path.startsWith('/app/devis')) navigate('/app/devis/new');
+    else if (path.startsWith('/app/clients')) navigate('/app/clients/new');
+    else if (path.startsWith('/app/interventions')) navigate('/app/interventions/new');
+    else if (path.startsWith('/app/agenda')) navigate('/app/agenda', { state: { openNewEvent: true } });
+    else navigate('/app/devis/new');
+  }, [location.pathname, navigate]);
 
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyboardShortcuts);
-    return () => document.removeEventListener('keydown', handleKeyboardShortcuts);
-  }, [handleKeyboardShortcuts]);
+  useKeyboardShortcuts({
+    'alt+d': () => navigate('/app/devis/new'),
+    'alt+c': () => navigate('/app/clients/new'),
+    'alt+r': () => navigate('/app/agenda', { state: { openNewEvent: true } }),
+    'alt+i': () => navigate('/app/interventions/new'),
+    'alt+h': () => navigate('/app'),
+    'g h': () => navigate('/app'),
+    'g d': () => navigate('/app/devis'),
+    'g c': () => navigate('/app/clients'),
+    'g a': () => navigate('/app/agenda'),
+    n: newOnCurrentPage,
+    '/': (e) => {
+      e.preventDefault();
+      focusSearchInput();
+    },
+    '?': () => setShowShortcuts((v) => !v),
+    Escape: () => setShowShortcuts(false),
+  });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -740,44 +738,7 @@ const Layout = () => {
       </div>
 
       {/* Keyboard Shortcuts Help Modal */}
-      {showShortcuts && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold dark:text-white flex items-center gap-2">
-                <Keyboard className="w-5 h-5 text-blue-600" />
-                Raccourcis clavier
-              </h2>
-              <button onClick={() => setShowShortcuts(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <X className="w-4 h-4 dark:text-gray-300" />
-              </button>
-            </div>
-            <div className="space-y-2 text-sm">
-              {[
-                { keys: ['Alt', 'D'], label: 'Nouveau devis' },
-                { keys: ['Alt', 'C'], label: 'Nouveau client' },
-                { keys: ['Alt', 'R'], label: 'Nouveau RDV (agenda)' },
-                { keys: ['Alt', 'I'], label: 'Nouveau rapport d\'intervention' },
-                { keys: ['Alt', 'H'], label: 'Tableau de bord' },
-                { keys: ['?'], label: 'Afficher / masquer cette aide' },
-              ].map(({ keys, label }) => (
-                <div key={label} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                  <span className="text-gray-700 dark:text-gray-300">{label}</span>
-                  <div className="flex items-center gap-1">
-                    {keys.map((k, i) => (
-                      <React.Fragment key={k}>
-                        <kbd className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono border border-gray-200 dark:border-gray-600">{k}</kbd>
-                        {i < keys.length - 1 && <span className="text-gray-400 text-xs">+</span>}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">Les raccourcis sont désactivés dans les champs de saisie</p>
-          </div>
-        </div>
-      )}
+      <KeyboardShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       {/* Mobile Bottom Navigation - Amazon Style */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">

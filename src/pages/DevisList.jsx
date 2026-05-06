@@ -4,6 +4,7 @@ import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 
 const FollowUps = lazy(() => import('./FollowUps'));
@@ -127,6 +128,14 @@ const DevisList = () => {
 
         return matchesSearch && matchesStatus;
     });
+
+    const {
+        visibleItems: pagedDevis,
+        hasMore: hasMoreDevis,
+        hiddenCount: hiddenDevisCount,
+        loadMore: loadMoreDevis,
+        showAll: showAllDevis,
+    } = useProgressiveList(filteredDevis, { pageSize: 100 });
 
     // Counts per filter tab (excluding test data)
     const visibleDevis = devisList.filter(d =>
@@ -436,7 +445,7 @@ const DevisList = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                                {filteredDevis.map((devis) => (
+                                {pagedDevis.map((devis) => (
                                     <tr
                                         key={devis.id}
                                         className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : isExpired(devis) ? 'bg-red-50/40 dark:bg-red-900/10' : isExpiringSoon(devis) ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
@@ -508,7 +517,7 @@ const DevisList = () => {
 
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-4">
-                        {filteredDevis.map((devis) => (
+                        {pagedDevis.map((devis) => (
                             <div
                                 key={devis.id}
                                 className={`bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800'}`}
@@ -602,6 +611,28 @@ const DevisList = () => {
                                 </p>
                             </div>
                         )
+                    )}
+
+                    {hasMoreDevis && (
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {pagedDevis.length} affichés sur {filteredDevis.length}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={loadMoreDevis}
+                                    className="px-4 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
+                                >
+                                    Voir {Math.min(100, hiddenDevisCount)} de plus
+                                </button>
+                                <button
+                                    onClick={showAllDevis}
+                                    className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                >
+                                    Tout afficher
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </>
             )}
