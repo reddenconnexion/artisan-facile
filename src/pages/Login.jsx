@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -9,7 +9,11 @@ const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl tex
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { signIn } = useAuth();
+    const redirectTo = location.state?.from?.pathname
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/app';
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -30,7 +34,7 @@ const Login = () => {
             const { error } = await signIn({ email, password });
             if (error) throw error;
             toast.success('Connexion réussie !');
-            navigate('/app');
+            navigate(redirectTo, { replace: true });
         } catch (error) {
             console.error('Login error:', error);
             if (error.message.includes('Email not confirmed')) {

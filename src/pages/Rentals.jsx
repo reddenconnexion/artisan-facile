@@ -175,10 +175,33 @@ const Rentals = () => {
                 {loading ? (
                     <div className="text-center py-12 text-gray-500">Chargement...</div>
                 ) : filteredRentals.length === 0 ? (
-                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                        <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500">Aucune location trouvée.</p>
-                    </div>
+                    rentals.length === 0 ? (
+                        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300 px-6">
+                            <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                                <Truck className="h-10 w-10 text-blue-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune location enregistrée</h3>
+                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                                Suivez vos locations de matériel (échafaudages, nacelles, outillage) avec dates, coûts et fournisseur.
+                            </p>
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Ajouter une location
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                            <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-500">
+                                {filter === 'active' ? 'Aucune location en cours.' :
+                                    filter === 'returned' ? 'Aucune location terminée.' :
+                                    'Aucune location dans cette catégorie.'}
+                            </p>
+                        </div>
+                    )
                 ) : (
                     filteredRentals.map((rental) => {
                         const isLate = rental.status === 'active' && rental.end_date && isPast(new Date(rental.end_date)) && !differenceInDays(new Date(), new Date(rental.end_date)) === 0;

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TestModeProvider } from './context/TestModeContext';
@@ -93,9 +93,12 @@ const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <PageLoader />;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
   return children;
 };
 

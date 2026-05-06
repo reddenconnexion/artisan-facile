@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -24,7 +24,11 @@ const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl tex
 
 const Register = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { signUp } = useAuth();
+    const redirectTo = location.state?.from?.pathname
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/app';
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -51,7 +55,7 @@ const Register = () => {
 
             if (data.session) {
                 toast.success('Compte créé ! Bienvenue sur Artisan Facile.');
-                navigate('/app');
+                navigate(redirectTo, { replace: true });
             } else {
                 setConfirmedEmail(email);
             }
