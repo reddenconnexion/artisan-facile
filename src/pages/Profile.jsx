@@ -25,27 +25,27 @@ const PreferencesSection = () => {
     const handleOpenShortcuts = () => window.dispatchEvent(new Event('artisan:open-shortcuts'));
 
     return (
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
             <div className="p-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Settings className="w-5 h-5 mr-2 text-gray-500" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" />
                     Préférences de l'application
                 </h3>
                 <div className="space-y-3">
                     <button
                         type="button"
                         onClick={handleToggleTheme}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                     >
                         <span className="flex items-center gap-3">
                             {isDarkMode
                                 ? <Sun className="w-5 h-5 text-yellow-500" />
-                                : <Moon className="w-5 h-5 text-gray-500" />}
+                                : <Moon className="w-5 h-5 text-gray-500 dark:text-gray-400" />}
                             <span>
-                                <span className="block text-sm font-medium text-gray-900">
+                                <span className="block text-sm font-medium text-gray-900 dark:text-white">
                                     {isDarkMode ? 'Mode clair' : 'Mode sombre'}
                                 </span>
-                                <span className="block text-xs text-gray-500">
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">
                                     Basculer entre l'apparence claire et sombre
                                 </span>
                             </span>
@@ -56,34 +56,34 @@ const PreferencesSection = () => {
                     <button
                         type="button"
                         onClick={handleOpenShortcuts}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                     >
                         <span className="flex items-center gap-3">
-                            <Keyboard className="w-5 h-5 text-gray-500" />
+                            <Keyboard className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                             <span>
-                                <span className="block text-sm font-medium text-gray-900">Raccourcis clavier</span>
-                                <span className="block text-xs text-gray-500">
+                                <span className="block text-sm font-medium text-gray-900 dark:text-white">Raccourcis clavier</span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">
                                     Voir la liste des raccourcis disponibles
                                 </span>
                             </span>
                         </span>
-                        <span className="text-xs font-mono text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">?</span>
+                        <span className="text-xs font-mono text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">?</span>
                     </button>
 
                     <Link
                         to="/app/guide"
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                     >
                         <span className="flex items-center gap-3">
-                            <HelpCircle className="w-5 h-5 text-gray-500" />
+                            <HelpCircle className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                             <span>
-                                <span className="block text-sm font-medium text-gray-900">Guide d'utilisation</span>
-                                <span className="block text-xs text-gray-500">
+                                <span className="block text-sm font-medium text-gray-900 dark:text-white">Guide d'utilisation</span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">
                                     Tutoriels, astuces et raccourcis du quotidien
                                 </span>
                             </span>
                         </span>
-                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                        <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                     </Link>
                 </div>
             </div>
@@ -487,12 +487,12 @@ const Profile = () => {
                         <Settings className="w-8 h-8 text-blue-600" />
                         Paramètres de l'entreprise
                     </h2>
-                    <p className="text-gray-500 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full md:w-auto">
                     <a
                         href="/app/settings/activity"
-                        className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        className="flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors"
                     >
                         <Building className="w-5 h-5 mr-2" />
                         Gérer mon activité (Fonctionnalités)
@@ -509,10 +509,10 @@ const Profile = () => {
                 </div>
             </div>
 
-            <form onSubmit={updateProfile} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <form onSubmit={updateProfile} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 {!loading && (!formData.company_name || !formData.siret) && (
                     <div className="px-8 pt-6">
-                        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
+                        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-4 text-sm">
                             <span className="text-amber-500 text-lg flex-shrink-0 leading-none mt-0.5">⚠️</span>
                             <div>
                                 <p className="font-semibold text-amber-800 mb-1">Complétez ces 2 champs pour valider vos devis légalement</p>
@@ -526,13 +526,13 @@ const Profile = () => {
                 <div className="p-8 space-y-8">
                     {/* Identité */}
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                             <Building className="w-5 h-5 mr-2 text-blue-600" />
                             Identité de l'entreprise
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Nom de l'entreprise <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -541,21 +541,21 @@ const Profile = () => {
                                     value={formData.company_name}
                                     onChange={handleChange}
                                     placeholder="Ex: Martin Rénovation"
-                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.company_name ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}
+                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.company_name ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Votre nom complet</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre nom complet</label>
                                 <input
                                     type="text"
                                     name="full_name"
                                     value={formData.full_name}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Numéro SIRET <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -564,9 +564,9 @@ const Profile = () => {
                                     value={formData.siret}
                                     onChange={handleChange}
                                     placeholder="14 chiffres"
-                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}
+                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                                 />
-                                <p className="mt-1 text-xs text-gray-500">
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
                                     <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">autoentrepreneur.urssaf.fr</a>
                                 </p>
@@ -578,13 +578,13 @@ const Profile = () => {
                                     </div>
                                 )}
                                 {b2bReceiverStatus === 'registered' && (
-                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 rounded-lg px-2.5 py-1.5">
                                         <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                                         <span>Enregistré dans l'annuaire DGFIP — vos fournisseurs peuvent vous envoyer des factures électroniques</span>
                                     </div>
                                 )}
                                 {b2bReceiverStatus === 'error' && (
-                                    <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 space-y-1">
+                                    <div className="mt-2 text-xs text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-lg px-2.5 py-1.5 space-y-1">
                                         <div className="flex items-center gap-1.5">
                                             <XCircle className="w-3.5 h-3.5 shrink-0" />
                                             <span>Échec de l'enregistrement annuaire DGFIP</span>
@@ -594,19 +594,19 @@ const Profile = () => {
                                     </div>
                                 )}
                                 {!b2bReceiverStatus && formData.siret?.length >= 9 && (
-                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-2.5 py-1.5">
                                         <Radio className="w-3.5 h-3.5 shrink-0" />
                                         <span>Sauvegardez le profil pour vous enregistrer dans l'annuaire DGFIP</span>
                                     </div>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Métier principal</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Métier principal</label>
                                 <select
                                     name="trade"
                                     value={formData.trade}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     {Object.entries(TRADE_CONFIG).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -616,12 +616,12 @@ const Profile = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Statut juridique</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Statut juridique</label>
                                 <select
                                     name="artisan_status"
                                     value={formData.artisan_status}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="micro_entreprise">Micro-entreprise (Auto-entrepreneur)</option>
                                     <option value="ei">Entreprise Individuelle (EI)</option>
@@ -630,62 +630,62 @@ const Profile = () => {
                                     <option value="sasu">SASU</option>
                                     <option value="sarl">SARL</option>
                                 </select>
-                                <p className="mt-1 text-xs text-gray-500">Utilisé pour le calcul des charges URSSAF</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Utilisé pour le calcul des charges URSSAF</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'activité principale</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type d'activité principale</label>
                                 <select
                                     name="activity_type"
                                     value={formData.activity_type}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="services">Prestations de services (peinture, plomberie, électricité…)</option>
                                     <option value="vente">Vente de produits / fournitures</option>
                                     <option value="mixte">Les deux : services ET vente de produits</option>
                                     <option value="liberal">Profession libérale</option>
                                 </select>
-                                <p className="mt-1 text-xs text-gray-500">Détermine votre taux de cotisations URSSAF</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Détermine votre taux de cotisations URSSAF</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Coordonnées */}
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                             <MapPin className="w-5 h-5 mr-2 text-blue-600" />
                             Coordonnées
                         </h3>
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse</label>
                                 <input
                                     type="text"
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code Postal</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code Postal</label>
                                     <input
                                         type="text"
                                         name="postal_code"
                                         value={formData.postal_code}
                                         onChange={handleChange}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ville</label>
                                     <input
                                         type="text"
                                         name="city"
                                         value={formData.city}
                                         onChange={handleChange}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                             </div>
@@ -694,35 +694,35 @@ const Profile = () => {
 
                     {/* Contact */}
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                             <Phone className="w-5 h-5 mr-2 text-blue-600" />
                             Contact & Web
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Professionnel (pour les devis)</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Professionnel (pour les devis)</label>
                                 <input
                                     type="email"
                                     name="professional_email"
                                     value={formData.professional_email}
                                     onChange={handleChange}
                                     placeholder="contact@monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
-                                <p className="mt-1 text-xs text-gray-500">Si vide, l'email de connexion ({formData.email}) sera utilisé.</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Si vide, l'email de connexion ({formData.email}) sera utilisé.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Téléphone</label>
                                 <input
                                     type="tel"
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Site Web</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site Web</label>
                                 <input
                                     type="text"
                                     name="website"
@@ -735,55 +735,55 @@ const Profile = () => {
                                         }
                                     }}
                                     placeholder="monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Lien Avis Google</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lien Avis Google</label>
                                 <input
                                     type="url"
                                     name="google_review_url"
                                     value={formData.google_review_url}
                                     onChange={handleChange}
                                     placeholder="https://g.page/r/..."
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
-                                <p className="mt-1 text-xs text-gray-500">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">IBAN (pour factures)</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IBAN (pour factures)</label>
                                 <input
                                     type="text"
                                     name="iban"
                                     value={formData.iban}
                                     onChange={handleChange}
                                     placeholder="FR76 ..."
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro Wero / Paylib</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numéro Wero / Paylib</label>
                                 <input
                                     type="tel"
                                     name="wero_phone"
                                     value={formData.wero_phone}
                                     onChange={handleChange}
                                     placeholder="06 00 00 00 00"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
-                                <p className="mt-1 text-xs text-gray-500">Si différent du téléphone de contact. Utile pour les paiements instantanés.</p>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Si différent du téléphone de contact. Utile pour les paiements instantanés.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo</label>
                                 <div className="flex items-center space-x-4">
                                     {formData.logo_url && (
-                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-xl border border-gray-200" />
+                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-xl border border-gray-200 dark:border-gray-700" />
                                     )}
                                     <input
                                         type="file"
                                         accept="image/*"
                                         onChange={handleLogoUpload}
-                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
                                 </div>
                                 <input
@@ -796,7 +796,7 @@ const Profile = () => {
                     </div>
                 </div>
 
-                <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <div className="px-8 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 flex justify-end">
                     <button
                         type="submit"
                         disabled={loading}
@@ -809,7 +809,7 @@ const Profile = () => {
             </form >
 
             {/* Notifications Push */}
-            <div className="mt-8 bg-blue-50 rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+            <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl shadow-sm border border-blue-100 dark:border-blue-800/40 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
                         <Bell className="w-5 h-5 mr-2" />
@@ -825,12 +825,12 @@ const Profile = () => {
                     </ul>
 
                     {!isPushSupported ? (
-                        <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-2">
-                            <p className="text-sm font-medium text-gray-700">
+                        <div className="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/40 rounded-lg p-4 space-y-2">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Les notifications push ne sont pas disponibles sur ce navigateur.
                             </p>
                             {/iphone|ipad|ipod/i.test(navigator.userAgent) ? (
-                                <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-800 space-y-1">
                                     <p className="font-semibold">Activer sur iPhone / iPad :</p>
                                     <ol className="list-decimal list-inside space-y-1">
                                         <li>Ouvrez cette page dans <strong>Safari</strong></li>
@@ -840,13 +840,13 @@ const Profile = () => {
                                     </ol>
                                 </div>
                             ) : (
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
                                     Utilisez Chrome, Edge ou Firefox sur ordinateur ou Android.
                                 </p>
                             )}
                         </div>
                     ) : pushPermission === 'denied' && !isPushSubscribed ? (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg p-4 space-y-2">
                             <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
                                 <span>⚠️</span> Notifications bloquées dans votre navigateur
                             </p>
@@ -856,7 +856,7 @@ const Profile = () => {
                         </div>
                     ) : isPushSubscribed ? (
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 rounded-lg p-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                                     <span className="text-sm font-medium text-green-800">Notifications activées sur cet appareil</span>
@@ -889,7 +889,7 @@ const Profile = () => {
                                     }
                                 }}
                                 disabled={isTestingPush}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 font-medium text-sm rounded-lg transition-colors disabled:opacity-50"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-blue-700 border border-blue-200 dark:border-blue-800/40 font-medium text-sm rounded-lg transition-colors disabled:opacity-50"
                             >
                                 {isTestingPush
                                     ? <><span className="w-3.5 h-3.5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />Envoi en cours…</>
@@ -938,7 +938,7 @@ const Profile = () => {
                 </button>
             </div>
             {showAdvanced && (
-            <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
                         <span className="mr-2">✨</span>
@@ -951,14 +951,14 @@ const Profile = () => {
                     <div className="max-w-md space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-purple-900 mb-2">Fournisseur d'IA</label>
-                            <div className="flex gap-2 p-1 bg-purple-100 rounded-lg">
+                            <div className="flex gap-2 p-1 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setFormData({ ...formData, ai_provider: 'openai' });
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${(!formData.ai_provider || formData.ai_provider === 'openai')
-                                        ? 'bg-white text-purple-700 shadow-sm'
+                                        ? 'bg-white dark:bg-gray-900 text-purple-700 shadow-sm'
                                         : 'text-purple-600 hover:text-purple-800'
                                         }`}
                                 >
@@ -970,7 +970,7 @@ const Profile = () => {
                                         setFormData({ ...formData, ai_provider: 'gemini' });
                                     }}
                                     className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${formData.ai_provider === 'gemini'
-                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        ? 'bg-white dark:bg-gray-900 text-blue-700 shadow-sm'
                                         : 'text-purple-600 hover:text-purple-800'
                                         }`}
                                 >
@@ -985,13 +985,13 @@ const Profile = () => {
                             </label>
                             {apiKeyConfigured && !apiKeyInput ? (
                                 <div className="flex items-center gap-2">
-                                    <span className="flex-1 px-3 py-2 border border-purple-200 rounded-lg bg-purple-50 text-purple-700 text-sm">
+                                    <span className="flex-1 px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 text-sm">
                                         ✓ Clé configurée
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => setApiKeyInput(' ')}
-                                        className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
+                                        className="px-4 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
                                     >
                                         Modifier
                                     </button>
@@ -999,7 +999,7 @@ const Profile = () => {
                                         type="button"
                                         onClick={handleDeleteApiKey}
                                         disabled={savingApiKey}
-                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm disabled:opacity-50"
+                                        className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm disabled:opacity-50"
                                     >
                                         Supprimer
                                     </button>
@@ -1009,7 +1009,7 @@ const Profile = () => {
                                     <input
                                         type="password"
                                         placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
-                                        className="flex-1 px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        className="flex-1 px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                         value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
                                         onChange={(e) => setApiKeyInput(e.target.value)}
                                         autoFocus={apiKeyConfigured}
@@ -1034,7 +1034,7 @@ const Profile = () => {
                                 <input
                                     type="number"
                                     placeholder="ex: 50"
-                                    className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                    className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
                                     value={formData.ai_hourly_rate || ''}
                                     onChange={(e) => {
                                         setFormData({ ...formData, ai_hourly_rate: e.target.value });
@@ -1056,28 +1056,28 @@ const Profile = () => {
                                                 <input
                                                     type="number"
                                                     placeholder="km"
-                                                    className="w-full pl-3 pr-8 py-1.5 border border-purple-200 rounded-md text-sm"
+                                                    className="w-full pl-3 pr-8 py-1.5 border border-purple-200 dark:border-purple-800/40 rounded-md text-sm"
                                                     value={formData[radiusKey] || ''}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [radiusKey]: val }));
                                                     }}
                                                 />
-                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400">km</span>
+                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400 dark:text-gray-500">km</span>
                                             </div>
-                                            <span className="text-gray-400 text-xs">→</span>
+                                            <span className="text-gray-400 dark:text-gray-500 text-xs">→</span>
                                             <div className="relative flex-1">
                                                 <input
                                                     type="number"
                                                     placeholder="€"
-                                                    className="w-full pl-3 pr-6 py-1.5 border border-purple-200 rounded-md text-sm"
+                                                    className="w-full pl-3 pr-6 py-1.5 border border-purple-200 dark:border-purple-800/40 rounded-md text-sm"
                                                     value={formData[priceKey] || ''}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setFormData(prev => ({ ...prev, [priceKey]: val }));
                                                     }}
                                                 />
-                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
+                                                <span className="absolute right-2 top-1.5 text-xs text-gray-400 dark:text-gray-500">€</span>
                                             </div>
                                         </div>
                                     );
@@ -1093,7 +1093,7 @@ const Profile = () => {
                             <textarea
                                 rows={3}
                                 placeholder="Ex: Ne touche jamais à l'électricité. Ajoute toujours 10% de marge sur les matériaux. Je suis plombier spécialisé..."
-                                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
+                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
                                 value={formData.ai_instructions || ''}
                                 onChange={(e) => {
                                     setFormData({ ...formData, ai_instructions: e.target.value });
@@ -1129,7 +1129,7 @@ const Profile = () => {
                             <textarea
                                 rows={10}
                                 placeholder={DEFAULT_QUOTE_PROMPT}
-                                className="w-full px-3 py-2 border border-purple-200 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-xs font-mono resize-y"
+                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-xs font-mono resize-y"
                                 value={formData.quote_system_prompt || ''}
                                 onChange={(e) => setFormData(prev => ({ ...prev, quote_system_prompt: e.target.value }))}
                             />
@@ -1145,13 +1145,13 @@ const Profile = () => {
             )}
 
             {/* Plateforme Agréée (e-facture) */}
-            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center">
                         <Send className="w-5 h-5 mr-2 text-indigo-600" />
                         Plateforme Agréée — Facturation électronique
                     </h3>
-                    <p className="text-sm text-gray-500 mb-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
                         Connectez votre Plateforme Agréée (PA) pour transmettre automatiquement vos factures à l'administration fiscale.
                         Obligatoire à partir de septembre 2027 pour les micro-entreprises.{' '}
                         <a href="https://www.impots.gouv.fr/je-consulte-la-liste-des-plateformes-agreees" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
@@ -1160,7 +1160,7 @@ const Profile = () => {
                     </p>
 
                     {pdpKeyConfigured && !pdpKeyInput && (
-                        <div className="flex items-center gap-2 mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 mb-4 text-sm text-green-700 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 rounded-lg px-3 py-2">
                             <CheckCircle className="w-4 h-4 flex-shrink-0" />
                             <span>Plateforme Agréée configurée — {pdpUrlInput || 'URL enregistrée'}</span>
                         </div>
@@ -1168,27 +1168,27 @@ const Profile = () => {
 
                     <div className="space-y-3 max-w-lg">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'API de la PA</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL de l'API de la PA</label>
                             <input
                                 type="url"
                                 value={pdpUrlInput}
                                 onChange={e => setPdpUrlInput(e.target.value)}
                                 placeholder="https://api.ma-plateforme-agreee.fr/v1"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la plateforme</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom de la plateforme</label>
                             <input
                                 type="text"
                                 value={pdpServiceInput}
                                 onChange={e => setPdpServiceInput(e.target.value)}
                                 placeholder="ex: chorus_pro, yooz, pennylane…"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Clé API / Bearer token {pdpKeyConfigured && <span className="text-green-600 font-normal">(déjà configurée)</span>}
                             </label>
                             <input
@@ -1196,7 +1196,7 @@ const Profile = () => {
                                 value={pdpKeyInput}
                                 onChange={e => setPdpKeyInput(e.target.value)}
                                 placeholder={pdpKeyConfigured ? "Laissez vide pour conserver la clé existante" : "Entrez votre clé API…"}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div className="flex gap-2 pt-1">
@@ -1214,7 +1214,7 @@ const Profile = () => {
                                     type="button"
                                     onClick={handleDeletePdpConfig}
                                     disabled={savingPdpConfig}
-                                    className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 font-medium text-sm transition-colors"
+                                    className="px-4 py-2 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-800/40 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 font-medium text-sm transition-colors"
                                 >
                                     Supprimer
                                 </button>
@@ -1225,19 +1225,19 @@ const Profile = () => {
             </div>
 
             {/* Zone de Danger / Maintenance */}
-            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center">
                         <Mail className="w-5 h-5 mr-2 text-blue-600" />
                         Email de connexion
                     </h3>
-                    <p className="text-sm text-gray-500 mb-6">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Email actuel : <strong>{user?.email}</strong>
                         <br />Vos données ne seront pas perdues — elles sont liées à votre compte, pas à votre adresse email.
                     </p>
 
                     {emailChangeSent ? (
-                        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
+                        <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 rounded-lg text-sm text-green-800">
                             <Mail className="w-5 h-5 mt-0.5 flex-shrink-0" />
                             <div>
                                 <p className="font-medium">Email de confirmation envoyé à <strong>{newEmail}</strong></p>
@@ -1247,13 +1247,13 @@ const Profile = () => {
                     ) : (
                         <form onSubmit={handleEmailChange} className="flex flex-col sm:flex-row gap-3 max-w-lg">
                             <div className="flex-1">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nouvelle adresse email</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nouvelle adresse email</label>
                                 <input
                                     type="email"
                                     value={newEmail}
                                     onChange={(e) => setNewEmail(e.target.value)}
                                     placeholder="contact@monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     required
                                 />
                             </div>
@@ -1272,7 +1272,7 @@ const Profile = () => {
                 </div>
             </div>
 
-            < div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
+            < div className="mt-8 bg-red-50 dark:bg-red-900/20 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
                         ⚠️ Zone de Maintenance
@@ -1293,7 +1293,7 @@ const Profile = () => {
                                 }
                                 window.location.reload();
                             }}
-                            className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
+                            className="px-4 py-2 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-800/40 text-red-700 rounded-lg hover:bg-red-50 font-medium text-sm transition-colors"
                         >
                             Forcer la mise à jour (Recharger)
                         </button>

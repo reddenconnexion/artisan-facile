@@ -38,12 +38,12 @@ const ClientPlans = ({ clientId, clientName }) => {
         setPlans(prev => prev.filter(p => p.id !== planId));
     };
 
-    if (loading) return <div className="text-sm text-gray-400 py-4 text-center">Chargement...</div>;
+    if (loading) return <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Chargement...</div>;
 
     return (
         <div>
             <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray-500">Plans électriques sauvegardés pour ce client.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Plans électriques sauvegardés pour ce client.</p>
                 <button
                     onClick={() => navigate('/app/outils')}
                     className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500 text-black rounded-lg text-sm font-semibold hover:bg-yellow-400 transition-colors"
@@ -54,9 +54,9 @@ const ClientPlans = ({ clientId, clientName }) => {
             </div>
 
             {plans.length === 0 ? (
-                <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
-                    <Zap className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Aucun plan sauvegardé pour ce client.</p>
+                <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                    <Zap className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Aucun plan sauvegardé pour ce client.</p>
                     <button
                         onClick={() => navigate('/app/outils')}
                         className="mt-3 text-sm text-yellow-600 font-medium hover:underline"
@@ -96,9 +96,9 @@ const ClientPlans = ({ clientId, clientName }) => {
                                 </div>
                             </div>
                             {/* Infos */}
-                            <div className="p-3 bg-white dark:bg-gray-800">
-                                <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{plan.name}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                            <div className="p-3 bg-white dark:bg-gray-900">
+                                <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{plan.name}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                                     Modifié le {new Date(plan.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             </div>
@@ -126,13 +126,13 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
 
     let statusBadge;
     if (revoked) {
-        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><Ban className="w-3 h-3" />Révoqué</span>;
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full"><Ban className="w-3 h-3" />Révoqué</span>;
     } else if (isExpired) {
-        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expiré</span>;
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expiré</span>;
     } else if (daysLeft !== null && daysLeft <= 30) {
-        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expire dans {daysLeft}j</span>;
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" />Expire dans {daysLeft}j</span>;
     } else {
-        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><CheckCircle className="w-3 h-3" />Actif</span>;
+        statusBadge = <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full"><CheckCircle className="w-3 h-3" />Actif</span>;
     }
 
     const expireText = expiresAt
@@ -185,7 +185,7 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
     };
 
     return (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4 mb-6">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
                 <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-blue-600" />
@@ -203,17 +203,17 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
                 </a>
             </div>
 
-            <div className="bg-white border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2 mb-3">
+            <div className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-800/40 rounded-lg px-3 py-2 flex items-center gap-2 mb-3">
                 <input
                     readOnly
                     value={url}
                     onClick={(e) => e.target.select()}
-                    className="flex-1 min-w-0 text-xs font-mono text-gray-700 bg-transparent border-0 focus:outline-none truncate"
+                    className="flex-1 min-w-0 text-xs font-mono text-gray-700 dark:text-gray-300 bg-transparent border-0 focus:outline-none truncate"
                 />
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${copied ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                    className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${copied ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`}
                     title="Copier le lien"
                 >
                     {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -233,7 +233,7 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
                     type="button"
                     onClick={handleRegenerate}
                     disabled={busy}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/40 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                 >
                     <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
                     {revoked || isExpired ? 'Générer un nouveau lien' : 'Régénérer'}
@@ -243,7 +243,7 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
                         type="button"
                         onClick={handleRevoke}
                         disabled={busy}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-800/40 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
                         <Ban className="w-3.5 h-3.5" />
                         Révoquer
@@ -464,7 +464,7 @@ const ClientForm = () => {
                 <div className="flex items-center">
                     <button
                         onClick={() => navigate('/app/clients')}
-                        className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                        className="mr-4 p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                         <ArrowLeft className="w-6 h-6" />
                     </button>
@@ -489,7 +489,7 @@ const ClientForm = () => {
                                     client_id: id
                                 }
                             })}
-                            className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                            className="flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40"
                         >
                             <FilePlus className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">Créer devis</span>
@@ -507,7 +507,7 @@ const ClientForm = () => {
                                     }
                                 }
                             })}
-                            className="flex items-center px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100"
+                            className="flex items-center px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100"
                         >
                             <Calendar className="w-4 h-4 mr-2" />
                             <span className="hidden sm:inline">RDV</span>
@@ -517,7 +517,7 @@ const ClientForm = () => {
                         <button
                             type="button"
                             onClick={handleDelete}
-                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
+                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100"
                             title="Supprimer le client"
                         >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -527,10 +527,10 @@ const ClientForm = () => {
                 </div>
             </div>
 
-            <div className="flex space-x-4 mb-6 border-b border-gray-200 overflow-x-auto pb-0.5">
+            <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-0.5">
                 <button
                     onClick={() => setActiveTab('info')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'info' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'info' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                 >
                     <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4" />
@@ -540,7 +540,7 @@ const ClientForm = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('contacts')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'contacts' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'contacts' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                 >
                     <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
@@ -551,7 +551,7 @@ const ClientForm = () => {
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('materials')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
                             <Palette className="w-4 h-4" />
@@ -563,7 +563,7 @@ const ClientForm = () => {
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
                             <History className="w-4 h-4" />
@@ -575,7 +575,7 @@ const ClientForm = () => {
                 {isEditing && (
                     <button
                         onClick={() => setActiveTab('plans')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'plans' ? 'text-yellow-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'plans' ? 'text-yellow-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
                             <Zap className="w-4 h-4" />
@@ -597,17 +597,17 @@ const ClientForm = () => {
                             onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
                         />
                     )}
-                <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 space-y-6">
                     <div>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Type de client
                                 </label>
                                 <select
                                     id="type"
                                     name="type"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.type}
                                     onChange={handleChange}
                                 >
@@ -616,13 +616,13 @@ const ClientForm = () => {
                                 </select>
                             </div>
                             <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Statut
                                 </label>
                                 <select
                                     id="status"
                                     name="status"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.status}
                                     onChange={handleChange}
                                 >
@@ -636,7 +636,7 @@ const ClientForm = () => {
                         </div>
 
                         <div className="flex justify-between items-center mb-1">
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Nom complet / Entreprise *
                             </label>
                         </div>
@@ -645,7 +645,7 @@ const ClientForm = () => {
                             id="name"
                             name="name"
                             required
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.name}
                             onChange={handleChange}
                         />
@@ -654,7 +654,7 @@ const ClientForm = () => {
                     {formData.type === 'professional' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label htmlFor="siren" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="siren" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     SIREN (9 chiffres)
                                 </label>
                                 <input
@@ -663,7 +663,7 @@ const ClientForm = () => {
                                     name="siren"
                                     maxLength={9}
                                     placeholder="Ex: 123456789"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.siren}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 9);
@@ -672,7 +672,7 @@ const ClientForm = () => {
                                 />
                             </div>
                             <div>
-                                <label htmlFor="tva_intracom" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="tva_intracom" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Numéro de TVA Intracom.
                                 </label>
                                 <input
@@ -680,7 +680,7 @@ const ClientForm = () => {
                                     id="tva_intracom"
                                     name="tva_intracom"
                                     placeholder="Ex: FR00123456789"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.tva_intracom}
                                     onChange={(e) => setFormData(prev => ({ ...prev, tva_intracom: e.target.value.toUpperCase() }))}
                                 />
@@ -692,7 +692,7 @@ const ClientForm = () => {
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <div className="flex items-center gap-2">
-                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Email
                                     </label>
                                     {isEditing && formData.email && (
@@ -711,7 +711,7 @@ const ClientForm = () => {
                                 type="email"
                                 id="email"
                                 name="email"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -719,7 +719,7 @@ const ClientForm = () => {
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <div className="flex items-center gap-2">
-                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Téléphone
                                     </label>
                                     {isEditing && formData.phone && (
@@ -748,7 +748,7 @@ const ClientForm = () => {
                                 type="tel"
                                 id="phone"
                                 name="phone"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 value={formData.phone}
                                 onChange={handleChange}
                             />
@@ -757,7 +757,7 @@ const ClientForm = () => {
 
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Adresse
                             </label>
                             <div className="flex items-center gap-2">
@@ -790,7 +790,7 @@ const ClientForm = () => {
                             name="address"
                             type="text"
                             placeholder="N° et nom de rue"
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.address}
                             onChange={handleChange}
                         />
@@ -800,7 +800,7 @@ const ClientForm = () => {
                                     name="postal_code"
                                     type="text"
                                     placeholder="Code postal"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.postal_code}
                                     onChange={handleChange}
                                 />
@@ -810,7 +810,7 @@ const ClientForm = () => {
                                     name="city"
                                     type="text"
                                     placeholder="Ville"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.city}
                                     onChange={handleChange}
                                 />
@@ -820,26 +820,26 @@ const ClientForm = () => {
 
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Notes internes
                             </label>
-                            <span className="text-xs text-gray-400 italic">Visible uniquement par vous</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 italic">Visible uniquement par vous</span>
                         </div>
                         <textarea
                             id="notes"
                             name="notes"
                             rows={2}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.notes}
                             onChange={handleChange}
                         />
                     </div>
 
-                    <div className="flex justify-end pt-4 border-t border-gray-100">
+                    <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
                         <button
                             type="button"
                             onClick={() => navigate('/app/clients')}
-                            className="px-4 py-2 mr-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="px-4 py-2 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
                             Annuler
                         </button>
@@ -857,12 +857,12 @@ const ClientForm = () => {
             )}
 
             {activeTab === 'contacts' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientContacts
                         contacts={formData.contacts}
                         onChange={(newContacts) => setFormData(prev => ({ ...prev, contacts: newContacts }))}
                     />
-                    <div className="flex justify-end pt-4 mt-6 border-t border-gray-100">
+                    <div className="flex justify-end pt-4 mt-6 border-t border-gray-100 dark:border-gray-800">
                         <button
                             type="button"
                             onClick={handleSubmit}
@@ -877,19 +877,19 @@ const ClientForm = () => {
             )}
 
             {activeTab === 'materials' && isEditing && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientReferences clientId={id} />
                 </div>
             )}
 
             {activeTab === 'history' && isEditing && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientHistory clientId={id} />
                 </div>
             )}
 
             {activeTab === 'plans' && isEditing && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientPlans clientId={id} clientName={formData.name} />
                 </div>
             )}
