@@ -82,12 +82,14 @@ import ResetPassword from './pages/ResetPassword';
 import PublicQuote from './pages/PublicQuote';
 import ClientPortal from './pages/portal/ClientPortal';
 
-// Lazy loading avec retry automatique (fix Safari/iOS).
-// Quand un chunk JS échoue (cache SW périmé après redéploiement), on purge
-// uniquement les caches gérés par le Service Worker via vite-plugin-pwa
-// (préfixés "workbox-" / "pwa-") et on retente l'import. On évite de toucher
-// aux autres caches (data, offline) pour ne pas effacer les données métier
-// que l'utilisateur consulte hors-ligne.
+// Lazy loading avec retry automatique (fix Safari/iOS + Chrome Android).
+// Trois protections :
+//   1. timeout : un chunk qui pend (SW coincé) doit échouer pour qu'on retente,
+//      sinon Suspense reste figé sur le PageLoader indéfiniment.
+//   2. purge ciblée des caches Workbox / vite-plugin-pwa avant retry, sans
+//      toucher aux caches métier (offline data) que l'utilisateur consulte.
+//   3. en dernier recours, désinscription du SW + reload one-shot pour casser
+//      un état de SW bloqué — guardé par sessionStorage pour éviter une boucle.
 const isWorkerOrAssetCache = (name) =>
   name.startsWith('workbox-') ||
   name.startsWith('pwa-') ||
@@ -95,24 +97,74 @@ const isWorkerOrAssetCache = (name) =>
   name.includes('precache') ||
   name.includes('runtime');
 
+const CHUNK_IMPORT_TIMEOUT_MS = 10000;
+const RECOVERY_FLAG = 'lazy_retry_recovery_attempted';
+
+const importWithTimeout = (importFn) =>
+  Promise.race([
+    importFn(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('chunk import timed out')), CHUNK_IMPORT_TIMEOUT_MS)
+    ),
+  ]);
+
+const purgeServiceWorkerAssets = async () => {
+  if ('caches' in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter(isWorkerOrAssetCache).map((key) => caches.delete(key))
+      );
+    } catch (cacheErr) {
+      console.warn('[lazyWithRetry] cache purge failed:', cacheErr);
+    }
+  }
+};
+
+const hardRecovery = async () => {
+  if (sessionStorage.getItem(RECOVERY_FLAG)) return false;
+  sessionStorage.setItem(RECOVERY_FLAG, '1');
+  if ('serviceWorker' in navigator) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    } catch (swErr) {
+      console.warn('[lazyWithRetry] SW unregister failed:', swErr);
+    }
+  }
+  await purgeServiceWorkerAssets();
+  window.location.reload();
+  return true;
+};
+
 const lazyWithRetry = (importFn) => {
   return lazy(() =>
-    importFn().catch(async (err) => {
+    importWithTimeout(importFn).catch(async (err) => {
       console.warn('[lazyWithRetry] chunk import failed, purging SW caches:', err);
-      if ('caches' in window) {
-        try {
-          const keys = await caches.keys();
-          await Promise.all(
-            keys.filter(isWorkerOrAssetCache).map((key) => caches.delete(key))
-          );
-        } catch (cacheErr) {
-          console.warn('[lazyWithRetry] cache purge failed:', cacheErr);
+      await purgeServiceWorkerAssets();
+      try {
+        return await importWithTimeout(importFn);
+      } catch (err2) {
+        console.error('[lazyWithRetry] retry failed, attempting hard recovery:', err2);
+        const reloading = await hardRecovery();
+        if (reloading) {
+          // Suspend forever so React doesn't fall through to ErrorBoundary
+          // before the page has a chance to reload.
+          return new Promise(() => {});
         }
+        throw err2;
       }
-      return importFn();
     })
   );
 };
+
+// Successful navigation = recovery worked, clear the guard so a future
+// stuck state can trigger the hard recovery again.
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    setTimeout(() => sessionStorage.removeItem(RECOVERY_FLAG), 5000);
+  });
+}
 
 // Pages chargées à la demande (lazy loading avec retry)
 // Cela réduit le temps de chargement initial de ~50%
