@@ -3,25 +3,29 @@ import { supabase } from './supabase';
 /**
  * Calls the ai-proxy Edge Function which securely retrieves the API key
  * from the database and proxies the request server-side.
+ *
+ * Two call shapes:
+ *   - { systemPrompt, userMessage }: legacy/explicit prompt path
+ *   - { preset, extras, userMessage }: server resolves the preset (e.g. 'quote')
+ *     against the user's saved customisation, keeping default prompts off the client bundle
  */
-const callAiProxy = async (systemPrompt, userMessage) => {
-    const { data, error } = await supabase.functions.invoke('ai-proxy', {
-        body: { systemPrompt, userMessage }
-    });
+const callAiProxy = async (body) => {
+    const { data, error } = await supabase.functions.invoke('ai-proxy', { body });
 
-    // Check data.error first — supabase-js v2 may return data=null on non-2xx,
-    // so also fall back to error.message as a last resort.
     if (data?.error) throw new Error(data.error);
     if (error) throw new Error(error.message || 'Erreur du proxy IA');
-
-    if (data?.error) throw new Error(data.error);
 
     return data.rawResponse;
 };
 
 /**
  * Prompt système par défaut pour la génération de devis.
- * Exporté pour permettre l'affichage et la personnalisation dans l'interface.
+ *
+ * Production calls now resolve the prompt server-side via `preset: 'quote'`
+ * in callAiProxy, so the server is the source of truth and can be tuned
+ * without a frontend redeploy. This client-side copy is kept only as a
+ * placeholder hint in the Profile page so users can see what the default
+ * looks like before customising it.
  */
 export const DEFAULT_QUOTE_PROMPT = `Tu es un expert artisan du bâtiment français. Génère un devis précis à partir de la description des travaux.
 
@@ -65,14 +69,15 @@ function parseQuoteResponse(raw) {
 export const generateQuoteItems = async (userDescription, context = {}) => {
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
-    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
     let extras = '';
     if (hourlyRate) extras += `\nTaux horaire MO imposé: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS SPÉCIALES: ${instructions}`;
 
-    const systemPrompt = basePrompt + extras;
-    const rawResponse = await callAiProxy(systemPrompt, `TRAVAUX: "${userDescription}"`);
+    const userMessage = `TRAVAUX: "${userDescription}"`;
+    const rawResponse = context.customSystemPrompt
+        ? await callAiProxy({ systemPrompt: context.customSystemPrompt + extras, userMessage })
+        : await callAiProxy({ preset: 'quote', extras, userMessage });
     return parseQuoteResponse(rawResponse);
 };
 
@@ -179,7 +184,7 @@ export const processAssistantIntent = async (userText, fullPipeline = false) => 
     ${pipelineDataFormats}
     `;
 
-    const rawResponse = await callAiProxy(systemPrompt, `DEMANDE UTILISATEUR: "${userText}"`);
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: `DEMANDE UTILISATEUR: "${userText}"` });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -211,7 +216,7 @@ FORMAT JSON pur (sans markdown) :
     "notes": "..."
 }`;
 
-    const rawResponse = await callAiProxy(systemPrompt, `TRANSCRIPTION VOCALE : "${transcript}"`);
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: `TRANSCRIPTION VOCALE : "${transcript}"` });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -243,14 +248,16 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
 
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
-    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
-    let extras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:';
-    extras += '\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    let extras = '';
     if (hourlyRate) extras += `\nTaux horaire MO: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS: ${instructions}`;
 
-    const rawResponse = await callAiProxy(basePrompt + extras, `VISITE CHANTIER:\n\n${combined}`);
+    const userMessage = `VISITE CHANTIER:\n\n${combined}`;
+    const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    const rawResponse = context.customSystemPrompt
+        ? await callAiProxy({ systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
+        : await callAiProxy({ preset: 'quote-site-visit', extras, userMessage });
 
     let s = rawResponse.trim();
     const m = s.match(/\{[\s\S]*\}/);
@@ -373,7 +380,7 @@ FORMAT JSON ATTENDU :
     "body": "Corps du mail..."
 }`;
 
-    const rawResponse = await callAiProxy(systemPrompt, 'Génère l\'email de relance.');
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: 'Génère l\'email de relance.' });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);

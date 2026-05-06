@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import PasswordStrength from '../components/PasswordStrength';
 
 const JOB_OPTIONS = [
     { value: 'electricien', label: 'Électricien' },
@@ -189,11 +190,7 @@ const Register = () => {
                                         Encore {8 - password.length} caractère{8 - password.length > 1 ? 's' : ''} requis
                                     </p>
                                 )}
-                                {password.length >= 8 && (
-                                    <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
-                                        <CheckCircle className="w-3 h-3" /> Mot de passe valide
-                                    </p>
-                                )}
+                                <PasswordStrength password={password} />
                             </div>
 
                             <div>

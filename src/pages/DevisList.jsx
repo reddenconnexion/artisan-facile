@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download } from 'lucide-react';
+import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -218,6 +219,31 @@ const DevisList = () => {
                                         >
                                             <Layers className="w-4 h-4 text-gray-400" />
                                             Fusionner des devis
+                                        </button>
+                                        <button
+                                            disabled={filteredDevis.length === 0}
+                                            onClick={() => {
+                                                exportToCSV(
+                                                    filteredDevis,
+                                                    [
+                                                        { key: 'reference', label: 'Référence' },
+                                                        { key: 'type', label: 'Type' },
+                                                        { key: 'status', label: 'Statut' },
+                                                        { key: 'client_name', label: 'Client' },
+                                                        { key: 'date', label: 'Date', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
+                                                        { key: 'valid_until', label: 'Valide jusqu\'au', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
+                                                        { key: 'total_ht', label: 'Total HT' },
+                                                        { key: 'total_tva', label: 'TVA' },
+                                                        { key: 'total_ttc', label: 'Total TTC' },
+                                                    ],
+                                                    'devis'
+                                                );
+                                                setShowMoreOptions(false);
+                                            }}
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            <Download className="w-4 h-4 text-gray-400" />
+                                            Exporter en CSV
                                         </button>
                                     </div>
                                 )}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown, Users, FileText, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
+import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -346,13 +347,38 @@ const Clients = () => {
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">{clients.length} clients enregistrés</p>
                 </div>
-                <button
-                    onClick={() => navigate('/app/clients/new')}
-                    className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Nouveau Client
-                </button>
+                <div className="flex items-center gap-2">
+                    {filteredClients.length > 0 && (
+                        <button
+                            onClick={() => exportToCSV(
+                                filteredClients,
+                                [
+                                    { key: 'name', label: 'Nom' },
+                                    { key: 'email', label: 'Email' },
+                                    { key: 'phone', label: 'Téléphone' },
+                                    { key: 'address', label: 'Adresse' },
+                                    { key: 'city', label: 'Ville' },
+                                    { key: 'postal_code', label: 'Code postal' },
+                                    { key: 'siret', label: 'SIRET' },
+                                    { key: 'created_at', label: 'Créé le' },
+                                ],
+                                'clients'
+                            )}
+                            className="flex items-center justify-center px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                            title="Exporter en CSV (Excel, comptable…)"
+                        >
+                            <Download className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Exporter CSV</span>
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate('/app/clients/new')}
+                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Nouveau Client
+                    </button>
+                </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">

@@ -8,6 +8,40 @@ const corsHeaders = {
 
 const FREE_AI_LIMIT = 5;
 
+// Default system prompts kept server-side so they can be tuned without a
+// frontend redeploy. Clients send `preset: 'quote' | 'quote-site-visit'`
+// plus optional `extras` instead of duplicating these strings.
+const QUOTE_PROMPT = `Tu es un expert artisan du bâtiment français. Génère un devis précis à partir de la description des travaux.
+
+RÈGLES DE TARIFICATION:
+- Matériaux électriques: prix catalogue TTC 123elec.com × 1.25 (= prix client HT si TVA applicable, sinon prix TTC direct)
+- Autres matériaux/fournitures: prix négoce français + marge 20-30% selon la filière
+- Main d'œuvre: taux horaire marché selon la spécialité (électricien, plombier, peintre…)
+
+RÈGLES GÉNÉRALES:
+- type "service" = main d'œuvre/prestation | type "material" = fourniture/matériau
+- Unités: u | m2 | ml | h | forfait
+- Inclure consommables, protections sols/meubles, évacuation déchets si pertinent
+- Descriptions courtes et précises (max 8 mots)
+- Prix HT réalistes, compétitifs mais rentables
+
+JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
+{"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
+
+const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:
+{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}`;
+
+function resolvePresetPrompt(preset: string, userOverride: string | null | undefined, extras: string): string {
+  const customBase = (userOverride && userOverride.trim()) ? userOverride.trim() : QUOTE_PROMPT;
+  if (preset === 'quote') {
+    return customBase + (extras || '');
+  }
+  if (preset === 'quote-site-visit') {
+    return customBase + SITE_VISIT_EXTRAS + (extras || '');
+  }
+  return customBase + (extras || '');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -95,9 +129,18 @@ Deno.serve(async (req) => {
       usingServerKey = true;
     }
 
-    const { systemPrompt, userMessage } = await req.json();
+    const { systemPrompt, userMessage, preset, extras } = await req.json();
 
-    if (!systemPrompt || !userMessage) {
+    let resolvedSystemPrompt: string | undefined = systemPrompt;
+    if (!resolvedSystemPrompt && preset) {
+      resolvedSystemPrompt = resolvePresetPrompt(
+        preset,
+        aiPrefs.quote_system_prompt,
+        typeof extras === 'string' ? extras : ''
+      );
+    }
+
+    if (!resolvedSystemPrompt || !userMessage) {
       return new Response(
         JSON.stringify({ error: 'Paramètres manquants' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -113,7 +156,7 @@ Deno.serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
-            parts: [{ text: `${systemPrompt}\n\n${userMessage}` }]
+            parts: [{ text: `${resolvedSystemPrompt}\n\n${userMessage}` }]
           }]
         })
       });
@@ -140,7 +183,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: resolvedSystemPrompt },
             { role: 'user', content: userMessage }
           ],
           temperature: 0.7
