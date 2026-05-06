@@ -41,6 +41,7 @@ import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
+import CopilotChat from '../components/CopilotChat';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -867,6 +868,24 @@ const Dashboard = () => {
                     ) : <div className="text-gray-500 text-center py-8">Aucune activité récente.</div>}
                 </div>
             </div>
+
+            {/* Copilot Artisan : assistant IA contextuel sur le dashboard */}
+            <CopilotChat
+                context={{
+                    page: 'Tableau de bord',
+                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    facts: [
+                        `Nombre de devis/factures en base : ${allQuotes.length}`,
+                        `Clients : ${clientCount}`,
+                        `Devis en attente (brouillon ou envoyé) : ${pendingQuotesCount}`,
+                    ],
+                }}
+                presets={[
+                    { label: 'Quel est mon CA ce mois ?',         prompt: 'Quel est mon chiffre d\'affaires sur les 30 derniers jours ?' },
+                    { label: 'Quels devis relancer ?',            prompt: 'Quels devis envoyés méritent d\'être relancés en priorité ?' },
+                    { label: 'Idées pour booster mon activité',   prompt: 'Donne-moi 3 idées concrètes pour booster mon activité d\'artisan ce mois.' },
+                ]}
+            />
         </div>
     );
 };

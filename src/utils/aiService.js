@@ -458,3 +458,47 @@ FORMAT JSON ATTENDU :
 
     return JSON.parse(cleanJson);
 };
+
+
+/**
+ * ─── Assistant conversationnel "Copilot Artisan" ──────────────────────────
+ *
+ * Aplatit l'historique de conversation en un seul `userMessage` pour passer
+ * par le contrat existant de ai-proxy ({systemPrompt, userMessage}). Permet
+ * un chat multi-tours sans modifier la Edge Function ni introduire de SSE.
+ *
+ * @param {string} systemPrompt - Instructions système (incluant le contexte page)
+ * @param {Array<{role: "user"|"assistant", content: string}>} messages - Historique complet
+ * @returns {Promise<string>} La réponse texte de l'assistant
+ */
+export const chatWithCopilot = async (systemPrompt, messages) => {
+    if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('"messages" doit contenir au moins un tour de conversation');
+    }
+
+    // Si un seul message utilisateur, on l'envoie tel quel (pas d'historique à aplatir)
+    if (messages.length === 1 && messages[0].role === 'user') {
+        return callAiProxy(systemPrompt, messages[0].content);
+    }
+
+    // Sinon, on aplatit l'historique au format texte
+    // Le dernier message est forcément user — c'est lui qui déclenche la réponse
+    const history = messages.slice(0, -1);
+    const last    = messages[messages.length - 1];
+
+    const historyText = history
+        .map(m => `${m.role === 'user' ? 'Artisan' : 'Toi (Assistant)'}: ${m.content}`)
+        .join('\n\n');
+
+    const userMessage = `Voici l'historique de notre conversation :
+
+${historyText}
+
+Nouvelle demande de l'Artisan :
+${last.content}
+
+Réponds en restant cohérent avec le fil de discussion.`;
+
+    return callAiProxy(systemPrompt, userMessage);
+};
+

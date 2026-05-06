@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
+import CopilotChat from '../components/CopilotChat';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -4246,6 +4247,29 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
             )}
+
+            {/* Copilot Artisan : assistant IA avec contexte du devis courant */}
+            <CopilotChat
+                context={{
+                    page: formData.type === 'invoice' ? 'Édition de facture' : 'Édition de devis',
+                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    facts: [
+                        formData.type === 'invoice' ? 'Type : Facture' : 'Type : Devis',
+                        formData.title && `Titre : ${formData.title}`,
+                        formData.client_name && `Client : ${formData.client_name}`,
+                        `Statut : ${formData.status || 'brouillon'}`,
+                        `Nombre de lignes : ${(formData.items || []).length}`,
+                        `Total HT : ${(subtotal || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+                        formData.include_tva && `Total TTC : ${(total || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+                        formData.valid_until && `Valable jusqu'au : ${new Date(formData.valid_until).toLocaleDateString('fr-FR')}`,
+                    ].filter(Boolean),
+                }}
+                presets={[
+                    { label: 'Rédige un email de relance',  prompt: 'Rédige un email de relance court et courtois pour ce devis. Ton professionnel, 4-5 phrases max, pas de relance trop insistante.' },
+                    { label: 'Vérifie la cohérence',        prompt: 'À partir des informations de ce devis, vérifie la cohérence des montants et signale tout point qui mériterait que je le revoie avant envoi.' },
+                    { label: 'Suggère une remise commerciale', prompt: 'Quelle remise commerciale serait raisonnable sur ce devis pour augmenter mes chances qu\'il soit signé sans trop entamer ma marge ?' },
+                ]}
+            />
         </div>
     );
 
