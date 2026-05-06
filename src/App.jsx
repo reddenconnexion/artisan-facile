@@ -48,15 +48,32 @@ import ResetPassword from './pages/ResetPassword';
 import PublicQuote from './pages/PublicQuote';
 import ClientPortal from './pages/portal/ClientPortal';
 
-// Lazy loading avec retry automatique (fix Safari/iOS)
-// Quand un chunk JS échoue (cache SW périmé après redéploiement),
-// on vide le cache du Service Worker et on retente l'import
+// Lazy loading avec retry automatique (fix Safari/iOS).
+// Quand un chunk JS échoue (cache SW périmé après redéploiement), on purge
+// uniquement les caches gérés par le Service Worker via vite-plugin-pwa
+// (préfixés "workbox-" / "pwa-") et on retente l'import. On évite de toucher
+// aux autres caches (data, offline) pour ne pas effacer les données métier
+// que l'utilisateur consulte hors-ligne.
+const isWorkerOrAssetCache = (name) =>
+  name.startsWith('workbox-') ||
+  name.startsWith('pwa-') ||
+  name.startsWith('vite-') ||
+  name.includes('precache') ||
+  name.includes('runtime');
+
 const lazyWithRetry = (importFn) => {
   return lazy(() =>
-    importFn().catch(async () => {
+    importFn().catch(async (err) => {
+      console.warn('[lazyWithRetry] chunk import failed, purging SW caches:', err);
       if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(key => caches.delete(key)));
+        try {
+          const keys = await caches.keys();
+          await Promise.all(
+            keys.filter(isWorkerOrAssetCache).map((key) => caches.delete(key))
+          );
+        } catch (cacheErr) {
+          console.warn('[lazyWithRetry] cache purge failed:', cacheErr);
+        }
       }
       return importFn();
     })

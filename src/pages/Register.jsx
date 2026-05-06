@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import PasswordStrength from '../components/PasswordStrength';
+import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 
 const JOB_OPTIONS = [
     { value: 'electricien', label: 'Électricien' },
@@ -20,8 +21,6 @@ const JOB_OPTIONS = [
     { value: 'multiservice', label: 'Multi-services / Bricolage' },
     { value: 'autre', label: 'Autre' },
 ];
-
-const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
 
 const Register = () => {
     const navigate = useNavigate();

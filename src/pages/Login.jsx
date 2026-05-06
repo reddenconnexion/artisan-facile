@@ -4,8 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
-
-const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
+import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 
 const Login = () => {
     const navigate = useNavigate();

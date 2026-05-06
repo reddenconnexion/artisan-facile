@@ -13,30 +13,24 @@ import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
  * - Persister en localStorage pour consultation hors-ligne
  */
 
-// Helper: wrap queryFn avec cache offline
+// Helper: wrap a queryFn with offline-aware caching.
+// Single, predictable flow: try the fetch (Workbox may serve it from its
+// runtime cache when offline). On success, persist the data to localStorage
+// so it survives a page reload. On failure, fall back to whatever was last
+// persisted; only re-throw when there's no usable cache.
 function withOfflineCache(cacheKey, fetchFn) {
     return async () => {
-        // Si en ligne, toujours essayer le réseau
-        if (navigator.onLine) {
-            const data = await fetchFn();
-            // Ne sauvegarder que les résultats non-vides
-            if (data && (!Array.isArray(data) || data.length > 0)) {
-                saveToOfflineCache(cacheKey, data);
-            }
-            return data;
-        }
-
-        // Hors-ligne : essayer le fetch (Workbox peut servir depuis son cache)
         try {
             const data = await fetchFn();
-            if (data && (!Array.isArray(data) || data.length > 0)) {
+            // Persist non-null payloads, including empty arrays — an empty
+            // result is a legitimate state we want to honour offline.
+            if (data !== undefined && data !== null) {
                 saveToOfflineCache(cacheKey, data);
             }
             return data;
         } catch (error) {
-            // Hors-ligne et fetch échoué : retourner le cache local
             const cached = getFromOfflineCache(cacheKey);
-            if (cached?.data) return cached.data;
+            if (cached?.data !== undefined) return cached.data;
             throw error;
         }
     };
