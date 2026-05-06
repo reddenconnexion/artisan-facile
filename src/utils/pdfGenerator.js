@@ -1315,6 +1315,108 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         if (y > 270) { doc.addPage(); y = 20; }
     }
 
+    // ------ Jalons d'avancement (preuves datées + géolocalisées) ------
+    const milestones = (report.milestones || []).filter(m => m?.photo_url);
+    if (milestones.length > 0) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        doc.setFillColor(...bgGray);
+        doc.roundedRect(14, y, 182, 6, 2, 2, 'F');
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...blue);
+        doc.text('JALONS D\'AVANCEMENT', 18, y + 4.2);
+        y += 10;
+
+        // Tri chronologique pour respecter la timeline
+        const sortedMilestones = [...milestones].sort(
+            (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
+        );
+
+        const fetchMilestonePhoto = async (url) => {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        };
+
+        const photoW = 40;
+        const photoH = 30;
+        const lineGap = 4;
+
+        for (const m of sortedMilestones) {
+            // Saut de page si on arrive en fin de feuille
+            if (y + photoH + 6 > 280) {
+                doc.addPage();
+                y = 20;
+            }
+
+            // Photo à gauche
+            try {
+                const dataUrl = await fetchMilestonePhoto(m.photo_url);
+                const props = doc.getImageProperties(dataUrl);
+                const ratio = props.width / props.height;
+                let drawW, drawH, offsetX = 0, offsetY = 0;
+                if (ratio >= photoW / photoH) {
+                    drawW = photoW;
+                    drawH = photoW / ratio;
+                    offsetY = (photoH - drawH) / 2;
+                } else {
+                    drawH = photoH;
+                    drawW = photoH * ratio;
+                    offsetX = (photoW - drawW) / 2;
+                }
+                doc.addImage(dataUrl, 14 + offsetX, y + offsetY, drawW, drawH);
+            } catch { /* photo inaccessible — on continue avec le texte */ }
+
+            // Texte à droite
+            const textX = 14 + photoW + 5;
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(...darkGray);
+            doc.text(m.label || 'Jalon', textX, y + 5);
+
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(110, 110, 110);
+            const dateStr = m.timestamp
+                ? new Date(m.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+                : '';
+            doc.text(`📅 ${dateStr}`, textX, y + 10);
+
+            if (m.latitude !== undefined && m.longitude !== undefined) {
+                const accStr = m.accuracy ? ` (±${Math.round(m.accuracy)}m)` : '';
+                doc.text(`📍 ${m.latitude.toFixed(5)}, ${m.longitude.toFixed(5)}${accStr}`, textX, y + 14);
+            } else {
+                doc.text('📍 Position non enregistrée', textX, y + 14);
+            }
+
+            if (m.notes) {
+                doc.setTextColor(...darkGray);
+                const lines = doc.splitTextToSize(m.notes, 130);
+                const slicedLines = lines.slice(0, 2); // max 2 lignes pour rester compact
+                doc.text(slicedLines, textX, y + 19);
+            }
+
+            y += photoH + lineGap;
+        }
+
+        // Mention légale en italique sous les jalons
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+            'Photos horodatées capturées sur place — preuves de bonne exécution des travaux.',
+            14, y + 2,
+        );
+        y += 6;
+        doc.setFont(undefined, 'normal');
+    }
+
     // ------ Notes ------
     if (report.notes) {
         doc.setFillColor(...bgGray);
