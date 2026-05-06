@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { Calendar, Wrench, AlertTriangle, CheckCircle, Search, Filter, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, addMonths, isBefore, isAfter, parseISO } from 'date-fns';
@@ -18,24 +20,14 @@ const Maintenance = () => {
     useEffect(() => {
         if (user) {
             fetchContracts();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('maintenance_contracts_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'maintenance_contracts' },
-                    () => {
-                        fetchContracts();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'maintenance_contracts_subscription' : null,
+        { table: 'maintenance_contracts' },
+        () => fetchContracts()
+    );
 
     const fetchContracts = async () => {
         try {
@@ -99,6 +91,7 @@ const Maintenance = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <Wrench className="w-8 h-8 text-blue-600" />
                         Suivi Maintenance
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-2" />
                     </h1>
                     <p className="text-gray-500">Gérez vos contrats d'entretien et rappels.</p>
                 </div>

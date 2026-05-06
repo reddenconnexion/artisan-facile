@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TestModeProvider } from './context/TestModeContext';
 import Layout from './layouts/Layout';
@@ -8,8 +9,41 @@ import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Configuration du cache React Query
+// Skip noisy errors that the rest of the app already surfaces (auth flows
+// that show their own toast, not-found from a single-row .single() query…).
+// Surfacing those again would create duplicate toasts.
+const isQuiet = (error) => {
+  if (!error) return true;
+  const msg = String(error.message || '');
+  if (msg.includes('JWT') || msg.includes('not authenticated')) return true;
+  // PGRST116 = "Results contain 0 rows" from .single(). Used for "does X exist?"
+  // checks where the empty result is expected.
+  if (error.code === 'PGRST116') return true;
+  return false;
+};
+
+let lastErrorToastAt = 0;
 const queryClient = new QueryClient({
+  // Single global handler: any background fetch error that isn't expected
+  // gets a discreet toast instead of being silently logged. Throttled so a
+  // burst of failures doesn't flood the UI.
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (!navigator.onLine) return; // OfflineBanner already handles this
+      if (isQuiet(error)) return;
+      // Skip if data is already in cache (the user can still see something);
+      // the next refetch will retry on its own.
+      if (query.state.data !== undefined) return;
+      const now = Date.now();
+      if (now - lastErrorToastAt < 5000) return;
+      lastErrorToastAt = now;
+      console.error('[query]', query.queryKey, error);
+      toast.error('Impossible de charger ces données.', {
+        description: 'Vérifiez votre connexion ou réessayez dans un instant.',
+        duration: 4000,
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       // Ne pas refetch automatiquement quand la fenêtre reprend le focus

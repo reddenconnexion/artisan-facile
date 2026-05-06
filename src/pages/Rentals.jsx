@@ -3,6 +3,8 @@ import { Plus, Search, Truck, Calendar, CheckCircle, AlertTriangle, Trash2, X } 
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 import { format, isPast, addDays, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,24 +30,14 @@ const Rentals = () => {
     useEffect(() => {
         if (user) {
             fetchRentals();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('rentals_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'project_rentals' },
-                    () => {
-                        fetchRentals();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'rentals_subscription' : null,
+        { table: 'project_rentals' },
+        () => fetchRentals()
+    );
 
     const fetchRentals = async () => {
         try {
@@ -139,9 +131,10 @@ const Rentals = () => {
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Truck className="w-8 h-8 mr-3 text-blue-600" />
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Truck className="w-8 h-8 text-blue-600" />
                         Locations de Matériel
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                     </h1>
                     <p className="text-gray-500 mt-1">Suivez vos locations en cours et à rendre.</p>
                 </div>
