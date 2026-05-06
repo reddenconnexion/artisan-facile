@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
 import Papa from 'papaparse';
@@ -32,24 +34,14 @@ const PriceLibrary = () => {
     useEffect(() => {
         if (user) {
             fetchItems();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('price_library_changes')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'price_library' },
-                    () => {
-                        fetchItems();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'price_library_changes' : null,
+        { table: 'price_library' },
+        () => fetchItems()
+    );
 
     const fetchItems = async () => {
         try {
@@ -264,6 +256,7 @@ const PriceLibrary = () => {
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             <BookOpen className="w-8 h-8 text-blue-600" />
                             Bibliothèque de Prix
+                            <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                         </h1>
                         <p className="text-gray-500 dark:text-gray-400">Enregistrez vos prestations et tarifs pour les réutiliser en un clic dans vos devis</p>
                     </div>

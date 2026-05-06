@@ -10,34 +10,41 @@ function escapeHtml(str) {
         .replace(/'/g, '&#x27;');
 }
 
-// Rate limiting : 5 requêtes max / IP / minute (in-memory, par instance Edge)
-const rateLimit = new Map();
-const WINDOW_MS  = 60_000; // 1 minute
-const MAX_REQ    = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function checkRateLimit(ip) {
-    const now  = Date.now();
-    const entry = rateLimit.get(ip) ?? { count: 0, reset: now + WINDOW_MS };
+// Per-IP rate limiting: 5 requêtes max / IP / minute (in-memory, per Edge instance)
+const ipRateLimit = new Map();
+const IP_WINDOW_MS = 60_000;
+const IP_MAX_REQ = 5;
+
+// Per-email rate limiting: avoid flooding a recipient's inbox even if the
+// attacker rotates IPs. 3 OTPs / email / 15 minutes.
+const emailRateLimit = new Map();
+const EMAIL_WINDOW_MS = 15 * 60_000;
+const EMAIL_MAX_REQ = 3;
+
+function consumeBucket(map, key, windowMs, maxReq) {
+    const now = Date.now();
+    const entry = map.get(key) ?? { count: 0, reset: now + windowMs };
 
     if (now > entry.reset) {
         entry.count = 0;
-        entry.reset = now + WINDOW_MS;
+        entry.reset = now + windowMs;
     }
 
     entry.count++;
-    rateLimit.set(ip, entry);
+    map.set(key, entry);
 
-    // Nettoyage périodique pour éviter les fuites mémoire
-    if (rateLimit.size > 10_000) {
-        for (const [key, val] of rateLimit) {
-            if (now > val.reset) rateLimit.delete(key);
+    if (map.size > 10_000) {
+        for (const [k, v] of map) {
+            if (now > v.reset) map.delete(k);
         }
     }
 
     return {
-        allowed:   entry.count <= MAX_REQ,
-        remaining: Math.max(0, MAX_REQ - entry.count),
-        reset:     Math.ceil(entry.reset / 1000),
+        allowed: entry.count <= maxReq,
+        remaining: Math.max(0, maxReq - entry.count),
+        reset: Math.ceil(entry.reset / 1000),
     };
 }
 
@@ -49,22 +56,32 @@ export default async function handler(req) {
         });
     }
 
-    // Récupération de l'IP (Vercel fournit x-forwarded-for)
+    // Récupération de l'IP (Vercel fournit x-forwarded-for, Cloudflare cf-connecting-ip)
     const ip =
         req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
         req.headers.get('cf-connecting-ip') ||
-        'unknown';
+        req.headers.get('x-real-ip') ||
+        null;
 
-    const { allowed, remaining, reset } = checkRateLimit(ip);
+    if (!ip) {
+        // No identifiable client IP means rate-limiting cannot be applied.
+        // Reject rather than lump every anonymous request into a shared bucket.
+        return new Response(
+            JSON.stringify({ error: 'Requête invalide.' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+
+    const ipBucket = consumeBucket(ipRateLimit, ip, IP_WINDOW_MS, IP_MAX_REQ);
 
     const rateLimitHeaders = {
         'Content-Type': 'application/json',
-        'X-RateLimit-Limit':     String(MAX_REQ),
-        'X-RateLimit-Remaining': String(remaining),
-        'X-RateLimit-Reset':     String(reset),
+        'X-RateLimit-Limit':     String(IP_MAX_REQ),
+        'X-RateLimit-Remaining': String(ipBucket.remaining),
+        'X-RateLimit-Reset':     String(ipBucket.reset),
     };
 
-    if (!allowed) {
+    if (!ipBucket.allowed) {
         return new Response(
             JSON.stringify({ error: 'Trop de tentatives. Réessayez dans une minute.' }),
             { status: 429, headers: { ...rateLimitHeaders, 'Retry-After': '60' } }
@@ -73,6 +90,31 @@ export default async function handler(req) {
 
     try {
         const { toEmail, otpCode, clientName, companyName } = await req.json();
+
+        if (!toEmail || typeof toEmail !== 'string' || !EMAIL_RE.test(toEmail)) {
+            return new Response(
+                JSON.stringify({ error: 'Adresse email invalide.' }),
+                { status: 400, headers: rateLimitHeaders }
+            );
+        }
+        if (!otpCode || typeof otpCode !== 'string') {
+            return new Response(
+                JSON.stringify({ error: 'Code OTP manquant.' }),
+                { status: 400, headers: rateLimitHeaders }
+            );
+        }
+
+        // Per-recipient throttle: protects the target's inbox even if the
+        // attacker rotates IPs to evade ipBucket.
+        const emailKey = toEmail.toLowerCase();
+        const emailBucket = consumeBucket(emailRateLimit, emailKey, EMAIL_WINDOW_MS, EMAIL_MAX_REQ);
+        if (!emailBucket.allowed) {
+            return new Response(
+                JSON.stringify({ error: 'Trop de codes envoyés à cette adresse. Réessayez dans 15 minutes.' }),
+                { status: 429, headers: { ...rateLimitHeaders, 'Retry-After': '900' } }
+            );
+        }
+
         const apiKey = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
 
         if (!apiKey) {

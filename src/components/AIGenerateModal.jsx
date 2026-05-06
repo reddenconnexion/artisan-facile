@@ -3,6 +3,7 @@ import { X, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuoteItems } from '../utils/aiService';
 import { checkLimit } from '../utils/planLimits';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
  * Modale pour générer des lignes de devis avec l'IA
@@ -11,6 +12,7 @@ import { checkLimit } from '../utils/planLimits';
 export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, userProfile }) {
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
+    const containerRef = useModalA11y(isOpen, onClose);
 
     if (!isOpen) return null;
 
@@ -75,8 +77,13 @@ export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, use
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Générer un devis avec l'IA"
+        >
+            <div ref={containerRef} className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
                 <div className="flex items-center justify-between p-4 border-b">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-purple-600" />
@@ -85,6 +92,7 @@ export default function AIGenerateModal({ isOpen, onClose, onItemsGenerated, use
                     <button
                         onClick={onClose}
                         className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        aria-label="Fermer la modal"
                     >
                         <X className="w-5 h-5" />
                     </button>

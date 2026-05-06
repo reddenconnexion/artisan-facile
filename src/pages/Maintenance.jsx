@@ -2,7 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, Wrench, AlertTriangle, CheckCircle, Search, Filter } from 'lucide-react';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
+import { Calendar, Wrench, AlertTriangle, CheckCircle, Search, Filter, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { format, addMonths, isBefore, isAfter, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -17,24 +20,14 @@ const Maintenance = () => {
     useEffect(() => {
         if (user) {
             fetchContracts();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('maintenance_contracts_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'maintenance_contracts' },
-                    () => {
-                        fetchContracts();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'maintenance_contracts_subscription' : null,
+        { table: 'maintenance_contracts' },
+        () => fetchContracts()
+    );
 
     const fetchContracts = async () => {
         try {
@@ -98,6 +91,7 @@ const Maintenance = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <Wrench className="w-8 h-8 text-blue-600" />
                         Suivi Maintenance
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-2" />
                     </h1>
                     <p className="text-gray-500">Gérez vos contrats d'entretien et rappels.</p>
                 </div>
@@ -160,6 +154,24 @@ const Maintenance = () => {
             </div>
 
             {/* Contracts List */}
+            {!loading && contracts.length === 0 ? (
+                <div className="bg-white rounded-xl border border-dashed border-gray-300 py-16 text-center px-6">
+                    <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                        <Wrench className="h-10 w-10 text-blue-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun contrat de maintenance</h3>
+                    <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                        Programmez le suivi régulier des équipements de vos clients (chaudières, climatiseurs, alarmes…) pour ne plus rater une échéance.
+                    </p>
+                    <Link
+                        to="/app/clients"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                        <Users className="w-4 h-4" />
+                        Ajouter un contrat depuis un client
+                    </Link>
+                </div>
+            ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-100">
@@ -175,7 +187,11 @@ const Maintenance = () => {
                         {loading ? (
                             <tr><td colSpan="5" className="p-8 text-center">Chargement...</td></tr>
                         ) : filteredContracts.length === 0 ? (
-                            <tr><td colSpan="5" className="p-8 text-center text-gray-500">Aucun contrat trouvé.</td></tr>
+                            <tr><td colSpan="5" className="p-8 text-center text-gray-500">
+                                {searchTerm
+                                    ? <>Aucun contrat ne correspond à "<span className="font-medium">{searchTerm}</span>".</>
+                                    : 'Aucun contrat trouvé.'}
+                            </td></tr>
                         ) : (
                             filteredContracts.map(contract => {
                                 const nextDate = contract.next_maintenance_date ? parseISO(contract.next_maintenance_date) : null;
@@ -220,6 +236,7 @@ const Maintenance = () => {
                     </tbody>
                 </table>
             </div>
+            )}
         </div>
     );
 };

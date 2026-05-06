@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 import { toastError } from '../utils/supabaseErrorHandler';
-
-const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { signIn } = useAuth();
+    const redirectTo = location.state?.from?.pathname
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/app';
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -31,7 +34,7 @@ const Login = () => {
             const { error } = await signIn({ email, password });
             if (error) throw error;
             toast.success('Connexion réussie !');
-            navigate('/app');
+            navigate(redirectTo, { replace: true });
         } catch (error) {
             // "Email non confirmé" : on garde la logique métier (UI dédiée)
             if (/email not confirmed/i.test(error.message || '')) {

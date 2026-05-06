@@ -5,77 +5,21 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
+import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
+import {
+    formatDuration,
+    fmtEur,
+    PROCESSING_STEPS,
+    PHASE_ORDER,
+    CONFIDENCE_STYLES,
+    CONFIDENCE_LABELS,
+} from '../utils/siteVisitConfig';
 import { toast } from 'sonner';
 import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
 } from 'lucide-react';
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-async function imageFileToBase64(file, maxDim = 1024) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-            let w = img.naturalWidth, h = img.naturalHeight;
-            if (w > maxDim || h > maxDim) {
-                if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-                else { w = Math.round(w * maxDim / h); h = maxDim; }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            URL.revokeObjectURL(url);
-            canvas.toBlob(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            }, 'image/jpeg', 0.85);
-        };
-        img.onerror = reject;
-        img.src = url;
-    });
-}
-
-const formatDuration = (s) => {
-    const m = Math.floor(s / 60), sec = s % 60;
-    return m > 0 ? `${m}m${sec.toString().padStart(2, '0')}s` : `${sec}s`;
-};
-
-const fmtEur = (val) => {
-    if (!val && val !== 0) return '—';
-    if (val >= 10000) return `${Math.round(val / 1000)} k€`;
-    if (val >= 1000) return `${(val / 1000).toFixed(1)} k€`;
-    return `${Math.round(val)} €`;
-};
-
-const PROCESSING_STEPS = [
-    { key: 'voice', label: 'Transcription des notes vocales', Icon: Mic },
-    { key: 'photos', label: 'Analyse des photos', Icon: Camera },
-    { key: 'quote', label: 'Génération du devis', Icon: Sparkles },
-];
-
-const PHASE_ORDER = { voice: 0, photos: 1, quote: 2, done: 3 };
-
-const CONFIDENCE_STYLES = {
-    high: 'text-green-700 bg-green-100',
-    medium: 'text-amber-700 bg-amber-100',
-    low: 'text-red-700 bg-red-100',
-};
-const CONFIDENCE_LABELS = { high: 'Précis', medium: 'Estimé', low: 'Approximatif' };
 
 // ── Component ──────────────────────────────────────────────────────────────
 

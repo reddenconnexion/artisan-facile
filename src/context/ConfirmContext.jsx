@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { AlertTriangle, Trash2, HelpCircle } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const ConfirmContext = createContext(null);
 
@@ -24,10 +25,12 @@ export const ConfirmProvider = ({ children }) => {
         setDialog({ open: false });
     };
 
-    const handleCancel = () => {
-        dialog.resolve(false);
+    const handleCancel = useCallback(() => {
+        if (dialog.resolve) dialog.resolve(false);
         setDialog({ open: false });
-    };
+    }, [dialog]);
+
+    const containerRef = useModalA11y(dialog.open, handleCancel);
 
     const Icon = dialog.danger ? Trash2 : dialog.info ? HelpCircle : AlertTriangle;
     const iconBg = dialog.danger
@@ -48,8 +51,12 @@ export const ConfirmProvider = ({ children }) => {
                 <div
                     className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
                     onClick={handleCancel}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="confirm-dialog-title"
                 >
                     <div
+                        ref={containerRef}
                         className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-150"
                         onClick={e => e.stopPropagation()}
                     >
@@ -58,7 +65,7 @@ export const ConfirmProvider = ({ children }) => {
                                 <Icon className={`w-5 h-5 ${iconColor}`} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug">
+                                <h3 id="confirm-dialog-title" className="font-bold text-gray-900 dark:text-white text-base leading-snug">
                                     {dialog.title || 'Confirmation'}
                                 </h3>
                                 {dialog.message && (

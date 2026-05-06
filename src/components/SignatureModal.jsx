@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from
 import SignatureCanvas from 'react-signature-canvas';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
  * Signature modal en 3 étapes :
@@ -17,6 +18,7 @@ import { toast } from 'sonner';
 const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) => {
     const sigCanvas = useRef({});
     const canvasContainerRef = useRef(null);
+    const containerRef = useModalA11y(isOpen, onClose);
 
     // Tous les useState déclarés en premier pour éviter le TDZ après minification esbuild
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -150,8 +152,18 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: 'min(90vh, 90dvh)' }}>
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Signature électronique"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col"
+                style={{ maxHeight: 'min(90vh, 90dvh)' }}
+            >
 
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b">
@@ -160,7 +172,11 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                         {step === 'otp'   && 'Vérification par email'}
                         {step === 'sign'  && 'Signature du devis'}
                     </h3>
-                    <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
+                    <button
+                        onClick={handleClose}
+                        className="text-gray-500 hover:text-gray-700"
+                        aria-label="Fermer la modal"
+                    >
                         <X className="w-6 h-6" />
                     </button>
                 </div>

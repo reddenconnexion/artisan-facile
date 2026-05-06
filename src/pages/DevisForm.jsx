@@ -26,6 +26,7 @@ import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
+import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
@@ -476,7 +477,7 @@ const DevisForm = () => {
 
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
-    const { clearAutoSave, lastSaved } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
+    const { clearAutoSave, lastSaved, saving } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
 
     // Immediately save to localStorage when the tab becomes hidden, bypassing the debounce.
     // This prevents losing the last typed line when the user switches tabs before the 1-second
@@ -2529,11 +2530,8 @@ Conditions de règlement : Paiement à réception de facture.`
                         </span>
                     )}
                     {/* Auto-save indicator */}
-                    {lastSaved && !isEditing && (
-                        <span className="hidden sm:flex items-center gap-1 text-xs text-gray-400" title={`Brouillon sauvegardé à ${lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}>
-                            <Clock className="w-3 h-3" />
-                            Brouillon
-                        </span>
+                    {!isEditing && (
+                        <AutoSaveIndicator lastSaved={lastSaved} saving={saving} />
                     )}
                     {/* Primary Actions */}
                     <button

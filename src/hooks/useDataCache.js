@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
+import { useRealtimeSubscription } from './useRealtimeSubscription';
 import { toastError } from '../utils/supabaseErrorHandler';
 
 /**
@@ -14,30 +14,24 @@ import { toastError } from '../utils/supabaseErrorHandler';
  * - Persister en localStorage pour consultation hors-ligne
  */
 
-// Helper: wrap queryFn avec cache offline
+// Helper: wrap a queryFn with offline-aware caching.
+// Single, predictable flow: try the fetch (Workbox may serve it from its
+// runtime cache when offline). On success, persist the data to localStorage
+// so it survives a page reload. On failure, fall back to whatever was last
+// persisted; only re-throw when there's no usable cache.
 function withOfflineCache(cacheKey, fetchFn) {
     return async () => {
-        // Si en ligne, toujours essayer le réseau
-        if (navigator.onLine) {
-            const data = await fetchFn();
-            // Ne sauvegarder que les résultats non-vides
-            if (data && (!Array.isArray(data) || data.length > 0)) {
-                saveToOfflineCache(cacheKey, data);
-            }
-            return data;
-        }
-
-        // Hors-ligne : essayer le fetch (Workbox peut servir depuis son cache)
         try {
             const data = await fetchFn();
-            if (data && (!Array.isArray(data) || data.length > 0)) {
+            // Persist non-null payloads, including empty arrays — an empty
+            // result is a legitimate state we want to honour offline.
+            if (data !== undefined && data !== null) {
                 saveToOfflineCache(cacheKey, data);
             }
             return data;
         } catch (error) {
-            // Hors-ligne et fetch échoué : retourner le cache local
             const cached = getFromOfflineCache(cacheKey);
-            if (cached?.data) return cached.data;
+            if (cached?.data !== undefined) return cached.data;
             throw error;
         }
     };
@@ -69,17 +63,14 @@ export function useQuotes(filters = {}) {
     const queryClient = useQueryClient();
     const filterKey = JSON.stringify(filters);
 
-    useEffect(() => {
-        if (!user) return;
-        const channel = supabase
-            .channel(`quotes_realtime_${user.id}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${user.id}` }, () => {
-                queryClient.invalidateQueries({ queryKey: ['quotes', user.id] });
-                queryClient.invalidateQueries({ queryKey: ['quote'] });
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [user?.id, queryClient]);
+    useRealtimeSubscription(
+        user ? `quotes_realtime_${user.id}` : null,
+        { table: 'quotes', filter: user ? `user_id=eq.${user.id}` : undefined },
+        () => {
+            queryClient.invalidateQueries({ queryKey: ['quotes', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['quote'] });
+        }
+    );
 
     return useQuery({
         queryKey: ['quotes', user?.id, filters],
@@ -397,7 +388,7 @@ export function useDashboardData() {
             // Récupérer les devis avec les données clients
             const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title');
+                .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title, valid_until');
             if (quotesError) throw quotesError;
 
             // Compter les clients (hors client test)

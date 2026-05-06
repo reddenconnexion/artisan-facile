@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 export const useAutoSave = (key, data, enabled = true, delay = 1000) => {
     const debouncedData = useDebounce(data, delay);
     const [lastSaved, setLastSaved] = useState(null);
+    const saving = enabled && data !== debouncedData;
     const enabledRef = useRef(enabled);
     // Track previous key to avoid saving stale data when navigating between documents.
     // When key changes (e.g. redirect to newly created invoice), the debounced data still
@@ -59,7 +60,7 @@ export const useAutoSave = (key, data, enabled = true, delay = 1000) => {
         }
     };
 
-    return { lastSaved, clearAutoSave };
+    return { lastSaved, saving, clearAutoSave };
 };
 
 /**

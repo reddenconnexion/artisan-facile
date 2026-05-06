@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { X, Mail, MessageSquare, Copy, Star, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTestMode } from '../context/TestModeContext';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
     const { isTestMode, captureEmail } = useTestMode();
+    const containerRef = useModalA11y(isOpen, onClose);
     if (!isOpen) return null;
 
     const reviewUrl = userProfile?.google_review_url;
@@ -69,14 +71,23 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Demande d'avis client"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200"
+            >
 
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center relative">
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
+                        aria-label="Fermer la modal"
                     >
                         <X className="w-5 h-5" />
                     </button>

@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -41,6 +41,8 @@ import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
+import TopClientsWidget from '../components/TopClientsWidget';
+import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -113,7 +115,34 @@ const RecentVoiceMemos = ({ userId, navigate }) => {
 
 // --- KPI Strip (4 essentiels d'un coup d'oeil) ---
 
-const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn }) => {
+const TrendBadge = ({ deltaPercent }) => {
+    if (deltaPercent === null || deltaPercent === undefined || !Number.isFinite(deltaPercent)) return null;
+    const rounded = Math.round(deltaPercent);
+    if (rounded === 0) {
+        return (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
+                <Minus className="w-2.5 h-2.5" />
+                Stable
+            </span>
+        );
+    }
+    const positive = rounded > 0;
+    return (
+        <span
+            className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                positive
+                    ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/30'
+                    : 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/30'
+            }`}
+            title="Évolution par rapport à la période précédente"
+        >
+            {positive ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+            {positive ? '+' : ''}{rounded}%
+        </span>
+    );
+};
+
+const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn, trend }) => {
     const counted = useCountUp(typeof rawValue === 'number' ? rawValue : 0, 900);
     const displayValue = typeof rawValue === 'number' && formatFn ? formatFn(counted) : value;
     return (
@@ -130,11 +159,13 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
                 <div className={`p-2 rounded-lg ${iconBg}`}>
                     <Icon className={`w-4 h-4 ${iconColor}`} />
                 </div>
-                {urgent && (
+                {trend !== undefined && trend !== null ? (
+                    <TrendBadge deltaPercent={trend} />
+                ) : urgent ? (
                     <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
                         À faire
                     </span>
-                )}
+                ) : null}
             </div>
             <p className={`text-xl font-bold leading-tight ${urgent ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-white'}`}>
                 {displayValue}
@@ -148,10 +179,26 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
 const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const now = new Date();
     const thisMonthStart = startOfMonth(now);
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
 
     const caThisMonth = allQuotes
         .filter(q => q.status === 'paid' && new Date(q.date || q.created_at) >= thisMonthStart)
         .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
+
+    const caLastMonth = allQuotes
+        .filter(q => {
+            if (q.status !== 'paid') return false;
+            const d = new Date(q.date || q.created_at);
+            return d >= lastMonthStart && d < thisMonthStart;
+        })
+        .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
+
+    // Trend en % vs mois précédent. Quand le mois précédent est à 0, on
+    // n'affiche pas de pourcentage (division par zéro non significative).
+    const caTrend = caLastMonth > 0 ? ((caThisMonth - caLastMonth) / caLastMonth) * 100 : null;
+
+    const pendingBilled = allQuotes.filter(q => q.status === 'billed');
+    const pendingTotal = pendingBilled.reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const toRelanceCount = allQuotes.filter(q =>
@@ -191,7 +238,8 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 iconColor="text-green-600 dark:text-green-400"
                 value={fmtEur(caThisMonth)}
                 label={`CA ${format(now, 'MMMM', { locale: fr })}`}
-                sub="Encaissé ce mois"
+                sub={caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois'}
+                trend={caTrend}
                 onClick={() => navigate('/app/accounting')}
             />
             <KpiCard
@@ -708,6 +756,9 @@ const Dashboard = () => {
             {/* KPI Strip — 3 métriques essentielles d'un coup d'oeil */}
             <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
 
+            {/* Alerte actionnable — visible uniquement quand des devis expirent */}
+            <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
+
             <QuickActions />
 
             <ActionableDashboard user={user} />
@@ -772,7 +823,10 @@ const Dashboard = () => {
                 );
             })()}
 
-            <RecentVoiceMemos userId={user?.id} navigate={navigate} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TopClientsWidget allQuotes={allQuotes} navigate={navigate} />
+                <RecentVoiceMemos userId={user?.id} navigate={navigate} />
+            </div>
 
             {/* Statistiques avancées — pliable, visibles à partir du niveau Intermédiaire */}
             {showAdvancedStats && !hasNoQuotes && (

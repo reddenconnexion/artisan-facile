@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Send, Mail } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 /**
  * Modale pour prévisualiser et modifier l'email avant envoi
@@ -8,6 +9,7 @@ import { X, Send, Mail } from 'lucide-react';
 export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfirmSend }) {
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
+    const containerRef = useModalA11y(isOpen && !!emailData, onClose);
 
     useEffect(() => {
         if (emailData) {
@@ -23,8 +25,16 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4">
-            <div className="bg-white rounded-t-xl sm:rounded-xl shadow-2xl max-w-2xl w-full h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col">
+        <div
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Aperçu de l'email"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white rounded-t-xl sm:rounded-xl shadow-2xl max-w-2xl w-full h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col"
+            >
                 <div className="flex items-center justify-between p-4 border-b bg-gray-50">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <Mail className="w-5 h-5 text-blue-600" />
@@ -33,6 +43,7 @@ export default function EmailPreviewModal({ isOpen, onClose, emailData, onConfir
                     <button
                         onClick={onClose}
                         className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                        aria-label="Fermer la modal"
                     >
                         <X className="w-5 h-5" />
                     </button>
