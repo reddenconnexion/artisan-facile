@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
@@ -57,6 +57,50 @@ const formatFollowUpDate = (dateStr) => {
     if (diffDays === 1) return 'Hier';
     if (diffDays < 7) return `il y a ${diffDays}j`;
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+};
+
+const formatRelativeTime = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    const diffMs = Date.now() - d.getTime();
+    const sec = Math.floor(diffMs / 1000);
+    const min = Math.floor(sec / 60);
+    const hours = Math.floor(min / 60);
+    const days = Math.floor(hours / 24);
+    if (sec < 60)   return "à l'instant";
+    if (min < 60)   return `il y a ${min} min`;
+    if (hours < 24) return `il y a ${hours} h`;
+    if (days < 7)   return `il y a ${days} j`;
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+};
+
+// Badge "vu / non vu" pour les devis envoyés
+const ViewStatusBadge = ({ devis }) => {
+    // Pertinent uniquement pour les devis envoyés (pas factures ni brouillons)
+    if (devis.status !== 'sent') return null;
+    if (devis.type === 'invoice') return null;
+
+    if (!devis.last_viewed_at) {
+        return (
+            <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500"
+                title="Le client n'a pas encore ouvert ce devis"
+            >
+                <EyeOff className="w-3 h-3" />
+                Non lu
+            </span>
+        );
+    }
+
+    return (
+        <span
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
+            title={`Ouvert le ${new Date(devis.last_viewed_at).toLocaleString('fr-FR')}`}
+        >
+            <Eye className="w-3 h-3" />
+            Vu {formatRelativeTime(devis.last_viewed_at)}
+        </span>
+    );
 };
 
 const DevisList = () => {
@@ -462,6 +506,7 @@ const DevisList = () => {
                                             <div className="flex flex-col gap-1">
                                                 <StatusBadge status={devis.status} />
                                                 {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
+                                                <ViewStatusBadge devis={devis} />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
@@ -524,6 +569,7 @@ const DevisList = () => {
                                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                         <StatusBadge status={devis.status} />
                                         {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
+                                        <ViewStatusBadge devis={devis} />
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>

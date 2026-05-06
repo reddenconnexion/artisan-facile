@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { toastError } from '../utils/supabaseErrorHandler';
 
 const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
 
@@ -32,15 +33,11 @@ const Login = () => {
             toast.success('Connexion réussie !');
             navigate('/app');
         } catch (error) {
-            console.error('Login error:', error);
-            if (error.message.includes('Email not confirmed')) {
+            // "Email non confirmé" : on garde la logique métier (UI dédiée)
+            if (/email not confirmed/i.test(error.message || '')) {
                 setUnconfirmedEmail(email);
-                toast.error('Veuillez confirmer votre email avant de vous connecter.');
-            } else if (error.message.includes('Invalid login credentials')) {
-                toast.error('Email ou mot de passe incorrect.');
-            } else {
-                toast.error(error.message || 'Erreur lors de la connexion');
             }
+            toastError(error, 'Erreur lors de la connexion');
         } finally {
             setLoading(false);
         }
@@ -54,7 +51,7 @@ const Login = () => {
             toast.success('Email de confirmation renvoyé !');
             setUnconfirmedEmail(null);
         } catch (error) {
-            toast.error(error.message || "Erreur lors de l'envoi");
+            toastError(error, "Erreur lors de l'envoi");
         } finally {
             setResendLoading(false);
         }
@@ -70,7 +67,7 @@ const Login = () => {
             if (error) throw error;
             setResetSent(true);
         } catch (error) {
-            toast.error(error.message || "Erreur lors de l'envoi");
+            toastError(error, "Erreur lors de l'envoi du mail de réinitialisation");
         } finally {
             setResetLoading(false);
         }

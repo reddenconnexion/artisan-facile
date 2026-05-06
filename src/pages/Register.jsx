@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { toastError } from '../utils/supabaseErrorHandler';
 
 const JOB_OPTIONS = [
     { value: 'electricien', label: 'Électricien' },
@@ -56,14 +57,7 @@ const Register = () => {
                 setConfirmedEmail(email);
             }
         } catch (error) {
-            console.error('Registration error:', error);
-            if (error.message.includes('valid email')) {
-                toast.error('Adresse email invalide. Utilisez une adresse réelle.');
-            } else if (error.message.includes('already registered')) {
-                toast.error('Cette adresse email est déjà utilisée. Connectez-vous.');
-            } else {
-                toast.error(error.message || "Erreur lors de l'inscription");
-            }
+            toastError(error, "Erreur lors de l'inscription. Réessayez ou contactez le support.");
         } finally {
             setLoading(false);
         }
@@ -76,7 +70,7 @@ const Register = () => {
             if (error) throw error;
             toast.success('Email renvoyé ! Vérifiez votre boîte mail.');
         } catch (error) {
-            toast.error(error.message || "Erreur lors de l'envoi");
+            toastError(error, "Erreur lors de l'envoi");
         } finally {
             setResendLoading(false);
         }

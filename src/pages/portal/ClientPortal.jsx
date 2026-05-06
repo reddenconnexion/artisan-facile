@@ -190,7 +190,23 @@ const ClientPortal = () => {
             const { data: portalData, error } = await supabase
                 .rpc('get_portal_data', { token_input: token });
             if (error) throw error;
-            if (!portalData) throw new Error('Lien invalide ou expiré');
+            if (!portalData) throw new Error('Lien invalide. Vérifiez l\'URL ou contactez votre artisan.');
+
+            // Erreurs structurées de la RPC (token révoqué ou expiré)
+            if (portalData.error === 'revoked') {
+                throw new Error('Ce lien a été révoqué par votre artisan. Demandez-lui un nouveau lien d\'accès.');
+            }
+            if (portalData.error === 'expired') {
+                const expiredDate = portalData.expired_at
+                    ? new Date(portalData.expired_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : null;
+                throw new Error(
+                    expiredDate
+                        ? `Ce lien a expiré le ${expiredDate}. Demandez à votre artisan un nouveau lien d'accès.`
+                        : 'Ce lien a expiré. Demandez à votre artisan un nouveau lien d\'accès.'
+                );
+            }
+
             setData(portalData);
         } catch (err) {
             setError(err.message);

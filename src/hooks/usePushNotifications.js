@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,34 +15,53 @@ function urlBase64ToUint8Array(base64String) {
     return outputArray;
 }
 
+function getCurrentPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+    return Notification.permission; // 'default' | 'granted' | 'denied'
+}
+
 export function usePushNotifications() {
     const { user } = useAuth();
-    const [isSupported, setIsSupported] = useState(false);
+    const [isSupported, setIsSupported]   = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading]       = useState(false);
+    const [permission, setPermission]     = useState(() => getCurrentPermission());
 
     useEffect(() => {
         setIsSupported(
             'serviceWorker' in navigator &&
             'PushManager' in window &&
-            !!VAPID_PUBLIC_KEY
+            !!VAPID_PUBLIC_KEY,
         );
     }, []);
 
     useEffect(() => {
         if (!isSupported || !user?.id) return;
         navigator.serviceWorker.ready.then((reg) =>
-            reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub))
+            reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub)),
         );
     }, [isSupported, user?.id]);
 
-    const subscribe = async () => {
+    // Resync permission state on focus (user might change browser settings)
+    useEffect(() => {
+        const onFocus = () => setPermission(getCurrentPermission());
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, []);
+
+    const subscribe = useCallback(async () => {
         if (!user?.id) return { success: false, error: 'Non connecté' };
         setIsLoading(true);
         try {
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                return { success: false, error: 'Permission refusée' };
+            const result = await Notification.requestPermission();
+            setPermission(result);
+            if (result !== 'granted') {
+                return {
+                    success: false,
+                    error: result === 'denied'
+                        ? 'Vous avez bloqué les notifications dans votre navigateur'
+                        : 'Permission refusée',
+                };
             }
 
             const reg = await navigator.serviceWorker.ready;
@@ -53,10 +72,10 @@ export function usePushNotifications() {
 
             const json = sub.toJSON();
             const { error } = await supabase.from('push_subscriptions').upsert({
-                user_id: user.id,
+                user_id:  user.id,
                 endpoint: json.endpoint,
-                p256dh: json.keys.p256dh,
-                auth: json.keys.auth,
+                p256dh:   json.keys.p256dh,
+                auth:     json.keys.auth,
             }, { onConflict: 'user_id,endpoint' });
 
             if (error) throw error;
@@ -68,9 +87,9 @@ export function usePushNotifications() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user?.id]);
 
-    const unsubscribe = async () => {
+    const unsubscribe = useCallback(async () => {
         setIsLoading(true);
         try {
             const reg = await navigator.serviceWorker.ready;
@@ -88,7 +107,41 @@ export function usePushNotifications() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user?.id]);
 
-    return { isSupported, isSubscribed, isLoading, subscribe, unsubscribe };
+    const sendTestNotification = useCallback(async () => {
+        if (!isSubscribed) return { success: false, error: 'Non abonné' };
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return { success: false, error: 'Session expirée' };
+
+            const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-test-push`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type':  'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                return { success: false, error: result.error || 'Échec de l\'envoi' };
+            }
+            return { success: true, delivered: result.delivered };
+        } catch (err) {
+            console.error('Test push error:', err);
+            return { success: false, error: err.message };
+        }
+    }, [isSubscribed]);
+
+    return {
+        isSupported,
+        isSubscribed,
+        isLoading,
+        permission,
+        subscribe,
+        unsubscribe,
+        sendTestNotification,
+    };
 }
