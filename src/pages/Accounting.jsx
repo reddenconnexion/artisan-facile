@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
-import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
@@ -81,6 +81,7 @@ const Accounting = () => {
   const [hasAcre, setHasAcre] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('charges'); // 'charges' or 'recettes'
+  const [detailModal, setDetailModal] = useState(null); // null | 'services' | 'vente' | 'total'
   const [recettesYear, setRecettesYear] = useState(new Date().getFullYear());
   const [recettesSearch, setRecettesSearch] = useState('');
 
@@ -138,31 +139,42 @@ const Accounting = () => {
 
     let totalService = 0;
     let totalMaterial = 0;
+    const detail = [];
 
     filtered.forEach(inv => {
+      let serviceAmt = 0;
+      let materialAmt = 0;
       if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
         inv.items.forEach(item => {
           const price = parseFloat(item.price) || 0;
           const qty = parseFloat(item.quantity) || 0;
           const lineTotal = price * qty;
-
-          if (item.type === 'material') {
-            totalMaterial += lineTotal;
-          } else {
-            totalService += lineTotal;
-          }
+          if (item.type === 'material') materialAmt += lineTotal;
+          else serviceAmt += lineTotal;
         });
       } else {
         // Fallback si pas d'items: utiliser total_ht, ou total_ttc si pas de TVA
-        const amount = inv.total_ht || inv.total_ttc || 0;
-        totalService += amount;
+        serviceAmt = inv.total_ht || inv.total_ttc || 0;
       }
+      totalService += serviceAmt;
+      totalMaterial += materialAmt;
+      detail.push({
+        id: inv.id,
+        quoteNumber: inv.quote_number,
+        docType: inv.type || 'quote',
+        client: inv.client_name || 'Client inconnu',
+        title: inv.title || '',
+        date: new Date(inv.date || inv.created_at),
+        serviceAmount: serviceAmt,
+        materialAmount: materialAmt,
+      });
     });
 
     return {
       total: totalService + totalMaterial,
       services: totalService,
-      vente: totalMaterial
+      vente: totalMaterial,
+      detail,
     };
 
   }, [filteredInvoices, selectedYear, selectedPeriod, selectedMonth, selectedQuarter]);
@@ -719,9 +731,21 @@ const Accounting = () => {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      CA Prestations de services (HT)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        CA Prestations de services (HT)
+                      </label>
+                      {periodData.detail.some(i => i.serviceAmount !== 0) && (
+                        <button
+                          type="button"
+                          onClick={() => setDetailModal('services')}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                        >
+                          <List className="w-3.5 h-3.5" />
+                          {periodData.detail.filter(i => i.serviceAmount !== 0).length} facture{periodData.detail.filter(i => i.serviceAmount !== 0).length > 1 ? 's' : ''}
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type="number"
@@ -735,9 +759,21 @@ const Accounting = () => {
                     <p className="text-xs text-gray-500 mt-1">Taux: {hasAcre ? '10.6%' : '21.2%'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      CA Vente de marchandises (HT)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        CA Vente de marchandises (HT)
+                      </label>
+                      {periodData.detail.some(i => i.materialAmount !== 0) && (
+                        <button
+                          type="button"
+                          onClick={() => setDetailModal('vente')}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                        >
+                          <List className="w-3.5 h-3.5" />
+                          {periodData.detail.filter(i => i.materialAmount !== 0).length} facture{periodData.detail.filter(i => i.materialAmount !== 0).length > 1 ? 's' : ''}
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type="number"
@@ -755,9 +791,21 @@ const Accounting = () => {
             ) : (
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Chiffre d'affaires HT de la période
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Chiffre d'affaires HT de la période
+                    </label>
+                    {periodData.detail.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDetailModal('total')}
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        {periodData.detail.length} facture{periodData.detail.length > 1 ? 's' : ''}
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <input
                       type="number"
@@ -1241,6 +1289,112 @@ const Accounting = () => {
         )}
       </>
       )}
+      {/* Modal détail des factures */}
+      {detailModal && (() => {
+        const rows = periodData.detail.filter(inv =>
+          detailModal === 'services' ? inv.serviceAmount !== 0 :
+          detailModal === 'vente'    ? inv.materialAmount !== 0 :
+          true
+        ).sort((a, b) => a.date - b.date);
+
+        const totalServices = rows.reduce((s, i) => s + i.serviceAmount, 0);
+        const totalMateriel = rows.reduce((s, i) => s + i.materialAmount, 0);
+        const showServices = detailModal !== 'vente';
+        const showMateriel = detailModal !== 'services';
+
+        const periodLabel = selectedPeriod === 'month'
+          ? `${months[selectedMonth]} ${selectedYear}`
+          : `${quarters[selectedQuarter]} ${selectedYear}`;
+
+        const modalTitle =
+          detailModal === 'services' ? 'Prestations de services' :
+          detailModal === 'vente'    ? 'Vente de marchandises' :
+          'Chiffre d\'affaires';
+
+        return (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setDetailModal(null); }}
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{modalTitle}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{periodLabel}</p>
+                </div>
+                <button
+                  onClick={() => setDetailModal(null)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-y-auto flex-1">
+                {rows.length === 0 ? (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-10">Aucune facture pour cette période</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/80">
+                      <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                        <th className="text-left px-4 py-3">Réf.</th>
+                        <th className="text-left px-4 py-3">Date</th>
+                        <th className="text-left px-4 py-3">Client</th>
+                        <th className="text-left px-4 py-3">Objet</th>
+                        {showServices && <th className="text-right px-4 py-3">Services HT</th>}
+                        {showMateriel && <th className="text-right px-4 py-3">Matériaux HT</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                      {rows.map(inv => (
+                        <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                          <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {inv.quoteNumber || `${inv.docType === 'invoice' ? 'F' : 'D'}${inv.id}`}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {inv.date.toLocaleDateString('fr-FR')}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[140px] truncate">
+                            {inv.client}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
+                            {inv.title || <span className="text-gray-400 italic">Sans titre</span>}
+                          </td>
+                          {showServices && (
+                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                              {inv.serviceAmount !== 0 ? formatCurrency(inv.serviceAmount) : <span className="text-gray-300">—</span>}
+                            </td>
+                          )}
+                          {showMateriel && (
+                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                              {inv.materialAmount !== 0 ? formatCurrency(inv.materialAmount) : <span className="text-gray-300">—</span>}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                      <tr className="font-semibold text-gray-900 dark:text-white">
+                        <td colSpan={4} className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                          Total ({rows.length} facture{rows.length > 1 ? 's' : ''})
+                        </td>
+                        {showServices && (
+                          <td className="px-4 py-3 text-right">{formatCurrency(totalServices)}</td>
+                        )}
+                        {showMateriel && (
+                          <td className="px-4 py-3 text-right">{formatCurrency(totalMateriel)}</td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

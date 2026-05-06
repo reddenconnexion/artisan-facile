@@ -118,12 +118,8 @@ const Agenda = () => {
         }
     }, [location.state]);
 
-    // Request notification permission
-    useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-    }, []);
+    // Note : la permission notification est demandée depuis Profile > Notifications Push,
+    // pas silencieusement ici (Chrome bloque les sites qui demandent sans interaction).
 
     // Check for upcoming events every minute
     useEffect(() => {

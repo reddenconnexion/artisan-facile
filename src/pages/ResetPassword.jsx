@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { KeyRound, CheckCircle } from 'lucide-react';
+import { toastError } from '../utils/supabaseErrorHandler';
 
 const ResetPassword = () => {
     const navigate = useNavigate();
@@ -52,7 +53,7 @@ const ResetPassword = () => {
             setDone(true);
             setTimeout(() => navigate('/app'), 2500);
         } catch (error) {
-            toast.error(error.message || 'Erreur lors de la réinitialisation');
+            toastError(error, 'Erreur lors de la réinitialisation du mot de passe');
         } finally {
             setLoading(false);
         }

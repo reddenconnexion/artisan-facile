@@ -32,6 +32,7 @@ const SECTIONS = [
     {
         title: 'Recherche & navigation rapide',
         items: [
+            { keys: [['Ctrl', 'K']], description: 'Palette de recherche globale (clients, devis, rapports)' },
             { keys: [['/']], description: 'Placer le curseur dans la barre de recherche' },
             { keys: [['Échap']], description: 'Fermer la modal ouverte ou effacer la recherche' },
             { keys: [['?']], description: 'Afficher / masquer cette aide' },

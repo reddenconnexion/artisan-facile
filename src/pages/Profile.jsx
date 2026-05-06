@@ -2,17 +2,101 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2 } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
 
+const PreferencesSection = () => {
+    const [isDarkMode, setIsDarkMode] = useState(() =>
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    );
+
+    useEffect(() => {
+        const sync = () => setIsDarkMode(document.documentElement.classList.contains('dark'));
+        const observer = new MutationObserver(sync);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
+    const handleToggleTheme = () => window.dispatchEvent(new Event('artisan:toggle-theme'));
+    const handleOpenShortcuts = () => window.dispatchEvent(new Event('artisan:open-shortcuts'));
+
+    return (
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-gray-500" />
+                    Préférences de l'application
+                </h3>
+                <div className="space-y-3">
+                    <button
+                        type="button"
+                        onClick={handleToggleTheme}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            {isDarkMode
+                                ? <Sun className="w-5 h-5 text-yellow-500" />
+                                : <Moon className="w-5 h-5 text-gray-500" />}
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">
+                                    {isDarkMode ? 'Mode clair' : 'Mode sombre'}
+                                </span>
+                                <span className="block text-xs text-gray-500">
+                                    Basculer entre l'apparence claire et sombre
+                                </span>
+                            </span>
+                        </span>
+                        <span className="text-xs font-medium text-blue-600">Basculer</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleOpenShortcuts}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            <Keyboard className="w-5 h-5 text-gray-500" />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">Raccourcis clavier</span>
+                                <span className="block text-xs text-gray-500">
+                                    Voir la liste des raccourcis disponibles
+                                </span>
+                            </span>
+                        </span>
+                        <span className="text-xs font-mono text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">?</span>
+                    </button>
+
+                    <Link
+                        to="/app/guide"
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                    >
+                        <span className="flex items-center gap-3">
+                            <HelpCircle className="w-5 h-5 text-gray-500" />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-900">Guide d'utilisation</span>
+                                <span className="block text-xs text-gray-500">
+                                    Tutoriels, astuces et raccourcis du quotidien
+                                </span>
+                            </span>
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
     const confirm = useConfirm();
-    const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications();
+    const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, permission: pushPermission, subscribe: subscribePush, unsubscribe: unsubscribePush, sendTestNotification: sendTestPush } = usePushNotifications();
+    const [isTestingPush, setIsTestingPush] = useState(false);
     const [loading, setLoading] = useState(false);
     // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
     const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
@@ -731,9 +815,14 @@ const Profile = () => {
                         <Bell className="w-5 h-5 mr-2" />
                         Notifications Push
                     </h3>
-                    <p className="text-sm text-blue-800 mb-6">
-                        Recevez une notification sur cet appareil dès qu'un client signe un devis — même quand l'application est fermée.
+                    <p className="text-sm text-blue-800 mb-3">
+                        Recevez une notification immédiate sur cet appareil — même quand l'application est fermée :
                     </p>
+                    <ul className="text-xs text-blue-800 space-y-1 mb-6 ml-1">
+                        <li>✅ Devis signés par vos clients</li>
+                        <li>💬 Nouveaux messages depuis les portails clients</li>
+                        <li>📥 Factures fournisseurs reçues</li>
+                    </ul>
 
                     {!isPushSupported ? (
                         <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-2">
@@ -756,23 +845,60 @@ const Profile = () => {
                                 </p>
                             )}
                         </div>
+                    ) : pushPermission === 'denied' && !isPushSubscribed ? (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                            <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                                <span>⚠️</span> Notifications bloquées dans votre navigateur
+                            </p>
+                            <p className="text-xs text-amber-800">
+                                Pour les réactiver, cliquez sur l'icône <strong>cadenas / paramètres</strong> à gauche de la barre d'adresse, puis autorisez les notifications pour ce site. Rechargez ensuite la page.
+                            </p>
+                        </div>
                     ) : isPushSubscribed ? (
-                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                                <span className="text-sm font-medium text-green-800">Notifications activées sur cet appareil</span>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                    <span className="text-sm font-medium text-green-800">Notifications activées sur cet appareil</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await unsubscribePush();
+                                        toast.success('Notifications désactivées');
+                                    }}
+                                    disabled={isPushLoading}
+                                    className="text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
+                                >
+                                    Désactiver
+                                </button>
                             </div>
                             <button
                                 type="button"
                                 onClick={async () => {
-                                    await unsubscribePush();
-                                    toast.success('Notifications désactivées');
+                                    setIsTestingPush(true);
+                                    const result = await sendTestPush();
+                                    setIsTestingPush(false);
+                                    if (result.success) {
+                                        toast.success('Notification envoyée — vérifiez votre écran !', {
+                                            description: 'Si vous ne la voyez pas, vérifiez les paramètres système de votre appareil.',
+                                            duration: 8000,
+                                        });
+                                    } else {
+                                        toast.error(result.error || 'Échec de l\'envoi', { duration: 6000 });
+                                    }
                                 }}
-                                disabled={isPushLoading}
-                                className="text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
+                                disabled={isTestingPush}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 font-medium text-sm rounded-lg transition-colors disabled:opacity-50"
                             >
-                                Désactiver
+                                {isTestingPush
+                                    ? <><span className="w-3.5 h-3.5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />Envoi en cours…</>
+                                    : <><Bell className="w-4 h-4" />Envoyer une notification de test</>
+                                }
                             </button>
+                            <p className="text-xs text-blue-700 text-center">
+                                Si la notification de test n'arrive pas, vos notifications ne fonctionneront pas pour les vraies alertes.
+                            </p>
                         </div>
                     ) : (
                         <button
@@ -780,7 +906,9 @@ const Profile = () => {
                             onClick={async () => {
                                 const result = await subscribePush();
                                 if (result.success) {
-                                    toast.success('Notifications activées !');
+                                    toast.success('Notifications activées !', {
+                                        description: 'Vous pouvez maintenant envoyer une notification de test.',
+                                    });
                                 } else {
                                     toast.error(result.error || 'Impossible d\'activer les notifications');
                                 }
@@ -794,6 +922,9 @@ const Profile = () => {
                     )}
                 </div>
             </div>
+
+            {/* Préférences de l'application */}
+            <PreferencesSection />
 
             {/* AI Settings — Paramètres avancés */}
             <div className="mt-8">

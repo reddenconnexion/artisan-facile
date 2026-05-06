@@ -83,10 +83,9 @@ export function useSignatureNotifications() {
             )
             .subscribe();
 
-        // Demander la permission notifications au premier chargement
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        // Note : la permission notification doit être demandée explicitement
+        // depuis Profile > Notifications Push — pas de demande silencieuse ici
+        // pour ne pas dégrader l'UX (Chrome bloque les sites qui spamment).
 
         return () => {
             supabase.removeChannel(channel);

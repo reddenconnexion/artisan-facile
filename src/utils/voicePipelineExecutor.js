@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getErrorMessage } from './supabaseErrorHandler';
 
 /**
  * Executes the actions detected by the AI intent classifier.
@@ -111,7 +112,7 @@ async function executeCreateClient(data, userId, actionsTaken, recordIds) {
         .select('id, name')
         .single();
 
-    if (error) throw new Error(`Erreur création client : ${error.message}`);
+    if (error) throw new Error(`Création du client impossible — ${getErrorMessage(error)}`);
 
     recordIds.client_id = created.id;
     actionsTaken.push({
@@ -160,7 +161,7 @@ async function executeCreateQuote(data, userId, actionsTaken, recordIds) {
         .select('id, title')
         .single();
 
-    if (error) throw new Error(`Erreur création devis : ${error.message}`);
+    if (error) throw new Error(`Création du devis impossible — ${getErrorMessage(error)}`);
 
     recordIds.quote_id = created.id;
     actionsTaken.push({
@@ -209,7 +210,7 @@ async function executeCreateInvoice(data, userId, actionsTaken, recordIds) {
         .select('id, title')
         .single();
 
-    if (error) throw new Error(`Erreur création facture : ${error.message}`);
+    if (error) throw new Error(`Création de la facture impossible — ${getErrorMessage(error)}`);
 
     recordIds.quote_id = created.id;
     actionsTaken.push({
@@ -313,7 +314,7 @@ async function executeCreateInterventionReport(data, userId, actionsTaken, recor
         .select('id, title')
         .single();
 
-    if (error) throw new Error(`Erreur création rapport : ${error.message}`);
+    if (error) throw new Error(`Création du rapport impossible — ${getErrorMessage(error)}`);
 
     recordIds.intervention_report_id = created.id;
     actionsTaken.push({
@@ -341,7 +342,7 @@ async function executeScheduleAppointment(data, userId, actionsTaken, recordIds)
         .select('id, title')
         .single();
 
-    if (error) throw new Error(`Erreur création événement : ${error.message}`);
+    if (error) throw new Error(`Création de l'événement impossible — ${getErrorMessage(error)}`);
 
     recordIds.event_id = created.id;
     actionsTaken.push({

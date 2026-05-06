@@ -117,9 +117,8 @@ const lazyWithRetry = (importFn) => {
 // Pages chargées à la demande (lazy loading avec retry)
 // Cela réduit le temps de chargement initial de ~50%
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
-const Clients = lazyWithRetry(() => import('./pages/Clients'));
+const ClientsHub = lazyWithRetry(() => import('./pages/ClientsHub'));
 const ClientForm = lazyWithRetry(() => import('./pages/ClientForm'));
-const CRM = lazyWithRetry(() => import('./pages/CRM'));
 const DevisList = lazyWithRetry(() => import('./pages/DevisList'));
 const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
 const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
@@ -141,6 +140,8 @@ const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
+const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
+const RecurringInvoices = lazyWithRetry(() => import('./pages/RecurringInvoices'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -188,10 +189,10 @@ function App() {
               }>
                 <Route index element={<Dashboard />} />
                 <Route path="agenda" element={<Agenda />} />
-                <Route path="clients" element={<Clients />} />
+                <Route path="clients" element={<ClientsHub />} />
                 <Route path="clients/new" element={<ClientForm />} />
                 <Route path="clients/:id" element={<ClientForm />} />
-                <Route path="crm" element={<CRM />} />
+                <Route path="crm" element={<Navigate to="/app/clients?view=worksites" replace />} />
                 <Route path="devis" element={<DevisList />} />
                 <Route path="devis/:id" element={<DevisForm />} />
                 <Route path="maintenance" element={<Maintenance />} />
@@ -211,6 +212,8 @@ function App() {
                 <Route path="subscription" element={<Subscription />} />
                 <Route path="outils" element={<Outils />} />
                 <Route path="guide" element={<GuidePage />} />
+                <Route path="portal-messages" element={<PortalMessages />} />
+                <Route path="recurring" element={<RecurringInvoices />} />
               </Route>
             </Routes >
           </Suspense >

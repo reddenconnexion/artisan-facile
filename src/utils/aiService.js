@@ -54,6 +54,84 @@ JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
 {"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
 
 /**
+ * System prompt used when extracting a quote from raw PDF text.
+ * The text is unstructured (line-broken, possibly garbled by PDF extraction),
+ * so the LLM is asked to recover the table structure and infer missing fields.
+ */
+const PDF_EXTRACTION_PROMPT = `Tu es un expert en lecture de devis BTP français. Tu reçois le TEXTE BRUT extrait d'un PDF de devis (les colonnes du tableau peuvent être désalignées, les descriptions parfois sur plusieurs lignes).
+
+Ta mission : reconstruire la liste des lignes du devis en JSON STRICT.
+
+RÈGLES :
+- Une ligne = une prestation OU une fourniture OU un en-tête de section.
+- Fusionne les descriptions multi-lignes (ex. "Fourniture et pose" sur une ligne, "carrelage 60x60" sur la suivante).
+- Détecte la quantité, l'unité (u, m2, m3, ml, h, forfait), le prix unitaire HT, et le type ("service" pour main d'œuvre/prestation, "material" pour fourniture/matériel, "section" pour les titres de catégorie).
+- Ignore : entêtes (Devis n°, Date, Client, SIRET…), pieds de page, totaux (Total HT, TVA, Net à payer), conditions, signatures, mentions légales.
+- Convertis les nombres au format anglais (point décimal, pas d'espace milliers). Les "1 234,56 €" deviennent 1234.56.
+- Si un prix unitaire manque mais qu'un total et une quantité sont présents, déduis le prix unitaire (total / qty).
+- Descriptions concises, sans saut de ligne, sans le code article ou la référence collés.
+- Si tu détectes le titre/objet du devis et le nom du client, retourne-les aussi.
+
+FORMAT JSON STRICT (sans markdown, sans texte avant/après) :
+{
+  "title": "Titre/objet du devis ou null",
+  "client_name": "Nom du client ou null",
+  "items": [
+    {"description":"...", "quantity":1, "unit":"u", "price":0.00, "type":"service"}
+  ],
+  "notes": "Conditions particulières / remarques détectées (vide si aucune)"
+}`;
+
+/**
+ * Extracts structured quote items from raw PDF/Docx text using the AI proxy.
+ * Far more tolerant of unusual layouts than the regex parser — used as a
+ * fallback (or upgrade) when the regex extraction looks poor.
+ *
+ * @param {string} pdfText - Raw text previously extracted from the PDF.
+ * @returns {Promise<{title:string|null, client_name:string|null, items:Array, notes:string}>}
+ */
+export const extractQuoteFromPdfText = async (pdfText) => {
+    if (!pdfText || pdfText.trim().length < 20) {
+        throw new Error('Texte trop court pour être analysé.');
+    }
+
+    // Cap the text size we send to the LLM so we don't blow up the prompt.
+    // 12k chars is plenty for typical 3-5 page artisan quotes.
+    const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + '\n…[tronqué]' : pdfText;
+
+    const rawResponse = await callAiProxy({
+        systemPrompt: PDF_EXTRACTION_PROMPT,
+        userMessage: `TEXTE DU DEVIS À ANALYSER :\n\n${truncated}`,
+    });
+
+    let parsed;
+    try {
+        parsed = extractJsonObject(rawResponse);
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide pour l'extraction PDF.");
+    }
+
+    // Reuse the shared safe-number coercion so PDF-extracted prices can't
+    // silently turn malformed values into "1" or "0".
+    const items = Array.isArray(parsed.items) ? parsed.items.map(it => ({
+        id: Date.now() + Math.random(),
+        description: String(it.description || '').trim(),
+        quantity: toSafeNumber(it.quantity, 1, 'pdf.quantity'),
+        unit: it.unit || 'u',
+        price: toSafeNumber(it.price, 0, 'pdf.price'),
+        buying_price: 0,
+        type: it.type === 'material' || it.type === 'section' ? it.type : 'service',
+    })).filter(it => it.description.length > 0) : [];
+
+    return {
+        title: typeof parsed.title === 'string' ? parsed.title.trim() : null,
+        client_name: typeof parsed.client_name === 'string' ? parsed.client_name.trim() : null,
+        items,
+        notes: typeof parsed.notes === 'string' ? parsed.notes.trim() : '',
+    };
+};
+
+/**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work
  * @param {object} context - Optional context (hourlyRate, instructions, customSystemPrompt, etc.)

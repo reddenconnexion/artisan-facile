@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
+
+// pdf.js worker is hosted in /public and shared with documentParser.js.
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// Client anonyme dédié à la page publique : pas de session, pas de refresh token.
+// Évite le timeout de vérification de session de l'artisan qui cause data=null sur le RPC.
+const supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY,
+    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+);
 
 const PublicQuote = () => {
     const { token } = useParams();
@@ -16,6 +28,8 @@ const PublicQuote = () => {
     const [justSigned, setJustSigned] = useState(false);
     const [pdfUrl, setPdfUrl] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfPageImages, setPdfPageImages] = useState([]);
+    const [pdfRenderError, setPdfRenderError] = useState(false);
     const [selectedOptionals, setSelectedOptionals] = useState(null); // null = not yet initialized
     const [optionsExpanded, setOptionsExpanded] = useState(true);
 
@@ -76,14 +90,45 @@ const PublicQuote = () => {
         }
     };
 
+    // Builds a quote object with optional items filtered out and totals
+    // recomputed from the remaining items. The PDF generator reads
+    // total_ht/total_tva/total_ttc directly, so simply filtering items isn't
+    // enough — we have to recompute the totals or the footer keeps showing
+    // the original sum (which made the PDF appear "not updated" when toggling
+    // options).
+    const buildQuoteForPdf = () => {
+        if (!quote) return null;
+        const includeTva = quote.include_tva !== false;
+        const tvaRate = 0.20;
+        const filteredItems = (quote.items || []).filter(
+            item => !item.is_optional || (selectedOptionals?.has(String(item.id)) ?? true)
+        );
+        const ht = filteredItems
+            .filter(i => i.type !== 'section')
+            .reduce((s, i) => s + (parseFloat(i.quantity) || 1) * (parseFloat(i.price) || 0), 0);
+        const tva = includeTva ? ht * tvaRate : 0;
+        return {
+            ...quote,
+            items: filteredItems,
+            total_ht: ht,
+            total_tva: tva,
+            total_ttc: ht + tva,
+        };
+    };
+
     const handleDownload = () => {
         if (!quote) return;
-        if (quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
+        // Only fall back to the originally-imported PDF for "external" quotes
+        // where items aren't the source of truth. For normal quotes we always
+        // regenerate to reflect the artisan's edits and the client's option
+        // selections — otherwise the download silently differs from the iframe.
+        if (quote.is_external && quote.original_pdf_url && isSafeHttpsUrl(quote.original_pdf_url)) {
             window.open(quote.original_pdf_url, '_blank', 'noopener,noreferrer');
             return;
         }
         const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
-        generateDevisPDF(quote, quote.client, quote.artisan, isInvoice);
+        const quoteForPdf = buildQuoteForPdf() || quote;
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInvoice);
     };
 
     const handleRequestOtp = async (email) => {
@@ -171,28 +216,99 @@ const PublicQuote = () => {
         }
     };
 
-    // Initialize selectedOptionals when quote loads (all optional items pre-checked)
+    // Initialize selectedOptionals when quote loads.
+    //  - Ungrouped options: pre-checked (independent checkboxes).
+    //  - Grouped options (mutually exclusive): only the first item of each
+    //    group is pre-checked, regardless of whether the group is "required".
     useEffect(() => {
         if (!quote || selectedOptionals !== null) return;
-        const ids = (quote.items || []).filter(i => i.is_optional).map(i => String(i.id));
-        setSelectedOptionals(new Set(ids));
+        const optItems = (quote.items || []).filter(i => i.is_optional);
+        const ids = new Set();
+        const seenGroups = new Set();
+        for (const it of optItems) {
+            if (!it.option_group) {
+                ids.add(String(it.id));
+            } else if (!seenGroups.has(it.option_group)) {
+                ids.add(String(it.id));
+                seenGroups.add(it.option_group);
+            }
+        }
+        setSelectedOptionals(ids);
     }, [quote]);
 
     // Generate PDF client-side — depends on quote and optional item selection
     useEffect(() => {
         if (!quote || selectedOptionals === null) return;
         let blobUrl = null;
+        let pageBlobUrls = [];
+        let cancelled = false;
         setPdfLoading(true);
+        setPdfRenderError(false);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
-        const quoteForPdf = {
-            ...quote,
-            items: (quote.items || []).filter(item => !item.is_optional || selectedOptionals.has(String(item.id))),
+        const quoteForPdf = buildQuoteForPdf();
+
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'blob')
+            .then(async pdfBlob => {
+                if (cancelled) return;
+                blobUrl = URL.createObjectURL(pdfBlob);
+                setPdfUrl(blobUrl);
+
+                // Render every page as an image so the mobile view (and any
+                // browser that won't render blob: PDFs in iframes — iOS Safari,
+                // some Android Chrome versions) can show the document inline.
+                // We pass the raw bytes to pdfjs (more reliable than blob URLs
+                // across mobile browsers) and emit JPEG via canvas.toBlob to
+                // keep memory footprint low on multi-page quotes.
+                try {
+                    const arrayBuffer = await pdfBlob.arrayBuffer();
+                    if (cancelled) return;
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                    const targetWidth = Math.min(window.innerWidth, 1200);
+                    const newPageUrls = [];
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        if (cancelled) break;
+                        const page = await pdf.getPage(i);
+                        const baseViewport = page.getViewport({ scale: 1 });
+                        const scale = (targetWidth / baseViewport.width) * dpr;
+                        const viewport = page.getViewport({ scale });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.floor(viewport.width);
+                        canvas.height = Math.floor(viewport.height);
+                        const ctx = canvas.getContext('2d');
+                        await page.render({ canvasContext: ctx, viewport }).promise;
+                        const pageBlob = await new Promise(resolve =>
+                            canvas.toBlob(resolve, 'image/jpeg', 0.85)
+                        );
+                        if (!pageBlob) continue;
+                        newPageUrls.push(URL.createObjectURL(pageBlob));
+                    }
+                    if (cancelled) {
+                        newPageUrls.forEach(u => URL.revokeObjectURL(u));
+                        return;
+                    }
+                    pageBlobUrls = newPageUrls;
+                    setPdfPageImages(newPageUrls);
+                } catch (renderErr) {
+                    console.error('PDF page rendering failed:', renderErr);
+                    if (!cancelled) {
+                        setPdfPageImages([]);
+                        setPdfRenderError(true);
+                    }
+                }
+            })
+            .catch(e => {
+                console.error('PDF generation error:', e);
+                if (!cancelled) setPdfRenderError(true);
+            })
+            .finally(() => { if (!cancelled) setPdfLoading(false); });
+
+        return () => {
+            cancelled = true;
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+            pageBlobUrls.forEach(u => URL.revokeObjectURL(u));
         };
-        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'bloburl')
-            .then(url => { blobUrl = url; setPdfUrl(url); })
-            .catch(e => console.error('PDF generation error:', e))
-            .finally(() => setPdfLoading(false));
-        return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
 
     if (loading) return (
@@ -221,6 +337,21 @@ const PublicQuote = () => {
 
     const optionalItems = (quote.items || []).filter(i => i.is_optional && i.type !== 'section');
     const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView;
+
+    // Split optional items into mutually-exclusive groups (rendered as radios)
+    // and standalone options (rendered as independent checkboxes). Insertion
+    // order is preserved so the artisan controls grouping visually.
+    const optionGroups = {};
+    const ungroupedOptions = [];
+    for (const it of optionalItems) {
+        const g = (it.option_group || '').trim();
+        if (g) {
+            if (!optionGroups[g]) optionGroups[g] = [];
+            optionGroups[g].push(it);
+        } else {
+            ungroupedOptions.push(it);
+        }
+    }
     const includeTva = quote.include_tva !== false;
     const tvaRate = 0.20;
 
@@ -326,8 +457,75 @@ const PublicQuote = () => {
                         </button>
 
                         {optionsExpanded && (
-                            <div className="pb-4 space-y-2">
-                                {optionalItems.map(item => {
+                            <div className="pb-4 space-y-3">
+                                {/* Grouped options: mutually exclusive radio groups */}
+                                {Object.entries(optionGroups).map(([groupName, groupItems]) => {
+                                    const required = groupItems.some(i => i.option_group_required);
+                                    return (
+                                        <div key={`group-${groupName}`} className="rounded-xl border border-purple-200 bg-purple-50/40 p-3">
+                                            <p className="text-xs font-semibold text-purple-700 mb-2">
+                                                {groupName}
+                                                {required && <span className="ml-1 text-purple-500">(choix nécessaire)</span>}
+                                            </p>
+                                            <div className="space-y-1.5">
+                                                {groupItems.map(item => {
+                                                    const checked = selectedOptionals?.has(String(item.id)) ?? false;
+                                                    const ht = itemTotal(item);
+                                                    const ttc = includeTva ? ht * (1 + tvaRate) : ht;
+                                                    return (
+                                                        <label key={item.id} className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-white border border-purple-300' : 'hover:bg-white/60'}`}>
+                                                            <input
+                                                                type="radio"
+                                                                name={`option-group-${groupName}`}
+                                                                checked={checked}
+                                                                onChange={() => setSelectedOptionals(prev => {
+                                                                    const next = new Set(prev);
+                                                                    for (const sibling of groupItems) {
+                                                                        next.delete(String(sibling.id));
+                                                                    }
+                                                                    next.add(String(item.id));
+                                                                    return next;
+                                                                })}
+                                                                className="mt-0.5 w-4 h-4 accent-purple-600 shrink-0"
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm font-medium ${checked ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                                    {item.description}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-400'}`}>
+                                                                    +{ttc.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}
+                                                                </p>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                                {!required && (
+                                                    <label className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${groupItems.every(i => !selectedOptionals?.has(String(i.id))) ? 'bg-white border border-gray-300' : 'hover:bg-white/60'}`}>
+                                                        <input
+                                                            type="radio"
+                                                            name={`option-group-${groupName}`}
+                                                            checked={groupItems.every(i => !selectedOptionals?.has(String(i.id)))}
+                                                            onChange={() => setSelectedOptionals(prev => {
+                                                                const next = new Set(prev);
+                                                                for (const sibling of groupItems) {
+                                                                    next.delete(String(sibling.id));
+                                                                }
+                                                                return next;
+                                                            })}
+                                                            className="w-4 h-4 accent-gray-500 shrink-0"
+                                                        />
+                                                        <span className="text-sm text-gray-500">Aucune de ces options</span>
+                                                    </label>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Ungrouped options: independent checkboxes */}
+                                {ungroupedOptions.map(item => {
                                     const checked = selectedOptionals?.has(String(item.id)) ?? true;
                                     const ht = itemTotal(item);
                                     const ttc = includeTva ? ht * (1 + tvaRate) : ht;
@@ -383,45 +581,90 @@ const PublicQuote = () => {
                         {/* Desktop: full-height iframe */}
                         <iframe
                             src={pdfUrl}
-                            className="hidden sm:block w-full border-0"
+                            className="hidden lg:block w-full border-0"
                             style={{ height: 'calc(100vh - 56px)' }}
                             title="Document PDF"
                         />
-                        {/* Mobile: download prompt (iframes with blob URLs don't work on iOS) */}
-                        <div className="sm:hidden flex-1 flex items-center justify-center p-6 bg-gray-100">
-                            <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                    <Download className="w-8 h-8 text-blue-600" />
+                        {/* Mobile: render every PDF page as an image because
+                            iOS Safari refuses to display blob: PDFs in iframes.
+                            Falls back to a download CTA while pages are still
+                            being rendered or if rendering failed. */}
+                        <div className="lg:hidden flex-1 flex flex-col bg-gray-100">
+                            {pdfPageImages.length > 0 ? (
+                                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                                    {pdfPageImages.map((src, i) => (
+                                        <img
+                                            key={i}
+                                            src={src}
+                                            alt={`Page ${i + 1}`}
+                                            className="w-full rounded-lg shadow bg-white"
+                                            loading={i === 0 ? 'eager' : 'lazy'}
+                                        />
+                                    ))}
+                                    <div className="pt-2 pb-6 space-y-2">
+                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                            <button
+                                                onClick={() => setShowSignatureModal(true)}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                            >
+                                                <PenTool className="w-5 h-5" />
+                                                Signer le devis
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleDownload}
+                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-colors"
+                                        >
+                                            <Download className="w-5 h-5" />
+                                            Télécharger le PDF
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-gray-900">
-                                        {isInvoiceView ? 'Votre facture' : 'Votre devis'}
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mt-1">N° {quote.quote_number || quote.id}</p>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center p-6">
+                                    <div className="bg-white rounded-2xl shadow p-8 text-center max-w-sm w-full space-y-4">
+                                        <div className={`w-16 h-16 ${pdfRenderError ? 'bg-amber-100' : 'bg-blue-100'} rounded-full flex items-center justify-center mx-auto`}>
+                                            {pdfRenderError ? (
+                                                <Download className="w-8 h-8 text-amber-600" />
+                                            ) : (
+                                                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-bold text-gray-900">
+                                                {isInvoiceView ? 'Votre facture' : 'Votre devis'}
+                                            </h2>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                {pdfRenderError
+                                                    ? "Aperçu indisponible sur ce navigateur. Téléchargez le PDF pour le consulter."
+                                                    : "Préparation de l'aperçu…"}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleDownload}
+                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                        >
+                                            <Download className="w-5 h-5" />
+                                            Télécharger le PDF
+                                        </button>
+                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                            <button
+                                                onClick={() => setShowSignatureModal(true)}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
+                                            >
+                                                <PenTool className="w-5 h-5" />
+                                                Signer le devis
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={handleDownload}
-                                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
-                                >
-                                    <Download className="w-5 h-5" />
-                                    Télécharger le PDF
-                                </button>
-                                {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
-                                    <button
-                                        onClick={() => setShowSignatureModal(true)}
-                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
-                                    >
-                                        <PenTool className="w-5 h-5" />
-                                        Signer le devis
-                                    </button>
-                                )}
-                            </div>
+                            )}
                         </div>
                     </>
                 ) : null}
             </div>
 
-            {/* Below PDF: post-sign success + payment info */}
+            {/* Below PDF: post-sign success banner */}
             <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
                 {/* Post-signature success banner */}
                 {justSigned && (
@@ -451,41 +694,6 @@ const PublicQuote = () => {
                                     <Phone className="w-4 h-4" />
                                     Contacter {artisan.company_name || artisan.full_name}
                                 </a>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Payment information */}
-                {quote.status !== 'paid' && artisan.iban && (
-                    <div className="bg-slate-50 rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                            <span className="bg-slate-200 p-1.5 rounded-lg mr-3">💳</span>
-                            Moyens de paiement acceptés
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Virement Bancaire</p>
-                                <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 select-all">
-                                    {artisan.iban}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-2 flex items-center">
-                                    Référence à rappeler : <span className="font-bold ml-1">{quote.quote_number || quote.id}</span>
-                                </p>
-                            </div>
-                            {artisan.wero_phone && artisan.wero_phone.trim().length > 0 && (
-                                <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Paylib / Wero</p>
-                                    <p className="text-slate-900 font-medium">
-                                        {artisan.wero_phone}
-                                        {(artisan.full_name || artisan.company_name) && (
-                                            <span className="text-slate-500 font-normal text-sm ml-1">
-                                                ({artisan.full_name || artisan.company_name})
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-1">instantané et sécurisé</p>
-                                </div>
                             )}
                         </div>
                     </div>

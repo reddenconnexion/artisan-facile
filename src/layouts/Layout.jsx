@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, User, Kanban, Mic, HelpCircle, BookOpen, Wrench, Truck, Save, Moon, Sun, Box, Image as ImageIcon, Send, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
+import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import VoiceHelpModal from '../components/VoiceHelpModal';
@@ -15,7 +16,7 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
-import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount } from '../hooks/useDataCache';
+import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 
@@ -30,6 +31,7 @@ const Layout = () => {
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
   const newReceivedCount = useNewReceivedInvoicesCount();
+  const unreadPortalMessages = useUnreadPortalMessagesCount();
   const { plan, isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
@@ -77,8 +79,6 @@ const Layout = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
-
-  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   // Job Library Hydration Logic
   React.useEffect(() => {
@@ -154,12 +154,10 @@ const Layout = () => {
 
     const chantierChildren = [
       ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
-      ...(settings.enable_crm ? [{ name: 'Suivi Chantiers', href: '/app/crm', icon: Kanban }] : []),
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
     ];
 
     const activiteChildren = [
-      ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: ImageIcon }] : []),
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
@@ -177,16 +175,22 @@ const Layout = () => {
     const showInter = skillLevel === 'intermediaire' || skillLevel === 'confirme';
     const showConfirme = skillLevel === 'confirme';
 
+    const ressourcesChildren = outilsChildren
+      .filter(c => showConfirme || c.href !== '/app/rentals')
+      .map(c => c.href === '/app/outils' ? { ...c, name: 'Calculatrices' } : c);
+
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
+      { name: 'Messages', href: '/app/portal-messages', icon: MessageSquare, badge: unreadPortalMessages },
       {
         name: 'Devis & Factures',
         icon: FileText,
         children: [
-          { name: 'Devis & Factures', href: '/app/devis', icon: FileText },
+          { name: 'Tous les devis', href: '/app/devis', icon: FileText },
+          { name: 'Factures récurrentes', href: '/app/recurring', icon: Repeat },
           { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
-          ...(showInter ? [{ name: 'Comptabilité', href: '/app/accounting', icon: Calculator }] : []),
+          { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
         ],
       },
       ...(showInter && chantierChildren.length > 0 ? [{
@@ -200,11 +204,10 @@ const Layout = () => {
         children: activiteChildren,
       }] : []),
       ...(showInter ? [{
-        name: 'Outils',
+        name: 'Ressources',
         icon: Zap,
-        children: outilsChildren.filter(c => showConfirme || c.href !== '/app/rentals'),
+        children: ressourcesChildren,
       }] : []),
-      { name: 'Guide & Aide', href: '/app/guide', icon: HelpCircle },
     ];
   }, [user]);
 
@@ -231,6 +234,7 @@ const Layout = () => {
 
   // Keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = React.useState(false);
+  const [showSearch, setShowSearch] = React.useState(false);
 
   const focusSearchInput = useCallback(() => {
     const input = document.querySelector(
@@ -252,6 +256,10 @@ const Layout = () => {
   }, [location.pathname, navigate]);
 
   useKeyboardShortcuts({
+    // Cmd+K / Ctrl+K : palette de recherche globale (fonctionne aussi dans
+    // les inputs — c'est le standard universel pour les command palettes).
+    'meta+k': (e) => { e.preventDefault(); setShowSearch((v) => !v); },
+    'ctrl+k': (e) => { e.preventDefault(); setShowSearch((v) => !v); },
     'alt+d': () => navigate('/app/devis/new'),
     'alt+c': () => navigate('/app/clients/new'),
     'alt+r': () => navigate('/app/agenda', { state: { openNewEvent: true } }),
@@ -269,6 +277,18 @@ const Layout = () => {
     '?': () => setShowShortcuts((v) => !v),
     Escape: () => setShowShortcuts(false),
   });
+
+  // Allow Profile/Settings page to control theme & shortcuts modal via window events
+  useEffect(() => {
+    const onToggleTheme = () => setIsDarkMode(prev => !prev);
+    const onOpenShortcuts = () => setShowShortcuts(true);
+    window.addEventListener('artisan:toggle-theme', onToggleTheme);
+    window.addEventListener('artisan:open-shortcuts', onOpenShortcuts);
+    return () => {
+      window.removeEventListener('artisan:toggle-theme', onToggleTheme);
+      window.removeEventListener('artisan:open-shortcuts', onOpenShortcuts);
+    };
+  }, []);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -463,6 +483,7 @@ const Layout = () => {
                 const isActive = group.href === '/app'
                   ? location.pathname === '/app'
                   : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
+                const itemBadge = group.badge ?? 0;
                 return (
                   <Link
                     key={group.name}
@@ -472,8 +493,24 @@ const Layout = () => {
                       : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                       } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                   >
-                    <group.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                    {(!isCollapsed || isMobileMenuOpen) && group.name}
+                    <div className="relative flex-shrink-0">
+                      <group.icon className={`w-5 h-5 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                      {itemBadge > 0 && (
+                        <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                          {itemBadge > 9 ? '9+' : itemBadge}
+                        </span>
+                      )}
+                    </div>
+                    {(!isCollapsed || isMobileMenuOpen) && (
+                      <span className="flex-1 flex items-center gap-2">
+                        {group.name}
+                        {itemBadge > 0 && (
+                          <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {itemBadge}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 );
               }
@@ -585,36 +622,14 @@ const Layout = () => {
               )}
             </button>
 
-            {/* Dark Mode Toggle Button */}
-            <button
-              onClick={toggleDarkMode}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              title={isDarkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              {isDarkMode ? (
-                <Sun className={`w-5 h-5 flex-shrink-0 text-yellow-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              ) : (
-                <Moon className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              )}
-              {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode Clair' : 'Mode Sombre')}
-            </button>
-
-            <button
-              onClick={() => setShowShortcuts(true)}
-              className={`hidden md:flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-              title="Raccourcis clavier (?)"
-            >
-              <Keyboard className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Raccourcis clavier'}
-            </button>
-            {/* Mode terrain — accès rapide depuis la sidebar */}
+            {/* Mode terrain — accès rapide en mobile uniquement (FAB sur dashboard prend le relais en desktop) */}
             <button
               onClick={() => navigate('/terrain')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              className="md:hidden flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap"
               title="Mode terrain — vue simplifiée sur chantier"
             >
-              <Wrench className={`w-5 h-5 flex-shrink-0 text-orange-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Mode terrain'}
+              <Wrench className="w-5 h-5 flex-shrink-0 text-orange-500 mr-3" />
+              Mode terrain
             </button>
 
             <button
@@ -638,10 +653,21 @@ const Layout = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
           <main className="flex-1 overflow-y-auto">
             {/* Mobile Header - Scrolls with content */}
-            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center px-4 md:hidden flex-shrink-0">
+            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:hidden flex-shrink-0">
+              <div className="flex-1" />
               <div className="flex items-center gap-2">
                 <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-7 h-7 rounded-md" />
                 <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
+              </div>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Recherche"
+                  aria-label="Recherche globale"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
@@ -744,6 +770,9 @@ const Layout = () => {
           </div> */}
         </div>
       </div>
+
+      {/* Palette de recherche globale (Cmd+K / Ctrl+K) */}
+      <SearchPalette isOpen={showSearch} onClose={() => setShowSearch(false)} />
 
       {/* Keyboard Shortcuts Help Modal */}
       <KeyboardShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />

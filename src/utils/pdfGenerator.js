@@ -38,6 +38,41 @@ const formatDate = (dateString) => {
     }
 };
 
+// Renders the artisan logo onto a square canvas with rounded corners and
+// returns the resulting PNG data URL. Falls back to a centered "contain"
+// fit so non-square logos aren't deformed.
+const buildRoundedLogoDataUrl = async (url, sizePx = 256, radiusRatio = 0.18) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = sizePx;
+    canvas.height = sizePx;
+    const ctx = canvas.getContext('2d');
+    const r = sizePx * radiusRatio;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(sizePx - r, 0);
+    ctx.quadraticCurveTo(sizePx, 0, sizePx, r);
+    ctx.lineTo(sizePx, sizePx - r);
+    ctx.quadraticCurveTo(sizePx, sizePx, sizePx - r, sizePx);
+    ctx.lineTo(r, sizePx);
+    ctx.quadraticCurveTo(0, sizePx, 0, sizePx - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.clip();
+    const scale = Math.min(sizePx / img.width, sizePx / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.drawImage(img, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+    return canvas.toDataURL('image/png');
+};
+
 // Converted to Async to support pdf-lib operations
 export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false) => {
     // ---------------------------------------------------------
@@ -54,13 +89,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let contentStartY = 35; // Increased from 30 to Avoid Header Crop
     if (userProfile.logo_url) {
         try {
-            // Note: addImage is sync, usually fine if image is preloaded or dataURL. 
-            // If it's a URL, jsPDF might need it to be base64. 
-            // Assuming existing logic worked, we keep it. 
-            // If logo_url is a remote URL, jsPDF often fails without base64. 
-            // But let's assume it works as per previous code.
-            doc.addImage(userProfile.logo_url, 'JPEG', 14, 15, 20, 20); // Moved Y from 10 to 15
-            contentStartY = 40; // Increased from 35
+            const roundedLogo = await buildRoundedLogoDataUrl(userProfile.logo_url);
+            doc.addImage(roundedLogo, 'PNG', 14, 15, 20, 20);
+            contentStartY = 40;
         } catch (e) {
             console.warn("Could not add logo image to PDF", e);
         }
@@ -723,7 +754,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const signatureY = currentY + 10;
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        doc.text("Bon pour accord :", 120, signatureY);
+        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : 'Bon pour accord';
+        doc.text(`${bonPourAccordText} :`, 120, signatureY);
 
         const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
         doc.text(`Signé le ${signedDate.toLocaleDateString('fr-FR')}`, 120, signatureY + 5);
@@ -795,7 +827,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'italic');
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.id}" lors du paiement.`, 20, elementY + 28);
+            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.quote_number || devis.id}" lors du paiement.`, 20, elementY + 28);
         }
 
         elementY += boxHeight + 10;
@@ -1040,7 +1072,8 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
     let contentY = 15;
     if (userProfile?.logo_url) {
         try {
-            doc.addImage(userProfile.logo_url, 'JPEG', 14, contentY, 20, 20);
+            const roundedLogo = await buildRoundedLogoDataUrl(userProfile.logo_url);
+            doc.addImage(roundedLogo, 'PNG', 14, contentY, 20, 20);
             contentY = 40;
         } catch (e) { /* ignore */ }
     }

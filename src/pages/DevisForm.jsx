@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
-import { generateQuoteItems } from '../utils/aiService';
+import { generateQuoteItems, extractQuoteFromPdfText } from '../utils/aiService';
 import { checkLimit } from '../utils/planLimits';
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
@@ -17,7 +17,7 @@ import MarginGauge from '../components/MarginGauge';
 
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
-import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems } from '../utils/documentParser';
+import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -718,19 +718,61 @@ const DevisForm = () => {
                 text = await extractTextFromDocx(file);
             }
 
-            const { items: newItems, notes: extraNotes } = parseQuoteItems(text);
+            // 2a. Local regex parsing — fast, free, handles most well-structured PDFs.
+            const { items: regexItems, notes: regexNotes } = parseQuoteItems(text);
+            const meta = extractQuoteMetadata(text);
+
+            // 2b. Decide whether to also try the AI parser.
+            // The regex is good but fails on unusual layouts (e.g. multi-line
+            // descriptions, columns split across positions, rare formats).
+            // We escalate to the AI when results look weak and the user has
+            // either a personal API key or remaining free quota.
+            const zeroPriced = regexItems.filter(i => !i.price).length;
+            const looksWeak =
+                regexItems.length === 0 ||
+                regexItems.length < 3 ||
+                (regexItems.length > 0 && zeroPriced / regexItems.length > 0.5);
+
+            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const planNow = userProfile?.plan || 'free';
+            const isPro = planNow === 'pro' || planNow === 'owner';
+            const canUseAi = (hasPersonalKey || isPro || isAiTrialSession) && text && text.trim().length > 50;
+
+            let finalItems = regexItems;
+            let finalNotes = regexNotes;
+            let finalTitle = meta.title;
+            let aiUsed = false;
+
+            if (looksWeak && canUseAi) {
+                try {
+                    toast.info("Affinage de l'extraction par IA…");
+                    const aiResult = await extractQuoteFromPdfText(text);
+                    if (aiResult.items.length > regexItems.length) {
+                        finalItems = aiResult.items;
+                        finalNotes = aiResult.notes || regexNotes;
+                        finalTitle = aiResult.title || meta.title;
+                        aiUsed = true;
+                    }
+                } catch (aiErr) {
+                    console.warn('AI extraction fallback failed, keeping regex result:', aiErr);
+                    // Silent: regex result still applies.
+                }
+            }
 
             // Update Form Data
             setFormData(prev => ({
                 ...prev,
                 original_pdf_url: publicUrl,
-                items: newItems.length > 0 ? newItems : prev.items,
-                notes: extraNotes ? (prev.notes ? prev.notes + '\n' + extraNotes : extraNotes) : prev.notes
+                title: prev.title || (finalTitle || ''),
+                items: finalItems.length > 0 ? finalItems : prev.items,
+                notes: finalNotes ? (prev.notes ? prev.notes + '\n' + finalNotes : finalNotes) : prev.notes
             }));
 
             setShowImportZone(false);
-            if (newItems.length > 0) {
-                toast.success(`${newItems.length} éléments détectés et importés.`);
+            if (finalItems.length > 0) {
+                toast.success(
+                    `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`
+                );
             } else {
                 toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
             }
@@ -765,6 +807,14 @@ const DevisForm = () => {
                 email: user.email,
                 ...settings
             });
+
+            // Pour un nouveau devis (pas d'id en URL), un artisan en franchise
+            // de TVA (micro-entreprise / auto-entrepreneur) ne facture pas la
+            // TVA — décocher par défaut pour faire apparaître la mention
+            // « TVA non applicable, art. 293 B du CGI » sur le PDF.
+            if (!id && aiPrefs.artisan_status === 'micro_entreprise') {
+                setFormData(prev => ({ ...prev, include_tva: false }));
+            }
         }
     };
 
@@ -798,7 +848,9 @@ const DevisForm = () => {
                     notes: data.notes || '',
                     status: data.status || 'draft',
                     type: data.type || 'quote',
-                    include_tva: data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0),
+                    include_tva: typeof data.include_tva === 'boolean'
+                        ? data.include_tva
+                        : (data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0)),
                     original_pdf_url: data.original_pdf_url || null,
                     is_external: data.is_external || false,
                     manual_total_ht: data.is_external ? data.total_ht : 0,
@@ -915,6 +967,21 @@ const DevisForm = () => {
     }, [formData.original_pdf_url]);
     // ------------------------------------------
 
+    // Auto-derive operation_category from item types so the Factur-X category
+    // always reflects the actual content without manual intervention.
+    useEffect(() => {
+        const locked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+        if (locked) return;
+        const billableItems = (formData.items || []).filter(i => i.type !== 'section');
+        if (billableItems.length === 0) return;
+        const hasService = billableItems.some(i => (i.type || 'service') !== 'material');
+        const hasMaterial = billableItems.some(i => i.type === 'material');
+        const derived = hasService && hasMaterial ? 'mixed' : hasMaterial ? 'goods' : 'service';
+        if (derived !== formData.operation_category) {
+            setFormData(prev => ({ ...prev, operation_category: derived }));
+        }
+    }, [formData.items]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const tradeConfig = getTradeConfig(userProfile?.trade || 'general');
 
     const addItem = (type = 'service') => {
@@ -967,6 +1034,21 @@ const DevisForm = () => {
         }));
     };
 
+    // Toggling option_group_required affects every item in the same group, so
+    // they stay consistent (the public client view reads this flag from the
+    // first item of the group).
+    const setOptionGroupRequired = (groupName, required) => {
+        if (!groupName) return;
+        setFormData(prev => ({
+            ...prev,
+            items: prev.items.map(item =>
+                item.option_group === groupName
+                    ? { ...item, option_group_required: required }
+                    : item
+            )
+        }));
+    };
+
     const calculateTotal = () => {
         if (formData.is_external) {
             return {
@@ -1006,19 +1088,25 @@ const DevisForm = () => {
         try {
             toast.loading("Génération du lien sécurisé...", { id: 'upload-toast' });
 
-            // Ensure public_token exists
+            // Ensure public_token exists and refresh its validity (un-revoke + extend expiry)
+            // so re-sharing an old quote always produces a working link.
             let token = formData.public_token;
+            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             if (!token) {
                 token = crypto.randomUUID();
-                const { error: tokenError } = await supabase
-                    .from('quotes')
-                    .update({ public_token: token })
-                    .eq('id', id);
-
-                if (tokenError) throw tokenError;
-
-                setFormData(prev => ({ ...prev, public_token: token }));
             }
+            const { error: tokenError } = await supabase
+                .from('quotes')
+                .update({
+                    public_token: token,
+                    token_revoked: false,
+                    token_expires_at: newExpiry,
+                })
+                .eq('id', id);
+
+            if (tokenError) throw tokenError;
+
+            setFormData(prev => ({ ...prev, public_token: token }));
 
             const publicUrl = `${window.location.origin}/q/${token}`;
             const isInvoice = formData.type === 'invoice';
@@ -1318,6 +1406,7 @@ const DevisForm = () => {
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
+                include_tva: formData.include_tva,
                 notes: formData.notes,
                 status: formData.status,
                 type: formData.type,
@@ -1651,7 +1740,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 unit: 'forfait',
                 price: 0, // Will be set below
                 buying_price: 0,
-                type: 'service'
+                type: 'material'
             };
 
             if (formData.include_tva) {
@@ -1827,7 +1916,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
-                .select('id, title, date, total_ht, total_ttc, type, status')
+                .select('id, title, date, total_ht, total_ttc, type, status, items')
                 .eq('parent_id', quoteId)
                 .neq('status', 'cancelled');
 
@@ -1857,6 +1946,12 @@ Conditions de règlement : Paiement à réception de facture.`
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
                 totalDeducted += amountHT;
+                // Inherit the type from the deposit's items so the deduction offsets
+                // the right category (material vs service) in accounting and net income.
+                const depositItems = Array.isArray(inv.items) ? inv.items : [];
+                const materialSum = depositItems.filter(i => i.type === 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const serviceSum = depositItems.filter(i => i.type !== 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const deductionType = materialSum >= serviceSum ? 'material' : 'service';
                 return {
                     id: Date.now() + Math.random(),
                     description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
@@ -1864,7 +1959,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     unit: 'forfait',
                     price: -Math.abs(amountHT),
                     buying_price: 0,
-                    type: 'service'
+                    type: deductionType
                 };
             });
 
@@ -2091,21 +2186,23 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleSignatureSave = async (signatureData) => {
+    const handleSignatureSave = async (signatureData, _otpCode, bonPourAccord) => {
         try {
+            const now = new Date().toISOString();
             const { error } = await supabase
                 .from('quotes')
                 .update({
                     signature: signatureData,
                     status: 'accepted',
-                    signed_at: new Date().toISOString()
+                    signed_at: now,
+                    bon_pour_accord: bonPourAccord || null
                 })
                 .eq('id', id);
 
             if (error) throw error;
 
             setSignature(signatureData);
-            setFormData(prev => ({ ...prev, status: 'accepted' }));
+            setFormData(prev => ({ ...prev, status: 'accepted', signature: signatureData, signed_at: now, bon_pour_accord: bonPourAccord || null }));
             invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
@@ -2493,11 +2590,20 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && formData.public_token && (
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const url = `${window.location.origin}/q/${formData.public_token}`;
                                             navigator.clipboard.writeText(url);
-                                            toast.success('Lien de signature copié !');
                                             setShowActionsMenu(false);
+                                            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                                            const { error: refreshError } = await supabase
+                                                .from('quotes')
+                                                .update({ token_revoked: false, token_expires_at: newExpiry })
+                                                .eq('id', id);
+                                            if (refreshError) {
+                                                toast.error('Lien copié, mais la validité n\'a pas pu être prolongée');
+                                            } else {
+                                                toast.success('Lien de signature copié !');
+                                            }
                                         }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     >
@@ -2879,7 +2985,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                 ? [{ key: 'accepted', label: 'Émise' }, { key: 'billed', label: 'Facturée' }, { key: 'paid', label: 'Payée' }]
                                 : [{ key: 'draft', label: 'Brouillon' }, { key: 'sent', label: 'Envoyé' }, { key: 'accepted', label: 'Accepté' }, { key: 'billed', label: 'Facturé' }, { key: 'paid', label: 'Payé' }];
                             const currentIdx = pipeline.findIndex(s => s.key === formData.status);
-                            if (currentIdx === -1) return null;
                             return (
                                 <div className="flex items-center mb-2">
                                     {pipeline.map((step, idx) => (
@@ -2889,34 +2994,43 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 onClick={() => setFormData(p => ({ ...p, status: step.key }))}
                                                 className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
                                                     idx === currentIdx ? 'animate-shimmer-step text-white' :
-                                                    idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                                                    currentIdx >= 0 && idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
                                                     'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                                 }`}
                                             >
                                                 {step.label}
                                             </button>
                                             {idx < pipeline.length - 1 && (
-                                                <div className={`h-px flex-1 mx-0.5 min-w-[4px] ${idx < currentIdx ? 'bg-blue-300' : 'bg-gray-200'}`} />
+                                                <div className={`h-px flex-1 mx-0.5 min-w-[4px] ${currentIdx >= 0 && idx < currentIdx ? 'bg-blue-300' : 'bg-gray-200'}`} />
                                             )}
                                         </React.Fragment>
                                     ))}
                                 </div>
                             );
                         })()}
-                        <select
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        >
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté / Signé</option>
-                            <option value="refused">Refusé</option>
-                            <option value="billed">Facturé</option>
-                            <option value="paid">Payé</option>
-                            <option value="postponed">Reporté</option>
-                            <option value="cancelled">Annulé</option>
-                        </select>
+                        {/* Statuts d'exception (hors flux normal) */}
+                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider">Cas particuliers :</span>
+                            {[
+                                { key: 'refused', label: 'Refusé', activeColor: 'bg-red-100 text-red-700 border-red-300' },
+                                { key: 'postponed', label: 'Reporté', activeColor: 'bg-amber-100 text-amber-700 border-amber-300' },
+                                { key: 'cancelled', label: 'Annulé', activeColor: 'bg-gray-200 text-gray-700 border-gray-400' },
+                            ].map(opt => {
+                                const isActive = formData.status === opt.key;
+                                return (
+                                    <button
+                                        key={opt.key}
+                                        type="button"
+                                        onClick={() => setFormData(p => ({ ...p, status: isActive ? 'draft' : opt.key }))}
+                                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${
+                                            isActive ? opt.activeColor : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                         {formData.last_followup_at && (
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
@@ -3004,17 +3118,6 @@ Conditions de règlement : Paiement à réception de facture.`
                         {showAdvancedQuoteOptions && (
                             <div className="mt-3 space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie (Factur-X)</label>
-                                    <select
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-2 disabled:bg-gray-100 disabled:text-gray-500"
-                                        value={formData.operation_category}
-                                        onChange={(e) => setFormData({ ...formData, operation_category: e.target.value })}
-                                        disabled={isLocked}
-                                    >
-                                        <option value="service">Prestation de services</option>
-                                        <option value="goods">Livraison de biens</option>
-                                        <option value="mixed">Mixte</option>
-                                    </select>
                                     <div className="flex items-center gap-2 mt-2">
                                         <input
                                             type="checkbox"
@@ -3028,18 +3131,30 @@ Conditions de règlement : Paiement à réception de facture.`
                                             Option TVA sur les débits
                                         </label>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <input
-                                            type="checkbox"
-                                            id="require_otp"
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
-                                            checked={formData.require_otp}
-                                            onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
-                                            disabled={isLocked}
-                                        />
-                                        <label htmlFor="require_otp" className="text-sm text-gray-700">
-                                            Exiger la vérification par email (OTP) pour signer
-                                        </label>
+                                    <div className="mt-2">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                id="require_otp"
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                                checked={formData.require_otp}
+                                                onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
+                                                disabled={isLocked}
+                                            />
+                                            <label htmlFor="require_otp" className="text-sm text-gray-700">
+                                                Exiger la vérification par email (OTP) pour signer
+                                            </label>
+                                        </div>
+                                        {total >= 5000 && !formData.require_otp && (
+                                            <div className="mt-2 ml-6 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                                                <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                                                <div>
+                                                    <span className="font-semibold">Recommandé pour ce montant.</span>{' '}
+                                                    Au-delà de 5 000 €, activer l'OTP renforce la valeur juridique de la signature
+                                                    en cas de contestation (identification du signataire par email).
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -3288,6 +3403,31 @@ Conditions de règlement : Paiement à réception de facture.`
                                             </button>
                                         </div>
                                     </div>
+                                    {item.is_optional && (
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                            <input
+                                                type="text"
+                                                placeholder="Groupe d'exclusivité (ex: Revêtement)"
+                                                className="px-2 py-1 border border-purple-200 bg-purple-50/50 rounded text-xs w-56 focus:ring-purple-400 focus:border-purple-400"
+                                                value={item.option_group || ''}
+                                                onChange={(e) => updateItem(item.id, 'option_group', e.target.value)}
+                                                disabled={isLocked}
+                                                title="Les options partageant le même nom de groupe deviennent mutuellement exclusives côté client (un seul choix possible)."
+                                            />
+                                            {item.option_group && (
+                                                <label className="flex items-center gap-1.5 text-xs text-purple-700 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!item.option_group_required}
+                                                        onChange={(e) => setOptionGroupRequired(item.option_group, e.target.checked)}
+                                                        disabled={isLocked}
+                                                        className="w-3.5 h-3.5 accent-purple-600"
+                                                    />
+                                                    Choix nécessaire
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <div className="w-20 relative">
@@ -3589,6 +3729,11 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Appliquer la TVA (20%)
                                 </label>
                             </div>
+                            {!formData.include_tva && (
+                                <p className="text-xs text-gray-500 -mt-3 mb-4 text-right">
+                                    La mention « TVA non applicable, art. 293 B du CGI » sera ajoutée au PDF.
+                                </p>
+                            )}
                             <div className="flex items-center justify-end mb-4">
                                 <input
                                     type="checkbox"

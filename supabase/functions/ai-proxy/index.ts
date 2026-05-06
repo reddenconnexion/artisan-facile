@@ -1,5 +1,6 @@
 // v2 — server-key fallback (ANTHROPIC_API_KEY) for free users, quota-enforced
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,6 +71,11 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Rate limit anti-burst : 30 appels IA / heure / utilisateur
+    // (en plus du quota mensuel free de 5/mois géré plus bas)
+    const rl = await enforceRateLimit('ai-proxy', user.id, 30, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     // Lecture des préférences IA et du plan depuis la base de données
     const { data: profile, error: profileError } = await supabase
