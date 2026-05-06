@@ -40,6 +40,7 @@ import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import FinancialHealthCard from '../components/FinancialHealthCard';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -710,6 +711,9 @@ const Dashboard = () => {
             <QuickActions />
 
             <ActionableDashboard user={user} />
+
+            {/* Score de santé financière — visible dès qu'il y a des données pertinentes */}
+            <FinancialHealthCard quotes={allQuotes} />
 
             {/* Derniers documents — 5 devis/factures les plus récents */}
             {allQuotes.length > 0 && (() => {
