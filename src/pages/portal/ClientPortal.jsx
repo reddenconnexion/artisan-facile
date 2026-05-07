@@ -714,8 +714,8 @@ const ClientPortal = () => {
                             </div>
                         )}
 
-                        {/* CTA Avis Google */}
-                        {artisan.google_review_url && quotes.some(q => q.status === 'accepted' || q.status === 'paid') && (
+                        {/* CTA Avis (Google / Facebook / Pages Jaunes) */}
+                        {(artisan.google_review_url || artisan.facebook_review_url || artisan.pages_jaunes_review_url) && quotes.some(q => q.status === 'accepted' || q.status === 'paid') && (
                             <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl p-5 flex flex-col sm:flex-row items-center gap-4">
                                 <div className="flex-shrink-0 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
                                     <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
@@ -724,10 +724,26 @@ const ClientPortal = () => {
                                     <p className="font-semibold text-gray-900 text-sm">Satisfait de notre travail ?</p>
                                     <p className="text-xs text-gray-600 mt-0.5">Votre avis compte énormément — laissez-nous un commentaire en 1 minute.</p>
                                 </div>
-                                <a href={artisan.google_review_url} target="_blank" rel="noopener noreferrer"
-                                    className="flex-shrink-0 px-4 py-2 bg-white border border-yellow-300 text-yellow-700 hover:bg-yellow-50 font-semibold text-sm rounded-lg transition-colors shadow-sm whitespace-nowrap">
-                                    Laisser un avis ⭐
-                                </a>
+                                <div className="flex-shrink-0 flex flex-wrap items-center justify-center gap-2">
+                                    {artisan.google_review_url && (
+                                        <a href={artisan.google_review_url} target="_blank" rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-white border border-yellow-300 text-yellow-700 hover:bg-yellow-50 font-semibold text-sm rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                                            Avis Google ⭐
+                                        </a>
+                                    )}
+                                    {artisan.facebook_review_url && (
+                                        <a href={artisan.facebook_review_url} target="_blank" rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold text-sm rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                                            Avis Facebook ⭐
+                                        </a>
+                                    )}
+                                    {artisan.pages_jaunes_review_url && (
+                                        <a href={artisan.pages_jaunes_review_url} target="_blank" rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-white border border-amber-400 text-amber-700 hover:bg-amber-50 font-semibold text-sm rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                                            Avis Pages Jaunes ⭐
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

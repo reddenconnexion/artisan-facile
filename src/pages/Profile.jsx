@@ -128,6 +128,8 @@ const Profile = () => {
 
         siret: '',
         google_review_url: '',
+        facebook_review_url: '',
+        pages_jaunes_review_url: '',
         trade: 'general',
         iban: '',
         artisan_status: 'micro_entreprise',
@@ -176,6 +178,8 @@ const Profile = () => {
 
                     siret: data.siret || '',
                     google_review_url: data.google_review_url || '',
+                    facebook_review_url: data.facebook_review_url || '',
+                    pages_jaunes_review_url: data.pages_jaunes_review_url || '',
                     trade: data.trade || 'general',
                     iban: data.iban || '',
                     wero_phone: data.wero_phone || '',
@@ -277,6 +281,8 @@ const Profile = () => {
 
                     siret: formData.siret,
                     google_review_url: formData.google_review_url,
+                    facebook_review_url: formData.facebook_review_url,
+                    pages_jaunes_review_url: formData.pages_jaunes_review_url,
                     trade: formData.trade,
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
@@ -749,6 +755,30 @@ const Profile = () => {
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Lien Avis Facebook</label>
+                                <input
+                                    type="url"
+                                    name="facebook_review_url"
+                                    value={formData.facebook_review_url}
+                                    onChange={handleChange}
+                                    placeholder="https://www.facebook.com/.../reviews"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Lien direct vers la page d'avis de votre page Facebook.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Lien Avis Pages Jaunes</label>
+                                <input
+                                    type="url"
+                                    name="pages_jaunes_review_url"
+                                    value={formData.pages_jaunes_review_url}
+                                    onChange={handleChange}
+                                    placeholder="https://www.pagesjaunes.fr/..."
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Lien direct vers votre fiche Pages Jaunes pour laisser un avis.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">IBAN (pour factures)</label>
