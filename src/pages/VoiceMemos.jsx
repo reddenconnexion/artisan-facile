@@ -5,6 +5,8 @@ import { fr } from 'date-fns/locale';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePlanLimits } from '../hooks/usePlanLimits';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -162,25 +164,17 @@ const VoiceMemos = () => {
 
     useEffect(() => {
         fetchMemos();
+    }, [fetchMemos]);
 
-        // Real-time updates for processing memos
-        const channel = supabase.channel('voice_memos_changes')
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'voice_memos',
-                filter: `user_id=eq.${user?.id}`,
-            }, () => fetchMemos())
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'voice_memos',
-                filter: `user_id=eq.${user?.id}`,
-            }, () => fetchMemos())
-            .subscribe();
-
-        return () => supabase.removeChannel(channel);
-    }, [fetchMemos, user]);
+    // Listen to all change types: an INSERT brings a new memo, an UPDATE flips
+    // its status (transcribing → done), a DELETE simply removes it from the
+    // refreshed list. Wildcard event keeps the hook usage simple and matches
+    // what the previous two-handler block was doing.
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user?.id ? `voice_memos_changes_${user.id}` : null,
+        { table: 'voice_memos', filter: user?.id ? `user_id=eq.${user.id}` : undefined },
+        () => fetchMemos()
+    );
 
     const handleRetry = async (memoId) => {
         toast.info('Fonctionnalité de relance en cours de développement');
@@ -220,6 +214,7 @@ const VoiceMemos = () => {
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                         <Mic size={22} className="text-blue-500" />
                         Mémos vocaux
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">Historique de vos enregistrements vocaux</p>
                 </div>

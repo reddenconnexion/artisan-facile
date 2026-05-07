@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
@@ -68,24 +70,14 @@ const WorksitePilot = () => {
     useEffect(() => {
         if (user) {
             fetchWorksites();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('crm_worksite_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'quotes' },
-                    () => {
-                        fetchWorksites();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'crm_worksite_subscription' : null,
+        { table: 'quotes' },
+        () => fetchWorksites()
+    );
 
     // Handle Wheel Zoom
     useEffect(() => {
@@ -255,6 +247,7 @@ const WorksitePilot = () => {
                         <Kanban className="w-8 h-8 text-blue-600" />
                         Pilotage Chantiers
                         {focusedColumn && <span className="text-gray-400 text-lg font-normal">/ {columns.find(c => c.id === focusedColumn)?.title}</span>}
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Gérez l'avancement de vos travaux signés.</p>
                 </div>

@@ -161,6 +161,15 @@ export default defineConfig({
         }
       }
     }
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}'],
+    globals: false,
+    coverage: {
+      reporter: ['text', 'html'],
+      include: ['src/utils/**/*.{js,jsx}', 'src/hooks/**/*.{js,jsx}']
+    }
   }
 })
 // Forced Update: Mon Feb  9 08:51:43 PM CET 2026

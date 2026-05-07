@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import PasswordStrength from '../components/PasswordStrength';
+import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 import { toastError } from '../utils/supabaseErrorHandler';
 
 const JOB_OPTIONS = [
@@ -21,11 +23,13 @@ const JOB_OPTIONS = [
     { value: 'autre', label: 'Autre' },
 ];
 
-const inputClass = "block w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-shadow";
-
 const Register = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { signUp } = useAuth();
+    const redirectTo = location.state?.from?.pathname
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/app';
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -52,7 +56,7 @@ const Register = () => {
 
             if (data.session) {
                 toast.success('Compte créé ! Bienvenue sur Artisan Facile.');
-                navigate('/app');
+                navigate(redirectTo, { replace: true });
             } else {
                 setConfirmedEmail(email);
             }
@@ -179,11 +183,7 @@ const Register = () => {
                                         Encore {8 - password.length} caractère{8 - password.length > 1 ? 's' : ''} requis
                                     </p>
                                 )}
-                                {password.length >= 8 && (
-                                    <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
-                                        <CheckCircle className="w-3 h-3" /> Mot de passe valide
-                                    </p>
-                                )}
+                                <PasswordStrength password={password} />
                             </div>
 
                             <div>

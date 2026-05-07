@@ -1,7 +1,10 @@
 import React from 'react';
 import { X, Mic, Calendar, Users, FileText } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const VoiceHelpModal = ({ isOpen, onClose }) => {
+    const containerRef = useModalA11y(isOpen, onClose);
+
     if (!isOpen) return null;
 
     const commandCategories = [
@@ -45,14 +48,26 @@ const VoiceHelpModal = ({ isOpen, onClose }) => {
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh]">
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Aide commandes vocales"
+        >
+            <div
+                ref={containerRef}
+                className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh]"
+            >
                 <div className="flex justify-between items-center p-4 border-b">
                     <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <Mic className="w-5 h-5 text-blue-600" />
                         Commandes Vocales
                     </h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                        aria-label="Fermer la modal"
+                    >
                         <X className="w-6 h-6" />
                     </button>
                 </div>

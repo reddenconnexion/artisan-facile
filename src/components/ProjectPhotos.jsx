@@ -8,6 +8,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
@@ -367,36 +368,20 @@ const ProjectPhotos = ({ clientId }) => {
             Promise.all([fetchPhotos(), fetchProjects()]).then(([, loadedProjects]) => {
                 if (loadedProjects) initDefaultProject(loadedProjects);
             });
-
-            // Realtime subscriptions
-            const photosSubscription = supabase
-                .channel('project_photos_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'project_photos', filter: `client_id=eq.${clientId}` },
-                    (payload) => {
-                        fetchPhotos();
-                    }
-                )
-                .subscribe();
-
-            const projectsSubscription = supabase
-                .channel('projects_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'projects', filter: `client_id=eq.${clientId}` },
-                    (payload) => {
-                        fetchProjects();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(photosSubscription);
-                supabase.removeChannel(projectsSubscription);
-            };
         }
     }, [clientId, user]);
+
+    useRealtimeSubscription(
+        clientId && user ? `project_photos_subscription_${clientId}` : null,
+        { table: 'project_photos', filter: clientId ? `client_id=eq.${clientId}` : undefined },
+        () => fetchPhotos()
+    );
+
+    useRealtimeSubscription(
+        clientId && user ? `projects_subscription_${clientId}` : null,
+        { table: 'projects', filter: clientId ? `client_id=eq.${clientId}` : undefined },
+        () => fetchProjects()
+    );
 
     const fetchProjects = async () => {
         try {

@@ -435,11 +435,42 @@ const Inventory = () => {
                 {loading ? (
                     <div className="py-12 text-center text-gray-400">Chargement...</div>
                 ) : filteredItems.length === 0 ? (
-                    <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
-                        <Package className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                        <p className="text-gray-500">Votre stock est vide ou aucun résultat.</p>
-                        <p className="text-sm text-gray-400">Utilisez le scan Code-Barre pour commencer.</p>
-                    </div>
+                    items.length === 0 ? (
+                        <div className="py-16 text-center bg-white rounded-xl border border-dashed border-gray-300 px-6">
+                            <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                                <Package className="h-10 w-10 text-blue-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Votre stock est vide</h3>
+                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                                Suivez vos consommables, fournitures et matériel en quelques clics.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <button
+                                    onClick={() => setShowNewItemModal(true)}
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Ajouter un article
+                                </button>
+                                <button
+                                    onClick={() => setShowBarcodeModal(true)}
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                >
+                                    <ScanBarcode className="w-4 h-4" />
+                                    Scanner un code-barre
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                            <Search className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-500">
+                                {searchTerm
+                                    ? <>Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"</>
+                                    : 'Aucun article ne correspond à ce filtre.'}
+                            </p>
+                        </div>
+                    )
                 ) : (
                     filteredItems.map(item => (
                         <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-200 transition-all">

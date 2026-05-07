@@ -9,10 +9,12 @@ import { toastError } from '../utils/supabaseErrorHandler';
  */
 export const DASHBOARD_WIDGETS = [
     { id: 'kpi_strip',        label: 'Indicateurs clés',           description: 'CA du mois, devis en cours, prochain RDV', defaultVisible: true,  alwaysOn: true  },
+    { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: true,  alwaysOn: false },
     { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis pour créer devis, factures, etc.', defaultVisible: true,  alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
     { id: 'financial_health', label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',     defaultVisible: true,  alwaysOn: false },
     { id: 'recent_documents', label: 'Derniers documents',         description: '5 devis/factures les plus récents',       defaultVisible: true,  alwaysOn: false },
+    { id: 'top_clients',      label: 'Top clients',                description: 'Vos meilleurs clients par chiffre d\'affaires', defaultVisible: true,  alwaysOn: false },
     { id: 'voice_memos',      label: 'Mémos vocaux récents',       description: 'Vos derniers enregistrements vocaux',     defaultVisible: true,  alwaysOn: false },
     { id: 'advanced_stats',   label: 'Statistiques détaillées',    description: 'Graphiques CA, résultat net, conversion', defaultVisible: true,  alwaysOn: false },
     { id: 'recent_activity',  label: 'Activité récente',           description: 'Journal des dernières actions',           defaultVisible: true,  alwaysOn: false },

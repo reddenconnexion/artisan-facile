@@ -1,27 +1,40 @@
 import { supabase } from './supabase';
+import {
+    toSafeNumber,
+    validateQuoteItem,
+    extractJsonObject,
+    parseQuoteResponse,
+} from './quoteValidation';
+
+// Re-exported so callers that already import these from aiService keep working.
+export { toSafeNumber };
 
 /**
  * Calls the ai-proxy Edge Function which securely retrieves the API key
  * from the database and proxies the request server-side.
+ *
+ * Two call shapes:
+ *   - { systemPrompt, userMessage }: legacy/explicit prompt path
+ *   - { preset, extras, userMessage }: server resolves the preset (e.g. 'quote')
+ *     against the user's saved customisation, keeping default prompts off the client bundle
  */
-const callAiProxy = async (systemPrompt, userMessage) => {
-    const { data, error } = await supabase.functions.invoke('ai-proxy', {
-        body: { systemPrompt, userMessage }
-    });
+const callAiProxy = async (body) => {
+    const { data, error } = await supabase.functions.invoke('ai-proxy', { body });
 
-    // Check data.error first — supabase-js v2 may return data=null on non-2xx,
-    // so also fall back to error.message as a last resort.
     if (data?.error) throw new Error(data.error);
     if (error) throw new Error(error.message || 'Erreur du proxy IA');
-
-    if (data?.error) throw new Error(data.error);
 
     return data.rawResponse;
 };
 
 /**
  * Prompt système par défaut pour la génération de devis.
- * Exporté pour permettre l'affichage et la personnalisation dans l'interface.
+ *
+ * Production calls now resolve the prompt server-side via `preset: 'quote'`
+ * in callAiProxy, so the server is the source of truth and can be tuned
+ * without a frontend redeploy. This client-side copy is kept only as a
+ * placeholder hint in the Profile page so users can see what the default
+ * looks like before customising it.
  */
 export const DEFAULT_QUOTE_PROMPT = `Tu es un expert artisan du bâtiment français. Génère un devis précis à partir de la description des travaux.
 
@@ -86,19 +99,20 @@ export const extractQuoteFromPdfText = async (pdfText) => {
     // 12k chars is plenty for typical 3-5 page artisan quotes.
     const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + '\n…[tronqué]' : pdfText;
 
-    const rawResponse = await callAiProxy(PDF_EXTRACTION_PROMPT, `TEXTE DU DEVIS À ANALYSER :\n\n${truncated}`);
-
-    let s = rawResponse.trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
+    const rawResponse = await callAiProxy({
+        systemPrompt: PDF_EXTRACTION_PROMPT,
+        userMessage: `TEXTE DU DEVIS À ANALYSER :\n\n${truncated}`,
+    });
 
     let parsed;
     try {
-        parsed = JSON.parse(s);
+        parsed = extractJsonObject(rawResponse);
     } catch {
         throw new Error("L'IA a renvoyé un format invalide pour l'extraction PDF.");
     }
 
+    // Reuse the shared safe-number coercion so PDF-extracted prices can't
+    // silently turn malformed values into "1" or "0".
     const items = Array.isArray(parsed.items) ? parsed.items.map(it => ({
         id: Date.now() + Math.random(),
         description: String(it.description || '').trim(),
@@ -118,77 +132,6 @@ export const extractQuoteFromPdfText = async (pdfText) => {
 };
 
 /**
- * Coerces a value to a finite number. Returns `fallback` and logs a warning
- * when the value is missing, NaN, Infinity or otherwise non-numeric. This
- * prevents silent data corruption (e.g. parseFloat("abc") || 1 turning a
- * malformed quantity into 1 with no signal to the caller).
- */
-export function toSafeNumber(value, fallback, fieldName = 'value') {
-    if (value === null || value === undefined || value === '') return fallback;
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (!Number.isFinite(num)) {
-        console.warn(`[aiService] Invalid numeric ${fieldName}: ${JSON.stringify(value)} → using ${fallback}`);
-        return fallback;
-    }
-    return num;
-}
-
-/**
- * Validates an AI-generated quote item and returns a normalised version.
- * Throws on missing/invalid description (the only field we cannot recover
- * from); coerces numeric fields with a warning when malformed.
- */
-function validateQuoteItem(item, index) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
-        throw new Error(`Item ${index} : structure invalide.`);
-    }
-    if (typeof item.description !== 'string' || item.description.trim() === '') {
-        throw new Error(`Item ${index} : description manquante.`);
-    }
-    return {
-        description: item.description.trim(),
-        quantity: toSafeNumber(item.quantity, 1, `items[${index}].quantity`),
-        unit: typeof item.unit === 'string' && item.unit ? item.unit : 'u',
-        price: toSafeNumber(item.price, 0, `items[${index}].price`),
-        type: item.type === 'material' ? 'material' : 'service',
-    };
-}
-
-/**
- * Extracts a JSON object from a possibly-noisy AI response (markdown fences,
- * leading prose, etc.) and parses it. Throws a user-facing error on failure.
- */
-function extractJsonObject(raw) {
-    let s = String(raw ?? '').trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
-    try {
-        return JSON.parse(s);
-    } catch {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
-}
-
-/**
- * Parses and validates the raw JSON response from the AI proxy.
- */
-function parseQuoteResponse(raw) {
-    const parsed = extractJsonObject(raw);
-    const rawItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);
-    if (!Array.isArray(rawItems)) {
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
-    }
-    const items = rawItems.map(validateQuoteItem);
-    const suggestions = Array.isArray(parsed.suggestions)
-        ? parsed.suggestions.filter((s) => typeof s === 'string')
-        : [];
-    const estimated_duration = typeof parsed.estimated_duration === 'string'
-        ? parsed.estimated_duration
-        : null;
-    return { items, suggestions, estimated_duration };
-}
-
-/**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work
  * @param {object} context - Optional context (hourlyRate, instructions, customSystemPrompt, etc.)
@@ -197,14 +140,15 @@ function parseQuoteResponse(raw) {
 export const generateQuoteItems = async (userDescription, context = {}) => {
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
-    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
     let extras = '';
     if (hourlyRate) extras += `\nTaux horaire MO imposé: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS SPÉCIALES: ${instructions}`;
 
-    const systemPrompt = basePrompt + extras;
-    const rawResponse = await callAiProxy(systemPrompt, `TRAVAUX: "${userDescription}"`);
+    const userMessage = `TRAVAUX: "${userDescription}"`;
+    const rawResponse = context.customSystemPrompt
+        ? await callAiProxy({ systemPrompt: context.customSystemPrompt + extras, userMessage })
+        : await callAiProxy({ preset: 'quote', extras, userMessage });
     return parseQuoteResponse(rawResponse);
 };
 
@@ -311,7 +255,7 @@ export const processAssistantIntent = async (userText, fullPipeline = false) => 
     ${pipelineDataFormats}
     `;
 
-    const rawResponse = await callAiProxy(systemPrompt, `DEMANDE UTILISATEUR: "${userText}"`);
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: `DEMANDE UTILISATEUR: "${userText}"` });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -343,7 +287,7 @@ FORMAT JSON pur (sans markdown) :
     "notes": "..."
 }`;
 
-    const rawResponse = await callAiProxy(systemPrompt, `TRANSCRIPTION VOCALE : "${transcript}"`);
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: `TRANSCRIPTION VOCALE : "${transcript}"` });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
@@ -375,14 +319,16 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
 
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
     const instructions = context.instructions || context.ai_instructions;
-    const basePrompt = context.customSystemPrompt || DEFAULT_QUOTE_PROMPT;
 
-    let extras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:';
-    extras += '\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    let extras = '';
     if (hourlyRate) extras += `\nTaux horaire MO: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS: ${instructions}`;
 
-    const rawResponse = await callAiProxy(basePrompt + extras, `VISITE CHANTIER:\n\n${combined}`);
+    const userMessage = `VISITE CHANTIER:\n\n${combined}`;
+    const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    const rawResponse = context.customSystemPrompt
+        ? await callAiProxy({ systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
+        : await callAiProxy({ preset: 'quote-site-visit', extras, userMessage });
 
     const parsed = extractJsonObject(rawResponse);
     const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
@@ -505,7 +451,7 @@ FORMAT JSON ATTENDU :
     "body": "Corps du mail..."
 }`;
 
-    const rawResponse = await callAiProxy(systemPrompt, 'Génère l\'email de relance.');
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: 'Génère l\'email de relance.' });
 
     let cleanJson = rawResponse.trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);

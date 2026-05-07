@@ -3,6 +3,8 @@ import { Plus, Search, Truck, Calendar, CheckCircle, AlertTriangle, Trash2, X } 
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 import { format, isPast, addDays, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,24 +30,14 @@ const Rentals = () => {
     useEffect(() => {
         if (user) {
             fetchRentals();
-
-            // Realtime subscription
-            const subscription = supabase
-                .channel('rentals_subscription')
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: 'project_rentals' },
-                    () => {
-                        fetchRentals();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(subscription);
-            };
         }
     }, [user]);
+
+    const { status: realtimeStatus } = useRealtimeSubscription(
+        user ? 'rentals_subscription' : null,
+        { table: 'project_rentals' },
+        () => fetchRentals()
+    );
 
     const fetchRentals = async () => {
         try {
@@ -139,9 +131,10 @@ const Rentals = () => {
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Truck className="w-8 h-8 mr-3 text-blue-600" />
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Truck className="w-8 h-8 text-blue-600" />
                         Locations de Matériel
+                        <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                     </h1>
                     <p className="text-gray-500 mt-1">Suivez vos locations en cours et à rendre.</p>
                 </div>
@@ -175,10 +168,33 @@ const Rentals = () => {
                 {loading ? (
                     <div className="text-center py-12 text-gray-500">Chargement...</div>
                 ) : filteredRentals.length === 0 ? (
-                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                        <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500">Aucune location trouvée.</p>
-                    </div>
+                    rentals.length === 0 ? (
+                        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300 px-6">
+                            <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                                <Truck className="h-10 w-10 text-blue-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune location enregistrée</h3>
+                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                                Suivez vos locations de matériel (échafaudages, nacelles, outillage) avec dates, coûts et fournisseur.
+                            </p>
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Ajouter une location
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                            <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-500">
+                                {filter === 'active' ? 'Aucune location en cours.' :
+                                    filter === 'returned' ? 'Aucune location terminée.' :
+                                    'Aucune location dans cette catégorie.'}
+                            </p>
+                        </div>
+                    )
                 ) : (
                     filteredRentals.map((rental) => {
                         const isLate = rental.status === 'active' && rental.end_date && isPast(new Date(rental.end_date)) && !differenceInDays(new Date(), new Date(rental.end_date)) === 0;

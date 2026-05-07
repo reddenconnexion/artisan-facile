@@ -135,6 +135,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const value = {
+        loading,
         signUp: (data) => supabase.auth.signUp(data),
         signIn: async (data) => {
             const result = await supabase.auth.signInWithPassword(data);
@@ -189,7 +190,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
