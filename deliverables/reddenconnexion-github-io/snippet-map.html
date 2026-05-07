@@ -1,0 +1,62 @@
+<!--
+  Snippet à insérer dans la page de reddenconnexion.github.io où la carte
+  doit apparaître. Dépend de /js/interventions.json (généré chaque nuit par
+  l'Action GitHub).
+-->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  #interventions-map { height: 500px; width: 100%; border-radius: 8px; }
+  .intervention-stats {
+    font-family: system-ui, sans-serif;
+    margin: 1em 0;
+    color: #1f2937;
+  }
+</style>
+
+<p class="intervention-stats" id="intervention-stats">Chargement de la carte…</p>
+<div id="interventions-map" role="img" aria-label="Carte des interventions par commune"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(async function () {
+  const map = L.map('interventions-map').setView([46.6, 2.5], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(map);
+
+  const stats = document.getElementById('intervention-stats');
+
+  try {
+    const res = await fetch('/js/interventions.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+
+    const date = new Date(data.generatedAt).toLocaleDateString('fr-FR');
+    stats.textContent =
+      `${data.total} intervention${data.total > 1 ? 's' : ''} `
+      + `dans ${data.cities.length} commune${data.cities.length > 1 ? 's' : ''} `
+      + `(mis à jour le ${date}).`;
+
+    const maxCount = Math.max(1, ...data.cities.map((c) => c.count));
+    for (const c of data.cities) {
+      const radius = 6 + Math.sqrt(c.count / maxCount) * 20;
+      L.circleMarker([c.lat, c.lng], {
+        radius,
+        color: '#1d4ed8',
+        weight: 1,
+        fillColor: '#3b82f6',
+        fillOpacity: 0.6,
+      })
+        .bindPopup(
+          `<strong>${c.city}</strong><br>`
+          + `${c.count} intervention${c.count > 1 ? 's' : ''}`,
+        )
+        .addTo(map);
+    }
+  } catch (err) {
+    stats.textContent = 'Données non disponibles pour le moment.';
+    console.error(err);
+  }
+})();
+</script>
