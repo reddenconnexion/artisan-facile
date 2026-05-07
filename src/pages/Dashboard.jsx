@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -41,8 +41,11 @@ import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
+import CopilotChat from '../components/CopilotChat';
+import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
+import { useDashboardSettings } from '../hooks/useDashboardSettings';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -645,6 +648,8 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const [detailsView, setDetailsView] = useState(null);
     const [statsExpanded, setStatsExpanded] = useState(() => localStorage.getItem('dashboard_stats_expanded') === '1');
+    const [customizeOpen, setCustomizeOpen] = useState(false);
+    const { isVisible } = useDashboardSettings();
     const { isTestMode, testClient } = useTestMode();
 
     const toggleStats = () => {
@@ -740,12 +745,23 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <div className="flex items-center">
+            <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <LayoutDashboard className="w-8 h-8 text-blue-600" />
                     Tableau de bord
                 </h2>
+                <button
+                    type="button"
+                    onClick={() => setCustomizeOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Personnaliser le tableau de bord"
+                >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Personnaliser</span>
+                </button>
             </div>
+
+            <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
 
             <WelcomeCard />
 
@@ -754,20 +770,24 @@ const Dashboard = () => {
             <OnboardingChecklist />
 
             {/* KPI Strip — 3 métriques essentielles d'un coup d'oeil */}
-            <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
+            {isVisible('kpi_strip') && (
+                <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
+            )}
 
             {/* Alerte actionnable — visible uniquement quand des devis expirent */}
-            <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
+            {isVisible('expiring_quotes') && (
+                <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
+            )}
 
-            <QuickActions />
+            {isVisible('quick_actions') && <QuickActions />}
 
-            <ActionableDashboard user={user} />
+            {isVisible('actionable') && <ActionableDashboard user={user} />}
 
             {/* Score de santé financière — visible dès qu'il y a des données pertinentes */}
-            <FinancialHealthCard quotes={allQuotes} />
+            {isVisible('financial_health') && <FinancialHealthCard quotes={allQuotes} />}
 
             {/* Derniers documents — 5 devis/factures les plus récents */}
-            {allQuotes.length > 0 && (() => {
+            {isVisible('recent_documents') && allQuotes.length > 0 && (() => {
                 const STATUS_LABEL = { draft: 'Brouillon', sent: 'Envoyé', accepted: 'Signé', billed: 'Facturé', paid: 'Payé' };
                 const STATUS_COLOR = {
                     draft:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
@@ -823,13 +843,19 @@ const Dashboard = () => {
                 );
             })()}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TopClientsWidget allQuotes={allQuotes} navigate={navigate} />
-                <RecentVoiceMemos userId={user?.id} navigate={navigate} />
-            </div>
+            {(isVisible('top_clients') || isVisible('voice_memos')) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {isVisible('top_clients') && (
+                        <TopClientsWidget allQuotes={allQuotes} navigate={navigate} />
+                    )}
+                    {isVisible('voice_memos') && (
+                        <RecentVoiceMemos userId={user?.id} navigate={navigate} />
+                    )}
+                </div>
+            )}
 
             {/* Statistiques avancées — pliable, visibles à partir du niveau Intermédiaire */}
-            {showAdvancedStats && !hasNoQuotes && (
+            {isVisible('advanced_stats') && showAdvancedStats && !hasNoQuotes && (
                 <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <button
                         onClick={toggleStats}
@@ -900,6 +926,7 @@ const Dashboard = () => {
                 </div>
             )}
 
+            {isVisible('recent_activity') && (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>
                 <div className="space-y-4">
@@ -921,6 +948,25 @@ const Dashboard = () => {
                     ) : <div className="text-gray-500 text-center py-8">Aucune activité récente.</div>}
                 </div>
             </div>
+            )}
+
+            {/* Copilot Artisan : assistant IA contextuel sur le dashboard */}
+            <CopilotChat
+                context={{
+                    page: 'Tableau de bord',
+                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    facts: [
+                        `Nombre de devis/factures en base : ${allQuotes.length}`,
+                        `Clients : ${clientCount}`,
+                        `Devis en attente (brouillon ou envoyé) : ${pendingQuotesCount}`,
+                    ],
+                }}
+                presets={[
+                    { label: 'Quel est mon CA ce mois ?',         prompt: 'Quel est mon chiffre d\'affaires sur les 30 derniers jours ?' },
+                    { label: 'Quels devis relancer ?',            prompt: 'Quels devis envoyés méritent d\'être relancés en priorité ?' },
+                    { label: 'Idées pour booster mon activité',   prompt: 'Donne-moi 3 idées concrètes pour booster mon activité d\'artisan ce mois.' },
+                ]}
+            />
         </div>
     );
 };

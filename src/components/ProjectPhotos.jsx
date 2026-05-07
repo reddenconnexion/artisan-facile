@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
+import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -488,11 +489,24 @@ const ProjectPhotos = ({ clientId }) => {
             const files = Array.from(event.target.files);
             if (files.length === 0) return;
 
+            // Validation stricte : magic bytes + taille (max 8 MB par photo)
+            const { valid, errors } = await validateFiles(files, UPLOAD_PRESETS.image);
+            if (errors.length > 0) {
+                toast.error(`${errors.length} fichier(s) refusé(s)`, {
+                    description: errors.slice(0, 3).join(' · '),
+                    duration: 6000,
+                });
+            }
+            if (valid.length === 0) {
+                event.target.value = '';
+                return;
+            }
+
             setUploading(true);
             let successCount = 0;
 
             // Process uploads in parallel
-            const uploadPromises = files.map(async (file) => {
+            const uploadPromises = valid.map(async (file) => {
                 try {
                     // 1. Upload to Storage
                     const fileExt = file.name.split('.').pop();

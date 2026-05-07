@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
+import CopilotChat from '../components/CopilotChat';
+import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -70,10 +72,14 @@ const DevisForm = () => {
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
     const [showImportZone, setShowImportZone] = useState(false);
+    const [competitorImport, setCompetitorImport] = useState(null);   // { filename, importedAt } quand on est en contre-proposition
     const [isDragOver, setIsDragOver] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
+    const [emailPdfUrl, setEmailPdfUrl] = useState(null);
+    const [emailPdfLoading, setEmailPdfLoading] = useState(false);
+    const [emailPreviewTab, setEmailPreviewTab] = useState('pdf'); // 'pdf' | 'email' (mobile)
     const fileInputRef = useRef(null);
     // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
     // without the actual user.id or quote id changing.
@@ -218,7 +224,7 @@ const DevisForm = () => {
         setAiLoading(true);
         try {
             // Check quota for free users without a personal API key
-            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const plan = userProfile?.plan || 'free';
             const isPro = plan === 'pro' || plan === 'owner';
 
@@ -553,7 +559,7 @@ const DevisForm = () => {
             fetchClients().then(async (loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
+                    const { client_id, voiceData, importFile, importMode, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
 
                     // Pré-remplissage depuis un rapport d'intervention
                     if (fromReport) {
@@ -627,7 +633,7 @@ const DevisForm = () => {
                     }
 
                     if (importFile) {
-                        processImportedFile(importFile);
+                        processImportedFile(importFile, importMode);
                     }
 
                     if (mergeIds?.length >= 2) {
@@ -677,16 +683,18 @@ const DevisForm = () => {
     }, [user, id]);
 
     // Reusable function to process imported file
-    const processImportedFile = async (file) => {
+    const processImportedFile = async (file, mode = 'archive') => {
         if (!file) return;
+
+        // Validation stricte : magic bytes + taille (PDF ou DOCX uniquement, max 20 MB)
+        const validation = await validateFileForUpload(file, UPLOAD_PRESETS.quoteDocument);
+        if (!validation.ok) {
+            toast.error(validation.error);
+            return;
+        }
 
         const isPdf = file.type === 'application/pdf';
         const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx');
-
-        if (!isPdf && !isDocx) {
-            toast.error('Seuls les fichiers PDF et Word (.docx) sont supportés');
-            return;
-        }
 
         try {
             setImporting(true);
@@ -733,7 +741,7 @@ const DevisForm = () => {
                 regexItems.length < 3 ||
                 (regexItems.length > 0 && zeroPriced / regexItems.length > 0.5);
 
-            const hasPersonalKey = !!(userProfile?.openai_api_key || userProfile?.ai_preferences?.openai_api_key);
+            const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const planNow = userProfile?.plan || 'free';
             const isPro = planNow === 'pro' || planNow === 'owner';
             const canUseAi = (hasPersonalKey || isPro || isAiTrialSession) && text && text.trim().length > 50;
@@ -759,19 +767,31 @@ const DevisForm = () => {
                 }
             }
 
-            // Update Form Data
+            // Pour une contre-proposition, on préfixe le titre et on bascule en mode externe
+            // (preserve l'original PDF pour comparaison) — l'artisan ajustera les prix.
+            const isCompetitor = mode === 'competitor';
+            const proposedTitle = finalTitle || '';
+            const competitorTitle = proposedTitle
+                ? `Contre-proposition — ${proposedTitle}`
+                : 'Contre-proposition';
+
             setFormData(prev => ({
                 ...prev,
                 original_pdf_url: publicUrl,
-                title: prev.title || (finalTitle || ''),
+                title: prev.title || (isCompetitor ? competitorTitle : proposedTitle),
                 items: finalItems.length > 0 ? finalItems : prev.items,
                 notes: finalNotes ? (prev.notes ? prev.notes + '\n' + finalNotes : finalNotes) : prev.notes
             }));
 
+            // Mémoriser le mode pour afficher le bandeau d'aide à la contre-proposition
+            if (isCompetitor) setCompetitorImport({ filename: file.name, importedAt: Date.now() });
+
             setShowImportZone(false);
             if (finalItems.length > 0) {
                 toast.success(
-                    `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`
+                    isCompetitor
+                        ? `Devis concurrent analysé : ${finalItems.length} lignes importées${aiUsed ? ' (IA)' : ''}. Ajustez vos prix pour la contre-proposition.`
+                        : `${finalItems.length} éléments détectés et importés${aiUsed ? ' (IA)' : ''}.`,
                 );
             } else {
                 toast.info("Aucun élément chiffré détecté (Document image ?), document joint.");
@@ -1320,6 +1340,60 @@ const DevisForm = () => {
     };
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
+
+    // Génère le PDF de prévisualisation à l'ouverture du modal d'envoi
+    // pour que l'artisan voit ce qui sera réellement envoyé avant de cliquer
+    useEffect(() => {
+        if (!emailPreview || !userProfile) return;
+
+        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+        if (!selectedClient) return;
+
+        let cancelled = false;
+        let blobUrl = null;
+        setEmailPdfLoading(true);
+
+        const devisData = {
+            id: isEditing ? id : 'PROVISOIRE',
+            ...formData,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0,
+            })),
+            total_ht:  subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva,
+            has_material_deposit: formData.has_material_deposit,
+            amendment_details: formData.amendment_details || {},
+        };
+
+        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'bloburl')
+            .then(url => {
+                if (cancelled) {
+                    if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+                    return;
+                }
+                blobUrl = url;
+                setEmailPdfUrl(url);
+            })
+            .catch(err => {
+                if (!cancelled) {
+                    console.error('Email PDF preview error:', err);
+                    toast.error('Impossible de générer la prévisualisation PDF');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setEmailPdfLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+            if (blobUrl?.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
+            setEmailPdfUrl(null);
+        };
+    }, [emailPreview?.email, formData.client_id, isEditing, id, userProfile?.id, subtotal, tva, total]);
 
     // Helper to auto-update CRM status
     const updateClientCRMStatus = async (clientId, quoteStatus) => {
@@ -2400,6 +2474,45 @@ Conditions de règlement : Paiement à réception de facture.`
 
     return (
         <div className={`max-w-4xl mx-auto pb-12 sm:pb-12 pb-28 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
+
+            {/* Bandeau contre-proposition — affiché tant que l'artisan n'a pas masqué */}
+            {competitorImport && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4 mb-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                        <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-blue-900 dark:text-blue-200">
+                            Contre-proposition à partir de {competitorImport.filename}
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300/90 mt-1 leading-relaxed">
+                            Les lignes du devis concurrent ont été importées. Ajustez les prix unitaires pour proposer
+                            une offre compétitive — pensez à utiliser le Copilot (✨ en bas à droite) pour vérifier vos
+                            marges ou suggérer un prix.
+                        </p>
+                        {formData.original_pdf_url && (
+                            <a
+                                href={formData.original_pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-300 hover:underline mt-2"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                Ouvrir le devis original
+                            </a>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setCompetitorImport(null)}
+                        className="p-1 text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 rounded flex-shrink-0"
+                        title="Masquer ce bandeau"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {isLocked && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
@@ -3887,11 +4000,11 @@ Conditions de règlement : Paiement à réception de facture.`
             {
                 emailPreview && createPortal(
                     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
-                        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl max-w-2xl w-full flex flex-col h-[92vh] sm:h-auto sm:max-h-[90vh]">
+                        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-5xl flex flex-col h-[95vh] sm:h-[90vh]">
                             <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                                     <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                                    Prévisualisation de l'email
+                                    Vérifiez avant d'envoyer
                                 </h3>
                                 <button
                                     onClick={() => setEmailPreview(null)}
@@ -3901,58 +4014,108 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </button>
                             </div>
 
-                            <div className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={emailPreview.email}
-                                        className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={emailPreview.rawSubject}
-                                            onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            {/* Onglets mobile (PDF / Email) */}
+                            <div className="md:hidden flex border-b border-gray-100 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setEmailPreviewTab('pdf')}
+                                    className={`flex-1 py-2.5 text-sm font-medium ${emailPreviewTab === 'pdf' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                                >
+                                    Aperçu du PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setEmailPreviewTab('email')}
+                                    className={`flex-1 py-2.5 text-sm font-medium ${emailPreviewTab === 'email' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                                >
+                                    Email
+                                </button>
+                            </div>
+
+                            {/* Body : 2 panneaux desktop, 1 selon onglet sur mobile */}
+                            <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+
+                                {/* Panneau PDF (à gauche en desktop, masqué si onglet=email sur mobile) */}
+                                <div className={`flex-1 min-w-0 bg-gray-100 border-b md:border-b-0 md:border-r border-gray-200 ${emailPreviewTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
+                                    {emailPdfLoading ? (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+                                            <Loader2 className="w-7 h-7 animate-spin" />
+                                            <p className="text-sm">Génération de l'aperçu PDF…</p>
+                                        </div>
+                                    ) : emailPdfUrl ? (
+                                        <iframe
+                                            src={emailPdfUrl}
+                                            title="Aperçu PDF"
+                                            className="flex-1 w-full border-0 bg-white"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(emailPreview.rawSubject);
-                                                toast.success('Objet copié !');
-                                            }}
-                                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
-                                            title="Copier l'objet"
-                                        >
-                                            <Copy className="w-5 h-5" />
-                                        </button>
-                                    </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2 px-6 text-center">
+                                            <FileText className="w-7 h-7" />
+                                            <p className="text-sm">Aperçu indisponible — vous pouvez quand même envoyer.</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                    <div className="relative">
-                                        <textarea
-                                            rows={8}
-                                            value={emailPreview.rawBody}
-                                            onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(emailPreview.rawBody);
-                                                toast.success('Message copié !');
-                                            }}
-                                            className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
-                                            title="Copier le message"
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                        </button>
+
+                                {/* Panneau Email (à droite en desktop) */}
+                                <div className={`md:w-96 flex-shrink-0 ${emailPreviewTab === 'email' ? 'flex' : 'hidden md:flex'} flex-col overflow-y-auto`}>
+                                    <div className="p-4 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={emailPreview.email}
+                                                className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={emailPreview.rawSubject}
+                                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
+                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(emailPreview.rawSubject);
+                                                        toast.success('Objet copié !');
+                                                    }}
+                                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
+                                                    title="Copier l'objet"
+                                                >
+                                                    <Copy className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                            <div className="relative">
+                                                <textarea
+                                                    rows={10}
+                                                    value={emailPreview.rawBody}
+                                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
+                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(emailPreview.rawBody);
+                                                        toast.success('Message copié !');
+                                                    }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
+                                                    title="Copier le message"
+                                                >
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-400 leading-relaxed">
+                                            Le PDF affiché à gauche est exactement celui que recevra le client en pièce jointe.
+                                            Vérifiez le montant, l'adresse et les coordonnées avant l'envoi.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -4137,6 +4300,29 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 </div>
             )}
+
+            {/* Copilot Artisan : assistant IA avec contexte du devis courant */}
+            <CopilotChat
+                context={{
+                    page: formData.type === 'invoice' ? 'Édition de facture' : 'Édition de devis',
+                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    facts: [
+                        formData.type === 'invoice' ? 'Type : Facture' : 'Type : Devis',
+                        formData.title && `Titre : ${formData.title}`,
+                        formData.client_name && `Client : ${formData.client_name}`,
+                        `Statut : ${formData.status || 'brouillon'}`,
+                        `Nombre de lignes : ${(formData.items || []).length}`,
+                        `Total HT : ${(subtotal || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+                        formData.include_tva && `Total TTC : ${(total || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+                        formData.valid_until && `Valable jusqu'au : ${new Date(formData.valid_until).toLocaleDateString('fr-FR')}`,
+                    ].filter(Boolean),
+                }}
+                presets={[
+                    { label: 'Rédige un email de relance',  prompt: 'Rédige un email de relance court et courtois pour ce devis. Ton professionnel, 4-5 phrases max, pas de relance trop insistante.' },
+                    { label: 'Vérifie la cohérence',        prompt: 'À partir des informations de ce devis, vérifie la cohérence des montants et signale tout point qui mériterait que je le revoie avant envoi.' },
+                    { label: 'Suggère une remise commerciale', prompt: 'Quelle remise commerciale serait raisonnable sur ce devis pour augmenter mes chances qu\'il soit signé sans trop entamer ma marge ?' },
+                ]}
+            />
         </div>
     );
 

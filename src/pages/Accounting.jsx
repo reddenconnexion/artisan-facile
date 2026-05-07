@@ -5,6 +5,7 @@ import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import CopilotChat from '../components/CopilotChat';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -1395,6 +1396,24 @@ const Accounting = () => {
           </div>
         );
       })()}
+
+      {/* Copilot Artisan : assistant IA avec contexte comptable */}
+      <CopilotChat
+        context={{
+          page: 'Comptabilité',
+          today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+          facts: [
+            `Année consultée : ${selectedYear}`,
+            `CA encaissé sur l'année : ${(yearlyRevenue || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+            `Nombre de factures filtrées affichées : ${filteredInvoices.length}`,
+          ],
+        }}
+        presets={[
+          { label: 'Explique-moi le seuil micro-entrepreneur', prompt: 'Explique-moi simplement les seuils 2024-2025 du régime micro-entrepreneur pour les artisans, et ce que je dois surveiller.' },
+          { label: 'Mes charges à payer ce trimestre',         prompt: 'D\'après mes chiffres, à combien environ s\'élèveront mes charges URSSAF ce trimestre ?' },
+          { label: 'Comment optimiser ma comptabilité ?',      prompt: 'Donne-moi 3 conseils concrets pour mieux gérer ma comptabilité d\'artisan.' },
+        ]}
+      />
     </div>
   );
 };

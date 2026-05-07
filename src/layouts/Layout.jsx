@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -630,6 +630,19 @@ const Layout = () => {
             >
               <Wrench className="w-5 h-5 flex-shrink-0 text-orange-500 mr-3" />
               Mode terrain
+            </button>
+
+            {/* Toggle thème clair / sombre */}
+            <button
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+              title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            >
+              {isDarkMode
+                ? <Sun  className={`w-5 h-5 flex-shrink-0 text-amber-400 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                : <Moon className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+              }
+              {(!isCollapsed || isMobileMenuOpen) && (isDarkMode ? 'Mode clair' : 'Mode sombre')}
             </button>
 
             <button

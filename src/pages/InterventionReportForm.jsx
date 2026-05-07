@@ -4,8 +4,9 @@ import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
-    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle
+    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag
 } from 'lucide-react';
+import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -115,6 +116,7 @@ const InterventionReportForm = () => {
         work_done: '',
         materials_used: [EMPTY_MATERIAL()],
         photos: [],
+        milestones: [],
         notes: '',
         status: 'draft',
         client_signature: null,
@@ -289,10 +291,24 @@ const InterventionReportForm = () => {
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (!files.length) return;
+
+        // Validation stricte : magic bytes, taille max, type MIME réel
+        const { valid, errors } = await validateFiles(files, UPLOAD_PRESETS.image);
+        if (errors.length > 0) {
+            toast.error(`${errors.length} fichier(s) refusé(s)`, {
+                description: errors.slice(0, 3).join(' · '),
+                duration: 6000,
+            });
+        }
+        if (valid.length === 0) {
+            e.target.value = '';
+            return;
+        }
+
         setUploadingPhotos(true);
         try {
             const uploaded = [];
-            for (const file of files) {
+            for (const file of valid) {
                 const ext = file.name.split('.').pop();
                 const path = `interventions/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
                 const { error: uploadError } = await supabase.storage
@@ -325,6 +341,125 @@ const InterventionReportForm = () => {
         }
     };
 
+    /* ── Jalons d'avancement (preuves datées + géolocalisées) ─────────────── */
+
+    const [capturingMilestone, setCapturingMilestone] = useState(null); // 'start' | 'progress' | 'reception' | 'custom'
+    const milestoneFileRef = useRef(null);
+
+    const MILESTONE_LABELS = {
+        start:     'Démarrage du chantier',
+        progress:  'Avancement',
+        reception: 'Réception du chantier',
+        custom:    'Étape',
+    };
+
+    const captureGeolocation = () =>
+        new Promise((resolve) => {
+            if (!('geolocation' in navigator)) return resolve(null);
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({
+                    latitude:  pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy:  pos.coords.accuracy,
+                }),
+                () => resolve(null),                              // permission refusée → on continue sans GPS
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 60_000 },
+            );
+        });
+
+    const triggerMilestoneCapture = (type) => {
+        setCapturingMilestone(type);
+        // Déclencher l'input file (avec capture caméra côté mobile)
+        setTimeout(() => milestoneFileRef.current?.click(), 0);
+    };
+
+    const handleMilestoneFile = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file || !capturingMilestone) {
+            setCapturingMilestone(null);
+            return;
+        }
+
+        // Validation stricte (magic bytes + taille)
+        const validation = await validateFileForUpload(file, UPLOAD_PRESETS.image);
+        if (!validation.ok) {
+            setCapturingMilestone(null);
+            toast.error(validation.error);
+            return;
+        }
+
+        const type = capturingMilestone;
+        setCapturingMilestone(null);
+        setUploadingPhotos(true);
+
+        try {
+            // Upload de la photo (même bucket que les autres photos d'intervention)
+            const ext  = file.name.split('.').pop() || 'jpg';
+            const path = `interventions/${user.id}/milestones/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+            const { error: uploadError } = await supabase.storage
+                .from('project-photos')
+                .upload(path, file);
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage
+                .from('project-photos')
+                .getPublicUrl(path);
+
+            // Géolocalisation en parallèle (best effort, pas bloquante)
+            const geo = await captureGeolocation();
+
+            const milestone = {
+                id:         (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                type,
+                label:      MILESTONE_LABELS[type],
+                photo_url:  publicUrl,
+                photo_path: path,
+                timestamp:  new Date().toISOString(),
+                ...(geo ? { latitude: geo.latitude, longitude: geo.longitude, accuracy: geo.accuracy } : {}),
+                notes: '',
+            };
+
+            setFormData(prev => ({
+                ...prev,
+                milestones: [...(prev.milestones || []), milestone],
+            }));
+
+            toast.success(`Jalon "${MILESTONE_LABELS[type]}" enregistré`, {
+                description: geo
+                    ? `📍 Position enregistrée (±${Math.round(geo.accuracy)}m)`
+                    : 'Position non disponible — photo + horodatage seuls',
+            });
+        } catch (err) {
+            console.error('Milestone capture error:', err);
+            toast.error('Impossible d\'enregistrer le jalon');
+        } finally {
+            setUploadingPhotos(false);
+        }
+    };
+
+    const removeMilestone = async (milestone) => {
+        try {
+            if (milestone.photo_path) {
+                await supabase.storage.from('project-photos').remove([milestone.photo_path]);
+            }
+            setFormData(prev => ({
+                ...prev,
+                milestones: (prev.milestones || []).filter(m => m.id !== milestone.id),
+            }));
+        } catch {
+            toast.error('Erreur lors de la suppression');
+        }
+    };
+
+    const updateMilestoneNotes = (id, notes) => {
+        setFormData(prev => ({
+            ...prev,
+            milestones: (prev.milestones || []).map(m =>
+                m.id === id ? { ...m, notes } : m,
+            ),
+        }));
+    };
+
     const handleSave = async (statusOverride = null) => {
         if (!formData.title.trim()) {
             toast.error('Le titre est obligatoire');
@@ -349,6 +484,7 @@ const InterventionReportForm = () => {
                 description: formData.description || null,
                 work_done: formData.work_done || null,
                 materials_used: formData.materials_used.filter(m => m.description.trim()),
+                milestones: formData.milestones || [],
                 notes: formData.notes || null,
                 status: statusOverride || formData.status,
                 client_signature: formData.client_signature || null,
@@ -1356,6 +1492,118 @@ const InterventionReportForm = () => {
                             <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">Ajouter</span>
                             <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
                         </label>
+                    </div>
+                )}
+            </div>
+
+            {/* Jalons d'avancement — preuves datées et géolocalisées */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Flag className="w-5 h-5 text-blue-500" />
+                            Jalons d'avancement
+                        </h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Photos horodatées et géolocalisées — protection juridique en cas de litige.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Boutons de capture */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                        { type: 'start',     label: 'Début',      color: 'green',   icon: '🟢' },
+                        { type: 'progress',  label: 'Avancement', color: 'blue',    icon: '🔵' },
+                        { type: 'reception', label: 'Réception',  color: 'purple',  icon: '🟣' },
+                        { type: 'custom',    label: 'Étape',      color: 'gray',    icon: '⚪' },
+                    ].map(({ type, label, icon }) => (
+                        <button
+                            key={type}
+                            type="button"
+                            onClick={() => triggerMilestoneCapture(type)}
+                            disabled={uploadingPhotos}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                        >
+                            <span>{icon}</span>
+                            <span className="text-gray-700 dark:text-gray-300">{label}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Input fichier avec capture caméra (mobile) */}
+                <input
+                    ref={milestoneFileRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleMilestoneFile}
+                />
+
+                {/* Liste des jalons capturés */}
+                {(formData.milestones || []).length === 0 ? (
+                    <div className="text-center py-6 text-xs text-gray-400 dark:text-gray-500">
+                        Aucun jalon enregistré pour le moment. Cliquez sur une étape ci-dessus pour prendre une photo.
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {(formData.milestones || []).map((m) => {
+                            const colorByType = {
+                                start:     'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40',
+                                progress:  'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40',
+                                reception: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800/40',
+                                custom:    'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700',
+                            }[m.type] || 'bg-gray-50 border-gray-200';
+
+                            return (
+                                <div key={m.id} className={`flex items-start gap-3 p-3 rounded-lg border ${colorByType}`}>
+                                    <a href={m.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                        <img
+                                            src={m.photo_url}
+                                            alt={m.label}
+                                            className="w-20 h-20 object-cover rounded-md border border-white/60 dark:border-gray-700"
+                                        />
+                                    </a>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-semibold text-sm text-gray-900 dark:text-white">{m.label}</span>
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                                {new Date(m.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                                            </span>
+                                            {m.latitude !== undefined && m.longitude !== undefined && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${m.latitude},${m.longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                                                    title={`Précision ±${Math.round(m.accuracy || 0)}m`}
+                                                >
+                                                    <MapPin className="w-3 h-3" />
+                                                    Voir sur la carte
+                                                </a>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={m.notes || ''}
+                                            onChange={(e) => updateMilestoneNotes(m.id, e.target.value)}
+                                            placeholder="Note (optionnel)"
+                                            maxLength={200}
+                                            className="mt-1.5 w-full text-xs px-2 py-1 bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded focus:ring-1 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeMilestone(m)}
+                                        className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded flex-shrink-0"
+                                        title="Supprimer ce jalon"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
