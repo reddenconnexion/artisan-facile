@@ -460,9 +460,21 @@ const InterventionReportForm = () => {
         }));
     };
 
+    const hasInterventionLocation = () => {
+        const postalCode = (formData.intervention_postal_code || '').trim();
+        const city = (formData.intervention_city || '').trim();
+        return Boolean(postalCode && city);
+    };
+
     const handleSave = async (statusOverride = null) => {
         if (!formData.title.trim()) {
             toast.error('Le titre est obligatoire');
+            return false;
+        }
+
+        const targetStatus = statusOverride || formData.status;
+        if ((targetStatus === 'completed' || targetStatus === 'signed') && !hasInterventionLocation()) {
+            toast.error('Le code postal et la ville sont obligatoires pour clôturer ou faire signer un rapport');
             return false;
         }
 
@@ -952,7 +964,13 @@ const InterventionReportForm = () => {
                     )}
                     {!isSiteVisit && formData.status !== 'signed' && (
                         <button
-                            onClick={() => setShowSignatureModal(true)}
+                            onClick={() => {
+                                if (!hasInterventionLocation()) {
+                                    toast.error('Renseignez le code postal et la ville avant de faire signer');
+                                    return;
+                                }
+                                setShowSignatureModal(true);
+                            }}
                             className="flex items-center gap-2 px-3 py-2 text-sm text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors font-medium"
                         >
                             <PenLine className="w-4 h-4" />
@@ -1686,7 +1704,13 @@ const InterventionReportForm = () => {
                             />
                         </div>
                         <button
-                            onClick={() => setShowSignatureModal(true)}
+                            onClick={() => {
+                                if (!hasInterventionLocation()) {
+                                    toast.error('Renseignez le code postal et la ville avant de faire signer');
+                                    return;
+                                }
+                                setShowSignatureModal(true);
+                            }}
                             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
                         >
                             <PenLine className="w-4 h-4" />
