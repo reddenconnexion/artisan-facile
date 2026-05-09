@@ -277,7 +277,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                         onClick={(e) => e.stopPropagation()}
                         title={`Naviguer vers ${nextEvent.address} avec Waze`}
                         aria-label="Naviguer avec Waze"
-                        className="absolute top-3 right-3 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                        className="md:hidden absolute top-3 right-3 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
                     >
                         <Car className="w-4 h-4" />
                     </a>
