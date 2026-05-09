@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2 } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -258,16 +258,31 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 urgent={toRelanceCount > 0}
                 onClick={() => navigate('/app/devis')}
             />
-            <KpiCard
-                index={2}
-                icon={Calendar}
-                iconBg="bg-blue-100 dark:bg-blue-900/30"
-                iconColor="text-blue-600 dark:text-blue-400"
-                value={nextRdvLabel}
-                label="Prochain RDV"
-                sub={nextRdvSub !== 'Pas de rendez-vous prévu' ? nextRdvSub : undefined}
-                onClick={() => navigate('/app/agenda')}
-            />
+            <div className="relative flex">
+                <KpiCard
+                    index={2}
+                    icon={Calendar}
+                    iconBg="bg-blue-100 dark:bg-blue-900/30"
+                    iconColor="text-blue-600 dark:text-blue-400"
+                    value={nextRdvLabel}
+                    label="Prochain RDV"
+                    sub={nextRdvSub !== 'Pas de rendez-vous prévu' ? nextRdvSub : undefined}
+                    onClick={() => navigate('/app/agenda')}
+                />
+                {nextEvent?.address && (
+                    <a
+                        href={`https://waze.com/ul?q=${encodeURIComponent(nextEvent.address)}&navigate=yes`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Naviguer vers ${nextEvent.address} avec Waze`}
+                        aria-label="Naviguer avec Waze"
+                        className="absolute top-3 right-3 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                    >
+                        <Car className="w-4 h-4" />
+                    </a>
+                )}
+            </div>
         </div>
     );
 };

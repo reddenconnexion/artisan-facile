@@ -229,7 +229,7 @@ export function useNextEvent() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('events')
-                .select('id, title, date, time, type')
+                .select('id, title, date, time, type, address')
                 .eq('user_id', user.id)
                 .gte('date', today)
                 .order('date', { ascending: true })
