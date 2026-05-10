@@ -46,29 +46,26 @@ const MetricRow = ({ metric }) => {
     const isActive = metric.score !== null;
 
     return (
-        <div className="flex items-center justify-between gap-3 py-2">
-            <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">
+        <div className="py-2">
+            <div className="flex items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {metric.label}
                 </p>
-                <p className={`text-lg font-bold ${isActive ? color.text : 'text-gray-300 dark:text-gray-600'}`}>
-                    {metric.value || '—'}
-                </p>
-            </div>
-            {/* Mini barre de progression du sous-score */}
-            <div className="w-16 flex-shrink-0">
-                <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                            width: `${metric.score ?? 0}%`,
-                            backgroundColor: color.hex,
-                        }}
-                    />
-                </div>
-                <p className={`text-[10px] text-right mt-0.5 font-bold ${color.text}`}>
+                <p className={`text-[10px] font-bold flex-shrink-0 ${color.text}`}>
                     {metric.score !== null ? `${metric.score}/100` : '—'}
                 </p>
+            </div>
+            <p className={`text-lg font-bold leading-tight mt-0.5 ${isActive ? color.text : 'text-gray-300 dark:text-gray-600'}`}>
+                {metric.value || '—'}
+            </p>
+            <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mt-1.5">
+                <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                        width: `${metric.score ?? 0}%`,
+                        backgroundColor: color.hex,
+                    }}
+                />
             </div>
         </div>
     );
@@ -131,7 +128,7 @@ const FinancialHealthCard = ({ quotes }) => {
                         <ScoreGauge score={health.score} />
                     </div>
 
-                    <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-4 sm:gap-x-6 divide-y divide-gray-100 dark:divide-gray-800 sm:divide-y-0">
+                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                         {health.breakdown.map(metric => (
                             <MetricRow key={metric.id} metric={metric} />
                         ))}
