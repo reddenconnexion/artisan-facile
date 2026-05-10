@@ -7,7 +7,7 @@ import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
-    Calendar, ArrowRight, CheckCircle, Hammer, Phone,
+    Calendar, ArrowLeft, ArrowRight, CheckCircle, Hammer, Phone,
     CreditCard, Package, Kanban
 } from 'lucide-react';
 
@@ -239,7 +239,7 @@ const WorksitePilot = () => {
     if (loading) return <div className="flex justify-center items-center h-64">Chargement des chantiers...</div>;
 
     return (
-        <div className="h-[calc(100vh-100px)] overflow-hidden flex flex-col">
+        <div className="md:h-[calc(100vh-100px)] md:overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <div>
@@ -284,12 +284,14 @@ const WorksitePilot = () => {
             {/* Canvas */}
             <div
                 ref={containerRef}
-                className={`flex gap-4 px-4 pb-4 h-full ${focusedColumn ? 'overflow-hidden' : 'flex-col overflow-y-auto md:flex-row md:overflow-x-auto'}`}
+                className={`flex gap-4 px-4 pb-4 md:h-full ${focusedColumn ? 'overflow-hidden' : 'flex-col md:flex-row md:overflow-x-auto'}`}
             >
-                <div className="flex gap-4 h-full" style={{ zoom: zoomLevel }}>
-                    {columns.map(column => {
+                <div className="flex flex-col md:flex-row gap-4 md:h-full" style={{ zoom: zoomLevel }}>
+                    {columns.map((column, columnIndex) => {
                         if (focusedColumn && focusedColumn !== column.id) return null;
                         const items = getWorksitesByStage(column.id);
+                        const prevColumn = columns[columnIndex - 1];
+                        const nextColumn = columns[columnIndex + 1];
 
                         return (
                             <div
@@ -421,11 +423,20 @@ const WorksitePilot = () => {
                                                             <MapPin className="w-4 h-4" />
                                                         </a>
                                                     )}
-                                                    {column.id !== 'completed' && (
+                                                    {prevColumn && (
                                                         <button
-                                                            onClick={() => updateStage(job.id, column.id === 'planned' ? 'in_progress' : 'completed')}
+                                                            onClick={() => updateStage(job.id, prevColumn.id)}
                                                             className="p-1.5 hover:bg-gray-100 text-gray-600 rounded"
-                                                            title="Avancer"
+                                                            title={`Reculer vers « ${prevColumn.title} »`}
+                                                        >
+                                                            <ArrowLeft className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {nextColumn && (
+                                                        <button
+                                                            onClick={() => updateStage(job.id, nextColumn.id)}
+                                                            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded"
+                                                            title={`Avancer vers « ${nextColumn.title} »`}
                                                         >
                                                             <ArrowRight className="w-4 h-4" />
                                                         </button>
