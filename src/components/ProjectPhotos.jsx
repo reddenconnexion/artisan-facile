@@ -510,7 +510,7 @@ const ProjectPhotos = ({ clientId }) => {
                 try {
                     // 1. Upload to Storage
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `${user.id}/${clientId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+                    const fileName = `${user.id}/${clientId}/${crypto.randomUUID()}.${fileExt}`;
 
                     const { error: uploadError } = await supabase.storage
                         .from('project-photos')

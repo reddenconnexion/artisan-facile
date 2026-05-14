@@ -35,6 +35,7 @@ import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
 import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
+import DevisEmailModal from '../components/DevisEmailModal';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -77,9 +78,6 @@ const DevisForm = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
-    const [emailPdfUrl, setEmailPdfUrl] = useState(null);
-    const [emailPdfLoading, setEmailPdfLoading] = useState(false);
-    const [emailPreviewTab, setEmailPreviewTab] = useState('pdf'); // 'pdf' | 'email' (mobile)
     const fileInputRef = useRef(null);
     // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
     // without the actual user.id or quote id changing.
@@ -702,7 +700,7 @@ const DevisForm = () => {
 
             // 1. Upload File to Supabase Storage
             const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
             const filePath = `${user.id}/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
@@ -1340,60 +1338,6 @@ const DevisForm = () => {
     };
 
     const { subtotal, tva, total, totalCost } = calculateTotal();
-
-    // Génère le PDF de prévisualisation à l'ouverture du modal d'envoi
-    // pour que l'artisan voit ce qui sera réellement envoyé avant de cliquer
-    useEffect(() => {
-        if (!emailPreview || !userProfile) return;
-
-        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
-        if (!selectedClient) return;
-
-        let cancelled = false;
-        let blobUrl = null;
-        setEmailPdfLoading(true);
-
-        const devisData = {
-            id: isEditing ? id : 'PROVISOIRE',
-            ...formData,
-            items: formData.items.map(i => ({
-                ...i,
-                quantity: parseFloat(i.quantity) || 0,
-                price: parseFloat(i.price) || 0,
-            })),
-            total_ht:  subtotal,
-            total_tva: tva,
-            total_ttc: total,
-            include_tva: formData.include_tva,
-            has_material_deposit: formData.has_material_deposit,
-            amendment_details: formData.amendment_details || {},
-        };
-
-        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'bloburl')
-            .then(url => {
-                if (cancelled) {
-                    if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
-                    return;
-                }
-                blobUrl = url;
-                setEmailPdfUrl(url);
-            })
-            .catch(err => {
-                if (!cancelled) {
-                    console.error('Email PDF preview error:', err);
-                    toast.error('Impossible de générer la prévisualisation PDF');
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setEmailPdfLoading(false);
-            });
-
-        return () => {
-            cancelled = true;
-            if (blobUrl?.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
-            setEmailPdfUrl(null);
-        };
-    }, [emailPreview?.email, formData.client_id, isEditing, id, userProfile?.id, subtotal, tva, total]);
 
     // Helper to auto-update CRM status
     const updateClientCRMStatus = async (clientId, quoteStatus) => {
@@ -2352,7 +2296,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             // 1. Upload File to Supabase Storage
             const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
             const filePath = `${user.id}/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
@@ -4002,151 +3946,17 @@ Conditions de règlement : Paiement à réception de facture.`
             )}
 
             {/* Email Preview Modal */}
-            {
-                emailPreview && createPortal(
-                    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
-                        <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-5xl flex flex-col h-[95vh] sm:h-[90vh]">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                                    Vérifiez avant d'envoyer
-                                </h3>
-                                <button
-                                    onClick={() => setEmailPreview(null)}
-                                    className="p-1 hover:bg-gray-100 rounded-full"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
-
-                            {/* Onglets mobile (PDF / Email) */}
-                            <div className="md:hidden flex border-b border-gray-100 flex-shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setEmailPreviewTab('pdf')}
-                                    className={`flex-1 py-2.5 text-sm font-medium ${emailPreviewTab === 'pdf' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
-                                >
-                                    Aperçu du PDF
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setEmailPreviewTab('email')}
-                                    className={`flex-1 py-2.5 text-sm font-medium ${emailPreviewTab === 'email' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
-                                >
-                                    Email
-                                </button>
-                            </div>
-
-                            {/* Body : 2 panneaux desktop, 1 selon onglet sur mobile */}
-                            <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-
-                                {/* Panneau PDF (à gauche en desktop, masqué si onglet=email sur mobile) */}
-                                <div className={`flex-1 min-w-0 bg-gray-100 border-b md:border-b-0 md:border-r border-gray-200 ${emailPreviewTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
-                                    {emailPdfLoading ? (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
-                                            <Loader2 className="w-7 h-7 animate-spin" />
-                                            <p className="text-sm">Génération de l'aperçu PDF…</p>
-                                        </div>
-                                    ) : emailPdfUrl ? (
-                                        <iframe
-                                            src={emailPdfUrl}
-                                            title="Aperçu PDF"
-                                            className="flex-1 w-full border-0 bg-white"
-                                        />
-                                    ) : (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2 px-6 text-center">
-                                            <FileText className="w-7 h-7" />
-                                            <p className="text-sm">Aperçu indisponible — vous pouvez quand même envoyer.</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Panneau Email (à droite en desktop) */}
-                                <div className={`md:w-96 flex-shrink-0 ${emailPreviewTab === 'email' ? 'flex' : 'hidden md:flex'} flex-col overflow-y-auto`}>
-                                    <div className="p-4 space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
-                                            <input
-                                                type="text"
-                                                readOnly
-                                                value={emailPreview.email}
-                                                className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600 text-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={emailPreview.rawSubject}
-                                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawSubject: e.target.value })}
-                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(emailPreview.rawSubject);
-                                                        toast.success('Objet copié !');
-                                                    }}
-                                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
-                                                    title="Copier l'objet"
-                                                >
-                                                    <Copy className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                                            <div className="relative">
-                                                <textarea
-                                                    rows={10}
-                                                    value={emailPreview.rawBody}
-                                                    onChange={(e) => setEmailPreview({ ...emailPreview, rawBody: e.target.value })}
-                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(emailPreview.rawBody);
-                                                        toast.success('Message copié !');
-                                                    }}
-                                                    className="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
-                                                    title="Copier le message"
-                                                >
-                                                    <Copy className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-gray-400 leading-relaxed">
-                                            Le PDF affiché à gauche est exactement celui que recevra le client en pièce jointe.
-                                            Vérifiez le montant, l'adresse et les coordonnées avant l'envoi.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 flex-shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setEmailPreview(null)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleConfirmSendEmail(emailPreview.rawSubject, emailPreview.rawBody)}
-                                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
-                                >
-                                    <Send className="w-4 h-4 mr-2" />
-                                    Envoyer
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                )
-            }
+            <DevisEmailModal
+                preview={emailPreview}
+                onClose={() => setEmailPreview(null)}
+                onConfirm={handleConfirmSendEmail}
+                formData={formData}
+                clients={clients}
+                userProfile={userProfile}
+                quoteId={id}
+                isEditing={isEditing}
+                totals={{ subtotal, tva, total }}
+            />
             {/* Full Screen Description Editor (Mobile) */}
             {
                 fullScreenEditItem && (
