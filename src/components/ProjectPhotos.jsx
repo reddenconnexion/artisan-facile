@@ -858,17 +858,17 @@ const ProjectPhotos = ({ clientId }) => {
 
             {/* Project Selector */}
             <div className="mb-6 bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Folder className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 justify-between items-stretch sm:items-center">
+                    <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 min-w-0">
+                        <Folder className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Chantier :</span>
 
                         {!creatingProject ? (
-                            <div className="relative flex-1 sm:flex-none flex items-center gap-2 min-w-0">
+                            <div className="relative flex-1 flex items-center gap-2 min-w-0">
                                 <select
                                     value={selectedProjectId}
                                     onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="block flex-1 w-auto min-w-0 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                                    className="block flex-1 w-full min-w-0 max-w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="all">Toutes les photos ({totalPhotos})</option>
                                     <option value="uncategorized">Non classé ({projectCounts['uncategorized'] || 0})</option>
