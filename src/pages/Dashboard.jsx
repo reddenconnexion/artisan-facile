@@ -40,6 +40,7 @@ import ActionableDashboard from '../components/ActionableDashboard';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import OnboardingWizard from '../components/OnboardingWizard';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
@@ -665,8 +666,23 @@ const Dashboard = () => {
     const [detailsView, setDetailsView] = useState(null);
     const [statsExpanded, setStatsExpanded] = useState(() => localStorage.getItem('dashboard_stats_expanded') === '1');
     const [customizeOpen, setCustomizeOpen] = useState(false);
+    const [wizardOpen, setWizardOpen] = useState(false);
     const { isVisible } = useDashboardSettings();
     const { isTestMode, testClient } = useTestMode();
+
+    // Auto-déclenche le wizard sur le tout premier accès : flag non posé ET profil vide
+    useEffect(() => {
+        if (!user) return;
+        const completed = user.user_metadata?.onboarding_wizard_completed === true;
+        const hasCompanyName = !!user.user_metadata?.company_name; // optimistic check
+        if (completed || hasCompanyName) return;
+
+        // Vérifie également le profil DB (le metadata peut être vide même si le profil existe)
+        supabase.from('profiles').select('company_name').eq('id', user.id).single()
+            .then(({ data }) => {
+                if (!data?.company_name) setWizardOpen(true);
+            });
+    }, [user?.id]);
 
     const toggleStats = () => {
         setStatsExpanded(prev => {
@@ -779,7 +795,9 @@ const Dashboard = () => {
 
             <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
 
-            <WelcomeCard />
+            <OnboardingWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+
+            <WelcomeCard onResumeWizard={() => setWizardOpen(true)} />
 
             {/* Checklist d'onboarding — affichée tant que les étapes essentielles
                 ne sont pas validées (ou jusqu'à dismiss explicite) */}

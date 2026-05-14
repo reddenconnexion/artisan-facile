@@ -69,7 +69,7 @@ const FEATURE_TIPS = [
     },
 ];
 
-const WelcomeCard = () => {
+const WelcomeCard = ({ onResumeWizard }) => {
     const { user } = useAuth();
     const isDemo = user?.is_anonymous === true || user?.id === 'demo-local-fallback';
     const dismissKey = `welcome_card_dismissed_${user?.id}`;
@@ -236,21 +236,38 @@ const WelcomeCard = () => {
                 </div>
             </div>
 
-            {/* Étape prioritaire mise en avant */}
+            {/* Étape prioritaire mise en avant — profile step ouvre le wizard guidé */}
             {nextStep && (
-                <Link
-                    to={nextStep.href}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all border-2 border-blue-200 dark:border-blue-900/40"
-                >
-                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-white">{steps.indexOf(nextStep) + 1}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{nextStep.label}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{nextStep.description}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                </Link>
+                nextStep.id === 'profile' && onResumeWizard ? (
+                    <button
+                        type="button"
+                        onClick={onResumeWizard}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all border-2 border-blue-200 dark:border-blue-900/40 text-left"
+                    >
+                        <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                            <Rocket className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">Reprendre la configuration guidée</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">4 étapes rapides pour personnaliser vos devis et factures</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    </button>
+                ) : (
+                    <Link
+                        to={nextStep.href}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all border-2 border-blue-200 dark:border-blue-900/40"
+                    >
+                        <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-white">{steps.indexOf(nextStep) + 1}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{nextStep.label}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{nextStep.description}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    </Link>
+                )
             )}
 
             {/* Bouton "Voir toutes les étapes" */}
