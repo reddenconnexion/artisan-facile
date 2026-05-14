@@ -530,7 +530,7 @@ const DevisList = () => {
                     <FollowUps embedded />
                 </Suspense>
             ) : viewMode === 'kanban' ? (
-                <DevisKanban devis={filteredDevis} searchTerm={debouncedSearch} />
+                <DevisKanban devis={filteredDevis} allDevis={devisList} searchTerm={debouncedSearch} />
             ) : (
                 <>
                     {/* Desktop Table View */}

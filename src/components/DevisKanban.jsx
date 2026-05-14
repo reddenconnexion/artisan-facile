@@ -170,7 +170,7 @@ const KanbanColumn = ({ col, items, navigate }) => {
     );
 };
 
-const DevisKanban = ({ devis, searchTerm }) => {
+const DevisKanban = ({ devis, allDevis, searchTerm }) => {
     const navigate = useNavigate();
 
     const normalize = (s) =>
@@ -188,9 +188,11 @@ const DevisKanban = ({ devis, searchTerm }) => {
     }, [devis, searchTerm]);
 
     const byCol = useMemo(() => {
-        // IDs des devis originaux déjà convertis en facture (présents dans le même dataset)
+        // IDs des devis originaux déjà convertis en facture — calculé sur la liste
+        // COMPLÈTE (allDevis) pour ne pas dépendre du filtre de statut actif.
+        const source = allDevis || devis;
         const convertedIds = new Set(
-            filtered.filter(d => d.type === 'invoice' && d.parent_id).map(d => String(d.parent_id))
+            source.filter(d => d.type === 'invoice' && d.parent_id).map(d => String(d.parent_id))
         );
 
         const map = {};
