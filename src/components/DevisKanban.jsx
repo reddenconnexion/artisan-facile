@@ -188,9 +188,16 @@ const DevisKanban = ({ devis, searchTerm }) => {
     }, [devis, searchTerm]);
 
     const byCol = useMemo(() => {
+        // IDs des devis originaux déjà convertis en facture (présents dans le même dataset)
+        const convertedIds = new Set(
+            filtered.filter(d => d.type === 'invoice' && d.parent_id).map(d => String(d.parent_id))
+        );
+
         const map = {};
         for (const col of COLS) map[col.id] = [];
         for (const d of filtered) {
+            // Masquer le devis original si une facture l'a déjà remplacé dans le Kanban
+            if (d.type !== 'invoice' && convertedIds.has(String(d.id))) continue;
             const col = COLS.find(c => c.statuses.includes(d.status));
             if (col) map[col.id].push(d);
         }
