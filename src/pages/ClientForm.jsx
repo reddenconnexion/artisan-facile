@@ -470,7 +470,7 @@ const ClientForm = () => {
     };
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                 <div className="flex items-center">
                     <button
