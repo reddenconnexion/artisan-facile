@@ -618,7 +618,7 @@ const ClientForm = () => {
                                 <select
                                     id="type"
                                     name="type"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.type}
                                     onChange={handleChange}
                                 >
@@ -633,7 +633,7 @@ const ClientForm = () => {
                                 <select
                                     id="status"
                                     name="status"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.status}
                                     onChange={handleChange}
                                 >
@@ -656,7 +656,7 @@ const ClientForm = () => {
                             id="name"
                             name="name"
                             required
-                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.name}
                             onChange={handleChange}
                         />
@@ -674,7 +674,7 @@ const ClientForm = () => {
                                     name="siren"
                                     maxLength={9}
                                     placeholder="Ex: 123456789"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.siren}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 9);
@@ -691,7 +691,7 @@ const ClientForm = () => {
                                     id="tva_intracom"
                                     name="tva_intracom"
                                     placeholder="Ex: FR00123456789"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.tva_intracom}
                                     onChange={(e) => setFormData(prev => ({ ...prev, tva_intracom: e.target.value.toUpperCase() }))}
                                 />
@@ -722,7 +722,7 @@ const ClientForm = () => {
                                 type="email"
                                 id="email"
                                 name="email"
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -759,7 +759,7 @@ const ClientForm = () => {
                                 type="tel"
                                 id="phone"
                                 name="phone"
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 value={formData.phone}
                                 onChange={handleChange}
                             />
@@ -801,7 +801,7 @@ const ClientForm = () => {
                             name="address"
                             type="text"
                             placeholder="N° et nom de rue"
-                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.address}
                             onChange={handleChange}
                         />
@@ -811,7 +811,7 @@ const ClientForm = () => {
                                     name="postal_code"
                                     type="text"
                                     placeholder="Code postal"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.postal_code}
                                     onChange={handleChange}
                                 />
@@ -821,7 +821,7 @@ const ClientForm = () => {
                                     name="city"
                                     type="text"
                                     placeholder="Ville"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.city}
                                     onChange={handleChange}
                                 />
@@ -840,7 +840,7 @@ const ClientForm = () => {
                             id="notes"
                             name="notes"
                             rows={2}
-                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                             value={formData.notes}
                             onChange={handleChange}
                         />
