@@ -218,6 +218,19 @@ const DevisList = () => {
     // Sous-onglet actif : 'liste' ou 'relances'
     const isFollowUpsTab = statusFilter === 'followups';
 
+    // Estimation client-side des relances en retard (délais par défaut : 3-7-7-13j)
+    const FOLLOW_UP_DEFAULT_DELAYS = [3, 7, 7, 13];
+    const followUpDueCount = visibleDevis.filter(d => {
+        if (d.status !== 'sent') return false;
+        const nextStep = d.follow_up_count || 0;
+        if (nextStep >= FOLLOW_UP_DEFAULT_DELAYS.length) return false;
+        const delay = FOLLOW_UP_DEFAULT_DELAYS[nextStep];
+        const ref = d.last_followup_at ? new Date(d.last_followup_at) : new Date(d.date || d.created_at);
+        const due = new Date(ref);
+        due.setDate(due.getDate() + delay);
+        return due <= new Date();
+    }).length;
+
     // --- Statistiques de création de devis ---
     const [showCreationStats, setShowCreationStats] = useState(false);
     const quotesWithTiming = visibleDevis.filter(
@@ -486,7 +499,15 @@ const DevisList = () => {
                                     }`}
                             >
                                 {status === 'followups' ? (
-                                    <><Send className="w-3 h-3" />Relances</>
+                                    <>
+                                        <Send className="w-3 h-3" />
+                                        Relances
+                                        {followUpDueCount > 0 && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${statusFilter === 'followups' ? 'bg-white/30 text-white' : 'bg-amber-500 text-white'}`}>
+                                                {followUpDueCount}
+                                            </span>
+                                        )}
+                                    </>
                                 ) : (
                                     <>
                                         {labels[status]}
