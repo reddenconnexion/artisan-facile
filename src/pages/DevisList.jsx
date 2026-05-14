@@ -1,9 +1,11 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List } from 'lucide-react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Link2 } from 'lucide-react';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
 import DevisKanban from '../components/DevisKanban';
+import AutoLinkModal from '../components/AutoLinkModal';
+import { findUnlinkedPairs } from '../utils/quoteLinker';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
@@ -128,6 +130,10 @@ const DevisList = () => {
     const [mergeMode, setMergeMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showMoreOptions, setShowMoreOptions] = useState(false);
+    const [showAutoLink, setShowAutoLink] = useState(false);
+
+    // Comptage temps réel des paires devis/facture non liées (pour le badge sur l'entrée du menu)
+    const unlinkedPairsCount = useMemo(() => findUnlinkedPairs(devisList).length, [devisList]);
 
     const toggleSelect = (e, id) => {
         e.stopPropagation();
@@ -265,6 +271,11 @@ const DevisList = () => {
 
     return (
         <div className="space-y-6">
+            <AutoLinkModal
+                open={showAutoLink}
+                onClose={() => setShowAutoLink(false)}
+                devisList={devisList}
+            />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <FileText className="w-8 h-8 text-blue-600" />
@@ -310,6 +321,25 @@ const DevisList = () => {
                                         >
                                             <Layers className="w-4 h-4 text-gray-400" />
                                             Fusionner des devis
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowAutoLink(true); setShowMoreOptions(false); }}
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left border-t border-gray-100"
+                                        >
+                                            <Link2 className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <div className="font-medium flex items-center gap-2">
+                                                    Lier devis et factures
+                                                    {unlinkedPairsCount > 0 && (
+                                                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                                                            {unlinkedPairsCount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    Rattacher automatiquement les paires non liées
+                                                </div>
+                                            </div>
                                         </button>
                                         <button
                                             disabled={filteredDevis.length === 0}
