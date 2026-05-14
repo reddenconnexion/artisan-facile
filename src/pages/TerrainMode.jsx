@@ -7,8 +7,10 @@ import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
+    ShoppingCart,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
+import ProcurementMode from '../components/ProcurementMode';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +27,7 @@ const TerrainMode = () => {
     const { user } = useAuth();
 
     // ── Mode selection ────────────────────────────────────────────────────────
-    const [mode, setMode] = useState(null); // null | 'depannage' | 'visite'
+    const [mode, setMode] = useState(null); // null | 'depannage' | 'visite' | 'commande'
 
     // ── Champs du rapport ─────────────────────────────────────────────────────
     const [title, setTitle] = useState(defaultTitle);
@@ -327,9 +329,30 @@ const TerrainMode = () => {
                             </div>
                         </div>
                     </button>
+
+                    <button
+                        onClick={() => setMode('commande')}
+                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-emerald-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
+                                <ShoppingCart className="w-7 h-7 text-emerald-600 group-hover:text-white transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-lg leading-tight">Matériel à commander</p>
+                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                    Notez ou dictez le matériel et l'outillage qu'il vous manque sur le chantier. À commander plus tard au bureau.
+                                </p>
+                            </div>
+                        </div>
+                    </button>
                 </div>
             </div>
         );
+    }
+
+    if (mode === 'commande') {
+        return <ProcurementMode onBack={() => setMode(null)} />;
     }
 
     // ─── Rendu : visite technique ─────────────────────────────────────────────
