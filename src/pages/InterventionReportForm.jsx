@@ -310,7 +310,7 @@ const InterventionReportForm = () => {
             const uploaded = [];
             for (const file of valid) {
                 const ext = file.name.split('.').pop();
-                const path = `interventions/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                const path = `interventions/${user.id}/${crypto.randomUUID()}.${ext}`;
                 const { error: uploadError } = await supabase.storage
                     .from('project-photos')
                     .upload(path, file);
@@ -396,7 +396,7 @@ const InterventionReportForm = () => {
         try {
             // Upload de la photo (même bucket que les autres photos d'intervention)
             const ext  = file.name.split('.').pop() || 'jpg';
-            const path = `interventions/${user.id}/milestones/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+            const path = `interventions/${user.id}/milestones/${crypto.randomUUID()}.${ext}`;
             const { error: uploadError } = await supabase.storage
                 .from('project-photos')
                 .upload(path, file);

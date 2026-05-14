@@ -19,6 +19,7 @@ import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
+import NotificationCenter from '../components/NotificationCenter';
 
 const Layout = () => {
   const location = useLocation();
@@ -591,6 +592,14 @@ const Layout = () => {
           </nav>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+            {/* Notifications */}
+            <div className={`flex items-center ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : 'justify-start'} px-1`}>
+              <NotificationCenter />
+              {(!isCollapsed || isMobileMenuOpen) && (
+                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-400">Notifications</span>
+              )}
+            </div>
+
             {/* Plan Badge */}
             <button
               onClick={() => navigate('/app/subscription')}
@@ -672,7 +681,8 @@ const Layout = () => {
                 <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-7 h-7 rounded-md" />
                 <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
               </div>
-              <div className="flex-1 flex justify-end">
+              <div className="flex-1 flex justify-end items-center gap-1">
+                <NotificationCenter />
                 <button
                   onClick={() => setShowSearch(true)}
                   className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
