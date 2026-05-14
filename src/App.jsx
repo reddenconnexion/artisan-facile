@@ -192,6 +192,7 @@ const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
+const Procurement = lazyWithRetry(() => import('./pages/Procurement'));
 const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
 const RecurringInvoices = lazyWithRetry(() => import('./pages/RecurringInvoices'));
 const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
@@ -252,6 +253,7 @@ function App() {
                 <Route path="rentals" element={<Rentals />} />
                 <Route path="library" element={<PriceLibrary />} />
                 <Route path="inventory" element={<Inventory />} />
+                <Route path="procurement" element={<Procurement />} />
                 <Route path="follow-ups" element={<Navigate to="/app/devis" state={{ filter: 'followups' }} replace />} />
                 <Route path="portfolio" element={<Portfolio />} />
                 <Route path="settings" element={<Profile />} />

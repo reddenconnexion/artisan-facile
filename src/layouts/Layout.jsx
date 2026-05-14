@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Mic, BookOpen, Wrench, Truck, Save, Box, Image as ImageIcon, Calculator, Megaphone, ClipboardList, FlaskConical, Inbox, Keyboard, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -156,6 +156,7 @@ const Layout = () => {
     const chantierChildren = [
       ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
+      { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
     ];
 
     const activiteChildren = [
