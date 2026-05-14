@@ -46,6 +46,7 @@ import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings } from '../hooks/useDashboardSettings';
+import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
 
 // --- Recent Voice Memos Widget ---
@@ -800,6 +801,9 @@ const Dashboard = () => {
 
             {/* Score de santé financière — visible dès qu'il y a des données pertinentes */}
             {isVisible('financial_health') && <FinancialHealthCard quotes={allQuotes} />}
+
+            {/* Trésorerie prévisionnelle à 90 jours */}
+            {isVisible('cash_flow_forecast') && <CashFlowForecast allQuotes={allQuotes} navigate={navigate} />}
 
             {/* Derniers documents — 5 devis/factures les plus récents */}
             {isVisible('recent_documents') && allQuotes.length > 0 && (() => {

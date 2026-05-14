@@ -1,8 +1,9 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List } from 'lucide-react';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
+import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
@@ -115,6 +116,13 @@ const DevisList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
     const importInputRef = React.useRef(null);
+
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('devis_view_mode') || 'list');
+    const toggleViewMode = () => setViewMode(v => {
+        const next = v === 'list' ? 'kanban' : 'list';
+        localStorage.setItem('devis_view_mode', next);
+        return next;
+    });
 
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
     const [mergeMode, setMergeMode] = useState(false);
@@ -318,6 +326,17 @@ const DevisList = () => {
                                     </div>
                                 )}
                             </div>
+                            {/* Toggle Liste / Kanban */}
+                            <button
+                                onClick={toggleViewMode}
+                                title={viewMode === 'list' ? 'Vue pipeline (Kanban)' : 'Vue liste'}
+                                className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                {viewMode === 'list'
+                                    ? <LayoutGrid className="w-4 h-4" />
+                                    : <List className="w-4 h-4" />
+                                }
+                            </button>
                             <button
                                 onClick={() => navigate('/app/devis/new')}
                                 className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -484,11 +503,13 @@ const DevisList = () => {
                 </div>
             </div>
 
-            {/* Contenu : liste ou relances */}
+            {/* Contenu : liste, kanban ou relances */}
             {isFollowUpsTab ? (
                 <Suspense fallback={<div className="text-center py-12 text-gray-500">Chargement...</div>}>
                     <FollowUps embedded />
                 </Suspense>
+            ) : viewMode === 'kanban' ? (
+                <DevisKanban devis={filteredDevis} searchTerm={debouncedSearch} />
             ) : (
                 <>
                     {/* Desktop Table View */}
