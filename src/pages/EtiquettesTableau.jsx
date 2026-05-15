@@ -18,7 +18,9 @@ import {
   Search,
   Pencil,
   Copy,
+  Wand2,
 } from "lucide-react";
+import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
 /* =========================================================================
    CONFIGURATION MÉTIER
@@ -104,6 +106,7 @@ export default function EtiquettesTableau() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [clientName, setClientName] = useState("");
+  const [photoImportOpen, setPhotoImportOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   const dims = BRANDS[brand];
@@ -177,6 +180,19 @@ export default function EtiquettesTableau() {
   function clearAll() {
     if (circuits.length === 0) return;
     if (confirm("Supprimer toutes les étiquettes ?")) setCircuits([]);
+  }
+
+  function addManyFromImport(items) {
+    setCircuits((prev) => [
+      ...prev,
+      ...items.map((c) => ({
+        id: crypto.randomUUID(),
+        label: c.label,
+        category: c.category,
+        breaker: c.breaker,
+        modules: c.modules ?? 1,
+      })),
+    ]);
   }
 
   /* ----- Sauvegarde / chargement (JSON, en attendant Supabase) ----- */
@@ -262,6 +278,14 @@ export default function EtiquettesTableau() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={() => setPhotoImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+              title="Importer depuis une photo du tableau (IA)"
+            >
+              <Wand2 size={16} /> Photo IA
+            </button>
 
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -431,6 +455,14 @@ export default function EtiquettesTableau() {
           circuit={editing}
           onChange={(updates) => updateCircuit(editing.id, updates)}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {/* Modal d'import IA depuis photo */}
+      {photoImportOpen && (
+        <EtiquettesPhotoModal
+          onClose={() => setPhotoImportOpen(false)}
+          onImport={addManyFromImport}
         />
       )}
     </div>
