@@ -553,7 +553,7 @@ const Profile = () => {
                                     value={formData.company_name}
                                     onChange={handleChange}
                                     placeholder="Ex: Martin Rénovation"
-                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.company_name ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
+                                    className={`block w-full px-3 py-2 border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.company_name ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                                 />
                             </div>
                             <div>
@@ -563,7 +563,7 @@ const Profile = () => {
                                     name="full_name"
                                     value={formData.full_name}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
@@ -576,7 +576,7 @@ const Profile = () => {
                                     value={formData.siret}
                                     onChange={handleChange}
                                     placeholder="14 chiffres"
-                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
+                                    className={`block w-full px-3 py-2 border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
@@ -618,7 +618,7 @@ const Profile = () => {
                                     name="trade"
                                     value={formData.trade}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     {Object.entries(TRADE_CONFIG).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -633,7 +633,7 @@ const Profile = () => {
                                     name="artisan_status"
                                     value={formData.artisan_status}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="micro_entreprise">Micro-entreprise (Auto-entrepreneur)</option>
                                     <option value="ei">Entreprise Individuelle (EI)</option>
@@ -650,7 +650,7 @@ const Profile = () => {
                                     name="activity_type"
                                     value={formData.activity_type}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="services">Prestations de services (peinture, plomberie, électricité…)</option>
                                     <option value="vente">Vente de produits / fournitures</option>
@@ -676,7 +676,7 @@ const Profile = () => {
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -687,7 +687,7 @@ const Profile = () => {
                                         name="postal_code"
                                         value={formData.postal_code}
                                         onChange={handleChange}
-                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                                 <div>
@@ -697,7 +697,7 @@ const Profile = () => {
                                         name="city"
                                         value={formData.city}
                                         onChange={handleChange}
-                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                             </div>
@@ -719,7 +719,7 @@ const Profile = () => {
                                     value={formData.professional_email}
                                     onChange={handleChange}
                                     placeholder="contact@monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Si vide, l'email de connexion ({formData.email}) sera utilisé.</p>
                             </div>
@@ -730,7 +730,7 @@ const Profile = () => {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
@@ -747,7 +747,7 @@ const Profile = () => {
                                         }
                                     }}
                                     placeholder="monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
                             <div>
@@ -758,7 +758,7 @@ const Profile = () => {
                                     value={formData.google_review_url}
                                     onChange={handleChange}
                                     placeholder="https://g.page/r/..."
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Lien direct pour laisser un avis sur votre fiche Google Business.</p>
                             </div>
@@ -770,7 +770,7 @@ const Profile = () => {
                                     value={formData.facebook_review_url}
                                     onChange={handleChange}
                                     placeholder="https://www.facebook.com/.../reviews"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Lien direct vers la page d'avis de votre page Facebook.</p>
                             </div>
@@ -782,7 +782,7 @@ const Profile = () => {
                                     value={formData.pages_jaunes_review_url}
                                     onChange={handleChange}
                                     placeholder="https://www.pagesjaunes.fr/..."
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Lien direct vers votre fiche Pages Jaunes pour laisser un avis.</p>
                             </div>
@@ -805,7 +805,7 @@ const Profile = () => {
                                     value={formData.wero_phone}
                                     onChange={handleChange}
                                     placeholder="06 00 00 00 00"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Si différent du téléphone de contact. Utile pour les paiements instantanés.</p>
                             </div>
@@ -974,19 +974,19 @@ const Profile = () => {
                 </button>
             </div>
             {showAdvanced && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800/40 overflow-hidden">
                 <div className="p-8">
-                    <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
+                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-200 mb-4 flex items-center">
                         <span className="mr-2">✨</span>
                         Intelligence Artificielle
                     </h3>
-                    <p className="text-sm text-purple-800 mb-6">
+                    <p className="text-sm text-purple-800 dark:text-purple-300 mb-6">
                         Configurez votre clé API pour activer les fonctionnalités d'assistant intelligent (génération de devis automatique, etc.).
                     </p>
 
                     <div className="max-w-md space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-purple-900 mb-2">Fournisseur d'IA</label>
+                            <label className="block text-sm font-medium text-purple-900 dark:text-purple-200 mb-2">Fournisseur d'IA</label>
                             <div className="flex gap-2 p-1 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
                                 <button
                                     type="button"
@@ -1016,7 +1016,7 @@ const Profile = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-purple-900 mb-2">
+                            <label className="block text-sm font-medium text-purple-900 dark:text-purple-200 mb-2">
                                 Clé API ({(!formData.ai_provider || formData.ai_provider === 'openai') ? 'OpenAI' : 'Gemini'})
                             </label>
                             {apiKeyConfigured && !apiKeyInput ? (
@@ -1045,7 +1045,7 @@ const Profile = () => {
                                     <input
                                         type="password"
                                         placeholder={(!formData.ai_provider || formData.ai_provider === 'openai') ? "sk-..." : "AIza..."}
-                                        className="flex-1 px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        className="flex-1 px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                         value={apiKeyInput.trim() === '' ? '' : apiKeyInput}
                                         onChange={(e) => setApiKeyInput(e.target.value)}
                                         autoFocus={apiKeyConfigured}
@@ -1062,15 +1062,15 @@ const Profile = () => {
                             )}
                         </div>
 
-                        <div className="pt-4 border-t border-purple-100">
-                            <h4 className="text-sm font-semibold text-purple-900 mb-3">Personnalisation du contexte</h4>
+                        <div className="pt-4 border-t border-purple-100 dark:border-purple-800/40">
+                            <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-200 mb-3">Personnalisation du contexte</h4>
 
                             <div>
-                                <label className="block text-xs font-medium text-purple-800 mb-1">Taux Horaire Moyen (€/h)</label>
+                                <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Taux Horaire Moyen (€/h)</label>
                                 <input
                                     type="number"
                                     placeholder="ex: 50"
-                                    className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                    className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
                                     value={formData.ai_hourly_rate || ''}
                                     onChange={(e) => {
                                         setFormData({ ...formData, ai_hourly_rate: e.target.value });
@@ -1080,19 +1080,19 @@ const Profile = () => {
                         </div>
 
                         <div className="mb-4">
-                            <label className="block text-xs font-medium text-purple-800 mb-2">Zones de Déplacement (Auto-calculé)</label>
+                            <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-2">Zones de Déplacement (Auto-calculé)</label>
                             <div className="space-y-2">
                                 {[1, 2, 3].map((zoneIndex) => {
                                     const radiusKey = `zone${zoneIndex}_radius`;
                                     const priceKey = `zone${zoneIndex}_price`;
                                     return (
                                         <div key={zoneIndex} className="flex gap-2 items-center">
-                                            <span className="text-xs text-purple-600 w-12 font-medium">Zone {zoneIndex}</span>
+                                            <span className="text-xs text-purple-600 dark:text-purple-300 w-12 font-medium">Zone {zoneIndex}</span>
                                             <div className="relative flex-1">
                                                 <input
                                                     type="number"
                                                     placeholder="km"
-                                                    className="w-full pl-3 pr-8 py-1.5 border border-purple-200 dark:border-purple-800/40 rounded-md text-sm"
+                                                    className="w-full pl-3 pr-8 py-1.5 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md text-sm"
                                                     value={formData[radiusKey] || ''}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
@@ -1106,7 +1106,7 @@ const Profile = () => {
                                                 <input
                                                     type="number"
                                                     placeholder="€"
-                                                    className="w-full pl-3 pr-6 py-1.5 border border-purple-200 dark:border-purple-800/40 rounded-md text-sm"
+                                                    className="w-full pl-3 pr-6 py-1.5 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md text-sm"
                                                     value={formData[priceKey] || ''}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
@@ -1125,11 +1125,11 @@ const Profile = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-medium text-purple-800 mb-1">Instructions Spéciales pour l'IA</label>
+                            <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Instructions Spéciales pour l'IA</label>
                             <textarea
                                 rows={3}
                                 placeholder="Ex: Ne touche jamais à l'électricité. Ajoute toujours 10% de marge sur les matériaux. Je suis plombier spécialisé..."
-                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
+                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm resize-none"
                                 value={formData.ai_instructions || ''}
                                 onChange={(e) => {
                                     setFormData({ ...formData, ai_instructions: e.target.value });
@@ -1138,7 +1138,7 @@ const Profile = () => {
                         </div>
 
                         {/* Prompt de génération de devis */}
-                        <div className="border-t border-purple-100 pt-4">
+                        <div className="border-t border-purple-100 dark:border-purple-800/40 pt-4">
                             <div className="flex items-center justify-between mb-2">
                                 <label className="block text-xs font-medium text-purple-800">
                                     Prompt de génération de devis
@@ -1165,7 +1165,7 @@ const Profile = () => {
                             <textarea
                                 rows={10}
                                 placeholder={DEFAULT_QUOTE_PROMPT}
-                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-xs font-mono resize-y"
+                                className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-xs font-mono resize-y"
                                 value={formData.quote_system_prompt || ''}
                                 onChange={(e) => setFormData(prev => ({ ...prev, quote_system_prompt: e.target.value }))}
                             />
@@ -1210,7 +1210,7 @@ const Profile = () => {
                                 value={pdpUrlInput}
                                 onChange={e => setPdpUrlInput(e.target.value)}
                                 placeholder="https://api.ma-plateforme-agreee.fr/v1"
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div>
@@ -1220,7 +1220,7 @@ const Profile = () => {
                                 value={pdpServiceInput}
                                 onChange={e => setPdpServiceInput(e.target.value)}
                                 placeholder="ex: chorus_pro, yooz, pennylane…"
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div>
@@ -1232,7 +1232,7 @@ const Profile = () => {
                                 value={pdpKeyInput}
                                 onChange={e => setPdpKeyInput(e.target.value)}
                                 placeholder={pdpKeyConfigured ? "Laissez vide pour conserver la clé existante" : "Entrez votre clé API…"}
-                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             />
                         </div>
                         <div className="flex gap-2 pt-1">
@@ -1289,7 +1289,7 @@ const Profile = () => {
                                     value={newEmail}
                                     onChange={(e) => setNewEmail(e.target.value)}
                                     placeholder="contact@monentreprise.com"
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     required
                                 />
                             </div>
