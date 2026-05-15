@@ -87,7 +87,19 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
           userPrompt: USER_PROMPT,
         },
       });
-      if (fnErr) throw new Error(fnErr.message || "Erreur lors de l'analyse");
+      if (fnErr) {
+        // supabase-js renvoie un message générique ("non-2xx status code")
+        // qui masque l'erreur réelle. On extrait le vrai message depuis
+        // le body de la réponse (rate limit, clé absente, erreur LLM…).
+        let detail = fnErr.message;
+        try {
+          const body = await fnErr.context?.response?.clone?.()?.json?.();
+          if (body?.error) detail = body.error;
+        } catch {
+          // body non JSON ou pas accessible — on garde le message générique
+        }
+        throw new Error(detail || "Erreur lors de l'analyse");
+      }
       if (!data?.text) throw new Error("Réponse vide de l'IA");
 
       const circuits = parseCircuitsResponse(data.text);
