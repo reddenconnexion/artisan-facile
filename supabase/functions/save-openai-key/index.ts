@@ -48,10 +48,14 @@ Deno.serve(async (req) => {
     const deletingKey = api_key === null || api_key === '';
 
     if (!deletingKey) {
-      // Validation format : les clés OpenAI commencent par sk-
-      if (typeof api_key !== 'string' || !api_key.startsWith('sk-') || api_key.length < 20) {
+      // Validation format : on accepte OpenAI (sk-…) ET Gemini (AIza…).
+      // Anthropic n'est utilisé qu'avec la clé serveur, pas via cet endpoint.
+      const isString = typeof api_key === 'string';
+      const isOpenAI = isString && api_key.startsWith('sk-') && api_key.length >= 20;
+      const isGemini = isString && api_key.startsWith('AIza') && api_key.length >= 35;
+      if (!isOpenAI && !isGemini) {
         return new Response(
-          JSON.stringify({ error: 'Format de clé API invalide. Elle doit commencer par "sk-".' }),
+          JSON.stringify({ error: 'Format de clé API invalide. Elle doit commencer par "sk-" (OpenAI) ou "AIza" (Gemini).' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
