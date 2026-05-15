@@ -98,7 +98,7 @@ const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
    COMPOSANT PRINCIPAL
    ========================================================================= */
 
-export default function LabelMakerApp() {
+export default function EtiquettesTableau() {
   const [brand, setBrand] = useState("universel");
   const [circuits, setCircuits] = useState([]);
   const [editing, setEditing] = useState(null);
