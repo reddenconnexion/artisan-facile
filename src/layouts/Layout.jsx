@@ -170,6 +170,7 @@ const Layout = () => {
       { name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic },
       ...(settings.enable_rentals ? [{ name: 'Locations', href: '/app/rentals', icon: Truck }] : []),
       { name: 'Outils', href: '/app/outils', icon: Zap },
+      { name: 'Étiquettes tableau', href: '/app/etiquettes-tableau', icon: Zap },
     ];
 
     // Skill level filtering — 'debutant' | 'intermediaire' | 'confirme'
