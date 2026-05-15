@@ -48,9 +48,11 @@ function parseCircuitsResponse(text) {
     }));
 }
 
-export default function EtiquettesPhotoModal({ onClose, onImport }) {
-  const [file, setFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = null }) {
+  const [file, setFile] = useState(initialFile);
+  const [previewUrl, setPreviewUrl] = useState(
+    initialFile ? URL.createObjectURL(initialFile) : null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [extracted, setExtracted] = useState(null); // null | array
