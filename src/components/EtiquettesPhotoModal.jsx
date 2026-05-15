@@ -137,22 +137,22 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+        <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-md bg-amber-100 text-amber-600">
+            <div className="grid h-8 w-8 place-items-center rounded-md bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
               <Wand2 size={16} />
             </div>
             <div>
-              <h2 className="text-base font-semibold">Import IA depuis photo</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base font-semibold dark:text-slate-100">Import IA depuis photo</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Photographiez le tableau avec ses étiquettes provisoires, l'IA fait le reste.
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
             <X size={20} />
           </button>
         </div>
@@ -163,17 +163,17 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
               {!previewUrl ? (
                 <button
                   onClick={() => inputRef.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-slate-500 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700"
+                  className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-slate-500 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-amber-500 dark:hover:bg-amber-900/20 dark:hover:text-amber-300"
                 >
                   <Upload size={28} />
                   <span className="text-sm font-medium">Choisir ou prendre une photo</span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     Cadrez l'ensemble du tableau, étiquettes lisibles
                   </span>
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                  <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                     <img
                       src={previewUrl}
                       alt="Aperçu du tableau"
@@ -183,7 +183,7 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <button
                       onClick={() => inputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                      className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                     >
                       <ImageIcon size={14} /> Changer la photo
                     </button>
@@ -217,40 +217,40 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
             </>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">{extracted.length}</span>{" "}
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold text-slate-900 dark:text-white">{extracted.length}</span>{" "}
                 circuit{extracted.length > 1 ? "s" : ""} détecté
                 {extracted.length > 1 ? "s" : ""} — décochez ceux que vous ne voulez pas importer :
               </p>
-              <div className="divide-y divide-slate-100 rounded-md border border-slate-200">
+              <div className="divide-y divide-slate-100 rounded-md border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
                 {extracted.map((c, i) => (
                   <label
                     key={i}
-                    className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-slate-50"
+                    className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
                     <input
                       type="checkbox"
                       checked={!!selected[i]}
                       onChange={() => toggle(i)}
-                      className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                      className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 dark:border-slate-500 dark:bg-slate-700"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-900">{c.label}</div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{c.label}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         {c.breaker} A{c.modules > 1 ? ` · ${c.modules}P` : ""} · {c.category}
                       </div>
                     </div>
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 dark:text-slate-500">
                 Les libellés et calibres restent modifiables après import.
               </p>
             </div>
           )}
 
           {error && (
-            <div className="mt-3 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -258,10 +258,10 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
         </div>
 
         {extracted && (
-          <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4">
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-700">
             <button
               onClick={onClose}
-              className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
             >
               Annuler
             </button>
