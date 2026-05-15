@@ -32,13 +32,14 @@ import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 // Dimensions physiques (mm) par marque.
 // modulePitch = largeur d'1 module DIN (l'étiquette s'élargit × le nombre de modules
 // occupés par le disjoncteur : 1P, 2P, 3P, 4P).
-// height = hauteur de l'étiquette imprimée. rowSize = nombre de modules par rangée
-// (utilisé pour le mode "rangées" qui visualise comme dans le vrai tableau).
+// height = hauteur de l'étiquette imprimée (format vertical : icône au-dessus,
+// libellé sur 1-2 lignes en-dessous, comme sur les vraies étiquettes Resi9/DRIVIA).
+// rowSize = nombre de modules par rangée (utilisé pour le mode "rangées").
 const BRANDS = {
-  universel:  { label: "Universel",            modulePitch: 18,   height: 18, rowSize: 13 },
-  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 10, rowSize: 13 },
-  schneider:  { label: "Schneider Resi9",      modulePitch: 18,   height: 8,  rowSize: 13 },
-  hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 8,  rowSize: 12 },
+  universel:  { label: "Universel",            modulePitch: 18,   height: 30, rowSize: 13 },
+  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 22, rowSize: 13 },
+  schneider:  { label: "Schneider Resi9",      modulePitch: 18,   height: 25, rowSize: 13 },
+  hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
 
 // Nombre de modules occupés par type de protection
@@ -893,55 +894,70 @@ function printStyles(dims) {
     .labels-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 4mm;
+      gap: 3mm;
     }
+    /* Layout vertical : bandeau de couleur en haut, icône centrée,
+       libellé sur 1-2 lignes en bas (comme les vraies étiquettes Resi9/DRIVIA). */
     .label {
       width: var(--label-w-screen);
       height: var(--label-h-screen);
       position: relative;
       display: flex;
+      flex-direction: column;
       background: white;
-      border: 1px dashed #cbd5e1;
+      border: 1px solid #cbd5e1;
       border-radius: 2px;
       overflow: hidden;
       box-sizing: border-box;
     }
     .label-accent {
-      width: 4px;
+      height: 3px;
+      width: 100%;
       background: var(--accent, #6B7280);
       flex-shrink: 0;
     }
     .label-content {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 6px;
-      padding: 4px 6px;
+      justify-content: center;
+      gap: 2px;
+      padding: 3px 2px;
       flex: 1;
-      min-width: 0;
+      min-height: 0;
+      text-align: center;
     }
     .label-icon {
-      width: 14px;
-      height: 14px;
+      width: 18px;
+      height: 18px;
       color: var(--accent, #6B7280);
       flex-shrink: 0;
     }
     .label-text {
       min-width: 0;
-      flex: 1;
-      line-height: 1.15;
+      width: 100%;
+      line-height: 1.1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     .label-title {
       font-size: 10px;
       font-weight: 600;
       color: #0f172a;
-      white-space: nowrap;
+      /* Autorise le wrap sur 2 lignes — empêche le texte coupé. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
+      word-break: break-word;
+      hyphens: auto;
     }
     .label-sub {
       font-size: 8px;
-      color: #64748b;
+      color: #475569;
       margin-top: 1px;
+      font-weight: 500;
     }
 
     @media print {
@@ -960,12 +976,13 @@ function printStyles(dims) {
       .label {
         width: var(--label-w-print) !important;
         height: var(--label-h-print) !important;
-        border: 1px dashed #94a3b8 !important;
+        border: 1px solid #94a3b8 !important;
         page-break-inside: avoid;
       }
-      .label-icon { width: 10px; height: 10px; }
-      .label-title { font-size: ${dims.height > 12 ? 9 : 7}px; }
-      .label-sub { font-size: ${dims.height > 12 ? 7 : 6}px; }
+      /* Tailles à l'impression : adaptées à la hauteur mm réelle. */
+      .label-icon { width: ${Math.round(dims.height * 0.32)}px; height: ${Math.round(dims.height * 0.32)}px; }
+      .label-title { font-size: ${dims.height >= 22 ? 7 : 6}px; }
+      .label-sub { font-size: ${dims.height >= 22 ? 6 : 5}px; }
       .row-view { page-break-inside: avoid; }
     }
   `;
