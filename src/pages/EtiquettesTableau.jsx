@@ -18,19 +18,34 @@ import {
   Search,
   Pencil,
   Copy,
+  GripVertical,
+  LayoutGrid,
+  Rows3,
 } from "lucide-react";
 
 /* =========================================================================
    CONFIGURATION MÉTIER
    ========================================================================= */
 
-// Dimensions physiques (mm) des étiquettes par marque/système
+// Dimensions physiques (mm) par marque.
+// modulePitch = largeur d'1 module DIN (l'étiquette s'élargit × le nombre de modules
+// occupés par le disjoncteur : 1P, 2P, 3P, 4P).
+// height = hauteur de l'étiquette imprimée. rowSize = nombre de modules par rangée
+// (utilisé pour le mode "rangées" qui visualise comme dans le vrai tableau).
 const BRANDS = {
-  universel: { label: "Universel", width: 55, height: 18 },
-  legrand: { label: "Legrand DRIVIA / RX³", width: 50, height: 10 },
-  schneider: { label: "Schneider Resi9", width: 45, height: 8 },
-  hager: { label: "Hager Gamma / Volta", width: 45, height: 8 },
+  universel:  { label: "Universel",            modulePitch: 18,   height: 18, rowSize: 13 },
+  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 10, rowSize: 13 },
+  schneider:  { label: "Schneider Resi9",      modulePitch: 18,   height: 8,  rowSize: 13 },
+  hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 8,  rowSize: 12 },
 };
+
+// Nombre de modules occupés par type de protection
+const MODULE_OPTIONS = [
+  { value: 1, label: "1P (1 module)" },
+  { value: 2, label: "2P (2 modules)" },
+  { value: 3, label: "3P (3 modules)" },
+  { value: 4, label: "4P / Tétra (4 modules)" },
+];
 
 // Catégories de circuits avec icône Lucide et couleur d'accent
 const CATEGORIES = {
@@ -87,9 +102,11 @@ const PRESET_CIRCUITS = [
   // Volets / Portail
   { category: "volets", label: "Volets roulants", breaker: 10 },
   { category: "volets", label: "Portail", breaker: 10 },
-  // IRVE
-  { category: "irve", label: "Borne IRVE 7 kW", breaker: 32 },
-  { category: "irve", label: "Borne IRVE 22 kW", breaker: 40 },
+  // IRVE — bipolaire monophasé / tétrapolaire triphasé
+  { category: "irve", label: "Borne IRVE 7 kW", breaker: 32, modules: 2 },
+  { category: "irve", label: "Borne IRVE 22 kW", breaker: 40, modules: 4 },
+  // PAC — généralement bipolaire
+  { category: "chauffage", label: "PAC bi-bloc", breaker: 32, modules: 2 },
 ];
 
 const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
@@ -104,6 +121,8 @@ export default function EtiquettesTableau() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [clientName, setClientName] = useState("");
+  const [viewMode, setViewMode] = useState("plate"); // 'plate' | 'rows'
+  const [dragId, setDragId] = useState(null);
   const fileInputRef = useRef(null);
 
   const dims = BRANDS[brand];
@@ -136,6 +155,7 @@ export default function EtiquettesTableau() {
         label: preset.label,
         category: preset.category,
         breaker: preset.breaker,
+        modules: preset.modules ?? 1,
       },
     ]);
   }
@@ -146,6 +166,7 @@ export default function EtiquettesTableau() {
       label: "Nouveau circuit",
       category: "autre",
       breaker: 16,
+      modules: 1,
     };
     setCircuits((prev) => [...prev, newCircuit]);
     setEditing(newCircuit);
@@ -207,7 +228,10 @@ export default function EtiquettesTableau() {
         const data = JSON.parse(ev.target.result);
         if (data.brand) setBrand(data.brand);
         if (data.client) setClientName(data.client);
-        if (Array.isArray(data.circuits)) setCircuits(data.circuits);
+        if (Array.isArray(data.circuits)) {
+          // Anciens fichiers (avant V2) : pas de champ `modules`, on défaut à 1
+          setCircuits(data.circuits.map((c) => ({ modules: 1, ...c })));
+        }
       } catch {
         alert("Fichier illisible");
       }
@@ -219,6 +243,46 @@ export default function EtiquettesTableau() {
   function handlePrint() {
     window.print();
   }
+
+  /* ----- Drag & drop pour réordonner ----- */
+  function onDragStart(id) {
+    setDragId(id);
+  }
+  function onDragEnd() {
+    setDragId(null);
+  }
+  function onDropOn(targetId) {
+    if (!dragId || dragId === targetId) return;
+    setCircuits((prev) => {
+      const from = prev.findIndex((c) => c.id === dragId);
+      const to = prev.findIndex((c) => c.id === targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  /* ----- Vue "Rangées" : on regroupe les circuits ligne par ligne en respectant
+     la capacité du tableau (rowSize modules par rangée). Un circuit qui ne tient
+     pas dans la rangée en cours bascule sur la suivante. ----- */
+  const rows = useMemo(() => {
+    const rowSize = dims.rowSize;
+    const result = [];
+    let current = { items: [], used: 0 };
+    for (const c of circuits) {
+      const m = Math.min(c.modules || 1, rowSize);
+      if (current.used + m > rowSize) {
+        result.push(current);
+        current = { items: [], used: 0 };
+      }
+      current.items.push({ circuit: c, slot: current.used + 1 });
+      current.used += m;
+    }
+    if (current.items.length > 0) result.push(current);
+    return result;
+  }, [circuits, dims.rowSize]);
 
   /* ----- Rendu ----- */
   return (
@@ -368,17 +432,43 @@ export default function EtiquettesTableau() {
               </span>{" "}
               étiquette{circuits.length > 1 ? "s" : ""} —{" "}
               <span className="text-slate-500">
-                format {dims.width}×{dims.height} mm
+                module {dims.modulePitch} mm × {dims.height} mm
               </span>
             </p>
-            {circuits.length > 0 && (
-              <button
-                onClick={clearAll}
-                className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
-              >
-                <Trash2 size={14} /> Tout effacer
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex overflow-hidden rounded-md border border-slate-300 bg-white">
+                <button
+                  onClick={() => setViewMode("plate")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium ${
+                    viewMode === "plate"
+                      ? "bg-amber-500 text-white"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                  title="Vue planche : étiquettes en grille libre"
+                >
+                  <LayoutGrid size={13} /> Planche
+                </button>
+                <button
+                  onClick={() => setViewMode("rows")}
+                  className={`flex items-center gap-1.5 border-l border-slate-300 px-2.5 py-1 text-xs font-medium ${
+                    viewMode === "rows"
+                      ? "bg-amber-500 text-white"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                  title={`Vue rangées : comme dans le vrai tableau (${dims.rowSize} modules / rangée)`}
+                >
+                  <Rows3 size={13} /> Rangées
+                </button>
+              </div>
+              {circuits.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 size={14} /> Tout effacer
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Zone d'impression */}
@@ -407,16 +497,39 @@ export default function EtiquettesTableau() {
                   personnalisé.
                 </p>
               </div>
-            ) : (
+            ) : viewMode === "plate" ? (
               <div className="labels-grid">
                 {circuits.map((c) => (
                   <LabelCard
                     key={c.id}
                     circuit={c}
                     dims={dims}
+                    isDragging={dragId === c.id}
                     onEdit={() => setEditing(c)}
                     onDelete={() => deleteCircuit(c.id)}
                     onDuplicate={() => duplicateCircuit(c.id)}
+                    onDragStart={() => onDragStart(c.id)}
+                    onDragEnd={onDragEnd}
+                    onDropOn={() => onDropOn(c.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rows.map((row, idx) => (
+                  <RowView
+                    key={idx}
+                    rowIndex={idx + 1}
+                    items={row.items}
+                    used={row.used}
+                    dims={dims}
+                    dragId={dragId}
+                    onEdit={(c) => setEditing(c)}
+                    onDelete={(id) => deleteCircuit(id)}
+                    onDuplicate={(id) => duplicateCircuit(id)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
+                    onDropOn={onDropOn}
                   />
                 ))}
               </div>
@@ -441,25 +554,56 @@ export default function EtiquettesTableau() {
    COMPOSANT ÉTIQUETTE
    ========================================================================= */
 
-function LabelCard({ circuit, dims, onEdit, onDelete, onDuplicate }) {
+function LabelCard({
+  circuit,
+  dims,
+  isDragging,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onDragStart,
+  onDragEnd,
+  onDropOn,
+}) {
   const cat = CATEGORIES[circuit.category] || CATEGORIES.autre;
   const Icon = cat.icon;
 
-  // Échelle d'affichage à l'écran (1 mm ≈ 3.78 px ; ici on grossit ×2 pour la lisibilité)
-  const SCALE = 2.4;
-  const wPx = dims.width * SCALE;
-  const hPx = Math.max(dims.height * SCALE, 50); // hauteur écran min pour lisibilité
+  // Largeur réelle = largeur d'1 module × nombre de modules occupés
+  const modules = circuit.modules || 1;
+  const widthMm = dims.modulePitch * modules;
+
+  // Échelle d'affichage à l'écran (1 mm ≈ 3.78 px ; on grossit pour la lisibilité)
+  const SCALE = 3.6;
+  const wPx = widthMm * SCALE;
+  const hPx = Math.max(dims.height * SCALE, 56);
 
   return (
-    <div className="label-wrapper group relative">
+    <div
+      className={`label-wrapper group relative ${isDragging ? "opacity-40" : ""}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDropOn?.();
+      }}
+    >
       <div
         className="label"
         style={{
-          width: `${dims.width}mm`,
-          height: `${dims.height}mm`,
-          // À l'écran, on affiche en pixels plus grands ; à l'impression, en mm exacts
+          // À l'écran : pixels plus grands. À l'impression : mm exacts.
+          // Les deux sont passés par variables CSS, le @media print bascule.
           ["--label-w-screen"]: `${wPx}px`,
           ["--label-h-screen"]: `${hPx}px`,
+          ["--label-w-print"]: `${widthMm}mm`,
+          ["--label-h-print"]: `${dims.height}mm`,
           ["--accent"]: cat.color,
         }}
       >
@@ -468,8 +612,20 @@ function LabelCard({ circuit, dims, onEdit, onDelete, onDuplicate }) {
           <Icon className="label-icon" />
           <div className="label-text">
             <div className="label-title">{circuit.label}</div>
-            <div className="label-sub">{circuit.breaker} A</div>
+            <div className="label-sub">
+              {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Poignée de drag — visible au hover, masquée à l'impression */}
+      <div
+        className="no-print pointer-events-none absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
+        title="Glisser pour réordonner"
+      >
+        <div className="grid h-7 w-5 cursor-grab place-items-center rounded-full bg-white text-slate-400 shadow-md ring-1 ring-slate-200 active:cursor-grabbing">
+          <GripVertical size={13} />
         </div>
       </div>
 
@@ -496,6 +652,64 @@ function LabelCard({ circuit, dims, onEdit, onDelete, onDuplicate }) {
         >
           <Trash2 size={13} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   VUE "RANGÉES" — visualise comme dans le vrai tableau
+   ========================================================================= */
+
+function RowView({
+  rowIndex,
+  items,
+  used,
+  dims,
+  dragId,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onDragStart,
+  onDragEnd,
+  onDropOn,
+}) {
+  const empty = Math.max(dims.rowSize - used, 0);
+  return (
+    <div className="row-view">
+      <div className="no-print mb-1 flex items-center justify-between text-xs">
+        <span className="font-semibold text-slate-700">Rangée {rowIndex}</span>
+        <span className="text-slate-400">
+          {used}/{dims.rowSize} modules
+        </span>
+      </div>
+      <div className="flex items-stretch gap-px rounded-md border border-slate-300 bg-slate-100 p-1">
+        {items.map(({ circuit, slot }) => (
+          <div key={circuit.id} className="flex flex-col items-center gap-1">
+            <span className="no-print text-[10px] font-medium text-slate-400">
+              {rowIndex}.{slot}
+            </span>
+            <LabelCard
+              circuit={circuit}
+              dims={dims}
+              isDragging={dragId === circuit.id}
+              onEdit={() => onEdit(circuit)}
+              onDelete={() => onDelete(circuit.id)}
+              onDuplicate={() => onDuplicate(circuit.id)}
+              onDragStart={() => onDragStart(circuit.id)}
+              onDragEnd={onDragEnd}
+              onDropOn={() => onDropOn(circuit.id)}
+            />
+          </div>
+        ))}
+        {empty > 0 && (
+          <div
+            className="no-print flex items-center justify-center self-stretch rounded border border-dashed border-slate-300 bg-white text-[10px] text-slate-400"
+            style={{ width: `${dims.modulePitch * empty * 3.6}px` }}
+          >
+            {empty} module{empty > 1 ? "s" : ""} libre{empty > 1 ? "s" : ""}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -572,6 +786,24 @@ function EditModal({ circuit, onChange, onClose }) {
                   }`}
                 >
                   {a}A
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Type / nombre de modules">
+            <div className="grid grid-cols-2 gap-1.5">
+              {MODULE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => onChange({ modules: opt.value })}
+                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+                    (circuit.modules || 1) === opt.value
+                      ? "border-amber-500 bg-amber-500 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -676,14 +908,15 @@ function printStyles(dims) {
         padding: 0 !important;
       }
       .label {
-        width: ${dims.width}mm !important;
-        height: ${dims.height}mm !important;
+        width: var(--label-w-print) !important;
+        height: var(--label-h-print) !important;
         border: 1px dashed #94a3b8 !important;
         page-break-inside: avoid;
       }
       .label-icon { width: 10px; height: 10px; }
       .label-title { font-size: ${dims.height > 12 ? 9 : 7}px; }
       .label-sub { font-size: ${dims.height > 12 ? 7 : 6}px; }
+      .row-view { page-break-inside: avoid; }
     }
   `;
 }
