@@ -107,6 +107,7 @@ export default function EtiquettesTableau() {
   const [search, setSearch] = useState("");
   const [clientName, setClientName] = useState("");
   const [photoImportOpen, setPhotoImportOpen] = useState(false);
+  const [photoImportInitial, setPhotoImportInitial] = useState(null);
   const fileInputRef = useRef(null);
 
   const dims = BRANDS[brand];
@@ -216,7 +217,18 @@ export default function EtiquettesTableau() {
 
   function loadFromFile(e) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+
+    // L'utilisateur a sélectionné une image plutôt qu'une sauvegarde JSON
+    // (cas fréquent sur mobile où l'attribut `accept` n'est pas respecté) :
+    // on bascule directement sur le flux d'import IA pour ne pas le bloquer.
+    if (file.type.startsWith("image/")) {
+      setPhotoImportInitial(file);
+      setPhotoImportOpen(true);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -225,11 +237,13 @@ export default function EtiquettesTableau() {
         if (data.client) setClientName(data.client);
         if (Array.isArray(data.circuits)) setCircuits(data.circuits);
       } catch {
-        alert("Fichier illisible");
+        alert(
+          "Ce bouton attend une sauvegarde au format .json.\n\n" +
+            "Pour importer une photo de tableau, utilisez le bouton « Photo IA »."
+        );
       }
     };
     reader.readAsText(file);
-    e.target.value = "";
   }
 
   function handlePrint() {
@@ -461,7 +475,11 @@ export default function EtiquettesTableau() {
       {/* Modal d'import IA depuis photo */}
       {photoImportOpen && (
         <EtiquettesPhotoModal
-          onClose={() => setPhotoImportOpen(false)}
+          initialFile={photoImportInitial}
+          onClose={() => {
+            setPhotoImportOpen(false);
+            setPhotoImportInitial(null);
+          }}
           onImport={addManyFromImport}
         />
       )}
