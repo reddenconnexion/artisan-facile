@@ -177,6 +177,10 @@ const Profile = () => {
                 setPdpKeyConfigured(!!data.has_pdp_api_key);
                 setPdpUrlInput(pdpCfg.pdp_url || '');
                 setPdpServiceInput(pdpCfg.pdp_service || '');
+
+                // Préférences IA (clé déjà strippée par get_my_profile_safe)
+                const aiPrefs = data.ai_preferences || {};
+
                 setFormData({
                     company_name: data.company_name || '',
                     full_name: data.full_name || '',

@@ -21,7 +21,9 @@ import {
   GripVertical,
   LayoutGrid,
   Rows3,
+  Wand2,
 } from "lucide-react";
+import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
 /* =========================================================================
    CONFIGURATION MÉTIER
@@ -123,6 +125,8 @@ export default function EtiquettesTableau() {
   const [clientName, setClientName] = useState("");
   const [viewMode, setViewMode] = useState("plate"); // 'plate' | 'rows'
   const [dragId, setDragId] = useState(null);
+  const [photoImportOpen, setPhotoImportOpen] = useState(false);
+  const [photoImportInitial, setPhotoImportInitial] = useState(null);
   const fileInputRef = useRef(null);
 
   const dims = BRANDS[brand];
@@ -200,6 +204,19 @@ export default function EtiquettesTableau() {
     if (confirm("Supprimer toutes les étiquettes ?")) setCircuits([]);
   }
 
+  function addManyFromImport(items) {
+    setCircuits((prev) => [
+      ...prev,
+      ...items.map((c) => ({
+        id: crypto.randomUUID(),
+        label: c.label,
+        category: c.category,
+        breaker: c.breaker,
+        modules: c.modules ?? 1,
+      })),
+    ]);
+  }
+
   /* ----- Sauvegarde / chargement (JSON, en attendant Supabase) ----- */
   function saveToFile() {
     const data = {
@@ -221,7 +238,18 @@ export default function EtiquettesTableau() {
 
   function loadFromFile(e) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+
+    // L'utilisateur a sélectionné une image plutôt qu'une sauvegarde JSON
+    // (cas fréquent sur mobile où l'attribut `accept` n'est pas respecté) :
+    // on bascule directement sur le flux d'import IA pour ne pas le bloquer.
+    if (file.type.startsWith("image/")) {
+      setPhotoImportInitial(file);
+      setPhotoImportOpen(true);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -233,11 +261,13 @@ export default function EtiquettesTableau() {
           setCircuits(data.circuits.map((c) => ({ modules: 1, ...c })));
         }
       } catch {
-        alert("Fichier illisible");
+        alert(
+          "Ce bouton attend une sauvegarde au format .json.\n\n" +
+            "Pour importer une photo de tableau, utilisez le bouton « Photo IA »."
+        );
       }
     };
     reader.readAsText(file);
-    e.target.value = "";
   }
 
   function handlePrint() {
@@ -326,6 +356,14 @@ export default function EtiquettesTableau() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={() => setPhotoImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+              title="Importer depuis une photo du tableau (IA)"
+            >
+              <Wand2 size={16} /> Photo IA
+            </button>
 
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -544,6 +582,18 @@ export default function EtiquettesTableau() {
           circuit={editing}
           onChange={(updates) => updateCircuit(editing.id, updates)}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {/* Modal d'import IA depuis photo */}
+      {photoImportOpen && (
+        <EtiquettesPhotoModal
+          initialFile={photoImportInitial}
+          onClose={() => {
+            setPhotoImportOpen(false);
+            setPhotoImportInitial(null);
+          }}
+          onImport={addManyFromImport}
         />
       )}
     </div>
