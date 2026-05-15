@@ -316,12 +316,12 @@ export default function EtiquettesTableau() {
 
   /* ----- Rendu ----- */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* Style d'impression dédié */}
       <style>{printStyles(dims)}</style>
 
       {/* Header — masqué à l'impression */}
-      <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm">
+      <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500 text-white">
@@ -331,7 +331,7 @@ export default function EtiquettesTableau() {
               <h1 className="text-lg font-semibold leading-tight">
                 Étiquettes Tableau
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Red Den Connexion — Module Artisan Facile
               </p>
             </div>
@@ -343,23 +343,23 @@ export default function EtiquettesTableau() {
               placeholder="Nom du client / chantier"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             <select
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             >
               {Object.entries(BRANDS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v.label} ({v.width}×{v.height} mm)
+                  {v.label} ({v.modulePitch}×{v.height} mm/mod.)
                 </option>
               ))}
             </select>
 
             <button
               onClick={() => setPhotoImportOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
               title="Importer depuis une photo du tableau (IA)"
             >
               <Wand2 size={16} /> Photo IA
@@ -367,7 +367,7 @@ export default function EtiquettesTableau() {
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
               title="Charger un projet"
             >
               <FolderOpen size={16} /> Charger
@@ -382,7 +382,7 @@ export default function EtiquettesTableau() {
 
             <button
               onClick={saveToFile}
-              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
               title="Sauvegarder en JSON"
             >
               <Save size={16} /> Sauver
@@ -402,24 +402,24 @@ export default function EtiquettesTableau() {
       {/* Layout principal */}
       <main className="mx-auto grid max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[320px_1fr]">
         {/* ---- Bibliothèque (masquée à l'impression) ---- */}
-        <aside className="no-print rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-3">
+        <aside className="no-print rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
+          <div className="border-b border-slate-200 p-3 dark:border-slate-700">
             <div className="relative">
               <Search
                 size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               />
               <input
                 type="text"
                 placeholder="Rechercher un circuit…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-md border border-slate-300 py-1.5 pl-9 pr-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
             <button
               onClick={addCustom}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 py-2 text-sm font-medium text-slate-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700"
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 py-2 text-sm font-medium text-slate-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-slate-600 dark:text-slate-300 dark:hover:border-amber-500 dark:hover:bg-amber-900/30 dark:hover:text-amber-300"
             >
               <Plus size={16} /> Circuit personnalisé
             </button>
@@ -427,7 +427,7 @@ export default function EtiquettesTableau() {
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-3">
             {Object.entries(presetsByCategory).length === 0 && (
-              <p className="px-2 py-4 text-center text-sm text-slate-500">
+              <p className="px-2 py-4 text-center text-sm text-slate-500 dark:text-slate-400">
                 Aucun résultat
               </p>
             )}
@@ -436,7 +436,7 @@ export default function EtiquettesTableau() {
               const Icon = cat.icon;
               return (
                 <div key={catKey} className="mb-3 last:mb-0">
-                  <div className="mb-1.5 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-1.5 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     <Icon size={14} style={{ color: cat.color }} />
                     {cat.label}
                   </div>
@@ -445,10 +445,10 @@ export default function EtiquettesTableau() {
                       <button
                         key={p.label}
                         onClick={() => addFromPreset(p)}
-                        className="group flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-slate-200 hover:bg-slate-50"
+                        className="group flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-slate-200 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-slate-700"
                       >
                         <span className="truncate">{p.label}</span>
-                        <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 group-hover:bg-white">
+                        <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 group-hover:bg-white dark:bg-slate-700 dark:text-slate-300 dark:group-hover:bg-slate-600">
                           {p.breaker}A
                         </span>
                       </button>
@@ -464,23 +464,23 @@ export default function EtiquettesTableau() {
         <section>
           {/* Barre d'info / actions */}
           <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              <span className="font-semibold text-slate-900 dark:text-white">
                 {circuits.length}
               </span>{" "}
               étiquette{circuits.length > 1 ? "s" : ""} —{" "}
-              <span className="text-slate-500">
+              <span className="text-slate-500 dark:text-slate-400">
                 module {dims.modulePitch} mm × {dims.height} mm
               </span>
             </p>
             <div className="flex items-center gap-2">
-              <div className="inline-flex overflow-hidden rounded-md border border-slate-300 bg-white">
+              <div className="inline-flex overflow-hidden rounded-md border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800">
                 <button
                   onClick={() => setViewMode("plate")}
                   className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium ${
                     viewMode === "plate"
                       ? "bg-amber-500 text-white"
-                      : "text-slate-600 hover:bg-slate-50"
+                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                   title="Vue planche : étiquettes en grille libre"
                 >
@@ -488,10 +488,10 @@ export default function EtiquettesTableau() {
                 </button>
                 <button
                   onClick={() => setViewMode("rows")}
-                  className={`flex items-center gap-1.5 border-l border-slate-300 px-2.5 py-1 text-xs font-medium ${
+                  className={`flex items-center gap-1.5 border-l border-slate-300 px-2.5 py-1 text-xs font-medium dark:border-slate-600 ${
                     viewMode === "rows"
                       ? "bg-amber-500 text-white"
-                      : "text-slate-600 hover:bg-slate-50"
+                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                   title={`Vue rangées : comme dans le vrai tableau (${dims.rowSize} modules / rangée)`}
                 >
@@ -501,7 +501,7 @@ export default function EtiquettesTableau() {
               {circuits.length > 0 && (
                 <button
                   onClick={clearAll}
-                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-950"
                 >
                   <Trash2 size={14} /> Tout effacer
                 </button>
@@ -510,7 +510,7 @@ export default function EtiquettesTableau() {
           </div>
 
           {/* Zone d'impression */}
-          <div className="print-area rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="print-area rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:bg-white">
             {/* En-tête imprimé */}
             <div className="print-header mb-4 hidden border-b border-slate-300 pb-2 text-xs text-slate-600">
               <div className="flex justify-between">
@@ -524,13 +524,13 @@ export default function EtiquettesTableau() {
 
             {circuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-50">
+                <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-50 dark:bg-amber-900/30">
                   <Zap size={26} className="text-amber-500" />
                 </div>
-                <p className="mt-3 text-sm font-medium text-slate-700">
+                <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
                   Aucune étiquette pour le moment
                 </p>
-                <p className="mt-1 max-w-xs text-xs text-slate-500">
+                <p className="mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">
                   Pioche dans la bibliothèque à gauche, ou crée un circuit
                   personnalisé.
                 </p>
@@ -728,15 +728,15 @@ function RowView({
   return (
     <div className="row-view">
       <div className="no-print mb-1 flex items-center justify-between text-xs">
-        <span className="font-semibold text-slate-700">Rangée {rowIndex}</span>
-        <span className="text-slate-400">
+        <span className="font-semibold text-slate-700 dark:text-slate-200">Rangée {rowIndex}</span>
+        <span className="text-slate-400 dark:text-slate-500">
           {used}/{dims.rowSize} modules
         </span>
       </div>
-      <div className="flex items-stretch gap-px rounded-md border border-slate-300 bg-slate-100 p-1">
+      <div className="flex items-stretch gap-px rounded-md border border-slate-300 bg-slate-100 p-1 dark:border-slate-600 dark:bg-slate-900">
         {items.map(({ circuit, slot }) => (
           <div key={circuit.id} className="flex flex-col items-center gap-1">
-            <span className="no-print text-[10px] font-medium text-slate-400">
+            <span className="no-print text-[10px] font-medium text-slate-400 dark:text-slate-500">
               {rowIndex}.{slot}
             </span>
             <LabelCard
@@ -754,7 +754,7 @@ function RowView({
         ))}
         {empty > 0 && (
           <div
-            className="no-print flex items-center justify-center self-stretch rounded border border-dashed border-slate-300 bg-white text-[10px] text-slate-400"
+            className="no-print flex items-center justify-center self-stretch rounded border border-dashed border-slate-300 bg-white text-[10px] text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
             style={{ width: `${dims.modulePitch * empty * 3.6}px` }}
           >
             {empty} module{empty > 1 ? "s" : ""} libre{empty > 1 ? "s" : ""}
@@ -776,14 +776,14 @@ function EditModal({ circuit, onChange, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Modifier l'étiquette</h2>
+          <h2 className="text-base font-semibold dark:text-slate-100">Modifier l'étiquette</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
           >
             <X size={20} />
           </button>
@@ -795,7 +795,7 @@ function EditModal({ circuit, onChange, onClose }) {
               type="text"
               value={circuit.label}
               onChange={(e) => onChange({ label: e.target.value })}
-              className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               autoFocus
             />
           </Field>
@@ -811,8 +811,8 @@ function EditModal({ circuit, onChange, onClose }) {
                     onClick={() => onChange({ category: k })}
                     className={`flex flex-col items-center gap-1 rounded-md border p-2 text-xs ${
                       active
-                        ? "border-amber-500 bg-amber-50 text-amber-700"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                     }`}
                   >
                     <Icon size={16} style={{ color: c.color }} />
@@ -832,7 +832,7 @@ function EditModal({ circuit, onChange, onClose }) {
                   className={`rounded-md border px-3 py-1 text-sm font-medium ${
                     circuit.breaker === a
                       ? "border-amber-500 bg-amber-500 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
                   {a}A
@@ -850,7 +850,7 @@ function EditModal({ circuit, onChange, onClose }) {
                   className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
                     (circuit.modules || 1) === opt.value
                       ? "border-amber-500 bg-amber-500 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                   }`}
                 >
                   {opt.label}
@@ -876,7 +876,7 @@ function EditModal({ circuit, onChange, onClose }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">
+      <span className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
         {label}
       </span>
       {children}
