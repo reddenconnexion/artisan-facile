@@ -366,11 +366,7 @@ const Layout = () => {
         richColors
         theme={isDarkMode ? 'dark' : 'light'}
         mobileOffset={{ top: '12px', right: '12px', left: '12px' }}
-        toastOptions={{
-          classNames: {
-            toast: 'sonner-toast-responsive',
-          },
-        }}
+        style={{ maxWidth: 'calc(100vw - 24px)' }}
       />
 
       {/* Demo Banner */}
