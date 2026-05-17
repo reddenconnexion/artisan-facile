@@ -16,11 +16,9 @@ import {
   FolderOpen,
   X,
   Search,
-  Pencil,
   Copy,
-  GripVertical,
-  Wand2,
   Scissors,
+  Wand2,
   ShieldCheck,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
@@ -605,9 +603,6 @@ export default function EtiquettesTableau() {
                     dims={dims}
                     dragId={dragId}
                     onEdit={(c) => setEditing(c)}
-                    onDelete={(id) => deleteCircuit(id)}
-                    onDuplicate={(id) => duplicateCircuit(id)}
-                    onToggleEndsRow={(id) => toggleEndsRow(id)}
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}
                     onDropOn={onDropOn}
@@ -625,6 +620,9 @@ export default function EtiquettesTableau() {
           circuit={editing}
           onChange={(updates) => updateCircuit(editing.id, updates)}
           onClose={() => setEditing(null)}
+          onDelete={() => deleteCircuit(editing.id)}
+          onDuplicate={() => duplicateCircuit(editing.id)}
+          onToggleEndsRow={() => toggleEndsRow(editing.id)}
         />
       )}
 
@@ -652,9 +650,6 @@ function LabelCard({
   dims,
   isDragging,
   onEdit,
-  onDelete,
-  onDuplicate,
-  onToggleEndsRow,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -701,7 +696,8 @@ function LabelCard({
       }}
     >
       <div
-        className="label"
+        className="label cursor-pointer"
+        onClick={onEdit}
         style={{
           // À l'écran : pixels plus grands. À l'impression : mm exacts.
           // Les deux sont passés par variables CSS, le @media print bascule.
@@ -727,65 +723,20 @@ function LabelCard({
             {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
           </div>
         </div>
+        {/* Indicateur "fin de rangée" : petite icône ciseaux en bas-droite
+            quand le flag endsRow est actif (le toggle se fait depuis le
+            modal d'édition). */}
+        {circuit.endsRow && (
+          <div className="no-print absolute bottom-0.5 right-0.5 grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-white shadow-sm">
+            <Scissors size={9} />
+          </div>
+        )}
       </div>
 
-      {/* Poignée de drag — toujours visible (cf. boutons d'action) */}
-      <div
-        className="no-print absolute -left-2 top-1/2 z-10 -translate-y-1/2"
-        title="Glisser pour réordonner"
-      >
-        <div className="grid h-7 w-5 cursor-grab place-items-center rounded-full bg-white text-slate-400 shadow-md ring-1 ring-slate-200 active:cursor-grabbing">
-          <GripVertical size={13} />
-        </div>
-      </div>
-
-      {/* Boutons d'action (masqués à l'impression). Toujours visibles :
-          le pattern "hover-to-reveal" est cassé sur tablette/mobile (cas
-          typique chantier) où il n'y a pas de :hover. z-10 pour passer
-          devant la slot suivante en vue Rangées (sinon les 8 px de
-          dépassement du bouton Trash sont mangés par le sibling). */}
-      <div
-        className="no-print absolute -top-2 -right-2 z-10 flex gap-1"
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onEdit}
-          draggable={false}
-          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-amber-600"
-          title="Modifier"
-        >
-          <Pencil size={13} />
-        </button>
-        <button
-          onClick={onDuplicate}
-          draggable={false}
-          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-blue-600"
-          title="Dupliquer"
-        >
-          <Copy size={13} />
-        </button>
-        <button
-          onClick={onToggleEndsRow}
-          draggable={false}
-          className={`grid h-7 w-7 place-items-center rounded-full shadow-md ring-1 ${
-            circuit.endsRow
-              ? "bg-amber-500 text-white ring-amber-600"
-              : "bg-white text-slate-600 ring-slate-200 hover:text-amber-600"
-          }`}
-          title={circuit.endsRow ? "Forcer fin de rangée ici (activé)" : "Forcer fin de rangée ici"}
-        >
-          <Scissors size={13} />
-        </button>
-        <button
-          onClick={onDelete}
-          draggable={false}
-          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-rose-600"
-          title="Supprimer"
-        >
-          <Trash2 size={13} />
-        </button>
-      </div>
+      {/* Toutes les actions (modifier, dupliquer, fin de rangée, supprimer)
+          sont accessibles depuis le modal d'édition : on l'ouvre par un
+          clic sur l'étiquette. Pas de boutons inline : ils chevauchaient
+          les étiquettes voisines en vue Rangées. */}
     </div>
   );
 }
@@ -802,9 +753,6 @@ function RowView({
   dims,
   dragId,
   onEdit,
-  onDelete,
-  onDuplicate,
-  onToggleEndsRow,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -829,9 +777,6 @@ function RowView({
               dims={dims}
               isDragging={dragId === circuit.id}
               onEdit={() => onEdit(circuit)}
-              onDelete={() => onDelete(circuit.id)}
-              onDuplicate={() => onDuplicate(circuit.id)}
-              onToggleEndsRow={() => onToggleEndsRow(circuit.id)}
               onDragStart={() => onDragStart(circuit.id)}
               onDragEnd={onDragEnd}
               onDropOn={() => onDropOn(circuit.id)}
@@ -855,7 +800,7 @@ function RowView({
    MODALE D'ÉDITION
    ========================================================================= */
 
-function EditModal({ circuit, onChange, onClose }) {
+function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggleEndsRow }) {
   return (
     <div
       className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
@@ -946,7 +891,34 @@ function EditModal({ circuit, onChange, onClose }) {
           </Field>
         </div>
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => { onDuplicate(); onClose(); }}
+              className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              title="Dupliquer ce circuit"
+            >
+              <Copy size={13} /> Dupliquer
+            </button>
+            <button
+              onClick={onToggleEndsRow}
+              className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+                circuit.endsRow
+                  ? "border-amber-500 bg-amber-500 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              }`}
+              title="Forcer la fin de rangée après ce circuit (réserve)"
+            >
+              <Scissors size={13} /> {circuit.endsRow ? "Fin de rangée ✓" : "Fin de rangée"}
+            </button>
+            <button
+              onClick={() => { onDelete(); onClose(); }}
+              className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-950"
+              title="Supprimer ce circuit"
+            >
+              <Trash2 size={13} /> Supprimer
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="rounded-md bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
