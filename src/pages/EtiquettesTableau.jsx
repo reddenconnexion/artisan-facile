@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
 import {
   Lightbulb,
   Plug,
@@ -22,6 +22,7 @@ import {
   LayoutGrid,
   Rows3,
   Wand2,
+  Scissors,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
@@ -203,6 +204,12 @@ export default function EtiquettesTableau() {
     });
   }
 
+  function toggleEndsRow(id) {
+    setCircuits((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, endsRow: !c.endsRow } : c))
+    );
+  }
+
   function clearAll() {
     if (circuits.length === 0) return;
     if (confirm("Supprimer toutes les étiquettes ?")) setCircuits([]);
@@ -313,6 +320,13 @@ export default function EtiquettesTableau() {
       }
       current.items.push({ circuit: c, slot: current.used + 1 });
       current.used += m;
+      // Marqueur "fin de rangée" : on bascule sur une nouvelle rangée
+      // même si la courante n'est pas remplie (réserve de modules pour
+      // extension future).
+      if (c.endsRow && current.items.length > 0) {
+        result.push(current);
+        current = { items: [], used: 0 };
+      }
     }
     if (current.items.length > 0) result.push(current);
     return result;
@@ -322,7 +336,7 @@ export default function EtiquettesTableau() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* Style d'impression dédié */}
-      <style>{printStyles(dims)}</style>
+      <style>{printStyles()}</style>
 
       {/* Header — masqué à l'impression */}
       <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
@@ -563,43 +577,52 @@ export default function EtiquettesTableau() {
                   personnalisé.
                 </p>
               </div>
-            ) : viewMode === "plate" ? (
-              <div className="labels-grid">
-                {circuits.map((c) => (
-                  <LabelCard
-                    key={c.id}
-                    circuit={c}
-                    dims={dims}
-                    isDragging={dragId === c.id}
-                    onEdit={() => setEditing(c)}
-                    onDelete={() => deleteCircuit(c.id)}
-                    onDuplicate={() => duplicateCircuit(c.id)}
-                    onDragStart={() => onDragStart(c.id)}
-                    onDragEnd={onDragEnd}
-                    onDropOn={() => onDropOn(c.id)}
-                  />
-                ))}
-              </div>
             ) : (
-              <div className="space-y-3">
-                {rows.map((row, idx) => (
-                  <RowView
-                    key={idx}
-                    rowIndex={idx + 1}
-                    items={row.items}
-                    used={row.used}
-                    rowSize={effectiveRowSize}
-                    dims={dims}
-                    dragId={dragId}
-                    onEdit={(c) => setEditing(c)}
-                    onDelete={(id) => deleteCircuit(id)}
-                    onDuplicate={(id) => duplicateCircuit(id)}
-                    onDragStart={onDragStart}
-                    onDragEnd={onDragEnd}
-                    onDropOn={onDropOn}
-                  />
-                ))}
-              </div>
+              <>
+                {/* Vue planche : visible à l'écran si viewMode=plate, jamais à l'impression
+                    (l'impression force toujours le format rangées prêt à découper). */}
+                {viewMode === "plate" && (
+                  <div className="labels-grid print:hidden">
+                    {circuits.map((c) => (
+                      <LabelCard
+                        key={c.id}
+                        circuit={c}
+                        dims={dims}
+                        isDragging={dragId === c.id}
+                        onEdit={() => setEditing(c)}
+                        onDelete={() => deleteCircuit(c.id)}
+                        onDuplicate={() => duplicateCircuit(c.id)}
+                        onToggleEndsRow={() => toggleEndsRow(c.id)}
+                        onDragStart={() => onDragStart(c.id)}
+                        onDragEnd={onDragEnd}
+                        onDropOn={() => onDropOn(c.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {/* Vue rangées : visible à l'écran si viewMode=rows, et TOUJOURS à
+                    l'impression. Chaque rangée devient un strip contigu à découper. */}
+                <div className={`space-y-3 ${viewMode === "rows" ? "" : "hidden print:block"}`}>
+                  {rows.map((row, idx) => (
+                    <RowView
+                      key={idx}
+                      rowIndex={idx + 1}
+                      items={row.items}
+                      used={row.used}
+                      rowSize={effectiveRowSize}
+                      dims={dims}
+                      dragId={dragId}
+                      onEdit={(c) => setEditing(c)}
+                      onDelete={(id) => deleteCircuit(id)}
+                      onDuplicate={(id) => duplicateCircuit(id)}
+                      onToggleEndsRow={(id) => toggleEndsRow(id)}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
+                      onDropOn={onDropOn}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -640,6 +663,7 @@ function LabelCard({
   onEdit,
   onDelete,
   onDuplicate,
+  onToggleEndsRow,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -655,6 +679,17 @@ function LabelCard({
   const SCALE = 3.6;
   const wPx = widthMm * SCALE;
   const hPx = Math.max(dims.height * SCALE, 56);
+
+  // Espace disponible pour FitText (en px écran). On retire :
+  // - 3px : bandeau d'accent
+  // - 6px : padding vertical du contenu
+  // - icône (≈ 18% de la hauteur, floor 12px)
+  // - sub label (12px)
+  // - 6px : gaps internes
+  const iconPx = Math.max(12, Math.round(hPx * 0.18));
+  const titleMaxWidth = Math.max(wPx - 6, 20);
+  const titleMaxHeight = Math.max(hPx - 3 - 6 - iconPx - 12 - 6, 12);
+  const titleMaxFont = Math.max(10, Math.min(36, hPx * 0.45));
 
   return (
     <div
@@ -688,12 +723,17 @@ function LabelCard({
       >
         <div className="label-accent" />
         <div className="label-content">
-          <Icon className="label-icon" />
-          <div className="label-text">
-            <div className="label-title">{circuit.label}</div>
-            <div className="label-sub">
-              {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
-            </div>
+          <Icon className="label-icon" style={{ width: iconPx, height: iconPx }} />
+          <FitText
+            text={circuit.label}
+            className="label-title"
+            maxWidth={titleMaxWidth}
+            maxHeight={titleMaxHeight}
+            maxPx={titleMaxFont}
+            minPx={5}
+          />
+          <div className="label-sub">
+            {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
           </div>
         </div>
       </div>
@@ -725,6 +765,17 @@ function LabelCard({
           <Copy size={13} />
         </button>
         <button
+          onClick={onToggleEndsRow}
+          className={`pointer-events-auto grid h-7 w-7 place-items-center rounded-full shadow-md ring-1 ${
+            circuit.endsRow
+              ? "bg-amber-500 text-white ring-amber-600"
+              : "bg-white text-slate-600 ring-slate-200 hover:text-amber-600"
+          }`}
+          title={circuit.endsRow ? "Forcer fin de rangée ici (activé)" : "Forcer fin de rangée ici"}
+        >
+          <Scissors size={13} />
+        </button>
+        <button
           onClick={onDelete}
           className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-rose-600"
           title="Supprimer"
@@ -750,6 +801,7 @@ function RowView({
   onEdit,
   onDelete,
   onDuplicate,
+  onToggleEndsRow,
   onDragStart,
   onDragEnd,
   onDropOn,
@@ -776,6 +828,7 @@ function RowView({
               onEdit={() => onEdit(circuit)}
               onDelete={() => onDelete(circuit.id)}
               onDuplicate={() => onDuplicate(circuit.id)}
+              onToggleEndsRow={() => onToggleEndsRow(circuit.id)}
               onDragStart={() => onDragStart(circuit.id)}
               onDragEnd={onDragEnd}
               onDropOn={() => onDropOn(circuit.id)}
@@ -787,7 +840,7 @@ function RowView({
             className="no-print flex items-center justify-center self-stretch rounded border border-dashed border-slate-300 bg-white text-[10px] text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
             style={{ width: `${dims.modulePitch * empty * 3.6}px` }}
           >
-            {empty} module{empty > 1 ? "s" : ""} libre{empty > 1 ? "s" : ""}
+            {empty} module{empty > 1 ? "s" : ""} libre{empty > 1 ? "s" : ""} (réserve)
           </div>
         )}
       </div>
@@ -918,7 +971,7 @@ function Field({ label, children }) {
    FEUILLE DE STYLE (écran + impression)
    ========================================================================= */
 
-function printStyles(dims) {
+function printStyles() {
   return `
     .labels-grid {
       display: flex;
@@ -956,31 +1009,15 @@ function printStyles(dims) {
       min-height: 0;
       text-align: center;
     }
+    /* width/height pilotés en inline par LabelCard (proportionnels à la hauteur de la marque). */
     .label-icon {
-      width: 18px;
-      height: 18px;
       color: var(--accent, #6B7280);
       flex-shrink: 0;
     }
-    .label-text {
-      min-width: 0;
-      width: 100%;
-      line-height: 1.1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    /* font-size piloté en inline par FitText. */
     .label-title {
-      font-size: 10px;
-      font-weight: 600;
+      font-weight: 700;
       color: #0f172a;
-      /* Autorise le wrap sur 2 lignes — empêche le texte coupé. */
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-word;
-      hyphens: auto;
     }
     .label-sub {
       font-size: 8px;
@@ -990,9 +1027,11 @@ function printStyles(dims) {
     }
 
     @media print {
+      /* A4 paysage par défaut : permet d'imprimer une rangée de 13 modules
+         (≈ 234 mm) ou 18 modules (≈ 324 mm — au-delà du paysage, à splitter). */
       @page {
-        size: A4;
-        margin: 10mm;
+        size: A4 landscape;
+        margin: 8mm;
       }
       body { background: white !important; }
       .no-print { display: none !important; }
@@ -1008,11 +1047,74 @@ function printStyles(dims) {
         border: 1px solid #94a3b8 !important;
         page-break-inside: avoid;
       }
-      /* Tailles à l'impression : adaptées à la hauteur mm réelle. */
-      .label-icon { width: ${Math.round(dims.height * 0.32)}px; height: ${Math.round(dims.height * 0.32)}px; }
-      .label-title { font-size: ${dims.height >= 22 ? 7 : 6}px; }
-      .label-sub { font-size: ${dims.height >= 22 ? 6 : 5}px; }
+      /* Strip contigu : on retire le fond gris, la bordure et le padding du
+         conteneur de rangée pour que les étiquettes soient bord à bord,
+         prêtes à découper d'un seul coup au cutter. */
+      .row-view > div:nth-child(2) {
+        gap: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+      }
+      .row-view + .row-view {
+        margin-top: 8mm;
+      }
       .row-view { page-break-inside: avoid; }
     }
   `;
+}
+
+/* =========================================================================
+   COMPOSANT FIT-TEXT : auto-dimensionne le texte pour remplir l'espace
+   disponible (largeur ET hauteur) sans déborder, par dichotomie.
+   ========================================================================= */
+
+function FitText({ text, maxWidth, maxHeight, maxPx = 30, minPx = 5, className }) {
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !maxWidth || !maxHeight) return;
+
+    // Dichotomie : la plus grande taille de police qui tient dans
+    // maxWidth × maxHeight (le texte peut wrapper sur plusieurs lignes).
+    let lo = minPx;
+    let hi = maxPx;
+    let best = minPx;
+    for (let i = 0; i < 14; i++) {
+      const mid = (lo + hi) / 2;
+      el.style.fontSize = `${mid}px`;
+      const fits =
+        el.scrollWidth <= maxWidth + 0.5 &&
+        el.scrollHeight <= maxHeight + 0.5;
+      if (fits) {
+        best = mid;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+      if (hi - lo < 0.25) break;
+    }
+    el.style.fontSize = `${best}px`;
+  }, [text, maxWidth, maxHeight, maxPx, minPx]);
+
+  return (
+    <span
+      ref={ref}
+      className={className}
+      style={{
+        display: "block",
+        width: `${maxWidth}px`,
+        fontSize: `${minPx}px`,
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
+        lineHeight: 1.05,
+        textAlign: "center",
+        hyphens: "auto",
+      }}
+    >
+      {text}
+    </span>
+  );
 }
