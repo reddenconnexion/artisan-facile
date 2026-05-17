@@ -23,6 +23,7 @@ import {
   Rows3,
   Wand2,
   Scissors,
+  ShieldCheck,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
@@ -53,6 +54,7 @@ const MODULE_OPTIONS = [
 
 // Catégories de circuits avec icône Lucide et couleur d'accent
 const CATEGORIES = {
+  differentiel: { label: "Différentiel", icon: ShieldCheck, color: "#0EA5E9" },
   eclairage: { label: "Éclairage", icon: Lightbulb, color: "#F59E0B" },
   prises: { label: "Prises", icon: Plug, color: "#3B82F6" },
   cuisine: { label: "Cuisine", icon: Utensils, color: "#F97316" },
@@ -66,6 +68,14 @@ const CATEGORIES = {
 
 // Bibliothèque de circuits préenregistrés (NF C 15-100)
 const PRESET_CIRCUITS = [
+  // Interrupteurs différentiels (têtes de rangée) — bipolaires (2 modules)
+  { category: "differentiel", label: "ID 40A Type AC 30mA", breaker: 40, modules: 2 },
+  { category: "differentiel", label: "ID 63A Type AC 30mA", breaker: 63, modules: 2 },
+  { category: "differentiel", label: "ID 40A Type A 30mA", breaker: 40, modules: 2 },
+  { category: "differentiel", label: "ID 63A Type A 30mA", breaker: 63, modules: 2 },
+  { category: "differentiel", label: "ID 40A Type F 30mA", breaker: 40, modules: 2 },
+  { category: "differentiel", label: "ID 63A Type F 30mA", breaker: 63, modules: 2 },
+  { category: "differentiel", label: "ID 25A Type AC 300mA", breaker: 25, modules: 2 },
   // Éclairage
   { category: "eclairage", label: "Éclairage Cuisine", breaker: 10 },
   { category: "eclairage", label: "Éclairage Salon", breaker: 10 },
@@ -1097,7 +1107,10 @@ function FitText({ text, maxWidth, maxHeight, maxPx = 30, minPx = 5, className }
       if (hi - lo < 0.25) break;
     }
     el.style.fontSize = `${best}px`;
-  }, [text, maxWidth, maxHeight, maxPx, minPx]);
+  });
+  // ↑ deps volontairement omises : on relance le fit à CHAQUE render pour
+  // résister aux re-renders parents (drag, hover…) sans state, sinon React
+  // réappliquerait la fontSize de la prop style et le texte resterait à 5 px.
 
   return (
     <span
@@ -1106,7 +1119,8 @@ function FitText({ text, maxWidth, maxHeight, maxPx = 30, minPx = 5, className }
       style={{
         display: "block",
         width: `${maxWidth}px`,
-        fontSize: `${minPx}px`,
+        // PAS de fontSize ici (sinon React l'écrase sur chaque re-render).
+        // Le useLayoutEffect ci-dessus la pose directement sur le node.
         wordBreak: "break-word",
         overflowWrap: "anywhere",
         lineHeight: 1.05,
