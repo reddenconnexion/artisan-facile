@@ -567,17 +567,6 @@ export default function EtiquettesTableau() {
 
           {/* Zone d'impression */}
           <div className="print-area rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:bg-white">
-            {/* En-tête imprimé */}
-            <div className="print-header mb-4 hidden border-b border-slate-300 pb-2 text-xs text-slate-600">
-              <div className="flex justify-between">
-                <span>
-                  <strong>Red Den Connexion</strong> — Étiquettes tableau
-                  électrique
-                </span>
-                <span>{clientName || "—"}</span>
-              </div>
-            </div>
-
             {circuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-50 dark:bg-amber-900/30">
@@ -1010,7 +999,6 @@ function printStyles() {
       }
       body { background: white !important; }
       .no-print { display: none !important; }
-      .print-header { display: block !important; }
       .print-area {
         border: none !important;
         box-shadow: none !important;
