@@ -729,9 +729,9 @@ function LabelCard({
         </div>
       </div>
 
-      {/* Poignée de drag — visible au hover, masquée à l'impression */}
+      {/* Poignée de drag — toujours visible (cf. boutons d'action) */}
       <div
-        className="no-print pointer-events-none absolute -left-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
+        className="no-print absolute -left-2 top-1/2 z-10 -translate-y-1/2"
         title="Glisser pour réordonner"
       >
         <div className="grid h-7 w-5 cursor-grab place-items-center rounded-full bg-white text-slate-400 shadow-md ring-1 ring-slate-200 active:cursor-grabbing">
@@ -739,25 +739,36 @@ function LabelCard({
         </div>
       </div>
 
-      {/* Boutons d'action (masqués à l'impression) */}
-      <div className="no-print pointer-events-none absolute -top-2 -right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Boutons d'action (masqués à l'impression). Toujours visibles :
+          le pattern "hover-to-reveal" est cassé sur tablette/mobile (cas
+          typique chantier) où il n'y a pas de :hover. z-10 pour passer
+          devant la slot suivante en vue Rangées (sinon les 8 px de
+          dépassement du bouton Trash sont mangés par le sibling). */}
+      <div
+        className="no-print absolute -top-2 -right-2 z-10 flex gap-1"
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onEdit}
-          className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-amber-600"
+          draggable={false}
+          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-amber-600"
           title="Modifier"
         >
           <Pencil size={13} />
         </button>
         <button
           onClick={onDuplicate}
-          className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-blue-600"
+          draggable={false}
+          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-blue-600"
           title="Dupliquer"
         >
           <Copy size={13} />
         </button>
         <button
           onClick={onToggleEndsRow}
-          className={`pointer-events-auto grid h-7 w-7 place-items-center rounded-full shadow-md ring-1 ${
+          draggable={false}
+          className={`grid h-7 w-7 place-items-center rounded-full shadow-md ring-1 ${
             circuit.endsRow
               ? "bg-amber-500 text-white ring-amber-600"
               : "bg-white text-slate-600 ring-slate-200 hover:text-amber-600"
@@ -768,7 +779,8 @@ function LabelCard({
         </button>
         <button
           onClick={onDelete}
-          className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-rose-600"
+          draggable={false}
+          className="grid h-7 w-7 place-items-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 hover:text-rose-600"
           title="Supprimer"
         >
           <Trash2 size={13} />
