@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
+import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import {
   Lightbulb,
   Plug,
@@ -19,8 +19,6 @@ import {
   Pencil,
   Copy,
   GripVertical,
-  LayoutGrid,
-  Rows3,
   Wand2,
   Scissors,
   ShieldCheck,
@@ -129,19 +127,53 @@ const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
    COMPOSANT PRINCIPAL
    ========================================================================= */
 
+// Clé localStorage pour la sauvegarde automatique du projet en cours.
+// Restauré au mount, ré-enregistré à chaque changement.
+const STORAGE_KEY = "etiquettes_tableau_autosave_v1";
+
+function loadAutosave() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export default function EtiquettesTableau() {
-  const [brand, setBrand] = useState("universel");
-  const [circuits, setCircuits] = useState([]);
+  // Restauration de l'autosave au tout premier rendu (lazy init).
+  const initial = useMemo(() => loadAutosave() || {}, []);
+  const [brand, setBrand] = useState(initial.brand || "universel");
+  const [circuits, setCircuits] = useState(
+    Array.isArray(initial.circuits) ? initial.circuits.map((c) => ({ modules: 1, ...c })) : []
+  );
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [viewMode, setViewMode] = useState("plate"); // 'plate' | 'rows'
+  const [clientName, setClientName] = useState(initial.clientName || "");
   const [dragId, setDragId] = useState(null);
   const [photoImportOpen, setPhotoImportOpen] = useState(false);
   const [photoImportInitial, setPhotoImportInitial] = useState(null);
   // null = on suit le défaut de la marque ; sinon = override utilisateur
-  const [customRowSize, setCustomRowSize] = useState(null);
+  const [customRowSize, setCustomRowSize] = useState(
+    typeof initial.customRowSize === "number" ? initial.customRowSize : null
+  );
   const fileInputRef = useRef(null);
+
+  // Auto-sauvegarde : à chaque changement on persiste l'état en localStorage,
+  // pour éviter de tout perdre sur un reload accidentel ou un crash navigateur.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ brand, circuits, clientName, customRowSize, savedAt: Date.now() })
+      );
+    } catch {
+      // Quota dépassé ou navigation privée : on ignore silencieusement.
+    }
+  }, [brand, circuits, clientName, customRowSize]);
 
   const dims = BRANDS[brand];
   const effectiveRowSize = customRowSize ?? dims.rowSize;
@@ -525,40 +557,14 @@ export default function EtiquettesTableau() {
                 module {dims.modulePitch} mm × {dims.height} mm
               </span>
             </p>
-            <div className="flex items-center gap-2">
-              <div className="inline-flex overflow-hidden rounded-md border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800">
-                <button
-                  onClick={() => setViewMode("plate")}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium ${
-                    viewMode === "plate"
-                      ? "bg-amber-500 text-white"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                  }`}
-                  title="Vue planche : étiquettes en grille libre"
-                >
-                  <LayoutGrid size={13} /> Planche
-                </button>
-                <button
-                  onClick={() => setViewMode("rows")}
-                  className={`flex items-center gap-1.5 border-l border-slate-300 px-2.5 py-1 text-xs font-medium dark:border-slate-600 ${
-                    viewMode === "rows"
-                      ? "bg-amber-500 text-white"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                  }`}
-                  title={`Vue rangées : comme dans le vrai tableau (${effectiveRowSize} modules / rangée)`}
-                >
-                  <Rows3 size={13} /> Rangées
-                </button>
-              </div>
-              {circuits.length > 0 && (
-                <button
-                  onClick={clearAll}
-                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-950"
-                >
-                  <Trash2 size={14} /> Tout effacer
-                </button>
-              )}
-            </div>
+            {circuits.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-950"
+              >
+                <Trash2 size={14} /> Tout effacer
+              </button>
+            )}
           </div>
 
           {/* Zone d'impression */}
@@ -588,51 +594,26 @@ export default function EtiquettesTableau() {
                 </p>
               </div>
             ) : (
-              <>
-                {/* Vue planche : visible à l'écran si viewMode=plate, jamais à l'impression
-                    (l'impression force toujours le format rangées prêt à découper). */}
-                {viewMode === "plate" && (
-                  <div className="labels-grid print:hidden">
-                    {circuits.map((c) => (
-                      <LabelCard
-                        key={c.id}
-                        circuit={c}
-                        dims={dims}
-                        isDragging={dragId === c.id}
-                        onEdit={() => setEditing(c)}
-                        onDelete={() => deleteCircuit(c.id)}
-                        onDuplicate={() => duplicateCircuit(c.id)}
-                        onToggleEndsRow={() => toggleEndsRow(c.id)}
-                        onDragStart={() => onDragStart(c.id)}
-                        onDragEnd={onDragEnd}
-                        onDropOn={() => onDropOn(c.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-                {/* Vue rangées : visible à l'écran si viewMode=rows, et TOUJOURS à
-                    l'impression. Chaque rangée devient un strip contigu à découper. */}
-                <div className={`space-y-3 ${viewMode === "rows" ? "" : "hidden print:block"}`}>
-                  {rows.map((row, idx) => (
-                    <RowView
-                      key={idx}
-                      rowIndex={idx + 1}
-                      items={row.items}
-                      used={row.used}
-                      rowSize={effectiveRowSize}
-                      dims={dims}
-                      dragId={dragId}
-                      onEdit={(c) => setEditing(c)}
-                      onDelete={(id) => deleteCircuit(id)}
-                      onDuplicate={(id) => duplicateCircuit(id)}
-                      onToggleEndsRow={(id) => toggleEndsRow(id)}
-                      onDragStart={onDragStart}
-                      onDragEnd={onDragEnd}
-                      onDropOn={onDropOn}
-                    />
-                  ))}
-                </div>
-              </>
+              <div className="space-y-3">
+                {rows.map((row, idx) => (
+                  <RowView
+                    key={idx}
+                    rowIndex={idx + 1}
+                    items={row.items}
+                    used={row.used}
+                    rowSize={effectiveRowSize}
+                    dims={dims}
+                    dragId={dragId}
+                    onEdit={(c) => setEditing(c)}
+                    onDelete={(id) => deleteCircuit(id)}
+                    onDuplicate={(id) => duplicateCircuit(id)}
+                    onToggleEndsRow={(id) => toggleEndsRow(id)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
+                    onDropOn={onDropOn}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </section>
