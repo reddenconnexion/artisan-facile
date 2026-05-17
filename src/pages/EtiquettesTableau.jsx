@@ -128,9 +128,12 @@ export default function EtiquettesTableau() {
   const [dragId, setDragId] = useState(null);
   const [photoImportOpen, setPhotoImportOpen] = useState(false);
   const [photoImportInitial, setPhotoImportInitial] = useState(null);
+  // null = on suit le défaut de la marque ; sinon = override utilisateur
+  const [customRowSize, setCustomRowSize] = useState(null);
   const fileInputRef = useRef(null);
 
   const dims = BRANDS[brand];
+  const effectiveRowSize = customRowSize ?? dims.rowSize;
 
   // Bibliothèque filtrée par recherche
   const filteredPresets = useMemo(() => {
@@ -299,7 +302,7 @@ export default function EtiquettesTableau() {
      la capacité du tableau (rowSize modules par rangée). Un circuit qui ne tient
      pas dans la rangée en cours bascule sur la suivante. ----- */
   const rows = useMemo(() => {
-    const rowSize = dims.rowSize;
+    const rowSize = effectiveRowSize;
     const result = [];
     let current = { items: [], used: 0 };
     for (const c of circuits) {
@@ -313,7 +316,7 @@ export default function EtiquettesTableau() {
     }
     if (current.items.length > 0) result.push(current);
     return result;
-  }, [circuits, dims.rowSize]);
+  }, [circuits, effectiveRowSize]);
 
   /* ----- Rendu ----- */
   return (
@@ -348,7 +351,12 @@ export default function EtiquettesTableau() {
             />
             <select
               value={brand}
-              onChange={(e) => setBrand(e.target.value)}
+              onChange={(e) => {
+                setBrand(e.target.value);
+                // Reset au défaut de la nouvelle marque (l'utilisateur peut
+                // ensuite ré-overrider via l'input "modules/rangée").
+                setCustomRowSize(null);
+              }}
               className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             >
               {Object.entries(BRANDS).map(([k, v]) => (
@@ -357,6 +365,25 @@ export default function EtiquettesTableau() {
                 </option>
               ))}
             </select>
+
+            <label
+              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+              title="Nombre de modules par rangée du tableau réel (8, 13, 18…). Affecte la vue Rangées."
+            >
+              <span className="whitespace-nowrap">Mod./rangée</span>
+              <input
+                type="number"
+                min={4}
+                max={36}
+                step={1}
+                value={effectiveRowSize}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setCustomRowSize(Number.isFinite(v) && v >= 4 && v <= 36 ? v : null);
+                }}
+                className="w-12 rounded border-0 bg-transparent p-0 text-center text-sm font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-0 dark:text-slate-100"
+              />
+            </label>
 
             <button
               onClick={() => setPhotoImportOpen(true)}
@@ -494,7 +521,7 @@ export default function EtiquettesTableau() {
                       ? "bg-amber-500 text-white"
                       : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
-                  title={`Vue rangées : comme dans le vrai tableau (${dims.rowSize} modules / rangée)`}
+                  title={`Vue rangées : comme dans le vrai tableau (${effectiveRowSize} modules / rangée)`}
                 >
                   <Rows3 size={13} /> Rangées
                 </button>
@@ -561,6 +588,7 @@ export default function EtiquettesTableau() {
                     rowIndex={idx + 1}
                     items={row.items}
                     used={row.used}
+                    rowSize={effectiveRowSize}
                     dims={dims}
                     dragId={dragId}
                     onEdit={(c) => setEditing(c)}
@@ -716,6 +744,7 @@ function RowView({
   rowIndex,
   items,
   used,
+  rowSize,
   dims,
   dragId,
   onEdit,
@@ -725,13 +754,13 @@ function RowView({
   onDragEnd,
   onDropOn,
 }) {
-  const empty = Math.max(dims.rowSize - used, 0);
+  const empty = Math.max(rowSize - used, 0);
   return (
     <div className="row-view">
       <div className="no-print mb-1 flex items-center justify-between text-xs">
         <span className="font-semibold text-slate-700 dark:text-slate-200">Rangée {rowIndex}</span>
         <span className="text-slate-400 dark:text-slate-500">
-          {used}/{dims.rowSize} modules
+          {used}/{rowSize} modules
         </span>
       </div>
       <div className="flex items-stretch gap-px rounded-md border border-slate-300 bg-slate-100 p-1 dark:border-slate-600 dark:bg-slate-900">
