@@ -361,7 +361,17 @@ const Layout = () => {
   return (
     <ConfirmProvider>
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden transition-colors duration-200">
-      <Toaster position="top-right" richColors theme={isDarkMode ? 'dark' : 'light'} />
+      <Toaster
+        position="top-right"
+        richColors
+        theme={isDarkMode ? 'dark' : 'light'}
+        mobileOffset={{ top: '12px', right: '12px', left: '12px' }}
+        toastOptions={{
+          classNames: {
+            toast: 'sonner-toast-responsive',
+          },
+        }}
+      />
 
       {/* Demo Banner */}
       {isDemo && (

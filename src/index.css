@@ -111,3 +111,20 @@ select:focus-visible {
   border-color: #3b82f6 !important;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
+
+/* ─── Sonner toasts: keep within viewport on mobile ─────── */
+@media (max-width: 640px) {
+  [data-sonner-toaster] {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+  [data-sonner-toaster] [data-sonner-toast] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  [data-sonner-toaster] [data-sonner-toast] [data-title],
+  [data-sonner-toaster] [data-sonner-toast] [data-description] {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}
