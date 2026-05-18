@@ -970,18 +970,26 @@ function printStyles() {
       border-radius: 2px;
       overflow: hidden;
       box-sizing: border-box;
+      /* Force le navigateur à imprimer les couleurs (bandeau, icône, etc.) */
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .label-accent {
       height: 3px;
       width: 100%;
       background: var(--accent, #6B7280);
       flex-shrink: 0;
+      /* Force le navigateur à imprimer le fond coloré même quand l'option
+         "Graphiques d'arrière-plan" du dialogue d'impression est désactivée. */
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .label-content {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      /* Picto en haut, libellé juste en dessous (cf. vraies étiquettes Resi9). */
+      justify-content: flex-start;
       gap: 2px;
       padding: 3px 2px;
       flex: 1;
@@ -1102,11 +1110,15 @@ function FitText({ text, maxWidth, maxHeight, maxPx = 30, minPx = 5, className }
         width: `${maxWidth}px`,
         // PAS de fontSize ici (sinon React l'écrase sur chaque re-render).
         // Le useLayoutEffect ci-dessus la pose directement sur le node.
-        wordBreak: "break-word",
-        overflowWrap: "anywhere",
+        // wordBreak/overflowWrap normaux : on ne coupe JAMAIS au milieu d'un
+        // mot. Si un mot est trop long, le binary-search ci-dessus shrink
+        // la police jusqu'à ce qu'il tienne. Hyphens="manual" pour ne pas
+        // ajouter de césures automatiques imprévues.
+        wordBreak: "normal",
+        overflowWrap: "normal",
         lineHeight: 1.05,
         textAlign: "center",
-        hyphens: "auto",
+        hyphens: "manual",
       }}
     >
       {text}
