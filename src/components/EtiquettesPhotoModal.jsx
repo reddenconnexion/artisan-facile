@@ -4,8 +4,8 @@ import { supabase } from "../utils/supabase";
 import { imageFileToBase64 } from "../utils/mediaConverters";
 
 const VALID_CATEGORIES = [
-  "eclairage", "prises", "cuisine", "chauffage",
-  "ecs", "vmc", "volets", "irve", "autre",
+  "differentiel", "eclairage", "prises", "cuisine", "chauffage",
+  "ecs", "vmc", "volets", "irve", "contacteur", "horloge", "autre",
 ];
 
 const SYSTEM_PROMPT =
@@ -20,7 +20,7 @@ Pour chaque circuit, retourne un objet JSON avec :
 - "label" (string) : libellé reformulé proprement en français (ex: "Éclairage Salon", "Prises Cuisine", "Lave-vaisselle"). Corrige les fautes et abréviations courantes.
 - "breaker" (number) : calibre du disjoncteur en ampères (parmi 2, 10, 16, 20, 32, 40, 63). Si lisible sur le disjoncteur, utilise cette valeur. Sinon déduis : éclairage=10, prises classiques=16, prises cuisine/lave-linge=20, plaque/PAC/IRVE 7kW=32, IRVE 22kW=40.
 - "modules" (number) : nombre de modules occupés (1=monobloc/1P, 2=bipolaire/2P, 4=tétrapolaire). Si tu vois un disjoncteur double-largeur, mets 2. Triphasé tétra = 4. Par défaut 1.
-- "category" (string) : EXACTEMENT une de : eclairage, prises, cuisine, chauffage, ecs, vmc, volets, irve, autre.
+- "category" (string) : EXACTEMENT une de : differentiel (interrupteur différentiel ID), eclairage, prises, cuisine, chauffage, ecs (chauffe-eau), vmc, volets, irve (borne véhicule), contacteur (J/N, jour-nuit, contacteur de puissance), horloge (horloge programmable, minuterie, télérupteur), autre.
 
 Réponds UNIQUEMENT avec le tableau JSON brut, sans texte autour, sans bloc markdown.
 

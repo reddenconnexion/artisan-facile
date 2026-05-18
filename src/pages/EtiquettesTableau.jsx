@@ -20,6 +20,8 @@ import {
   Scissors,
   Wand2,
   ShieldCheck,
+  ToggleRight,
+  Clock,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
@@ -59,6 +61,8 @@ const CATEGORIES = {
   vmc: { label: "VMC", icon: Wind, color: "#10B981" },
   volets: { label: "Volets / Portail", icon: Blinds, color: "#8B5CF6" },
   irve: { label: "IRVE", icon: Car, color: "#22C55E" },
+  contacteur: { label: "Contacteur", icon: ToggleRight, color: "#A855F7" },
+  horloge: { label: "Horloge / Minuterie", icon: Clock, color: "#14B8A6" },
   autre: { label: "Autre", icon: Zap, color: "#6B7280" },
 };
 
@@ -117,6 +121,17 @@ const PRESET_CIRCUITS = [
   { category: "irve", label: "Borne IRVE 22 kW", breaker: 40, modules: 4 },
   // PAC — généralement bipolaire
   { category: "chauffage", label: "PAC bi-bloc", breaker: 32, modules: 2 },
+  // Contacteurs (auxiliaires de puissance) — bipolaires
+  { category: "contacteur", label: "Contacteur J/N HC", breaker: 25, modules: 2 },
+  { category: "contacteur", label: "Contacteur 25A 2P", breaker: 25, modules: 2 },
+  { category: "contacteur", label: "Contacteur 40A 2P", breaker: 40, modules: 2 },
+  { category: "contacteur", label: "Contacteur 63A 4P", breaker: 63, modules: 4 },
+  // Horloges & minuteries — 1 ou 2 modules selon le modèle
+  { category: "horloge", label: "Horloge programmable", breaker: 16, modules: 1 },
+  { category: "horloge", label: "Horloge ECS heures creuses", breaker: 16, modules: 1 },
+  { category: "horloge", label: "Horloge éclairage ext.", breaker: 16, modules: 1 },
+  { category: "horloge", label: "Minuterie escalier", breaker: 10, modules: 1 },
+  { category: "horloge", label: "Télérupteur", breaker: 10, modules: 1 },
 ];
 
 const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
