@@ -1265,37 +1265,6 @@ const DevisForm = () => {
         }
     };
 
-    const autoCreateAgendaEvent = async (quoteTitle, clientId) => {
-        try {
-            const client = clients.find(c => c.id.toString() === (clientId || formData.client_id)?.toString());
-            const eventDate = new Date();
-            eventDate.setDate(eventDate.getDate() + 7);
-            const dateStr = eventDate.toISOString().split('T')[0];
-
-            const address = formData.intervention_address
-                ? [formData.intervention_address, formData.intervention_postal_code, formData.intervention_city].filter(Boolean).join(', ')
-                : client ? [client.address, client.postal_code, client.city].filter(Boolean).join(', ') : '';
-
-            await supabase.from('events').insert([{
-                user_id: user.id,
-                title: `Chantier : ${quoteTitle || formData.title}`,
-                date: dateStr,
-                time: '08:00',
-                client_name: client?.name || '',
-                client_id: clientId || formData.client_id || null,
-                address,
-                details: `Créé automatiquement depuis le devis #${id} — Date à confirmer avec le client`
-            }]);
-
-            toast.success('Événement chantier ajouté à l\'agenda (dans 7 jours par défaut)', {
-                action: { label: 'Voir l\'agenda', onClick: () => navigate('/app/agenda') },
-                duration: 6000
-            });
-        } catch (err) {
-            console.error('Erreur création événement agenda:', err);
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1381,11 +1350,6 @@ const DevisForm = () => {
             }
 
             if (error) throw error;
-
-            // Auto-create Agenda Event if status transitions to Accepted/Signed
-            if (['accepted', 'signed'].includes(quoteData.status) && !['accepted', 'signed'].includes(initialStatus)) {
-                await autoCreateAgendaEvent(quoteData.title, quoteData.client_id);
-            }
 
             // Auto-create Project (Dossier Chantier) if Signed/Accepted
             if (['accepted', 'signed'].includes(quoteData.status) && quoteData.title && error === null) {
@@ -2136,7 +2100,6 @@ Conditions de règlement : Paiement à réception de facture.`
             updateClientCRMStatus(formData.client_id, 'signed');
             setShowSignatureModal(false);
             toast.success('Devis signé avec succès');
-            await autoCreateAgendaEvent(formData.title, formData.client_id);
         } catch (error) {
             console.error('Error saving signature:', error);
             toast.error('Erreur lors de la sauvegarde de la signature');
