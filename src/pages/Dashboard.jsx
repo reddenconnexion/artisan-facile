@@ -206,7 +206,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const toRelanceCount = allQuotes.filter(q =>
-        q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
+        q.status === 'sent' && !q.archived_at && new Date(q.date || q.created_at) < sevenDaysAgo
     ).length;
 
     let nextRdvLabel = 'Aucun RDV';

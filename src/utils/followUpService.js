@@ -69,17 +69,17 @@ export const getDueFollowUps = async (userId) => {
 
     if (steps.length === 0) return [];
 
-    // Fetch candidate quotes: Sent, not yet accepted/paid/refused
-    // effectively 'sent' status.
+    // Fetch candidate quotes: Sent, not yet accepted/paid/refused, not archived.
     const { data: quotes, error } = await supabase
         .from('quotes')
         .select(`
             *,
             clients (name, email, phone)
         `)
-        // Filter by status 'sent' (envoyé) which means we are waiting for response. 
+        // Filter by status 'sent' (envoyé) which means we are waiting for response.
         // Note: 'draft' is too early. 'accepted' is too late.
         .eq('status', 'sent')
+        .is('archived_at', null)
         .order('date', { ascending: false });
 
     if (error) {
@@ -183,6 +183,82 @@ export const recordFollowUp = async (quote, userId, content, method = 'email', f
             details: `Relance devis #${quote.id} (Niveau ${newCount})`
         }]);
     }
+};
+
+/**
+ * Archives a quote. Soft delete: hides it from dashboard counters and the
+ * follow-up center but keeps the record for later restore.
+ * @param {number|string} quoteId
+ * @param {string} userId
+ */
+export const archiveQuote = async (quoteId, userId) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+        .from('quotes')
+        .update({ archived_at: now })
+        .eq('id', quoteId)
+        .eq('user_id', userId);
+    if (error) throw error;
+};
+
+/**
+ * Restores a previously archived quote.
+ * @param {number|string} quoteId
+ * @param {string} userId
+ */
+export const unarchiveQuote = async (quoteId, userId) => {
+    const { error } = await supabase
+        .from('quotes')
+        .update({ archived_at: null })
+        .eq('id', quoteId)
+        .eq('user_id', userId);
+    if (error) throw error;
+};
+
+/**
+ * Returns the recommended next send window for follow-up emails.
+ * Avoids late evenings (after 19h), early mornings (before 8h), and weekends.
+ * @param {Date} [now]
+ * @returns {{ isOptimal: boolean, label: string, suggestion: string|null }}
+ */
+export const getOptimalSendWindow = (now = new Date()) => {
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const hour = now.getHours();
+    const isWeekend = day === 0 || day === 6;
+    const isBusinessHours = hour >= 8 && hour < 19;
+    const isPrimeWindow = !isWeekend && (hour >= 9 && hour <= 11);
+
+    if (isPrimeWindow) {
+        return { isOptimal: true, label: 'Moment idéal pour relancer', suggestion: null };
+    }
+
+    if (!isWeekend && isBusinessHours) {
+        return { isOptimal: true, label: 'Bon moment pour relancer', suggestion: null };
+    }
+
+    // Compute next prime window (next weekday at 9h)
+    const next = new Date(now);
+    next.setMinutes(0, 0, 0);
+    if (isWeekend || hour >= 19) {
+        // Move to next weekday morning
+        do {
+            next.setDate(next.getDate() + 1);
+        } while (next.getDay() === 0 || next.getDay() === 6);
+        next.setHours(9);
+    } else {
+        // Before 8h same day
+        next.setHours(9);
+    }
+
+    const sameDay = next.toDateString() === now.toDateString();
+    const dayLabel = sameDay
+        ? "aujourd'hui"
+        : next.toLocaleDateString('fr-FR', { weekday: 'long' });
+    return {
+        isOptimal: false,
+        label: isWeekend ? 'Week-end — réponse peu probable' : (hour >= 19 ? 'Soirée — risque d\'être ignoré' : 'Trop tôt — patientez'),
+        suggestion: `Envoi recommandé ${dayLabel} matin (~9h)`
+    };
 };
 
 /**

@@ -10,6 +10,7 @@ const ExpiringQuotesWidget = ({ allQuotes, navigate }) => {
         for (const q of allQuotes) {
             if (q.type === 'invoice') continue;
             if (!['draft', 'sent'].includes(q.status)) continue;
+            if (q.archived_at) continue;
             if (!q.valid_until) continue;
             const validUntil = new Date(q.valid_until);
             if (Number.isNaN(validUntil.getTime())) continue;
