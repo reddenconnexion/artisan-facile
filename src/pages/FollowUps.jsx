@@ -1,11 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
-import { getDueFollowUps, recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
+import { useUserProfile } from '../hooks/useDataCache';
+import {
+    getDueFollowUps,
+    recordFollowUp,
+    getFollowUpSettings,
+    archiveQuote,
+    getOptimalSendWindow,
+} from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const STEP_STYLES = [
@@ -17,9 +24,15 @@ const STEP_STYLES = [
 
 const getStyle = (idx) => STEP_STYLES[Math.min(idx, STEP_STYLES.length - 1)];
 
+// Maximum number of cards we auto-prepare on page load. Beyond this we let
+// the user click "Suggérer un message" manually to avoid burning AI tokens
+// when the inbox is huge.
+const AUTO_PREPARE_LIMIT = 8;
+
 const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
+    const { data: profile } = useUserProfile();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
@@ -30,6 +43,16 @@ const FollowUps = ({ embedded = false }) => {
     const [suggestions, setSuggestions] = useState({});
     const [expanded, setExpanded] = useState({});
     const [stepOverrides, setStepOverrides] = useState({});
+    const [autoPreparing, setAutoPreparing] = useState(false);
+    const sendWindow = useMemo(() => getOptimalSendWindow(), []);
+    // Tracks which card keys have already been auto-prepared this mount so we
+    // don't re-trigger generation when the user manually dismisses a suggestion.
+    const autoPreparedRef = useRef(new Set());
+
+    const aiContext = useMemo(() => ({
+        companyName: profile?.company_name || '',
+        userName: profile?.full_name || profile?.first_name || '',
+    }), [profile]);
 
     // Group due quotes by client — clients with multiple quotes get a single grouped card
     const groupedDueQuotes = useMemo(() => {
@@ -90,20 +113,56 @@ const FollowUps = ({ embedded = false }) => {
         return { ...stepData, index: idx };
     };
 
-    const handleGenerate = async (key, quotes) => {
+    const handleGenerate = async (key, quotes, { silent = false, autoExpand = true } = {}) => {
         try {
             setGenerating(prev => ({ ...prev, [key]: true }));
             const step = getEffectiveStep(key, quotes[0]);
             const client = quotes[0].clients || { name: 'Client' };
-            const emailContent = await generateFollowUpEmail(quotes, client, step, {});
+            const emailContent = await generateFollowUpEmail(quotes, client, step, aiContext);
             setSuggestions(prev => ({ ...prev, [key]: emailContent }));
-            setExpanded(prev => ({ ...prev, [key]: true }));
+            if (autoExpand) {
+                setExpanded(prev => ({ ...prev, [key]: true }));
+            }
         } catch (error) {
-            toast.error("Erreur génération IA: " + error.message);
+            if (!silent) toast.error("Erreur génération IA: " + error.message);
+            else console.warn('Auto-prepare failed for', key, error);
         } finally {
             setGenerating(prev => ({ ...prev, [key]: false }));
         }
     };
+
+    // Auto-prepare suggestions for due cards on load. Runs sequentially so we
+    // don't hammer the AI proxy. Capped at AUTO_PREPARE_LIMIT.
+    useEffect(() => {
+        if (activeTab !== 'due' || loading) return;
+        if (groupedDueQuotes.length === 0) return;
+        if (!profile) return; // wait for company/user name to be available
+
+        const targets = groupedDueQuotes
+            .map(g => ({
+                key: g.quotes.length > 1 ? `group_${g.clientId}` : g.quotes[0].id,
+                quotes: g.quotes,
+            }))
+            .filter(t => !suggestions[t.key] && !autoPreparedRef.current.has(t.key))
+            .slice(0, AUTO_PREPARE_LIMIT);
+
+        if (targets.length === 0) return;
+
+        let cancelled = false;
+        (async () => {
+            setAutoPreparing(true);
+            for (const t of targets) {
+                if (cancelled) break;
+                autoPreparedRef.current.add(t.key);
+                await handleGenerate(t.key, t.quotes, { silent: true, autoExpand: false });
+            }
+            if (!cancelled) setAutoPreparing(false);
+        })();
+
+        return () => { cancelled = true; };
+        // groupedDueQuotes ref changes only when dueQuotes changes; profile is stable
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [groupedDueQuotes, activeTab, loading, profile]);
 
     const updateSuggestion = (key, field, value) => {
         setSuggestions(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
@@ -112,6 +171,23 @@ const FollowUps = ({ embedded = false }) => {
     const dismissSuggestion = (key) => {
         setSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
         setExpanded(prev => { const n = { ...prev }; delete n[key]; return n; });
+    };
+
+    const handleArchive = async (quotes) => {
+        const labels = quotes.length > 1
+            ? `${quotes.length} devis`
+            : `le devis "${quotes[0].title || 'sans titre'}"`;
+        const confirmed = window.confirm(
+            `Archiver ${labels} ? Le devis disparaîtra du tableau de bord et du centre de relance, mais restera consultable et restaurable dans l'onglet Archives.`
+        );
+        if (!confirmed) return;
+        try {
+            await Promise.all(quotes.map(q => archiveQuote(q.id, user.id)));
+            toast.success(quotes.length > 1 ? 'Devis archivés' : 'Devis archivé');
+            fetchDueQuotes();
+        } catch (err) {
+            toast.error("Erreur d'archivage : " + err.message);
+        }
     };
 
     const handleSend = async (key, quotes) => {
@@ -235,6 +311,14 @@ const FollowUps = ({ embedded = false }) => {
                                     Voir devis
                                 </button>
                             )}
+                            <button
+                                onClick={() => handleArchive(quotes)}
+                                title="Archiver — libère le tableau de bord, restaurable plus tard"
+                                className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-1.5"
+                            >
+                                <Archive className="w-4 h-4" />
+                                <span className="hidden sm:inline">Archiver</span>
+                            </button>
                             {!suggestion ? (
                                 <button
                                     onClick={() => handleGenerate(cardKey, quotes)}
@@ -373,6 +457,35 @@ const FollowUps = ({ embedded = false }) => {
                 <div className="text-center py-12 text-gray-500">Chargement...</div>
             ) : activeTab === 'due' ? (
                 <div className="space-y-4">
+                    {groupedDueQuotes.length > 0 && (
+                        <div className={`rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 ${
+                            sendWindow.isOptimal
+                                ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/40'
+                                : 'border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800/40'
+                        }`}>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {sendWindow.isOptimal ? (
+                                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                ) : (
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                )}
+                                <div className="text-sm">
+                                    <span className={`font-semibold ${sendWindow.isOptimal ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-800 dark:text-amber-200'}`}>
+                                        {sendWindow.label}
+                                    </span>
+                                    {sendWindow.suggestion && (
+                                        <span className="text-amber-700 dark:text-amber-300 ml-2">— {sendWindow.suggestion}</span>
+                                    )}
+                                </div>
+                            </div>
+                            {autoPreparing && (
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <Sparkles className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+                                    Préparation des suggestions…
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {groupedDueQuotes.length === 0 ? (
                         <div className="bg-white dark:bg-gray-900 rounded-xl p-12 text-center border border-gray-100 dark:border-gray-800">
                             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />

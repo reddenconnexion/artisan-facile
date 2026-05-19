@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore } from 'lucide-react';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
@@ -7,6 +7,10 @@ import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
+import { useAuth } from '../context/AuthContext';
+import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const FollowUps = lazy(() => import('./FollowUps'));
 
@@ -109,9 +113,35 @@ const ViewStatusBadge = ({ devis }) => {
 const DevisList = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
     const { isTestMode, testClient } = useTestMode();
+
+    const refreshQuotes = () => queryClient.invalidateQueries({ queryKey: ['quotes', user?.id] });
+
+    const handleArchive = async (e, devisId) => {
+        e.stopPropagation();
+        try {
+            await archiveQuote(devisId, user.id);
+            toast.success('Devis archivé');
+            refreshQuotes();
+        } catch (err) {
+            toast.error("Erreur d'archivage : " + err.message);
+        }
+    };
+
+    const handleUnarchive = async (e, devisId) => {
+        e.stopPropagation();
+        try {
+            await unarchiveQuote(devisId, user.id);
+            toast.success('Devis restauré');
+            refreshQuotes();
+        } catch (err) {
+            toast.error('Erreur de restauration : ' + err.message);
+        }
+    };
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
@@ -167,8 +197,17 @@ const DevisList = () => {
         }
     };
 
+    const isArchivedTab = statusFilter === 'archived';
+
     const filteredDevis = devisList.filter(devis => {
         if (!isTestMode && (devis.client_name?.includes('⚗️') || (testClient?.id && devis.client_id === testClient.id))) return false;
+
+        // Hide archived quotes from every tab except the dedicated "Archives" view
+        if (isArchivedTab) {
+            if (!devis.archived_at) return false;
+        } else {
+            if (devis.archived_at) return false;
+        }
 
         const q = debouncedSearch.toLowerCase();
         const matchesSearch = !q ||
@@ -177,7 +216,7 @@ const DevisList = () => {
             (devis.title && devis.title.toLowerCase().includes(q)) ||
             (devis.quote_number && devis.quote_number.toString().includes(q));
 
-        const matchesStatus = statusFilter === 'all' ||
+        const matchesStatus = statusFilter === 'all' || isArchivedTab ||
             (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) :
             statusFilter === 'rejected' ? ['rejected', 'refused'].includes(devis.status) :
             devis.status === statusFilter);
@@ -193,15 +232,19 @@ const DevisList = () => {
         showAll: showAllDevis,
     } = useProgressiveList(filteredDevis, { pageSize: 100 });
 
-    // Counts per filter tab (excluding test data)
+    // Counts per filter tab (excluding test data). Active counts exclude archived;
+    // the "archived" tab counts archived-only.
     const visibleDevis = devisList.filter(d =>
         isTestMode || (!d.client_name?.includes('⚗️') && !(testClient?.id && d.client_id === testClient.id))
     );
+    const activeDevis = visibleDevis.filter(d => !d.archived_at);
+    const archivedCount = visibleDevis.filter(d => !!d.archived_at).length;
     const countFor = (status) => {
-        if (status === 'all') return visibleDevis.length;
-        if (status === 'pending') return visibleDevis.filter(d => ['draft', 'sent'].includes(d.status)).length;
-        if (status === 'rejected') return visibleDevis.filter(d => ['rejected', 'refused'].includes(d.status)).length;
-        return visibleDevis.filter(d => d.status === status).length;
+        if (status === 'archived') return archivedCount;
+        if (status === 'all') return activeDevis.length;
+        if (status === 'pending') return activeDevis.filter(d => ['draft', 'sent'].includes(d.status)).length;
+        if (status === 'rejected') return activeDevis.filter(d => ['rejected', 'refused'].includes(d.status)).length;
+        return activeDevis.filter(d => d.status === status).length;
     };
 
     // Expiry warning: sent/draft devis with valid_until within 7 days
@@ -220,7 +263,7 @@ const DevisList = () => {
 
     // Estimation client-side des relances en retard (délais par défaut : 3-7-7-13j)
     const FOLLOW_UP_DEFAULT_DELAYS = [3, 7, 7, 13];
-    const followUpDueCount = visibleDevis.filter(d => {
+    const followUpDueCount = activeDevis.filter(d => {
         if (d.status !== 'sent') return false;
         const nextStep = d.follow_up_count || 0;
         if (nextStep >= FOLLOW_UP_DEFAULT_DELAYS.length) return false;
@@ -480,12 +523,15 @@ const DevisList = () => {
                     </div>
                 )}
                 <div className={`flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto ${isFollowUpsTab ? 'flex-1' : ''}`}>
-                    {['all', 'pending', 'accepted', 'paid', 'rejected', 'followups'].map((status) => {
+                    {['all', 'pending', 'accepted', 'paid', 'rejected', 'archived', 'followups'].map((status) => {
                         const count = status !== 'followups' ? countFor(status) : null;
+                        // Hide the "Archives" tab when there is nothing archived (avoids visual clutter
+                        // for users who never use the feature).
+                        if (status === 'archived' && count === 0 && statusFilter !== 'archived') return null;
                         const labels = {
                             all: 'Tous', pending: 'En cours',
                             accepted: 'Signés', rejected: 'Refusés',
-                            paid: 'Payés'
+                            paid: 'Payés', archived: 'Archives'
                         };
                         return (
                             <button
@@ -505,6 +551,16 @@ const DevisList = () => {
                                         {followUpDueCount > 0 && (
                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${statusFilter === 'followups' ? 'bg-white/30 text-white' : 'bg-amber-500 text-white'}`}>
                                                 {followUpDueCount}
+                                            </span>
+                                        )}
+                                    </>
+                                ) : status === 'archived' ? (
+                                    <>
+                                        <Archive className="w-3 h-3" />
+                                        {labels[status]}
+                                        {count > 0 && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${statusFilter === status ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                                                {count}
                                             </span>
                                         )}
                                     </>
@@ -551,7 +607,7 @@ const DevisList = () => {
                                 {pagedDevis.map((devis) => (
                                     <tr
                                         key={devis.id}
-                                        className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : isExpired(devis) ? 'bg-red-50/40 dark:bg-red-900/10' : isExpiringSoon(devis) ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
+                                        className={`group hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : isExpired(devis) ? 'bg-red-50/40 dark:bg-red-900/10' : isExpiringSoon(devis) ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
                                         onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
                                     >
                                         {mergeMode && (
@@ -604,14 +660,37 @@ const DevisList = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                                            {devis.last_followup_at ? (
-                                                <span className="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                                                    <Send className="w-3 h-3" />
-                                                    {formatFollowUpDate(devis.last_followup_at)}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span>
+                                                    {devis.last_followup_at ? (
+                                                        <span className="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                                                            <Send className="w-3 h-3" />
+                                                            {formatFollowUpDate(devis.last_followup_at)}
+                                                        </span>
+                                                    ) : devis.status === 'sent' ? (
+                                                        <span className="text-gray-400">-</span>
+                                                    ) : null}
                                                 </span>
-                                            ) : devis.status === 'sent' ? (
-                                                <span className="text-gray-400">-</span>
-                                            ) : null}
+                                                {!mergeMode && (
+                                                    devis.archived_at ? (
+                                                        <button
+                                                            onClick={(e) => handleUnarchive(e, devis.id)}
+                                                            title="Restaurer ce devis"
+                                                            className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                                                        >
+                                                            <ArchiveRestore className="w-4 h-4" />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => handleArchive(e, devis.id)}
+                                                            title="Archiver (libère le tableau de bord, restaurable plus tard)"
+                                                            className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
+                                                        >
+                                                            <Archive className="w-4 h-4" />
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -667,6 +746,25 @@ const DevisList = () => {
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>
+                                        {!mergeMode && (
+                                            devis.archived_at ? (
+                                                <button
+                                                    onClick={(e) => handleUnarchive(e, devis.id)}
+                                                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/30"
+                                                >
+                                                    <ArchiveRestore className="w-3 h-3" />
+                                                    Restaurer
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => handleArchive(e, devis.id)}
+                                                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-0.5"
+                                                    title="Archiver"
+                                                >
+                                                    <Archive className="w-3 h-3" />
+                                                </button>
+                                            )
+                                        )}
                                     </div>
                                 </div>
                             </div>
