@@ -1015,10 +1015,13 @@ function printStyles() {
 
     @media print {
       /* A4 paysage par défaut : permet d'imprimer une rangée de 13 modules
-         (≈ 234 mm) ou 18 modules (≈ 324 mm — au-delà du paysage, à splitter). */
+         (≈ 234 mm) ou 18 modules (≈ 324 mm — au-delà du paysage, à splitter).
+         Marge de 15 mm pour rester confortablement à l'intérieur de la
+         zone imprimable de la plupart des imprimantes consumer (les zones
+         non-imprimables vont jusqu'à 10-12 mm sur certaines machines). */
       @page {
         size: A4 landscape;
-        margin: 8mm;
+        margin: 15mm;
       }
       body { background: white !important; }
       .no-print { display: none !important; }
