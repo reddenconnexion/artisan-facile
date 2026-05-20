@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     format,
     startOfMonth,
@@ -15,7 +15,7 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 const Agenda = () => {
     const { user } = useAuth();
     const confirm = useConfirm();
+    const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [events, setEvents] = useState([]);
@@ -377,9 +378,40 @@ const Agenda = () => {
 
                 {/* Liste des RDV du jour */}
                 <div className="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 capitalize">
-                        {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 capitalize">
+                            {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+                        </h3>
+                        {selectedDateEvents.some(e => e.address) && (
+                            <button
+                                onClick={async () => {
+                                    let startAddress = '';
+                                    try {
+                                        const { data } = await supabase
+                                            .from('profiles')
+                                            .select('address, postal_code, city')
+                                            .eq('id', user.id)
+                                            .single();
+                                        if (data) {
+                                            startAddress = [data.address, data.postal_code, data.city].filter(Boolean).join(', ');
+                                        }
+                                    } catch {
+                                        // pas d'adresse de départ par défaut, l'utilisateur saisira
+                                    }
+                                    const stops = [
+                                        startAddress,
+                                        ...selectedDateEvents.filter(e => e.address).map(e => e.address),
+                                    ];
+                                    navigate('/app/route-planner', { state: { stops } });
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                                title="Planifier l'itinéraire de la journée"
+                            >
+                                <RouteIcon className="w-3.5 h-3.5" />
+                                Planifier la tournée
+                            </button>
+                        )}
+                    </div>
 
                     <div className="flex-1 overflow-y-auto space-y-4">
                         {selectedDateEvents.length > 0 ? (
