@@ -378,7 +378,7 @@ const PublicQuote = () => {
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-            <Toaster position="top-right" richColors />
+            <Toaster position="top-right" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
             {/* Sticky top bar */}
             <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">

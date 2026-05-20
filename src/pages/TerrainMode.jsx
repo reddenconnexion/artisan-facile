@@ -277,7 +277,7 @@ const TerrainMode = () => {
     if (!mode) {
         return (
             <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
-                <Toaster position="top-center" richColors />
+                <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
                 {/* Header */}
                 <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-2">
@@ -371,7 +371,7 @@ const TerrainMode = () => {
 
     return (
         <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
-            <Toaster position="top-center" richColors />
+            <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
             {/* ── Barre de titre + chrono ─────────────────────────────────── */}
             <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm">
