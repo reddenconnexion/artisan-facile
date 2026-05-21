@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
     Battery, Zap, Route as RouteIcon, MapPin, Plus, Trash2,
-    AlertTriangle, CheckCircle2, Settings, ArrowLeft, Loader2,
+    AlertTriangle, CheckCircle2, Settings, ArrowLeft, Loader2, Navigation,
 } from 'lucide-react';
 import {
     loadEvProfile,
@@ -175,6 +175,7 @@ const RoutePlanner = () => {
     const [showSettings, setShowSettings] = useState(false);
     const [routes, setRoutes] = useState({ fastest: null, scenic: null });
     const [scenicHasNoAlternative, setScenicHasNoAlternative] = useState(false);
+    const [planStops, setPlanStops] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState('fastest');
     const [roundTrip, setRoundTrip] = useState(false);
@@ -299,6 +300,7 @@ const RoutePlanner = () => {
             }
             setRoutes({ fastest: result.fastest, scenic: result.scenic });
             setScenicHasNoAlternative(result.scenicHasNoAlternative);
+            setPlanStops(usable);
             if (profile.avoidHighway) setSelected('scenic');
             drawRoutes(result.fastest, result.scenic, usable);
             toast.success('Itinéraires calculés.');
@@ -516,11 +518,34 @@ const RoutePlanner = () => {
                             />
 
                             {scenicHasNoAlternative && (
-                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                                    Pour ce trajet, le service de routage n'a pas trouvé d'alternative
-                                    significativement moins autoroutière. L'itinéraire affiché est probablement
-                                    identique au plus rapide.
+                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                                    <p>
+                                        <strong>Évitement non garanti :</strong> le service de routage utilisé (OSRM)
+                                        ne sait pas exclure l'autoroute de façon stricte. L'itinéraire affiché peut
+                                        encore en contenir.
+                                    </p>
+                                    <p>
+                                        Pour la navigation réelle, ouvre l'itinéraire dans Waze ci-dessous et active
+                                        « Éviter les autoroutes / les péages » dans les paramètres Waze : ton app
+                                        gérera l'évitement de façon fiable.
+                                    </p>
                                 </div>
+                            )}
+
+                            {planStops.length >= 2 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const dest = planStops[planStops.length - 1];
+                                        const url = `https://waze.com/ul?ll=${dest.lat}%2C${dest.lon}&navigate=yes`;
+                                        window.open(url, '_blank', 'noopener,noreferrer');
+                                    }}
+                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-500 text-white text-sm font-semibold rounded-lg hover:bg-sky-600"
+                                    title={`Démarrer la navigation vers ${planStops[planStops.length - 1].address}`}
+                                >
+                                    <Navigation className="w-4 h-4" />
+                                    Ouvrir dans Waze
+                                </button>
                             )}
 
                             {!profile.avoidHighway && recommendation && (
