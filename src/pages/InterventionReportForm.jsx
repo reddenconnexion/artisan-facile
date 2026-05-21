@@ -1802,10 +1802,39 @@ const InterventionReportForm = () => {
                                     Ignorer
                                 </button>
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
+                                        const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
                                         if (isTestMode) {
                                             captureEmail({ email: sendInvoiceModal.email, subject: sendInvoiceModal.subject, body: sendInvoiceModal.body });
                                             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
+                                        } else if (smtpConfigured && sendInvoiceModal.email) {
+                                            const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
+                                            try {
+                                                const { data: { session } } = await supabase.auth.getSession();
+                                                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                                                const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${session.access_token}`,
+                                                    },
+                                                    body: JSON.stringify({
+                                                        to: sendInvoiceModal.email,
+                                                        subject: sendInvoiceModal.subject,
+                                                        text: sendInvoiceModal.body,
+                                                    }),
+                                                });
+                                                const result = await res.json();
+                                                toast.dismiss(sendingToast);
+                                                if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+                                                toast.success(`Email envoyé à ${sendInvoiceModal.email}`);
+                                            } catch (err) {
+                                                toast.dismiss(sendingToast);
+                                                console.error('Direct email send failed:', err);
+                                                toast.error(err.message || 'Échec — ouverture du client mail');
+                                                const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
+                                                window.location.href = url;
+                                            }
                                         } else {
                                             const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
                                             window.location.href = url;
@@ -1815,7 +1844,7 @@ const InterventionReportForm = () => {
                                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                     <Send className="w-4 h-4" />
-                                    Ouvrir dans la messagerie
+                                    {userProfile?.smtp_config?.host ? 'Envoyer depuis mon mail pro' : 'Ouvrir dans la messagerie'}
                                 </button>
                             </div>
                         </div>

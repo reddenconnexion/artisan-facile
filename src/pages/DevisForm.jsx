@@ -1163,13 +1163,43 @@ const DevisForm = () => {
         }
     };
 
-    const handleConfirmSendEmail = (subject, body) => {
+    const handleConfirmSendEmail = async (subject, body) => {
         if (!emailPreview) return;
 
+        const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
         const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
         if (isTestMode) {
             captureEmail({ email: emailPreview.email, subject, body });
             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
+        } else if (smtpConfigured && emailPreview.email) {
+            // Envoi direct depuis l'adresse pro de l'artisan via Edge Function
+            const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                        to: emailPreview.email,
+                        subject,
+                        text: body,
+                    }),
+                });
+                const result = await res.json();
+                toast.dismiss(sendingToast);
+                if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+                toast.success(`Email envoyé à ${emailPreview.email}`);
+            } catch (err) {
+                toast.dismiss(sendingToast);
+                console.error('Direct email send failed:', err);
+                toast.error(err.message || 'Échec de l\'envoi direct — ouverture du client mail');
+                window.location.href = mailtoUrl;
+            }
         } else {
             window.location.href = mailtoUrl;
             toast.success('Application de messagerie ouverte');
