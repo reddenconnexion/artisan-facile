@@ -1850,7 +1850,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const { data: linkedInvoices, error: fetchError } = await supabase
                 .from('quotes')
-                .select('id, title, date, total_ht, total_ttc, type, status, items')
+                .select('id, title, date, total_ht, total_ttc, type, status, items, quote_number')
                 .eq('parent_id', quoteId)
                 .neq('status', 'cancelled');
 
@@ -1860,6 +1860,14 @@ Conditions de règlement : Paiement à réception de facture.`
             const deposits = (linkedInvoices || []).filter(inv =>
                 inv.type === 'invoice' &&
                 !inv.title?.toLowerCase().includes('clôture')
+            );
+
+            // Signed amendments must be included in the closing invoice — their
+            // extra work was agreed by the client but isn't yet billed.
+            const signedAmendmentStatuses = ['accepted', 'billed', 'paid'];
+            const amendments = (linkedInvoices || []).filter(inv =>
+                inv.type === 'amendment' &&
+                signedAmendmentStatuses.includes(inv.status)
             );
 
             if (deposits.length === 0) {
@@ -1874,6 +1882,21 @@ Conditions de règlement : Paiement à réception de facture.`
                 price: parseFloat(item.price) || 0,
                 buying_price: parseFloat(item.buying_price) || 0
             }));
+
+            // 2b. Append items from signed amendments (extra work agreed after the initial quote)
+            const amendmentItems = amendments.flatMap(amd => {
+                const label = amd.quote_number ? `Avenant n°${amd.quote_number}` : (amd.title || 'Avenant');
+                const items = Array.isArray(amd.items) ? amd.items : [];
+                return items.map(item => ({
+                    ...item,
+                    id: Date.now() + Math.random(),
+                    quantity: parseFloat(item.quantity) || 0,
+                    price: parseFloat(item.price) || 0,
+                    buying_price: parseFloat(item.buying_price) || 0,
+                    description: `[${label}] ${item.description || ''}`.trim()
+                }));
+            });
+            finalItems = [...finalItems, ...amendmentItems];
 
             // 3. Add deduction lines for each deposit/advance already paid
             let totalDeducted = 0;
@@ -1912,6 +1935,9 @@ Conditions de règlement : Paiement à réception de facture.`
             const deductionSummary = deposits.length > 0
                 ? `\n\nDéductions appliquées (${deposits.length} acompte${deposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
                 : '';
+            const amendmentSummary = amendments.length > 0
+                ? `\n${amendments.length} avenant${amendments.length > 1 ? 's' : ''} signé${amendments.length > 1 ? 's' : ''} intégré${amendments.length > 1 ? 's' : ''} : ${amendments.map(a => a.quote_number ? `n°${a.quote_number}` : (a.title || 'sans titre')).join(', ')}`
+                : '';
 
             const invoiceData = {
                 user_id: user.id,
@@ -1927,7 +1953,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_tva: tva,
                 total_ttc: total,
                 parent_id: quoteId,
-                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${deductionSummary}`
+                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${amendmentSummary}${deductionSummary}`
             };
 
             const { data, error } = await supabase
@@ -1945,8 +1971,11 @@ Conditions de règlement : Paiement à réception de facture.`
                 localStorage.removeItem(`quote_draft_${data.id}`);
             }
 
-            const successMsg = deposits.length > 0
-                ? `Facture de clôture générée avec ${deposits.length} déduction${deposits.length > 1 ? 's' : ''} !`
+            const successParts = [];
+            if (amendments.length > 0) successParts.push(`${amendments.length} avenant${amendments.length > 1 ? 's' : ''}`);
+            if (deposits.length > 0) successParts.push(`${deposits.length} déduction${deposits.length > 1 ? 's' : ''}`);
+            const successMsg = successParts.length > 0
+                ? `Facture de clôture générée (${successParts.join(' + ')}) !`
                 : "Facture de clôture générée !";
             toast.success(successMsg);
             navigate(`/app/devis/${data.id}`);
