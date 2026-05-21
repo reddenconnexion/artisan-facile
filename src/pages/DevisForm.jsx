@@ -432,6 +432,16 @@ const DevisForm = () => {
                     if (existingDraft) {
                         const { _draft_saved_at, ...restoredDraft } = existingDraft;
                         setFormData(prev => {
+                            // Si le devis a été modifié ailleurs (autre appareil)
+                            // depuis la dernière sauvegarde du brouillon local, on
+                            // écarte le brouillon : il contient d'anciennes lignes
+                            // qui écraseraient les chiffres frais de la base.
+                            const dbUpdatedAt = prev.updated_at ? new Date(prev.updated_at).getTime() : 0;
+                            const draftSavedAt = _draft_saved_at ? new Date(_draft_saved_at).getTime() : 0;
+                            if (dbUpdatedAt && draftSavedAt && dbUpdatedAt > draftSavedAt) {
+                                localStorage.removeItem(draftKey);
+                                return prev;
+                            }
                             // If the DB has deduction items (negative price) that the draft lacks,
                             // the draft was saved before the closing invoice deductions were added
                             // (stale draft from before the fix). Keep DB items to preserve deductions
