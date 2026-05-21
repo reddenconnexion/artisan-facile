@@ -305,7 +305,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         if (details.constat_reason) {
             const reasonLines = doc.splitTextToSize(
-                `→ Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`,
+                `» Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`,
                 182
             );
             doc.text(reasonLines, 14, currentY);
