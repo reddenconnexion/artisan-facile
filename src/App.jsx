@@ -164,6 +164,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
     setTimeout(() => sessionStorage.removeItem(RECOVERY_FLAG), 5000);
   });
+
+  // Suppression unique de l'ancien cache `supabase-api-cache` (qui mettait
+  // toutes les requêtes REST/Auth en cache 7 jours et servait des chiffres
+  // périmés sur mobile dès que le réseau dépassait 3 s). Le nouveau SW
+  // n'écrit plus dans ce cache ; on l'efface pour libérer le stockage.
+  if ('caches' in window) {
+    caches.delete('supabase-api-cache').catch(() => {});
+  }
 }
 
 // Pages chargées à la demande (lazy loading avec retry)

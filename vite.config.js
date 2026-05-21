@@ -55,20 +55,30 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/auth/, /supabase/],
         runtimeCaching: [
+          // Assets statiques Supabase (Storage public : logos, PDF, images).
+          // On peut les mettre en cache longtemps sans risquer d'afficher de
+          // données métier obsolètes.
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'supabase-api-cache',
+              cacheName: 'supabase-storage-cache',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
               },
               cacheableResponse: {
                 statuses: [0, 200]
-              },
-              networkTimeoutSeconds: 3
+              }
             }
+          },
+          // API métier Supabase (REST, RPC, Auth, Realtime, Functions) :
+          // toujours réseau pour éviter d'afficher des chiffres périmés sur
+          // les devis/factures. Le fallback hors-ligne est géré côté React
+          // Query via `withOfflineCache` (localStorage) dans useDataCache.js.
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(rest|auth|realtime|functions)\/.*/i,
+            handler: 'NetworkOnly'
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
