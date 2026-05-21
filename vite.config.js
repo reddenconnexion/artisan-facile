@@ -132,8 +132,8 @@ export default defineConfig({
         "img-src 'self' data: blob: https:",
         // Workers : blob: pour pdf.js worker
         "worker-src 'self' blob:",
-        // Connexions API : Supabase + OpenStreetMap (géocodage) + OpenProductsFacts (EAN)
-        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://world.openproductsfacts.org https://ntfy.sh",
+        // Connexions API : Supabase + OpenStreetMap (géocodage + routage OSRM) + OpenProductsFacts (EAN)
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org https://world.openproductsfacts.org https://ntfy.sh",
         // Frames : autorise l'ouverture des PDFs Supabase Storage dans iframe
         "frame-src 'self' blob: https://*.supabase.co",
         // Médias : blob: pour les aperçus audio (notes vocales)
