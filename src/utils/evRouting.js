@@ -13,6 +13,8 @@ const DEFAULT_PROFILE = {
     currentChargePct: 80,   // état de charge actuel (%)
     // Marge de sécurité : on considère qu'on ne descend pas sous ce seuil
     reserveBufferPct: 10,
+    // Préférence : éviter systématiquement l'autoroute (économie batterie)
+    avoidHighway: false,
 };
 
 export const loadEvProfile = () => {
@@ -87,8 +89,13 @@ const fetchOsrmRoute = async (stops, { exclude } = {}) => {
 /**
  * Fetch both fastest and motorway-free routes for comparison.
  * Returns { fastest, scenic } where scenic excludes motorways.
+ * Pass `onlyScenic: true` pour ne calculer que l'itinéraire sans autoroute.
  */
-export const fetchAlternativeRoutes = async (stops) => {
+export const fetchAlternativeRoutes = async (stops, { onlyScenic = false } = {}) => {
+    if (onlyScenic) {
+        const scenic = await fetchOsrmRoute(stops, { exclude: 'motorway' });
+        return { fastest: null, scenic };
+    }
     const [fastest, scenic] = await Promise.all([
         fetchOsrmRoute(stops),
         fetchOsrmRoute(stops, { exclude: 'motorway' }),
