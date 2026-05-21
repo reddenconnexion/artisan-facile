@@ -290,18 +290,26 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setTextColor(50, 50, 50);
 
         if (details.constat_date) {
-            doc.text(`Lors de l'intervention du ${formatDate(details.constat_date)}, découverte de :`, 14, currentY);
-            currentY += 5;
+            const introLines = doc.splitTextToSize(
+                `Lors de l'intervention du ${formatDate(details.constat_date)}, découverte de :`,
+                182
+            );
+            doc.text(introLines, 14, currentY);
+            currentY += introLines.length * 5;
         }
         if (details.constat_description) {
-            const descLines = doc.splitTextToSize(details.constat_description, 180);
+            const descLines = doc.splitTextToSize(details.constat_description, 182);
             doc.text(descLines, 14, currentY);
             currentY += (descLines.length * 5) + 2;
         }
 
         if (details.constat_reason) {
-            doc.text(`→ Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`, 14, currentY);
-            currentY += 10;
+            const reasonLines = doc.splitTextToSize(
+                `→ Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`,
+                182
+            );
+            doc.text(reasonLines, 14, currentY);
+            currentY += (reasonLines.length * 5) + 5;
         } else {
             currentY += 5;
         }
@@ -318,7 +326,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setTextColor(50, 50, 50);
 
         if (details.solution_description) {
-            const solLines = doc.splitTextToSize(`- ${details.solution_description}`, 180);
+            const solLines = doc.splitTextToSize(`- ${details.solution_description}`, 182);
             doc.text(solLines, 14, currentY);
             currentY += (solLines.length * 5);
         }
@@ -327,8 +335,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         currentY += 5;
 
         if (details.solution_technical_value) {
-            doc.text(`- Plus-value technique : ${details.solution_technical_value}`, 14, currentY);
-            currentY += 8;
+            const valueLines = doc.splitTextToSize(
+                `- Plus-value technique : ${details.solution_technical_value}`,
+                182
+            );
+            doc.text(valueLines, 14, currentY);
+            currentY += (valueLines.length * 5) + 3;
         } else {
             currentY += 3;
         }
