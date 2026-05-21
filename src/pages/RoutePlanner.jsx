@@ -174,6 +174,7 @@ const RoutePlanner = () => {
     const [profile, setProfile] = useState(loadEvProfile);
     const [showSettings, setShowSettings] = useState(false);
     const [routes, setRoutes] = useState({ fastest: null, scenic: null });
+    const [scenicHasNoAlternative, setScenicHasNoAlternative] = useState(false);
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState('fastest');
     const [roundTrip, setRoundTrip] = useState(false);
@@ -296,7 +297,8 @@ const RoutePlanner = () => {
                 setLoading(false);
                 return;
             }
-            setRoutes(result);
+            setRoutes({ fastest: result.fastest, scenic: result.scenic });
+            setScenicHasNoAlternative(result.scenicHasNoAlternative);
             if (profile.avoidHighway) setSelected('scenic');
             drawRoutes(result.fastest, result.scenic, usable);
             toast.success('Itinéraires calculés.');
@@ -502,14 +504,24 @@ const RoutePlanner = () => {
                                 />
                             )}
                             <RouteCard
-                                title="Sans autoroute"
-                                subtitle="Routes nationales et départementales"
+                                title={scenicHasNoAlternative ? 'Itinéraire alternatif' : 'Le moins autoroutier'}
+                                subtitle={scenicHasNoAlternative
+                                    ? 'OSRM n\'a pas trouvé d\'alternative plus lente'
+                                    : 'Privilégie nationales et départementales'}
                                 color="#16a34a"
                                 route={routes.scenic}
                                 consumption={scenicConsumption}
                                 onSelect={() => setSelected('scenic')}
                                 selected={selected === 'scenic'}
                             />
+
+                            {scenicHasNoAlternative && (
+                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                                    Pour ce trajet, le service de routage n'a pas trouvé d'alternative
+                                    significativement moins autoroutière. L'itinéraire affiché est probablement
+                                    identique au plus rapide.
+                                </div>
+                            )}
 
                             {!profile.avoidHighway && recommendation && (
                                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-sm text-blue-900">

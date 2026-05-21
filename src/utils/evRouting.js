@@ -54,11 +54,20 @@ export const geocodeStops = async (addresses) => {
 const buildCoordsParam = (stops) =>
     stops.map((s) => `${s.lon},${s.lat}`).join(';');
 
+const parseOsrmRoute = (route) => ({
+    distanceKm: route.distance / 1000,
+    durationMin: route.duration / 60,
+    geometry: route.geometry,
+    legs: route.legs.map((l) => ({
+        distanceKm: l.distance / 1000,
+        durationMin: l.duration / 60,
+    })),
+});
+
 /**
- * Fetch a route via OSRM. `exclude` can be 'motorway' to force national roads.
- * Returns { distanceKm, durationMin, geometry, legs } or null on failure.
+ * Fetch the default (fastest) route. Returns the parsed route, or null.
  */
-const fetchOsrmRoute = async (stops, { exclude } = {}) => {
+const fetchFastestRoute = async (stops) => {
     if (stops.length < 2) return null;
     const coords = buildCoordsParam(stops);
     const params = new URLSearchParams({
@@ -66,41 +75,79 @@ const fetchOsrmRoute = async (stops, { exclude } = {}) => {
         geometries: 'geojson',
         steps: 'false',
     });
-    if (exclude) params.set('exclude', exclude);
-
-    const url = `${OSRM_BASE}/${coords}?${params.toString()}`;
-    const resp = await fetch(url);
+    const resp = await fetch(`${OSRM_BASE}/${coords}?${params.toString()}`);
     if (!resp.ok) return null;
     const data = await resp.json();
     if (data.code !== 'Ok' || !data.routes?.length) return null;
+    return parseOsrmRoute(data.routes[0]);
+};
 
-    const route = data.routes[0];
+/**
+ * Fetch up to N alternatives and return the slowest one (heuristic for "least
+ * highway"). Le serveur OSRM démo ne supporte pas `exclude=motorway`, on utilise
+ * donc cette stratégie : OSRM peut renvoyer des alternatives qui contournent
+ * les axes rapides, et la vitesse moyenne est un bon proxy du contenu autoroutier.
+ *
+ * Renvoie { route, isAlternative } où isAlternative=true indique qu'on n'a pas
+ * pu obtenir d'alternative plus lente que la route rapide (donc résultat à
+ * prendre avec précaution).
+ */
+const fetchSlowestAlternative = async (stops) => {
+    if (stops.length < 2) return null;
+    const coords = buildCoordsParam(stops);
+    const params = new URLSearchParams({
+        overview: 'full',
+        geometries: 'geojson',
+        steps: 'false',
+        alternatives: '3',
+    });
+    const resp = await fetch(`${OSRM_BASE}/${coords}?${params.toString()}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.code !== 'Ok' || !data.routes?.length) return null;
+    // Tri par vitesse moyenne ascendante → la plus lente = la moins autoroutière.
+    const sorted = [...data.routes].sort((a, b) => {
+        const speedA = a.distance / a.duration;
+        const speedB = b.distance / b.duration;
+        return speedA - speedB;
+    });
+    const slowest = sorted[0];
+    const fastest = sorted[sorted.length - 1];
     return {
-        distanceKm: route.distance / 1000,
-        durationMin: route.duration / 60,
-        geometry: route.geometry, // GeoJSON LineString
-        legs: route.legs.map((l) => ({
-            distanceKm: l.distance / 1000,
-            durationMin: l.duration / 60,
-        })),
+        route: parseOsrmRoute(slowest),
+        // Si la route la plus lente et la plus rapide sont identiques, OSRM n'a
+        // pas trouvé d'alternative — on signale au caller pour qu'il avertisse.
+        isAlternative: slowest !== fastest,
     };
 };
 
 /**
- * Fetch both fastest and motorway-free routes for comparison.
- * Returns { fastest, scenic } where scenic excludes motorways.
- * Pass `onlyScenic: true` pour ne calculer que l'itinéraire sans autoroute.
+ * Fetch both fastest and "scenic" (least-highway) routes for comparison.
+ * Pass `onlyScenic: true` pour ne calculer que l'itinéraire le moins autoroutier.
+ *
+ * Renvoie { fastest, scenic, scenicHasNoAlternative } où ce dernier flag indique
+ * qu'OSRM n'a pas trouvé de variante moins autoroutière (la route "scenic" est
+ * alors identique à la rapide).
  */
 export const fetchAlternativeRoutes = async (stops, { onlyScenic = false } = {}) => {
     if (onlyScenic) {
-        const scenic = await fetchOsrmRoute(stops, { exclude: 'motorway' });
-        return { fastest: null, scenic };
+        const result = await fetchSlowestAlternative(stops);
+        if (!result) return { fastest: null, scenic: null, scenicHasNoAlternative: false };
+        return {
+            fastest: null,
+            scenic: result.route,
+            scenicHasNoAlternative: !result.isAlternative,
+        };
     }
-    const [fastest, scenic] = await Promise.all([
-        fetchOsrmRoute(stops),
-        fetchOsrmRoute(stops, { exclude: 'motorway' }),
+    const [fastest, alt] = await Promise.all([
+        fetchFastestRoute(stops),
+        fetchSlowestAlternative(stops),
     ]);
-    return { fastest, scenic };
+    return {
+        fastest,
+        scenic: alt?.route ?? null,
+        scenicHasNoAlternative: alt ? !alt.isAlternative : false,
+    };
 };
 
 /**
