@@ -73,6 +73,64 @@ function injectTrackingPixel(html: string, pixelUrl: string): string {
     return html + pixel;
 }
 
+// ── Signature email ──
+// Sépare le corps du mail de la signature texte (qui suit le marqueur
+// standard RFC 3676 `\n\n-- \n`). Permet à l'edge function de remplacer
+// la signature texte par une signature HTML riche dans la version HTML
+// sans la dupliquer.
+function splitBodyAndSignature(text: string): { body: string; sig: string } {
+    const idx = text.indexOf('\n\n-- \n');
+    if (idx < 0) return { body: text, sig: '' };
+    return { body: text.slice(0, idx), sig: text.slice(idx + 2) };
+}
+
+// Signature HTML : utilise la version perso si renseignée, sinon génère
+// automatiquement à partir des champs profil (logo, nom, contact, liens).
+function buildHtmlSignature(profile: Record<string, unknown>): string {
+    const custom = (profile.email_signature_html || '') as string;
+    if (custom.trim()) {
+        return `<div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;">${custom}</div>`;
+    }
+
+    const companyName = (profile.company_name || profile.full_name || '') as string;
+    const fullName = (profile.full_name || '') as string;
+    const phone = (profile.phone || '') as string;
+    const email = (profile.professional_email || '') as string;
+    const website = (profile.website || '') as string;
+    const logoUrl = (profile.logo_url || '') as string;
+    const googleReview = (profile.google_review_url || '') as string;
+
+    if (!companyName && !email && !phone) return '';
+
+    const escapeHtml = (s: string) => s
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    const websiteHref = website && !/^https?:\/\//i.test(website) ? `https://${website}` : website;
+
+    const logoCell = logoUrl
+        ? `<td style="padding-right:16px;vertical-align:top;"><img src="${escapeHtml(logoUrl)}" alt="" style="max-width:80px;max-height:80px;display:block;" /></td>`
+        : '';
+
+    const lines: string[] = [];
+    if (companyName) lines.push(`<strong style="color:#111827;font-size:14px;">${escapeHtml(companyName)}</strong>`);
+    if (fullName && fullName !== companyName) lines.push(`<span style="color:#374151;">${escapeHtml(fullName)}</span>`);
+    if (phone) lines.push(`<a href="tel:${escapeHtml(phone.replace(/\s/g, ''))}" style="color:#374151;text-decoration:none;">${escapeHtml(phone)}</a>`);
+    if (email) lines.push(`<a href="mailto:${escapeHtml(email)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(email)}</a>`);
+    if (website) lines.push(`<a href="${escapeHtml(websiteHref)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(website.replace(/^https?:\/\//i, ''))}</a>`);
+    if (googleReview) lines.push(`<a href="${escapeHtml(googleReview)}" style="color:#f59e0b;text-decoration:none;font-size:12px;">⭐ Laisser un avis Google</a>`);
+
+    return `
+<table style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;font-family:-apple-system,system-ui,sans-serif;font-size:13px;line-height:1.5;">
+  <tr>
+    ${logoCell}
+    <td style="vertical-align:top;color:#374151;">
+      ${lines.join('<br>')}
+    </td>
+  </tr>
+</table>`;
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405);
@@ -105,7 +163,7 @@ Deno.serve(async (req) => {
 
         const { data: profile, error: profileErr } = await supabaseAdmin
             .from('profiles')
-            .select('smtp_config')
+            .select('smtp_config, company_name, full_name, phone, professional_email, website, logo_url, google_review_url, email_signature_html')
             .eq('id', user.id)
             .single();
 
@@ -144,8 +202,15 @@ Deno.serve(async (req) => {
             }
         }
 
-        // ── Composition du HTML avec pixel ──
-        let finalHtml = html || textToHtml(text || '');
+        // ── Signature : on garde la signature texte telle quelle dans la
+        // version texte, mais on la remplace par une signature HTML riche
+        // dans la version HTML (logo, liens cliquables, etc.). ──
+        const finalText = text || '';
+        const { body: bodyWithoutSig } = splitBodyAndSignature(finalText);
+        const htmlSig = buildHtmlSignature(profile);
+
+        let finalHtml = html || textToHtml(bodyWithoutSig);
+        finalHtml = finalHtml + htmlSig;
         if (trackingToken) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
             const pixelUrl = `${supabaseUrl}/functions/v1/track-email-open?t=${trackingToken}`;
@@ -175,7 +240,7 @@ Deno.serve(async (req) => {
             bcc: normalizeRecipients(bcc),
             replyTo: reply_to || undefined,
             subject: test ? `[Test] ${subject}` : subject,
-            content: text || '',
+            content: finalText,
             html: finalHtml,
         });
 

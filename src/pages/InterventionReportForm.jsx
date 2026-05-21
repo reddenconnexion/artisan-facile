@@ -617,7 +617,7 @@ const InterventionReportForm = () => {
             `Vous trouverez ci-dessous le lien pour consulter et télécharger les documents :\n\n` +
             `Facture :\n${invoiceUrl}\n\n` +
             (reportUrl ? `Le rapport d'intervention est également disponible depuis ce lien.\n\n` : '') +
-            `Cordialement,\n${signatureBlock}`;
+            `Cordialement,\n\n-- \n${signatureBlock}`;
         setSendInvoiceModal({
             email: client.email,
             subject,
@@ -814,7 +814,7 @@ const InterventionReportForm = () => {
                 `Vous trouverez ci-dessous le lien pour consulter et télécharger les documents :\n\n` +
                 `Facture de clôture :\n${invoiceUrl}\n\n` +
                 (reportUrl ? `Le rapport d'intervention est également disponible depuis ce lien.\n\n` : '') +
-                `Cordialement,\n${signatureBlock}`;
+                `Cordialement,\n\n-- \n${signatureBlock}`;
 
             if (hasEmail) {
                 setSendInvoiceModal({

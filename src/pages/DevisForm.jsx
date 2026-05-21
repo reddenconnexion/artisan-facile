@@ -1146,7 +1146,10 @@ const DevisForm = () => {
                 bodyParts.push(`Votre espace client (documents et suivi de chantier) :\n${portalUrl}`);
             }
             bodyParts.push(`N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`);
-            bodyParts.push(signatureBlock);
+            // Marqueur RFC 3676 "-- " (dash dash space) : signale la signature.
+            // L'edge function SMTP s'en sert pour remplacer la signature texte
+            // par une version HTML riche dans la partie HTML du mail.
+            bodyParts.push('-- \n' + signatureBlock);
 
             const body = bodyParts.join('\n\n');
 
