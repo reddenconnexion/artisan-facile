@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, Mail, MailOpen } from 'lucide-react';
+import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
@@ -9,7 +10,7 @@ import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
 import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 const FollowUps = lazy(() => import('./FollowUps'));
@@ -110,6 +111,72 @@ const ViewStatusBadge = ({ devis }) => {
     );
 };
 
+// Badge "mail ouvert X fois" pour les devis/factures envoyés via SMTP direct
+const MailOpenedBadge = ({ stats, history, onOpenHistory }) => {
+    if (!stats) return null;
+    const openCount = Number(stats.open_count) || 0;
+
+    if (openCount === 0) {
+        return (
+            <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500"
+                title="Mail envoyé — pas encore ouvert par le client"
+            >
+                <Mail className="w-3 h-3" />
+                Mail non ouvert
+            </span>
+        );
+    }
+
+    const lastOpened = stats.last_opened_at ? new Date(stats.last_opened_at) : null;
+    const label = openCount === 1
+        ? `Ouvert ${lastOpened ? formatRelativeTime(stats.last_opened_at) : ''}`
+        : `Ouvert ${openCount} fois`;
+
+    return (
+        <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenHistory?.(history); }}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+            title={lastOpened ? `Dernière ouverture le ${lastOpened.toLocaleString('fr-FR')} — cliquer pour l'historique` : 'Voir l\'historique'}
+        >
+            <MailOpen className="w-3 h-3" />
+            {label}
+        </button>
+    );
+};
+
+// Hook : récupère les stats d'envoi par quote_id pour l'utilisateur courant
+function useEmailSendStats() {
+    return useQuery({
+        queryKey: ['email-send-stats'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('email_send_stats')
+                .select('quote_id, email_send_id, open_count, first_opened_at, last_opened_at, sent_at')
+                .not('quote_id', 'is', null);
+            if (error) {
+                // Table pas encore migrée ? On ignore silencieusement.
+                console.warn('email_send_stats unavailable:', error.message);
+                return { byQuote: new Map(), bySendId: new Map() };
+            }
+            // Agrège par quote_id : on prend l'envoi le plus récent
+            const byQuote = new Map();
+            const bySendId = new Map();
+            for (const row of data || []) {
+                bySendId.set(row.email_send_id, row);
+                const prev = byQuote.get(row.quote_id);
+                if (!prev || new Date(row.sent_at) > new Date(prev.sent_at)) {
+                    byQuote.set(row.quote_id, row);
+                }
+            }
+            return { byQuote, bySendId };
+        },
+        staleTime: 30_000,
+        gcTime: 5 * 60_000,
+    });
+}
+
 const DevisList = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -117,7 +184,23 @@ const DevisList = () => {
     const queryClient = useQueryClient();
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
+    const { data: emailStats } = useEmailSendStats();
     const { isTestMode, testClient } = useTestMode();
+    const [openHistoryModal, setOpenHistoryModal] = useState(null);
+
+    const handleShowHistory = async (stats) => {
+        if (!stats?.email_send_id) return;
+        const { data, error } = await supabase
+            .from('email_opens')
+            .select('opened_at, user_agent, ip_address')
+            .eq('email_send_id', stats.email_send_id)
+            .order('opened_at', { ascending: false });
+        if (error) {
+            toast.error("Impossible de charger l'historique");
+            return;
+        }
+        setOpenHistoryModal({ stats, opens: data || [] });
+    };
 
     const refreshQuotes = () => queryClient.invalidateQueries({ queryKey: ['quotes', user?.id] });
 
@@ -657,6 +740,10 @@ const DevisList = () => {
                                                 <StatusBadge status={devis.status} />
                                                 {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
                                                 <ViewStatusBadge devis={devis} />
+                                                <MailOpenedBadge
+                                                    stats={emailStats?.byQuote.get(devis.id)}
+                                                    onOpenHistory={handleShowHistory}
+                                                />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
@@ -743,6 +830,10 @@ const DevisList = () => {
                                         <StatusBadge status={devis.status} />
                                         {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
                                         <ViewStatusBadge devis={devis} />
+                                        <MailOpenedBadge
+                                            stats={emailStats?.byQuote.get(devis.id)}
+                                            onOpenHistory={handleShowHistory}
+                                        />
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>
@@ -862,6 +953,66 @@ const DevisList = () => {
                     <button onClick={handleCancelMerge} className="ml-1 opacity-70 hover:opacity-100 transition-opacity">
                         <X className="w-4 h-4" />
                     </button>
+                </div>
+            )}
+
+            {openHistoryModal && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+                    onClick={() => setOpenHistoryModal(null)}
+                >
+                    <div
+                        className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <MailOpen className="w-5 h-5 text-emerald-500" />
+                                    Historique d'ouverture
+                                </h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {openHistoryModal.opens.length} ouverture{openHistoryModal.opens.length > 1 ? 's' : ''} détectée{openHistoryModal.opens.length > 1 ? 's' : ''}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setOpenHistoryModal(null)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-5 overflow-y-auto flex-1">
+                            {openHistoryModal.opens.length === 0 ? (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                                    Pas encore d'ouverture détectée.
+                                </p>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {openHistoryModal.opens.map((o, i) => (
+                                        <li key={i} className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                            <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                                                <MailOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {new Date(o.opened_at).toLocaleString('fr-FR')}
+                                                </p>
+                                                {o.user_agent && (
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate" title={o.user_agent}>
+                                                        {o.user_agent}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            <p className="mt-4 text-[11px] text-gray-400 dark:text-gray-500 italic">
+                                ⓘ Certains clients mail (Gmail web notamment) chargent les images via un proxy — l'ouverture est détectée mais l'IP/adresse n'est pas celle du destinataire final.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

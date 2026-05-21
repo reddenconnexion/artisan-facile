@@ -17,3 +17,7 @@ verify_jwt = true
 # Callback de statut envoyé par la PDP/PPF (pas de JWT — endpoint public sécurisé par HMAC)
 [functions.pdp-webhook]
 verify_jwt = false
+
+# Pixel de tracking d'ouverture des emails (chargé par le client mail du destinataire — pas de JWT)
+[functions.track-email-open]
+verify_jwt = false

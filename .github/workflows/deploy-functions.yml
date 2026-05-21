@@ -51,6 +51,7 @@ jobs:
             pdp-webhook
             save-smtp-config
             send-document-email
+            track-email-open
           )
           for fn in "${FUNCTIONS[@]}"; do
             echo "→ Deploying $fn..."

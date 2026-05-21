@@ -618,7 +618,13 @@ const InterventionReportForm = () => {
             `Facture :\n${invoiceUrl}\n\n` +
             (reportUrl ? `Le rapport d'intervention est également disponible depuis ce lien.\n\n` : '') +
             `Cordialement,\n${signatureBlock}`;
-        setSendInvoiceModal({ email: client.email, subject, body });
+        setSendInvoiceModal({
+            email: client.email,
+            subject,
+            body,
+            invoice_id: linkedInvoice.id,
+            client_id: client.id,
+        });
     };
 
     const handleMarkCompleted = async () => {
@@ -811,7 +817,13 @@ const InterventionReportForm = () => {
                 `Cordialement,\n${signatureBlock}`;
 
             if (hasEmail) {
-                setSendInvoiceModal({ email: client.email, subject, body });
+                setSendInvoiceModal({
+                    email: client.email,
+                    subject,
+                    body,
+                    invoice_id: newInvoice.id,
+                    client_id: client.id,
+                });
             }
 
         } catch (err) {
@@ -1822,6 +1834,8 @@ const InterventionReportForm = () => {
                                                         to: sendInvoiceModal.email,
                                                         subject: sendInvoiceModal.subject,
                                                         text: sendInvoiceModal.body,
+                                                        quote_id: sendInvoiceModal.invoice_id ?? null,
+                                                        client_id: sendInvoiceModal.client_id ?? null,
                                                     }),
                                                 });
                                                 const result = await res.json();
