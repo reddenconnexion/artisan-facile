@@ -211,9 +211,10 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                         type="button"
                         onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody)}
                         className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
+                        title={userProfile?.smtp_config?.host ? `Envoi direct depuis ${userProfile.smtp_config.from_email}` : 'Ouvre votre client mail'}
                     >
                         <Send className="w-4 h-4 mr-2" />
-                        Envoyer
+                        {userProfile?.smtp_config?.host ? 'Envoyer depuis mon mail pro' : 'Envoyer'}
                     </button>
                 </div>
             </div>
