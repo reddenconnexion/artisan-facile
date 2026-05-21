@@ -49,6 +49,8 @@ jobs:
             save-openai-key
             notify-artisan-portal-signature
             pdp-webhook
+            save-smtp-config
+            send-document-email
           )
           for fn in "${FUNCTIONS[@]}"; do
             echo "→ Deploying $fn..."
