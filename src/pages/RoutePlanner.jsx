@@ -176,6 +176,17 @@ const RoutePlanner = () => {
     const [routes, setRoutes] = useState({ fastest: null, scenic: null });
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState('fastest');
+    const [roundTrip, setRoundTrip] = useState(false);
+
+    // Aller-retour pertinent quand il n'y a qu'une destination unique.
+    const canRoundTrip = stops.filter((s) => s.trim()).length === 2;
+    useEffect(() => {
+        if (!canRoundTrip && roundTrip) setRoundTrip(false);
+    }, [canRoundTrip, roundTrip]);
+
+    useEffect(() => {
+        if (profile.avoidHighway) setSelected('scenic');
+    }, [profile.avoidHighway]);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -270,15 +281,23 @@ const RoutePlanner = () => {
                 return;
             }
             const usable = geocoded.filter(Boolean);
+            // Aller-retour : on rajoute l'origine en fin de parcours pour qu'OSRM
+            // calcule le retour réel (peut différer en cas de sens unique, etc.).
+            const routeStops = roundTrip && usable.length === 2
+                ? [...usable, usable[0]]
+                : usable;
 
             toast.info('Calcul des itinéraires…');
-            const result = await fetchAlternativeRoutes(usable);
+            const result = await fetchAlternativeRoutes(routeStops, {
+                onlyScenic: profile.avoidHighway,
+            });
             if (!result.fastest && !result.scenic) {
                 toast.error('Aucun itinéraire trouvé.');
                 setLoading(false);
                 return;
             }
             setRoutes(result);
+            if (profile.avoidHighway) setSelected('scenic');
             drawRoutes(result.fastest, result.scenic, usable);
             toast.success('Itinéraires calculés.');
         } catch (e) {
@@ -423,6 +442,28 @@ const RoutePlanner = () => {
                                 />
                             ))}
                         </div>
+                        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 text-sm">
+                            <label className="inline-flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={profile.avoidHighway}
+                                    onChange={(e) => updateProfile({ avoidHighway: e.target.checked })}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-700">Éviter l'autoroute</span>
+                            </label>
+                            {canRoundTrip && (
+                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={roundTrip}
+                                        onChange={(e) => setRoundTrip(e.target.checked)}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-700">Aller-retour</span>
+                                </label>
+                            )}
+                        </div>
                         <div className="flex justify-between items-center mt-3">
                             <button
                                 onClick={addStop}
@@ -444,15 +485,22 @@ const RoutePlanner = () => {
 
                     {(routes.fastest || routes.scenic) && (
                         <div className="space-y-3">
-                            <RouteCard
-                                title="Itinéraire rapide"
-                                subtitle="Autoroutes autorisées"
-                                color="#2563eb"
-                                route={routes.fastest}
-                                consumption={fastestConsumption}
-                                onSelect={() => setSelected('fastest')}
-                                selected={selected === 'fastest'}
-                            />
+                            {roundTrip && (
+                                <div className="px-3 py-2 rounded-lg bg-violet-50 border border-violet-100 text-xs text-violet-800">
+                                    Estimation calculée pour le trajet <strong>aller-retour</strong>.
+                                </div>
+                            )}
+                            {!profile.avoidHighway && (
+                                <RouteCard
+                                    title="Itinéraire rapide"
+                                    subtitle="Autoroutes autorisées"
+                                    color="#2563eb"
+                                    route={routes.fastest}
+                                    consumption={fastestConsumption}
+                                    onSelect={() => setSelected('fastest')}
+                                    selected={selected === 'fastest'}
+                                />
+                            )}
                             <RouteCard
                                 title="Sans autoroute"
                                 subtitle="Routes nationales et départementales"
@@ -463,7 +511,7 @@ const RoutePlanner = () => {
                                 selected={selected === 'scenic'}
                             />
 
-                            {recommendation && (
+                            {!profile.avoidHighway && recommendation && (
                                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-sm text-blue-900">
                                     <strong>Recommandation : </strong>
                                     {recommendation.text}
