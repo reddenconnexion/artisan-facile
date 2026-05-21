@@ -4,6 +4,12 @@
 // `profiles.smtp_config`). Permet d'envoyer devis/factures/rapports
 // directement depuis l'adresse pro de l'artisan, sans passer par mailto.
 //
+// Tracking d'ouverture : à chaque envoi (sauf mode `test`), on crée une
+// ligne `email_sends` avec un token UUID unique et on injecte un pixel
+// transparent dans le HTML qui pointe vers `track-email-open`. Le pixel
+// est invisible pour le destinataire mais permet d'enregistrer chaque
+// ouverture du mail.
+//
 // Body attendu :
 //   {
 //     to: string | string[],          // destinataire(s)
@@ -13,7 +19,9 @@
 //     cc?: string | string[],
 //     bcc?: string | string[],
 //     reply_to?: string,
-//     test?: boolean                  // si true, envoie à l'expéditeur (test de connexion)
+//     quote_id?: number,              // pour lier le tracking à un devis/facture
+//     client_id?: number,
+//     test?: boolean                  // si true, envoie à l'expéditeur (test connexion)
 //   }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -37,6 +45,34 @@ function normalizeRecipients(v: unknown): string[] {
     return String(v).split(',').map(s => s.trim()).filter(Boolean);
 }
 
+function escapeHtml(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Convertit un texte brut en HTML minimal en préservant les sauts de ligne
+// et en convertissant les URLs en liens cliquables.
+function textToHtml(text: string): string {
+    const urlRe = /(https?:\/\/[^\s<>"]+)/g;
+    const escaped = escapeHtml(text);
+    const linked = escaped.replace(urlRe, (url) => `<a href="${url}">${url}</a>`);
+    const withBreaks = linked.replace(/\n/g, '<br>');
+    return `<div style="font-family: -apple-system, system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: #1f2937; white-space: pre-wrap;">${withBreaks}</div>`;
+}
+
+function injectTrackingPixel(html: string, pixelUrl: string): string {
+    const pixel = `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;" />`;
+    // Insère juste avant </body> si possible, sinon à la fin
+    if (/<\/body>/i.test(html)) {
+        return html.replace(/<\/body>/i, `${pixel}</body>`);
+    }
+    return html + pixel;
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405);
@@ -57,7 +93,7 @@ Deno.serve(async (req) => {
         if (authError || !user) return json({ error: 'Non autorisé' }, 401);
 
         const body = await req.json();
-        const { to, subject, text, html, cc, bcc, reply_to, test } = body;
+        const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id } = body;
 
         if (!subject || typeof subject !== 'string') return json({ error: 'Sujet requis' }, 400);
         if (!text && !html) return json({ error: 'Contenu requis' }, 400);
@@ -83,6 +119,39 @@ Deno.serve(async (req) => {
         const toList = test ? [cfg.from_email] : normalizeRecipients(to);
         if (toList.length === 0) return json({ error: 'Destinataire requis' }, 400);
 
+        // ── Création de l'entrée de tracking + token (sauf mode test) ──
+        let trackingToken: string | null = null;
+        let emailSendId: string | null = null;
+        if (!test) {
+            const { data: sendRow, error: sendErr } = await supabaseAdmin
+                .from('email_sends')
+                .insert({
+                    user_id: user.id,
+                    quote_id: quote_id ?? null,
+                    client_id: client_id ?? null,
+                    recipient_email: toList[0],
+                    subject,
+                })
+                .select('id, tracking_token')
+                .single();
+
+            if (sendErr) {
+                console.error('email_sends insert failed:', sendErr);
+                // On continue quand même — pas de tracking mais l'envoi doit aboutir
+            } else {
+                trackingToken = sendRow.tracking_token;
+                emailSendId = sendRow.id;
+            }
+        }
+
+        // ── Composition du HTML avec pixel ──
+        let finalHtml = html || textToHtml(text || '');
+        if (trackingToken) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+            const pixelUrl = `${supabaseUrl}/functions/v1/track-email-open?t=${trackingToken}`;
+            finalHtml = injectTrackingPixel(finalHtml, pixelUrl);
+        }
+
         client = new SMTPClient({
             connection: {
                 hostname: cfg.host,
@@ -107,10 +176,10 @@ Deno.serve(async (req) => {
             replyTo: reply_to || undefined,
             subject: test ? `[Test] ${subject}` : subject,
             content: text || '',
-            html: html || undefined,
+            html: finalHtml,
         });
 
-        return json({ success: true, sent_to: toList });
+        return json({ success: true, sent_to: toList, email_send_id: emailSendId });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('send-document-email error:', message);

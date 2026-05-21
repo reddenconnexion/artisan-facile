@@ -1188,6 +1188,8 @@ const DevisForm = () => {
                         to: emailPreview.email,
                         subject,
                         text: body,
+                        quote_id: id,
+                        client_id: formData.client_id,
                     }),
                 });
                 const result = await res.json();
