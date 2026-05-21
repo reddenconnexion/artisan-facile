@@ -821,7 +821,7 @@ const DevisForm = () => {
                 if (data.parent_quote_id) {
                     const { data: parentData } = await supabase
                         .from('quotes')
-                        .select('id, total_ttc, total_ht, items, date, title')
+                        .select('id, total_ttc, total_ht, items, date, title, quote_number, status')
                         .eq('id', data.parent_quote_id)
                         .single();
 
