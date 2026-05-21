@@ -14,30 +14,26 @@ import {
     formatDuration,
 } from '../utils/evRouting';
 
-const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-
-const ensureLeaflet = () => {
-    if (window.L) return Promise.resolve(window.L);
-    return new Promise((resolve, reject) => {
-        if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = LEAFLET_CSS;
-            document.head.appendChild(link);
-        }
-        const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`);
-        if (existing) {
-            existing.addEventListener('load', () => resolve(window.L));
-            existing.addEventListener('error', reject);
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = LEAFLET_JS;
-        script.onload = () => resolve(window.L);
-        script.onerror = reject;
-        document.head.appendChild(script);
+// Leaflet est bundlé (et non chargé par CDN) pour rester conforme au CSP
+// strict de l'app (script-src 'self', style-src 'self').
+const loadLeaflet = async () => {
+    const [leafletMod, , iconUrl, iconRetinaUrl, shadowUrl] = await Promise.all([
+        import('leaflet'),
+        import('leaflet/dist/leaflet.css'),
+        import('leaflet/dist/images/marker-icon.png'),
+        import('leaflet/dist/images/marker-icon-2x.png'),
+        import('leaflet/dist/images/marker-shadow.png'),
+    ]);
+    const L = leafletMod.default || leafletMod;
+    // Vite résout les images en URLs avec hash ; on remplace les chemins
+    // relatifs hardcodés de Leaflet pour que les marqueurs s'affichent.
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconUrl: iconUrl.default,
+        iconRetinaUrl: iconRetinaUrl.default,
+        shadowUrl: shadowUrl.default,
     });
+    return L;
 };
 
 const ScoreBadge = ({ status, label }) => {
@@ -163,6 +159,7 @@ const RoutePlanner = () => {
     const navigate = useNavigate();
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
+    const leafletRef = useRef(null);
     const layersRef = useRef([]);
 
     const initialStops = useMemo(() => {
@@ -183,9 +180,10 @@ const RoutePlanner = () => {
     useEffect(() => {
         if (!mapRef.current) return;
         let cancelled = false;
-        ensureLeaflet()
+        loadLeaflet()
             .then((L) => {
                 if (cancelled || mapInstanceRef.current) return;
+                leafletRef.current = L;
                 const map = L.map(mapRef.current, {
                     center: [46.6, 2.5],
                     zoom: 6,
@@ -219,7 +217,7 @@ const RoutePlanner = () => {
     };
 
     const drawRoutes = (fastest, scenic, stopCoords) => {
-        const L = window.L;
+        const L = leafletRef.current;
         const map = mapInstanceRef.current;
         if (!L || !map) return;
 

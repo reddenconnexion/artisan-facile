@@ -20,6 +20,7 @@
     "dotenv": "^17.2.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.554.0",
     "mammoth": "^1.11.0",
     "papaparse": "^5.5.3",
