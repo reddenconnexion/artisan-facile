@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield } from 'lucide-react';
+import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield, Upload } from 'lucide-react';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -599,6 +599,47 @@ const Profile = () => {
             toast.error(err.message || 'Erreur lors de la sauvegarde');
         } finally {
             setSavingSignature(false);
+        }
+    };
+
+    const handleSignatureImageUpload = async (e) => {
+        try {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const validation = await validateFileForUpload(file, UPLOAD_PRESETS.image);
+            if (!validation.ok) {
+                toast.error(validation.error);
+                return;
+            }
+
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            const randomBytes = new Uint8Array(16);
+            crypto.getRandomValues(randomBytes);
+            const randomHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            const fileName = `signature-${user.id}-${randomHex}.${fileExt}`;
+
+            const uploadingToast = toast.loading('Upload de l\'image...');
+            const { error: uploadError } = await supabase.storage
+                .from('logos')
+                .upload(fileName, file, { contentType: file.type });
+            toast.dismiss(uploadingToast);
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('logos').getPublicUrl(fileName);
+            const url = data.publicUrl;
+
+            // Ajoute la balise <img> à la fin de la signature avec un style
+            // "responsive" : max-width pour s'adapter à toutes les tailles d'écran.
+            const imgTag = `<img src="${url}" alt="" style="max-width:100%;height:auto;display:block;margin-top:8px;" />`;
+            setEmailSignatureHtml(prev => (prev ? prev.trimEnd() + '\n' + imgTag : imgTag));
+            toast.success('Image ajoutée — n\'oubliez pas d\'enregistrer la signature');
+        } catch (err) {
+            console.error('Signature image upload error:', err);
+            toast.error('Erreur lors de l\'upload de l\'image');
+        } finally {
+            // Reset l'input pour permettre de réuploader la même image
+            e.target.value = '';
         }
     };
 
@@ -1329,6 +1370,22 @@ const Profile = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                             Balises HTML autorisées : &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;, &lt;a href&gt;, &lt;img src&gt;, &lt;span style&gt;, etc.
                         </p>
+
+                        <div>
+                            <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium cursor-pointer">
+                                <Upload className="w-4 h-4" />
+                                Importer une image (bannière, signature scannée…)
+                                <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    onChange={handleSignatureImageUpload}
+                                    className="hidden"
+                                />
+                            </label>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                JPG / PNG / WebP / GIF, 8 Mo max. La balise &lt;img&gt; sera ajoutée à la fin de la signature.
+                            </p>
+                        </div>
 
                         {emailSignatureHtml.trim() && (
                             <div>
