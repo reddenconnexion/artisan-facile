@@ -1439,9 +1439,16 @@ const Profile = () => {
                                     {signaturePreview ? 'Masquer l\'aperçu' : 'Afficher l\'aperçu'}
                                 </button>
                                 {signaturePreview && (
-                                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Aperçu (ce que verront vos clients) :</p>
-                                        <div dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                        <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Aperçu (ce que verront vos clients dans leur mail) :</p>
+                                        </div>
+                                        {/* Fond blanc forcé : simule le rendu réel dans la plupart des
+                                            clients mail. La signature HTML utilisateur n'a pas de dark
+                                            mode — sur fond sombre, du texte noir devient illisible. */}
+                                        <div className="bg-white p-4 text-gray-900">
+                                            <div dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                        </div>
                                     </div>
                                 )}
                             </div>
