@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban, Repeat } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 
 const ActivitySettings = () => {
@@ -26,7 +26,8 @@ const ActivitySettings = () => {
         enable_inventory: true,
         enable_intervention_reports: true,
         enable_portfolio: false,
-        enable_marketing: false
+        enable_marketing: false,
+        enable_recurring: true
     });
 
     useEffect(() => {
@@ -118,6 +119,12 @@ const ActivitySettings = () => {
             label: 'Factures de Situation',
             description: 'Facturez à l\'avancement du chantier (ex: 30%, 60%...).',
             icon: List
+        },
+        {
+            key: 'enable_recurring',
+            label: 'Factures Récurrentes',
+            description: 'Modèles de facturation automatique pour contrats de maintenance, abonnements, entretiens périodiques.',
+            icon: Repeat
         },
         {
             key: 'enable_signature',
