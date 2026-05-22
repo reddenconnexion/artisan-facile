@@ -3017,9 +3017,9 @@ Conditions de règlement : Paiement à réception de facture.`
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-gray-400 uppercase tracking-wider">Cas particuliers :</span>
                             {[
-                                { key: 'refused', label: 'Refusé', activeColor: 'bg-red-100 text-red-700 border-red-300' },
-                                { key: 'postponed', label: 'Reporté', activeColor: 'bg-amber-100 text-amber-700 border-amber-300' },
-                                { key: 'cancelled', label: 'Annulé', activeColor: 'bg-gray-200 text-gray-700 border-gray-400' },
+                                { key: 'refused', label: 'Refusé', activeColor: 'bg-red-100 text-red-700 dark:text-red-400 border-red-300' },
+                                { key: 'postponed', label: 'Reporté', activeColor: 'bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300' },
+                                { key: 'cancelled', label: 'Annulé', activeColor: 'bg-gray-200 text-gray-700 dark:text-gray-300 border-gray-400' },
                             ].map(opt => {
                                 const isActive = formData.status === opt.key;
                                 return (
@@ -3028,7 +3028,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="button"
                                         onClick={() => setFormData(p => ({ ...p, status: isActive ? 'draft' : opt.key }))}
                                         className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${
-                                            isActive ? opt.activeColor : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                            isActive ? opt.activeColor : 'bg-white dark:bg-gray-900 text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                         }`}
                                     >
                                         {opt.label}
@@ -3115,7 +3115,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <button
                             type="button"
                             onClick={() => setShowAdvancedQuoteOptions(v => !v)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                         >
                             <svg className={`w-3.5 h-3.5 transition-transform ${showAdvancedQuoteOptions ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             Options avancées
@@ -3298,7 +3298,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 </div>
                             ) : (
-                            <div key={item.id} className={`flex flex-col sm:flex-row gap-4 items-start border-b pb-4 last:border-0 ${item.is_optional ? 'border-purple-100 border-l-2 border-l-purple-300 pl-2 -ml-2' : 'border-gray-100'}`}>
+                            <div key={item.id} className={`flex flex-col sm:flex-row gap-4 items-start border-b pb-4 last:border-0 ${item.is_optional ? 'border-purple-100 border-l-2 border-l-purple-300 pl-2 -ml-2' : 'border-gray-100 dark:border-gray-800'}`}>
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
@@ -3366,7 +3366,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                                 <button
                                                                     key={lib.id}
                                                                     type="button"
-                                                                    className="block w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                                                                    className="block w-full text-left px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm border-b border-gray-50 last:border-0"
                                                                     onClick={() => {
                                                                         updateItem(item.id, 'description', lib.description);
                                                                         updateItem(item.id, 'price', lib.price);
@@ -3476,7 +3476,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             type="button"
                                             onClick={() => moveItem(index, 'up')}
                                             disabled={index === 0 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:hover:bg-transparent"
                                             title="Monter"
                                         >
                                             <ArrowUp className="w-4 h-4" />
@@ -3485,7 +3485,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             type="button"
                                             onClick={() => moveItem(index, 'down')}
                                             disabled={index === formData.items.length - 1 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:hover:bg-transparent"
                                             title="Descendre"
                                         >
                                             <ArrowDown className="w-4 h-4" />
@@ -3493,7 +3493,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                     <button
                                         onClick={() => removeItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30"
+                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
                                         disabled={isLocked}
                                     >
                                         <Trash2 className="w-5 h-5" />
@@ -3502,7 +3502,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="button"
                                         onClick={() => updateItem(item.id, 'is_optional', !item.is_optional)}
                                         disabled={isLocked}
-                                        className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' : 'text-gray-300 border-gray-200 hover:text-gray-500 hover:border-gray-300'}`}
+                                        className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
                                         title={item.is_optional ? 'Option — cliquer pour rendre obligatoire' : 'Rendre cette ligne optionnelle'}
                                     >
                                         OPT
@@ -3532,7 +3532,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="mt-4 flex flex-wrap gap-2">
                         <button
                             onClick={() => addItem('service')}
-                            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors disabled:opacity-50"
                             disabled={isLocked}
                             title="Votre temps de travail : pose, installation, déplacement, diagnostic..."
                         >
