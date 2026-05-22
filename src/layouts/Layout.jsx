@@ -58,6 +58,25 @@ const Layout = () => {
     });
   }, []);
 
+  // Périphérique avec un vrai pointeur (souris/trackpad) — sur PC on ouvre
+  // les sous-menus au survol; sur tactile on garde le toggle au tap.
+  const isHoverDevice = React.useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches,
+    []
+  );
+  const [hoveredGroup, setHoveredGroup] = useState(null);
+  const hoverTimerRef = React.useRef(null);
+  const handleGroupEnter = useCallback((name) => {
+    if (!isHoverDevice) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoveredGroup(name);
+  }, [isHoverDevice]);
+  const handleGroupLeave = useCallback(() => {
+    if (!isHoverDevice) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setHoveredGroup(null), 120);
+  }, [isHoverDevice]);
+
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
 
@@ -151,6 +170,7 @@ const Layout = () => {
       enable_intervention_reports: userSettings.enable_intervention_reports ?? true,
       enable_portfolio: userSettings.enable_portfolio ?? false,
       enable_marketing: userSettings.enable_marketing ?? false,
+      enable_recurring: userSettings.enable_recurring ?? true,
     };
 
     const activiteChildren = [
@@ -188,7 +208,7 @@ const Layout = () => {
         icon: FileText,
         children: [
           { name: 'Tous les devis', href: '/app/devis', icon: FileText },
-          { name: 'Factures récurrentes', href: '/app/recurring', icon: Repeat },
+          ...(settings.enable_recurring ? [{ name: 'Factures récurrentes', href: '/app/recurring', icon: Repeat }] : []),
           { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
           { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
         ],
@@ -530,13 +550,20 @@ const Layout = () => {
               const groupActive = group.children.some(child =>
                 location.pathname === child.href || location.pathname.startsWith(child.href + '/')
               );
-              const groupExpanded = groupActive || (expandedGroups[group.name] ?? false);
+              const groupHovered = hoveredGroup === group.name;
+              const groupExpanded = isHoverDevice
+                ? (groupActive || groupHovered)
+                : (groupActive || (expandedGroups[group.name] ?? false));
               const showBadge = group.name === 'Devis & Factures' && pendingCount > 0;
 
               return (
-                <div key={group.name}>
+                <div
+                  key={group.name}
+                  onMouseEnter={() => handleGroupEnter(group.name)}
+                  onMouseLeave={handleGroupLeave}
+                >
                   <button
-                    onClick={() => toggleGroup(group.name)}
+                    onClick={() => { if (!isHoverDevice) toggleGroup(group.name); }}
                     className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                       groupActive
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
