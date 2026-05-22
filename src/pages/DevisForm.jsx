@@ -2356,7 +2356,7 @@ Conditions de règlement : Paiement à réception de facture.`
     if (isEditing && !dataLoaded) {
         return (
             <div className="max-w-4xl mx-auto pb-12 flex items-center justify-center min-h-[50vh]">
-                <div className="flex flex-col items-center gap-3 text-gray-500">
+                <div className="flex flex-col items-center gap-3 text-gray-500 dark:text-gray-400">
                     <Loader2 className="w-8 h-8 animate-spin" />
                     <span className="text-sm">Chargement du document...</span>
                 </div>
@@ -2370,14 +2370,14 @@ Conditions de règlement : Paiement à réception de facture.`
             {/* Bandeau contre-proposition — affiché tant que l'artisan n'a pas masqué */}
             {competitorImport && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4 mb-4 flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
                         <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-blue-900 dark:text-blue-200">
                             Contre-proposition à partir de {competitorImport.filename}
                         </p>
-                        <p className="text-xs text-blue-700 dark:text-blue-300/90 mt-1 leading-relaxed">
+                        <p className="text-xs text-blue-700 dark:text-blue-300 dark:text-blue-300/90 mt-1 leading-relaxed">
                             Les lignes du devis concurrent ont été importées. Ajustez les prix unitaires pour proposer
                             une offre compétitive — pensez à utiliser le Copilot (✨ en bas à droite) pour vérifier vos
                             marges ou suggérer un prix.
@@ -2406,13 +2406,13 @@ Conditions de règlement : Paiement à réception de facture.`
             )}
 
             {isLocked && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     </div>
                     <div>
-                        <h4 className="text-sm font-semibold text-amber-800">Document Verrouillé</h4>
-                        <p className="text-sm text-amber-700 mt-1">
+                        <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Document Verrouillé</h4>
+                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                             Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
                             Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
                         </p>
@@ -2430,7 +2430,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             {/* Bandeau premier devis — masquable, localStorage */}
             {showFirstDevisTip && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 relative">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-xl p-4 mb-6 relative">
                     <button
                         type="button"
                         onClick={dismissDevisTip}
@@ -2444,15 +2444,15 @@ Conditions de règlement : Paiement à réception de facture.`
                         <div>
                             <p className="text-sm font-semibold text-blue-800 mb-2">Créez votre devis en 3 étapes</p>
                             <ol className="space-y-1.5">
-                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                <li className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-300">
                                     <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">1</span>
                                     <span><strong>Choisissez un client</strong> — recherchez son nom ou cliquez "Nouveau client" juste en dessous</span>
                                 </li>
-                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                <li className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-300">
                                     <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">2</span>
                                     <span><strong>Ajoutez vos prestations</strong> — cliquez "+ Main d'œuvre" pour votre travail, "+ Matériel" pour vos fournitures</span>
                                 </li>
-                                <li className="flex items-start gap-2 text-sm text-blue-700">
+                                <li className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-300">
                                     <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">3</span>
                                     <span><strong>Envoyez et faites signer</strong> — votre client reçoit un lien et signe directement depuis son téléphone</span>
                                 </li>
@@ -2465,20 +2465,20 @@ Conditions de règlement : Paiement à réception de facture.`
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={handleBack}
-                    className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                    className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                 >
                     <ArrowLeft className="w-5 h-5 sm:mr-2" />
                     <span className="hidden sm:inline">Retour</span>
                 </button>
 
                 {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
-                <div className="flex bg-gray-100 p-1 rounded-lg mx-2 sm:mx-4">
+                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mx-2 sm:mx-4">
                     <button
                         type="button"
                         onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
                         className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
                             }`}
                     >
                         Devis
@@ -2487,8 +2487,8 @@ Conditions de règlement : Paiement à réception de facture.`
                         type="button"
                         onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
                         className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
-                            ? 'bg-white text-green-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white dark:bg-gray-900 text-green-600 shadow-sm'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
                             }`}
                     >
                         Fac<span className="hidden sm:inline">ture</span>
@@ -2498,7 +2498,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 {/* Presence Indicator */}
                 <div className="flex flex-col items-center justify-center mr-auto ml-2">
                     {isClientOnline && (
-                        <div className="flex items-center gap-1 text-green-600 bg-green-50 px-3 py-1 rounded-full text-xs font-bold border border-green-200 animate-pulse transition-all">
+                        <div className="flex items-center gap-1 text-green-600 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full text-xs font-bold border border-green-200 animate-pulse transition-all">
                             <span className="relative flex h-2 w-2 mr-1">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -2515,7 +2515,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Eye className="w-3 h-3" />
                             Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
                             {viewCount > 1 && (
-                                <span className="bg-blue-100 text-blue-600 font-bold px-1 rounded text-[9px]">
+                                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-bold px-1 rounded text-[9px]">
                                     ×{viewCount}
                                 </span>
                             )}
@@ -2542,7 +2542,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     <button
                         type="button"
                         onClick={handleSendQuoteEmail}
-                        className="flex items-center px-3 sm:px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                        className="flex items-center px-3 sm:px-4 py-2 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg hover:bg-blue-100"
                         title="Envoyer par email"
                     >
                         <Send className="w-4 h-4 sm:mr-2" />
@@ -2553,7 +2553,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <button
                             type="button"
                             onClick={handleConvertToInvoice}
-                            className="flex items-center px-3 sm:px-4 py-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
+                            className="flex items-center px-3 sm:px-4 py-2 text-emerald-700 dark:text-green-400 bg-emerald-50 dark:bg-green-900/20 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
                             title="Convertir ce devis en facture"
                         >
                             <FileCheck className="w-4 h-4 sm:mr-2" />
@@ -2574,20 +2574,20 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="relative">
                         <button
                             onClick={() => setShowActionsMenu(!showActionsMenu)}
-                            className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             title="Plus d'actions"
                         >
-                            <MoreVertical className="w-5 h-5 text-gray-600" />
+                            <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                         </button>
 
                         {showActionsMenu && (
-                            <div className="absolute right-0 mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1">
+                            <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 z-50 py-1">
                                 {/* ─── Partage & Signature ─── */}
                                 <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Partage & Signature</p>
                                 {/* Mobile only Send button */}
                                 <button
                                     onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
-                                    className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <Send className="w-4 h-4 mr-3 text-blue-600" />
                                     Envoyer le devis
@@ -2610,7 +2610,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 toast.success('Lien de signature copié !');
                                             }
                                         }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
                                         <Link className="w-4 h-4 mr-3 text-gray-400" />
                                         Copier le lien public
@@ -2620,19 +2620,19 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && (
                                     <button
                                         onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
                                         <PenTool className="w-4 h-4 mr-3 text-purple-600" />
                                         Faire signer sur l'appareil
                                     </button>
                                 )}
 
-                                <div className="border-t border-gray-100 my-1"></div>
+                                <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                 {/* ─── PDF ─── */}
                                 <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">PDF</p>
                                 <button
                                     onClick={() => { handlePreview(); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <Eye className="w-4 h-4 mr-3 text-gray-400" />
                                     Aperçu PDF
@@ -2640,7 +2640,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 <button
                                     onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <Download className="w-4 h-4 mr-3 text-gray-400" />
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
@@ -2648,11 +2648,11 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                                     <>
-                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
                                         <button
                                             onClick={() => { handleConvertToInvoice(); setShowActionsMenu(false); }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 dark:text-green-400 hover:bg-emerald-50"
                                         >
                                             <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
                                             Convertir en facture
@@ -2662,39 +2662,39 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && (formData.status === 'accepted' || formData.status === 'sent' || formData.status === 'billed') && !formData.parent_id && (
                                     <>
-                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>
                                         <button
                                             onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                         >
                                             <FileText className="w-4 h-4 mr-3 text-indigo-600" />
                                             Créer un avenant
                                         </button>
                                         <button
                                             onClick={handleCreateDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-blue-50/50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-blue-50/50"
                                         >
                                             <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
                                             Générer Facture d'Acompte
                                         </button>
                                         <button
                                             onClick={handleCreateMaterialDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-orange-50/50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-orange-50/50"
                                         >
                                             <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
                                             Générer Acompte Matériel
                                         </button>
                                         <button
                                             onClick={handleCreateSituation}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-purple-50/50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-purple-50/50"
                                         >
                                             <Layers className="w-4 h-4 mr-3 text-purple-600" />
                                             Créer Situation de Travaux
                                         </button>
                                         <button
                                             onClick={handleCreateClosingInvoice}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 bg-green-50/50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-green-50/50"
                                         >
                                             <Check className="w-4 h-4 mr-3 text-green-600" />
                                             Générer Facture de Clôture
@@ -2704,10 +2704,10 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {id && id !== 'new' && (
                                     <>
-                                        <div className="border-t border-gray-100 my-1"></div>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <button
                                             onClick={handleDelete}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                         >
                                             <Trash2 className="w-4 h-4 mr-3" />
                                             Supprimer
@@ -2715,12 +2715,12 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </>
                                 )}
 
-                                <div className="border-t border-gray-100 my-1"></div>
+                                <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
 
                                 {['accepted', 'paid', 'billed'].includes(formData.status) && (
                                     <button
                                         onClick={() => { setShowReviewRequestModal(true); setShowActionsMenu(false); }}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
                                         <Star className="w-4 h-4 mr-3 text-yellow-500" />
                                         Demander un avis
@@ -2731,7 +2731,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <button
                                     onClick={() => { fileInputRef.current?.click(); setShowActionsMenu(false); }}
                                     disabled={importing}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
                                     Importer (PDF / Word)
@@ -2739,7 +2739,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 <button
                                     onClick={() => { document.getElementById('external-pdf-input')?.click(); setShowActionsMenu(false); }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <FileText className="w-4 h-4 mr-3 text-purple-600" />
                                     Importer Externe (Brut)
@@ -2798,7 +2798,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Upload className={`w-10 h-10 ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`} />
                         )}
                         <div>
-                            <p className="font-semibold text-gray-700 dark:text-gray-200">
+                            <p className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                                 {importing ? 'Traitement en cours…' : 'Importer un devis existant (PDF ou Word)'}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -2811,9 +2811,9 @@ Conditions de règlement : Paiement à réception de facture.`
 
             {/* External PDF Mode / Manual Totals */}
             {formData.is_external ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 mb-8">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
                             <FileText className="w-5 h-5 mr-2 text-blue-600" />
                             Document Externe (PDF)
                         </h3>
@@ -2826,9 +2826,9 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
 
                     {displayPdfUrl && (
-                        <div className="mb-8 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-800">
+                        <div className="mb-8 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-900 dark:bg-gray-800">
                             <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                                <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                                <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-gray-300">
                                     <Eye className="w-4 h-4 text-blue-500" />
                                     Aperçu du document importé
                                 </div>
@@ -2865,9 +2865,9 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 dark:bg-gray-800 p-6 rounded-xl">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total HT</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total HT</label>
                             <div className="relative">
                                 <input
                                     type="number"
@@ -2877,12 +2877,12 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ht: parseFloat(e.target.value) || 0 }))}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
+                                    <span className="text-gray-500 dark:text-gray-400 sm:text-sm">€</span>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total TVA</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total TVA</label>
                             <div className="relative">
                                 <input
                                     type="number"
@@ -2892,38 +2892,38 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_tva: parseFloat(e.target.value) || 0 }))}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
+                                    <span className="text-gray-500 dark:text-gray-400 sm:text-sm">€</span>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Total TTC</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total TTC</label>
                             <div className="relative">
                                 <input
                                     type="number"
                                     step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-blue-50 font-bold text-blue-900"
+                                    className="block w-full pl-3 pr-8 py-2 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-blue-50 dark:bg-blue-900/20 font-bold text-blue-900"
                                     value={formData.manual_total_ttc}
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ttc: parseFloat(e.target.value) || 0 }))}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 sm:text-sm">€</span>
+                                    <span className="text-gray-500 dark:text-gray-400 sm:text-sm">€</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <p className="mt-2 text-sm text-gray-500 italic">
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
                         * Saisissez les montants manuellement car ils ne sont pas calculés automatiquement depuis le PDF.
                     </p>
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-8 space-y-8">
                 {/* En-tête Devis */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Client</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Client</label>
                             {formData.client_id && (
                                 <button
                                     type="button"
@@ -2945,7 +2945,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
 
                         <div className="mb-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Titre / Objet du devis</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre / Objet du devis</label>
                             <input
                                 type="text"
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
@@ -2960,7 +2960,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Date d'émission</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'émission</label>
                             <input
                                 type="date"
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
@@ -2971,7 +2971,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
                         {formData.type !== 'invoice' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Validité jusqu'au</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validité jusqu'au</label>
                                 <input
                                     type="date"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
@@ -2983,7 +2983,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         )}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
                         {/* Pipeline visuel cliquable */}
                         {(() => {
                             const pipeline = formData.type === 'invoice'
@@ -2999,8 +2999,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 onClick={() => setFormData(p => ({ ...p, status: step.key }))}
                                                 className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
                                                     idx === currentIdx ? 'animate-shimmer-step text-white' :
-                                                    currentIdx >= 0 && idx < currentIdx ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                                                    'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                                    currentIdx >= 0 && idx < currentIdx ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200' :
+                                                    'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200'
                                                 }`}
                                             >
                                                 {step.label}
@@ -3069,7 +3069,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 type="button"
                                 onClick={() => setShowViewHistory(true)}
                                 className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors
-                                    border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                    border-blue-200 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100"
                             >
                                 <Eye className="w-4 h-4" />
                                 {viewCount === 0
@@ -3082,7 +3082,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     {formData.status === 'paid' && (
                         <>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Mode de règlement</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mode de règlement</label>
                                 <select
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.payment_method}
@@ -3099,19 +3099,19 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'encaissement</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'encaissement</label>
                                 <input
                                     type="date"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                     value={formData.paid_at}
                                     onChange={(e) => setFormData({ ...formData, paid_at: e.target.value })}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Obligatoire pour le livre de recettes</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Obligatoire pour le livre de recettes</p>
                             </div>
                         </>
                     )}
                     {/* Options avancées (Factur-X, TVA, OTP) */}
-                    <div className="border-t border-gray-100 pt-3 mt-1">
+                    <div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-1">
                         <button
                             type="button"
                             onClick={() => setShowAdvancedQuoteOptions(v => !v)}
@@ -3132,7 +3132,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
                                             disabled={isLocked}
                                         />
-                                        <label htmlFor="vat_on_debits" className="text-sm text-gray-700">
+                                        <label htmlFor="vat_on_debits" className="text-sm text-gray-700 dark:text-gray-300">
                                             Option TVA sur les débits
                                         </label>
                                     </div>
@@ -3146,12 +3146,12 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
                                                 disabled={isLocked}
                                             />
-                                            <label htmlFor="require_otp" className="text-sm text-gray-700">
+                                            <label htmlFor="require_otp" className="text-sm text-gray-700 dark:text-gray-300">
                                                 Exiger la vérification par email (OTP) pour signer
                                             </label>
                                         </div>
                                         {total >= 5000 && !formData.require_otp && (
-                                            <div className="mt-2 ml-6 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                                            <div className="mt-2 ml-6 flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-400">
                                                 <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                                                 <div>
                                                     <span className="font-semibold">Recommandé pour ce montant.</span>{' '}
@@ -3167,7 +3167,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
 
                     {/* Intervention Address Toggle - Full Width */}
-                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                    <div className="md:col-span-2 border-t border-gray-100 dark:border-gray-800 pt-4 mt-2">
                         <div className="flex items-center mb-2">
                             <input
                                 type="checkbox"
@@ -3183,7 +3183,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
 
                         {diffAddress && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 mt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-800 dark:border-gray-700 mt-2">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Adresse du chantier
@@ -3237,11 +3237,11 @@ Conditions de règlement : Paiement à réception de facture.`
 
                 {/* Lignes du devis */}
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                         Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
                     </h3>
                     {/* Column headers — desktop only */}
-                    <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
+                    <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
                         <div className="flex-1 pl-1">Désignation</div>
                         <div className="w-20 text-right">Qté</div>
                         <div
@@ -3263,7 +3263,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <input
                                         type="text"
                                         placeholder="Titre de la section (ex: Création prise de terre)"
-                                        className="flex-1 px-3 py-1.5 text-sm font-semibold border-0 border-b border-blue-300 focus:outline-none focus:border-blue-500 bg-transparent text-blue-700 placeholder-blue-300"
+                                        className="flex-1 px-3 py-1.5 text-sm font-semibold border-0 border-b border-blue-300 focus:outline-none focus:border-blue-500 bg-transparent text-blue-700 dark:text-blue-300 placeholder-blue-300"
                                         value={item.description}
                                         onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                         disabled={isLocked}
@@ -3302,7 +3302,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
-                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
+                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-500"
                                             value={item.type || 'service'}
                                             onChange={(e) => updateItem(item.id, 'type', e.target.value)}
                                             disabled={isLocked}
@@ -3361,7 +3361,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     if (matches.length === 0) return null;
 
                                                     return (
-                                                        <div className="absolute z-20 w-full bg-white border border-gray-200 shadow-lg rounded-b-lg mt-1 overflow-hidden">
+                                                        <div className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg rounded-b-lg mt-1 overflow-hidden">
                                                             {matches.map(lib => (
                                                                 <button
                                                                     key={lib.id}
@@ -3372,8 +3372,8 @@ Conditions de règlement : Paiement à réception de facture.`
                                                                         updateItem(item.id, 'price', lib.price);
                                                                     }}
                                                                 >
-                                                                    <span className="font-medium text-gray-900">{lib.description}</span>
-                                                                    <span className="text-gray-500 ml-2 text-xs">{lib.price} €</span>
+                                                                    <span className="font-medium text-gray-900 dark:text-white">{lib.description}</span>
+                                                                    <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">{lib.price} €</span>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -3449,7 +3449,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             <button
                                                 type="button"
                                                 onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
-                                                className="absolute -top-3 -right-2 bg-blue-100 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
+                                                className="absolute -top-3 -right-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
                                                 title="Calculatrice Matériaux"
                                                 disabled={isLocked}
                                             >
@@ -3468,7 +3468,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             disabled={isLocked}
                                         />
                                     </div>
-                                    <div className="w-28 py-2 text-right font-medium text-gray-900">
+                                    <div className="w-28 py-2 text-right font-medium text-gray-900 dark:text-white">
                                         {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -3513,16 +3513,16 @@ Conditions de règlement : Paiement à réception de facture.`
                             {/* Zone d'insertion entre lignes */}
                             {!isLocked && index < formData.items.length - 1 && (
                                 <div className="group relative flex items-center my-1 -mx-1">
-                                    <div className="flex-1 h-px bg-gray-100 group-hover:bg-blue-200 transition-colors" />
+                                    <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-200 transition-colors" />
                                     <button
                                         type="button"
                                         onClick={() => insertItemAfter(index)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity mx-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 bg-white border border-blue-200 hover:border-blue-400 rounded px-2 py-0.5 shadow-sm"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity mx-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 bg-white dark:bg-gray-900 border border-blue-200 hover:border-blue-400 rounded px-2 py-0.5 shadow-sm"
                                         title="Insérer une ligne ici"
                                     >
                                         <Plus className="w-3 h-3" /> Insérer ici
                                     </button>
-                                    <div className="flex-1 h-px bg-gray-100 group-hover:bg-blue-200 transition-colors" />
+                                    <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-200 transition-colors" />
                                 </div>
                             )}
                             </React.Fragment>
@@ -3553,7 +3553,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <button
                             type="button"
                             onClick={addSection}
-                            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors disabled:opacity-50"
                             disabled={isLocked}
                             title="Ajoute un titre de groupe pour organiser vos lignes (ex: Cuisine, Salle de bain, Extérieur). Facultatif."
                         >
@@ -3575,10 +3575,10 @@ Conditions de règlement : Paiement à réception de facture.`
                     <p className="mt-3 text-xs text-gray-400 flex items-start gap-1.5">
                         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                         <span>
-                            <strong className="text-gray-500">Main d'œuvre</strong> = votre temps de travail ·{' '}
-                            <strong className="text-gray-500">Matériel</strong> = fournitures achetées ·{' '}
-                            <strong className="text-gray-500">Section</strong> = titre de regroupement (facultatif) ·{' '}
-                            <strong className="text-gray-500">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas
+                            <strong className="text-gray-500 dark:text-gray-400">Main d'œuvre</strong> = votre temps de travail ·{' '}
+                            <strong className="text-gray-500 dark:text-gray-400">Matériel</strong> = fournitures achetées ·{' '}
+                            <strong className="text-gray-500 dark:text-gray-400">Section</strong> = titre de regroupement (facultatif) ·{' '}
+                            <strong className="text-gray-500 dark:text-gray-400">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas
                         </span>
                     </p>
                 </div>
@@ -3622,7 +3622,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 )}
 
                 {/* Totaux */}
-                <div className="flex justify-end pt-6 border-t border-gray-100">
+                <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
                     <div className="w-72 space-y-4">
                         {/* MarginGauge removed here as it was used with incorrect props causing crash */}
 
@@ -3636,12 +3636,12 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
                                     disabled={isLocked}
                                 />
-                                <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900">
+                                <label htmlFor="include_tva" className="ml-2 block text-sm text-gray-900 dark:text-white">
                                     Appliquer la TVA (20%)
                                 </label>
                             </div>
                             {!formData.include_tva && (
-                                <p className="text-xs text-gray-500 -mt-3 mb-4 text-right">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 mb-4 text-right">
                                     La mention « TVA non applicable, art. 293 B du CGI » sera ajoutée au PDF.
                                 </p>
                             )}
@@ -3654,22 +3654,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                     onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
                                     disabled={isLocked}
                                 />
-                                <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900">
+                                <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900 dark:text-white">
                                     Demander un acompte matériel
                                 </label>
                             </div>
-                            <div className="flex justify-between text-gray-600">
+                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
                                 <span>Total HT</span>
                                 <span>{subtotal.toFixed(2)} €</span>
                             </div>
                             {formData.include_tva && (
-                                <div className="flex justify-between text-gray-600">
+                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
                                     <span>TVA (20%)</span>
                                     <span>{tva.toFixed(2)} €</span>
                                 </div>
                             )}
                             {!formData.include_tva && (
-                                <div className="text-xs text-gray-500 text-right italic">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 text-right italic">
                                     TVA non applicable, art. 293 B du CGI
                                 </div>
                             )}
@@ -3679,7 +3679,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 const pct = Math.round(margin * 100);
                                 const color = margin >= 0.35 ? 'text-green-600' : margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
                                 return (
-                                    <div className="flex justify-between text-sm pt-2 border-t border-dashed border-gray-100">
+                                    <div className="flex justify-between text-sm pt-2 border-t border-dashed border-gray-100 dark:border-gray-800">
                                         <span className="text-gray-400">Marge estimée</span>
                                         <span className={`font-semibold ${color}`} title={`Coût matière : ${totalCost.toFixed(2)} €`}>
                                             {pct} %
@@ -3687,7 +3687,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 );
                             })()}
-                            <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
+                            <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-700">
                                 <span>Total TTC</span>
                                 <span>{total.toFixed(2)} €</span>
                             </div>
@@ -3697,11 +3697,11 @@ Conditions de règlement : Paiement à réception de facture.`
 
                 {/* Signature Display */}
                 {signature && (
-                    <div className="border-t border-gray-100 pt-6 mt-6">
-                        <h4 className="text-sm font-medium text-gray-900 mb-2">Signature du client</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 inline-block">
+                    <div className="border-t border-gray-100 dark:border-gray-800 pt-6 mt-6">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Signature du client</h4>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 inline-block">
                             <img src={signature} alt="Signature Client" className="h-24 object-contain" />
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                                 Signé le {new Date(formData.signed_at || formData.updated_at || new Date()).toLocaleDateString()}
                             </p>
                         </div>
@@ -3711,14 +3711,14 @@ Conditions de règlement : Paiement à réception de facture.`
                 {/* Notes */}
                 <div>
                     <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-gray-700">Notes / Conditions</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes / Conditions</label>
                         <button
                             type="button"
                             onClick={() => {
                                 setVoiceContext('note');
                                 setShowSmartVoice(true);
                             }}
-                            className="p-1 rounded-full hover:bg-gray-100 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
+                            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
                             title="Dicter une note"
                             disabled={isLocked}
                         >
@@ -3735,7 +3735,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     />
                     {/* Auto-calculate Material Deposit Hint */}
                     {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (
-                        <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
                             <div className="mt-0.5"><Star className="w-4 h-4" /></div>
                             <div>
                                 <strong>Note automatique : Acompte Matériel</strong><br />
@@ -3819,19 +3819,19 @@ Conditions de règlement : Paiement à réception de facture.`
                         const itemIndex = formData.items.findIndex(i => i.id === item.id);
 
                         return (
-                            <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-200">
+                            <div className="fixed inset-0 z-[100] bg-white dark:bg-gray-900 flex flex-col animate-in slide-in-from-bottom duration-200">
                                 {/* --- Items Table --- */}
-                                <div className="flex items-center justify-between p-4 border-b border-gray-100 shadow-sm bg-white safe-area-top">
+                                <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 safe-area-top">
                                     <button
                                         onClick={() => setFullScreenEditItem(null)}
-                                        className="text-gray-500 p-2 hover:bg-gray-100 rounded-full"
+                                        className="text-gray-500 dark:text-gray-400 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
                                     >
                                         <ArrowLeft className="w-6 h-6" />
                                     </button>
                                     <h3 className="font-semibold text-lg">Description</h3>
                                     <button
                                         onClick={() => setFullScreenEditItem(null)}
-                                        className="text-blue-600 font-medium px-4 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
+                                        className="text-blue-600 font-medium px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100"
                                     >
                                         Valider
                                     </button>
@@ -3854,7 +3854,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                                 updateItem(item.id, 'description', lib.description);
                                                                 updateItem(item.id, 'price', lib.price);
                                                             }}
-                                                            className="flex-shrink-0 bg-white border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
+                                                            className="flex-shrink-0 bg-white dark:bg-gray-900 border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
                                                         >
                                                             <div className="font-medium text-blue-900 truncate">{lib.description}</div>
                                                             <div className="text-blue-500 text-xs">{lib.price} €</div>
@@ -3868,7 +3868,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 })()}
 
                                 {/* Text Area */}
-                                <div className="flex-1 p-4 relative bg-white">
+                                <div className="flex-1 p-4 relative bg-white dark:bg-gray-900">
                                     <textarea
                                         className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
                                         placeholder="Saisissez la description détaillée..."
@@ -3922,11 +3922,11 @@ Conditions de règlement : Paiement à réception de facture.`
 
             {/* Mobile sticky bottom bar — Send + Save */}
             {!isLocked && (
-                <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 flex gap-3 safe-area-bottom">
+                <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-3 safe-area-bottom">
                     <button
                         type="button"
                         onClick={handleSendQuoteEmail}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-700 bg-blue-50 border border-blue-200 rounded-xl font-semibold text-sm active:bg-blue-100"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-xl font-semibold text-sm active:bg-blue-100"
                     >
                         <Send className="w-4 h-4" />
                         Envoyer
@@ -3946,7 +3946,7 @@ Conditions de règlement : Paiement à réception de facture.`
             {showSendSuccess && (
                 <div className="fixed inset-0 z-[300] pointer-events-none">
                     <div className="animate-send-success flex flex-col items-center gap-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl px-10 py-8 border border-gray-100 dark:border-gray-800">
-                        <div className="animate-circle-pop w-20 h-20 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+                        <div className="animate-circle-pop w-20 h-20 rounded-full bg-green-50 dark:bg-green-900/20 dark:bg-green-900/30 flex items-center justify-center">
                             <svg viewBox="0 0 50 50" width="50" height="50" fill="none">
                                 <circle cx="25" cy="25" r="20" stroke="#22c55e" strokeWidth="2.5" />
                                 <polyline

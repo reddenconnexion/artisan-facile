@@ -249,20 +249,20 @@ const ActivitySettings = () => {
                     const Icon = feature.icon;
 
                     return (
-                        <div key={feature.key} className="p-6 flex items-start justify-between hover:bg-gray-50 transition-colors">
+                        <div key={feature.key} className="p-6 flex items-start justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             <div className="flex gap-4">
-                                <div className={`p-3 rounded-lg ${isEnabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                                <div className={`p-3 rounded-lg ${isEnabled ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}>
                                     <Icon className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900">{feature.label}</h3>
-                                    <p className="text-gray-500 text-sm mt-1">{feature.description}</p>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{feature.label}</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{feature.description}</p>
                                 </div>
                             </div>
 
                             <button
                                 onClick={() => handleToggle(feature.key)}
-                                className={`text-2xl focus:outline-none transition-colors ${isEnabled ? 'text-blue-600' : 'text-gray-300'}`}
+                                className={`text-2xl focus:outline-none transition-colors ${isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-gray-300 dark:text-gray-600'}`}
                             >
                                 {isEnabled ? <CheckCircle className="w-8 h-8" /> : <Circle className="w-8 h-8" />}
                             </button>

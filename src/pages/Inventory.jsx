@@ -274,7 +274,7 @@ const Inventory = () => {
                         <Package className="w-8 h-8 mr-3 text-blue-600" />
                         Gestion de Stock
                     </h1>
-                    <p className="text-gray-500">Suivez vos matériaux et scannez vos arrivages</p>
+                    <p className="text-gray-500 dark:text-gray-400">Suivez vos matériaux et scannez vos arrivages</p>
                 </div>
 
                 <div className="flex gap-3">
@@ -300,10 +300,10 @@ const Inventory = () => {
                         href="https://lens.google.com/"
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
+                        className="flex items-center px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
                         title="Ouvrir Google Lens pour identifier un objet"
                     >
-                        <ExternalLink className="w-5 h-5 md:mr-2 text-gray-500" />
+                        <ExternalLink className="w-5 h-5 md:mr-2 text-gray-500 dark:text-gray-400" />
                         <span className="hidden md:inline">Lens</span>
                     </a>
                 </div>
@@ -311,11 +311,11 @@ const Inventory = () => {
 
             {/* Stats / Alerts */}
             {lowStockItems.length > 0 && (
-                <div className="mb-8 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start animate-in slide-in-from-top-2">
+                <div className="mb-8 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl flex items-start animate-in slide-in-from-top-2">
                     <AlertTriangle className="w-5 h-5 text-orange-600 mr-3 mt-0.5" />
                     <div className="flex-1">
-                        <h3 className="font-semibold text-orange-800">Alerte Stock Faible</h3>
-                        <p className="text-sm text-orange-700 mt-1">
+                        <h3 className="font-semibold text-orange-800 dark:text-orange-300">Alerte Stock Faible</h3>
+                        <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
                             {lowStockItems.length} articles sont sous le seuil d'alerte.
                         </p>
                     </div>
@@ -328,7 +328,7 @@ const Inventory = () => {
                 <input
                     type="text"
                     placeholder="Rechercher (Nom, Réf, Categorie, Code-barre)..."
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -337,8 +337,8 @@ const Inventory = () => {
             {/* Barcode Modal */}
             {showBarcodeModal && (
                 <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-                    <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden">
-                        <div className="p-4 border-b flex justify-between items-center">
+                    <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
+                        <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Scanner un article</h3>
                             <button onClick={() => setShowBarcodeModal(false)}><X className="w-6 h-6" /></button>
                         </div>
@@ -355,25 +355,25 @@ const Inventory = () => {
             {/* New/Edit Item Modal */}
             {showNewItemModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
                         <h3 className="text-lg font-bold mb-4">
                             {newItemData.id ? "Modifier l'article" : (scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article')}
                         </h3>
                         <div className="space-y-4">
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code-Barre</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code-Barre</label>
                                     <input
                                         type="text"
                                         disabled={!!scannedBarcode && !newItemData.id}
                                         value={newItemData.barcode}
                                         onChange={e => setNewItemData({ ...newItemData, barcode: e.target.value })}
-                                        className={`w-full px-3 py-2 rounded-lg font-mono text-sm ${scannedBarcode && !newItemData.id ? 'bg-gray-100 text-gray-500' : 'border border-gray-300'}`}
+                                        className={`w-full px-3 py-2 rounded-lg font-mono text-sm ${scannedBarcode && !newItemData.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' : 'border border-gray-300 dark:border-gray-700'}`}
                                         placeholder="Scan..."
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Référence</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Référence</label>
                                     <input
                                         type="text"
                                         value={newItemData.reference}
@@ -385,7 +385,7 @@ const Inventory = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                                 <input
                                     type="text"
                                     value={newItemData.description}
@@ -398,7 +398,7 @@ const Inventory = () => {
 
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
                                     <select
                                         value={newItemData.category}
                                         onChange={e => setNewItemData({ ...newItemData, category: e.target.value })}
@@ -411,7 +411,7 @@ const Inventory = () => {
                                     </select>
                                 </div>
                                 <div className="w-24">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Qté</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Qté</label>
                                     <input
                                         type="number"
                                         value={newItemData.stock_quantity}
@@ -424,7 +424,7 @@ const Inventory = () => {
                             <button onClick={handleSaveItem} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2">
                                 {newItemData.id ? "Modifier" : "Créer l'article"}
                             </button>
-                            <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500">Annuler</button>
+                            <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500 dark:text-gray-400">Annuler</button>
                         </div>
                     </div>
                 </div>
@@ -436,12 +436,12 @@ const Inventory = () => {
                     <div className="py-12 text-center text-gray-400">Chargement...</div>
                 ) : filteredItems.length === 0 ? (
                     items.length === 0 ? (
-                        <div className="py-16 text-center bg-white rounded-xl border border-dashed border-gray-300 px-6">
-                            <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 px-6">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                 <Package className="h-10 w-10 text-blue-400" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Votre stock est vide</h3>
-                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Votre stock est vide</h3>
+                            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
                                 Suivez vos consommables, fournitures et matériel en quelques clics.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -454,7 +454,7 @@ const Inventory = () => {
                                 </button>
                                 <button
                                     onClick={() => setShowBarcodeModal(true)}
-                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                 >
                                     <ScanBarcode className="w-4 h-4" />
                                     Scanner un code-barre
@@ -462,9 +462,9 @@ const Inventory = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
                             <Search className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 dark:text-gray-400">
                                 {searchTerm
                                     ? <>Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"</>
                                     : 'Aucun article ne correspond à ce filtre.'}
@@ -473,15 +473,15 @@ const Inventory = () => {
                     )
                 ) : (
                     filteredItems.map(item => (
-                        <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-200 transition-all">
+                        <div key={item.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between group hover:border-blue-200 transition-all">
                             <div className="flex-1 min-w-0 pr-4 cursor-pointer" onClick={() => handleEditItem(item)}>
-                                <h3 className="font-semibold text-gray-900 truncate flex items-center gap-2">
-                                    {item.reference && <span className="text-gray-500 font-mono text-xs mr-1">[{item.reference}]</span>}
+                                <h3 className="font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
+                                    {item.reference && <span className="text-gray-500 dark:text-gray-400 font-mono text-xs mr-1">[{item.reference}]</span>}
                                     {item.description}
                                 </h3>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{item.category || 'Non classé'}</span>
-                                    {item.barcode && <span className="text-xs text-gray-400 font-mono bg-blue-50 px-1 rounded flex items-center"><ScanBarcode className="w-3 h-3 mr-1" />{item.barcode}</span>}
+                                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">{item.category || 'Non classé'}</span>
+                                    {item.barcode && <span className="text-xs text-gray-400 font-mono bg-blue-50 dark:bg-blue-900/20 px-1 rounded flex items-center"><ScanBarcode className="w-3 h-3 mr-1" />{item.barcode}</span>}
                                 </div>
                             </div>
 
@@ -490,33 +490,33 @@ const Inventory = () => {
                                 <div className="flex items-center gap-1 mr-2">
                                     <button
                                         onClick={() => handleEditItem(item)}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                         title="Modifier"
                                     >
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                         title="Supprimer"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
 
-                                <div className="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
+                                <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
                                     <button
                                         onClick={() => updateStock(item.id, (item.stock_quantity || 0) - 1)}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:text-red-600 rounded-md transition-all shadow-sm"
+                                        className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-red-600 rounded-md transition-all shadow-sm"
                                     >
                                         <Minus className="w-4 h-4" />
                                     </button>
-                                    <div className={`w-12 text-center font-bold ${(item.stock_quantity || 0) <= (item.min_stock_alert || 5) ? 'text-red-600' : 'text-gray-700'}`}>
+                                    <div className={`w-12 text-center font-bold ${(item.stock_quantity || 0) <= (item.min_stock_alert || 5) ? 'text-red-600' : 'text-gray-700 dark:text-gray-300'}`}>
                                         {item.stock_quantity || 0}
                                     </div>
                                     <button
                                         onClick={() => updateStock(item.id, (item.stock_quantity || 0) + 1)}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:text-green-600 rounded-md transition-all shadow-sm"
+                                        className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-green-600 rounded-md transition-all shadow-sm"
                                     >
                                         <Plus className="w-4 h-4" />
                                     </button>

@@ -95,31 +95,31 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
 
     return createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
-            <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-5xl flex flex-col h-[95vh] sm:h-[90vh]">
+            <div className="bg-white dark:bg-gray-900 rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-5xl flex flex-col h-[95vh] sm:h-[90vh]">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                         <Mail className="w-5 h-5 mr-2 text-blue-600" />
                         Vérifiez avant d'envoyer
                     </h3>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-                        <X className="w-5 h-5 text-gray-500" />
+                    <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                     </button>
                 </div>
 
                 {/* Onglets mobile */}
-                <div className="md:hidden flex border-b border-gray-100 flex-shrink-0">
+                <div className="md:hidden flex border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
                     <button
                         type="button"
                         onClick={() => setActiveTab('pdf')}
-                        className={`flex-1 py-2.5 text-sm font-medium ${activeTab === 'pdf' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                        className={`flex-1 py-2.5 text-sm font-medium ${activeTab === 'pdf' ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
                     >
                         Aperçu du PDF
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('email')}
-                        className={`flex-1 py-2.5 text-sm font-medium ${activeTab === 'email' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}
+                        className={`flex-1 py-2.5 text-sm font-medium ${activeTab === 'email' ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
                     >
                         Email
                     </button>
@@ -128,16 +128,16 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                 {/* Corps : 2 panneaux desktop, 1 selon onglet mobile */}
                 <div className="flex-1 min-h-0 flex flex-col md:flex-row">
                     {/* Panneau PDF */}
-                    <div className={`flex-1 min-w-0 bg-gray-100 border-b md:border-b-0 md:border-r border-gray-200 ${activeTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
+                    <div className={`flex-1 min-w-0 bg-gray-100 dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 ${activeTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
                         {pdfLoading ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-3">
                                 <Loader2 className="w-7 h-7 animate-spin" />
                                 <p className="text-sm">Génération de l'aperçu PDF…</p>
                             </div>
                         ) : pdfUrl ? (
                             <iframe src={pdfUrl} title="Aperçu PDF" className="flex-1 w-full border-0 bg-white" />
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2 px-6 text-center">
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-2 px-6 text-center">
                                 <FileText className="w-7 h-7" />
                                 <p className="text-sm">Aperçu indisponible — vous pouvez quand même envoyer.</p>
                             </div>
@@ -148,27 +148,27 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                     <div className={`md:w-96 flex-shrink-0 ${activeTab === 'email' ? 'flex' : 'hidden md:flex'} flex-col overflow-y-auto`}>
                         <div className="p-4 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Pour</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pour</label>
                                 <input
                                     type="text"
                                     readOnly
                                     value={localPreview.email}
-                                    className="block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-600 text-sm"
+                                    className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300 text-sm"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Objet</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objet</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
                                         value={localPreview.rawSubject}
                                         onChange={e => setLocalPreview(p => ({ ...p, rawSubject: e.target.value }))}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => { navigator.clipboard.writeText(localPreview.rawSubject); toast.success('Objet copié !'); }}
-                                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex-shrink-0"
+                                        className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg flex-shrink-0"
                                         title="Copier l'objet"
                                     >
                                         <Copy className="w-5 h-5" />
@@ -176,25 +176,25 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
                                 <div className="relative">
                                     <textarea
                                         rows={10}
                                         value={localPreview.rawBody}
                                         onChange={e => setLocalPreview(p => ({ ...p, rawBody: e.target.value }))}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
+                                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => { navigator.clipboard.writeText(localPreview.rawBody); toast.success('Message copié !'); }}
-                                        className="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 shadow-sm transition-colors"
+                                        className="absolute top-2 right-2 p-1.5 bg-white/80 dark:bg-gray-900/80 hover:bg-white dark:hover:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 shadow-sm transition-colors"
                                         title="Copier le message"
                                     >
                                         <Copy className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-xs text-gray-400 leading-relaxed">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
                                 Le PDF affiché à gauche est exactement celui que recevra le client en pièce jointe.
                                 Vérifiez le montant, l'adresse et les coordonnées avant l'envoi.
                             </p>
@@ -203,8 +203,8 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 flex-shrink-0">
-                    <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 flex-shrink-0">
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg">
                         Annuler
                     </button>
                     <button

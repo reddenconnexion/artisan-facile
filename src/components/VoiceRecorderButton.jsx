@@ -123,7 +123,7 @@ const VoiceRecorderButton = () => {
                 <button
                     onMouseDown={handleCancel}
                     onTouchStart={handleCancel}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-red-200 text-red-500 text-xs font-medium shadow-md"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-gray-900 border border-red-200 text-red-500 text-xs font-medium shadow-md"
                 >
                     <X size={12} />
                     Annuler
@@ -132,7 +132,7 @@ const VoiceRecorderButton = () => {
 
             {/* Status label */}
             {status !== 'idle' && (
-                <div className="bg-white px-3 py-1.5 rounded-full shadow-md border border-gray-100 text-xs font-medium text-gray-700 whitespace-nowrap">
+                <div className="bg-white dark:bg-gray-900 px-3 py-1.5 rounded-full shadow-md border border-gray-100 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     {getStatusLabel()}
                 </div>
             )}

@@ -403,36 +403,36 @@ const DevisList = () => {
                             <div className="relative">
                                 <button
                                     onClick={() => setShowMoreOptions(v => !v)}
-                                    className="flex items-center justify-center px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                    className="flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     title="Plus d'options"
                                 >
                                     <ChevronDown className="w-4 h-4" />
                                 </button>
                                 {showMoreOptions && (
-                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden">
                                         <button
                                             onClick={() => { handleImportClick('archive'); setShowMoreOptions(false); }}
-                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                                         >
                                             <Upload className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                                             <div>
                                                 <div className="font-medium">Importer un devis archivé</div>
-                                                <div className="text-xs text-gray-400">Récupérer un de vos anciens devis (PDF/Word)</div>
+                                                <div className="text-xs text-gray-400 dark:text-gray-500">Récupérer un de vos anciens devis (PDF/Word)</div>
                                             </div>
                                         </button>
                                         <button
                                             onClick={() => { handleImportClick('competitor'); setShowMoreOptions(false); }}
-                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left border-t border-gray-100"
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-t border-gray-100 dark:border-gray-800"
                                         >
                                             <Layers className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                                             <div>
                                                 <div className="font-medium">Faire une contre-proposition</div>
-                                                <div className="text-xs text-gray-400">Importer le devis d'un concurrent comme base</div>
+                                                <div className="text-xs text-gray-400 dark:text-gray-500">Importer le devis d'un concurrent comme base</div>
                                             </div>
                                         </button>
                                         <button
                                             onClick={() => { setMergeMode(true); setShowMoreOptions(false); }}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800"
                                         >
                                             <Layers className="w-4 h-4 text-gray-400" />
                                             Fusionner des devis
@@ -457,7 +457,7 @@ const DevisList = () => {
                                                 );
                                                 setShowMoreOptions(false);
                                             }}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             <Download className="w-4 h-4 text-gray-400" />
                                             Exporter en CSV
@@ -487,7 +487,7 @@ const DevisList = () => {
                     ) : (
                         <button
                             onClick={handleCancelMerge}
-                            className="flex items-center justify-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <X className="w-5 h-5 mr-2" />
                             Annuler

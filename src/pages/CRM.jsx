@@ -29,7 +29,7 @@ const WorksitePilot = () => {
         {
             id: 'pending_deposit',
             title: 'Attente Acompte',
-            color: 'bg-red-50 border-red-100',
+            color: 'bg-red-50 dark:bg-red-900/20 border-red-100',
             icon: FileText,
             description: 'Devis signé, attente paiement acompte matériel'
         },
@@ -43,21 +43,21 @@ const WorksitePilot = () => {
         {
             id: 'planned',
             title: 'À Planifier',
-            color: 'bg-blue-50 border-blue-100',
+            color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100',
             icon: Calendar,
             description: 'Matériel OK, en attente de dates'
         },
         {
             id: 'in_progress',
             title: 'En Cours',
-            color: 'bg-amber-50 border-amber-100',
+            color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-100',
             icon: Hammer,
             description: 'Chantiers démarrés'
         },
         {
             id: 'completed',
             title: 'Terminé',
-            color: 'bg-green-50 border-green-100',
+            color: 'bg-green-50 dark:bg-green-900/20 border-green-100',
             icon: CheckCircle,
             description: 'Travaux finis, à facturer/archiver'
         }
@@ -254,10 +254,10 @@ const WorksitePilot = () => {
 
                 <div className="flex gap-2 w-full md:w-auto items-center">
                     {/* Zoom Controls */}
-                    <div className="hidden md:flex items-center bg-white rounded-lg border border-gray-200 mr-4 shadow-sm">
-                        <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-50 text-gray-600 rounded-l-lg disabled:opacity-50"><Minimize2 className="w-4 h-4" /></button>
-                        <span className="px-2 text-xs font-medium text-gray-600 w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
-                        <button onClick={handleZoomIn} className="p-1.5 hover:bg-gray-50 text-gray-600 rounded-r-lg disabled:opacity-50"><Maximize2 className="w-4 h-4" /></button>
+                    <div className="hidden md:flex items-center bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 mr-4 shadow-sm">
+                        <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-l-lg disabled:opacity-50"><Minimize2 className="w-4 h-4" /></button>
+                        <span className="px-2 text-xs font-medium text-gray-600 dark:text-gray-400 w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
+                        <button onClick={handleZoomIn} className="p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-r-lg disabled:opacity-50"><Maximize2 className="w-4 h-4" /></button>
                     </div>
 
                     {/* Search */}
@@ -273,7 +273,7 @@ const WorksitePilot = () => {
                     </div>
 
                     {focusedColumn && (
-                        <button onClick={() => setFocusedColumn(null)} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center">
+                        <button onClick={() => setFocusedColumn(null)} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 flex items-center">
                             <Minimize2 className="w-4 h-4 md:mr-2" />
                             <span className="hidden md:inline">Vue d'ensemble</span>
                         </button>
@@ -304,27 +304,27 @@ const WorksitePilot = () => {
                                 onDrop={(e) => handleDrop(e, column.id)}
                             >
                                 {/* Column Header */}
-                                <div className="p-4 font-semibold text-gray-700 flex justify-between items-center bg-white/60 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
+                                <div className="p-4 font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center bg-white/60 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
                                     <div className="flex items-center gap-2">
                                         <div className={`p-1.5 rounded-lg ${column.color.split(' ')[0]} bg-opacity-100`}>
-                                            {column.icon && <column.icon className="w-4 h-4 text-gray-700" />}
+                                            {column.icon && <column.icon className="w-4 h-4 text-gray-700 dark:text-gray-300" />}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <span>{column.title}</span>
-                                                <span className="bg-white px-2 py-0.5 rounded-full text-xs text-gray-500 shadow-sm border border-gray-100">
+                                                <span className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded-full text-xs text-gray-500 dark:text-gray-400 shadow-sm border border-gray-100 dark:border-gray-800">
                                                     {items.length}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                     {!focusedColumn && (
-                                        <button onClick={() => setFocusedColumn(column.id)} className="p-1 hover:bg-white/50 rounded text-gray-400 hover:text-gray-600">
+                                        <button onClick={() => setFocusedColumn(column.id)} className="p-1 hover:bg-white/50 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                             <Maximize2 className="w-4 h-4" />
                                         </button>
                                     )}
                                 </div>
-                                <div className="text-xs text-gray-500 px-4 pb-2 italic">{column.description}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 px-4 pb-2 italic">{column.description}</div>
 
                                 {/* Items List */}
                                 <div className="p-3 flex-1 overflow-y-auto space-y-3">
@@ -333,7 +333,7 @@ const WorksitePilot = () => {
                                             key={job.id}
                                             draggable="true"
                                             onDragStart={(e) => handleDragStart(e, job.id)}
-                                            className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing border-l-4"
+                                            className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow group cursor-move active:cursor-grabbing border-l-4"
                                             style={{
                                                 borderLeftColor:
                                                     column.id === 'in_progress' ? '#F59E0B' :
@@ -346,7 +346,7 @@ const WorksitePilot = () => {
                                             {/* Card Top: Client & Price */}
                                             <div className="flex justify-between items-start mb-2 gap-2">
                                                 <div className="min-w-0 flex-1">
-                                                    <h4 className="font-bold text-gray-900 truncate pr-2">{job.clients?.name || 'Client Inconnu'}</h4>
+                                                    <h4 className="font-bold text-gray-900 dark:text-white truncate pr-2">{job.clients?.name || 'Client Inconnu'}</h4>
                                                     <div
                                                         onClick={() => navigate(`/app/devis/${job.id}`)}
                                                         className="text-xs text-blue-600 hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
@@ -355,13 +355,13 @@ const WorksitePilot = () => {
                                                         <span className="truncate">Devis #{job.id} {job.title ? `- ${job.title}` : ''}</span>
                                                     </div>
                                                 </div>
-                                                <span className="font-bold text-gray-700 text-sm whitespace-nowrap shrink-0">{Number(job.total_ttc || 0).toFixed(2)} €</span>
+                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap shrink-0">{Number(job.total_ttc || 0).toFixed(2)} €</span>
                                             </div>
 
                                             {/* Card Middle: Address & Info */}
                                             <div className="space-y-1.5 mb-3">
                                                 {(job.intervention_address || job.clients?.address) && (
-                                                    <div className="flex items-start text-xs text-gray-500">
+                                                    <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
                                                         <MapPin className="w-3 h-3 mr-1.5 mt-0.5 shrink-0" />
                                                         <span className="line-clamp-2">
                                                             {job.intervention_address
@@ -371,7 +371,7 @@ const WorksitePilot = () => {
                                                     </div>
                                                 )}
                                                 {job.clients?.phone && (
-                                                    <div className="flex items-center text-xs text-gray-500">
+                                                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                                                         <Phone className="w-3 h-3 mr-1.5" />
                                                         {job.clients.phone}
                                                     </div>
@@ -380,7 +380,7 @@ const WorksitePilot = () => {
 
                                             {/* Card Bottom: Actions */}
                                             <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                                                <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                                                <span className="text-[10px] text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                     MAJ: {new Date(job.updated_at).toLocaleDateString()}
                                                 </span>
 
@@ -417,7 +417,7 @@ const WorksitePilot = () => {
                                                             )}`}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="p-1.5 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                                                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 rounded transition-colors"
                                                             title={job.intervention_address ? "GPS Chantier" : "GPS Client"}
                                                         >
                                                             <MapPin className="w-4 h-4" />
@@ -426,7 +426,7 @@ const WorksitePilot = () => {
                                                     {prevColumn && (
                                                         <button
                                                             onClick={() => updateStage(job.id, prevColumn.id)}
-                                                            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded"
+                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
                                                             title={`Reculer vers « ${prevColumn.title} »`}
                                                         >
                                                             <ArrowLeft className="w-4 h-4" />
@@ -435,7 +435,7 @@ const WorksitePilot = () => {
                                                     {nextColumn && (
                                                         <button
                                                             onClick={() => updateStage(job.id, nextColumn.id)}
-                                                            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded"
+                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
                                                             title={`Avancer vers « ${nextColumn.title} »`}
                                                         >
                                                             <ArrowRight className="w-4 h-4" />
@@ -446,7 +446,7 @@ const WorksitePilot = () => {
                                         </div>
                                     ))}
                                     {items.length === 0 && (
-                                        <div className="text-center py-8 text-gray-400 text-sm border-2 border-dashed border-gray-100 rounded-lg">
+                                        <div className="text-center py-8 text-gray-400 text-sm border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-lg">
                                             Aucun chantier
                                         </div>
                                     )}

@@ -38,9 +38,9 @@ const loadLeaflet = async () => {
 
 const ScoreBadge = ({ status, label }) => {
     const styles = {
-        ok: 'bg-green-50 text-green-700 border-green-200',
-        warn: 'bg-amber-50 text-amber-700 border-amber-200',
-        ko: 'bg-red-50 text-red-700 border-red-200',
+        ok: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200',
+        warn: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200',
+        ko: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200',
     };
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold border ${styles[status]}`}>
@@ -68,9 +68,9 @@ const routeStatusLabel = (consumption) => {
 const RouteCard = ({ title, subtitle, color, route, consumption, onSelect, selected }) => {
     if (!route) {
         return (
-            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
-                <h4 className="font-semibold text-gray-700">{title}</h4>
-                <p className="text-sm text-gray-500 mt-1">Pas d'itinéraire disponible.</p>
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <h4 className="font-semibold text-gray-700 dark:text-gray-300">{title}</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Pas d'itinéraire disponible.</p>
             </div>
         );
     }
@@ -84,42 +84,42 @@ const RouteCard = ({ title, subtitle, color, route, consumption, onSelect, selec
         <button
             type="button"
             onClick={onSelect}
-            className={`w-full text-left p-4 rounded-xl border bg-white transition-all ${
-                selected ? `ring-2 ${ringColor} border-transparent` : 'border-gray-200 hover:border-gray-300'
+            className={`w-full text-left p-4 rounded-xl border bg-white dark:bg-gray-900 transition-all ${
+                selected ? `ring-2 ${ringColor} border-transparent` : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
             }`}
         >
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                    <h4 className="font-semibold text-gray-900">{title}</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-white">{title}</h4>
                 </div>
                 <ScoreBadge status={status} label={routeStatusLabel(consumption)} />
             </div>
-            <p className="text-xs text-gray-500 mb-3">{subtitle}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{subtitle}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                    <div className="text-gray-500 text-xs">Distance</div>
-                    <div className="font-semibold text-gray-900">{route.distanceKm.toFixed(1)} km</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Distance</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{route.distanceKm.toFixed(1)} km</div>
                 </div>
                 <div>
-                    <div className="text-gray-500 text-xs">Durée</div>
-                    <div className="font-semibold text-gray-900">{formatDuration(route.durationMin)}</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Durée</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{formatDuration(route.durationMin)}</div>
                 </div>
                 <div>
-                    <div className="text-gray-500 text-xs">Consommation estimée</div>
-                    <div className={`font-semibold ${status === 'ko' ? 'text-red-600' : 'text-gray-900'}`}>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Consommation estimée</div>
+                    <div className={`font-semibold ${status === 'ko' ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
                         {consumption ? `${consumption.consumptionPct.toFixed(0)} % de batterie` : '—'}
                     </div>
                 </div>
                 <div>
-                    <div className="text-gray-500 text-xs">Marge après trajet</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs">Marge après trajet</div>
                     <div className={`font-semibold ${status === 'ko' ? 'text-red-600' : status === 'warn' ? 'text-amber-600' : 'text-green-600'}`}>
                         {consumption ? `${consumption.marginPct.toFixed(0)} %` : '—'}
                     </div>
                 </div>
             </div>
             {consumption && (
-                <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
                     Vitesse moyenne {consumption.avgSpeed.toFixed(0)} km/h
                     {' · '}
                     Profil {(consumption.highwayRatio * 100).toFixed(0)} % autoroute
@@ -131,7 +131,7 @@ const RouteCard = ({ title, subtitle, color, route, consumption, onSelect, selec
 
 const StopRow = ({ index, value, onChange, onRemove, canRemove }) => (
     <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">
+        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold shrink-0">
             {index + 1}
         </div>
         <input
@@ -145,7 +145,7 @@ const StopRow = ({ index, value, onChange, onRemove, canRemove }) => (
             <button
                 type="button"
                 onClick={onRemove}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                 title="Retirer cette étape"
             >
                 <Trash2 className="w-4 h-4" />
@@ -352,19 +352,19 @@ const RoutePlanner = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => navigate(-1)}
-                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-400"
                         title="Retour"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <RouteIcon className="w-7 h-7 text-blue-600" />
                         Planification de tournée
                     </h2>
                 </div>
                 <button
                     onClick={() => setShowSettings((s) => !s)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                     <Settings className="w-4 h-4" />
                     Mon véhicule
@@ -372,14 +372,14 @@ const RoutePlanner = () => {
             </div>
 
             {showSettings && (
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                         <Battery className="w-5 h-5 text-blue-600" />
                         Profil véhicule électrique
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <label className="block">
-                            <span className="text-gray-600">Autonomie ville (km)</span>
+                            <span className="text-gray-600 dark:text-gray-400">Autonomie ville (km)</span>
                             <input
                                 type="number"
                                 value={profile.rangeCityKm}
@@ -388,7 +388,7 @@ const RoutePlanner = () => {
                             />
                         </label>
                         <label className="block">
-                            <span className="text-gray-600">Autonomie autoroute (km)</span>
+                            <span className="text-gray-600 dark:text-gray-400">Autonomie autoroute (km)</span>
                             <input
                                 type="number"
                                 value={profile.rangeHighwayKm}
@@ -397,7 +397,7 @@ const RoutePlanner = () => {
                             />
                         </label>
                         <label className="block">
-                            <span className="text-gray-600">Charge actuelle (%)</span>
+                            <span className="text-gray-600 dark:text-gray-400">Charge actuelle (%)</span>
                             <input
                                 type="number"
                                 min="0"
@@ -408,7 +408,7 @@ const RoutePlanner = () => {
                             />
                         </label>
                         <label className="block">
-                            <span className="text-gray-600">Réserve mini (%)</span>
+                            <span className="text-gray-600 dark:text-gray-400">Réserve mini (%)</span>
                             <input
                                 type="number"
                                 min="0"
@@ -419,7 +419,7 @@ const RoutePlanner = () => {
                             />
                         </label>
                     </div>
-                    <p className="text-xs text-gray-500 mt-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                         L'autonomie autoroute est typiquement 30 à 40 % inférieure à l'autonomie WLTP. Pour un utilitaire électrique,
                         comptez 130-180 km à 110 km/h en pleine charge.
                     </p>
@@ -429,8 +429,8 @@ const RoutePlanner = () => {
             <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
                 {/* Left panel: stops + results */}
                 <div className="w-full lg:w-[420px] flex flex-col gap-4">
-                    <div className="bg-white rounded-xl border border-gray-200 p-4">
-                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                             <MapPin className="w-5 h-5 text-blue-600" />
                             Étapes
                         </h3>
@@ -446,7 +446,7 @@ const RoutePlanner = () => {
                                 />
                             ))}
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 text-sm">
+                        <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-sm">
                             <label className="inline-flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -454,7 +454,7 @@ const RoutePlanner = () => {
                                     onChange={(e) => updateProfile({ avoidHighway: e.target.checked })}
                                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span className="text-gray-700">Éviter l'autoroute</span>
+                                <span className="text-gray-700 dark:text-gray-300">Éviter l'autoroute</span>
                             </label>
                             {canRoundTrip && (
                                 <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -464,7 +464,7 @@ const RoutePlanner = () => {
                                         onChange={(e) => setRoundTrip(e.target.checked)}
                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
-                                    <span className="text-gray-700">Aller-retour</span>
+                                    <span className="text-gray-700 dark:text-gray-300">Aller-retour</span>
                                 </label>
                             )}
                         </div>
@@ -518,7 +518,7 @@ const RoutePlanner = () => {
                             />
 
                             {scenicHasNoAlternative && (
-                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 text-xs text-amber-800 dark:text-amber-400 space-y-1">
                                     <p>
                                         <strong>Évitement non garanti :</strong> le service de routage utilisé (OSRM)
                                         ne sait pas exclure l'autoroute de façon stricte. L'itinéraire affiché peut
@@ -549,7 +549,7 @@ const RoutePlanner = () => {
                             )}
 
                             {!profile.avoidHighway && recommendation && (
-                                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-sm text-blue-900">
+                                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 text-sm text-blue-900">
                                     <strong>Recommandation : </strong>
                                     {recommendation.text}
                                 </div>
@@ -559,7 +559,7 @@ const RoutePlanner = () => {
                 </div>
 
                 {/* Map */}
-                <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden min-h-[400px]">
+                <div className="flex-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden min-h-[400px]">
                     <div ref={mapRef} className="w-full h-full" style={{ minHeight: '400px' }} />
                 </div>
             </div>
