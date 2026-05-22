@@ -146,6 +146,11 @@ const Profile = () => {
     const [savingSmtp, setSavingSmtp] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
     const [showSmtpPanel, setShowSmtpPanel] = useState(false);
+
+    // Signature email personnalisée (HTML) — vide = signature auto depuis profil
+    const [emailSignatureHtml, setEmailSignatureHtml] = useState('');
+    const [savingSignature, setSavingSignature] = useState(false);
+    const [signaturePreview, setSignaturePreview] = useState(false);
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -205,6 +210,9 @@ const Profile = () => {
                     from_email: smtpCfg.from_email || data.professional_email || '',
                     from_name: smtpCfg.from_name || data.company_name || '',
                 });
+
+                // Signature email personnalisée
+                setEmailSignatureHtml(data.email_signature_html || '');
 
                 // Préférences IA (clé déjà strippée par get_my_profile_safe)
                 const aiPrefs = data.ai_preferences || {};
@@ -575,6 +583,22 @@ const Profile = () => {
             toast.error(err.message || "Échec du test d'envoi");
         } finally {
             setTestingSmtp(false);
+        }
+    };
+
+    const handleSaveSignature = async () => {
+        setSavingSignature(true);
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ email_signature_html: emailSignatureHtml.trim() || null })
+                .eq('id', user.id);
+            if (error) throw error;
+            toast.success(emailSignatureHtml.trim() ? 'Signature personnalisée enregistrée' : 'Signature remise sur l\'auto');
+        } catch (err) {
+            toast.error(err.message || 'Erreur lors de la sauvegarde');
+        } finally {
+            setSavingSignature(false);
         }
     };
 
@@ -1277,6 +1301,75 @@ const Profile = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Signature email */}
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="p-8">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
+                        <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                        Signature email
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Signature HTML ajoutée automatiquement à la fin de chaque mail envoyé via SMTP direct. Si vide, une signature est générée automatiquement à partir de votre profil (logo, nom, téléphone, email, site, avis Google).
+                    </p>
+
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Signature personnalisée (HTML)
+                        </label>
+                        <textarea
+                            value={emailSignatureHtml}
+                            onChange={(e) => setEmailSignatureHtml(e.target.value)}
+                            rows={8}
+                            placeholder={'Exemple :\n<strong>Jean Dupont</strong><br>\nÉlectricien certifié<br>\n<a href="tel:0612345678">06 12 34 56 78</a><br>\n<a href="https://mon-site.fr">mon-site.fr</a>'}
+                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Balises HTML autorisées : &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;, &lt;a href&gt;, &lt;img src&gt;, &lt;span style&gt;, etc.
+                        </p>
+
+                        {emailSignatureHtml.trim() && (
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSignaturePreview(v => !v)}
+                                    className="text-sm text-blue-600 hover:text-blue-700 mb-2"
+                                >
+                                    {signaturePreview ? 'Masquer l\'aperçu' : 'Afficher l\'aperçu'}
+                                </button>
+                                {signaturePreview && (
+                                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Aperçu (ce que verront vos clients) :</p>
+                                        <div dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={handleSaveSignature}
+                                disabled={savingSignature}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                            >
+                                {savingSignature ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Enregistrer la signature
+                            </button>
+                            {emailSignatureHtml.trim() && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setEmailSignatureHtml(''); }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                >
+                                    <RotateCcw className="w-4 h-4" />
+                                    Revenir à la signature auto
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
