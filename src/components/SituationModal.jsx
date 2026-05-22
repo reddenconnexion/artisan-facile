@@ -99,44 +99,44 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Nouvelle Situation</h2>
-                        <p className="text-sm text-gray-500">Sélectionnez les ouvrages réalisés pour facturation</p>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nouvelle Situation</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Sélectionnez les ouvrages réalisés pour facturation</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Toolbar */}
-                <div className="p-4 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-4 items-center">
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-4 items-center">
                     <div className="flex-1">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Titre du document</label>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Titre du document</label>
                         <input
                             type="text"
                             value={title}
                             onChange={e => setTitle(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                         />
                     </div>
                     <div className="flex items-end gap-2">
                         <div>
-                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Appliquer % à tout</label>
+                            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Appliquer % à tout</label>
                             <input
                                 type="number"
                                 min="0" max="100"
                                 value={globalPercentage}
                                 onChange={e => setGlobalPercentage(e.target.value)}
-                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg text-sm"
                                 placeholder="ex: 30"
                             />
                         </div>
                         <button
                             onClick={applyGlobal}
-                            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                            className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                         >
                             Appliquer
                         </button>
@@ -147,12 +147,12 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="text-xs font-semibold text-gray-500 uppercase border-b border-gray-200">
+                            <tr className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
                                 <th className="py-3 pl-2 w-10">
                                     <input
                                         type="checkbox"
                                         onChange={(e) => {
-                                            if (e.target.checked) applyGlobal(100); // Select all 100%? Or just Select All? 
+                                            if (e.target.checked) applyGlobal(100); // Select all 100%? Or just Select All?
                                             // Simpler: Just individual select for now or use the Global % input for bulk
                                             // Let's leave header checkbox empty to avoid confusion with logic
                                         }}
@@ -165,7 +165,7 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                 <th className="py-3 text-right w-32">Montant HT</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {quote.items.map((item) => {
                                 const isSelected = !!selectedItems[item.id];
                                 const percentage = selectedItems[item.id] || 0;
@@ -176,7 +176,7 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                 const isMaterialDepositPaid = isMaterial && quote.has_material_deposit;
 
                                 return (
-                                    <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}>
+                                    <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}>
                                         <td className="py-3 pl-2">
                                             <input
                                                 type="checkbox"
@@ -185,21 +185,21 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
                                         </td>
-                                        <td className="py-3 text-sm text-gray-900">
+                                        <td className="py-3 text-sm text-gray-900 dark:text-gray-100">
                                             <div className="font-medium">
                                                 {item.description}
                                                 {isMaterialDepositPaid && (
-                                                    <span className="ml-2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                    <span className="ml-2 text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full border border-green-100 dark:border-green-800/40">
                                                         Déjà réglé
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-500">
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
                                                 Qté: {item.quantity} | PU: {item.price}€
-                                                {isMaterialDepositPaid && <span className="ml-1 text-xs text-gray-400 italic">(Saisir % négatif pour remboursement)</span>}
+                                                {isMaterialDepositPaid && <span className="ml-1 text-xs text-gray-400 dark:text-gray-500 italic">(Saisir % négatif pour remboursement)</span>}
                                             </div>
                                         </td>
-                                        <td className="py-3 text-right text-sm text-gray-500">
+                                        <td className="py-3 text-right text-sm text-gray-500 dark:text-gray-400">
                                             {itemTotal.toFixed(2)}€
                                         </td>
                                         <td className="py-3 text-right">
@@ -211,13 +211,13 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                                                     value={isSelected ? percentage : ''}
                                                     onChange={(e) => handleItemChange(item.id, e.target.value)}
                                                     disabled={!isSelected}
-                                                    className={`w-20 px-2 py-1 text-right text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isSelected ? 'bg-gray-50 text-gray-300' : 'border-gray-300'}`}
+                                                    className={`w-20 px-2 py-1 text-right text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isSelected ? 'bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600' : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'}`}
                                                     placeholder="0"
                                                 />
-                                                <span className="text-sm text-gray-500">%</span>
+                                                <span className="text-sm text-gray-500 dark:text-gray-400">%</span>
                                             </div>
                                         </td>
-                                        <td className="py-3 text-right font-medium text-gray-900">
+                                        <td className="py-3 text-right font-medium text-gray-900 dark:text-white">
                                             {isSelected ? itemBilled.toFixed(2) : '0.00'}€
                                         </td>
                                     </tr>
@@ -228,21 +228,21 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-gray-50 border-t border-gray-200">
+                <div className="p-6 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-4">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                             {Object.keys(selectedItems).length} élément(s) sélectionné(s)
                         </div>
                         <div className="text-right">
-                            <div className="text-gray-600">Total HT: <span className="font-medium">{totalAmount.toFixed(2)}€</span></div>
-                            <div className="text-gray-600">TVA (20%): <span className="font-medium">{totalTVA.toFixed(2)}€</span></div>
-                            <div className="text-2xl font-bold text-gray-900 mt-1">Total TTC: {totalTTC.toFixed(2)}€</div>
+                            <div className="text-gray-600 dark:text-gray-300">Total HT: <span className="font-medium">{totalAmount.toFixed(2)}€</span></div>
+                            <div className="text-gray-600 dark:text-gray-300">TVA (20%): <span className="font-medium">{totalTVA.toFixed(2)}€</span></div>
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">Total TTC: {totalTTC.toFixed(2)}€</div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-3">
                         <button
                             onClick={onClose}
-                            className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-white transition-all shadow-sm"
+                            className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-white dark:hover:bg-gray-900 transition-all shadow-sm"
                         >
                             Annuler
                         </button>

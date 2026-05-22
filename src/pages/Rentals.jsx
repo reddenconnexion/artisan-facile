@@ -136,7 +136,7 @@ const Rentals = () => {
                         Locations de Matériel
                         <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                     </h1>
-                    <p className="text-gray-500 mt-1">Suivez vos locations en cours et à rendre.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Suivez vos locations en cours et à rendre.</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
@@ -148,14 +148,14 @@ const Rentals = () => {
             </div>
 
             {/* Filters */}
-            <div className="flex space-x-2 border-b border-gray-200">
+            <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-700">
                 {['active', 'returned', 'all'].map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${filter === f
                             ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'
                             }`}
                     >
                         {f === 'active' ? 'En cours' : f === 'returned' ? 'Terminés' : 'Tout'}
@@ -166,15 +166,15 @@ const Rentals = () => {
             {/* List */}
             <div className="grid gap-4">
                 {loading ? (
-                    <div className="text-center py-12 text-gray-500">Chargement...</div>
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">Chargement...</div>
                 ) : filteredRentals.length === 0 ? (
                     rentals.length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300 px-6">
-                            <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 px-6">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                 <Truck className="h-10 w-10 text-blue-400" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune location enregistrée</h3>
-                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Aucune location enregistrée</h3>
+                            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
                                 Suivez vos locations de matériel (échafaudages, nacelles, outillage) avec dates, coûts et fournisseur.
                             </p>
                             <button
@@ -186,9 +186,9 @@ const Rentals = () => {
                             </button>
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300">
                             <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 dark:text-gray-400">
                                 {filter === 'active' ? 'Aucune location en cours.' :
                                     filter === 'returned' ? 'Aucune location terminée.' :
                                     'Aucune location dans cette catégorie.'}
@@ -200,15 +200,15 @@ const Rentals = () => {
                         const isLate = rental.status === 'active' && rental.end_date && isPast(new Date(rental.end_date)) && !differenceInDays(new Date(), new Date(rental.end_date)) === 0;
 
                         return (
-                            <div key={rental.id} className={`bg-white rounded-xl p-6 border shadow-sm transition-all hover:shadow-md ${isLate ? 'border-red-200 bg-red-50' : 'border-gray-100'}`}>
+                            <div key={rental.id} className={`bg-white dark:bg-gray-900 rounded-xl p-6 border shadow-sm transition-all hover:shadow-md ${isLate ? 'border-red-200 bg-red-50 dark:bg-red-900/20' : 'border-gray-100 dark:border-gray-800'}`}>
                                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                     <div className="flex items-start gap-4">
-                                        <div className={`p-3 rounded-lg ${rental.status === 'active' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                                        <div className={`p-3 rounded-lg ${rental.status === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
                                             <Truck className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-lg text-gray-900">{rental.equipment_name}</h3>
-                                            <div className="flex items-center text-sm text-gray-600 mt-1 gap-4">
+                                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{rental.equipment_name}</h3>
+                                            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mt-1 gap-4">
                                                 <span className="flex items-center">
                                                     <span className="font-medium mr-1">Fournisseur :</span> {rental.supplier || 'N/A'}
                                                 </span>
@@ -219,13 +219,13 @@ const Rentals = () => {
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-4 mt-2">
-                                                <div className={`flex items-center text-sm ${isLate ? 'text-red-700 font-bold' : 'text-gray-500'}`}>
+                                                <div className={`flex items-center text-sm ${isLate ? 'text-red-700 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
                                                     <Calendar className="w-4 h-4 mr-1" />
                                                     {format(new Date(rental.start_date), 'dd/MM/yyyy')}
                                                     {rental.end_date && ` → ${format(new Date(rental.end_date), 'dd/MM/yyyy')}`}
                                                 </div>
                                                 {rental.status === 'active' && rental.end_date && (
-                                                    <div className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                                    <div className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                                                         J-{differenceInDays(new Date(rental.end_date), new Date())}
                                                     </div>
                                                 )}
@@ -237,7 +237,7 @@ const Rentals = () => {
                                         {rental.status === 'active' && (
                                             <button
                                                 onClick={() => handleReturn(rental.id)}
-                                                className="flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100"
+                                                className="flex items-center px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100"
                                             >
                                                 <CheckCircle className="w-4 h-4 mr-2" />
                                                 Marquer rendu
@@ -245,7 +245,7 @@ const Rentals = () => {
                                         )}
                                         <button
                                             onClick={() => handleDelete(rental.id)}
-                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                         >
                                             <Trash2 className="w-5 h-5" />
                                         </button>
@@ -260,16 +260,16 @@ const Rentals = () => {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-bold">Nouvelle Location</h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
                         <form onSubmit={handleAdd} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Matériel</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Matériel</label>
                                 <input
                                     type="text"
                                     required
@@ -280,7 +280,7 @@ const Rentals = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fournisseur</label>
                                 <input
                                     type="text"
                                     placeholder="ex: Kiloutou"
@@ -291,7 +291,7 @@ const Rentals = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Début</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Début</label>
                                     <input
                                         type="date"
                                         required
@@ -301,7 +301,7 @@ const Rentals = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fin prévue</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fin prévue</label>
                                     <input
                                         type="date"
                                         className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
@@ -311,7 +311,7 @@ const Rentals = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Coût (€)</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Coût (€)</label>
                                 <input
                                     type="number"
                                     step="0.01"

@@ -56,29 +56,29 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
                         <Calculator className="w-5 h-5 mr-2 text-blue-600" />
                         Calculatrice Matériaux
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 <div className="space-y-4">
                     {/* Tabs */}
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                         <button
                             onClick={() => { setMode('paint'); setDimensions({ ...dimensions, height: 0 }); }}
-                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${mode === 'paint' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${mode === 'paint' ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
                             Peinture
                         </button>
                         <button
                             onClick={() => setMode('tiling')}
-                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${mode === 'tiling' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${mode === 'tiling' ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                         >
                             Carrelage / Sol
                         </button>
@@ -87,19 +87,19 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
                     {/* Inputs */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Longueur (m)</label>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Longueur (m)</label>
                             <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
                                 value={dimensions.length || ''}
                                 onChange={e => setDimensions({ ...dimensions, length: parseFloat(e.target.value) || 0 })}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Largeur (m)</label>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Largeur (m)</label>
                             <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
                                 value={dimensions.width || ''}
                                 onChange={e => setDimensions({ ...dimensions, width: parseFloat(e.target.value) || 0 })}
                             />
@@ -108,9 +108,9 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
 
                     {/* Specific Params */}
                     {mode === 'paint' && (
-                        <div className="grid grid-cols-2 gap-4 p-3 bg-blue-50 rounded-lg">
+                        <div className="grid grid-cols-2 gap-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                             <div>
-                                <label className="block text-xs font-medium text-blue-800 mb-1">Couches</label>
+                                <label className="block text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Couches</label>
                                 <select
                                     className="w-full px-2 py-1 border border-blue-200 rounded"
                                     value={params.coats}
@@ -122,7 +122,7 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-blue-800 mb-1">Rendement (m²/L)</label>
+                                <label className="block text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">Rendement (m²/L)</label>
                                 <input
                                     type="number"
                                     className="w-full px-2 py-1 border border-blue-200 rounded"
@@ -134,9 +134,9 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
                     )}
 
                     {mode === 'tiling' && (
-                        <div className="grid grid-cols-2 gap-4 p-3 bg-green-50 rounded-lg">
+                        <div className="grid grid-cols-2 gap-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                             <div>
-                                <label className="block text-xs font-medium text-green-800 mb-1">Marge de sécurité (Chutes)</label>
+                                <label className="block text-xs font-medium text-green-800 dark:text-green-300 mb-1">Marge de sécurité (Chutes)</label>
                                 <select
                                     className="w-full px-2 py-1 border border-green-200 rounded"
                                     value={params.margin}
@@ -153,12 +153,12 @@ const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {
 
                     {/* Result */}
                     {result && (
-                        <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                            <p className="text-sm font-medium text-gray-700">Résultat estimé :</p>
-                            <p className="text-2xl font-bold text-gray-900 my-1">
+                        <div className="mt-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Résultat estimé :</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white my-1">
                                 {result.quantity} {mode === 'paint' ? 'L' : 'm²'}
                             </p>
-                            <p className="text-xs text-gray-500">{result.details}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{result.details}</p>
                         </div>
                     )}
 

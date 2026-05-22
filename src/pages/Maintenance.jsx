@@ -93,28 +93,28 @@ const Maintenance = () => {
                         Suivi Maintenance
                         <RealtimeStatusBadge status={realtimeStatus} className="ml-2" />
                     </h1>
-                    <p className="text-gray-500">Gérez vos contrats d'entretien et rappels.</p>
+                    <p className="text-gray-500 dark:text-gray-400">Gérez vos contrats d'entretien et rappels.</p>
                 </div>
                 {/* Add Contract Button could go here (linking to Client Form modal) */}
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                     <div className="flex justify-between items-center">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">Contrats Actifs</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Contrats Actifs</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
                         </div>
-                        <div className="p-3 bg-blue-100 rounded-lg">
+                        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                             <Wrench className="w-6 h-6 text-blue-600" />
                         </div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                     <div className="flex justify-between items-center">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">À prévoir (30j)</p>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">À prévoir (30j)</p>
                             <p className="text-2xl font-bold text-orange-600 mt-1">{stats.due}</p>
                         </div>
                         <div className="p-3 bg-orange-100 rounded-lg">
@@ -122,13 +122,13 @@ const Maintenance = () => {
                         </div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                     <div className="flex justify-between items-center">
                         <div>
-                            <p className="text-sm font-medium text-gray-500">En retard</p>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">En retard</p>
                             <p className="text-2xl font-bold text-red-600 mt-1">{stats.late}</p>
                         </div>
-                        <div className="p-3 bg-red-100 rounded-lg">
+                        <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
                             <AlertTriangle className="w-6 h-6 text-red-600" />
                         </div>
                     </div>
@@ -136,18 +136,18 @@ const Maintenance = () => {
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                         type="text"
                         placeholder="Rechercher un client ou un équipement..."
-                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        className="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <button className="flex items-center px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                <button className="flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                     <Filter className="w-4 h-4 mr-2" />
                     Filtres
                 </button>
@@ -155,12 +155,12 @@ const Maintenance = () => {
 
             {/* Contracts List */}
             {!loading && contracts.length === 0 ? (
-                <div className="bg-white rounded-xl border border-dashed border-gray-300 py-16 text-center px-6">
-                    <div className="bg-blue-50 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 py-16 text-center px-6">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                         <Wrench className="h-10 w-10 text-blue-400" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun contrat de maintenance</h3>
-                    <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Aucun contrat de maintenance</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
                         Programmez le suivi régulier des équipements de vos clients (chaudières, climatiseurs, alarmes…) pour ne plus rater une échéance.
                     </p>
                     <Link
@@ -172,22 +172,22 @@ const Maintenance = () => {
                     </Link>
                 </div>
             ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-50 border-b border-gray-100">
+                    <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Client</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Équipement</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Dernière Visite</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Prochaine Visite</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Client</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Équipement</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Dernière Visite</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Prochaine Visite</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {loading ? (
                             <tr><td colSpan="5" className="p-8 text-center">Chargement...</td></tr>
                         ) : filteredContracts.length === 0 ? (
-                            <tr><td colSpan="5" className="p-8 text-center text-gray-500">
+                            <tr><td colSpan="5" className="p-8 text-center text-gray-500 dark:text-gray-400">
                                 {searchTerm
                                     ? <>Aucun contrat ne correspond à "<span className="font-medium">{searchTerm}</span>".</>
                                     : 'Aucun contrat trouvé.'}
@@ -199,16 +199,16 @@ const Maintenance = () => {
                                 const isDueSoon = nextDate && isBefore(nextDate, addMonths(new Date(), 1));
 
                                 return (
-                                    <tr key={contract.id} className="hover:bg-gray-50">
+                                    <tr key={contract.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">{contract.clients.name}</div>
-                                            <div className="text-xs text-gray-500">{contract.clients.city}</div>
+                                            <div className="font-medium text-gray-900 dark:text-white">{contract.clients.name}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{contract.clients.city}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900">{contract.equipment_name}</div>
-                                            <div className="text-xs text-gray-500">{contract.serial_number || 'N/A'}</div>
+                                            <div className="text-sm text-gray-900 dark:text-white">{contract.equipment_name}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{contract.serial_number || 'N/A'}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {contract.last_maintenance_date ? format(parseISO(contract.last_maintenance_date), 'dd MMM yyyy', { locale: fr }) : '-'}
                                         </td>
                                         <td className="px-6 py-4">

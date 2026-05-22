@@ -276,21 +276,21 @@ const TerrainMode = () => {
 
     if (!mode) {
         return (
-            <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
+            <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-800 flex flex-col font-sans overflow-hidden">
                 <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
                 {/* Header */}
-                <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-2">
+                <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-3 py-3 flex items-center gap-2">
                     <button
                         onClick={() => navigate('/app')}
-                        className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
+                        className="p-2 -ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 rounded-xl active:bg-gray-100"
                         aria-label="Retour"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <p className="font-bold text-gray-900 text-base leading-tight">Mode terrain</p>
-                        <p className="text-xs text-gray-500">Choisissez le type d'intervention</p>
+                        <p className="font-bold text-gray-900 dark:text-white text-base leading-tight">Mode terrain</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Choisissez le type d'intervention</p>
                     </div>
                 </div>
 
@@ -298,15 +298,15 @@ const TerrainMode = () => {
                 <div className="flex-1 flex flex-col justify-center p-5 gap-4">
                     <button
                         onClick={() => setMode('depannage')}
-                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 bg-blue-100 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
+                            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
                                 <Wrench className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 text-lg leading-tight">Intervention / Dépannage</p>
-                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Intervention / Dépannage</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                                     Chronomètre, rapport d'intervention, photos avant/après, signature client sur place.
                                 </p>
                             </div>
@@ -315,15 +315,15 @@ const TerrainMode = () => {
 
                     <button
                         onClick={() => setMode('visite')}
-                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-violet-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-violet-400 hover:shadow-md active:scale-[0.98] transition-all group"
                     >
                         <div className="flex items-start gap-4">
                             <div className="w-14 h-14 bg-violet-100 group-hover:bg-violet-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
                                 <ClipboardList className="w-7 h-7 text-violet-600 group-hover:text-white transition-colors" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 text-lg leading-tight">Visite technique</p>
-                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Visite technique</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                                     Relevé précis : notes vocales, photos, analyse IA → prédevis ou devis immédiat, attaché au client.
                                 </p>
                             </div>
@@ -332,15 +332,15 @@ const TerrainMode = () => {
 
                     <button
                         onClick={() => setMode('commande')}
-                        className="w-full bg-white border border-gray-200 rounded-3xl p-6 text-left hover:border-emerald-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-emerald-400 hover:shadow-md active:scale-[0.98] transition-all group"
                     >
                         <div className="flex items-start gap-4">
                             <div className="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
                                 <ShoppingCart className="w-7 h-7 text-emerald-600 group-hover:text-white transition-colors" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 text-lg leading-tight">Matériel à commander</p>
-                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Matériel à commander</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                                     Notez ou dictez le matériel et l'outillage qu'il vous manque sur le chantier. À commander plus tard au bureau.
                                 </p>
                             </div>
@@ -370,16 +370,16 @@ const TerrainMode = () => {
     ];
 
     return (
-        <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-800 flex flex-col font-sans overflow-hidden">
             <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
             {/* ── Barre de titre + chrono ─────────────────────────────────── */}
-            <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm">
+            <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="px-3 py-3 flex items-center gap-2">
                     {/* Retour à la sélection */}
                     <button
                         onClick={() => setMode(null)}
-                        className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
+                        className="p-2 -ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 rounded-xl active:bg-gray-100"
                         aria-label="Retour"
                     >
                         <ArrowLeft className="w-5 h-5" />
@@ -387,14 +387,14 @@ const TerrainMode = () => {
 
                     {/* Chronomètre */}
                     <div className="flex items-center gap-2 flex-1">
-                        <span className={`font-mono text-2xl font-bold tabular-nums leading-none transition-colors ${timerRunning ? 'text-blue-600' : elapsed > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                        <span className={`font-mono text-2xl font-bold tabular-nums leading-none transition-colors ${timerRunning ? 'text-blue-600' : elapsed > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300'}`}>
                             {formatTime(elapsed)}
                         </span>
                         <button
                             onClick={toggleTimer}
                             className={`p-2 rounded-full transition-colors ${timerRunning
                                 ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-200'}`}
                             aria-label={timerRunning ? 'Pause' : 'Démarrer'}
                         >
                             {timerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -402,7 +402,7 @@ const TerrainMode = () => {
                         {elapsed > 0 && !timerRunning && (
                             <button
                                 onClick={resetTimer}
-                                className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200"
                                 aria-label="Réinitialiser"
                             >
                                 <RotateCcw className="w-4 h-4" />
@@ -429,7 +429,7 @@ const TerrainMode = () => {
 
                 {/* Bannière statut */}
                 {docStatus !== 'draft' && (
-                    <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-semibold ${docStatus === 'signed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-semibold ${docStatus === 'signed' ? 'bg-green-100 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
                         <CheckCircle className="w-3.5 h-3.5" />
                         {docStatus === 'signed' ? 'Rapport signé' : 'Rapport terminé'}
                         {reportId && (
@@ -453,7 +453,7 @@ const TerrainMode = () => {
 
                         {/* Client */}
                         <div className="relative">
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Client
                             </label>
                             <div className="relative flex gap-2">
@@ -464,25 +464,25 @@ const TerrainMode = () => {
                                     onFocus={() => setShowClientList(true)}
                                     onBlur={() => setTimeout(() => setShowClientList(false), 200)}
                                     placeholder="Nom du client"
-                                    className="flex-1 px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="flex-1 px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                                 {clients.length > 0 && (
                                     <button
                                         type="button"
                                         onMouseDown={() => setShowClientList(v => !v)}
-                                        className="px-3 bg-white border border-gray-200 rounded-2xl text-gray-400 hover:text-gray-600"
+                                        className="px-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-gray-600"
                                     >
                                         <ChevronDown className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
                             {showClientList && filteredClients.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white rounded-2xl border border-gray-200 shadow-xl max-h-52 overflow-y-auto">
+                                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl max-h-52 overflow-y-auto">
                                     {filteredClients.map(c => (
                                         <button
                                             key={c.id}
                                             onMouseDown={() => { setClientId(c.id); setClientName(c.name); setShowClientList(false); }}
-                                            className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm font-medium text-gray-800 border-b border-gray-50 last:border-0 first:rounded-t-2xl last:rounded-b-2xl"
+                                            className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-50 last:border-0 first:rounded-t-2xl last:rounded-b-2xl"
                                         >
                                             {c.name}
                                         </button>
@@ -493,20 +493,20 @@ const TerrainMode = () => {
 
                         {/* Intitulé */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Intitulé
                             </label>
                             <input
                                 type="text"
                                 value={title}
                                 onChange={e => setTitle(e.target.value)}
-                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
 
                         {/* Problème constaté */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Problème constaté
                             </label>
                             <textarea
@@ -514,13 +514,13 @@ const TerrainMode = () => {
                                 value={description}
                                 onChange={e => setDescription(e.target.value)}
                                 placeholder="Décrivez la situation trouvée sur place..."
-                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                             />
                         </div>
 
                         {/* Travaux réalisés */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Travaux réalisés
                             </label>
                             <textarea
@@ -528,13 +528,13 @@ const TerrainMode = () => {
                                 value={workDone}
                                 onChange={e => setWorkDone(e.target.value)}
                                 placeholder="Décrivez les travaux effectués en détail..."
-                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                             />
                         </div>
 
                         {/* Notes internes */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Notes internes
                             </label>
                             <textarea
@@ -542,7 +542,7 @@ const TerrainMode = () => {
                                 value={notes}
                                 onChange={e => setNotes(e.target.value)}
                                 placeholder="Notes non visibles sur le rapport client..."
-                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                             />
                         </div>
 
@@ -550,14 +550,14 @@ const TerrainMode = () => {
                         <div className="grid grid-cols-2 gap-3 pt-2">
                             <button
                                 onClick={() => setTab('photos')}
-                                className="flex items-center justify-center gap-2 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                                className="flex items-center justify-center gap-2 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100"
                             >
                                 <Camera className="w-4 h-4 text-blue-500" />
                                 Photos {photos.length > 0 && `(${photos.length})`}
                             </button>
                             <button
                                 onClick={() => setTab('signature')}
-                                className="flex items-center justify-center gap-2 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                                className="flex items-center justify-center gap-2 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100"
                             >
                                 <PenTool className="w-4 h-4 text-blue-500" />
                                 Signature
@@ -582,7 +582,7 @@ const TerrainMode = () => {
                         {/* Bouton appareil photo */}
                         <button
                             onClick={() => photoInputRef.current?.click()}
-                            className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                            className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white dark:bg-gray-900 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
                         >
                             <Camera className="w-12 h-12" />
                             <div className="text-center">
@@ -597,7 +597,7 @@ const TerrainMode = () => {
                             <>
                                 <div className="grid grid-cols-2 gap-3">
                                     {photos.map(p => (
-                                        <div key={p.tempId} className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden">
+                                        <div key={p.tempId} className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden">
                                             <img
                                                 src={p.preview || p.url}
                                                 alt={p.name}
@@ -633,7 +633,7 @@ const TerrainMode = () => {
 
                         {/* Nom du signataire */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                                 Nom du signataire
                             </label>
                             <input
@@ -641,14 +641,14 @@ const TerrainMode = () => {
                                 value={signerName}
                                 onChange={e => setSignerName(e.target.value)}
                                 placeholder="Prénom Nom du client"
-                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
 
                         {/* Canvas signature */}
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                     Signature client
                                 </label>
                                 {hasSig && (
@@ -657,7 +657,7 @@ const TerrainMode = () => {
                                     </button>
                                 )}
                             </div>
-                            <div className="relative bg-white border-2 border-dashed border-gray-300 rounded-2xl overflow-hidden" style={{ touchAction: 'none' }}>
+                            <div className="relative bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 rounded-2xl overflow-hidden" style={{ touchAction: 'none' }}>
                                 <canvas
                                     ref={canvasRef}
                                     className="w-full block"
@@ -686,7 +686,7 @@ const TerrainMode = () => {
                             onClick={handleSign}
                             disabled={saving || docStatus === 'signed'}
                             className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-colors ${docStatus === 'signed'
-                                ? 'bg-green-100 text-green-700 cursor-default'
+                                ? 'bg-green-100 text-green-700 dark:text-green-400 cursor-default'
                                 : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
                                 } disabled:opacity-60`}
                         >
@@ -704,7 +704,7 @@ const TerrainMode = () => {
                             <button
                                 onClick={() => handleSave('completed')}
                                 disabled={saving}
-                                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-60"
+                                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 transition-colors disabled:opacity-60"
                             >
                                 <CheckCircle className="w-4 h-4 text-green-500" />
                                 Terminer sans signature
@@ -726,14 +726,14 @@ const TerrainMode = () => {
             </div>
 
             {/* ── Barre d'onglets ─────────────────────────────────────────── */}
-            <div className="shrink-0 bg-white border-t border-gray-200 flex safe-area-bottom">
+            <div className="shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex safe-area-bottom">
                 {tabConfig.map(({ id, Icon, label }) => (
                     <button
                         key={id}
                         onClick={() => setTab(id)}
                         className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors ${tab === id
                             ? 'text-blue-600 border-t-2 border-blue-600 -mt-px'
-                            : 'text-gray-400 hover:text-gray-600'
+                            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                             }`}
                     >
                         <Icon className="w-5 h-5" />

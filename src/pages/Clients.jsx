@@ -115,7 +115,7 @@ const Clients = () => {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                             >
                                 Annuler
                             </button>
@@ -145,18 +145,18 @@ const Clients = () => {
                                 e.stopPropagation();
                                 setActiveMenu(activeMenu === client.id ? null : client.id);
                             }}
-                            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 transition-colors"
+                            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
                             <MoreVertical className="w-5 h-5" />
                         </button>
                         {activeMenu === client.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-10 py-1">
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-800 dark:border-gray-700 z-10 py-1">
                                 <button
                                     onClick={() => {
                                         navigate(`/app/clients/${client.id}`);
                                         setActiveMenu(null);
                                     }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-700"
                                 >
                                     <Edit className="w-4 h-4 mr-2" />
                                     Modifier / Voir
@@ -178,19 +178,19 @@ const Clients = () => {
 
                 <div className="mt-4 space-y-2">
                     {client.email && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                             <Mail className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
                             <span className="text-sm truncate">{client.email}</span>
                         </div>
                     )}
                     {client.phone && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                             <Phone className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
                             <span className="text-sm">{client.phone}</span>
                         </div>
                     )}
                     {client.address && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                             <MapPin className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
                             <span className="text-sm line-clamp-1">{client.address}</span>
                         </div>
@@ -235,7 +235,7 @@ const Clients = () => {
         return (
             <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors">
                 {isConfirmingDelete ? (
-                    <div className="p-4 flex items-center justify-between gap-4 bg-red-50 dark:bg-red-900/10">
+                    <div className="p-4 flex items-center justify-between gap-4 bg-red-50 dark:bg-red-900/20 dark:bg-red-900/10">
                         <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
                             <AlertTriangle className="w-4 h-4 shrink-0" />
                             <span>Supprimer <strong>{client.name}</strong> ? Action irréversible.</span>
@@ -243,7 +243,7 @@ const Clients = () => {
                         <div className="flex gap-2 shrink-0">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                             >
                                 Annuler
                             </button>
@@ -256,7 +256,7 @@ const Clients = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <div className="p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-800/50">
                         <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold shrink-0">
                             {client.name.charAt(0)}
                         </div>
@@ -272,13 +272,13 @@ const Clients = () => {
 
                             <div className="md:col-span-4 hidden md:block">
                                 {client.email && (
-                                    <div className="flex items-center text-gray-600 dark:text-gray-300 mb-1">
+                                    <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300 mb-1">
                                         <Mail className="w-3 h-3 mr-2 text-gray-400" />
                                         <span className="text-xs truncate">{client.email}</span>
                                     </div>
                                 )}
                                 {client.phone && (
-                                    <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                                         <Phone className="w-3 h-3 mr-2 text-gray-400" />
                                         <span className="text-xs">{client.phone}</span>
                                     </div>
@@ -287,7 +287,7 @@ const Clients = () => {
 
                             <div className="md:col-span-4 hidden md:block">
                                 {client.address && (
-                                    <div className="flex items-center text-gray-600 dark:text-gray-300">
+                                    <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                                         <MapPin className="w-3 h-3 mr-2 text-gray-400" />
                                         <span className="text-xs truncate">{client.address}</span>
                                     </div>
@@ -298,7 +298,7 @@ const Clients = () => {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => navigate(`/app/clients/${client.id}`)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                 title="Voir fiche"
                             >
                                 <Edit className="w-4 h-4" />
@@ -308,14 +308,14 @@ const Clients = () => {
                                     e.stopPropagation();
                                     setActiveMenu(activeMenu === client.id ? null : client.id);
                                 }}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative"
                             >
                                 <MoreVertical className="w-4 h-4" />
                                 {activeMenu === client.id && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1">
+                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-800 dark:border-gray-700 z-50 py-1">
                                         <button
                                             onClick={() => navigate('/app/devis/new', { state: { client_id: client.id } })}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-700"
                                         >
                                             <Plus className="w-4 h-4 mr-2" />
                                             Créer un devis
@@ -348,7 +348,7 @@ const Clients = () => {
                         <Users className="w-8 h-8 text-blue-600" />
                         Mes Clients
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">{clients.length} clients enregistrés</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{clients.length} clients enregistrés</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {filteredClients.length > 0 && (
@@ -367,7 +367,7 @@ const Clients = () => {
                                 ],
                                 'clients'
                             )}
-                            className="flex items-center justify-center px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                            className="flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"
                             title="Exporter en CSV (Excel, comptable…)"
                         >
                             <Download className="w-4 h-4 sm:mr-2" />
@@ -401,7 +401,7 @@ const Clients = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={() => handleSort('name')}
-                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'name' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'name' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Trier par nom"
                     >
                         <span className="text-sm mr-2 hidden sm:inline">Nom</span>
@@ -409,7 +409,7 @@ const Clients = () => {
                     </button>
                     <button
                         onClick={() => handleSort('created_at')}
-                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'created_at' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'created_at' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Trier par date"
                     >
                         <span className="text-sm mr-2 hidden sm:inline">Date</span>
@@ -418,14 +418,14 @@ const Clients = () => {
                     <div className="h-full w-px bg-gray-300 mx-1"></div>
                     <button
                         onClick={() => toggleViewMode('grid')}
-                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'grid' ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Vue grille"
                     >
                         <LayoutGrid className="w-5 h-5" />
                     </button>
                     <button
                         onClick={() => toggleViewMode('list')}
-                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'list' ? 'bg-gray-100 border-gray-300 text-gray-900' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'list' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Vue liste"
                     >
                         <List className="w-5 h-5" />
@@ -457,7 +457,7 @@ const Clients = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={loadMore}
-                            className="px-4 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="px-4 py-2 text-sm font-medium bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
                             Voir {Math.min(100, hiddenCount)} de plus
                         </button>
@@ -502,7 +502,7 @@ const Clients = () => {
                 ) : (
                     /* Aucun résultat pour la recherche */
                     <div className="text-center py-12">
-                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                        <div className="bg-gray-50 dark:bg-gray-800 dark:bg-gray-800/50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
                             <Search className="h-8 w-8 text-gray-400" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aucun résultat</h3>

@@ -18,7 +18,7 @@ const fmtAmount = (v, currency = 'EUR') =>
 
 const DetailRow = ({ label, value }) => (
   <div className="flex justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-    <span className="text-sm text-gray-500 shrink-0">{label}</span>
+    <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
     <span className="text-sm text-gray-900 dark:text-white font-medium text-right">{value}</span>
   </div>
 );
@@ -67,7 +67,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
             </span>
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -88,7 +88,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
               Ouvrir le PDF
             </a>
           ) : (
-            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500">
+            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500 dark:text-gray-400">
               <FileText className="w-4 h-4 shrink-0" />
               Aucun PDF joint à cette facture
             </div>
@@ -137,7 +137,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
           {inv.b2brouter_id && (
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Référence plateforme</p>
-              <p className="text-xs font-mono text-gray-500 break-all">{inv.b2brouter_id}</p>
+              <p className="text-xs font-mono text-gray-500 dark:text-gray-400 break-all">{inv.b2brouter_id}</p>
             </div>
           )}
         </div>
@@ -156,7 +156,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
             <button
               onClick={() => handleStatusChange('rejected')}
               disabled={!!actioning}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-red-50 disabled:opacity-50 text-red-600 border border-red-200 text-sm font-semibold rounded-xl transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-red-600 border border-red-200 dark:border-red-800 text-sm font-semibold rounded-xl transition-colors"
             >
               {actioning === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
               Rejeter
@@ -206,7 +206,7 @@ const ReceivedInvoices = () => {
         <button
           onClick={fetchInvoices}
           disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Actualiser
@@ -214,7 +214,7 @@ const ReceivedInvoices = () => {
       </div>
 
       {/* Bandeau informatif */}
-      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-indigo-800">
+      <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-300">
         <strong>Obligation de réception (sept. 2026)</strong> — Les factures que vos fournisseurs vous transmettent via leur Plateforme Agréée apparaissent ici automatiquement.
       </div>
 
@@ -223,17 +223,17 @@ const ReceivedInvoices = () => {
           <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-400">
           Erreur de chargement : {error}
         </div>
       ) : invoices.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
-          <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center">
             <Inbox className="w-8 h-8 text-indigo-400" />
           </div>
           <div>
             <p className="font-semibold text-gray-700 dark:text-gray-300">Aucune facture reçue</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Vos factures fournisseurs apparaîtront ici dès qu'elles arriveront via B2BRouter.
             </p>
           </div>
@@ -260,14 +260,14 @@ const ReceivedInvoices = () => {
                       onClick={() => setSelected(inv)}
                       className="hover:bg-indigo-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(inv.received_at)}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(inv.received_at)}</td>
                       <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                         <div>{fmt(inv.supplier_name)}</div>
                         {inv.supplier_siren && <div className="text-xs text-gray-400">SIREN {inv.supplier_siren}</div>}
                       </td>
                       <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{fmt(inv.invoice_number)}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(inv.invoice_date)}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtDate(inv.invoice_date)}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{fmtAmount(inv.total_ht, inv.currency)}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white whitespace-nowrap">{fmtAmount(inv.total_ttc, inv.currency)}</td>
                       <td className="px-4 py-3">
@@ -279,7 +279,7 @@ const ReceivedInvoices = () => {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {inv.pdf_url && (
                           <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors inline-flex"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex"
                             title="Télécharger la facture"
                           >
                             <Download className="w-4 h-4" />
@@ -302,7 +302,7 @@ const ReceivedInvoices = () => {
                 <div
                   key={inv.id}
                   onClick={() => setSelected(inv)}
-                  className="p-4 space-y-2 active:bg-gray-50 cursor-pointer"
+                  className="p-4 space-y-2 active:bg-gray-50 dark:active:bg-gray-800 cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -315,13 +315,13 @@ const ReceivedInvoices = () => {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                    <span className="text-gray-500">Facture</span>
-                    <span className="font-mono text-gray-700">{fmt(inv.invoice_number)}</span>
-                    <span className="text-gray-500">Date</span>
+                    <span className="text-gray-500 dark:text-gray-400">Facture</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-300">{fmt(inv.invoice_number)}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Date</span>
                     <span>{fmtDate(inv.invoice_date)}</span>
-                    <span className="text-gray-500">Échéance</span>
+                    <span className="text-gray-500 dark:text-gray-400">Échéance</span>
                     <span>{fmtDate(inv.due_date)}</span>
-                    <span className="text-gray-500">Montant TTC</span>
+                    <span className="text-gray-500 dark:text-gray-400">Montant TTC</span>
                     <span className="font-semibold">{fmtAmount(inv.total_ttc, inv.currency)}</span>
                   </div>
                 </div>

@@ -264,7 +264,7 @@ const PriceLibrary = () => {
                 <div className="flex gap-3">
                     <button
                         onClick={() => setShowImportModal(true)}
-                        className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                         <Upload className="w-4 h-4 mr-2" />
                         Importer (Excel/CSV)
@@ -290,28 +290,28 @@ const PriceLibrary = () => {
                 <input
                     type="text"
                     placeholder="Rechercher un ouvrage..."
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
 
             {/* List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b border-gray-100">
+                        <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
                             <tr>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Description</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Catégorie</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Prix Unitaire</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Description</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Catégorie</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Prix Unitaire</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">Chargement...</td>
+                                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Chargement...</td>
                                 </tr>
                             ) : filteredItems.length === 0 ? (
                                 <tr>
@@ -320,7 +320,7 @@ const PriceLibrary = () => {
                                         <p className="font-semibold text-gray-900 dark:text-white mb-1">
                                             {searchTerm ? 'Aucun résultat' : 'Votre bibliothèque est vide'}
                                         </p>
-                                        <p className="text-sm text-gray-500 mb-4 max-w-xs mx-auto">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-xs mx-auto">
                                             {searchTerm
                                                 ? `Aucune prestation ne correspond à "${searchTerm}".`
                                                 : 'Ajoutez vos prestations habituelles (déplacement, pose, fournitures…) pour les insérer en un clic dans n\'importe quel devis.'}
@@ -338,34 +338,34 @@ const PriceLibrary = () => {
                                 </tr>
                             ) : (
                                 filteredItems.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 text-gray-900 font-medium">
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                        <td className="px-6 py-4 text-gray-900 dark:text-white font-medium">
                                             {item.description}
                                             <div className="flex flex-col gap-0.5 mt-1">
                                                 {item.reference && <span className="text-xs text-blue-600 font-mono">Réf: {item.reference}</span>}
                                                 {item.barcode && <span className="text-xs text-gray-400 font-mono">EAN: {item.barcode}</span>}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-500">
+                                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                                             {item.category && (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800">
                                                     {item.category}
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                                        <td className="px-6 py-4 text-right text-gray-900 dark:text-white font-medium">
                                             {item.price.toFixed(2)} € <span className="text-gray-400 text-sm font-normal">/ {item.unit}</span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 onClick={() => handleEdit(item)}
-                                                className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 mr-2"
+                                                className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 mr-2"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(item.id)}
-                                                className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                                                className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -381,15 +381,15 @@ const PriceLibrary = () => {
             {/* Import Modal */}
             {showImportModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Importer une liste de prix</h3>
-                            <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Importer une liste de prix</h3>
+                            <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="space-y-4">
-                            <div className="p-4 bg-blue-50 text-blue-700 rounded-lg text-sm">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
                                 <p className="font-semibold mb-1">Format attendu (Excel ou CSV) :</p>
                                 <ul className="list-disc list-inside space-y-1">
                                     <li>Colonnes : <strong>Description</strong>, <strong>Prix</strong></li>
@@ -399,7 +399,7 @@ const PriceLibrary = () => {
                             <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
                                 onClick={() => fileInputRef.current?.click()}>
                                 <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                <p className="text-gray-600 font-medium">Cliquez pour sélectionner un fichier</p>
+                                <p className="text-gray-600 dark:text-gray-400 font-medium">Cliquez pour sélectionner un fichier</p>
                                 <p className="text-xs text-gray-400 mt-1">.csv, .xlsx, .xls</p>
                                 <input
                                     type="file"
@@ -417,9 +417,9 @@ const PriceLibrary = () => {
             {/* Add Item Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                                 {editingItem ? "Modifier l'article" : "Nouvel Article"}
                             </h3>
                             <button
@@ -428,14 +428,14 @@ const PriceLibrary = () => {
                                     setEditingItem(null);
                                     setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
                                 }}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <form onSubmit={handleAddItem} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                                 <input
                                     type="text"
                                     required
@@ -446,7 +446,7 @@ const PriceLibrary = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prix</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -457,7 +457,7 @@ const PriceLibrary = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Unité</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unité</label>
                                     <input
                                         type="text"
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -468,7 +468,7 @@ const PriceLibrary = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
                                     <input
                                         type="text"
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -478,7 +478,7 @@ const PriceLibrary = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
                                     <select
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                         value={newItem.type || 'service'}
@@ -489,11 +489,11 @@ const PriceLibrary = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div className="border-t border-gray-100 pt-3">
+                            <div className="border-t border-gray-100 dark:border-gray-800 pt-3">
                                 <button
                                     type="button"
                                     onClick={() => setShowAdvancedFields(v => !v)}
-                                    className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                 >
                                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvancedFields ? 'rotate-180' : ''}`} />
                                     Options avancées (référence fabricant, code-barres)
@@ -501,7 +501,7 @@ const PriceLibrary = () => {
                                 {showAdvancedFields && (
                                     <div className="grid grid-cols-2 gap-4 mt-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Référence Fabricant</label>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Référence Fabricant</label>
                                             <input
                                                 type="text"
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -511,7 +511,7 @@ const PriceLibrary = () => {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Code-barres (EAN)</label>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code-barres (EAN)</label>
                                             <input
                                                 type="text"
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
