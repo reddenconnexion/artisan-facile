@@ -112,7 +112,7 @@ const ViewStatusBadge = ({ devis }) => {
 };
 
 // Badge "mail ouvert X fois" pour les devis/factures envoyés via SMTP direct
-const MailOpenedBadge = ({ stats, history, onOpenHistory }) => {
+const MailOpenedBadge = ({ stats, onOpenHistory }) => {
     if (!stats) return null;
     const openCount = Number(stats.open_count) || 0;
 
@@ -136,7 +136,7 @@ const MailOpenedBadge = ({ stats, history, onOpenHistory }) => {
     return (
         <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onOpenHistory?.(history); }}
+            onClick={(e) => { e.stopPropagation(); onOpenHistory?.(stats); }}
             className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
             title={lastOpened ? `Dernière ouverture le ${lastOpened.toLocaleString('fr-FR')} — cliquer pour l'historique` : 'Voir l\'historique'}
         >
