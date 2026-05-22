@@ -151,6 +151,8 @@ const Profile = () => {
     const [emailSignatureHtml, setEmailSignatureHtml] = useState('');
     const [savingSignature, setSavingSignature] = useState(false);
     const [signaturePreview, setSignaturePreview] = useState(false);
+    // Largeur à utiliser au moment d'insérer une image dans la signature (en px ou 'full')
+    const [signatureImageWidth, setSignatureImageWidth] = useState('300');
     const [formData, setFormData] = useState({
         company_name: '',
         full_name: '',
@@ -629,9 +631,12 @@ const Profile = () => {
             const { data } = supabase.storage.from('logos').getPublicUrl(fileName);
             const url = data.publicUrl;
 
-            // Ajoute la balise <img> à la fin de la signature avec un style
-            // "responsive" : max-width pour s'adapter à toutes les tailles d'écran.
-            const imgTag = `<img src="${url}" alt="" style="max-width:100%;height:auto;display:block;margin-top:8px;" />`;
+            // Construit la balise <img> selon la largeur choisie. 'full' = 100% responsive.
+            const w = String(signatureImageWidth || '300').trim();
+            const sizeStyle = w === 'full'
+                ? 'max-width:100%;height:auto;'
+                : `width:${parseInt(w, 10) || 300}px;max-width:100%;height:auto;`;
+            const imgTag = `<img src="${url}" alt="" style="${sizeStyle}display:block;margin-top:8px;" />`;
             setEmailSignatureHtml(prev => (prev ? prev.trimEnd() + '\n' + imgTag : imgTag));
             toast.success('Image ajoutée — n\'oubliez pas d\'enregistrer la signature');
         } catch (err) {
@@ -1372,18 +1377,55 @@ const Profile = () => {
                         </p>
 
                         <div>
-                            <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium cursor-pointer">
-                                <Upload className="w-4 h-4" />
-                                Importer une image (bannière, signature scannée…)
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp,image/gif"
-                                    onChange={handleSignatureImageUpload}
-                                    className="hidden"
-                                />
-                            </label>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium cursor-pointer">
+                                    <Upload className="w-4 h-4" />
+                                    Importer une image
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        onChange={handleSignatureImageUpload}
+                                        className="hidden"
+                                    />
+                                </label>
+
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        Largeur :
+                                    </label>
+                                    <select
+                                        value={['150', '200', '300', '400', '500', '600', 'full'].includes(signatureImageWidth) ? signatureImageWidth : 'custom'}
+                                        onChange={(e) => {
+                                            if (e.target.value !== 'custom') setSignatureImageWidth(e.target.value);
+                                        }}
+                                        className="text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg"
+                                    >
+                                        <option value="150">Petite (150 px)</option>
+                                        <option value="200">Moyenne (200 px)</option>
+                                        <option value="300">Standard (300 px)</option>
+                                        <option value="400">Grande (400 px)</option>
+                                        <option value="500">Très grande (500 px)</option>
+                                        <option value="600">XL (600 px)</option>
+                                        <option value="full">Pleine largeur (100%)</option>
+                                        <option value="custom">Personnalisée…</option>
+                                    </select>
+                                    {!['150', '200', '300', '400', '500', '600', 'full'].includes(signatureImageWidth) && (
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="number"
+                                                min="50"
+                                                max="800"
+                                                value={signatureImageWidth}
+                                                onChange={(e) => setSignatureImageWidth(e.target.value)}
+                                                className="w-20 text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg"
+                                            />
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">px</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                JPG / PNG / WebP / GIF, 8 Mo max. La balise &lt;img&gt; sera ajoutée à la fin de la signature.
+                                JPG / PNG / WebP / GIF, 8 Mo max. Choisissez la largeur avant d'importer. Pour redimensionner une image déjà insérée, modifiez la valeur <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">width:Xpx</code> dans le HTML.
                             </p>
                         </div>
 
