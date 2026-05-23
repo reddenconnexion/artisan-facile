@@ -29,35 +29,35 @@ const WorksitePilot = () => {
         {
             id: 'pending_deposit',
             title: 'Attente Acompte',
-            color: 'bg-red-50 dark:bg-red-900/20 border-red-100',
+            color: 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/40',
             icon: FileText,
             description: 'Devis signé, attente paiement acompte matériel'
         },
         {
             id: 'material_order',
             title: 'Commande Matériel',
-            color: 'bg-indigo-50 border-indigo-100',
+            color: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/40',
             icon: CheckCircle,
             description: 'Acompte reçu, matériel à commander/recevoir'
         },
         {
             id: 'planned',
             title: 'À Planifier',
-            color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100',
+            color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/40',
             icon: Calendar,
             description: 'Matériel OK, en attente de dates'
         },
         {
             id: 'in_progress',
             title: 'En Cours',
-            color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-100',
+            color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/40',
             icon: Hammer,
             description: 'Chantiers démarrés'
         },
         {
             id: 'completed',
             title: 'Terminé',
-            color: 'bg-green-50 dark:bg-green-900/20 border-green-100',
+            color: 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/40',
             icon: CheckCircle,
             description: 'Travaux finis, à facturer/archiver'
         }
@@ -304,9 +304,9 @@ const WorksitePilot = () => {
                                 onDrop={(e) => handleDrop(e, column.id)}
                             >
                                 {/* Column Header */}
-                                <div className="p-4 font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center bg-white/60 rounded-t-xl border-b border-gray-200/50 backdrop-blur-sm shrink-0">
+                                <div className="p-4 font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center bg-white/60 dark:bg-gray-900/40 rounded-t-xl border-b border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm shrink-0">
                                     <div className="flex items-center gap-2">
-                                        <div className={`p-1.5 rounded-lg ${column.color.split(' ')[0]} bg-opacity-100`}>
+                                        <div className={`p-1.5 rounded-lg ${column.color.split(' ')[0]} dark:bg-gray-800 bg-opacity-100`}>
                                             {column.icon && <column.icon className="w-4 h-4 text-gray-700 dark:text-gray-300" />}
                                         </div>
                                         <div>
@@ -319,7 +319,7 @@ const WorksitePilot = () => {
                                         </div>
                                     </div>
                                     {!focusedColumn && (
-                                        <button onClick={() => setFocusedColumn(column.id)} className="p-1 hover:bg-white/50 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                        <button onClick={() => setFocusedColumn(column.id)} className="p-1 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                             <Maximize2 className="w-4 h-4" />
                                         </button>
                                     )}
@@ -379,7 +379,7 @@ const WorksitePilot = () => {
                                             </div>
 
                                             {/* Card Bottom: Actions */}
-                                            <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                                            <div className="flex justify-between items-center pt-2 border-t border-gray-50 dark:border-gray-800">
                                                 <span className="text-[10px] text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                     MAJ: {new Date(job.updated_at).toLocaleDateString()}
                                                 </span>
@@ -402,7 +402,7 @@ const WorksitePilot = () => {
                                                                 }
                                                             });
                                                         }}
-                                                        className="p-1.5 hover:bg-purple-50 text-purple-600 rounded transition-colors"
+                                                        className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 rounded transition-colors"
                                                         title="Planifier"
                                                     >
                                                         <Calendar className="w-4 h-4" />
