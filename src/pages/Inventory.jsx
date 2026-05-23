@@ -436,7 +436,7 @@ const Inventory = () => {
                     <div className="py-12 text-center text-gray-400">Chargement...</div>
                 ) : filteredItems.length === 0 ? (
                     items.length === 0 ? (
-                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 px-6">
+                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 px-6 text-gray-900 dark:text-gray-100">
                             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                 <Package className="h-10 w-10 text-blue-400" />
                             </div>
@@ -462,7 +462,7 @@ const Inventory = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <Search className="w-10 h-10 mx-auto text-gray-300 mb-3" />
                             <p className="text-gray-500 dark:text-gray-400">
                                 {searchTerm

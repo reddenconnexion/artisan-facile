@@ -1494,7 +1494,7 @@ const InterventionReportForm = () => {
                 </div>
 
                 {(formData.photos || []).length === 0 ? (
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                         <Camera className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
                         <span className="text-sm text-gray-400 dark:text-gray-500">Cliquez pour ajouter des photos</span>
                         <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
@@ -1517,7 +1517,7 @@ const InterventionReportForm = () => {
                                 </button>
                             </div>
                         ))}
-                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors" style={{ aspectRatio: '4/3' }}>
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" style={{ aspectRatio: '4/3' }}>
                             <Plus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                             <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">Ajouter</span>
                             <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
@@ -1553,7 +1553,7 @@ const InterventionReportForm = () => {
                             type="button"
                             onClick={() => triggerMilestoneCapture(type)}
                             disabled={uploadingPhotos}
-                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 text-gray-900 dark:text-gray-100"
                         >
                             <span>{icon}</span>
                             <span className="text-gray-700 dark:text-gray-300">{label}</span>

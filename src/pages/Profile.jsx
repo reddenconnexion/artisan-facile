@@ -1003,7 +1003,7 @@ const Profile = () => {
                                     value={formData.iban}
                                     onChange={handleChange}
                                     placeholder="FR76 ..."
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 />
                             </div>
                             <div>
@@ -1328,7 +1328,7 @@ const Profile = () => {
                                             type="button"
                                             onClick={handleTestSmtp}
                                             disabled={testingSmtp}
-                                            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm font-medium"
+                                            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm font-medium text-gray-900 dark:text-gray-100"
                                         >
                                             {testingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                             Envoyer un email de test
@@ -1378,7 +1378,7 @@ const Profile = () => {
 
                         <div>
                             <div className="flex flex-wrap items-center gap-3">
-                                <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium cursor-pointer">
+                                <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium cursor-pointer text-gray-900 dark:text-gray-100">
                                     <Upload className="w-4 h-4" />
                                     Importer une image
                                     <input
