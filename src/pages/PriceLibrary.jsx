@@ -264,7 +264,7 @@ const PriceLibrary = () => {
                 <div className="flex gap-3">
                     <button
                         onClick={() => setShowImportModal(true)}
-                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
                     >
                         <Upload className="w-4 h-4 mr-2" />
                         Importer (Excel/CSV)
@@ -396,7 +396,7 @@ const PriceLibrary = () => {
                                     <li>Optionnel : Unité, Catégorie</li>
                                 </ul>
                             </div>
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 onClick={() => fileInputRef.current?.click()}>
                                 <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                 <p className="text-gray-600 dark:text-gray-400 font-medium">Cliquez pour sélectionner un fichier</p>
@@ -439,7 +439,7 @@ const PriceLibrary = () => {
                                 <input
                                     type="text"
                                     required
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newItem.description}
                                     onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
@@ -451,7 +451,7 @@ const PriceLibrary = () => {
                                         type="number"
                                         step="0.01"
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.price}
                                         onChange={e => setNewItem({ ...newItem, price: e.target.value })}
                                     />
@@ -460,7 +460,7 @@ const PriceLibrary = () => {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unité</label>
                                     <input
                                         type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.unit}
                                         onChange={e => setNewItem({ ...newItem, unit: e.target.value })}
                                     />
@@ -471,7 +471,7 @@ const PriceLibrary = () => {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
                                     <input
                                         type="text"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.category}
                                         onChange={e => setNewItem({ ...newItem, category: e.target.value })}
                                         placeholder="Ex: Plomberie"
@@ -480,7 +480,7 @@ const PriceLibrary = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
                                     <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.type || 'service'}
                                         onChange={e => setNewItem({ ...newItem, type: e.target.value })}
                                     >
@@ -504,7 +504,7 @@ const PriceLibrary = () => {
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Référence Fabricant</label>
                                             <input
                                                 type="text"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                                 value={newItem.reference || ''}
                                                 onChange={e => setNewItem({ ...newItem, reference: e.target.value })}
                                                 placeholder="Ex: REF-123"
@@ -514,7 +514,7 @@ const PriceLibrary = () => {
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code-barres (EAN)</label>
                                             <input
                                                 type="text"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                                 value={newItem.barcode || ''}
                                                 onChange={e => setNewItem({ ...newItem, barcode: e.target.value })}
                                                 placeholder="Scan..."

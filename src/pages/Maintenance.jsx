@@ -155,7 +155,7 @@ const Maintenance = () => {
 
             {/* Contracts List */}
             {!loading && contracts.length === 0 ? (
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 py-16 text-center px-6">
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 py-16 text-center px-6 text-gray-900 dark:text-gray-100">
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                         <Wrench className="h-10 w-10 text-blue-400" />
                     </div>

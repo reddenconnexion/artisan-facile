@@ -169,7 +169,7 @@ const Rentals = () => {
                     <div className="text-center py-12 text-gray-500 dark:text-gray-400">Chargement...</div>
                 ) : filteredRentals.length === 0 ? (
                     rentals.length === 0 ? (
-                        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 px-6">
+                        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 px-6 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                 <Truck className="h-10 w-10 text-blue-400" />
                             </div>
@@ -186,7 +186,7 @@ const Rentals = () => {
                             </button>
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300">
+                        <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                             <p className="text-gray-500 dark:text-gray-400">
                                 {filter === 'active' ? 'Aucune location en cours.' :
@@ -274,7 +274,7 @@ const Rentals = () => {
                                     type="text"
                                     required
                                     placeholder="ex: Mini-pelle 2.5T"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={formData.equipment_name}
                                     onChange={e => setFormData({ ...formData, equipment_name: e.target.value })}
                                 />
@@ -284,7 +284,7 @@ const Rentals = () => {
                                 <input
                                     type="text"
                                     placeholder="ex: Kiloutou"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={formData.supplier}
                                     onChange={e => setFormData({ ...formData, supplier: e.target.value })}
                                 />
@@ -295,7 +295,7 @@ const Rentals = () => {
                                     <input
                                         type="date"
                                         required
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={formData.start_date}
                                         onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                                     />
@@ -304,7 +304,7 @@ const Rentals = () => {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fin prévue</label>
                                     <input
                                         type="date"
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={formData.end_date}
                                         onChange={e => setFormData({ ...formData, end_date: e.target.value })}
                                     />
@@ -315,7 +315,7 @@ const Rentals = () => {
                                 <input
                                     type="number"
                                     step="0.01"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={formData.cost}
                                     onChange={e => setFormData({ ...formData, cost: e.target.value })}
                                 />

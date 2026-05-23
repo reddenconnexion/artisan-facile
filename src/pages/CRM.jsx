@@ -265,7 +265,7 @@ const WorksitePilot = () => {
                         <input
                             type="text"
                             placeholder="Rechercher chantier..."
-                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />

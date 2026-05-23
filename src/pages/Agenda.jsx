@@ -522,7 +522,7 @@ const Agenda = () => {
                                 <input
                                     type="text"
                                     required
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newEvent.title}
                                     onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
                                     placeholder="Ex: Chantier M. Dupont"
@@ -533,7 +533,7 @@ const Agenda = () => {
                                 <input
                                     type="date"
                                     required
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newEvent.date}
                                     onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
                                 />
@@ -543,7 +543,7 @@ const Agenda = () => {
                                 <input
                                     type="time"
                                     required
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newEvent.time}
                                     onChange={e => setNewEvent({ ...newEvent, time: e.target.value })}
                                 />
@@ -552,7 +552,7 @@ const Agenda = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client (Optionnel)</label>
                                 <input
                                     type="text"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newEvent.client_name}
                                     onChange={e => setNewEvent({ ...newEvent, client_name: e.target.value })}
                                     onBlur={async () => {
@@ -576,7 +576,7 @@ const Agenda = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lieu (Optionnel)</label>
                                 <input
                                     type="text"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     value={newEvent.address}
                                     onChange={e => setNewEvent({ ...newEvent, address: e.target.value })}
                                 />
@@ -584,7 +584,7 @@ const Agenda = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Détails (Optionnel)</label>
                                 <textarea
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     rows="3"
                                     value={newEvent.details}
                                     onChange={e => setNewEvent({ ...newEvent, details: e.target.value })}
@@ -595,7 +595,7 @@ const Agenda = () => {
                                 <button
                                     type="button"
                                     onClick={() => { setShowModal(false); setEditingEvent(null); }}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
                                 >
                                     Annuler
                                 </button>

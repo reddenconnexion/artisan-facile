@@ -243,7 +243,7 @@ const Clients = () => {
                         <div className="flex gap-2 shrink-0">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                                className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
                             >
                                 Annuler
                             </button>
@@ -457,7 +457,7 @@ const Clients = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={loadMore}
-                            className="px-4 py-2 text-sm font-medium bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="px-4 py-2 text-sm font-medium bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:border-gray-700"
                         >
                             Voir {Math.min(100, hiddenCount)} de plus
                         </button>

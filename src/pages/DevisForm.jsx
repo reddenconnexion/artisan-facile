@@ -2574,7 +2574,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="relative">
                         <button
                             onClick={() => setShowActionsMenu(!showActionsMenu)}
-                            className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                             title="Plus d'actions"
                         >
                             <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -2872,7 +2872,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <input
                                     type="number"
                                     step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     value={formData.manual_total_ht}
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ht: parseFloat(e.target.value) || 0 }))}
                                 />
@@ -2887,7 +2887,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <input
                                     type="number"
                                     step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     value={formData.manual_total_tva}
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_tva: parseFloat(e.target.value) || 0 }))}
                                 />
@@ -2948,7 +2948,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre / Objet du devis</label>
                             <input
                                 type="text"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                 placeholder="Ex: Rénovation Salle de Bain"
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -2963,7 +2963,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'émission</label>
                             <input
                                 type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                 disabled={isLocked}
@@ -2974,7 +2974,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validité jusqu'au</label>
                                 <input
                                     type="date"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     value={formData.valid_until}
                                     onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
                                     disabled={isLocked}
@@ -3084,7 +3084,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mode de règlement</label>
                                 <select
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     value={formData.payment_method}
                                     onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                                 >
@@ -3102,7 +3102,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'encaissement</label>
                                 <input
                                     type="date"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     value={formData.paid_at}
                                     onChange={(e) => setFormData({ ...formData, paid_at: e.target.value })}
                                 />
@@ -3127,7 +3127,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <input
                                             type="checkbox"
                                             id="vat_on_debits"
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50 dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                             checked={formData.vat_on_debits}
                                             onChange={(e) => setFormData({ ...formData, vat_on_debits: e.target.checked })}
                                             disabled={isLocked}
@@ -3141,7 +3141,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             <input
                                                 type="checkbox"
                                                 id="require_otp"
-                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50 dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                                 checked={formData.require_otp}
                                                 onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
                                                 disabled={isLocked}
@@ -3174,7 +3174,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 id="diffAddress"
                                 checked={diffAddress}
                                 onChange={(e) => setDiffAddress(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                 disabled={isLocked}
                             />
                             <label htmlFor="diffAddress" className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
@@ -3192,7 +3192,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_address}
                                         onChange={(e) => setFormData({ ...formData, intervention_address: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
                                         placeholder="12 rue des Fleurs"
                                         disabled={isLocked}
                                     />
@@ -3205,7 +3205,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_postal_code}
                                         onChange={(e) => setFormData({ ...formData, intervention_postal_code: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
                                         placeholder="75001"
                                         disabled={isLocked}
                                     />
@@ -3218,7 +3218,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         type="text"
                                         value={formData.intervention_city}
                                         onChange={(e) => setFormData({ ...formData, intervention_city: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
                                         placeholder="Paris"
                                         disabled={isLocked}
                                     />
@@ -3302,7 +3302,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
-                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-500"
+                                            className="w-full sm:w-32 px-2 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100"
                                             value={item.type || 'service'}
                                             onChange={(e) => updateItem(item.id, 'type', e.target.value)}
                                             disabled={isLocked}
@@ -3314,7 +3314,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             <textarea
                                                 placeholder="Description"
                                                 rows={2}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg pr-8 resize-y text-sm dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100"
                                                 value={item.description}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
@@ -3440,7 +3440,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             type="number"
                                             placeholder="Qté"
                                             step="0.01"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2"
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right pr-2 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                             value={item.quantity}
                                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                                             disabled={isLocked}
@@ -3462,7 +3462,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             type="number"
                                             placeholder="Prix U."
                                             step="0.01"
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right"
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                             value={item.price}
                                             onChange={(e) => updateItem(item.id, 'price', e.target.value)}
                                             disabled={isLocked}
@@ -3631,7 +3631,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <input
                                     type="checkbox"
                                     id="include_tva"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                     checked={formData.include_tva}
                                     onChange={(e) => setFormData({ ...formData, include_tva: e.target.checked })}
                                     disabled={isLocked}
@@ -3649,7 +3649,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <input
                                     type="checkbox"
                                     id="has_material_deposit"
-                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                     checked={formData.has_material_deposit}
                                     onChange={(e) => setFormData({ ...formData, has_material_deposit: e.target.checked })}
                                     disabled={isLocked}
@@ -3727,7 +3727,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                     <textarea
                         rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                         placeholder="Conditions de paiement, validité du devis..."
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
