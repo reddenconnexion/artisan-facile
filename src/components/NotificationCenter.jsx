@@ -72,8 +72,8 @@ const NotificationCenter = () => {
             </button>
 
             {open && (
-                <div className="fixed left-2 right-2 top-16 w-auto md:absolute md:inset-x-auto md:top-auto md:bottom-full md:left-0 md:right-auto md:mb-2 md:w-80 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="fixed left-2 right-2 top-16 w-auto md:absolute md:inset-x-auto md:top-auto md:bottom-full md:left-0 md:right-auto md:mb-2 md:w-80 flex flex-col max-h-[calc(100vh-8rem)] md:max-h-[calc(100vh-15rem)] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden">
+                    <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             Notifications
                             {unreadCount > 0 && (
@@ -100,7 +100,7 @@ const NotificationCenter = () => {
                         </div>
                     </div>
 
-                    <div className="max-h-[70vh] overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
+                    <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
                         {items.length === 0 ? (
                             <div className="px-4 py-8 text-center">
                                 <Bell className="w-8 h-8 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
@@ -143,7 +143,7 @@ const NotificationCenter = () => {
                     </div>
 
                     {items.length > 0 && (
-                        <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex-shrink-0 px-4 py-2 border-t border-gray-100 dark:border-gray-800">
                             <button
                                 onClick={() => { setOpen(false); navigate('/app/audit-log'); }}
                                 className="text-xs text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
