@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, BookOpen, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Truck, Mic } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -25,6 +25,19 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isPinned, setIsPinned] = React.useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('nav_pinned') === '1'
+  );
+  const togglePin = useCallback(() => {
+    setIsPinned(prev => {
+      const next = !prev;
+      localStorage.setItem('nav_pinned', next ? '1' : '0');
+      // Le clic se fait alors que le menu est ouvert : on le garde ouvert.
+      // S'il est désépinglé, le repli se fera au survol sortant.
+      setIsCollapsed(false);
+      return next;
+    });
+  }, []);
   const [showTestPanel, setShowTestPanel] = useState(false);
   const { isTestMode, capturedEmails, enableTestMode } = useTestMode();
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
@@ -182,27 +195,14 @@ const Layout = () => {
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
     ];
 
-    const outilsChildren = [
-      ...(settings.enable_price_library ? [{ name: 'Bibliothèque prix', href: '/app/library', icon: BookOpen }] : []),
-      { name: 'Mémos vocaux', href: '/app/voice-memos', icon: Mic },
-      ...(settings.enable_rentals ? [{ name: 'Locations', href: '/app/rentals', icon: Truck }] : []),
-      { name: 'Outils', href: '/app/outils', icon: Zap },
-      { name: 'Étiquettes tableau', href: '/app/etiquettes-tableau', icon: Zap },
-    ];
-
     // Skill level filtering — 'debutant' | 'intermediaire' | 'confirme'
     const skillLevel = userSettings.skill_level ?? 'debutant';
     const showInter = skillLevel === 'intermediaire' || skillLevel === 'confirme';
     const showConfirme = skillLevel === 'confirme';
 
-    const ressourcesChildren = outilsChildren
-      .filter(c => showConfirme || c.href !== '/app/rentals')
-      .map(c => c.href === '/app/outils' ? { ...c, name: 'Calculatrices' } : c);
-
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
-      { name: 'Messages', href: '/app/portal-messages', icon: MessageSquare, badge: unreadPortalMessages },
       {
         name: 'Devis & Factures',
         icon: FileText,
@@ -222,11 +222,7 @@ const Layout = () => {
               ['/app/agenda', '/app/interventions', '/app/procurement'].includes(c.href)
             ),
       }] : []),
-      ...(showInter ? [{
-        name: 'Ressources',
-        icon: Zap,
-        children: ressourcesChildren,
-      }] : []),
+      ...(showInter ? [{ name: 'Outils', href: '/app/ressources', icon: Zap }] : []),
     ];
   }, [user]);
 
@@ -323,13 +319,13 @@ const Layout = () => {
     }
   }, [location.pathname]);
 
-  // Desktop Hover Logic
+  // Desktop Hover Logic — désactivé quand la sidebar est épinglée
   const handleMouseEnter = () => {
-    if (window.innerWidth >= 768) setIsCollapsed(false);
+    if (!isPinned && window.innerWidth >= 768) setIsCollapsed(false);
   };
 
   const handleMouseLeave = () => {
-    if (window.innerWidth >= 768) setIsCollapsed(true);
+    if (!isPinned && window.innerWidth >= 768) setIsCollapsed(true);
   };
 
   // Close mobile menu on navigation
@@ -337,9 +333,9 @@ const Layout = () => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Initial Collapsed State on Load
+  // Initial Collapsed State on Load — déplié si épinglé
   React.useEffect(() => {
-    setIsCollapsed(true);
+    setIsCollapsed(!isPinned);
   }, []);
 
 
@@ -486,11 +482,26 @@ const Layout = () => {
             } w-64`}
         >
           {/* Desktop Header / Logo */}
-          <div className={`p-6 md:flex items-center hidden ${isCollapsed ? 'justify-center' : 'justify-start'}`}>
+          <div className={`p-6 md:flex items-center hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
             <div className="flex items-center">
               <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-10 h-10 rounded-lg" />
               {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">Artisan Facile</h1>}
             </div>
+            {!isCollapsed && (
+              <button
+                onClick={togglePin}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isPinned
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+                title={isPinned ? 'Détacher le menu (repli auto)' : 'Épingler le menu (toujours ouvert)'}
+                aria-label={isPinned ? 'Détacher le menu' : 'Épingler le menu'}
+                aria-pressed={isPinned}
+              >
+                {isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+              </button>
+            )}
           </div>
 
           {/* Mobile Sidebar Header */}
@@ -629,8 +640,25 @@ const Layout = () => {
           </nav>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-            {/* Rangée compacte : Notifications + Thème */}
+            {/* Rangée compacte : Messages + Notifications + Thème */}
             <div className={`flex items-center gap-1 ${isCollapsed && !isMobileMenuOpen ? 'flex-col justify-center' : 'justify-start px-1'}`}>
+              <button
+                onClick={() => navigate('/app/portal-messages')}
+                className={`relative p-2 rounded-lg transition-colors ${
+                  location.pathname.startsWith('/app/portal-messages')
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+                title="Messages clients"
+                aria-label="Messages clients"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadPortalMessages > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
+                    {unreadPortalMessages > 9 ? '9+' : unreadPortalMessages}
+                  </span>
+                )}
+              </button>
               <NotificationCenter />
               <button
                 onClick={() => setIsDarkMode(prev => !prev)}
@@ -714,6 +742,19 @@ const Layout = () => {
                 <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
               </div>
               <div className="flex-1 flex justify-end items-center gap-1">
+                <button
+                  onClick={() => navigate('/app/portal-messages')}
+                  className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Messages clients"
+                  aria-label="Messages clients"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  {unreadPortalMessages > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
+                      {unreadPortalMessages > 9 ? '9+' : unreadPortalMessages}
+                    </span>
+                  )}
+                </button>
                 <NotificationCenter />
                 <button
                   onClick={() => setShowSearch(true)}

@@ -198,6 +198,7 @@ const ReceivedInvoices = lazyWithRetry(() => import('./pages/ReceivedInvoices'))
 const VoiceMemos = lazyWithRetry(() => import('./pages/VoiceMemos'));
 const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
+const Ressources = lazyWithRetry(() => import('./pages/Ressources'));
 const EtiquettesTableau = lazyWithRetry(() => import('./pages/EtiquettesTableau'));
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
@@ -276,6 +277,7 @@ function App() {
                 <Route path="voice-memos" element={<VoiceMemos />} />
                 <Route path="subscription" element={<Subscription />} />
                 <Route path="outils" element={<Outils />} />
+                <Route path="ressources" element={<Ressources />} />
                 <Route path="etiquettes-tableau" element={<EtiquettesTableau />} />
                 <Route path="guide" element={<GuidePage />} />
                 <Route path="portal-messages" element={<PortalMessages />} />
