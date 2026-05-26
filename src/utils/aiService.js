@@ -462,6 +462,117 @@ FORMAT JSON ATTENDU :
 
 
 /**
+ * Génère une réponse à un avis client, optimisée pour le référencement local (SEO local).
+ *
+ * Bonnes pratiques SEO local intégrées au prompt : citer une fois le nom de
+ * l'entreprise, la ville/zone d'intervention et le métier de façon NATURELLE
+ * (pas de bourrage de mots-clés), personnaliser selon le contenu de l'avis,
+ * rester humain et concis. Les avis négatifs sont traités avec empathie, sans
+ * mots-clés marketing, en invitant à poursuivre hors ligne.
+ *
+ * @param {object} params
+ * @param {string} params.reviewText - Le texte de l'avis laissé par le client.
+ * @param {number} [params.rating=5] - La note (1 à 5 étoiles).
+ * @param {string} [params.customerName] - Prénom/nom du client (optionnel).
+ * @param {string} [params.tone='chaleureux'] - 'chaleureux' | 'professionnel' | 'concis'.
+ * @param {object} [params.business] - Contexte entreprise { companyName, city, area, trade, signature }.
+ * @returns {Promise<{reply: string}>}
+ */
+export const generateReviewReply = async ({
+    reviewText,
+    rating = 5,
+    customerName = '',
+    tone = 'chaleureux',
+    business = {},
+} = {}) => {
+    if (!reviewText || !reviewText.trim()) {
+        throw new Error("Collez d'abord l'avis du client à traiter.");
+    }
+
+    const companyName = (business.companyName || '').trim();
+    const city = (business.city || '').trim();
+    const area = (business.area || '').trim(); // ex. code postal ou zone d'intervention
+    const trade = (business.trade || '').trim();
+    const signature = (business.signature || '').trim();
+
+    const safeRating = Math.max(1, Math.min(5, Number(rating) || 5));
+    const isNegative = safeRating <= 2;
+    const isNeutral = safeRating === 3;
+
+    const toneGuides = {
+        chaleureux: 'Ton chaleureux et humain, comme un artisan reconnaissant qui parle à un voisin.',
+        professionnel: 'Ton professionnel et posé, courtois et soigné.',
+        concis: 'Ton direct et concis, sans formules creuses.',
+    };
+    const toneGuide = toneGuides[tone] || toneGuides.chaleureux;
+
+    const localContextLines = [
+        companyName && `- Nom de l'entreprise : ${companyName}`,
+        trade && `- Métier / spécialité : ${trade}`,
+        city && `- Ville principale : ${city}`,
+        area && `- Zone d'intervention / code postal : ${area}`,
+        signature && `- Signature à utiliser : ${signature}`,
+    ].filter(Boolean).join('\n');
+
+    const seoRules = isNegative
+        ? `RÈGLES POUR UN AVIS NÉGATIF (note ${safeRating}/5) :
+- Reste calme, empathique et professionnel — jamais sur la défensive.
+- Remercie le client d'avoir pris le temps de partager son retour.
+- Reconnais son ressenti et présente des excuses sincères si c'est justifié.
+- Propose de poursuivre l'échange hors ligne (téléphone ou email) pour trouver une solution.
+- N'insère AUCUN mot-clé marketing ni argument commercial : un avis négatif ne se "SEO-optimise" pas, il se gère humainement.
+- ${companyName ? `Tu peux signer avec le nom de l'entreprise (${companyName}).` : 'Signe simplement.'}`
+        : `RÈGLES SEO LOCAL POUR UN AVIS ${isNeutral ? 'NEUTRE' : 'POSITIF'} (note ${safeRating}/5) :
+- Remercie sincèrement le client${customerName ? ` (${customerName})` : ''} et rebondis sur un détail PRÉCIS qu'il a mentionné dans son avis.
+- Intègre NATURELLEMENT, une seule fois chacun et seulement s'ils sont fournis : le nom de l'entreprise, le métier${city ? ', la ville' : ''}. Ces éléments aident le référencement local Google.
+- INTERDIT : le bourrage de mots-clés, les listes de villes, les phrases artificielles. La réponse doit sonner 100 % humaine et authentique.
+- ${isNeutral ? "Montre ta volonté de t'améliorer et invite le client à te recontacter." : 'Invite chaleureusement le client à refaire appel à toi ou à te recommander.'}`;
+
+    const systemPrompt = `Tu es l'artisan propriétaire de l'entreprise et tu rédiges TA réponse publique à un avis client (avis Google / fiche établissement). Tu réponds à la première personne ("je", "nous").
+
+CONTEXTE ENTREPRISE :
+${localContextLines || '- (aucune information fournie, reste générique mais authentique)'}
+
+${seoRules}
+
+RÈGLES GÉNÉRALES DE STYLE :
+- Réponds en français.
+- ${toneGuide}
+- Longueur : 2 à 4 phrases maximum (les réponses aux avis sont courtes).
+- ${customerName ? `Commence en t'adressant au client par son prénom (${customerName}).` : "Si tu ne connais pas le prénom, commence par 'Bonjour,' ou 'Merci' sans inventer de nom."}
+- Pas d'emojis. Pas de markdown. Texte brut uniquement.
+- Ne mets pas de mentions entre crochets ni de champs à remplir : la réponse doit être directement publiable.
+- N'invente aucun fait (pas de nom de chantier, de date ou de montant non mentionnés dans l'avis).
+
+FORMAT DE RÉPONSE (JSON pur, sans markdown, sans texte avant/après) :
+{"reply": "Ta réponse publiable ici"}`;
+
+    const userMessage = `AVIS DU CLIENT (note ${safeRating}/5)${customerName ? ` — Client : ${customerName}` : ''} :
+"""
+${reviewText.trim()}
+"""
+
+Rédige la réponse publique optimisée.`;
+
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage });
+
+    let parsed;
+    try {
+        parsed = extractJsonObject(rawResponse);
+    } catch {
+        // Repli : si le modèle a renvoyé du texte brut sans JSON, on l'utilise tel quel.
+        const cleaned = String(rawResponse || '').trim();
+        if (cleaned) return { reply: cleaned };
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+
+    const reply = typeof parsed.reply === 'string' ? parsed.reply.trim() : '';
+    if (!reply) throw new Error("L'IA n'a pas généré de réponse. Veuillez réessayer.");
+    return { reply };
+};
+
+
+/**
  * ─── Assistant conversationnel "Copilot Artisan" ──────────────────────────
  *
  * Aplatit l'historique de conversation en un seul `userMessage` pour passer
