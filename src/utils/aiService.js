@@ -476,7 +476,8 @@ FORMAT JSON ATTENDU :
  * @param {string} [params.customerName] - Prénom/nom du client (optionnel).
  * @param {string} [params.tone='chaleureux'] - 'chaleureux' | 'professionnel' | 'concis'.
  * @param {object} [params.business] - Contexte entreprise { companyName, city, area, trade, signature }.
- * @returns {Promise<{reply: string}>}
+ * @param {number} [params.count=3] - Nombre de variantes distinctes à générer (1 à 4).
+ * @returns {Promise<{replies: string[]}>}
  */
 export const generateReviewReply = async ({
     reviewText,
@@ -484,10 +485,13 @@ export const generateReviewReply = async ({
     customerName = '',
     tone = 'chaleureux',
     business = {},
+    count = 3,
 } = {}) => {
     if (!reviewText || !reviewText.trim()) {
         throw new Error("Collez d'abord l'avis du client à traiter.");
     }
+
+    const variantCount = Math.max(1, Math.min(4, Number(count) || 3));
 
     const companyName = (business.companyName || '').trim();
     const city = (business.city || '').trim();
@@ -570,9 +574,23 @@ export const generateReviewReply = async ({
         'Tu peux aller jusqu\'à 4 phrases si l\'avis est détaillé.',
     ];
 
-    const varietyRules = `CONSIGNES DE VARIÉTÉ (impératif, pour éviter les réponses qui se ressemblent) :
-- ${pick(openings)}
-- ${pick(angles)}
+    // On mélange les listes pour suggérer un point de départ différent à chaque
+    // variante (et on re-tire à chaque appel, donc « Régénérer » varie aussi).
+    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+    const shuffledOpenings = shuffle(openings);
+    const shuffledAngles = shuffle(angles);
+
+    const varietyRules = variantCount > 1
+        ? `CONSIGNES DE VARIÉTÉ (impératif — les ${variantCount} variantes doivent être CLAIREMENT différentes entre elles) :
+- Chaque variante utilise une ouverture, une structure et une longueur DIFFÉRENTES des autres.
+- Pistes d'ouverture à répartir entre les variantes : ${shuffledOpenings.slice(0, variantCount).join(' / ')}
+- Pistes d'angle à répartir : ${shuffledAngles.slice(0, variantCount).join(' / ')}
+- Fais varier la longueur d'une variante à l'autre (de 2 à 4 phrases).
+- Ne réutilise pas les mêmes tournures ni le même vocabulaire d'une variante à l'autre.
+- BANNIS ces formules toutes faites et clichés : « Merci beaucoup pour votre avis », « N'hésitez pas à refaire appel à nous », « Au plaisir de vous revoir », « Toute l'équipe vous remercie », « Cela nous va droit au cœur », « Votre satisfaction est notre priorité ».`
+        : `CONSIGNES DE VARIÉTÉ (impératif, pour éviter les réponses qui se ressemblent) :
+- ${shuffledOpenings[0]}
+- ${shuffledAngles[0]}
 - ${pick(lengths)}
 - Varie la structure et le vocabulaire : ne réutilise pas systématiquement les mêmes tournures.
 - BANNIS ces formules toutes faites et clichés : « Merci beaucoup pour votre avis », « N'hésitez pas à refaire appel à nous », « Au plaisir de vous revoir », « Toute l'équipe vous remercie », « Cela nous va droit au cœur », « Votre satisfaction est notre priorité ».`;
@@ -589,37 +607,54 @@ ${varietyRules}
 RÈGLES GÉNÉRALES DE STYLE :
 - Réponds en français.
 - ${toneGuide}
-- Longueur : 2 à 4 phrases maximum (les réponses aux avis sont courtes).
+- Longueur : 2 à 4 phrases maximum par réponse (les réponses aux avis sont courtes).
 - ${customerName ? `Adresse-toi au client par son prénom (${customerName}) au fil de la réponse.` : "Si tu ne connais pas le prénom, n'en invente aucun."}
 - Pas d'emojis. Pas de markdown. Texte brut uniquement.
-- Ne mets pas de mentions entre crochets ni de champs à remplir : la réponse doit être directement publiable.
+- Ne mets pas de mentions entre crochets ni de champs à remplir : chaque réponse doit être directement publiable.
 - N'invente aucun fait (pas de nom de chantier, de date ou de montant non mentionnés dans l'avis).
 
 FORMAT DE RÉPONSE (JSON pur, sans markdown, sans texte avant/après) :
-{"reply": "Ta réponse publiable ici"}`;
+{"replies": [${Array.from({ length: variantCount }, () => '"Une réponse publiable"').join(', ')}]}`;
 
     const userMessage = `AVIS DU CLIENT (note ${safeRating}/5)${customerName ? ` — Client : ${customerName}` : ''} :
 """
 ${reviewText.trim()}
 """
 
-Rédige la réponse publique optimisée.`;
+Rédige ${variantCount > 1 ? `${variantCount} variantes distinctes` : 'la réponse'} publique(s) optimisée(s).`;
 
     const rawResponse = await callAiProxy({ systemPrompt, userMessage });
 
-    let parsed;
+    // Normalise différentes formes possibles renvoyées par le modèle en un
+    // tableau de chaînes non vides.
+    const toReplies = (value) => {
+        if (Array.isArray(value)) {
+            return value
+                .map((v) => (typeof v === 'string' ? v : v?.reply))
+                .filter((v) => typeof v === 'string' && v.trim())
+                .map((v) => v.trim());
+        }
+        return [];
+    };
+
+    let replies = [];
     try {
-        parsed = extractJsonObject(rawResponse);
+        const parsed = extractJsonObject(rawResponse);
+        replies = toReplies(parsed.replies);
+        // Repli si le modèle a renvoyé l'ancien format { reply: "..." }.
+        if (replies.length === 0 && typeof parsed.reply === 'string' && parsed.reply.trim()) {
+            replies = [parsed.reply.trim()];
+        }
     } catch {
-        // Repli : si le modèle a renvoyé du texte brut sans JSON, on l'utilise tel quel.
+        // Repli : texte brut sans JSON exploitable.
         const cleaned = String(rawResponse || '').trim();
-        if (cleaned) return { reply: cleaned };
-        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+        if (cleaned) replies = [cleaned];
     }
 
-    const reply = typeof parsed.reply === 'string' ? parsed.reply.trim() : '';
-    if (!reply) throw new Error("L'IA n'a pas généré de réponse. Veuillez réessayer.");
-    return { reply };
+    if (replies.length === 0) {
+        throw new Error("L'IA n'a pas généré de réponse. Veuillez réessayer.");
+    }
+    return { replies };
 };
 
 

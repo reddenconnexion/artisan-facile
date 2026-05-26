@@ -12,12 +12,14 @@ const TONES = [
     { id: 'concis', label: 'Concis' },
 ];
 
+const VARIANT_COUNTS = [2, 3];
+
 /**
  * Outil de réponse aux avis clients optimisé pour le référencement local.
- * L'artisan colle l'avis reçu, choisit la note et le ton ; l'IA génère une
- * réponse publiable qui intègre naturellement nom d'entreprise, métier et ville
- * (signaux SEO local) — sans bourrage de mots-clés et avec gestion adaptée des
- * avis négatifs.
+ * L'artisan colle l'avis reçu, choisit la note, le ton et le nombre de
+ * variantes ; l'IA génère plusieurs réponses publiables (affichées côte à côte)
+ * qui intègrent naturellement nom d'entreprise, métier et ville (signaux SEO
+ * local) — sans bourrage de mots-clés et avec gestion adaptée des avis négatifs.
  */
 const ReviewReplyGenerator = () => {
     const { user } = useAuth();
@@ -27,10 +29,11 @@ const ReviewReplyGenerator = () => {
     const [rating, setRating] = useState(5);
     const [customerName, setCustomerName] = useState('');
     const [tone, setTone] = useState('chaleureux');
+    const [count, setCount] = useState(3);
 
     const [loading, setLoading] = useState(false);
-    const [reply, setReply] = useState('');
-    const [copied, setCopied] = useState(false);
+    const [replies, setReplies] = useState([]);
+    const [copiedIndex, setCopiedIndex] = useState(null);
 
     // Charge le contexte entreprise utilisé pour le SEO local.
     useEffect(() => {
@@ -53,24 +56,23 @@ const ReviewReplyGenerator = () => {
             });
     }, [user]);
 
-    const buildBusinessContext = () => business || {};
-
     const handleGenerate = async () => {
         if (!reviewText.trim()) {
             toast.error("Collez d'abord l'avis du client.");
             return;
         }
         setLoading(true);
-        setCopied(false);
+        setCopiedIndex(null);
         try {
-            const { reply: generated } = await generateReviewReply({
+            const { replies: generated } = await generateReviewReply({
                 reviewText,
                 rating,
                 customerName: customerName.trim(),
                 tone,
-                business: buildBusinessContext(),
+                business: business || {},
+                count,
             });
-            setReply(generated);
+            setReplies(generated);
         } catch (error) {
             console.error('Review reply error:', error);
             toast.error(error.message || 'Erreur lors de la génération.');
@@ -79,19 +81,19 @@ const ReviewReplyGenerator = () => {
         }
     };
 
-    const handleCopy = async () => {
-        if (!reply) return;
+    const handleCopy = async (text, index) => {
         try {
-            await navigator.clipboard.writeText(reply);
-            setCopied(true);
+            await navigator.clipboard.writeText(text);
+            setCopiedIndex(index);
             toast.success('Réponse copiée !');
-            setTimeout(() => setCopied(false), 2000);
+            setTimeout(() => setCopiedIndex((c) => (c === index ? null : c)), 2000);
         } catch {
             toast.error('Copie impossible sur cet appareil.');
         }
     };
 
     const isNegative = rating <= 2;
+    const hasResults = replies.length > 0;
 
     return (
         <div className="space-y-4">
@@ -102,9 +104,9 @@ const ReviewReplyGenerator = () => {
                     Réponse aux avis (SEO local)
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Collez l'avis reçu : l'IA rédige une réponse publiable qui intègre naturellement
-                    votre métier{business?.city ? `, votre ville` : ''} et le nom de votre entreprise
-                    pour booster votre référencement local Google.
+                    Collez l'avis reçu : l'IA propose plusieurs réponses publiables qui intègrent
+                    naturellement votre métier{business?.city ? `, votre ville` : ''} et le nom de votre
+                    entreprise pour booster votre référencement local Google.
                 </p>
                 {business && !business.city && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
@@ -114,9 +116,9 @@ const ReviewReplyGenerator = () => {
                 )}
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-4">
-                {/* Colonne saisie */}
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+            {/* Saisie */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
                     {/* Note */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -143,12 +145,6 @@ const ReviewReplyGenerator = () => {
                             ))}
                             <span className="ml-2 text-sm text-gray-500">{rating}/5</span>
                         </div>
-                        {isNegative && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-                                Avis négatif : la réponse restera empathique et professionnelle,
-                                sans mots-clés marketing, et invitera à poursuivre hors ligne.
-                            </p>
-                        )}
                     </div>
 
                     {/* Prénom client */}
@@ -164,21 +160,30 @@ const ReviewReplyGenerator = () => {
                             className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </div>
+                </div>
 
-                    {/* Avis */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            Avis du client
-                        </label>
-                        <textarea
-                            value={reviewText}
-                            onChange={(e) => setReviewText(e.target.value)}
-                            rows={6}
-                            placeholder="Collez ici l'avis laissé par le client..."
-                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
-                        />
-                    </div>
+                {isNegative && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                        Avis négatif : les réponses resteront empathiques et professionnelles,
+                        sans mots-clés marketing, et inviteront à poursuivre hors ligne.
+                    </p>
+                )}
 
+                {/* Avis */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Avis du client
+                    </label>
+                    <textarea
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        rows={5}
+                        placeholder="Collez ici l'avis laissé par le client..."
+                        className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+                    />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
                     {/* Ton */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -202,69 +207,110 @@ const ReviewReplyGenerator = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleGenerate}
-                        disabled={loading || !reviewText.trim()}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Génération...
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-4 h-4" />
-                                Générer la réponse
-                            </>
-                        )}
-                    </button>
+                    {/* Nombre de variantes */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Nombre de variantes
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            {VARIANT_COUNTS.map((c) => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => setCount(c)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                        count === c
+                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
+                                >
+                                    {c} propositions
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Colonne résultat */}
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
+                <button
+                    onClick={handleGenerate}
+                    disabled={loading || !reviewText.trim()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    {loading ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Génération...
+                        </>
+                    ) : (
+                        <>
+                            <Sparkles className="w-4 h-4" />
+                            {hasResults ? 'Générer de nouvelles propositions' : 'Générer les propositions'}
+                        </>
+                    )}
+                </button>
+            </div>
+
+            {/* Résultats */}
+            {(hasResults || loading) && (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            Réponse générée
+                            {hasResults
+                                ? `${replies.length} proposition${replies.length > 1 ? 's' : ''} — choisissez celle qui vous ressemble`
+                                : 'Rédaction en cours...'}
                         </h3>
-                        {reply && (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={handleGenerate}
-                                    disabled={loading}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
-                                    title="Régénérer une autre version"
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                                    Régénérer
-                                </button>
-                                <button
-                                    onClick={handleCopy}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                >
-                                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                    {copied ? 'Copié' : 'Copier'}
-                                </button>
-                            </div>
+                        {hasResults && (
+                            <button
+                                onClick={handleGenerate}
+                                disabled={loading}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+                                title="Régénérer d'autres propositions"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                                Régénérer
+                            </button>
                         )}
                     </div>
 
-                    {reply ? (
-                        <div className="flex-1 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-4">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                                {reply}
-                            </p>
+                    {loading && !hasResults ? (
+                        <div className="flex items-center justify-center py-12 text-gray-400">
+                            <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center py-10 text-gray-400">
-                            <MessageSquareQuote className="w-10 h-10 mb-2 opacity-40" />
-                            <p className="text-sm">
-                                {loading ? 'Rédaction en cours...' : 'La réponse apparaîtra ici.'}
-                            </p>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            {replies.map((reply, index) => {
+                                const copied = copiedIndex === index;
+                                return (
+                                    <div
+                                        key={index}
+                                        className="flex flex-col bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+                                    >
+                                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Variante {index + 1}
+                                            </span>
+                                            <button
+                                                onClick={() => handleCopy(reply, index)}
+                                                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                                                    copied
+                                                        ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                                                        : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                                }`}
+                                            >
+                                                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                                {copied ? 'Copié' : 'Copier'}
+                                            </button>
+                                        </div>
+                                        <p className="flex-1 p-4 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                                            {reply}
+                                        </p>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
-            </div>
+            )}
         </div>
     );
 };
