@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyVisit, rankIds, HALF_LIFE_MS } from './frecency';
+import { applyVisit, rankIds, scoreMap, HALF_LIFE_MS } from './frecency';
 
 const DAY = 1000 * 60 * 60 * 24;
 
@@ -51,5 +51,26 @@ describe('rankIds', () => {
 
     it('renvoie un tableau vide sans données', () => {
         expect(rankIds({}, 0)).toEqual([]);
+    });
+});
+
+describe('scoreMap', () => {
+    it('renvoie un objet vide sans données', () => {
+        expect(scoreMap({}, 0)).toEqual({});
+    });
+
+    it('applique la décroissance à la demi-vie', () => {
+        const stats = applyVisit({}, 'devis', 0); // score 1 à t=0
+        const map = scoreMap(stats, HALF_LIFE_MS);
+        expect(map.devis).toBeCloseTo(0.5, 5);
+    });
+
+    it('calcule chaque id indépendamment', () => {
+        let stats = applyVisit({}, 'a', 0);
+        stats = applyVisit(stats, 'b', 0);
+        stats = applyVisit(stats, 'a', 0); // a => 2, b => 1
+        const map = scoreMap(stats, 0);
+        expect(map.a).toBe(2);
+        expect(map.b).toBe(1);
     });
 });

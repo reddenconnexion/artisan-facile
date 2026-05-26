@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
     matchShortcut, getShortcutById, DEFAULT_SHORTCUT_IDS,
 } from '../constants/shortcuts';
-import { applyVisit, rankIds } from '../utils/frecency';
+import { applyVisit, rankIds, scoreMap } from '../utils/frecency';
 
 /**
  * Suivi d'usage adaptatif. La logique de score (« frecency ») vit dans
@@ -25,6 +25,15 @@ function readScores(userId) {
     } catch {
         return {};
     }
+}
+
+/**
+ * Lecture NON réactive des scores d'usage décroissants { id: score } pour un
+ * utilisateur. Utilisée par l'ordre adaptatif figé (useAdaptiveOrder), qui ne
+ * doit pas se rafraîchir en direct — d'où l'absence d'abonnement au store.
+ */
+export function getUsageScores(userId, now = Date.now()) {
+    return scoreMap(readScores(userId), now);
 }
 
 // --- Abonnement : permet aux consommateurs persistants (barre latérale) de se

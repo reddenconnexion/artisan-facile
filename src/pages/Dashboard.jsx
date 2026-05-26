@@ -46,8 +46,33 @@ import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings } from '../hooks/useDashboardSettings';
+import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
+
+// Ordre par défaut des widgets (à froid / repli). « kpi_strip » est épinglé.
+// « clients_memos » regroupe top_clients + voice_memos (grille 2 colonnes
+// indivisible). L'ordre effectif est ensuite adapté à l'usage, voir plus bas.
+const DASHBOARD_WIDGET_IDS = [
+    'kpi_strip', 'expiring_quotes', 'quick_actions', 'actionable',
+    'financial_health', 'cash_flow_forecast', 'recent_documents',
+    'clients_memos', 'advanced_stats', 'recent_activity',
+];
+
+// Score d'un widget = frecency d'une destination représentative de son domaine.
+// Un widget n'étant pas « visité » comme une route, on infère sa pertinence.
+const WIDGET_SCORE = {
+    expiring_quotes:    (s) => s['devis'] || 0,
+    actionable:         (s) => s['devis'] || 0,
+    recent_documents:   (s) => s['devis'] || 0,
+    financial_health:   (s) => s['accounting'] || 0,
+    cash_flow_forecast: (s) => s['accounting'] || 0,
+    advanced_stats:     (s) => s['accounting'] || 0,
+    clients_memos:      (s) => Math.max(s['clients'] || 0, s['voice-memos'] || 0),
+    quick_actions:      (s) => (s['devis-new'] || 0) + (s['client-new'] || 0) + (s['intervention-new'] || 0),
+    recent_activity:    () => 0,
+};
+const widgetScoreFn = (id, scores) => (WIDGET_SCORE[id] ? WIDGET_SCORE[id](scores) : 0);
 
 // --- Recent Voice Memos Widget ---
 const MEMO_STATUS_ICON = {
@@ -668,6 +693,10 @@ const Dashboard = () => {
     const { isVisible } = useDashboardSettings();
     const { isTestMode, testClient } = useTestMode();
 
+    // Ordre des widgets adapté à l'usage, figé pendant la session (recalcul
+    // périodique). « kpi_strip » reste en tête.
+    const orderedWidgetIds = useAdaptiveOrder('dashboard', DASHBOARD_WIDGET_IDS, widgetScoreFn, { pinnedIds: ['kpi_strip'] });
+
     const toggleStats = () => {
         setStatsExpanded(prev => {
             const next = !prev;
@@ -725,144 +754,79 @@ const Dashboard = () => {
         );
     }
 
-    return (
-        <div className="space-y-6 relative">
-            {detailsView && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailsView(null)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                            <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                                Détails : {detailsView.period === 'week' ? `Semaine ${getWeek(detailsView.date || new Date(), { weekStartsOn: 1 })}` : format(detailsView.date || new Date(), 'MMMM yyyy', { locale: fr })}
-                            </h3>
-                            <button onClick={() => setDetailsView(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Plus className="w-5 h-5 rotate-45 text-gray-500" /></button>
-                        </div>
-                        <div className="overflow-y-auto p-4 space-y-3">
-                            {detailsView.items && detailsView.items.length > 0 ? (
-                                detailsView.items.map(quote => (
-                                    <div key={quote.id + Math.random()} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
-                                        <div>
-                                            <div className="font-medium text-gray-900 dark:text-white">{quote.clients?.name || `Devis #${quote.id}`}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                {new Date(quote.date || quote.created_at).toLocaleDateString()} -
-                                                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${quote.status === 'paid' ? 'bg-green-100 text-green-700' : quote.status === 'billed' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                    {quote.status === 'paid' ? 'Payé' : quote.status === 'billed' ? 'Facturé' : 'Signé'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="font-bold text-gray-900 dark:text-white">{quote.total_ttc?.toFixed(2)} €</div>
+    // Chaque widget garde sa propre logique d'affichage (gardes isVisible/niveau)
+    // et renvoie null s'il ne doit pas s'afficher. L'ordre est piloté par
+    // orderedWidgetIds ; le rendu en Fragment préserve l'espacement space-y-6.
+    const widgetRenderers = {
+        kpi_strip: () => isVisible('kpi_strip')
+            ? <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
+            : null,
+        expiring_quotes: () => isVisible('expiring_quotes')
+            ? <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
+            : null,
+        quick_actions: () => isVisible('quick_actions') ? <QuickActions /> : null,
+        actionable: () => isVisible('actionable') ? <ActionableDashboard user={user} /> : null,
+        financial_health: () => isVisible('financial_health') ? <FinancialHealthCard quotes={allQuotes} /> : null,
+        cash_flow_forecast: () => isVisible('cash_flow_forecast') ? <CashFlowForecast allQuotes={allQuotes} navigate={navigate} /> : null,
+        recent_documents: () => {
+            if (!isVisible('recent_documents') || allQuotes.length === 0) return null;
+            const STATUS_LABEL = { draft: 'Brouillon', sent: 'Envoyé', accepted: 'Signé', billed: 'Facturé', paid: 'Payé' };
+            const STATUS_COLOR = {
+                draft:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                sent:     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                billed:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                paid:     'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+            };
+            const recent = [...allQuotes]
+                .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+                .slice(0, 5);
+            return (
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                            <FileText size={15} className="text-blue-500" />
+                            Derniers documents
+                        </h3>
+                        <button
+                            onClick={() => navigate('/app/devis')}
+                            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                        >
+                            Voir tout <ChevronRightIcon size={12} />
+                        </button>
+                    </div>
+                    <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                        {recent.map(q => (
+                            <button
+                                key={q.id}
+                                onClick={() => navigate(`/app/devis/${q.id}`)}
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                        {q.clients?.name || q.title || `Devis #${q.id}`}
                                     </div>
-                                ))
-                            ) : <p className="text-center text-gray-500 dark:text-gray-400 py-4">Aucun élément.</p>}
-                        </div>
-                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right font-bold text-lg text-gray-900 dark:text-white">
-                            Total: {detailsView.items?.reduce((sum, item) => sum + (item.total_ttc || 0), 0).toFixed(2)} €
-                        </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                        {q.title && q.clients?.name ? q.title : q.quote_number || ''}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[q.status] || STATUS_COLOR.draft}`}>
+                                        {STATUS_LABEL[q.status] || q.status}
+                                    </span>
+                                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                        {(q.total_ttc || 0).toFixed(0)} €
+                                    </span>
+                                </div>
+                            </button>
+                        ))}
                     </div>
                 </div>
-            )}
-
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <LayoutDashboard className="w-8 h-8 text-blue-600" />
-                    Tableau de bord
-                </h2>
-                <button
-                    type="button"
-                    onClick={() => setCustomizeOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    title="Personnaliser le tableau de bord"
-                >
-                    <Settings2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Personnaliser</span>
-                </button>
-            </div>
-
-            <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
-
-            <WelcomeCard />
-
-            {/* Checklist d'onboarding — affichée tant que les étapes essentielles
-                ne sont pas validées (ou jusqu'à dismiss explicite) */}
-            <OnboardingChecklist />
-
-            {/* KPI Strip — 3 métriques essentielles d'un coup d'oeil */}
-            {isVisible('kpi_strip') && (
-                <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
-            )}
-
-            {/* Alerte actionnable — visible uniquement quand des devis expirent */}
-            {isVisible('expiring_quotes') && (
-                <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
-            )}
-
-            {isVisible('quick_actions') && <QuickActions />}
-
-            {isVisible('actionable') && <ActionableDashboard user={user} />}
-
-            {/* Score de santé financière — visible dès qu'il y a des données pertinentes */}
-            {isVisible('financial_health') && <FinancialHealthCard quotes={allQuotes} />}
-
-            {/* Trésorerie prévisionnelle à 90 jours */}
-            {isVisible('cash_flow_forecast') && <CashFlowForecast allQuotes={allQuotes} navigate={navigate} />}
-
-            {/* Derniers documents — 5 devis/factures les plus récents */}
-            {isVisible('recent_documents') && allQuotes.length > 0 && (() => {
-                const STATUS_LABEL = { draft: 'Brouillon', sent: 'Envoyé', accepted: 'Signé', billed: 'Facturé', paid: 'Payé' };
-                const STATUS_COLOR = {
-                    draft:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-                    sent:     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                    accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                    billed:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-                    paid:     'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-                };
-                const recent = [...allQuotes]
-                    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
-                    .slice(0, 5);
-                return (
-                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                <FileText size={15} className="text-blue-500" />
-                                Derniers documents
-                            </h3>
-                            <button
-                                onClick={() => navigate('/app/devis')}
-                                className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
-                            >
-                                Voir tout <ChevronRightIcon size={12} />
-                            </button>
-                        </div>
-                        <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                            {recent.map(q => (
-                                <button
-                                    key={q.id}
-                                    onClick={() => navigate(`/app/devis/${q.id}`)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                            {q.clients?.name || q.title || `Devis #${q.id}`}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                            {q.title && q.clients?.name ? q.title : q.quote_number || ''}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLOR[q.status] || STATUS_COLOR.draft}`}>
-                                            {STATUS_LABEL[q.status] || q.status}
-                                        </span>
-                                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                                            {(q.total_ttc || 0).toFixed(0)} €
-                                        </span>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {(isVisible('top_clients') || isVisible('voice_memos')) && (
+            );
+        },
+        clients_memos: () => {
+            if (!isVisible('top_clients') && !isVisible('voice_memos')) return null;
+            return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {isVisible('top_clients') && (
                         <TopClientsWidget allQuotes={allQuotes} navigate={navigate} />
@@ -871,10 +835,11 @@ const Dashboard = () => {
                         <RecentVoiceMemos userId={user?.id} navigate={navigate} />
                     )}
                 </div>
-            )}
-
-            {/* Statistiques avancées — pliable, visibles à partir du niveau Intermédiaire */}
-            {isVisible('advanced_stats') && showAdvancedStats && !hasNoQuotes && (
+            );
+        },
+        advanced_stats: () => {
+            if (!isVisible('advanced_stats') || !showAdvancedStats || hasNoQuotes) return null;
+            return (
                 <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <button
                         onClick={toggleStats}
@@ -943,31 +908,103 @@ const Dashboard = () => {
                         </div>
                     )}
                 </div>
+            );
+        },
+        recent_activity: () => {
+            if (!isVisible('recent_activity')) return null;
+            return (
+                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>
+                    <div className="space-y-4">
+                        {recentActivity.length > 0 ? (
+                            recentActivity.map((activity, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : activity.type === 'signature' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'}`}>
+                                            {activity.type === 'quote' ? <FileText className="w-4 h-4" /> : activity.type === 'signature' ? <PenTool className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.description}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(activity.date), { addSuffix: true, locale: fr })}</p>
+                                        </div>
+                                    </div>
+                                    {activity.amount && <span className="text-sm font-semibold text-gray-900 dark:text-white">{activity.amount.toFixed(2)} €</span>}
+                                </div>
+                            ))
+                        ) : <div className="text-gray-500 text-center py-8">Aucune activité récente.</div>}
+                    </div>
+                </div>
+            );
+        },
+    };
+
+    return (
+        <div className="space-y-6 relative">
+            {detailsView && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailsView(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                                Détails : {detailsView.period === 'week' ? `Semaine ${getWeek(detailsView.date || new Date(), { weekStartsOn: 1 })}` : format(detailsView.date || new Date(), 'MMMM yyyy', { locale: fr })}
+                            </h3>
+                            <button onClick={() => setDetailsView(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Plus className="w-5 h-5 rotate-45 text-gray-500" /></button>
+                        </div>
+                        <div className="overflow-y-auto p-4 space-y-3">
+                            {detailsView.items && detailsView.items.length > 0 ? (
+                                detailsView.items.map(quote => (
+                                    <div key={quote.id + Math.random()} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                                        <div>
+                                            <div className="font-medium text-gray-900 dark:text-white">{quote.clients?.name || `Devis #${quote.id}`}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {new Date(quote.date || quote.created_at).toLocaleDateString()} -
+                                                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${quote.status === 'paid' ? 'bg-green-100 text-green-700' : quote.status === 'billed' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    {quote.status === 'paid' ? 'Payé' : quote.status === 'billed' ? 'Facturé' : 'Signé'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-gray-900 dark:text-white">{quote.total_ttc?.toFixed(2)} €</div>
+                                    </div>
+                                ))
+                            ) : <p className="text-center text-gray-500 dark:text-gray-400 py-4">Aucun élément.</p>}
+                        </div>
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right font-bold text-lg text-gray-900 dark:text-white">
+                            Total: {detailsView.items?.reduce((sum, item) => sum + (item.total_ttc || 0), 0).toFixed(2)} €
+                        </div>
+                    </div>
+                </div>
             )}
 
-            {isVisible('recent_activity') && (
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>
-                <div className="space-y-4">
-                    {recentActivity.length > 0 ? (
-                        recentActivity.map((activity, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-100 dark:border-gray-800">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : activity.type === 'signature' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'}`}>
-                                        {activity.type === 'quote' ? <FileText className="w-4 h-4" /> : activity.type === 'signature' ? <PenTool className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.description}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDistanceToNow(new Date(activity.date), { addSuffix: true, locale: fr })}</p>
-                                    </div>
-                                </div>
-                                {activity.amount && <span className="text-sm font-semibold text-gray-900 dark:text-white">{activity.amount.toFixed(2)} €</span>}
-                            </div>
-                        ))
-                    ) : <div className="text-gray-500 text-center py-8">Aucune activité récente.</div>}
-                </div>
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <LayoutDashboard className="w-8 h-8 text-blue-600" />
+                    Tableau de bord
+                </h2>
+                <button
+                    type="button"
+                    onClick={() => setCustomizeOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Personnaliser le tableau de bord"
+                >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Personnaliser</span>
+                </button>
             </div>
-            )}
+
+            <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+
+            <WelcomeCard />
+
+            {/* Checklist d'onboarding — affichée tant que les étapes essentielles
+                ne sont pas validées (ou jusqu'à dismiss explicite) */}
+            <OnboardingChecklist />
+
+            {/* Widgets adaptatifs — ordre piloté par l'usage (orderedWidgetIds),
+                figé pendant la session. Fragment = aucun nœud DOM ajouté, donc
+                l'espacement space-y-6 reste correct. */}
+            {orderedWidgetIds.map((id) => {
+                const node = widgetRenderers[id]?.();
+                return node ? <React.Fragment key={id}>{node}</React.Fragment> : null;
+            })}
 
             {/* Copilot Artisan : assistant IA contextuel sur le dashboard */}
             <CopilotChat

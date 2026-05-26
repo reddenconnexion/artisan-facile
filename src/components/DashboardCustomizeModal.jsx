@@ -1,6 +1,8 @@
 import React from 'react';
 import { Settings2, X, RotateCcw, Loader2, Check } from 'lucide-react';
 import { DASHBOARD_WIDGETS, useDashboardSettings } from '../hooks/useDashboardSettings';
+import { useAuth } from '../context/AuthContext';
+import { clearAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import { toast } from 'sonner';
 
 /**
@@ -11,8 +13,15 @@ import { toast } from 'sonner';
  */
 const DashboardCustomizeModal = ({ open, onClose }) => {
     const { isVisible, toggle, reset, save, saving } = useDashboardSettings();
+    const { user } = useAuth();
 
     if (!open) return null;
+
+    // Réinitialise visibilité ET ordre adaptatif (recalculé au prochain montage).
+    const handleReset = () => {
+        reset();
+        clearAdaptiveOrder('dashboard', user?.id);
+    };
 
     const visibleCount = DASHBOARD_WIDGETS.filter(w => isVisible(w.id)).length;
 
@@ -109,9 +118,9 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
                 <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2 flex-shrink-0">
                     <button
                         type="button"
-                        onClick={reset}
+                        onClick={handleReset}
                         className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
-                        title="Remettre tous les widgets visibles"
+                        title="Remettre tous les widgets visibles et l'ordre par défaut"
                     >
                         <RotateCcw className="w-3.5 h-3.5" />
                         Réinitialiser
