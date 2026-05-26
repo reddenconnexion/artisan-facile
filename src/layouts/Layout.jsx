@@ -99,6 +99,9 @@ const Layout = () => {
   // Raccourcis « Fréquents » de la barre latérale — uniquement l'usage réel
   // (pas de valeurs par défaut), masqués tant que rien n'a été appris.
   const frequentShortcuts = useFrequentShortcuts(3, { fillDefaults: false });
+  // Destinations les plus utilisées pour la barre de navigation mobile (sans
+  // les écrans de création, réservés au bouton flottant contextuel).
+  const mobileFrequent = useFrequentShortcuts(3, { fillDefaults: false, excludeActions: true });
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
@@ -232,6 +235,29 @@ const Layout = () => {
       ...(showInter ? [{ name: 'Outils', href: '/app/ressources', icon: Zap }] : []),
     ];
   }, [user]);
+
+  // Barre de navigation mobile adaptative : Accueil + 3 destinations les plus
+  // utilisées + Menu. À froid (aucun usage appris), on retombe sur les valeurs
+  // historiques (Devis, Clients, Agenda si activé) pour ne rien dégrader.
+  const mobileNavItems = React.useMemo(() => {
+    const home = { id: 'home', name: 'Accueil', href: '/app', icon: LayoutDashboard };
+    const agendaEnabled = navigationGroups.some(g => g.children?.some(c => c.name === 'Agenda'));
+    const fallback = [
+      { id: 'devis', name: 'Devis', href: '/app/devis', icon: FileText },
+      { id: 'clients', name: 'Clients', href: '/app/clients', icon: Users },
+      ...(agendaEnabled ? [{ id: 'agenda', name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
+    ];
+    const picks = [];
+    for (const s of mobileFrequent) {
+      if (picks.length >= 3) break;
+      picks.push({ id: s.id, name: s.short || s.label, href: s.path, icon: s.icon });
+    }
+    for (const f of fallback) {
+      if (picks.length >= 3) break;
+      if (!picks.some(p => p.id === f.id)) picks.push(f);
+    }
+    return [home, ...picks];
+  }, [mobileFrequent, navigationGroups]);
 
   React.useEffect(() => {
     if (transcript) {
@@ -911,17 +937,13 @@ const Layout = () => {
 
       {/* Mobile Bottom Navigation - Amazon Style */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
-        {[
-          { name: 'Accueil', href: '/app', icon: LayoutDashboard },
-          { name: 'Clients', href: '/app/clients', icon: Users },
-          { name: 'Devis', href: '/app/devis', icon: FileText },
-          // Check if Agenda is enabled
-          ...(navigationGroups.some(g => g.children?.some(c => c.name === 'Agenda')) ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : [])
-        ].map((item) => {
-          const isActive = location.pathname === item.href;
+        {mobileNavItems.map((item) => {
+          const isActive = item.href === '/app'
+            ? location.pathname === '/app'
+            : location.pathname === item.href || location.pathname.startsWith(item.href + '/');
           return (
             <Link
-              key={item.name}
+              key={item.id}
               to={item.href}
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
                 }`}
