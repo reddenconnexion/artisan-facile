@@ -87,10 +87,42 @@ const ActionableDashboard = ({ user }) => {
                 .eq('status', 'accepted')
                 .order('updated_at', { ascending: false });
 
+            // Amendments (avenants) are rolled into the parent quote's closing invoice
+            // (their lines are copied into the "Facture de clôture"). Once that closing
+            // invoice has been issued/paid, the amendment is already billed and must not
+            // resurface as "à facturer" — invoicing it again would double-bill the client.
+            const amendmentParentIds = [...new Set(
+                (rawSignedQuotes || [])
+                    .filter(q => q.type === 'amendment' && q.parent_id)
+                    .map(q => q.parent_id)
+            )];
+
+            let parentsWithClosingInvoice = new Set();
+            if (amendmentParentIds.length > 0) {
+                const { data: closingInvoices } = await supabase
+                    .from('quotes')
+                    .select('parent_id, title, status')
+                    .eq('user_id', user.id)
+                    .in('parent_id', amendmentParentIds)
+                    .eq('type', 'invoice')
+                    .in('status', ['billed', 'paid']);
+
+                parentsWithClosingInvoice = new Set(
+                    (closingInvoices || [])
+                        .filter(inv => {
+                            const t = inv.title?.toLowerCase() || '';
+                            return t.includes('clôture') || t.includes('cloture');
+                        })
+                        .map(inv => inv.parent_id)
+                );
+            }
+
             // Filter out quotes that already have at least one invoice generated (deposit or final)
             // Also exclude test client quotes when not in test mode
             const signedQuotes = (rawSignedQuotes || []).filter(q =>
-                (!q.invoices || q.invoices.length === 0) && !isTestQuote(q)
+                (!q.invoices || q.invoices.length === 0) &&
+                !isTestQuote(q) &&
+                !(q.type === 'amendment' && parentsWithClosingInvoice.has(q.parent_id))
             );
 
 
