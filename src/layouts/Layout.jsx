@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff, Sparkles } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -19,6 +19,8 @@ import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTrackUsage, useFrequentShortcuts } from '../hooks/useUsageTracking';
+import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
+import { SHORTCUT_CATALOG } from '../constants/shortcuts';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import NotificationCenter from '../components/NotificationCenter';
 
@@ -96,9 +98,6 @@ const Layout = () => {
 
   // Apprentissage de l'usage pour adapter les raccourcis du tableau de bord
   useTrackUsage();
-  // Raccourcis « Fréquents » de la barre latérale — uniquement l'usage réel
-  // (pas de valeurs par défaut), masqués tant que rien n'a été appris.
-  const frequentShortcuts = useFrequentShortcuts(3, { fillDefaults: false });
   // Destinations les plus utilisées pour la barre de navigation mobile (sans
   // les écrans de création, réservés au bouton flottant contextuel).
   const mobileFrequent = useFrequentShortcuts(3, { fillDefaults: false, excludeActions: true });
@@ -258,6 +257,62 @@ const Layout = () => {
     }
     return [home, ...picks];
   }, [mobileFrequent, navigationGroups]);
+
+  // --- Réordonnancement adaptatif de la barre latérale ---
+  // L'id catalogue d'une destination se déduit de son chemin (ex. /app/devis →
+  // 'devis'). « Tableau de bord » (/app) et « Outils » (/app/ressources) n'ont
+  // pas d'id : score 0 (le 1er est épinglé, le 2nd coule en bas).
+  const idForHref = useCallback(
+    (href) => SHORTCUT_CATALOG.find(s => s.path === href)?.id,
+    []
+  );
+  const navNodeId = useCallback((node) => `nav:${node.name}`, []);
+
+  // Enfants des deux seuls groupes à enfants (appels de hooks en nombre fixe).
+  const findGroup = (name) => navigationGroups.find(g => g.name === name);
+  const devisGroup = findGroup('Devis & Factures');
+  const activiteGroup = findGroup('Mon activité');
+  const devisChildIds = (devisGroup?.children || []).map(c => idForHref(c.href) || c.name);
+  const activiteChildIds = (activiteGroup?.children || []).map(c => idForHref(c.href) || c.name);
+  const childScoreFn = useCallback((id, scores) => scores[id] || 0, []);
+
+  const orderedDevisChildIds = useAdaptiveOrder('nav_devis', devisChildIds, childScoreFn);
+  const orderedActiviteChildIds = useAdaptiveOrder('nav_activite', activiteChildIds, childScoreFn);
+
+  // Ordre des entrées de premier niveau (« Tableau de bord » épinglé).
+  const topNodeById = React.useMemo(
+    () => new Map(navigationGroups.map(n => [navNodeId(n), n])),
+    [navigationGroups, navNodeId]
+  );
+  const topScoreFn = useCallback((id, scores) => {
+    const node = topNodeById.get(id);
+    if (!node) return 0;
+    if (node.children) return node.children.reduce((sum, c) => sum + (scores[idForHref(c.href)] || 0), 0);
+    return scores[idForHref(node.href)] || 0;
+  }, [topNodeById, idForHref]);
+
+  const topIds = navigationGroups.map(navNodeId);
+  const orderedTopIds = useAdaptiveOrder('nav', topIds, topScoreFn, { pinnedIds: ['nav:Tableau de bord'] });
+
+  // Reconstruit les groupes dans l'ordre adaptatif, enfants réordonnés.
+  const orderedNavigationGroups = React.useMemo(() => {
+    const reorderChildren = (children, orderedIds) => {
+      if (!children) return children;
+      const byId = new Map(children.map(c => [idForHref(c.href) || c.name, c]));
+      const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean);
+      // Sécurité : compléter avec d'éventuels enfants non couverts.
+      for (const c of children) if (!reordered.includes(c)) reordered.push(c);
+      return reordered;
+    };
+    return orderedTopIds
+      .map(id => topNodeById.get(id))
+      .filter(Boolean)
+      .map(node => {
+        if (node === devisGroup) return { ...node, children: reorderChildren(node.children, orderedDevisChildIds) };
+        if (node === activiteGroup) return { ...node, children: reorderChildren(node.children, orderedActiviteChildIds) };
+        return node;
+      });
+  }, [orderedTopIds, topNodeById, devisGroup, activiteGroup, orderedDevisChildIds, orderedActiviteChildIds, idForHref]);
 
   React.useEffect(() => {
     if (transcript) {
@@ -550,36 +605,7 @@ const Layout = () => {
           </div>
 
           <nav className="flex-1 px-4 space-y-0.5 mt-4 md:mt-0 overflow-y-auto">
-            {/* Raccourcis fréquents — adaptés automatiquement à l'usage réel */}
-            {frequentShortcuts.length > 0 && (
-              <div className="mb-1">
-                {(!isCollapsed || isMobileMenuOpen) && (
-                  <p className="px-4 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3" />
-                    Fréquents
-                  </p>
-                )}
-                {frequentShortcuts.map((item) => {
-                  const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
-                  return (
-                    <Link
-                      key={`freq-${item.id}`}
-                      to={item.path}
-                      className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                        : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                        } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-                      title={item.label}
-                    >
-                      <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                      {(!isCollapsed || isMobileMenuOpen) && <span className="flex-1">{item.label}</span>}
-                    </Link>
-                  );
-                })}
-                <div className="my-1.5 border-t border-gray-100 dark:border-gray-800" />
-              </div>
-            )}
-            {navigationGroups.map((group) => {
+            {orderedNavigationGroups.map((group) => {
               const hasChildren = !!group.children;
 
               if (!hasChildren) {
