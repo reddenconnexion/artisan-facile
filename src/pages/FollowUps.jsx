@@ -201,11 +201,45 @@ const FollowUps = ({ embedded = false }) => {
         }
 
         const { subject, body } = suggestion;
+        const smtpConfigured = !!profile?.smtp_config?.host && !!profile?.smtp_config?.from_email;
+        const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
         if (isTestMode) {
             captureEmail({ email: clientEmail, subject, body });
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
+        } else if (smtpConfigured) {
+            // Envoi direct depuis l'adresse pro de l'artisan via l'Edge Function SMTP
+            // (même mécanisme que les devis/factures). Repli sur mailto en cas d'échec.
+            const sendingToast = toast.loading('Envoi de la relance depuis votre adresse pro...');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                        to: clientEmail,
+                        subject,
+                        text: body,
+                        quote_id: quotes[0].id,
+                        client_id: quotes[0].client_id,
+                    }),
+                });
+                const result = await res.json();
+                toast.dismiss(sendingToast);
+                if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+                toast.success(`Relance envoyée à ${clientEmail}`);
+            } catch (err) {
+                toast.dismiss(sendingToast);
+                console.error('Direct follow-up send failed:', err);
+                toast.error((err.message || 'Échec de l\'envoi direct') + ' — ouverture du client mail');
+                window.location.href = mailtoUrl;
+            }
         } else {
-            window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailtoUrl;
         }
 
         try {
