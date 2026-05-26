@@ -18,6 +18,7 @@ import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useTrackUsage } from '../hooks/useUsageTracking';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import NotificationCenter from '../components/NotificationCenter';
 
@@ -92,6 +93,9 @@ const Layout = () => {
 
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
+
+  // Apprentissage de l'usage pour adapter les raccourcis du tableau de bord
+  useTrackUsage();
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = React.useState(() => {

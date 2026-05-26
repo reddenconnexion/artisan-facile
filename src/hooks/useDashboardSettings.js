@@ -10,7 +10,7 @@ import { toastError } from '../utils/supabaseErrorHandler';
 export const DASHBOARD_WIDGETS = [
     { id: 'kpi_strip',        label: 'Indicateurs clés',           description: 'CA du mois, devis en cours, prochain RDV', defaultVisible: true,  alwaysOn: true  },
     { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: true,  alwaysOn: false },
-    { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis pour créer devis, factures, etc.', defaultVisible: true,  alwaysOn: false },
+    { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: true,  alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
     { id: 'financial_health',    label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',              defaultVisible: true,  alwaysOn: false },
     { id: 'cash_flow_forecast', label: 'Trésorerie prévisionnelle', description: 'Projection à 90 jours des encaissements attendus',  defaultVisible: true,  alwaysOn: false },
