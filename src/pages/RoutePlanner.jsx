@@ -139,7 +139,7 @@ const StopRow = ({ index, value, onChange, onRemove, canRemove }) => (
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={index === 0 ? 'Adresse de départ' : `Étape ${index + 1}`}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
         />
         {canRemove && (
             <button
