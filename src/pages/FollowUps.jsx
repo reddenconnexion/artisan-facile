@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useUserProfile } from '../hooks/useDataCache';
@@ -24,11 +24,6 @@ const STEP_STYLES = [
 
 const getStyle = (idx) => STEP_STYLES[Math.min(idx, STEP_STYLES.length - 1)];
 
-// Maximum number of cards we auto-prepare on page load. Beyond this we let
-// the user click "Suggérer un message" manually to avoid burning AI tokens
-// when the inbox is huge.
-const AUTO_PREPARE_LIMIT = 8;
-
 const FollowUps = ({ embedded = false }) => {
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
@@ -43,11 +38,7 @@ const FollowUps = ({ embedded = false }) => {
     const [suggestions, setSuggestions] = useState({});
     const [expanded, setExpanded] = useState({});
     const [stepOverrides, setStepOverrides] = useState({});
-    const [autoPreparing, setAutoPreparing] = useState(false);
     const sendWindow = useMemo(() => getOptimalSendWindow(), []);
-    // Tracks which card keys have already been auto-prepared this mount so we
-    // don't re-trigger generation when the user manually dismisses a suggestion.
-    const autoPreparedRef = useRef(new Set());
 
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
@@ -113,56 +104,22 @@ const FollowUps = ({ embedded = false }) => {
         return { ...stepData, index: idx };
     };
 
-    const handleGenerate = async (key, quotes, { silent = false, autoExpand = true } = {}) => {
+    // Suggestions are generated on demand (button per card) rather than on page
+    // load, to avoid burning AI tokens for relances the user may never send.
+    const handleGenerate = async (key, quotes) => {
         try {
             setGenerating(prev => ({ ...prev, [key]: true }));
             const step = getEffectiveStep(key, quotes[0]);
             const client = quotes[0].clients || { name: 'Client' };
             const emailContent = await generateFollowUpEmail(quotes, client, step, aiContext);
             setSuggestions(prev => ({ ...prev, [key]: emailContent }));
-            if (autoExpand) {
-                setExpanded(prev => ({ ...prev, [key]: true }));
-            }
+            setExpanded(prev => ({ ...prev, [key]: true }));
         } catch (error) {
-            if (!silent) toast.error("Erreur génération IA: " + error.message);
-            else console.warn('Auto-prepare failed for', key, error);
+            toast.error("Erreur génération IA: " + error.message);
         } finally {
             setGenerating(prev => ({ ...prev, [key]: false }));
         }
     };
-
-    // Auto-prepare suggestions for due cards on load. Runs sequentially so we
-    // don't hammer the AI proxy. Capped at AUTO_PREPARE_LIMIT.
-    useEffect(() => {
-        if (activeTab !== 'due' || loading) return;
-        if (groupedDueQuotes.length === 0) return;
-        if (!profile) return; // wait for company/user name to be available
-
-        const targets = groupedDueQuotes
-            .map(g => ({
-                key: g.quotes.length > 1 ? `group_${g.clientId}` : g.quotes[0].id,
-                quotes: g.quotes,
-            }))
-            .filter(t => !suggestions[t.key] && !autoPreparedRef.current.has(t.key))
-            .slice(0, AUTO_PREPARE_LIMIT);
-
-        if (targets.length === 0) return;
-
-        let cancelled = false;
-        (async () => {
-            setAutoPreparing(true);
-            for (const t of targets) {
-                if (cancelled) break;
-                autoPreparedRef.current.add(t.key);
-                await handleGenerate(t.key, t.quotes, { silent: true, autoExpand: false });
-            }
-            if (!cancelled) setAutoPreparing(false);
-        })();
-
-        return () => { cancelled = true; };
-        // groupedDueQuotes ref changes only when dueQuotes changes; profile is stable
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [groupedDueQuotes, activeTab, loading, profile]);
 
     const updateSuggestion = (key, field, value) => {
         setSuggestions(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
@@ -512,12 +469,6 @@ const FollowUps = ({ embedded = false }) => {
                                     )}
                                 </div>
                             </div>
-                            {autoPreparing && (
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                    <Sparkles className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
-                                    Préparation des suggestions…
-                                </div>
-                            )}
                         </div>
                     )}
                     {groupedDueQuotes.length === 0 ? (
