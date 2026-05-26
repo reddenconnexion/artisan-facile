@@ -70,33 +70,36 @@ export function useTrackUsage() {
  * classés par usage. Recalculé dès qu'une visite est enregistrée.
  *
  * @param {number} limit  Nombre maximum de raccourcis renvoyés.
- * @param {{ fillDefaults?: boolean }} options
+ * @param {{ fillDefaults?: boolean, excludeActions?: boolean }} options
  *   fillDefaults (défaut true) : complète avec des raccourcis par défaut pour
  *   ne jamais présenter un panneau vide (tableau de bord). À passer à false
  *   pour n'afficher que l'usage réellement appris (barre latérale) — la liste
  *   peut alors être vide tant que rien n'a été utilisé.
+ *   excludeActions (défaut false) : exclut les écrans de création (« Nouveau …
+ *   »), pour ne proposer que des sections (barre de navigation mobile).
  */
-export function useFrequentShortcuts(limit = 4, { fillDefaults = true } = {}) {
+export function useFrequentShortcuts(limit = 4, { fillDefaults = true, excludeActions = false } = {}) {
     const { user } = useAuth();
     const v = useSyncExternalStore(subscribe, getVersion, getVersion);
     return useMemo(() => {
         const ranked = rankIds(readScores(user?.id))
             .map(getShortcutById)
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter((s) => !excludeActions || s.kind !== 'action');
 
         const result = [...ranked];
         if (fillDefaults) {
             for (const id of DEFAULT_SHORTCUT_IDS) {
                 if (result.length >= limit) break;
-                if (!result.some((s) => s.id === id)) {
-                    const entry = getShortcutById(id);
-                    if (entry) result.push(entry);
-                }
+                const entry = getShortcutById(id);
+                if (!entry) continue;
+                if (excludeActions && entry.kind === 'action') continue;
+                if (!result.some((s) => s.id === entry.id)) result.push(entry);
             }
         }
         return result.slice(0, limit);
         // `v` (version du store) force le recalcul à chaque visite enregistrée :
         // le corps relit localStorage, qui n'est pas vu par l'analyse des deps.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, limit, fillDefaults, v]);
+    }, [user?.id, limit, fillDefaults, excludeActions, v]);
 }
