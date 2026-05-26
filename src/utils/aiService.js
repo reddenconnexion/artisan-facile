@@ -528,6 +528,55 @@ export const generateReviewReply = async ({
 - INTERDIT : le bourrage de mots-clés, les listes de villes, les phrases artificielles. La réponse doit sonner 100 % humaine et authentique.
 - ${isNeutral ? "Montre ta volonté de t'améliorer et invite le client à te recontacter." : 'Invite chaleureusement le client à refaire appel à toi ou à te recommander.'}`;
 
+    // ── Variété ──────────────────────────────────────────────────────────────
+    // On tire au sort un angle d'ouverture, un axe de contenu et une longueur
+    // cible à CHAQUE appel pour casser l'effet « réponse type » répétitive.
+    // Le tirage étant ré-aléatoire à chaque génération, le bouton « Régénérer »
+    // produit naturellement une réponse différente.
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    const openings = isNegative
+        ? [
+            'Ouvre en remerciant le client pour son retour, formulé sans cliché.',
+            customerName
+                ? `Ouvre en t'adressant directement à ${customerName} avec considération.`
+                : 'Ouvre par une formule posée et respectueuse.',
+            "Ouvre en reconnaissant d'emblée le ressenti exprimé dans l'avis.",
+        ]
+        : [
+            "Ouvre en réagissant spontanément à un détail concret de l'avis (n'ouvre PAS par « Merci »).",
+            customerName
+                ? `Ouvre en t'adressant directement à ${customerName}, puis enchaîne sur une réaction personnelle.`
+                : 'Ouvre par un accueil simple suivi d\'une réaction personnelle.',
+            "Ouvre en exprimant le plaisir ou la fierté d'avoir mené ce projet à bien.",
+            'Ouvre par un remerciement, mais tourné de façon originale et personnelle.',
+        ];
+
+    const angles = isNegative
+        ? [
+            "Centre la réponse sur ta volonté sincère de comprendre et de réparer la situation.",
+            "Centre la réponse sur l'écoute : montre que chaque retour te sert à progresser.",
+        ]
+        : [
+            "Mets l'accent sur la relation de confiance et l'envie de retravailler ensemble.",
+            'Mets l\'accent sur le soin apporté au travail et la satisfaction du résultat.',
+            'Mets l\'accent sur le côté humain et la qualité de l\'échange.',
+            "Rebondis surtout sur le point précis que le client a souligné.",
+        ];
+
+    const lengths = [
+        'Fais court : 2 phrases.',
+        'Vise 3 phrases.',
+        'Tu peux aller jusqu\'à 4 phrases si l\'avis est détaillé.',
+    ];
+
+    const varietyRules = `CONSIGNES DE VARIÉTÉ (impératif, pour éviter les réponses qui se ressemblent) :
+- ${pick(openings)}
+- ${pick(angles)}
+- ${pick(lengths)}
+- Varie la structure et le vocabulaire : ne réutilise pas systématiquement les mêmes tournures.
+- BANNIS ces formules toutes faites et clichés : « Merci beaucoup pour votre avis », « N'hésitez pas à refaire appel à nous », « Au plaisir de vous revoir », « Toute l'équipe vous remercie », « Cela nous va droit au cœur », « Votre satisfaction est notre priorité ».`;
+
     const systemPrompt = `Tu es l'artisan propriétaire de l'entreprise et tu rédiges TA réponse publique à un avis client (avis Google / fiche établissement). Tu réponds à la première personne ("je", "nous").
 
 CONTEXTE ENTREPRISE :
@@ -535,11 +584,13 @@ ${localContextLines || '- (aucune information fournie, reste générique mais au
 
 ${seoRules}
 
+${varietyRules}
+
 RÈGLES GÉNÉRALES DE STYLE :
 - Réponds en français.
 - ${toneGuide}
 - Longueur : 2 à 4 phrases maximum (les réponses aux avis sont courtes).
-- ${customerName ? `Commence en t'adressant au client par son prénom (${customerName}).` : "Si tu ne connais pas le prénom, commence par 'Bonjour,' ou 'Merci' sans inventer de nom."}
+- ${customerName ? `Adresse-toi au client par son prénom (${customerName}) au fil de la réponse.` : "Si tu ne connais pas le prénom, n'en invente aucun."}
 - Pas d'emojis. Pas de markdown. Texte brut uniquement.
 - Ne mets pas de mentions entre crochets ni de champs à remplir : la réponse doit être directement publiable.
 - N'invente aucun fait (pas de nom de chantier, de date ou de montant non mentionnés dans l'avis).
