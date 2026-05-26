@@ -5,8 +5,9 @@ import { toast } from 'sonner';
 import {
   Megaphone, Calendar, Lightbulb, StickyNote, Plus, Trash2, Save,
   ChevronLeft, ChevronRight, Edit, Check, X, Camera, MessageSquare,
-  Zap, GripVertical, Clock
+  Zap, GripVertical, Clock, Star
 } from 'lucide-react';
+import ReviewReplyGenerator from '../components/ReviewReplyGenerator';
 
 // Jours de la semaine
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -309,6 +310,7 @@ const Marketing = () => {
           { id: 'calendar', label: 'Calendrier', icon: Calendar },
           { id: 'ideas', label: 'Banque d\'idees', icon: Lightbulb },
           { id: 'notes', label: 'Notes rapides', icon: StickyNote },
+          { id: 'reviews', label: 'Réponses avis', icon: Star },
         ].map(tab => (
           <button
             key={tab.id}
@@ -654,6 +656,8 @@ const Marketing = () => {
           </div>
         </div>
       )}
+
+      {activeTab === 'reviews' && <ReviewReplyGenerator />}
     </div>
   );
 };
