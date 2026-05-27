@@ -84,8 +84,23 @@ const Portfolio = () => {
 
     const handleDownload = async (url, filename) => {
         try {
-            const response = await fetch(url);
-            const blob = await response.blob();
+            // On télécharge via le client Supabase (storage.download) plutôt qu'un
+            // fetch() sur l'URL publique : un fetch cross-origin échoue quand le CDN
+            // sert une réponse cachée sans en-tête CORS (les <img> de la galerie
+            // chargent la même URL sans CORS juste avant).
+            let blob;
+            const marker = '/storage/v1/object/public/project-photos/';
+            const idx = url.indexOf(marker);
+            if (idx !== -1) {
+                const path = decodeURIComponent(url.slice(idx + marker.length));
+                const { data, error } = await supabase.storage.from('project-photos').download(path);
+                if (error || !data) throw error || new Error('Téléchargement impossible');
+                blob = data;
+            } else {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                blob = await response.blob();
+            }
             const blobUrl = window.URL.createObjectURL(blob);
 
             const link = document.createElement('a');
