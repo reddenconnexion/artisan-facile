@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff, Image } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -202,6 +202,7 @@ const Layout = () => {
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
+      ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: Image }] : []),
     ];
 
     // Skill level filtering — 'debutant' | 'intermediaire' | 'confirme'
