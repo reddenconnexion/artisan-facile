@@ -30,6 +30,7 @@ const ProjectPhotos = ({ clientId }) => {
 
     const [splitAfter, setSplitAfter] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null); // LIVE PREVIEW STATE
+    const [previewError, setPreviewError] = useState(false);
 
     // Crop State
     const [cropBefore, setCropBefore] = useState({ x: 0, y: 0 });
@@ -41,16 +42,6 @@ const ProjectPhotos = ({ clientId }) => {
     const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
 
 
-
-    // Debounce for preview generation
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (splitBefore && splitAfter && croppedAreaPixelsBefore && croppedAreaPixelsAfter) {
-                generatePreview();
-            }
-        }, 500); // 500ms debounce
-        return () => clearTimeout(timer);
-    }, [splitBefore, splitAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter]);
 
     const canvasRef = React.useRef(null);
 
@@ -92,6 +83,35 @@ const ProjectPhotos = ({ clientId }) => {
     };
 
 
+    // Charge une image du bucket pour le canvas. On télécharge le fichier via le
+    // client Supabase (Blob → object URL same-origin) plutôt que d'utiliser un
+    // <img crossOrigin> : ça évite que le canvas soit « taché » par un échec
+    // CORS / une réponse cachée sans en-tête CORS (qui faisait échouer la
+    // génération et tourner l'aperçu indéfiniment). Renvoie aussi l'object URL
+    // pour pouvoir le révoquer après le dessin.
+    const loadComparisonImage = async (photoUrl) => {
+        const marker = '/storage/v1/object/public/project-photos/';
+        let src = photoUrl;
+        let objectUrl = null;
+        const idx = photoUrl.indexOf(marker);
+        if (idx !== -1) {
+            const path = decodeURIComponent(photoUrl.slice(idx + marker.length));
+            const { data, error } = await supabase.storage.from('project-photos').download(path);
+            if (!error && data) {
+                objectUrl = URL.createObjectURL(data);
+                src = objectUrl;
+            }
+        }
+        const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            if (!objectUrl) image.crossOrigin = 'anonymous'; // fallback chargement direct
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error('Échec du chargement de la photo'));
+            image.src = src;
+        });
+        return { img, objectUrl };
+    };
+
     const handleGenerateComparison = async () => {
         if (!splitBefore || !splitAfter || !canvasRef.current) return;
 
@@ -99,19 +119,12 @@ const ProjectPhotos = ({ clientId }) => {
             const canvas = canvasRef.current;
             const ctx = canvas.getContext('2d');
 
-            // Load images
-            const loadImg = (src) => new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous"; // Important for canvas export
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = src;
-            });
-
-            const [imgBefore, imgAfter] = await Promise.all([
-                loadImg(splitBefore.photo_url),
-                loadImg(splitAfter.photo_url)
+            const [beforeLoaded, afterLoaded] = await Promise.all([
+                loadComparisonImage(splitBefore.photo_url),
+                loadComparisonImage(splitAfter.photo_url)
             ]);
+            const imgBefore = beforeLoaded.img;
+            const imgAfter = afterLoaded.img;
 
             // Set canvas size (e.g., 1200x800 for high quality output)
             const targetWidth = 1200;
@@ -191,6 +204,9 @@ const ProjectPhotos = ({ clientId }) => {
             ctx.textAlign = 'right';
             ctx.fillText('Généré par Artisan Facile', targetWidth - padding, targetHeight - 10);
 
+            if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
+            if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
+
             // Trigger Download
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             const link = document.createElement('a');
@@ -266,22 +282,16 @@ const ProjectPhotos = ({ clientId }) => {
         if (!splitBefore || !splitAfter || !canvasRef.current) return;
 
         try {
+            setPreviewError(false);
             const canvas = canvasRef.current;
             const ctx = canvas.getContext('2d');
 
-            // Load images (cached if possible)
-            const loadImg = (src) => new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = src;
-            });
-
-            const [imgBefore, imgAfter] = await Promise.all([
-                loadImg(splitBefore.photo_url),
-                loadImg(splitAfter.photo_url)
+            const [beforeLoaded, afterLoaded] = await Promise.all([
+                loadComparisonImage(splitBefore.photo_url),
+                loadComparisonImage(splitAfter.photo_url)
             ]);
+            const imgBefore = beforeLoaded.img;
+            const imgAfter = afterLoaded.img;
 
             // Preview size (smaller than full export for performance, but same aspect)
             // Export is 1200x800. Let's use 600x400 for preview
@@ -321,6 +331,23 @@ const ProjectPhotos = ({ clientId }) => {
                         imgWidth,
                         imgHeight
                     );
+                } else {
+                    // Cadrage centré par défaut tant que le recadrage n'est pas défini
+                    const aspectRatio = imgWidth / imgHeight;
+                    const imgRatio = img.width / img.height;
+                    let sx, sy, sw, sh;
+                    if (imgRatio > aspectRatio) {
+                        sh = img.height;
+                        sw = img.height * aspectRatio;
+                        sy = 0;
+                        sx = (img.width - sw) / 2;
+                    } else {
+                        sw = img.width;
+                        sh = img.width / aspectRatio;
+                        sx = 0;
+                        sy = (img.height - sh) / 2;
+                    }
+                    ctx.drawImage(img, sx, sy, sw, sh, xPos, 80 * scale, imgWidth, imgHeight);
                 }
             };
 
@@ -333,10 +360,14 @@ const ProjectPhotos = ({ clientId }) => {
             ctx.textAlign = 'right';
             ctx.fillText('Artisan Facile', targetWidth - padding, targetHeight - (10 * scale));
 
+            if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
+            if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
+
             setPreviewUrl(canvas.toDataURL('image/jpeg', 0.8));
 
         } catch (error) {
             console.error('Error generating preview:', error);
+            setPreviewError(true);
         }
     };
 
@@ -1343,6 +1374,11 @@ const ProjectPhotos = ({ clientId }) => {
                                                     alt="Aperçu Avant/Après"
                                                     className="max-w-full max-h-[300px] object-contain rounded shadow-lg bg-white"
                                                 />
+                                            ) : previewError ? (
+                                                <div className="flex flex-col items-center justify-center h-32 text-red-500 dark:text-red-400 gap-1 text-sm text-center px-4">
+                                                    <span>Impossible de générer l'aperçu.</span>
+                                                    <span className="text-gray-400 dark:text-gray-500">Vérifiez votre connexion puis réessayez (resélectionnez une photo).</span>
+                                                </div>
                                             ) : (
                                                 <div className="flex items-center justify-center h-32 text-gray-400 gap-2">
                                                     <Loader2 className="w-5 h-5 animate-spin" />
