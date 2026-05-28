@@ -29,11 +29,12 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
     const top = useMemo(() => {
         const yearStart = startOfYear(new Date());
         const QUALIFYING = ['paid', 'billed', 'accepted'];
-        // Parent devis already retained: their child invoices (acomptes / facture de clôture)
-        // must not be re-added, otherwise the deal is counted twice.
+        // Parent documents (sans parent_id) already retained : leurs factures enfants
+        // (acomptes / facture de clôture) ne doivent pas être réajoutées, sinon
+        // l'affaire est comptée plusieurs fois.
         const countedParentIds = new Set(
             allQuotes
-                .filter(q => (q.type || 'quote') !== 'invoice' && QUALIFYING.includes(q.status))
+                .filter(q => !q.parent_id && QUALIFYING.includes(q.status))
                 .map(q => q.id)
         );
         const tally = new Map();
