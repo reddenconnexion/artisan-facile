@@ -16,9 +16,19 @@ const PODIUM_STYLES = [
 const TopClientsWidget = ({ allQuotes, navigate }) => {
     const top = useMemo(() => {
         const yearStart = startOfYear(new Date());
+        const QUALIFYING = ['paid', 'billed', 'accepted'];
+        // Parent devis already retained: their child invoices (acomptes / facture de clôture)
+        // must not be re-added, otherwise the deal is counted twice.
+        const countedParentIds = new Set(
+            allQuotes
+                .filter(q => (q.type || 'quote') !== 'invoice' && QUALIFYING.includes(q.status))
+                .map(q => q.id)
+        );
         const tally = new Map();
         for (const q of allQuotes) {
-            if (!['paid', 'billed', 'accepted'].includes(q.status)) continue;
+            if (!QUALIFYING.includes(q.status)) continue;
+            const type = (q.type || 'quote').toLowerCase();
+            if (type === 'invoice' && q.parent_id && countedParentIds.has(q.parent_id)) continue;
             const d = new Date(q.date || q.created_at);
             if (d < yearStart) continue;
             const id = q.client_id;
