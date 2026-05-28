@@ -3784,6 +3784,12 @@ Conditions de règlement : Paiement à réception de facture.`
                 }}
                 client={clients.find(c => c.id == formData.client_id)}
                 userProfile={userProfile}
+                intervention={{
+                    title: formData.title,
+                    workDone: formData.description,
+                    city: formData.intervention_city,
+                    address: formData.intervention_address,
+                }}
             />
 
             {showViewHistory && createPortal(

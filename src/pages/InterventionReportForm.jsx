@@ -4,7 +4,7 @@ import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
-    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag
+    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag, Star
 } from 'lucide-react';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useClients, useQuotes, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
 import SignatureModal from '../components/SignatureModal';
+import ReviewRequestModal from '../components/ReviewRequestModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateInterventionSummary } from '../utils/aiService';
@@ -39,6 +40,7 @@ const InterventionReportForm = () => {
     const [saving, setSaving] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [sendInvoiceModal, setSendInvoiceModal] = useState(null);
     const [processingAudio, setProcessingAudio] = useState(false);
@@ -1026,6 +1028,16 @@ const InterventionReportForm = () => {
                             Créer une facture
                         </button>
                     )}
+                    {!isSiteVisit && (formData.status === 'completed' || formData.status === 'signed') && (
+                        <button
+                            onClick={() => setShowReviewRequestModal(true)}
+                            title={userProfile?.google_review_url ? 'Envoyer une demande d\'avis personnalisée' : 'Configurez votre lien Google Avis dans Profil'}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors font-medium"
+                        >
+                            <Star className="w-4 h-4 fill-current" />
+                            Demander un avis
+                        </button>
+                    )}
                     <button
                         onClick={handleExportPDF}
                         disabled={exporting}
@@ -1865,6 +1877,19 @@ const InterventionReportForm = () => {
                     </div>
                 </div>
             )}
+
+            <ReviewRequestModal
+                isOpen={showReviewRequestModal}
+                onClose={() => setShowReviewRequestModal(false)}
+                client={clients.find(c => String(c.id) === String(formData.client_id)) || { name: formData.client_name, city: formData.intervention_city }}
+                userProfile={userProfile}
+                intervention={{
+                    title: formData.title,
+                    workDone: formData.work_done,
+                    city: formData.intervention_city,
+                    address: formData.intervention_address,
+                }}
+            />
         </div>
     );
 };
