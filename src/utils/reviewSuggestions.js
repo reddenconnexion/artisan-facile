@@ -41,7 +41,12 @@ const shortWorkSummary = (workDone, title) => {
  * Build personalized, locally-SEO-optimized Google review suggestions.
  * The returned strings are written from the CLIENT'S perspective.
  */
-export const buildReviewSuggestions = ({ userProfile = {}, client = {}, intervention = {} } = {}) => {
+export const buildReviewSuggestions = ({ userProfile, client, intervention } = {}) => {
+    // Les valeurs par défaut des paramètres ne couvrent pas `null` : on normalise explicitement.
+    userProfile = userProfile || {};
+    client = client || {};
+    intervention = intervention || {};
+
     const companyName = userProfile.company_name || userProfile.full_name || 'cet artisan';
     const trade = userProfile.trade || 'general';
     const [primaryKw, secondaryKw] = tradeKeywords(trade);
@@ -81,7 +86,11 @@ export const buildReviewSuggestions = ({ userProfile = {}, client = {}, interven
  * Includes the suggested review text and the review URL so the client can
  * paste-and-go in one tap.
  */
-export const buildReviewSMS = ({ userProfile = {}, client = {}, suggestion = '', reviewUrl = '' } = {}) => {
+export const buildReviewSMS = ({ userProfile, client, suggestion = '', reviewUrl = '' } = {}) => {
+    // Idem : on protège contre les valeurs `null` non couvertes par les défauts.
+    userProfile = userProfile || {};
+    client = client || {};
+
     const firstName = (client.name || '').split(' ')[0] || '';
     const greeting = firstName ? `Bonjour ${firstName},` : 'Bonjour,';
     const signature = userProfile.full_name || userProfile.company_name || '';
