@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
-import { extractQuoteFromPdfText } from '../utils/aiService';
+import { extractQuoteFromPdfText, translateQuoteContent } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
@@ -781,6 +781,7 @@ const DevisForm = () => {
                     valid_until: data.valid_until || '',
                     items: (data.items || []).map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
                     notes: data.notes || '',
+                    content_en: data.content_en || null,
                     status: data.status || 'draft',
                     type: data.type || 'quote',
                     include_tva: typeof data.include_tva === 'boolean'
@@ -1043,6 +1044,53 @@ const DevisForm = () => {
 
             setFormData(prev => ({ ...prev, public_token: token }));
 
+            // ── Traduction du contenu (envoi en anglais) ──
+            // Traduit titre, notes et descriptions de lignes via l'IA, puis
+            // mémorise le résultat sur le devis (content_en) pour que le PDF
+            // (aperçu + portail client) l'affiche. Les lignes déjà traduites
+            // et inchangées sont réutilisées : on ne traduit que ce qui manque.
+            let contentEn = formData.content_en || null;
+            if (lang === 'en') {
+                try {
+                    const sourceDescriptions = [...new Set(
+                        (formData.items || [])
+                            .map(i => (i.description || '').trim())
+                            .filter(Boolean)
+                    )];
+                    const existing = contentEn?.lines || {};
+                    const missing = sourceDescriptions.filter(d => !existing[d]);
+                    const titleChanged = !contentEn || contentEn.sourceTitle !== (formData.title || '');
+                    const notesChanged = !contentEn || contentEn.sourceNotes !== (formData.notes || '');
+
+                    if (missing.length > 0 || titleChanged || notesChanged) {
+                        toast.loading('Traduction du devis en anglais…', { id: 'translate-toast' });
+                        const result = await translateQuoteContent({
+                            title: formData.title || '',
+                            notes: formData.notes || '',
+                            descriptions: missing,
+                        }, 'en');
+                        const lines = { ...existing };
+                        missing.forEach((src, i) => { lines[src] = result.descriptions[i] || src; });
+                        contentEn = {
+                            title: result.title || formData.title || '',
+                            notes: result.notes || '',
+                            lines,
+                            // Mémorise les sources pour détecter une modification ultérieure.
+                            sourceTitle: formData.title || '',
+                            sourceNotes: formData.notes || '',
+                        };
+                        await supabase.from('quotes').update({ content_en: contentEn }).eq('id', id);
+                        setFormData(prev => ({ ...prev, content_en: contentEn }));
+                        toast.dismiss('translate-toast');
+                    }
+                } catch (translateErr) {
+                    toast.dismiss('translate-toast');
+                    console.error('Quote translation failed:', translateErr);
+                    toast.error("La traduction automatique a échoué — le devis reste en français.");
+                    contentEn = formData.content_en || null;
+                }
+            }
+
             // La langue est transmise dans l'URL publique afin que le PDF
             // téléchargé depuis le portail client soit dans la même langue
             // que le mail d'accompagnement.
@@ -1064,7 +1112,8 @@ const DevisForm = () => {
                 total_ht: subtotal,
                 total_tva: tva,
                 total_ttc: total,
-                include_tva: formData.include_tva
+                include_tva: formData.include_tva,
+                content_en: contentEn
             };
 
             // We can skip PDF upload if we trust the public link, but let's keep it simply as a backup link or just rely on public portal which has download button.

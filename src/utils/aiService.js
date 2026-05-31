@@ -150,6 +150,63 @@ export const extractQuoteFromPdfText = async (pdfText) => {
 };
 
 /**
+ * Translates the free-text content of a quote (line-item descriptions, title,
+ * notes) into the target language. Amounts, quantities and units are NOT sent
+ * and never change — only human-written labels are translated.
+ *
+ * The descriptions are sent as an ordered array and must come back as an array
+ * of the SAME length and order, so the caller can re-map each translation onto
+ * its item by index (robust to duplicate descriptions).
+ *
+ * @param {object} content - { title, notes, descriptions: string[] }
+ * @param {string} targetLang - 'en' (extendable later)
+ * @returns {Promise<{title:string, notes:string, descriptions:string[]}>}
+ */
+export const translateQuoteContent = async (content, targetLang = 'en') => {
+    const descriptions = Array.isArray(content?.descriptions) ? content.descriptions : [];
+    const title = typeof content?.title === 'string' ? content.title : '';
+    const notes = typeof content?.notes === 'string' ? content.notes : '';
+
+    // Nothing to translate → return as-is without spending an AI call.
+    if (!title.trim() && !notes.trim() && descriptions.every(d => !String(d || '').trim())) {
+        return { title, notes, descriptions };
+    }
+
+    const langName = targetLang === 'en' ? 'anglais' : targetLang;
+
+    const systemPrompt = `Tu es un traducteur professionnel spécialisé dans les devis du bâtiment (BTP) français. Tu traduis vers ${langName} en utilisant la terminologie technique correcte du métier (électricité, plomberie, maçonnerie, etc.).
+
+RÈGLES STRICTES :
+- Traduis UNIQUEMENT le texte ; ne traduis JAMAIS les nombres, montants, références produit, codes (ex. "U-1000 R2V", "3G10 mm²", "40 A", "NF C 15-100") ni les unités.
+- Garde les titres de section en MAJUSCULES s'ils l'étaient.
+- Conserve EXACTEMENT le même nombre d'éléments dans "descriptions" et le même ordre. Si une description est vide, renvoie une chaîne vide à la même position.
+- Traduction naturelle et concise, pas mot-à-mot maladroit.
+- Réponds en JSON STRICT, sans markdown, sans texte autour.
+
+FORMAT DE RÉPONSE :
+{"title":"...","notes":"...","descriptions":["...","..."]}`;
+
+    const userMessage = `Traduis le contenu de ce devis vers ${langName}.\n\nDONNÉES (JSON) :\n${JSON.stringify({ title, notes, descriptions })}`;
+
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage });
+    const parsed = extractJsonObject(rawResponse);
+
+    const outDesc = Array.isArray(parsed.descriptions) ? parsed.descriptions : [];
+    // Re-align defensively: keep the source string if the model dropped/added
+    // an entry, so an item is never left with the wrong translation.
+    const descriptionsOut = descriptions.map((src, i) => {
+        const t = outDesc[i];
+        return typeof t === 'string' && t.trim() ? t : src;
+    });
+
+    return {
+        title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : title,
+        notes: typeof parsed.notes === 'string' ? parsed.notes : notes,
+        descriptions: descriptionsOut,
+    };
+};
+
+/**
  * Generates quote items based on a natural language description.
  * @param {string} userDescription - The user's description of work
  * @param {object} context - Optional context (hourlyRate, instructions, customSystemPrompt, etc.)
