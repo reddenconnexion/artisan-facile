@@ -66,7 +66,7 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
             amendment_details: formData.amendment_details || {},
         };
 
-        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'bloburl')
+        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'bloburl', localPreview.lang || 'fr')
             .then(url => {
                 if (cancelled) {
                     if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -89,7 +89,7 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
             setPdfUrl(null);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [localPreview?.email, formData.client_id, isEditing, quoteId, userProfile?.id, totals.subtotal, totals.tva, totals.total]);
+    }, [localPreview?.email, localPreview?.lang, formData.client_id, isEditing, quoteId, userProfile?.id, totals.subtotal, totals.tva, totals.total]);
 
     if (!localPreview) return null;
 

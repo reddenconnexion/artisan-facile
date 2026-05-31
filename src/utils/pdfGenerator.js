@@ -27,12 +27,12 @@ const buildFacturXXMP = (profile = 'EN 16931', fileName = 'factur-x.xml') => {
 };
 
 // Safe Date Helper
-const formatDate = (dateString) => {
+const formatDate = (dateString, locale) => {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
-        return date.toLocaleDateString();
+        return date.toLocaleDateString(locale);
     } catch (e) {
         return '';
     }
@@ -73,15 +73,150 @@ const buildRoundedLogoDataUrl = async (url, sizePx = 256, radiusRatio = 0.18) =>
     return canvas.toDataURL('image/png');
 };
 
+// Libellés du PDF (devis / facture / avenant) traduits par langue.
+// Permet d'émettre un document en français (défaut) ou en anglais
+// sans dupliquer la logique de génération.
+const PDF_I18N = {
+    fr: {
+        facture: 'FACTURE', devis: 'DEVIS', avenant: 'AVENANT',
+        dateInvoice: 'Date de facturation', dateQuote: "Date d'émission",
+        yourCompany: 'Votre Entreprise',
+        phone: 'Tél', email: 'Email', web: 'Web', siret: 'SIRET',
+        amendmentTitle: 'AVENANT - MODIFICATION TECHNIQUE',
+        paid: 'ACQUITTÉE',
+        validUntil: "Valable jusqu'au",
+        category: 'Catégorie',
+        catService: 'Prestation de services', catGoods: 'Livraison de biens', catMixed: 'Mixte',
+        vatOnDebits: "Option pour le paiement de la TVA d'après les débits",
+        client: 'Client', unknownClient: 'Client Inconnu',
+        siren: 'SIREN', tvaIntra: 'TVA Intra',
+        interventionPlace: "Lieu d'intervention",
+        object: 'Objet',
+        initialQuoteRef: (id, date) => `Devis initial N° ${id} du ${date}`,
+        initialQuoteRefUnknown: 'Devis initial Référence Inconnue',
+        fieldReport: 'CONSTAT TERRAIN',
+        discoveredOn: (date) => `Lors de l'intervention du ${date}, découverte de :`,
+        impossibility: (reason) => `» Impossibilité de réaliser la solution initiale pour cause de ${reason}`,
+        newSolution: 'NOUVELLE SOLUTION',
+        additionalMaterial: '- Matériel complémentaire :',
+        technicalAddedValue: (v) => `- Plus-value technique : ${v}`,
+        colDescription: 'Description', colQty: 'Quantité', colUnitPrice: 'Prix Unitaire HT', colTotal: 'Total HT',
+        colUnitPriceShort: 'Prix U. HT',
+        legendLabor: "Main d'œuvre / Prestation", legendMaterial: 'Fournitures / Matériel',
+        optionPrefix: '(Option)',
+        tableLaborHeader: "MAIN D'OEUVRE & PRESTATIONS", tableMaterialHeader: 'MATÉRIEL & FOURNITURES',
+        financialAdjustment: 'AJUSTEMENT FINANCIER',
+        initialQuoteTTC: 'Devis Initial TTC', billedToDate: 'Facturé à ce jour (Situation)',
+        includingDeposit: '(incluant acompte)', amendmentAmountTTC: 'Montant Avenant TTC',
+        newProjectTotal: 'Nouveau Total Projet',
+        balanceOnAmendment: (amt) => `(Solde à régler sur cet avenant : ${amt} €)`,
+        depositPaid: 'Acompte versé', kept: '(conservé)',
+        amendmentComplementTTC: 'Complément Avenant TTC',
+        newBalanceDue: 'Nouveau Solde à Régler',
+        projectTotal: (amt) => `(Total Projet : ${amt} € TTC)`,
+        totalHT: 'Total HT', vat: (rate) => `TVA (${rate})`,
+        vatNotApplicable: 'TVA non applicable, art. 293 B du CGI', totalTTC: 'Total TTC',
+        materialDepositNote: (amt) => `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${amt} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.`,
+        beforeAfter: 'Montage Avant / Après',
+        notesConditions: 'Notes / Conditions',
+        bonPourAccord: 'Bon pour accord',
+        signedOn: (date) => `Signé le ${date}`,
+        paymentMethods: 'Moyens de paiement acceptés',
+        transfer: 'Virement', iban: 'IBAN', weroLabel: 'Paylib / Wero',
+        weroPhone: (num, name) => name ? `Tél : ${num} (${name})` : `Tél : ${num}`,
+        paymentReference: (ref) => `Merci d'indiquer la référence "${ref}" lors du paiement.`,
+        onReceipt: 'à réception',
+        paymentSchedule: 'Échéancier de paiement',
+        statusPaid: 'Payé', statusPartial: 'Partiel', statusPending: 'En attente',
+        schedDate: 'Date', schedAmount: 'Montant', schedStatus: 'Statut',
+        paymentByTransferOrCheck: (name) => `Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${name}.`,
+        paymentByTransfer: `Le règlement s'effectue par virement bancaire.`,
+        legalPayment: (due, method) => `Règlement : Le paiement est dû ${due}. ${method}`,
+        dueOnDate: (d) => `le ${d}`, dueOnReceipt: 'à réception de la facture',
+        legalLateFees: "Pénalités de retard : Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.",
+        legalRecovery: "Frais de recouvrement (Clients Pros) : Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).",
+        legalProperty: "Réserve de propriété : Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix.",
+        legalTechnical: "Sous réserve technique : Ce devis est établi sous réserve de bonne faisabilité et de la conformité des réseaux ou supports existants (non visitables avant démontage).",
+        footer: (type) => `${type} généré par Artisan Facile - Conforme Factur-X`,
+        dateLocale: 'fr-FR',
+    },
+    en: {
+        facture: 'INVOICE', devis: 'QUOTE', avenant: 'AMENDMENT',
+        dateInvoice: 'Invoice date', dateQuote: 'Issue date',
+        yourCompany: 'Your Company',
+        phone: 'Tel', email: 'Email', web: 'Web', siret: 'SIRET',
+        amendmentTitle: 'AMENDMENT - TECHNICAL MODIFICATION',
+        paid: 'PAID',
+        validUntil: 'Valid until',
+        category: 'Category',
+        catService: 'Provision of services', catGoods: 'Supply of goods', catMixed: 'Mixed',
+        vatOnDebits: 'Option for VAT payment based on debits',
+        client: 'Client', unknownClient: 'Unknown Client',
+        siren: 'SIREN', tvaIntra: 'VAT No.',
+        interventionPlace: 'Place of work',
+        object: 'Subject',
+        initialQuoteRef: (id, date) => `Initial quote No. ${id} dated ${date}`,
+        initialQuoteRefUnknown: 'Initial quote — reference unknown',
+        fieldReport: 'SITE FINDINGS',
+        discoveredOn: (date) => `During the intervention on ${date}, the following was found:`,
+        impossibility: (reason) => `» Unable to carry out the initial solution due to ${reason}`,
+        newSolution: 'NEW SOLUTION',
+        additionalMaterial: '- Additional materials:',
+        technicalAddedValue: (v) => `- Technical added value: ${v}`,
+        colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price (excl. VAT)', colTotal: 'Total (excl. VAT)',
+        colUnitPriceShort: 'Unit Price',
+        legendLabor: 'Labour / Service', legendMaterial: 'Supplies / Materials',
+        optionPrefix: '(Optional)',
+        tableLaborHeader: 'LABOUR & SERVICES', tableMaterialHeader: 'MATERIALS & SUPPLIES',
+        financialAdjustment: 'FINANCIAL ADJUSTMENT',
+        initialQuoteTTC: 'Initial Quote (incl. VAT)', billedToDate: 'Billed to date (Progress)',
+        includingDeposit: '(including deposit)', amendmentAmountTTC: 'Amendment Amount (incl. VAT)',
+        newProjectTotal: 'New Project Total',
+        balanceOnAmendment: (amt) => `(Balance due on this amendment: €${amt})`,
+        depositPaid: 'Deposit paid', kept: '(retained)',
+        amendmentComplementTTC: 'Amendment Supplement (incl. VAT)',
+        newBalanceDue: 'New Balance Due',
+        projectTotal: (amt) => `(Project Total: €${amt} incl. VAT)`,
+        totalHT: 'Total (excl. VAT)', vat: (rate) => `VAT (${rate})`,
+        vatNotApplicable: 'VAT not applicable, art. 293 B of the French Tax Code', totalTTC: 'Total (incl. VAT)',
+        materialDepositNote: (amt) => `\n\n--- MATERIALS DEPOSIT ---\nMaterials amount: €${amt} incl. VAT.\nA deposit covering the full cost of the materials is required upon signature.`,
+        beforeAfter: 'Before / After',
+        notesConditions: 'Notes / Terms',
+        bonPourAccord: 'Approved for agreement',
+        signedOn: (date) => `Signed on ${date}`,
+        paymentMethods: 'Accepted payment methods',
+        transfer: 'Bank transfer', iban: 'IBAN', weroLabel: 'Paylib / Wero',
+        weroPhone: (num, name) => name ? `Tel: ${num} (${name})` : `Tel: ${num}`,
+        paymentReference: (ref) => `Please quote the reference "${ref}" when making payment.`,
+        onReceipt: 'upon receipt',
+        paymentSchedule: 'Payment schedule',
+        statusPaid: 'Paid', statusPartial: 'Partial', statusPending: 'Pending',
+        schedDate: 'Date', schedAmount: 'Amount', schedStatus: 'Status',
+        paymentByTransferOrCheck: (name) => `Payment is made by bank transfer or cheque payable to ${name}.`,
+        paymentByTransfer: 'Payment is made by bank transfer.',
+        legalPayment: (due, method) => `Payment terms: Payment is due ${due}. ${method}`,
+        dueOnDate: (d) => `on ${d}`, dueOnReceipt: 'upon receipt of the invoice',
+        legalLateFees: 'Late payment penalties: Any late payment will incur penalties calculated at an annual rate of 10%, payable the day after the due date, without the need for a reminder.',
+        legalRecovery: 'Recovery costs (Business clients): For business clients, a fixed indemnity of €40 for recovery costs is due as of right in the event of late payment (Art. L441-10 of the French Commercial Code).',
+        legalProperty: 'Retention of title: The goods and materials installed remain the property of the seller until full payment of the price.',
+        legalTechnical: 'Subject to technical feasibility: This quote is issued subject to feasibility and the compliance of existing networks or supports (not inspectable before removal).',
+        footer: (type) => `${type} generated by Artisan Facile - Factur-X compliant`,
+        dateLocale: 'en-GB',
+    },
+};
+
 // Converted to Async to support pdf-lib operations
-export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false) => {
+export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false, lang = 'fr') => {
     // ---------------------------------------------------------
     // 1. Generate Visual PDF with jsPDF (Existing Logic)
     // ---------------------------------------------------------
     const doc = new jsPDF();
 
-    const typeDocument = isInvoice ? "FACTURE" : (devis.type === 'amendment' ? "AVENANT" : "DEVIS");
-    const dateLabel = isInvoice ? "Date de facturation" : "Date d'émission";
+    const L = PDF_I18N[lang] || PDF_I18N.fr;
+    const fmtDate = (d) => formatDate(d, L.dateLocale);
+
+    const typeDocument = isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis);
+    const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
 
     // Logo
@@ -101,7 +236,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    const companyName = userProfile.company_name || userProfile.full_name || "Votre Entreprise";
+    const companyName = userProfile.company_name || userProfile.full_name || L.yourCompany;
     doc.text(companyName, 14, contentStartY);
 
     doc.setFontSize(10);
@@ -123,23 +258,23 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const rightColX = 90;
 
     if (userProfile.phone) {
-        doc.text(`Tél : ${userProfile.phone}`, rightColX, rightY);
+        doc.text(`${L.phone} : ${userProfile.phone}`, rightColX, rightY);
         rightY += 5;
     }
 
     const emailToDisplay = userProfile.professional_email || userProfile.email;
     if (emailToDisplay) {
-        doc.text(`Email : ${emailToDisplay}`, rightColX, rightY);
+        doc.text(`${L.email} : ${emailToDisplay}`, rightColX, rightY);
         rightY += 5;
     }
 
     if (userProfile.website) {
-        doc.text(`Web : ${userProfile.website}`, rightColX, rightY);
+        doc.text(`${L.web} : ${userProfile.website}`, rightColX, rightY);
         rightY += 5;
     }
 
     if (userProfile.siret) {
-        doc.text(`SIRET : ${userProfile.siret}`, rightColX, rightY);
+        doc.text(`${L.siret} : ${userProfile.siret}`, rightColX, rightY);
         rightY += 5;
     }
 
@@ -153,7 +288,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFont(undefined, 'bold');
 
     if (isAmendment) {
-        doc.text(`AVENANT - MODIFICATION TECHNIQUE`, 14, 75);
+        doc.text(L.amendmentTitle, 14, 75);
     } else {
         doc.text(`${typeDocument} N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`, 14, 75);
     }
@@ -165,7 +300,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(13);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(220, 38, 38);
-        doc.text("ACQUITTÉE", stampX, 75);
+        doc.text(L.paid, stampX, 75);
         // Reset
         doc.setTextColor(0, 0, 0);
     }
@@ -173,17 +308,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`${dateLabel} : ${formatDate(devis.date)}`, 14, 85);
+    doc.text(`${dateLabel} : ${fmtDate(devis.date)}`, 14, 85);
     if (!isInvoice && devis.valid_until) {
-        doc.text(`Valable jusqu'au : ${formatDate(devis.valid_until)}`, 14, 90);
+        doc.text(`${L.validUntil} : ${fmtDate(devis.valid_until)}`, 14, 90);
     }
 
     // Factur-X Info (Ops Category)
     if (isInvoice && devis.operation_category) {
-        const catMap = { 'service': 'Prestation de services', 'goods': 'Livraison de biens', 'mixed': 'Mixte' };
-        doc.text(`Catégorie : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 95);
+        const catMap = { 'service': L.catService, 'goods': L.catGoods, 'mixed': L.catMixed };
+        doc.text(`${L.category} : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 95);
         if (devis.vat_on_debits) {
-            doc.text("Option pour le paiement de la TVA d'après les débits", 14, 100);
+            doc.text(L.vatOnDebits, 14, 100);
         }
     }
 
@@ -195,12 +330,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.text("Client :", clientX, clientY);
+    doc.text(`${L.client} :`, clientX, clientY);
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(client.name || "Client Inconnu", clientX, clientY + 5);
+    doc.text(client.name || L.unknownClient, clientX, clientY + 5);
 
     let clientAddressY = clientY + 10;
     if (client.address) {
@@ -215,11 +350,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Display SIREN/TVA if present (Required for Factur-X visual consistency)
     if (client.siren) {
-        doc.text(`SIREN : ${client.siren}`, clientX, clientAddressY);
+        doc.text(`${L.siren} : ${client.siren}`, clientX, clientAddressY);
         clientAddressY += 5;
     }
     if (client.tva_intracom) {
-        doc.text(`TVA Intra : ${client.tva_intracom}`, clientX, clientAddressY);
+        doc.text(`${L.tvaIntra} : ${client.tva_intracom}`, clientX, clientAddressY);
     }
 
     // Adresse d'intervention (si différente)
@@ -228,7 +363,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0); // Black for visibility
-        doc.text("Lieu d'intervention :", clientX, clientAddressY);
+        doc.text(`${L.interventionPlace} :`, clientX, clientAddressY);
 
         doc.setFont(undefined, 'normal');
         doc.setTextColor(100, 100, 100);
@@ -248,7 +383,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(50, 50, 50);
-        const titleLines = doc.splitTextToSize(`Objet : ${devis.title}`, 182);
+        const titleLines = doc.splitTextToSize(`${L.object} : ${devis.title}`, 182);
         doc.text(titleLines, 14, titleY);
 
         tableStartY = titleY + titleLines.length * 6 + 2;
@@ -258,8 +393,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // --- AVENANT SECTIONS ---
         // 1. Reference
         const parentRef = devis.parent_quote_data
-            ? `Devis initial N° ${devis.parent_quote_data.id} du ${formatDate(devis.parent_quote_data.date)}`
-            : `Devis initial Référence Inconnue`;
+            ? L.initialQuoteRef(devis.parent_quote_data.id, fmtDate(devis.parent_quote_data.date))
+            : L.initialQuoteRefUnknown;
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
@@ -282,7 +417,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("CONSTAT TERRAIN :", 14, currentY);
+        doc.text(`${L.fieldReport} :`, 14, currentY);
         currentY += 6;
 
         doc.setFontSize(10);
@@ -291,7 +426,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         if (details.constat_date) {
             const introLines = doc.splitTextToSize(
-                `Lors de l'intervention du ${formatDate(details.constat_date)}, découverte de :`,
+                L.discoveredOn(fmtDate(details.constat_date)),
                 182
             );
             doc.text(introLines, 14, currentY);
@@ -305,7 +440,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         if (details.constat_reason) {
             const reasonLines = doc.splitTextToSize(
-                `» Impossibilité de réaliser la solution initiale pour cause de ${details.constat_reason}`,
+                L.impossibility(details.constat_reason),
                 182
             );
             doc.text(reasonLines, 14, currentY);
@@ -318,7 +453,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("NOUVELLE SOLUTION :", 14, currentY);
+        doc.text(`${L.newSolution} :`, 14, currentY);
         currentY += 6;
 
         doc.setFontSize(10);
@@ -331,12 +466,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             currentY += (solLines.length * 5);
         }
 
-        doc.text(`- Matériel complémentaire :`, 14, currentY);
+        doc.text(L.additionalMaterial, 14, currentY);
         currentY += 5;
 
         if (details.solution_technical_value) {
             const valueLines = doc.splitTextToSize(
-                `- Plus-value technique : ${details.solution_technical_value}`,
+                L.technicalAddedValue(details.solution_technical_value),
                 182
             );
             doc.text(valueLines, 14, currentY);
@@ -355,7 +490,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const allItems = devis.items || [];
     const hasSections = allItems.some(i => i.type === 'section');
     const materials = allItems.filter(i => i.type === 'material');
-    const tableColumn = ["Description", "Quantité", "Prix Unitaire HT", "Total HT"];
+    const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
     const headerColor = isInvoice ? [46, 125, 50] : [37, 99, 235];
 
     // Track current Y position for multiple tables
@@ -377,7 +512,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
                 doc.setTextColor(29, 78, 216);
                 doc.setFont(undefined, 'bold');
-                doc.text('Main d\'œuvre / Prestation', lx + 15, currentTableY - 2.5);
+                doc.text(L.legendLabor, lx + 15, currentTableY - 2.5);
                 lx += 72;
             }
             if (hasMat) {
@@ -389,14 +524,14 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
                 doc.setTextColor(154, 52, 18);
                 doc.setFont(undefined, 'bold');
-                doc.text('Fournitures / Matériel', lx + 15, currentTableY - 2.5);
+                doc.text(L.legendMaterial, lx + 15, currentTableY - 2.5);
             }
             doc.setFont(undefined, 'normal');
             doc.setTextColor(0, 0, 0);
         }
 
         // Tableau sans colonne "Type" — couleur de fond par ligne
-        const tableColumnNoType = ["Description", "Quantité", "Prix U. HT", "Total HT"];
+        const tableColumnNoType = [L.colDescription, L.colQty, L.colUnitPriceShort, L.colTotal];
         const rows = allItems.map(item => {
             if (item.type === 'section') {
                 return [{
@@ -406,7 +541,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 }];
             }
             return [
-                item.is_optional ? `(Option) ${item.description || ''}` : (item.description || ''),
+                item.is_optional ? `${L.optionPrefix} ${item.description || ''}` : (item.description || ''),
                 item.quantity ?? '',
                 `${parseFloat(item.price || 0).toFixed(2)} €`,
                 `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
@@ -448,7 +583,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
 
         const generateRows = (items) => items.map(item => [
-            item.is_optional ? `(Option) ${item.description || ''}` : (item.description || ''),
+            item.is_optional ? `${L.optionPrefix} ${item.description || ''}` : (item.description || ''),
             item.quantity,
             `${parseFloat(item.price || 0).toFixed(2)} €`,
             `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
@@ -460,7 +595,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'bold');
                 doc.setTextColor(100, 100, 100);
-                doc.text("MAIN D'OEUVRE & PRESTATIONS", 14, currentTableY - 2);
+                doc.text(L.tableLaborHeader, 14, currentTableY - 2);
             }
 
             autoTable(doc, {
@@ -480,7 +615,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
             doc.setTextColor(100, 100, 100);
-            doc.text("MATÉRIEL & FOURNITURES", 14, currentTableY - 2);
+            doc.text(L.tableMaterialHeader, 14, currentTableY - 2);
 
             autoTable(doc, {
                 startY: currentTableY,
@@ -503,7 +638,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("AJUSTEMENT FINANCIER :", 14, finalY);
+        doc.text(`${L.financialAdjustment} :`, 14, finalY);
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
@@ -531,28 +666,28 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             // Display: Initial (Ref), Situation (Billed), Amendment (New), Global Total (Sit + Amend)
             // Balance = Amendment Total (as Situation is billed separately)
 
-            doc.text(`Devis Initial TTC :`, leftX, financeY);
+            doc.text(`${L.initialQuoteTTC} :`, leftX, financeY);
             doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
 
-            doc.text(`Facturé à ce jour (Situation) :`, leftX, financeY);
+            doc.text(`${L.billedToDate} :`, leftX, financeY);
             doc.text(`${progressTotal.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
-            doc.text(`(incluant acompte)`, rightValueX, financeY + 3, { align: 'right' });
+            doc.text(L.includingDeposit, rightValueX, financeY + 3, { align: 'right' });
             doc.setFontSize(10);
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
             doc.setFont(undefined, 'bold');
             doc.setTextColor(37, 99, 235); // Blue
-            doc.text(`Montant Avenant TTC :`, leftX, financeY);
+            doc.text(`${L.amendmentAmountTTC} :`, leftX, financeY);
             doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
             doc.setFontSize(12);
-            doc.text(`Nouveau Total Projet :`, leftX, financeY);
+            doc.text(`${L.newProjectTotal} :`, leftX, financeY);
             // New Total = Situation + Amendment
             doc.text(`${(progressTotal + amendmentTTC).toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
@@ -560,25 +695,25 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(100, 100, 100);
-            doc.text(`(Solde à régler sur cet avenant : ${amendmentTTC.toFixed(2)} €)`, rightValueX, financeY, { align: 'right' });
+            doc.text(L.balanceOnAmendment(amendmentTTC.toFixed(2)), rightValueX, financeY, { align: 'right' });
 
         } else {
             // SCENARIO B: NO SITUATION (Standard Additive)
             // Balance = Initial + Amendment - Deposit
 
-            doc.text(`Devis Initial TTC :`, leftX, financeY);
+            doc.text(`${L.initialQuoteTTC} :`, leftX, financeY);
             doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
 
             if (deposit > 0) {
-                doc.text(`Acompte versé :`, leftX, financeY);
-                doc.text(`${deposit.toFixed(2)} € (conservé)`, rightValueX, financeY, { align: 'right' });
+                doc.text(`${L.depositPaid} :`, leftX, financeY);
+                doc.text(`${deposit.toFixed(2)} € ${L.kept}`, rightValueX, financeY, { align: 'right' });
                 financeY += 6;
             }
 
             doc.setFont(undefined, 'bold');
             doc.setTextColor(37, 99, 235);
-            doc.text(`Complément Avenant TTC :`, leftX, financeY);
+            doc.text(`${L.amendmentComplementTTC} :`, leftX, financeY);
             doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             doc.setTextColor(0, 0, 0);
             financeY += 8;
@@ -587,14 +722,14 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             const balance = initialTTC + amendmentTTC - deposit;
 
             doc.setFontSize(12);
-            doc.text(`Nouveau Solde à Régler :`, leftX, financeY);
+            doc.text(`${L.newBalanceDue} :`, leftX, financeY);
             doc.text(`${balance.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
 
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(100, 100, 100);
-            doc.text(`(Total Projet : ${(initialTTC + amendmentTTC).toFixed(2)} € TTC)`, rightValueX, financeY, { align: 'right' });
+            doc.text(L.projectTotal((initialTTC + amendmentTTC).toFixed(2)), rightValueX, financeY, { align: 'right' });
         }
 
         // Update currentY for next sections
@@ -608,21 +743,21 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         doc.setFont(undefined, 'normal');
         // ... Totals rendering ...
-        doc.text(`Total HT :`, labelX, finalY);
+        doc.text(`${L.totalHT} :`, labelX, finalY);
         doc.text(`${(Number(devis.total_ht) || 0).toFixed(2)} €`, valueX, finalY, { align: 'right' });
 
         if (devis.include_tva !== false) {
-            doc.text(`TVA (20%) :`, labelX, finalY + 6);
+            doc.text(`${L.vat('20%')} :`, labelX, finalY + 6);
             doc.text(`${(Number(devis.total_tva) || 0).toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
         } else {
             doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
-            doc.text("TVA non applicable, art. 293 B du CGI", labelX, finalY + 6);
+            doc.text(L.vatNotApplicable, labelX, finalY + 6);
         }
 
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
-        doc.text(`Total TTC :`, labelX, finalY + 14);
+        doc.text(`${L.totalTTC} :`, labelX, finalY + 14);
         doc.text(`${(Number(devis.total_ttc) || 0).toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
     }
 
@@ -645,7 +780,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Calculate VAT part for materials using effective rate
         const materialTTC = devis.include_tva !== false ? materialHT * (1 + vatRate) : materialHT;
 
-        const depositNote = `\n\n--- ACOMPTE MATÉRIEL ---\nMontant des fournitures : ${materialTTC.toFixed(2)} € TTC.\nUn acompte correspondant à la totalité du matériel est requis à la signature.`;
+        const depositNote = L.materialDepositNote(materialTTC.toFixed(2));
 
         allNotes += depositNote;
     }
@@ -695,7 +830,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                     // Title
                     doc.setFontSize(16);
                     doc.setTextColor(0, 0, 0);
-                    doc.text("Montage Avant / Après", 105, 20, { align: 'center' });
+                    doc.text(L.beforeAfter, 105, 20, { align: 'center' });
 
                     // Image
                     // doc.addImage(montageUrl, 'JPEG', x, y, w, h);
@@ -741,7 +876,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text("Notes / Conditions :", 14, currentY);
+        doc.text(`${L.notesConditions} :`, 14, currentY);
         currentY += 6;
 
         // Render line by line to handle notes spanning multiple pages
@@ -766,11 +901,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const signatureY = currentY + 10;
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : 'Bon pour accord';
+        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : L.bonPourAccord;
         doc.text(`${bonPourAccordText} :`, 120, signatureY);
 
         const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
-        doc.text(`Signé le ${signedDate.toLocaleDateString('fr-FR')}`, 120, signatureY + 5);
+        doc.text(L.signedOn(signedDate.toLocaleDateString(L.dateLocale)), 120, signatureY + 5);
 
         try {
             doc.addImage(devis.signature, 'PNG', 120, signatureY + 10, 50, 25);
@@ -807,7 +942,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("Moyens de paiement acceptés :", 20, elementY + 8);
+        doc.text(`${L.paymentMethods} :`, 20, elementY + 8);
 
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
@@ -816,9 +951,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         // IBAN Line
         if (hasIban) {
-            doc.text("Virement", 20, elementY + lineOffset);
+            doc.text(L.transfer, 20, elementY + lineOffset);
             doc.setFont(undefined, 'bold');
-            doc.text(`IBAN : ${userProfile.iban}`, 55, elementY + lineOffset);
+            doc.text(`${L.iban} : ${userProfile.iban}`, 55, elementY + lineOffset);
             doc.setFont(undefined, 'normal');
             lineOffset += 6;
         }
@@ -826,11 +961,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Wero Line
         // Wero Line
         if (weroNumber && weroNumber.trim().length > 0) {
-            doc.text("Paylib / Wero", 20, elementY + lineOffset);
+            doc.text(L.weroLabel, 20, elementY + lineOffset);
             doc.setFont(undefined, 'bold');
-            const weroText = (userProfile.full_name || userProfile.company_name)
-                ? `Tél : ${weroNumber} (${userProfile.full_name || userProfile.company_name})`
-                : `Tél : ${weroNumber}`;
+            const weroText = L.weroPhone(weroNumber, userProfile.full_name || userProfile.company_name || '');
             doc.text(weroText, 55, elementY + lineOffset);
         }
 
@@ -839,7 +972,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'italic');
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Merci d'indiquer la référence "${typeDocument} ${devis.quote_number || devis.id}" lors du paiement.`, 20, elementY + 28);
+            doc.text(L.paymentReference(`${typeDocument} ${devis.quote_number || devis.id}`), 20, elementY + 28);
         }
 
         elementY += boxHeight + 10;
@@ -855,8 +988,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Calcule la date d'échance : soit c'est une facture et on a valid_until, soit c'est aujourd'hui (réception)
     const dueDate = (isInvoice && devis.valid_until)
-        ? formatDate(devis.valid_until)
-        : "à réception";
+        ? fmtDate(devis.valid_until)
+        : L.onReceipt;
 
     // --- NEW: Fetch Installments Schedule ---
     let installments = [];
@@ -884,17 +1017,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text("Échéancier de paiement :", 14, currentY);
+        doc.text(`${L.paymentSchedule} :`, 14, currentY);
 
         const scheduleBody = installments.map(inst => [
-            formatDate(inst.due_date),
+            fmtDate(inst.due_date),
             `${inst.amount.toFixed(2)} €`,
-            inst.status === 'paid' ? 'Payé' : (inst.status === 'partial' ? 'Partiel' : 'En attente')
+            inst.status === 'paid' ? L.statusPaid : (inst.status === 'partial' ? L.statusPartial : L.statusPending)
         ]);
 
         autoTable(doc, {
             startY: currentY + 3,
-            head: [['Date', 'Montant', 'Statut']],
+            head: [[L.schedDate, L.schedAmount, L.schedStatus]],
             body: scheduleBody,
             theme: 'plain',
             styles: { fontSize: 9, cellPadding: 1 },
@@ -924,19 +1057,19 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const checkOrderName = userProfile.full_name || companyName;
 
     const paymentMethodText = isInstallment
-        ? `Le règlement s'effectue par virement bancaire ou chèque à l'ordre de ${checkOrderName}.`
-        : `Le règlement s'effectue par virement bancaire.`;
+        ? L.paymentByTransferOrCheck(checkOrderName)
+        : L.paymentByTransfer;
 
     const legalTerms = [
-        `Règlement : Le paiement est dû ${isInvoice && devis.valid_until ? `le ${dueDate}` : 'à réception de la facture'}. ${paymentMethodText}`,
-        "Pénalités de retard : Tout retard de paiement donnera lieu à l'application de pénalités calculées au taux de 10 % annuel, exigibles le jour suivant la date d'échéance, sans qu'un rappel soit nécessaire.",
-        "Frais de recouvrement (Clients Pros) : Pour les clients professionnels, une indemnité forfaitaire de 40 € pour frais de recouvrement est due de plein droit en cas de retard de paiement (Art. L441-10 du Code de commerce).",
-        "Réserve de propriété : Les marchandises et matériels installés restent la propriété du vendeur jusqu’au paiement intégral du prix."
+        L.legalPayment(isInvoice && devis.valid_until ? L.dueOnDate(dueDate) : L.dueOnReceipt, paymentMethodText),
+        L.legalLateFees,
+        L.legalRecovery,
+        L.legalProperty
     ];
 
     // Ajout de la mention "Sous réserve de..." pour les devis uniquement
     if (!isInvoice) {
-        legalTerms.splice(1, 0, "Sous réserve technique : Ce devis est établi sous réserve de bonne faisabilité et de la conformité des réseaux ou supports existants (non visitables avant démontage).");
+        legalTerms.splice(1, 0, L.legalTechnical);
     }
 
     for (const term of legalTerms) {
@@ -970,7 +1103,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'bold');
             doc.saveGraphicsState();
             doc.setGState(new doc.GState({ opacity: 0.15 }));
-            doc.text("ACQUITTÉE", pageWidth / 2, pageHeight / 2, {
+            doc.text(L.paid, pageWidth / 2, pageHeight / 2, {
                 align: 'center',
                 angle: 45,
                 renderingMode: 'fill'
@@ -985,7 +1118,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`${isAmendment ? 'AVENANT' : typeDocument} généré par Artisan Facile - Conforme Factur-X`, 105, 290, { align: 'center' });
+        doc.text(L.footer(isAmendment ? L.avenant : typeDocument), 105, 290, { align: 'center' });
     }
 
     // ---------------------------------------------------------

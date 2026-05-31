@@ -18,8 +18,55 @@ const supabase = createClient(
     { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
 );
 
+// Libellés de l'interface du portail public, traduits selon la langue
+// transmise dans l'URL (?lang=en). Permet d'afficher au client un portail
+// cohérent avec le devis et le mail reçus en anglais.
+const PORTAL_I18N = {
+    fr: {
+        invalidLink: 'Lien invalide',
+        invoice: 'Facture', acceptedQuote: 'Devis accepté', quote: 'Devis',
+        report: 'Rapport', download: 'Télécharger', sign: 'Signer',
+        signedOn: (d) => `Signé le ${d}`, signedShort: 'Signé', paid: 'Acquittée',
+        customizeQuote: (n) => `⚙️ Personnalisez votre devis (${n} option${n > 1 ? 's' : ''})`,
+        choiceRequired: '(choix nécessaire)', noneOfThese: 'Aucune de ces options',
+        totalWithOptions: 'Total avec vos options',
+        pdfAutoUpdate: 'Le PDF se met à jour automatiquement selon votre sélection.',
+        generatingDoc: 'Génération du document...',
+        signQuote: 'Signer le devis', downloadPdf: 'Télécharger le PDF',
+        yourInvoice: 'Votre facture', yourQuote: 'Votre devis',
+        previewUnavailable: 'Aperçu indisponible sur ce navigateur. Téléchargez le PDF pour le consulter.',
+        preparingPreview: "Préparation de l'aperçu…",
+        quoteSignedThanks: 'Devis signé — merci !',
+        notifiedOfAgreement: (name) => `${name} a été notifié(e) de votre accord.`,
+        downloadSignedQuote: 'Télécharger le devis signé',
+        contact: (name) => `Contacter ${name}`,
+    },
+    en: {
+        invalidLink: 'Invalid link',
+        invoice: 'Invoice', acceptedQuote: 'Accepted quote', quote: 'Quote',
+        report: 'Report', download: 'Download', sign: 'Sign',
+        signedOn: (d) => `Signed on ${d}`, signedShort: 'Signed', paid: 'Paid',
+        customizeQuote: (n) => `⚙️ Customise your quote (${n} option${n > 1 ? 's' : ''})`,
+        choiceRequired: '(choice required)', noneOfThese: 'None of these options',
+        totalWithOptions: 'Total with your options',
+        pdfAutoUpdate: 'The PDF updates automatically based on your selection.',
+        generatingDoc: 'Generating document...',
+        signQuote: 'Sign the quote', downloadPdf: 'Download the PDF',
+        yourInvoice: 'Your invoice', yourQuote: 'Your quote',
+        previewUnavailable: 'Preview unavailable on this browser. Download the PDF to view it.',
+        preparingPreview: 'Preparing preview…',
+        quoteSignedThanks: 'Quote signed — thank you!',
+        notifiedOfAgreement: (name) => `${name} has been notified of your agreement.`,
+        downloadSignedQuote: 'Download the signed quote',
+        contact: (name) => `Contact ${name}`,
+    },
+};
+
 const PublicQuote = () => {
     const { token } = useParams();
+    // Langue du portail/PDF, lue depuis l'URL (?lang=en), fr par défaut.
+    const lang = (new URLSearchParams(window.location.search).get('lang') === 'en') ? 'en' : 'fr';
+    const T = PORTAL_I18N[lang];
     const [quote, setQuote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -128,7 +175,7 @@ const PublicQuote = () => {
         }
         const isInvoice = quote.type === 'invoice' || quote.status === 'paid' || (quote.title && quote.title.toLowerCase().includes('facture'));
         const quoteForPdf = buildQuoteForPdf() || quote;
-        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInvoice);
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInvoice, false, lang);
     };
 
     const handleRequestOtp = async (email) => {
@@ -247,7 +294,7 @@ const PublicQuote = () => {
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
         const quoteForPdf = buildQuoteForPdf();
 
-        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'blob')
+        generateDevisPDF(quoteForPdf, quote.client, quote.artisan, isInv, 'blob', lang)
             .then(async pdfBlob => {
                 if (cancelled) return;
                 blobUrl = URL.createObjectURL(pdfBlob);
@@ -323,7 +370,7 @@ const PublicQuote = () => {
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <FileCheck className="w-8 h-8 text-red-600" />
                 </div>
-                <h1 className="text-xl font-bold text-gray-900 mb-2">Lien invalide</h1>
+                <h1 className="text-xl font-bold text-gray-900 mb-2">{T.invalidLink}</h1>
                 <p className="text-gray-600">{error}</p>
             </div>
         </div>
@@ -370,7 +417,7 @@ const PublicQuote = () => {
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return '';
-            return date.toLocaleDateString();
+            return date.toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR');
         } catch (e) {
             return '';
         }
@@ -393,7 +440,7 @@ const PublicQuote = () => {
                                 {artisan.company_name || artisan.full_name}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
-                                {isInvoiceView ? 'Facture' : isSigned ? 'Devis accepté' : 'Devis'} N° {quote.quote_number || quote.id}
+                                {isInvoiceView ? T.invoice : isSigned ? T.acceptedQuote : T.quote} N° {quote.quote_number || quote.id}
                             </div>
                         </div>
                     </div>
@@ -408,7 +455,7 @@ const PublicQuote = () => {
                                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-orange-700 border border-orange-200 bg-orange-50 hover:bg-orange-100 text-sm font-medium rounded-lg transition-colors"
                             >
                                 <Download className="w-4 h-4" />
-                                Rapport
+                                {T.report}
                             </a>
                         )}
                         <button
@@ -416,7 +463,7 @@ const PublicQuote = () => {
                             className="flex items-center gap-1.5 px-3 py-1.5 text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium rounded-lg transition-colors"
                         >
                             <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Télécharger</span>
+                            <span className="hidden sm:inline">{T.download}</span>
                         </button>
                         {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
                             <button
@@ -424,20 +471,20 @@ const PublicQuote = () => {
                                 className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold rounded-lg shadow-sm transition-colors"
                             >
                                 <PenTool className="w-4 h-4" />
-                                Signer
+                                {T.sign}
                             </button>
                         )}
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-bold rounded-lg border border-green-200">
                                 <FileCheck className="w-4 h-4" />
-                                <span className="hidden sm:inline">Signé le {formatDate(quote.signed_at || quote.updated_at)}</span>
-                                <span className="sm:hidden">Signé</span>
+                                <span className="hidden sm:inline">{T.signedOn(formatDate(quote.signed_at || quote.updated_at))}</span>
+                                <span className="sm:hidden">{T.signedShort}</span>
                             </div>
                         )}
                         {quote.status === 'paid' && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-800 text-sm font-bold rounded-lg border border-red-200">
                                 <FileCheck className="w-4 h-4" />
-                                Acquittée
+                                {T.paid}
                             </div>
                         )}
                     </div>
@@ -452,7 +499,7 @@ const PublicQuote = () => {
                             className="w-full flex items-center justify-between py-3 text-sm font-semibold text-purple-700"
                             onClick={() => setOptionsExpanded(v => !v)}
                         >
-                            <span>⚙️ Personnalisez votre devis ({optionalItems.length} option{optionalItems.length > 1 ? 's' : ''})</span>
+                            <span>{T.customizeQuote(optionalItems.length)}</span>
                             {optionsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
 
@@ -465,7 +512,7 @@ const PublicQuote = () => {
                                         <div key={`group-${groupName}`} className="rounded-xl border border-purple-200 bg-purple-50/40 p-3">
                                             <p className="text-xs font-semibold text-purple-700 mb-2">
                                                 {groupName}
-                                                {required && <span className="ml-1 text-purple-500">(choix nécessaire)</span>}
+                                                {required && <span className="ml-1 text-purple-500">{T.choiceRequired}</span>}
                                             </p>
                                             <div className="space-y-1.5">
                                                 {groupItems.map(item => {
@@ -516,7 +563,7 @@ const PublicQuote = () => {
                                                             })}
                                                             className="w-4 h-4 accent-gray-500 shrink-0"
                                                         />
-                                                        <span className="text-sm text-gray-500">Aucune de ces options</span>
+                                                        <span className="text-sm text-gray-500">{T.noneOfThese}</span>
                                                     </label>
                                                 )}
                                             </div>
@@ -557,10 +604,10 @@ const PublicQuote = () => {
                                 })}
 
                                 <div className="flex items-center justify-between pt-2 border-t border-purple-100 text-sm">
-                                    <span className="text-gray-500">Total avec vos options</span>
+                                    <span className="text-gray-500">{T.totalWithOptions}</span>
                                     <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}</span>
                                 </div>
-                                <p className="text-xs text-gray-400">Le PDF se met à jour automatiquement selon votre sélection.</p>
+                                <p className="text-xs text-gray-400">{T.pdfAutoUpdate}</p>
                             </div>
                         )}
                     </div>
@@ -573,7 +620,7 @@ const PublicQuote = () => {
                     <div className="flex-1 flex items-center justify-center bg-gray-100" style={{ minHeight: 'calc(100vh - 56px)' }}>
                         <div className="flex flex-col items-center gap-3">
                             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                            <p className="text-sm text-gray-500">Génération du document...</p>
+                            <p className="text-sm text-gray-500">{T.generatingDoc}</p>
                         </div>
                     </div>
                 ) : pdfUrl ? (
@@ -608,7 +655,7 @@ const PublicQuote = () => {
                                                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
                                             >
                                                 <PenTool className="w-5 h-5" />
-                                                Signer le devis
+                                                {T.signQuote}
                                             </button>
                                         )}
                                         <button
@@ -616,7 +663,7 @@ const PublicQuote = () => {
                                             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-colors"
                                         >
                                             <Download className="w-5 h-5" />
-                                            Télécharger le PDF
+                                            {T.downloadPdf}
                                         </button>
                                     </div>
                                 </div>
@@ -632,12 +679,12 @@ const PublicQuote = () => {
                                         </div>
                                         <div>
                                             <h2 className="text-lg font-bold text-gray-900">
-                                                {isInvoiceView ? 'Votre facture' : 'Votre devis'}
+                                                {isInvoiceView ? T.yourInvoice : T.yourQuote}
                                             </h2>
                                             <p className="text-sm text-gray-500 mt-1">
                                                 {pdfRenderError
-                                                    ? "Aperçu indisponible sur ce navigateur. Téléchargez le PDF pour le consulter."
-                                                    : "Préparation de l'aperçu…"}
+                                                    ? T.previewUnavailable
+                                                    : T.preparingPreview}
                                             </p>
                                         </div>
                                         <button
@@ -645,7 +692,7 @@ const PublicQuote = () => {
                                             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
                                         >
                                             <Download className="w-5 h-5" />
-                                            Télécharger le PDF
+                                            {T.downloadPdf}
                                         </button>
                                         {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
                                             <button
@@ -653,7 +700,7 @@ const PublicQuote = () => {
                                                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
                                             >
                                                 <PenTool className="w-5 h-5" />
-                                                Signer le devis
+                                                {T.signQuote}
                                             </button>
                                         )}
                                     </div>
@@ -673,9 +720,9 @@ const PublicQuote = () => {
                             <FileCheck className="w-7 h-7 text-green-600" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-green-800">Devis signé — merci !</h3>
+                            <h3 className="text-xl font-bold text-green-800">{T.quoteSignedThanks}</h3>
                             <p className="text-green-700 text-sm mt-1">
-                                {artisan.company_name || artisan.full_name} a été notifié(e) de votre accord.
+                                {T.notifiedOfAgreement(artisan.company_name || artisan.full_name)}
                             </p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -684,7 +731,7 @@ const PublicQuote = () => {
                                 className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-all"
                             >
                                 <Download className="w-4 h-4" />
-                                Télécharger le devis signé
+                                {T.downloadSignedQuote}
                             </button>
                             {artisan.phone && (
                                 <a
@@ -692,7 +739,7 @@ const PublicQuote = () => {
                                     className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white hover:bg-green-700 font-medium rounded-xl shadow-sm transition-all"
                                 >
                                     <Phone className="w-4 h-4" />
-                                    Contacter {artisan.company_name || artisan.full_name}
+                                    {T.contact(artisan.company_name || artisan.full_name)}
                                 </a>
                             )}
                         </div>
