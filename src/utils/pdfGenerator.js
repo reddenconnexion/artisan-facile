@@ -219,6 +219,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
 
+    // Translated free-text content (title / notes / per-line descriptions).
+    // `content_en` is stored on the quote when the artisan sends it in English;
+    // we fall back to the original French whenever a translation is missing so
+    // the document is never left with blank lines. Amounts are never touched.
+    const tr = (lang !== 'fr' && devis.content_en) ? devis.content_en : null;
+    const trTitle = tr?.title || devis.title;
+    const trNotes = (tr && typeof tr.notes === 'string' && tr.notes.trim()) ? tr.notes : devis.notes;
+    const trLine = (desc) => (tr?.lines && tr.lines[desc]) ? tr.lines[desc] : desc;
+
     // Logo
     // Logo
     let contentStartY = 35; // Increased from 30 to Avoid Header Crop
@@ -377,13 +386,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Titre / Objet (Juste au dessus du tableau)
     let tableStartY = 105;
-    if (devis.title) {
+    if (trTitle) {
         const titleY = Math.max(95, clientAddressY + 10);
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(50, 50, 50);
-        const titleLines = doc.splitTextToSize(`${L.object} : ${devis.title}`, 182);
+        const titleLines = doc.splitTextToSize(`${L.object} : ${trTitle}`, 182);
         doc.text(titleLines, 14, titleY);
 
         tableStartY = titleY + titleLines.length * 6 + 2;
@@ -533,15 +542,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // Tableau sans colonne "Type" — couleur de fond par ligne
         const tableColumnNoType = [L.colDescription, L.colQty, L.colUnitPriceShort, L.colTotal];
         const rows = allItems.map(item => {
+            const desc = trLine(item.description || '');
             if (item.type === 'section') {
                 return [{
-                    content: item.description || '—',
+                    content: desc || '—',
                     colSpan: 4,
                     styles: { fontStyle: 'bold', fillColor: [230, 236, 255], textColor: [37, 99, 235], halign: 'left', fontSize: 9 }
                 }];
             }
             return [
-                item.is_optional ? `${L.optionPrefix} ${item.description || ''}` : (item.description || ''),
+                item.is_optional ? `${L.optionPrefix} ${desc}` : desc,
                 item.quantity ?? '',
                 `${parseFloat(item.price || 0).toFixed(2)} €`,
                 `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
@@ -583,7 +593,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
 
         const generateRows = (items) => items.map(item => [
-            item.is_optional ? `${L.optionPrefix} ${item.description || ''}` : (item.description || ''),
+            item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || ''),
             item.quantity,
             `${parseFloat(item.price || 0).toFixed(2)} €`,
             `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
@@ -765,7 +775,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const finalTableY = isAmendment ? currentTableY : (currentTableY > tableStartY ? currentTableY : 150) + 14;
     let currentY = finalTableY + 20;
 
-    let allNotes = devis.notes || '';
+    let allNotes = trNotes || '';
 
     // Automatic Material Deposit Note for Quotes
     if (!isInvoice && materials.length > 0 && devis.has_material_deposit === true) {
