@@ -212,10 +212,21 @@ const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 // real products that merely start with the same letters (e.g. "Conditionnement"
 // must NOT match "conditions"). Applied both during parsing and as a final
 // safety net on the produced items.
-const ADMIN_RE = /^(?:t[ée]l(?:[ée]phone)?\b|portable\b|mobile\b|fax\b|e-?mail\b|courriel\b|site\s*web|www\.|adresse\b|siret\b|siren\b|rcs\b|ape\b|naf\b|rib\b|iban\b|bic\b|tva\s*intra(?:com)?\b|n°?\s*tva\b|capital\s+social|acompte\b|arrhes\b|solde\b|[ée]ch[ée]anc|versement\b|reste\s+[àa]\s+payer|net\s+[àa]\s+payer|sous[\s-]?total|total\b|montant\s+(?:ht|ttc|tva)|tva\b|valable\b|garantie\b|d[ée]lai\b|conditions?\b|r[èe]glement\b|paiement\b|mode\s+de\s+r[èe]glement|bon\s+pour\s+accord|signature\b|cachet\b|fait\s+[àa]\b)/i;
+const ADMIN_RE = /^(?:t[ée]l(?:[ée]phone)?\b|portable\b|mobile\b|fax\b|e-?mail\b|courriel\b|site\s*web|www\.|adresse\b|code\s+postal\b|n°?\s*(?:siret|siren|rcs|tva|ape|naf)\b|siret\b|siren\b|rcs\b|ape\b|naf\b|rib\b|iban\b|bic\b|tva\s*intra(?:com)?\b|capital\s+social|acompte\b|arrhes\b|solde\b|[ée]ch[ée]anc|versement\b|reste\s+[àa]\s+payer|net\s+[àa]\s+payer|sous[\s-]?total|total\b|montant\s+(?:ht|ttc|tva)|tva\b|valable\b|garantie\b|d[ée]lai\b|conditions?\b|r[èe]glement\b|paiement\b|mode\s+de\s+r[èe]glement|bon\s+pour\s+accord|signature\b|cachet\b|fait\s+[àa]\b)/i;
+
+// Postal addresses without a label: a street line ("12 rue …", "ZA de …", "BP 12")
+// or a whole line that is just "<code postal> Ville". These sit in the header /
+// footer identity block and are never quote items.
+const ADDRESS_RE = /^(?:\d{1,4}\s*(?:bis|ter|quater)?[\s,]+(?:rue|r\.|avenue|av\.?|bd|boulevard|impasse|imp\.?|all[ée]es?|chemin|ch\.?|route|rte|place|pl\.?|quai|cours|sentier|voie|lotissement|lot\.?|r[ée]sidence|r[ée]s\.?|zone\b|z\.?\s?a\.?\s?c?\.?|z\.?\s?i\.?|square|passage|mont[ée]e|rampe|faubourg|fbg)\b|b\.?p\.?\s*\d+|\d{5}\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’\s.\-]{1,30}$)/i;
+
+// A line that is essentially just a company identifier (SIRET 14, SIREN 9,
+// intra-EU VAT "FR.. 999999999"), with or without a leading label.
+const ID_LINE_RE = /^(?:n°\s*)?(?:siret|siren|rcs|tva(?:\s*intra(?:com)?)?)?\s*:?\s*(?:fr\s*[0-9a-z]{2}\s*)?(?:\d[\s.]?){9,14}$/i;
 
 // True for any line that is administrative rather than a quote item.
-const isAdminLine = (line) => ADMIN_RE.test(line) || PHONE_RE.test(line) || EMAIL_RE.test(line);
+const isAdminLine = (line) =>
+    ADMIN_RE.test(line) || PHONE_RE.test(line) || EMAIL_RE.test(line) ||
+    ADDRESS_RE.test(line) || ID_LINE_RE.test(line);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quote metadata extraction (title + client name)
