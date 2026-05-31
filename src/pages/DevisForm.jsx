@@ -1646,9 +1646,18 @@ const DevisForm = () => {
 
             // Check if we switched to Paid
             if (formData.status === 'paid' && initialStatus !== 'paid') {
-                setShowReviewRequestModal(true);
-                setInitialStatus('paid');
-                // Don't navigate yet, let user see the modal
+                // Pas de demande d'avis Google sur une facture d'acompte
+                // (matériel ou standard) : le chantier n'est pas terminé, la
+                // demande d'avis n'a de sens qu'au paiement final.
+                const isDepositInvoice = (formData.title || '').toLowerCase().includes('acompte');
+                if (!isDepositInvoice) {
+                    setShowReviewRequestModal(true);
+                    setInitialStatus('paid');
+                    // Don't navigate yet, let user see the modal
+                } else {
+                    setInitialStatus('paid');
+                    navigate('/app/devis');
+                }
             } else {
                 navigate('/app/devis');
             }
