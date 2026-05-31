@@ -178,7 +178,7 @@ const parseFrNumber = (raw) => {
 
 const UNIT_TOKENS = {
     'm²': 'm2', 'm2': 'm2', 'm³': 'm3', 'm3': 'm3',
-    'ml': 'ml', 'mL': 'ml', 'm.l': 'ml', 'm/l': 'ml',
+    'ml': 'ml', 'mL': 'ml', 'm.l': 'ml', 'm/l': 'ml', 'm': 'ml', 'ml.': 'ml',
     'mètre': 'ml', 'metre': 'ml', 'mètres': 'ml', 'metres': 'ml', 'mlt': 'ml',
     'h': 'h', 'hr': 'h', 'heure': 'h', 'heures': 'h',
     'j': 'forfait', 'jour': 'forfait', 'jours': 'forfait',
@@ -223,10 +223,14 @@ const ADDRESS_RE = /^(?:\d{1,4}\s*(?:bis|ter|quater)?[\s,]+(?:rue|r\.|avenue|av\
 // intra-EU VAT "FR.. 999999999"), with or without a leading label.
 const ID_LINE_RE = /^(?:n°\s*)?(?:siret|siren|rcs|tva(?:\s*intra(?:com)?)?)?\s*:?\s*(?:fr\s*[0-9a-z]{2}\s*)?(?:\d[\s.]?){9,14}$/i;
 
+// A SIRET/SIREN/RCS mention ANYWHERE on the line (identity header/footer blocks
+// often read "… | SIRET 925 082 885 000 29 | …").
+const CONTAINS_ID_RE = /\b(?:siret|siren|rcs)\b/i;
+
 // True for any line that is administrative rather than a quote item.
 const isAdminLine = (line) =>
     ADMIN_RE.test(line) || PHONE_RE.test(line) || EMAIL_RE.test(line) ||
-    ADDRESS_RE.test(line) || ID_LINE_RE.test(line);
+    ADDRESS_RE.test(line) || ID_LINE_RE.test(line) || CONTAINS_ID_RE.test(line);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quote metadata extraction (title + client name)
@@ -287,6 +291,15 @@ export const parseQuoteItems = (text) => {
     let notes = '';
     let inTable = false;
     let pendingDescription = '';
+    // Set from the current section title so items inherit the right type
+    // (e.g. everything under "SECTION A \u2014 MAIN D'\u0152UVRE" is labour).
+    let sectionHint = null;
+
+    const sectionTypeHint = (label) => {
+        if (/main[\s-]?d['\u2019]?\s?(?:\u0153uvre|oeuvre)|prestation|pose|travaux|d[\u00E9e]pose/i.test(label)) return 'service';
+        if (/fourniture|mat[\u00E9e]riel|mat[\u00E9e]riaux|consommable/i.test(label)) return 'material';
+        return null;
+    };
 
     const lines = rawLines.map(l => l.replace(/\u00A0/g, ' ').replace(/\s+$/g, ''));
 
@@ -304,10 +317,26 @@ export const parseQuoteItems = (text) => {
             continue;
         }
 
-        // Detect table header: lines with "description" + (quantité|prix unitaire|p.u.|qté)
-        if (!inTable && /description|d[ée]signation/i.test(trimmed) &&
+        // Detect table header: lines with "description" + (quantité|prix unitaire|p.u.|qté).
+        // Not gated on !inTable so a repeated header (e.g. a second "Désignation
+        // Qté PU HT" for another section) is skipped instead of polluting items.
+        if (/description|d[ée]signation/i.test(trimmed) &&
             /(quantit|qt[ée]|prix\s*u|p\.?\s*u\.?|montant)/i.test(trimmed)) {
             inTable = true;
+            pendingDescription = '';
+            continue;
+        }
+
+        // Explicit section / lot / batch headers like "SECTION A — MAIN D'ŒUVRE".
+        // These carry extra text after the keyword so SECTION_RE (anchored to the
+        // whole line) misses them; capture the whole label as a section row.
+        if (/^(section|lot|poste|chapitre|tranche)\b/i.test(trimmed) && !/\d[\d\s.,]*€/.test(trimmed)) {
+            const label = trimmed.replace(/[:\-–—]+\s*$/, '').trim();
+            sectionHint = sectionTypeHint(label);
+            pushItem({
+                description: label,
+                quantity: 1, unit: 'u', price: 0, buying_price: 0, type: 'section',
+            });
             pendingDescription = '';
             continue;
         }
@@ -332,8 +361,10 @@ export const parseQuoteItems = (text) => {
                 pendingDescription = '';
                 continue;
             }
-            // Skip TVA / footer boilerplate inside the table
-            if (/^(t\.?\s*v\.?\s*a|tva\s*\(|tva\s+\d|valable|acompte|r[èe]glement|paiement|signature|bon pour accord|page\s+\d|conditions?)/i.test(trimmed)) {
+            // Skip TVA / footer boilerplate inside the table. Word boundaries so
+            // a real item never gets eaten (e.g. "Conditionnement" must NOT match
+            // "conditions", "Paiementier"… ).
+            if (/^(t\.?\s*v\.?\s*a\b|tva\s*\(|tva\s+\d|valable\b|acompte\b|r[èe]glement\b|paiement\b|signature\b|bon pour accord|page\s+\d|conditions?\b)/i.test(trimmed)) {
                 continue;
             }
             // Skip pure number/currency lines (subtotals, page numbers)
@@ -342,8 +373,10 @@ export const parseQuoteItems = (text) => {
 
         // Section headers (apply both in and out of table)
         if (SECTION_RE.test(trimmed) || (inTable && /^[A-ZÀ-Ý][A-ZÀ-Ý\s\d-]{2,}$/.test(trimmed) && !/\d{2,}/.test(trimmed))) {
+            const label = trimmed.replace(/[:\-–]+\s*$/, '').trim();
+            sectionHint = sectionTypeHint(label);
             pushItem({
-                description: trimmed.replace(/[:\-–]+\s*$/, '').trim(),
+                description: label,
                 quantity: 1,
                 unit: 'u',
                 price: 0,
@@ -370,7 +403,7 @@ export const parseQuoteItems = (text) => {
                     unit: parsed.unit,
                     price: parsed.price,
                     buying_price: 0,
-                    type: classifyType(fullDesc),
+                    type: sectionHint || classifyType(fullDesc),
                 });
                 continue;
             }
@@ -382,23 +415,18 @@ export const parseQuoteItems = (text) => {
             continue;
         }
 
-        // Line with no numbers but readable text → could be a section or a
-        // multi-line description prefix. Buffer it for the next line.
-        if (!/\d/.test(trimmed) && trimmed.length > 2 && trimmed.length < 200) {
-            // If we're in the table, treat this as a description-only row.
-            if (inTable) {
-                // It might be a sub-section or a multi-line description.
-                pendingDescription = pendingDescription
-                    ? (pendingDescription + ' ' + trimmed).trim()
-                    : trimmed;
-            } else {
-                // Outside table, send to notes.
-                notes += trimmed + '\n';
-            }
+        // In table mode, a leftover line that didn't parse as an item and isn't
+        // a total/skip is almost always a WRAPPED description fragment — and it
+        // may itself contain dimensions like "7 m". Buffer it (even with digits)
+        // so it merges with the numeric row that follows, instead of being lost.
+        if (inTable && trimmed.length > 2 && trimmed.length < 200) {
+            pendingDescription = pendingDescription
+                ? (pendingDescription + ' ' + trimmed).trim()
+                : trimmed;
             continue;
         }
 
-        // Has digits but didn't match item pattern → notes (rare).
+        // Outside the table: keep readable prose as notes.
         if (!inTable && trimmed.length > 2) {
             notes += trimmed + '\n';
         }
