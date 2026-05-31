@@ -45,13 +45,35 @@ export function validateQuoteItem(item, index) {
 }
 
 /**
- * Extracts a JSON object from a possibly-noisy AI response (markdown fences,
- * leading prose, etc.) and parses it. Throws a user-facing error on failure.
+ * Extracts a JSON value from a possibly-noisy AI response (markdown fences,
+ * leading prose, etc.) and parses it. Handles BOTH a top-level object
+ * `{ ... }` and a top-level array `[ ... ]` — the latter matters because
+ * models frequently answer with a bare array of items. A naive `/\{[\s\S]*\}/`
+ * match would grab the first inner object of such an array and silently drop
+ * every other line, so we locate the outermost bracket pair instead.
+ * Throws a user-facing error on failure.
  */
 export function extractJsonObject(raw) {
     let s = String(raw ?? '').trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) s = m[0]; else s = s.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Strip markdown fences first so they don't confuse the bracket scan.
+    s = s.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    const firstObj = s.indexOf('{');
+    const firstArr = s.indexOf('[');
+    let open = null;
+    let close = null;
+    let start = -1;
+    // Pick whichever structure opens first (array or object).
+    if (firstArr !== -1 && (firstObj === -1 || firstArr < firstObj)) {
+        start = firstArr; open = '['; close = ']';
+    } else if (firstObj !== -1) {
+        start = firstObj; open = '{'; close = '}';
+    }
+    if (start !== -1) {
+        const end = s.lastIndexOf(close);
+        if (end > start) s = s.slice(start, end + 1);
+    }
+
     try {
         return JSON.parse(s);
     } catch {

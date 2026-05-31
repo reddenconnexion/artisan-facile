@@ -60,16 +60,19 @@ JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
  */
 const PDF_EXTRACTION_PROMPT = `Tu es un expert en lecture de devis BTP français. Tu reçois le TEXTE BRUT extrait d'un PDF de devis (les colonnes du tableau peuvent être désalignées, les descriptions parfois sur plusieurs lignes).
 
-Ta mission : reconstruire la liste des lignes du devis en JSON STRICT.
+Ta mission : reconstruire FIDÈLEMENT et INTÉGRALEMENT la liste des lignes du devis en JSON STRICT. Ne résume pas, ne fusionne pas deux prestations distinctes, n'invente aucune ligne, et n'omets AUCUNE ligne chiffrée.
 
 RÈGLES :
 - Une ligne = une prestation OU une fourniture OU un en-tête de section.
-- Fusionne les descriptions multi-lignes (ex. "Fourniture et pose" sur une ligne, "carrelage 60x60" sur la suivante).
-- Détecte la quantité, l'unité (u, m2, m3, ml, h, forfait), le prix unitaire HT, et le type ("service" pour main d'œuvre/prestation, "material" pour fourniture/matériel, "section" pour les titres de catégorie).
-- Ignore : entêtes (Devis n°, Date, Client, SIRET…), pieds de page, totaux (Total HT, TVA, Net à payer), conditions, signatures, mentions légales.
-- Convertis les nombres au format anglais (point décimal, pas d'espace milliers). Les "1 234,56 €" deviennent 1234.56.
-- Si un prix unitaire manque mais qu'un total et une quantité sont présents, déduis le prix unitaire (total / qty).
-- Descriptions concises, sans saut de ligne, sans le code article ou la référence collés.
+- Fusionne les descriptions multi-lignes d'UNE MÊME ligne (ex. "Fourniture et pose" puis "carrelage 60x60" sur la ligne suivante = une seule ligne).
+- Conserve les lignes optionnelles/variantes telles quelles (préfixe la description par "(Option) " si le devis l'indique).
+- Détecte la quantité, l'unité (u, m2, m3, ml, h, forfait), le prix unitaire HT, le total HT de la ligne, et le type ("service" = main d'œuvre/prestation, "material" = fourniture/matériel, "section" = titre de catégorie).
+- Pour une ligne "section" : quantity=1, price=0, total=0.
+- Les remises/rabais/avoirs sont des lignes à prix NÉGATIF (price et total négatifs).
+- Ignore : entêtes (Devis n°, Date, Client, SIRET…), pieds de page, totaux globaux (Total HT, TVA, Net à payer), conditions, signatures, mentions légales.
+- Convertis les nombres au format anglais (point décimal, pas d'espace milliers). "1 234,56 €" devient 1234.56.
+- COHÉRENCE OBLIGATOIRE : price ≈ total / quantity. Si une seule de ces valeurs manque, déduis-la des deux autres. Si elles sont incohérentes, fais confiance au total affiché et recalcule le prix unitaire (total / quantity).
+- Descriptions concises, sans saut de ligne, sans coller le code article ou la référence.
 - Si tu détectes le titre/objet du devis et le nom du client, retourne-les aussi.
 
 FORMAT JSON STRICT (sans markdown, sans texte avant/après) :
@@ -77,7 +80,7 @@ FORMAT JSON STRICT (sans markdown, sans texte avant/après) :
   "title": "Titre/objet du devis ou null",
   "client_name": "Nom du client ou null",
   "items": [
-    {"description":"...", "quantity":1, "unit":"u", "price":0.00, "type":"service"}
+    {"description":"...", "quantity":1, "unit":"u", "price":0.00, "total":0.00, "type":"service"}
   ],
   "notes": "Conditions particulières / remarques détectées (vide si aucune)"
 }`;
@@ -113,15 +116,35 @@ export const extractQuoteFromPdfText = async (pdfText) => {
 
     // Reuse the shared safe-number coercion so PDF-extracted prices can't
     // silently turn malformed values into "1" or "0".
-    const items = Array.isArray(parsed.items) ? parsed.items.map(it => ({
-        id: Date.now() + Math.random(),
-        description: String(it.description || '').trim(),
-        quantity: toSafeNumber(it.quantity, 1, 'pdf.quantity'),
-        unit: it.unit || 'u',
-        price: toSafeNumber(it.price, 0, 'pdf.price'),
-        buying_price: 0,
-        type: it.type === 'material' || it.type === 'section' ? it.type : 'service',
-    })).filter(it => it.description.length > 0) : [];
+    const items = Array.isArray(parsed.items) ? parsed.items.map(it => {
+        const type = it.type === 'material' || it.type === 'section' ? it.type : 'service';
+        const quantity = toSafeNumber(it.quantity, 1, 'pdf.quantity');
+        let price = toSafeNumber(it.price, 0, 'pdf.price');
+        const total = toSafeNumber(it.total, NaN, 'pdf.total');
+
+        // The line total is what the source document actually displays, so we
+        // anchor on it: derive a missing/zero unit price from it, and correct a
+        // unit price that doesn't reproduce the printed total (>1% off). This
+        // keeps each imported line faithful to the original quote even when the
+        // model misreads a column.
+        if (type !== 'section' && Number.isFinite(total) && quantity > 0) {
+            if (!price && total !== 0) {
+                price = total / quantity;
+            } else if (price && Math.abs(price * quantity - total) / Math.abs(total || 1) > 0.01) {
+                price = total / quantity;
+            }
+        }
+
+        return {
+            id: Date.now() + Math.random(),
+            description: String(it.description || '').trim(),
+            quantity,
+            unit: it.unit || 'u',
+            price: Number.isFinite(price) ? Math.round(price * 100) / 100 : 0,
+            buying_price: 0,
+            type,
+        };
+    }).filter(it => it.description.length > 0) : [];
 
     return {
         title: typeof parsed.title === 'string' ? parsed.title.trim() : null,

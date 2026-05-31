@@ -644,17 +644,11 @@ const DevisForm = () => {
             const { items: regexItems, notes: regexNotes } = parseQuoteItems(text);
             const meta = extractQuoteMetadata(text);
 
-            // 2b. Decide whether to also try the AI parser.
-            // The regex is good but fails on unusual layouts (e.g. multi-line
-            // descriptions, columns split across positions, rare formats).
-            // We escalate to the AI when results look weak and the user has
-            // either a personal API key or remaining free quota.
-            const zeroPriced = regexItems.filter(i => !i.price).length;
-            const looksWeak =
-                regexItems.length === 0 ||
-                regexItems.length < 3 ||
-                (regexItems.length > 0 && zeroPriced / regexItems.length > 0.5);
-
+            // 2b. AI-first strategy (user preference): when the AI is available
+            // we use it for transcription fidelity — it copes far better with
+            // misaligned columns, multi-line descriptions and section headers —
+            // and fall back to the local regex result if the AI fails or comes
+            // back with fewer priced lines than the regex already found.
             const hasPersonalKey = !!userProfile?.has_openai_api_key;
             const planNow = userProfile?.plan || 'free';
             const isPro = planNow === 'pro' || planNow === 'owner';
@@ -665,18 +659,24 @@ const DevisForm = () => {
             let finalTitle = meta.title;
             let aiUsed = false;
 
-            if (looksWeak && canUseAi) {
+            if (canUseAi) {
                 try {
-                    toast.info("Affinage de l'extraction par IA…");
+                    toast.info("Analyse du devis par IA…");
                     const aiResult = await extractQuoteFromPdfText(text);
-                    if (aiResult.items.length > regexItems.length) {
+                    // Count priced (non-section) lines as the quality signal.
+                    const pricedCount = (arr) => arr.filter(i => i.type !== 'section' && i.price).length;
+                    const aiPriced = pricedCount(aiResult.items);
+                    const regexPriced = pricedCount(regexItems);
+                    // The AI wins as soon as it captures at least as many priced
+                    // lines as the regex (it usually structures sections better too).
+                    if (aiResult.items.length > 0 && aiPriced >= regexPriced) {
                         finalItems = aiResult.items;
                         finalNotes = aiResult.notes || regexNotes;
                         finalTitle = aiResult.title || meta.title;
                         aiUsed = true;
                     }
                 } catch (aiErr) {
-                    console.warn('AI extraction fallback failed, keeping regex result:', aiErr);
+                    console.warn('AI extraction failed, keeping regex result:', aiErr);
                     // Silent: regex result still applies.
                 }
             }

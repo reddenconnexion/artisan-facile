@@ -179,12 +179,15 @@ const parseFrNumber = (raw) => {
 const UNIT_TOKENS = {
     'm²': 'm2', 'm2': 'm2', 'm³': 'm3', 'm3': 'm3',
     'ml': 'ml', 'mL': 'ml', 'm.l': 'ml', 'm/l': 'ml',
+    'mètre': 'ml', 'metre': 'ml', 'mètres': 'ml', 'metres': 'ml', 'mlt': 'ml',
     'h': 'h', 'hr': 'h', 'heure': 'h', 'heures': 'h',
     'j': 'forfait', 'jour': 'forfait', 'jours': 'forfait',
     'u': 'u', 'pce': 'u', 'pces': 'u', 'pc': 'u', 'pcs': 'u',
     'unité': 'u', 'unite': 'u', 'unites': 'u', 'unités': 'u',
-    'forfait': 'forfait', 'ft': 'forfait', 'ens': 'forfait',
+    'forfait': 'forfait', 'ft': 'forfait', 'fft': 'forfait', 'ens': 'forfait', 'lot': 'forfait',
     'kg': 'u', 'l': 'u', 'g': 'u',
+    'sac': 'u', 'sacs': 'u', 'rouleau': 'u', 'rouleaux': 'u',
+    'boite': 'u', 'boîte': 'u', 'jeu': 'u', 'paire': 'u', 'paires': 'u', 'ral': 'u',
 };
 
 const detectUnit = (token) => {
@@ -323,7 +326,7 @@ export const parseQuoteItems = (text) => {
                 : parsed.description;
             pendingDescription = '';
 
-            if (fullDesc.length > 1 && parsed.price >= 0) {
+            if (fullDesc.length > 1 && Number.isFinite(parsed.price)) {
                 pushItem({
                     description: fullDesc,
                     quantity: parsed.quantity,
@@ -385,12 +388,19 @@ const classifyType = (description) => {
  *
  * Handles French numbers, optional € symbol, optional unit token.
  */
+const DISCOUNT_RE = /\b(remise|rabais|r[ée]duction|escompte|geste\s+commercial|avoir)\b/i;
+
 const parseItemLine = (line) => {
     if (!line || line.length < 4) return null;
 
-    // Strip trailing TVA percentages like "20%" or "5,5%" so they don't get
-    // mis-read as a price column.
-    const cleaned = line.replace(/\s\d{1,2}([.,]\d{1,2})?\s*%\s*$/g, '').trim();
+    // Strip ALL TVA percentages like "20%" or "5,5 %" anywhere on the line.
+    // A mid-line VAT column (e.g. "qty PU 20% total") would otherwise break the
+    // right-to-left number walk on the "%" token and leave qty/PU stuck in the
+    // description.
+    const cleaned = line
+        .replace(/\d{1,3}([.,]\d{1,2})?\s*%/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
     // Tokenize on whitespace
     const tokens = cleaned.split(/\s+/);
@@ -403,7 +413,7 @@ const parseItemLine = (line) => {
         const stripped = t.replace(/€|EUR|HT|TTC/gi, '');
         // Must contain at least one digit and be entirely numeric-like
         if (!/\d/.test(stripped)) return null;
-        if (!/^[\d\s.,'’]+$/.test(stripped.replace(/\u00A0/g, ' '))) return null;
+        if (!/^-?[\d\s.,'’]+$/.test(stripped.replace(/\u00A0/g, ' '))) return null;
         const n = parseFrNumber(stripped);
         return isNaN(n) ? null : n;
     };
@@ -413,6 +423,13 @@ const parseItemLine = (line) => {
     let cut = tokens.length;
     for (let i = tokens.length - 1; i >= 0; i--) {
         const t = tokens[i];
+        // Standalone currency / HT-TTC markers ("€", "EUR", "HT", "TTC") often
+        // sit between the figures as separate tokens — skip them without
+        // breaking the walk, otherwise a trailing "750,00 €" stops parsing dead.
+        if (/^(€|eur|euros?|ht|ttc)$/i.test(t)) {
+            cut = i;
+            continue;
+        }
         const n = numberToken(t);
         if (n !== null && !isNaN(n)) {
             trail.unshift({ kind: 'num', value: n, raw: t });
@@ -456,8 +473,14 @@ const parseItemLine = (line) => {
     } else if (numbers.length === 2) {
         // Common: qty + unit_price OR unit_price + total
         const [a, b] = numbers;
-        // If a is small and b is much bigger, a = qty, b = price
-        if (a > 0 && b > 0 && (b / a) > 1.2 && a < 1000) {
+        if (unit && a > 0) {
+            // A detected unit (m², ml, h…) sits right after the quantity in
+            // virtually every quote layout, so the first number is the qty and
+            // the second the unit price — even when the unit price is smaller.
+            quantity = a;
+            price = b;
+        } else if (a > 0 && b > 0 && (b / a) > 1.2 && a < 1000) {
+            // a is small, b much bigger → a = qty, b = price
             quantity = a;
             price = b;
         } else if (a > b && a > 0) {
@@ -468,35 +491,40 @@ const parseItemLine = (line) => {
             price = b;
         }
     } else if (numbers.length >= 3) {
-        // qty, unit_price, total (and maybe TVA)
-        const [a, b, c] = numbers;
-        // Choose qty/price/total such that qty*price ≈ total.
-        const candidates = [
-            { qty: a, price: b, total: c },
-            { qty: a, price: c, total: b },
-            { qty: b, price: a, total: c },
-        ];
-        let best = null;
-        for (const cand of candidates) {
-            if (cand.qty > 0 && cand.price > 0 && cand.total > 0) {
-                const expected = cand.qty * cand.price;
-                const err = Math.abs(expected - cand.total) / cand.total;
-                if (best === null || err < best.err) {
-                    best = { ...cand, err };
+        // Layout is typically: qty, [unit price], …, line total (rightmost).
+        // The printed line total is the most reliable anchor, so treat the LAST
+        // number as the total and the FIRST as the quantity, then pick the unit
+        // price among the middle numbers that reproduces the total (≤5% error).
+        // If none fits, derive it (total / qty) so the imported line always
+        // matches the amount shown on the source document.
+        const qty = numbers[0];
+        const total = numbers[numbers.length - 1];
+        const middle = numbers.slice(1, -1);
+        if (qty > 0 && total > 0) {
+            let chosen = null;
+            for (const pu of middle) {
+                if (pu > 0 && Math.abs(qty * pu - total) / total < 0.05) {
+                    chosen = pu;
+                    break;
                 }
             }
-        }
-        if (best && best.err < 0.05) {
-            quantity = best.qty;
-            price = best.price;
+            quantity = qty;
+            price = chosen !== null ? chosen : total / qty;
         } else {
-            // Fall back to "qty, unit_price" assumption (ignore extras like TVA)
-            quantity = a;
-            price = b;
+            quantity = numbers[0] || 1;
+            price = numbers[1];
         }
     }
 
-    if (price <= 0 || isNaN(price)) return null;
+    // Discount/credit lines ("Remise", "Rabais", "Avoir"…) are always negative,
+    // whatever sign the source printed; everything else uses the magnitude.
+    if (DISCOUNT_RE.test(description)) {
+        price = -Math.abs(price);
+    } else if (price < 0) {
+        price = Math.abs(price);
+    }
+
+    if (price === 0 || isNaN(price)) return null;
     if (quantity <= 0 || isNaN(quantity)) quantity = 1;
 
     return {
