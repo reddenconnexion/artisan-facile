@@ -1154,9 +1154,16 @@ const DevisForm = () => {
             };
             const E = EMAIL_I18N[lang] || EMAIL_I18N.fr;
 
-            const subject = `${E.subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${formData.title || E.defaultProject} - ${companyName}`;
+            // En anglais, on utilise le titre traduit (mémorisé dans content_en)
+            // pour l'objet ET le corps du mail, afin qu'ils restent cohérents
+            // avec le PDF traduit (sinon l'objet anglais cite un titre français).
+            const localizedTitle = (lang === 'en' && contentEn?.title)
+                ? contentEn.title
+                : formData.title;
 
-            const projectTitle = formData.title || E.defaultWorks;
+            const subject = `${E.subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
+
+            const projectTitle = localizedTitle || E.defaultWorks;
             const introduction = isInvoice
                 ? E.introInvoice(selectedClient.name, projectTitle)
                 : E.introQuote(selectedClient.name, projectTitle);
