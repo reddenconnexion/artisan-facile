@@ -122,17 +122,12 @@ export const extractQuoteFromPdfText = async (pdfText) => {
         let price = toSafeNumber(it.price, 0, 'pdf.price');
         const total = toSafeNumber(it.total, NaN, 'pdf.total');
 
-        // The line total is what the source document actually displays, so we
-        // anchor on it: derive a missing/zero unit price from it, and correct a
-        // unit price that doesn't reproduce the printed total (>1% off). This
-        // keeps each imported line faithful to the original quote even when the
-        // model misreads a column.
-        if (type !== 'section' && Number.isFinite(total) && quantity > 0) {
-            if (!price && total !== 0) {
-                price = total / quantity;
-            } else if (price && Math.abs(price * quantity - total) / Math.abs(total || 1) > 0.01) {
-                price = total / quantity;
-            }
+        // Only DERIVE a missing unit price from the printed line total — never
+        // "correct" a price the model already gave, since the model is usually
+        // more reliable on the unit price than on a recomputed total and an
+        // imperfect total would otherwise corrupt a correct price.
+        if (type !== 'section' && !price && Number.isFinite(total) && total !== 0 && quantity > 0) {
+            price = total / quantity;
         }
 
         return {
