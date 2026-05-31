@@ -45,6 +45,38 @@ function normalizeRecipients(v: unknown): string[] {
     return String(v).split(',').map(s => s.trim()).filter(Boolean);
 }
 
+// Encodes an email Subject as RFC 2047 "encoded-words" when it contains
+// non-ASCII characters (accents, emojis…). We do this ourselves because the
+// SMTP library mis-encodes long accented subjects into a single oversized
+// encoded-word containing literal spaces, which Gmail then fails to decode and
+// shows raw ("=?utf-8?Q?Quote - Cr=c3=a9ation…?="). We emit Base64 encoded-words
+// split on UTF-8 byte boundaries so each stays within the 75-char limit and is
+// folded with CRLF + space, exactly as the spec requires.
+function encodeSubject(subject: string): string {
+    // Pure ASCII (no control chars) → leave as-is; no encoding needed.
+    // eslint-disable-next-line no-control-regex
+    if (/^[\x20-\x7E]*$/.test(subject)) return subject;
+
+    const bytes = new TextEncoder().encode(subject);
+    // Max raw bytes per word so that "=?utf-8?B?<base64>?=" stays <= 75 chars.
+    // Base64 length = ceil(n/3)*4; with the 12-char wrapper we cap n at 39.
+    const MAX = 39;
+    const words: string[] = [];
+    for (let i = 0; i < bytes.length;) {
+        // Don't split in the middle of a multi-byte UTF-8 sequence: pull the
+        // end back to a byte that doesn't start with the 10xxxxxx continuation.
+        let end = Math.min(i + MAX, bytes.length);
+        while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
+        let bin = '';
+        for (let j = i; j < end; j++) bin += String.fromCharCode(bytes[j]);
+        words.push(`=?utf-8?B?${btoa(bin)}?=`);
+        i = end;
+    }
+    // Fold multiple encoded-words with CRLF + space (decoders join them and
+    // drop the whitespace between adjacent encoded-words).
+    return words.join('\r\n ');
+}
+
 function escapeHtml(s: string): string {
     return s
         .replace(/&/g, '&amp;')
@@ -239,7 +271,7 @@ Deno.serve(async (req) => {
             cc: normalizeRecipients(cc),
             bcc: normalizeRecipients(bcc),
             replyTo: reply_to || undefined,
-            subject: test ? `[Test] ${subject}` : subject,
+            subject: encodeSubject(test ? `[Test] ${subject}` : subject),
             content: finalText,
             html: finalHtml,
         });
