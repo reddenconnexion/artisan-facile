@@ -102,7 +102,6 @@ const PDF_I18N = {
         technicalAddedValue: (v) => `- Plus-value technique : ${v}`,
         colDescription: 'Description', colQty: 'Quantité', colUnitPrice: 'Prix Unitaire HT', colTotal: 'Total HT',
         colUnitPriceShort: 'Prix U. HT',
-        legendLabor: "Main d'œuvre / Prestation", legendMaterial: 'Fournitures / Matériel',
         optionPrefix: '(Option)',
         tableLaborHeader: "MAIN D'OEUVRE & PRESTATIONS", tableMaterialHeader: 'MATÉRIEL & FOURNITURES',
         financialAdjustment: 'AJUSTEMENT FINANCIER',
@@ -165,7 +164,6 @@ const PDF_I18N = {
         technicalAddedValue: (v) => `- Technical added value: ${v}`,
         colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price (excl. VAT)', colTotal: 'Total (excl. VAT)',
         colUnitPriceShort: 'Unit Price',
-        legendLabor: 'Labour / Service', legendMaterial: 'Supplies / Materials',
         optionPrefix: '(Optional)',
         tableLaborHeader: 'LABOUR & SERVICES', tableMaterialHeader: 'MATERIALS & SUPPLIES',
         financialAdjustment: 'FINANCIAL ADJUSTMENT',
@@ -506,39 +504,6 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let currentTableY = tableStartY;
 
     if (hasSections) {
-        // Légende unique au-dessus du tableau (remplace la colonne répétée)
-        const hasMO  = allItems.some(i => i.type !== 'section' && i.type !== 'material');
-        const hasMat = allItems.some(i => i.type === 'material');
-        if (hasMO || hasMat) {
-            doc.setFontSize(8);
-            let lx = 14;
-            if (hasMO) {
-                // Bande bleue (identique à la bande gauche des lignes MO)
-                doc.setFillColor(59, 130, 246);
-                doc.rect(lx, currentTableY - 6, 3, 4.5, 'F');
-                // Fond bleu clair à côté
-                doc.setFillColor(219, 234, 254);
-                doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
-                doc.setTextColor(29, 78, 216);
-                doc.setFont(undefined, 'bold');
-                doc.text(L.legendLabor, lx + 15, currentTableY - 2.5);
-                lx += 72;
-            }
-            if (hasMat) {
-                // Bande orange (identique à la bande gauche des lignes matériel)
-                doc.setFillColor(249, 115, 22);
-                doc.rect(lx, currentTableY - 6, 3, 4.5, 'F');
-                // Fond orange clair à côté
-                doc.setFillColor(255, 237, 213);
-                doc.rect(lx + 3, currentTableY - 6, 10, 4.5, 'F');
-                doc.setTextColor(154, 52, 18);
-                doc.setFont(undefined, 'bold');
-                doc.text(L.legendMaterial, lx + 15, currentTableY - 2.5);
-            }
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(0, 0, 0);
-        }
-
         // Tableau sans colonne "Type" — couleur de fond par ligne
         const tableColumnNoType = [L.colDescription, L.colQty, L.colUnitPriceShort, L.colTotal];
         const rows = allItems.map(item => {
@@ -564,7 +529,18 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             body: rows,
             theme: 'grid',
             headStyles: { fillColor: headerColor },
-            styles: { fontSize: 9 },
+            // Largeurs fixes + retour à la ligne : la description occupe la place
+            // restante et les colonnes chiffrées sont bornées, pour qu'aucun
+            // texte ni montant ne déborde de la largeur de page.
+            styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 18, halign: 'right' },
+                2: { cellWidth: 28, halign: 'right' },
+                3: { cellWidth: 28, halign: 'right' },
+            },
+            margin: { left: 14, right: 14 },
+            tableWidth: 'auto',
             didParseCell: (data) => {
                 if (data.section !== 'body') return;
                 const item = allItems[data.row.index];
@@ -599,6 +575,20 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
         ]);
 
+        // Largeurs fixes + retour à la ligne, partagées par les deux tableaux,
+        // pour qu'aucune description ni aucun montant ne déborde de la page.
+        const legacyLayout = {
+            styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 18, halign: 'right' },
+                2: { cellWidth: 32, halign: 'right' },
+                3: { cellWidth: 28, halign: 'right' },
+            },
+            margin: { left: 14, right: 14 },
+            tableWidth: 'auto',
+        };
+
         // 1. Table Main d'Oeuvre
         if (services.length > 0) {
             if (materials.length > 0) {
@@ -614,7 +604,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 body: generateRows(services),
                 theme: 'grid',
                 headStyles: { fillColor: headerColor },
-                styles: { fontSize: 9 },
+                ...legacyLayout,
             });
 
             currentTableY = doc.lastAutoTable.finalY + 15;
@@ -633,7 +623,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 body: generateRows(materials),
                 theme: 'grid',
                 headStyles: { fillColor: [84, 110, 122] },
-                styles: { fontSize: 9 },
+                ...legacyLayout,
             });
 
             currentTableY = doc.lastAutoTable.finalY + 15;
@@ -747,9 +737,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     } else {
         // Totaux
-        const finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
+        let finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
         const labelX = 130;
         const valueX = 195;
+
+        // Le bloc totaux occupe ~22 mm (HT, TVA, TTC). Si on est trop bas en
+        // page, on passe à la page suivante pour ne pas couper le Total TTC.
+        if (finalY + 22 > 285) {
+            doc.addPage();
+            finalY = 20;
+            currentTableY = finalY;
+        }
 
         doc.setFont(undefined, 'normal');
         // ... Totals rendering ...
