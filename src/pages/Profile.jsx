@@ -1447,7 +1447,10 @@ const Profile = () => {
                                             clients mail. La signature HTML utilisateur n'a pas de dark
                                             mode — sur fond sombre, du texte noir devient illisible. */}
                                         <div className="bg-white p-4 text-gray-900">
-                                            <div dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                            {/* white-space:pre-wrap pour refléter EXACTEMENT le rendu
+                                                du mail : les sauts de ligne et lignes vides saisis sont
+                                                préservés (l'edge function applique le même style). */}
+                                            <div style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
                                         </div>
                                     </div>
                                 )}

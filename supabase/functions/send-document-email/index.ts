@@ -121,7 +121,10 @@ function splitBodyAndSignature(text: string): { body: string; sig: string } {
 function buildHtmlSignature(profile: Record<string, unknown>): string {
     const custom = (profile.email_signature_html || '') as string;
     if (custom.trim()) {
-        return `<div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;">${custom}</div>`;
+        // `white-space:pre-wrap` preserves the line breaks and blank lines the
+        // artisan typed in the signature editor — HTML normally collapses them,
+        // which made the sent signature look tighter than what was entered.
+        return `<div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;white-space:pre-wrap;">${custom}</div>`;
     }
 
     const companyName = (profile.company_name || profile.full_name || '') as string;
