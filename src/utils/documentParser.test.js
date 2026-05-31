@@ -112,6 +112,39 @@ describe('parseQuoteItems — per-line transcription', () => {
         expect(rows[0].quantity).toBe(20);
         expect(rows[0].price).toBe(45);
     });
+
+    it('drops administrative lines: deposit, phone and email', () => {
+        const text = [
+            'Description          Qté    PU HT     Total HT',
+            'Pose de prise            5 u    35,00     175,00',
+            'Acompte de 30% à la commande              52,50',
+            'Tél : 06 12 34 56 78',
+            'Email : contact@artisan.fr',
+            'Total HT                                 175,00',
+        ].join('\n');
+
+        const { items } = parseQuoteItems(text);
+        const rows = realItems(items);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].description).toMatch(/prise/i);
+        // No bogus line carrying "acompte", a phone number or an email.
+        expect(items.some(i => /acompte/i.test(i.description))).toBe(false);
+        expect(items.some(i => /\d{2}\s?\d{2}\s?\d{2}/.test(i.description))).toBe(false);
+        expect(items.some(i => /@/.test(i.description))).toBe(false);
+    });
+
+    it('keeps real items whose name merely starts like an admin keyword', () => {
+        const text = [
+            'Description          Qté    PU HT     Total HT',
+            'Conditionnement spécial   2 u   8,00     16,00',
+            'Total HT                                  16,00',
+        ].join('\n');
+
+        const { items } = parseQuoteItems(text);
+        const rows = realItems(items);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].description).toMatch(/conditionnement/i);
+    });
 });
 
 describe('extractQuoteMetadata', () => {

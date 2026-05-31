@@ -203,6 +203,20 @@ const SECTION_RE = /^(prestations?|fournitures?|main[\s-]?d['’]?œuvre|main[\s
 
 const SKIP_LINE_RE = /^(page\s+\d|devis\s*n°|devis\s*num|facture\s*n°|date\s*[:.]|client\s*[:.]|adresse\s*[:.]|t[ée]l[\s.:.]|email|e-?mail|siret|siren|naf|ape|tva\s*intracom|r\.?c\.?s|conditions?\s+de|valable|acompte|règlement|reglement|paiement|signature|bon pour accord|cachet|merci|cordialement|fait à|date d['’]émission|date d['’]emission|d[ée]lai|garantie|montant\s+ttc|montant\s+ht|net\s+à\s+payer|sous[\s-]?total|total\s+(ht|ttc|tva)|tva\s*\(|tva\s+\d|reste à payer)/i;
 
+// Phone numbers (FR formats: "06 12 34 56 78", "+33 6 12...", with . or -).
+const PHONE_RE = /(?:\+33|0)\s?[1-9](?:[\s.\-]?\d{2}){4}/;
+// Email addresses.
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+// Administrative / contact / payment-schedule / totals lines that are NEVER
+// quote items. Anchored at line start, with word boundaries so we don't catch
+// real products that merely start with the same letters (e.g. "Conditionnement"
+// must NOT match "conditions"). Applied both during parsing and as a final
+// safety net on the produced items.
+const ADMIN_RE = /^(?:t[ée]l(?:[ée]phone)?\b|portable\b|mobile\b|fax\b|e-?mail\b|courriel\b|site\s*web|www\.|adresse\b|siret\b|siren\b|rcs\b|ape\b|naf\b|rib\b|iban\b|bic\b|tva\s*intra(?:com)?\b|n°?\s*tva\b|capital\s+social|acompte\b|arrhes\b|solde\b|[ée]ch[ée]anc|versement\b|reste\s+[àa]\s+payer|net\s+[àa]\s+payer|sous[\s-]?total|total\b|montant\s+(?:ht|ttc|tva)|tva\b|valable\b|garantie\b|d[ée]lai\b|conditions?\b|r[èe]glement\b|paiement\b|mode\s+de\s+r[èe]glement|bon\s+pour\s+accord|signature\b|cachet\b|fait\s+[àa]\b)/i;
+
+// True for any line that is administrative rather than a quote item.
+const isAdminLine = (line) => ADMIN_RE.test(line) || PHONE_RE.test(line) || EMAIL_RE.test(line);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Quote metadata extraction (title + client name)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,6 +301,18 @@ export const parseQuoteItems = (text) => {
             continue;
         }
 
+        // Administrative lines (contact, phone, email, payment schedule, totals)
+        // are never quote items — drop them wherever they appear, including
+        // inside the table, so they don't become bogus rows or get merged into
+        // a real line's description. Totals also close the table.
+        if (isAdminLine(trimmed)) {
+            if (/^(?:sous[\s-]?total|total\b|montant\s+(?:ht|ttc|tva)|net\s+[àa]\s+payer)/i.test(trimmed)) {
+                inTable = false;
+            }
+            pendingDescription = '';
+            continue;
+        }
+
         // ── TABLE MODE ───────────────────────────────────────────────────────
         if (inTable) {
             // End of table at totals
@@ -367,10 +393,15 @@ export const parseQuoteItems = (text) => {
         }
     }
 
-    // Post-process: drop items that are clearly bogus (no description after merging)
-    const cleanedItems = items.filter(it =>
-        it.description && it.description.replace(/[\s\d.,€]/g, '').length >= 2
-    );
+    // Post-process: drop items that are clearly bogus (no description after
+    // merging) or that are administrative lines the table-mode logic let slip
+    // through (e.g. a phone number or "Acompte" merged onto a numeric row).
+    const cleanedItems = items.filter(it => {
+        if (!it.description) return false;
+        if (it.description.replace(/[\s\d.,€-]/g, '').length < 2) return false;
+        if (isAdminLine(it.description)) return false;
+        return true;
+    });
 
     return { items: cleanedItems, notes: notes.trim() };
 };
