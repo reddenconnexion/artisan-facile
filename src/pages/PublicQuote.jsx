@@ -67,6 +67,14 @@ const PublicQuote = () => {
     // Langue du portail/PDF, lue depuis l'URL (?lang=en), fr par défaut.
     const lang = (new URLSearchParams(window.location.search).get('lang') === 'en') ? 'en' : 'fr';
     const T = PORTAL_I18N[lang];
+    // iOS/iPadOS ne rend que la 1re page d'un PDF blob: dans une <iframe> — y
+    // compris sur iPad (qui se déclare comme un Mac desktop). On bascule donc
+    // ces appareils sur le rendu image multi-pages, qui affiche tout le devis
+    // et les boutons de signature, quelle que soit la largeur d'écran.
+    const isIOS = typeof navigator !== 'undefined' && (
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
     const [quote, setQuote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -625,18 +633,22 @@ const PublicQuote = () => {
                     </div>
                 ) : pdfUrl ? (
                     <>
-                        {/* Desktop: full-height iframe */}
-                        <iframe
-                            src={pdfUrl}
-                            className="hidden lg:block w-full border-0"
-                            style={{ height: 'calc(100vh - 56px)' }}
-                            title="Document PDF"
-                        />
-                        {/* Mobile: render every PDF page as an image because
-                            iOS Safari refuses to display blob: PDFs in iframes.
-                            Falls back to a download CTA while pages are still
-                            being rendered or if rendering failed. */}
-                        <div className="lg:hidden flex-1 flex flex-col bg-gray-100">
+                        {/* Desktop (hors iOS) : iframe pleine hauteur. Masquée sur
+                            iOS/iPadOS, qui ne rend que la 1re page d'un blob: PDF. */}
+                        {!isIOS && (
+                            <iframe
+                                src={pdfUrl}
+                                className="hidden lg:block w-full border-0"
+                                style={{ height: 'calc(100vh - 56px)' }}
+                                title="Document PDF"
+                            />
+                        )}
+                        {/* Rendu image multi-pages : mobile + tout appareil iOS
+                            (iPad inclus), car iOS Safari refuse d'afficher un PDF
+                            blob: dans une iframe au-delà de la 1re page.
+                            Affiche aussi un CTA de repli pendant le rendu / en cas
+                            d'échec. */}
+                        <div className={`${isIOS ? 'flex' : 'lg:hidden flex'} flex-1 flex-col bg-gray-100`}>
                             {pdfPageImages.length > 0 ? (
                                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
                                     {pdfPageImages.map((src, i) => (
