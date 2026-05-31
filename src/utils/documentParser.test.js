@@ -165,6 +165,68 @@ describe('parseQuoteItems — per-line transcription', () => {
         expect(rows).toHaveLength(1);
         expect(rows[0].description).toMatch(/conditionnement/i);
     });
+
+    it('reads a linear-metre row "<qty> m <PU> <total>" correctly', () => {
+        // Regression: the unit "m" (mètre) was unknown, so "36 m 7,81 € 281,16 €"
+        // was mis-read as qty=7.81 / price=281.16 instead of qty=36 / price=7.81.
+        const text = [
+            'Désignation Qté PU HT Total HT',
+            'Câble rigide U-1000 R2V 3G10 mm² (combles) 36 m 7,81 € 281,16 €',
+            'TOTAL HT 281,16 €',
+        ].join('\n');
+
+        const rows = realItems(parseQuoteItems(text).items);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].quantity).toBe(36);
+        expect(rows[0].price).toBe(7.81);
+        expect(rows[0].unit).toBe('ml');
+    });
+
+    it('inherits the item type from the current section title', () => {
+        const text = [
+            "SECTION A — MAIN D'ŒUVRE",
+            'Désignation Qté (h) PU HT Total HT',
+            'Pose et raccordement du tableau 1,0 50,00 € 50,00 €',
+            'SECTION B — FOURNITURES ET MATÉRIEL',
+            'Désignation Qté PU HT Total HT',
+            'Disjoncteur modulaire bipolaire 40 A courbe C 1 24,38 € 24,38 €',
+        ].join('\n');
+
+        const items = parseQuoteItems(text).items;
+        const labour = items.find(i => /raccordement du tableau/i.test(i.description));
+        const supply = items.find(i => /disjoncteur/i.test(i.description));
+        expect(labour.type).toBe('service');   // under MAIN D'ŒUVRE
+        expect(supply.type).toBe('material');   // under FOURNITURES
+        expect(items.filter(i => i.type === 'section')).toHaveLength(2);
+    });
+
+    it('merges a wrapped description whose first line contains a dimension', () => {
+        const text = [
+            'Désignation Qté (h) PU HT Total HT',
+            'Pose de 7 m de goulotte + cheminement en combles et descente par goulotte de',
+            'climatisation existante 1,5 50,00 € 75,00 €',
+            'TOTAL HT 75,00 €',
+        ].join('\n');
+
+        const rows = realItems(parseQuoteItems(text).items);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].description).toMatch(/^Pose de 7 m de goulotte.*climatisation existante$/i);
+        expect(rows[0].quantity).toBe(1.5);
+        expect(rows[0].price).toBe(50);
+    });
+
+    it('excludes an identity line that contains a SIRET mid-line', () => {
+        const text = [
+            'reddenconnexion.fr | SIRET 925 082 885 000 29',
+            'Désignation Qté PU HT Total HT',
+            'Pose de prise 5 u 35,00 € 175,00 €',
+            'TOTAL HT 175,00 €',
+        ].join('\n');
+
+        const items = parseQuoteItems(text).items;
+        expect(items.some(i => /siret|reddenconnexion/i.test(i.description))).toBe(false);
+        expect(realItems(items)).toHaveLength(1);
+    });
 });
 
 describe('extractQuoteMetadata', () => {
