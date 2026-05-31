@@ -45,36 +45,29 @@ function normalizeRecipients(v: unknown): string[] {
     return String(v).split(',').map(s => s.trim()).filter(Boolean);
 }
 
-// Encodes an email Subject as RFC 2047 "encoded-words" when it contains
-// non-ASCII characters (accents, emojis…). We do this ourselves because the
-// SMTP library mis-encodes long accented subjects into a single oversized
-// encoded-word containing literal spaces, which Gmail then fails to decode and
-// shows raw ("=?utf-8?Q?Quote - Cr=c3=a9ation…?="). We emit Base64 encoded-words
-// split on UTF-8 byte boundaries so each stays within the 75-char limit and is
-// folded with CRLF + space, exactly as the spec requires.
-function encodeSubject(subject: string): string {
-    // Pure ASCII (no control chars) → leave as-is; no encoding needed.
-    // eslint-disable-next-line no-control-regex
-    if (/^[\x20-\x7E]*$/.test(subject)) return subject;
-
-    const bytes = new TextEncoder().encode(subject);
-    // Max raw bytes per word so that "=?utf-8?B?<base64>?=" stays <= 75 chars.
-    // Base64 length = ceil(n/3)*4; with the 12-char wrapper we cap n at 39.
-    const MAX = 39;
-    const words: string[] = [];
-    for (let i = 0; i < bytes.length;) {
-        // Don't split in the middle of a multi-byte UTF-8 sequence: pull the
-        // end back to a byte that doesn't start with the 10xxxxxx continuation.
-        let end = Math.min(i + MAX, bytes.length);
-        while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
-        let bin = '';
-        for (let j = i; j < end; j++) bin += String.fromCharCode(bytes[j]);
-        words.push(`=?utf-8?B?${btoa(bin)}?=`);
-        i = end;
-    }
-    // Fold multiple encoded-words with CRLF + space (decoders join them and
-    // drop the whitespace between adjacent encoded-words).
-    return words.join('\r\n ');
+// Normalises an email Subject to pure ASCII.
+//
+// Why: the SMTP library (denomailer 1.6.0) ALWAYS applies its own header
+// encoding to the subject, and that encoder is broken for long accented
+// subjects — it either emits a single oversized RFC 2047 word with literal
+// spaces (shown raw by Gmail) or, if we pre-encode ourselves, double-encodes
+// it (=?utf-8?B?…?= gets Q-encoded again, "=" → "=3d"). Since we can't control
+// the library, we hand it a pure-ASCII subject it leaves untouched: accents are
+// transliterated (é→e, à→a…), common typographic punctuation is simplified
+// (— → -, … → ...), and any leftover non-ASCII is dropped. The email BODY, the
+// PDF and the stored quote keep their accents — only the subject line is ASCII.
+function toAsciiSubject(subject: string): string {
+    return subject
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics
+        .replace(/[‐-―]/g, '-')                 // – — ‒ … → -
+        .replace(/[‘’‚‛]/g, "'")      // ‘ ’ → '
+        .replace(/[“”„‟]/g, '"')      // “ ” → "
+        .replace(/…/g, '...')                         // … → ...
+        .replace(/€/g, 'EUR')                         // € → EUR
+        // eslint-disable-next-line no-control-regex
+        .replace(/[^\x09\x20-\x7E]/g, '')                 // drop any remaining non-ASCII
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function escapeHtml(s: string): string {
@@ -274,7 +267,7 @@ Deno.serve(async (req) => {
             cc: normalizeRecipients(cc),
             bcc: normalizeRecipients(bcc),
             replyTo: reply_to || undefined,
-            subject: encodeSubject(test ? `[Test] ${subject}` : subject),
+            subject: toAsciiSubject(test ? `[Test] ${subject}` : subject),
             content: finalText,
             html: finalHtml,
         });
