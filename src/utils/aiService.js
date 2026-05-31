@@ -69,7 +69,7 @@ RÈGLES :
 - Détecte la quantité, l'unité (u, m2, m3, ml, h, forfait), le prix unitaire HT, le total HT de la ligne, et le type ("service" = main d'œuvre/prestation, "material" = fourniture/matériel, "section" = titre de catégorie).
 - Pour une ligne "section" : quantity=1, price=0, total=0.
 - Les remises/rabais/avoirs sont des lignes à prix NÉGATIF (price et total négatifs).
-- Ignore : entêtes (Devis n°, Date, Client, SIRET…), pieds de page, totaux globaux (Total HT, TVA, Net à payer), conditions, signatures, mentions légales.
+- Ignore : entêtes (Devis n°, Date, Client, SIRET…), pieds de page, coordonnées (téléphone, e-mail, adresse, IBAN/RIB), totaux globaux (Total HT, TVA, Net à payer), acomptes et échéanciers de paiement, conditions, signatures, mentions légales.
 - Convertis les nombres au format anglais (point décimal, pas d'espace milliers). "1 234,56 €" devient 1234.56.
 - COHÉRENCE OBLIGATOIRE : price ≈ total / quantity. Si une seule de ces valeurs manque, déduis-la des deux autres. Si elles sont incohérentes, fais confiance au total affiché et recalcule le prix unitaire (total / quantity).
 - Descriptions concises, sans saut de ligne, sans coller le code article ou la référence.
