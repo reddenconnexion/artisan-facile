@@ -220,6 +220,15 @@ const DevisForm = () => {
         }
     };
 
+    // Agrandit un textarea à la hauteur de son contenu pour qu'une longue
+    // description s'affiche en entier sans scroll interne. Plafonné pour ne pas
+    // qu'une ligne très longue prenne tout l'écran.
+    const autoGrow = (el) => {
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+    };
+
     useEffect(() => {
         if (user) {
             fetchPriceLibrary();
@@ -3416,6 +3425,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 value={item.description}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
+                                                    // Auto-agrandit le champ pour afficher toute la
+                                                    // description sans scroll interne pendant la saisie.
+                                                    autoGrow(e.target);
                                                     updateItem(item.id, 'description', val);
 
                                                     // Auto-detect type
@@ -3441,10 +3453,18 @@ Conditions de règlement : Paiement à réception de facture.`
                                                         e.target.blur();
                                                         setFullScreenEditItem(item.id);
                                                     } else {
+                                                        // Au clic, déplie le champ pour montrer toute la
+                                                        // ligne d'un coup (plus de scroll interne).
+                                                        autoGrow(e.target);
                                                         setFocusedInput(`item-${item.id}`);
                                                     }
                                                 }}
-                                                onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
+                                                onBlur={(e) => {
+                                                    // Revient à la hauteur compacte (2 lignes) une fois
+                                                    // la ligne désélectionnée pour garder la liste lisible.
+                                                    e.target.style.height = '';
+                                                    setTimeout(() => setFocusedInput(null), 200);
+                                                }}
                                                 required
                                                 disabled={isLocked}
                                             />
