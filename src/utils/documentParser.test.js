@@ -133,6 +133,26 @@ describe('parseQuoteItems — per-line transcription', () => {
         expect(items.some(i => /@/.test(i.description))).toBe(false);
     });
 
+    it('drops unlabelled address and company-id lines from the header block', () => {
+        const text = [
+            'ENTREPRISE DURAND',
+            '12 rue des Lilas',
+            '75001 Paris',
+            'N° SIRET 123 456 789 00012',
+            'Description          Qté    PU HT     Total HT',
+            'Pose de luminaire        4 u    60,00     240,00',
+            'Total HT                                 240,00',
+        ].join('\n');
+
+        const { items } = parseQuoteItems(text);
+        const rows = realItems(items);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].description).toMatch(/luminaire/i);
+        expect(items.some(i => /rue des lilas/i.test(i.description))).toBe(false);
+        expect(items.some(i => /paris/i.test(i.description))).toBe(false);
+        expect(items.some(i => /siret/i.test(i.description) || /123\s?456/.test(i.description))).toBe(false);
+    });
+
     it('keeps real items whose name merely starts like an admin keyword', () => {
         const text = [
             'Description          Qté    PU HT     Total HT',
