@@ -1004,7 +1004,7 @@ const DevisForm = () => {
 
 
 
-    const handleSendQuoteEmail = async () => {
+    const handleSendQuoteEmail = async (lang = 'fr') => {
         if (!isEditing) {
             toast.error("Veuillez d'abord enregistrer le devis pour l'envoyer");
             return;
@@ -1042,7 +1042,10 @@ const DevisForm = () => {
 
             setFormData(prev => ({ ...prev, public_token: token }));
 
-            const publicUrl = `${window.location.origin}/q/${token}`;
+            // La langue est transmise dans l'URL publique afin que le PDF
+            // téléchargé depuis le portail client soit dans la même langue
+            // que le mail d'accompagnement.
+            const publicUrl = `${window.location.origin}/q/${token}${lang && lang !== 'fr' ? `?lang=${lang}` : ''}`;
             const isInvoice = formData.type === 'invoice';
             const docRef = `${isInvoice ? 'Facture' : 'Devis'} ${id} `;
             const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre Artisan';
@@ -1072,15 +1075,43 @@ const DevisForm = () => {
             const isDeposit = (formData.title || '').toLowerCase().includes('acompte');
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
-            // Template Construction
-            const subjectPrefix = isInvoice ? 'Facture' : 'Devis';
-            const subject = `${subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${formData.title || 'Votre projet'} - ${companyName}`;
+            // Template Construction — bilingue (fr par défaut, en sur demande)
+            const EMAIL_I18N = {
+                fr: {
+                    subjectPrefix: isInvoice ? 'Facture' : 'Devis',
+                    defaultProject: 'Votre projet',
+                    defaultWorks: 'Travaux',
+                    introInvoice: (name, title) => `Bonjour ${name},\n\nJe vous transmets votre facture pour le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
+                    introQuote: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter.`,
+                    actionInvoice: 'Consulter et télécharger votre facture',
+                    actionQuote: 'Consulter, télécharger et signer votre devis',
+                    reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
+                    portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
+                    closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
+                },
+                en: {
+                    subjectPrefix: isInvoice ? 'Invoice' : 'Quote',
+                    defaultProject: 'Your project',
+                    defaultWorks: 'Works',
+                    introInvoice: (name, title) => `Hello ${name},\n\nPlease find attached your invoice for the project "${title}".\nYou will find the link to access it below.`,
+                    introQuote: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find my quote proposal for the project "${title}".\nYou will find the link to view it below.`,
+                    actionInvoice: 'View and download your invoice',
+                    actionQuote: 'View, download and sign your quote',
+                    reportLine: `The intervention report is also available from this link.`,
+                    portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
+                    closing: `Please do not hesitate to contact me with any questions.\n\nKind regards,`,
+                },
+            };
+            const E = EMAIL_I18N[lang] || EMAIL_I18N.fr;
 
+            const subject = `${E.subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${formData.title || E.defaultProject} - ${companyName}`;
+
+            const projectTitle = formData.title || E.defaultWorks;
             const introduction = isInvoice
-                ? `Bonjour ${selectedClient.name},\n\nJe vous transmets votre facture pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour y accéder.`
-                : `Bonjour ${selectedClient.name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${formData.title || 'Travaux'}".\nVous trouverez ci-dessous le lien pour le consulter.`;
+                ? E.introInvoice(selectedClient.name, projectTitle)
+                : E.introQuote(selectedClient.name, projectTitle);
 
-            const actionText = isInvoice ? 'Consulter et télécharger votre facture' : 'Consulter, télécharger et signer votre devis';
+            const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
             const callToAction = `${actionText} :\n${publicUrl}`;
 
             // Client Portal Link Logic
@@ -1140,12 +1171,12 @@ const DevisForm = () => {
             // Le rapport PDF est accessible depuis le lien de la facture (pas besoin d'URL Supabase)
             const bodyParts = [introduction, callToAction];
             if (reportPdfUrl) {
-                bodyParts.push(`Le rapport d'intervention est egalement disponible depuis ce lien.`);
+                bodyParts.push(E.reportLine);
             }
             if (portalUrl) {
-                bodyParts.push(`Votre espace client (documents et suivi de chantier) :\n${portalUrl}`);
+                bodyParts.push(E.portalLine(portalUrl));
             }
-            bodyParts.push(`N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`);
+            bodyParts.push(E.closing);
             // Marqueur RFC 3676 "-- " (dash dash space) : signale la signature.
             // L'edge function SMTP s'en sert pour remplacer la signature texte
             // par une version HTML riche dans la partie HTML du mail.
@@ -1156,7 +1187,8 @@ const DevisForm = () => {
             setEmailPreview({
                 email: selectedClient.email,
                 rawSubject: subject,
-                rawBody: body
+                rawBody: body,
+                lang
             });
 
         } catch (error) {
@@ -2541,7 +2573,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     {/* Primary Actions */}
                     <button
                         type="button"
-                        onClick={handleSendQuoteEmail}
+                        onClick={() => handleSendQuoteEmail('fr')}
                         className="flex items-center px-3 sm:px-4 py-2 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg hover:bg-blue-100"
                         title="Envoyer par email"
                     >
@@ -2586,11 +2618,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Partage & Signature</p>
                                 {/* Mobile only Send button */}
                                 <button
-                                    onClick={() => { handleSendQuoteEmail(); setShowActionsMenu(false); }}
+                                    onClick={() => { handleSendQuoteEmail('fr'); setShowActionsMenu(false); }}
                                     className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <Send className="w-4 h-4 mr-3 text-blue-600" />
-                                    Envoyer le devis
+                                    {formData.type === 'invoice' ? 'Envoyer la facture' : 'Envoyer le devis'}
+                                </button>
+
+                                {/* Envoi en anglais (devis/facture + mail traduits) */}
+                                <button
+                                    onClick={() => { handleSendQuoteEmail('en'); setShowActionsMenu(false); }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                >
+                                    <Send className="w-4 h-4 mr-3 text-blue-600" />
+                                    Envoyer en anglais 🇬🇧
                                 </button>
 
                                 {id && formData.public_token && (
@@ -3931,7 +3972,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-3 safe-area-bottom">
                     <button
                         type="button"
-                        onClick={handleSendQuoteEmail}
+                        onClick={() => handleSendQuoteEmail('fr')}
                         className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-xl font-semibold text-sm active:bg-blue-100"
                     >
                         <Send className="w-4 h-4" />
