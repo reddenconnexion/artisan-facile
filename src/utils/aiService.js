@@ -22,7 +22,24 @@ const callAiProxy = async (body) => {
     const { data, error } = await supabase.functions.invoke('ai-proxy', { body });
 
     if (data?.error) throw new Error(data.error);
-    if (error) throw new Error(error.message || 'Erreur du proxy IA');
+
+    if (error) {
+        // On a non-2xx status, supabase-js puts the error in `error` (a
+        // FunctionsHttpError) and leaves `data` null, so the helpful message
+        // returned by the Edge Function lives in the response body, not in
+        // `error.message` (which is the opaque "Edge Function returned a
+        // non-2xx status code"). Read it back so the user sees the real cause.
+        try {
+            const payload = await error.context?.json?.();
+            if (payload?.error) throw new Error(payload.error);
+        } catch (parseError) {
+            // Re-throw the extracted message; swallow only genuine parse failures.
+            if (parseError instanceof Error && parseError.message && parseError.message !== 'Edge Function returned a non-2xx status code') {
+                throw parseError;
+            }
+        }
+        throw new Error(error.message || 'Erreur du proxy IA');
+    }
 
     return data.rawResponse;
 };
