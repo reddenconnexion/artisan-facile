@@ -1051,7 +1051,7 @@ const InterventionReportForm = () => {
                     <button
                         onClick={() => handleSave()}
                         disabled={saving}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors font-medium text-sm disabled:opacity-60"
                     >
                         {saving
                             ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1062,7 +1062,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* General Info */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <ClipboardList className="w-5 h-5 text-blue-500" />
                     Informations générales
@@ -1077,7 +1077,7 @@ const InterventionReportForm = () => {
                             value={formData.title}
                             onChange={e => updateField('title', e.target.value)}
                             placeholder="Ex : Dépannage fuite sous-évier, salle de bain..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                     <div>
@@ -1089,7 +1089,7 @@ const InterventionReportForm = () => {
                             value={formData.report_number}
                             onChange={e => updateField('report_number', e.target.value)}
                             placeholder="INT-2024-001"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -1102,7 +1102,7 @@ const InterventionReportForm = () => {
                             type="date"
                             value={formData.date}
                             onChange={e => updateField('date', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                     <div>
@@ -1112,7 +1112,7 @@ const InterventionReportForm = () => {
                         <select
                             value={formData.status}
                             onChange={e => updateField('status', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         >
                             <option value="draft">Brouillon</option>
                             <option value="completed">Terminé</option>
@@ -1123,7 +1123,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Client */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <User className="w-5 h-5 text-blue-500" />
                     Client
@@ -1145,7 +1145,7 @@ const InterventionReportForm = () => {
                             }}
                             onFocus={() => setShowClientDropdown(true)}
                             placeholder="Tapez pour rechercher..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                         {showClientDropdown && (
                             <ul className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-52 overflow-y-auto">
@@ -1179,7 +1179,7 @@ const InterventionReportForm = () => {
                             value={formData.client_name}
                             onChange={e => updateField('client_name', e.target.value)}
                             placeholder="Ou saisir un nom manuellement"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -1190,7 +1190,7 @@ const InterventionReportForm = () => {
                     <select
                         value={formData.quote_id}
                         onChange={e => handleQuoteChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                     >
                         <option value="">— Aucun devis lié —</option>
                         {clientQuotes.map(q => (
@@ -1210,7 +1210,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Location */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-blue-500" />
                     Lieu d'intervention
@@ -1223,7 +1223,7 @@ const InterventionReportForm = () => {
                             value={formData.intervention_address}
                             onChange={e => updateField('intervention_address', e.target.value)}
                             placeholder="N° et nom de rue"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                     <div>
@@ -1233,7 +1233,7 @@ const InterventionReportForm = () => {
                             value={formData.intervention_postal_code}
                             onChange={e => updateField('intervention_postal_code', e.target.value)}
                             placeholder="75001"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                     <div className="md:col-span-2">
@@ -1243,7 +1243,7 @@ const InterventionReportForm = () => {
                             value={formData.intervention_city}
                             onChange={e => updateField('intervention_city', e.target.value)}
                             placeholder="Paris"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -1251,7 +1251,7 @@ const InterventionReportForm = () => {
 
             {/* Site Visit Metadata */}
             {isSiteVisit && siteVisitMeta && (
-                <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl border border-violet-200 dark:border-violet-700 p-6 space-y-4">
+                <div className="bg-violet-50 dark:bg-violet-900/20 rounded-2xl border border-violet-200 dark:border-violet-700 p-6 space-y-4">
                     <h2 className="font-semibold text-violet-900 dark:text-violet-300 flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-violet-600" />
                         Résultats de l'analyse IA
@@ -1302,7 +1302,7 @@ const InterventionReportForm = () => {
 
             {/* Time Tracking */}
             {!isSiteVisit && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-500" />
                     Suivi du temps
@@ -1314,7 +1314,7 @@ const InterventionReportForm = () => {
                             type="time"
                             value={formData.start_time}
                             onChange={e => updateField('start_time', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
                     </div>
                     <div>
@@ -1323,7 +1323,7 @@ const InterventionReportForm = () => {
                             type="time"
                             value={formData.end_time}
                             onChange={e => updateField('end_time', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
                     </div>
                     <div>
@@ -1335,7 +1335,7 @@ const InterventionReportForm = () => {
                             value={formData.duration_hours}
                             onChange={e => updateField('duration_hours', e.target.value)}
                             placeholder="1.5"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
                     </div>
                 </div>
@@ -1343,7 +1343,7 @@ const InterventionReportForm = () => {
             )}
 
             {/* Work Description */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Wrench className="w-5 h-5 text-blue-500" />
@@ -1381,7 +1381,7 @@ const InterventionReportForm = () => {
                         onChange={e => updateField('description', e.target.value)}
                         rows={3}
                         placeholder="Décrire le problème ou la demande du client..."
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent resize-none"
                     />
                 </div>
                 {!isSiteVisit && (
@@ -1394,14 +1394,14 @@ const InterventionReportForm = () => {
                         onChange={e => updateField('work_done', e.target.value)}
                         rows={4}
                         placeholder="Décrire en détail les travaux effectués, les pièces remplacées, les réglages effectués..."
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent resize-none"
                     />
                 </div>
                 )}
             </div>
 
             {/* Materials */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Package className="w-5 h-5 text-blue-500" />
@@ -1435,7 +1435,7 @@ const InterventionReportForm = () => {
                                     value={material.description}
                                     onChange={e => updateMaterial(material.id, 'description', e.target.value)}
                                     placeholder="Désignation du matériau"
-                                    className="col-span-12 md:col-span-5 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="col-span-12 md:col-span-5 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios focus:border-transparent"
                                 />
                                 <input
                                     type="number"
@@ -1443,14 +1443,14 @@ const InterventionReportForm = () => {
                                     step="0.1"
                                     value={material.quantity}
                                     onChange={e => updateMaterial(material.id, 'quantity', e.target.value)}
-                                    className="col-span-4 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                    className="col-span-4 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios"
                                 />
                                 <input
                                     type="text"
                                     value={material.unit}
                                     onChange={e => updateMaterial(material.id, 'unit', e.target.value)}
                                     placeholder="unité"
-                                    className="col-span-4 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="col-span-4 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios focus:border-transparent"
                                 />
                                 <input
                                     type="number"
@@ -1459,7 +1459,7 @@ const InterventionReportForm = () => {
                                     value={material.price}
                                     onChange={e => updateMaterial(material.id, 'price', e.target.value)}
                                     placeholder="0.00"
-                                    className="col-span-3 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                    className="col-span-3 md:col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios"
                                 />
                                 <button
                                     onClick={() => removeMaterial(material.id)}
@@ -1481,7 +1481,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Photos */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Camera className="w-5 h-5 text-blue-500" />
@@ -1539,7 +1539,7 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Jalons d'avancement — preuves datées et géolocalisées */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                         <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1632,7 +1632,7 @@ const InterventionReportForm = () => {
                                             onChange={(e) => updateMilestoneNotes(m.id, e.target.value)}
                                             placeholder="Note (optionnel)"
                                             maxLength={200}
-                                            className="mt-1.5 w-full text-xs px-2 py-1 bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded focus:ring-1 focus:ring-blue-500"
+                                            className="mt-1.5 w-full text-xs px-2 py-1 bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded focus:ring-1 focus:ring-ios"
                                         />
                                     </div>
                                     <button
@@ -1652,7 +1652,7 @@ const InterventionReportForm = () => {
 
             {/* Notes */}
             {!isSiteVisit && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <StickyNote className="w-5 h-5 text-blue-500" />
                     Notes internes
@@ -1662,13 +1662,13 @@ const InterventionReportForm = () => {
                     onChange={e => updateField('notes', e.target.value)}
                     rows={3}
                     placeholder="Notes, remarques, recommandations pour le client ou usage interne..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent resize-none"
                 />
             </div>
             )}
 
             {/* Signature Section */}
-            {!isSiteVisit && <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            {!isSiteVisit && <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
                 <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <PenLine className="w-5 h-5 text-blue-500" />
                     Signature client
@@ -1699,7 +1699,7 @@ const InterventionReportForm = () => {
                                     value={formData.signer_name}
                                     onChange={e => updateField('signer_name', e.target.value)}
                                     placeholder="Nom et prénom"
-                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios"
                                 />
                             </div>
                             <button
@@ -1724,7 +1724,7 @@ const InterventionReportForm = () => {
                                 value={formData.signer_name}
                                 onChange={e => updateField('signer_name', e.target.value)}
                                 placeholder="Nom et prénom du client"
-                                className="w-full md:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full md:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-ios focus:border-transparent"
                             />
                         </div>
                         <button
@@ -1755,7 +1755,7 @@ const InterventionReportForm = () => {
                 <button
                     onClick={() => handleSave()}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-60"
+                    className="flex items-center gap-2 px-6 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors font-medium text-sm disabled:opacity-60"
                 >
                     {saving
                         ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1795,7 +1795,7 @@ const InterventionReportForm = () => {
                                         type="text"
                                         value={sendInvoiceModal.email}
                                         onChange={e => setSendInvoiceModal(prev => ({ ...prev, email: e.target.value }))}
-                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-ios outline-none"
                                     />
                                 </div>
                                 <div>
@@ -1804,7 +1804,7 @@ const InterventionReportForm = () => {
                                         type="text"
                                         value={sendInvoiceModal.subject}
                                         onChange={e => setSendInvoiceModal(prev => ({ ...prev, subject: e.target.value }))}
-                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-ios outline-none"
                                     />
                                 </div>
                                 <div>
@@ -1813,7 +1813,7 @@ const InterventionReportForm = () => {
                                         rows={7}
                                         value={sendInvoiceModal.body}
                                         onChange={e => setSendInvoiceModal(prev => ({ ...prev, body: e.target.value }))}
-                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-ios outline-none resize-none"
                                     />
                                 </div>
                             </div>
@@ -1867,7 +1867,7 @@ const InterventionReportForm = () => {
                                         }
                                         setSendInvoiceModal(null);
                                     }}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
                                 >
                                     <Send className="w-4 h-4" />
                                     {userProfile?.smtp_config?.host ? 'Envoyer depuis mon mail pro' : 'Ouvrir dans la messagerie'}
