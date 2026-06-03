@@ -26,7 +26,7 @@ const PreferencesSection = () => {
     const handleOpenShortcuts = () => window.dispatchEvent(new Event('artisan:open-shortcuts'));
 
     return (
-        <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
             <div className="p-8">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                     <Settings className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" />
@@ -704,10 +704,7 @@ const Profile = () => {
         <div className="max-w-4xl mx-auto pb-12">
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Settings className="w-8 h-8 text-blue-600" />
-                        Paramètres de l'entreprise
-                    </h2>
+                    <h1 className="ios-title">Réglages</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full md:w-auto">
@@ -730,10 +727,10 @@ const Profile = () => {
                 </div>
             </div>
 
-            <form onSubmit={updateProfile} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <form onSubmit={updateProfile} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 {!loading && (!formData.company_name || !formData.siret) && (
                     <div className="px-8 pt-6">
-                        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-4 text-sm">
+                        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-4 text-sm">
                             <span className="text-amber-500 text-lg flex-shrink-0 leading-none mt-0.5">⚠️</span>
                             <div>
                                 <p className="font-semibold text-amber-800 mb-1">Complétez ces 2 champs pour valider vos devis légalement</p>
@@ -1022,7 +1019,7 @@ const Profile = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo</label>
                                 <div className="flex items-center space-x-4">
                                     {formData.logo_url && (
-                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-xl border border-gray-200 dark:border-gray-700" />
+                                        <img src={formData.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-2xl border border-gray-200 dark:border-gray-700" />
                                     )}
                                     <input
                                         type="file"
@@ -1045,7 +1042,7 @@ const Profile = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        className="flex items-center px-6 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50"
                     >
                         <Save className="w-4 h-4 mr-2" />
                         {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
@@ -1054,7 +1051,7 @@ const Profile = () => {
             </form >
 
             {/* Notifications Push */}
-            <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl shadow-sm border border-blue-100 dark:border-blue-800/40 overflow-hidden">
+            <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800/40 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
                         <Bell className="w-5 h-5 mr-2" />
@@ -1159,7 +1156,7 @@ const Profile = () => {
                                 }
                             }}
                             disabled={isPushLoading}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm transition-colors disabled:opacity-50"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-ios hover:bg-ios-dark text-white font-medium rounded-2xl shadow-sm transition-colors disabled:opacity-50"
                         >
                             <Bell className="w-4 h-4" />
                             {isPushLoading ? 'Activation...' : 'Activer les notifications push'}
@@ -1169,7 +1166,7 @@ const Profile = () => {
             </div>
 
             {/* Envoi direct par email (SMTP perso) */}
-            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
                         <Send className="w-5 h-5 mr-2 text-blue-600" />
@@ -1190,7 +1187,7 @@ const Profile = () => {
                         <button
                             type="button"
                             onClick={() => setShowSmtpPanel(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors text-sm font-medium"
                         >
                             <Mail className="w-4 h-4" />
                             Configurer mon mail pro
@@ -1317,7 +1314,7 @@ const Profile = () => {
                                     type="button"
                                     onClick={handleSaveSmtp}
                                     disabled={savingSmtp}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50 text-sm font-medium"
                                 >
                                     {savingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     Enregistrer
@@ -1351,7 +1348,7 @@ const Profile = () => {
             </div>
 
             {/* Signature email */}
-            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
                         <FileText className="w-5 h-5 mr-2 text-blue-600" />
@@ -1462,7 +1459,7 @@ const Profile = () => {
                                 type="button"
                                 onClick={handleSaveSignature}
                                 disabled={savingSignature}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50 text-sm font-medium"
                             >
                                 {savingSignature ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Enregistrer la signature
@@ -1497,7 +1494,7 @@ const Profile = () => {
                 </button>
             </div>
             {showAdvanced && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800/40 overflow-hidden">
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl shadow-sm border border-purple-100 dark:border-purple-800/40 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-200 mb-4 flex items-center">
                         <span className="mr-2">✨</span>
@@ -1704,7 +1701,7 @@ const Profile = () => {
             )}
 
             {/* Plateforme Agréée (e-facture) */}
-            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center">
                         <Send className="w-5 h-5 mr-2 text-indigo-600" />
@@ -1784,7 +1781,7 @@ const Profile = () => {
             </div>
 
             {/* Zone de Danger / Maintenance */}
-            <div className="mt-8 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center">
                         <Mail className="w-5 h-5 mr-2 text-blue-600" />
@@ -1820,7 +1817,7 @@ const Profile = () => {
                                 <button
                                     type="submit"
                                     disabled={emailChanging || !newEmail.trim()}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
+                                    className="px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
                                 >
                                     <KeyRound className="w-4 h-4" />
                                     {emailChanging ? 'Envoi...' : 'Changer'}
@@ -1831,7 +1828,7 @@ const Profile = () => {
                 </div>
             </div>
 
-            < div className="mt-8 bg-red-50 dark:bg-red-900/20 rounded-xl shadow-sm border border-red-100 overflow-hidden" >
+            < div className="mt-8 bg-red-50 dark:bg-red-900/20 rounded-2xl shadow-sm border border-red-100 overflow-hidden" >
                 <div className="p-8">
                     <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center">
                         ⚠️ Zone de Maintenance

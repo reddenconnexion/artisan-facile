@@ -2,6 +2,42 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* ─── Design system iOS — tokens de couleur ─────────────── */
+/* Expose l'accent système (#007AFF) en tant qu'utilitaires Tailwind :
+   bg-ios, text-ios, border-ios, ring-ios… + une variante claire. */
+@theme {
+  --color-ios: #007AFF;
+  --color-ios-light: #4da2ff;
+  --color-ios-dark: #0a84ff;
+}
+
+/* ─── Design system iOS — classes réutilisables ─────────── */
+@layer components {
+  /* Carte « inset grouped » iOS : fond, coins arrondis, bordure fine */
+  .ios-card {
+    background-color: #ffffff;
+    border-radius: 1rem;            /* rounded-2xl */
+    border: 1px solid rgb(229 231 235 / 0.7);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+  .dark .ios-card {
+    background-color: #1c1c1e;
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  /* Grand titre de page (large title iOS) */
+  .ios-title {
+    font-size: 34px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #111827;
+  }
+  .dark .ios-title {
+    color: #ffffff;
+  }
+}
+
 /* ─── Typographie système (style iOS / SF Pro) ──────────── */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",

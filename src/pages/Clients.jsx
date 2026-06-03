@@ -105,10 +105,10 @@ const Clients = () => {
         const isConfirmingDelete = deleteConfirmId === client.id;
 
         return (
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 hover:shadow-md transition-shadow relative">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 hover:shadow-md transition-shadow relative">
                 {/* Inline delete confirmation overlay */}
                 {isConfirmingDelete && (
-                    <div className="absolute inset-0 bg-white/95 dark:bg-gray-900/95 rounded-xl z-20 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="absolute inset-0 bg-white/95 dark:bg-gray-900/95 rounded-2xl z-20 flex flex-col items-center justify-center p-6 text-center">
                         <AlertTriangle className="w-10 h-10 text-red-500 mb-3" />
                         <p className="font-semibold text-gray-900 dark:text-white mb-1">Supprimer ce client ?</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Cette action est irréversible.</p>
@@ -344,10 +344,7 @@ const Clients = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Users className="w-8 h-8 text-blue-600" />
-                        Mes Clients
-                    </h2>
+                    <h1 className="ios-title">Mes Clients</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{clients.length} clients enregistrés</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -376,7 +373,7 @@ const Clients = () => {
                     )}
                     <button
                         onClick={() => navigate('/app/clients/new')}
-                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        className="flex items-center justify-center px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         Nouveau Client
@@ -440,7 +437,7 @@ const Clients = () => {
                     ))}
                 </div>
             ) : (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
                         {visibleClients.map((client) => (
                             <ClientListItem key={client.id} client={client} />
@@ -493,7 +490,7 @@ const Clients = () => {
                         </p>
                         <button
                             onClick={() => navigate('/app/clients/new')}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-ios text-white font-semibold rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
                         >
                             <Plus className="w-4 h-4" />
                             Ajouter mon premier client
