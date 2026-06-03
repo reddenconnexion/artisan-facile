@@ -6,6 +6,7 @@ import {
     getDueFollowUps,
     recordFollowUp,
     getFollowUpSettings,
+    getRelanceContext,
     archiveQuote,
     getOptimalSendWindow,
 } from '../utils/followUpService';
@@ -43,6 +44,7 @@ const FollowUps = ({ embedded = false }) => {
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
         userName: profile?.full_name || profile?.first_name || '',
+        persuasionLevel: profile?.follow_up_settings?.persuasion_level || 'soft',
     }), [profile]);
 
     // Group due quotes by client — clients with multiple quotes get a single grouped card
@@ -111,7 +113,9 @@ const FollowUps = ({ embedded = false }) => {
             setGenerating(prev => ({ ...prev, [key]: true }));
             const step = getEffectiveStep(key, quotes[0]);
             const client = quotes[0].clients || { name: 'Client' };
-            const emailContent = await generateFollowUpEmail(quotes, client, step, aiContext);
+            // Récupère l'historique client + l'engagement e-mail pour personnaliser la relance.
+            const relanceContext = await getRelanceContext(quotes[0], user.id);
+            const emailContent = await generateFollowUpEmail(quotes, client, step, { ...aiContext, relanceContext });
             setSuggestions(prev => ({ ...prev, [key]: emailContent }));
             setExpanded(prev => ({ ...prev, [key]: true }));
         } catch (error) {

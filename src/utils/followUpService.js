@@ -91,6 +91,12 @@ export const getDueFollowUps = async (userId) => {
     const dueQuotes = [];
 
     quotes.forEach(quote => {
+        // "Reporter" : un devis explicitement reporté est masqué jusqu'à sa date
+        // de snooze. La colonne peut être absente sur d'anciennes bases (avant
+        // migration) → `undefined`, traité comme non reporté.
+        const snoozedUntil = quote.relance_snoozed_until ? new Date(quote.relance_snoozed_until) : null;
+        if (snoozedUntil && snoozedUntil > today) return;
+
         // Determine reference date: last follow-up OR created_at (date)
         const lastFollowUp = quote.last_followup_at ? new Date(quote.last_followup_at) : null;
         const quoteDate = new Date(quote.date); // Issue date
@@ -183,6 +189,156 @@ export const recordFollowUp = async (quote, userId, content, method = 'email', f
             details: `Relance devis #${quote.id} (Niveau ${newCount})`
         }]);
     }
+};
+
+/**
+ * "Reporter" une relance : repousse l'apparition du devis dans les relances dues
+ * d'un certain nombre de jours. Utilisé par les suggestions quotidiennes.
+ * @param {number|string} quoteId
+ * @param {string} userId
+ * @param {number} days - Nombre de jours de report (défaut 3)
+ * @returns {Promise<Date>} La date jusqu'à laquelle la relance est reportée
+ */
+export const snoozeRelance = async (quoteId, userId, days = 3) => {
+    const until = new Date();
+    until.setHours(0, 0, 0, 0);
+    until.setDate(until.getDate() + days);
+    const { error } = await supabase
+        .from('quotes')
+        .update({ relance_snoozed_until: until.toISOString() })
+        .eq('id', quoteId)
+        .eq('user_id', userId);
+    if (error) throw error;
+    return until;
+};
+
+const daysBetween = (from, to) =>
+    Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+
+/**
+ * Rassemble le contexte utile pour personnaliser une relance : historique du
+ * client (fidélité, devis signés/refusés passés, dernière interaction),
+ * engagement e-mail (le client a-t-il ouvert le devis / les relances ?) et
+ * contexte du devis (ancienneté, validité, montant, relances déjà faites).
+ *
+ * Le résultat est passé à `generateFollowUpEmail` pour que l'IA adapte le ton
+ * et les leviers. Toutes les requêtes sont défensives : en cas d'erreur ou de
+ * données manquantes, on renvoie un contexte partiel plutôt que d'échouer.
+ *
+ * @param {object} quote - Le devis (de référence) à relancer
+ * @param {string} userId
+ * @returns {Promise<object>} { quote, client, engagement }
+ */
+export const getRelanceContext = async (quote, userId) => {
+    const today = new Date();
+    const issueDate = quote?.date ? new Date(quote.date) : null;
+    const lastFollowUp = quote?.last_followup_at ? new Date(quote.last_followup_at) : null;
+    const validUntil = quote?.valid_until ? new Date(quote.valid_until) : null;
+
+    const items = Array.isArray(quote?.items) ? quote.items : [];
+    const ctx = {
+        quote: {
+            title: quote?.title || null,
+            amount: quote?.total_ttc != null ? Number(quote.total_ttc) : null,
+            ageDays: issueDate ? Math.max(0, daysBetween(issueDate, today)) : null,
+            followUpCount: quote?.follow_up_count || 0,
+            daysSinceLastFollowUp: lastFollowUp ? Math.max(0, daysBetween(lastFollowUp, today)) : null,
+            validUntil: validUntil ? validUntil.toLocaleDateString('fr-FR') : null,
+            daysUntilExpiry: validUntil ? daysBetween(today, validUntil) : null,
+            expired: validUntil ? validUntil < today : false,
+            itemCount: items.length,
+            hasMaterials: items.some(i => i?.type === 'material'),
+        },
+        client: {
+            totalPastQuotes: 0,
+            signedCount: 0,
+            rejectedCount: 0,
+            pendingCount: 0,
+            isReturningClient: false,
+            relationshipMonths: null,
+            lastInteraction: null, // { type, daysAgo }
+            interactionCount: 0,
+        },
+        engagement: {
+            quoteOpened: false,    // le client a ouvert un e-mail lié à ce devis
+            openCount: 0,
+            lastOpenedDaysAgo: null,
+        },
+    };
+
+    if (!quote?.client_id) return ctx;
+
+    try {
+        // ── Historique des devis du client (fidélité, signatures, refus) ──
+        const { data: clientQuotes } = await supabase
+            .from('quotes')
+            .select('id, status, signed_at, total_ttc, date')
+            .eq('user_id', userId)
+            .eq('client_id', quote.client_id);
+
+        const past = (clientQuotes || []).filter(q => q.id !== quote.id && (q.type || 'quote') !== 'invoice');
+        const isSigned = (q) =>
+            ['accepted', 'paid', 'billed'].includes((q.status || '').toLowerCase()) || !!q.signed_at;
+
+        ctx.client.totalPastQuotes = past.length;
+        ctx.client.signedCount = past.filter(isSigned).length;
+        ctx.client.rejectedCount = past.filter(q => (q.status || '').toLowerCase() === 'rejected').length;
+        ctx.client.pendingCount = past.filter(q => (q.status || '').toLowerCase() === 'sent').length;
+        ctx.client.isReturningClient = ctx.client.signedCount > 0;
+
+        const allDates = (clientQuotes || [])
+            .map(q => (q.date ? new Date(q.date) : null))
+            .filter(Boolean);
+        if (allDates.length > 0) {
+            const earliest = new Date(Math.min(...allDates.map(d => d.getTime())));
+            ctx.client.relationshipMonths = Math.max(0, Math.round(daysBetween(earliest, today) / 30));
+        }
+    } catch (e) {
+        console.warn('getRelanceContext: client quotes lookup failed', e);
+    }
+
+    try {
+        // ── Dernière interaction CRM ──
+        const { data: interactions } = await supabase
+            .from('client_interactions')
+            .select('type, date')
+            .eq('user_id', userId)
+            .eq('client_id', quote.client_id)
+            .order('date', { ascending: false })
+            .limit(50);
+        if (interactions && interactions.length > 0) {
+            ctx.client.interactionCount = interactions.length;
+            const last = interactions[0];
+            ctx.client.lastInteraction = {
+                type: last.type,
+                daysAgo: last.date ? Math.max(0, daysBetween(new Date(last.date), today)) : null,
+            };
+        }
+    } catch (e) {
+        console.warn('getRelanceContext: interactions lookup failed', e);
+    }
+
+    try {
+        // ── Engagement e-mail : le client a-t-il ouvert le devis / les relances ? ──
+        const { data: sends } = await supabase
+            .from('email_send_stats')
+            .select('open_count, last_opened_at')
+            .eq('quote_id', quote.id);
+        if (sends && sends.length > 0) {
+            const openCount = sends.reduce((sum, s) => sum + (s.open_count || 0), 0);
+            ctx.engagement.openCount = openCount;
+            ctx.engagement.quoteOpened = openCount > 0;
+            const lastOpen = sends
+                .map(s => (s.last_opened_at ? new Date(s.last_opened_at) : null))
+                .filter(Boolean)
+                .sort((a, b) => b - a)[0];
+            if (lastOpen) ctx.engagement.lastOpenedDaysAgo = Math.max(0, daysBetween(lastOpen, today));
+        }
+    } catch (e) {
+        console.warn('getRelanceContext: engagement lookup failed', e);
+    }
+
+    return ctx;
 };
 
 /**
