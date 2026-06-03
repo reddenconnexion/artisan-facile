@@ -28,7 +28,7 @@ const ExpiringQuotesWidget = ({ allQuotes, navigate }) => {
     if (expiring.length === 0) return null;
 
     return (
-        <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-700/40 shadow-sm overflow-hidden">
+        <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-700/40 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-amber-200/60 dark:border-amber-700/30">
                 <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
                     <AlertTriangle size={15} className="text-amber-600" />
