@@ -65,7 +65,7 @@ const ClientPlans = ({ clientId, clientName }) => {
             </div>
 
             {plans.length === 0 ? (
-                <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
                     <Zap className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                     <p className="text-sm text-gray-400 dark:text-gray-500">Aucun plan sauvegardé pour ce client.</p>
                     <button
@@ -78,7 +78,7 @@ const ClientPlans = ({ clientId, clientName }) => {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {plans.map(plan => (
-                        <div key={plan.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition-shadow group">
+                        <div key={plan.id} className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden hover:shadow-md transition-shadow group">
                             {/* Miniature */}
                             <div className="h-36 bg-gray-900 relative overflow-hidden">
                                 {plan.thumbnail ? (
@@ -196,7 +196,7 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
     };
 
     return (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl p-4 mb-6">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
                 <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-blue-600" />
@@ -479,9 +479,9 @@ const ClientForm = () => {
                     >
                         <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="ios-title">
                         {isEditing ? 'Modifier le client' : 'Nouveau client'}
-                    </h2>
+                    </h1>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button
@@ -547,7 +547,7 @@ const ClientForm = () => {
                         <FileText className="w-4 h-4" />
                         Informations
                     </div>
-                    {activeTab === 'info' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                    {activeTab === 'info' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
                 </button>
                 <button
                     onClick={() => setActiveTab('contacts')}
@@ -557,7 +557,7 @@ const ClientForm = () => {
                         <Users className="w-4 h-4" />
                         Contacts
                     </div>
-                    {activeTab === 'contacts' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                    {activeTab === 'contacts' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
                 </button>
                 {isEditing && (
                     <button
@@ -568,7 +568,7 @@ const ClientForm = () => {
                             <Palette className="w-4 h-4" />
                             Matériaux
                         </div>
-                        {activeTab === 'materials' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                        {activeTab === 'materials' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
                     </button>
                 )}
                 {isEditing && (
@@ -580,7 +580,7 @@ const ClientForm = () => {
                             <History className="w-4 h-4" />
                             Historique
                         </div>
-                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
                     </button>
                 )}
                 {isEditing && (
@@ -608,7 +608,7 @@ const ClientForm = () => {
                             onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
                         />
                     )}
-                <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 space-y-6">
                     <div>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
@@ -618,7 +618,7 @@ const ClientForm = () => {
                                 <select
                                     id="type"
                                     name="type"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.type}
                                     onChange={handleChange}
                                 >
@@ -633,7 +633,7 @@ const ClientForm = () => {
                                 <select
                                     id="status"
                                     name="status"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.status}
                                     onChange={handleChange}
                                 >
@@ -656,7 +656,7 @@ const ClientForm = () => {
                             id="name"
                             name="name"
                             required
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.name}
                             onChange={handleChange}
                         />
@@ -674,7 +674,7 @@ const ClientForm = () => {
                                     name="siren"
                                     maxLength={9}
                                     placeholder="Ex: 123456789"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.siren}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 9);
@@ -691,7 +691,7 @@ const ClientForm = () => {
                                     id="tva_intracom"
                                     name="tva_intracom"
                                     placeholder="Ex: FR00123456789"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.tva_intracom}
                                     onChange={(e) => setFormData(prev => ({ ...prev, tva_intracom: e.target.value.toUpperCase() }))}
                                 />
@@ -722,7 +722,7 @@ const ClientForm = () => {
                                 type="email"
                                 id="email"
                                 name="email"
-                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -759,7 +759,7 @@ const ClientForm = () => {
                                 type="tel"
                                 id="phone"
                                 name="phone"
-                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                 value={formData.phone}
                                 onChange={handleChange}
                             />
@@ -801,7 +801,7 @@ const ClientForm = () => {
                             name="address"
                             type="text"
                             placeholder="N° et nom de rue"
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.address}
                             onChange={handleChange}
                         />
@@ -811,7 +811,7 @@ const ClientForm = () => {
                                     name="postal_code"
                                     type="text"
                                     placeholder="Code postal"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.postal_code}
                                     onChange={handleChange}
                                 />
@@ -821,7 +821,7 @@ const ClientForm = () => {
                                     name="city"
                                     type="text"
                                     placeholder="Ville"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.city}
                                     onChange={handleChange}
                                 />
@@ -840,7 +840,7 @@ const ClientForm = () => {
                             id="notes"
                             name="notes"
                             rows={2}
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.notes}
                             onChange={handleChange}
                         />
@@ -857,7 +857,7 @@ const ClientForm = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {loading ? 'Enregistrement...' : 'Enregistrer'}
@@ -868,7 +868,7 @@ const ClientForm = () => {
             )}
 
             {activeTab === 'contacts' && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientContacts
                         contacts={formData.contacts}
                         onChange={(newContacts) => setFormData(prev => ({ ...prev, contacts: newContacts }))}
@@ -878,7 +878,7 @@ const ClientForm = () => {
                             type="button"
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {loading ? 'Enregistrement...' : 'Enregistrer les contacts'}
@@ -888,19 +888,19 @@ const ClientForm = () => {
             )}
 
             {activeTab === 'materials' && isEditing && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientReferences clientId={id} />
                 </div>
             )}
 
             {activeTab === 'history' && isEditing && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientHistory clientId={id} />
                 </div>
             )}
 
             {activeTab === 'plans' && isEditing && (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <ClientPlans clientId={id} clientName={formData.name} />
                 </div>
             )}
