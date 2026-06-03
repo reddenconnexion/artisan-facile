@@ -309,14 +309,13 @@ const Agenda = () => {
     return (
         <div className="flex flex-col h-full space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="w-8 h-8 text-blue-600" />
+                <h1 className="ios-title flex items-center gap-2">
                     Agenda
                     <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
-                </h2>
+                </h1>
                 <button
                     onClick={openNewEventModal}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors"
                 >
                     <Plus className="w-5 h-5 mr-2" />
                     Nouveau RDV
@@ -325,7 +324,7 @@ const Agenda = () => {
 
             <div className="flex flex-col lg:flex-row gap-6 h-full">
                 {/* Calendrier */}
-                <div className="flex-1 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
                             {format(currentDate, 'MMMM yyyy', { locale: fr })}
@@ -362,7 +361,7 @@ const Agenda = () => {
                                     className={`
                                         h-14 flex flex-col items-center justify-center rounded-lg relative transition-colors
                                         ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-900 dark:text-white'}
-                                        ${isSelected ? 'bg-blue-600 text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}
+                                        ${isSelected ? 'bg-ios text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}
                                         ${isTodayDate && !isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 font-bold' : ''}
                                     `}
                                 >
@@ -377,7 +376,7 @@ const Agenda = () => {
                 </div>
 
                 {/* Liste des RDV du jour */}
-                <div className="w-full lg:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex flex-col">
+                <div className="w-full lg:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
                             {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
@@ -512,7 +511,7 @@ const Agenda = () => {
             {/* Modal Ajout/Edit RDV */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
                             {editingEvent ? 'Modifier le Rendez-vous' : 'Nouveau Rendez-vous'}
                         </h3>
@@ -601,7 +600,7 @@ const Agenda = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark"
                                 >
                                     {editingEvent ? 'Enregistrer' : 'Ajouter'}
                                 </button>
