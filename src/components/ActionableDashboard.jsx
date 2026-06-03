@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, AlertCircle, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper } from 'lucide-react';
+import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, isAfter, addDays, parseISO, addHours, differenceInDays } from 'date-fns';
+import { format, isAfter, addDays, parseISO, addHours } from 'date-fns';
 import { toast } from 'sonner';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
@@ -22,7 +22,6 @@ const ActionableDashboard = ({ user }) => {
     const [convertingId, setConvertingId] = useState(null);
     const [actionItems, setActionItems] = useState({
         upcomingEvents: [],
-        overdueQuotes: [],
         pendingInvoices: [],
         draftQuotes: [],
         signedQuotes: []
@@ -38,8 +37,6 @@ const ActionableDashboard = ({ user }) => {
         try {
             setLoading(true);
             const now = new Date();
-            const threeDaysFromNow = addDays(now, 3);
-            const sevenDaysAgo = addDays(now, -7);
 
             // 1. Upcoming Events (fetch wider range to catch today's events stored around midnight UTC)
             // Strategy: Get events from yesterday to +7 days to be safe
@@ -66,16 +63,6 @@ const ActionableDashboard = ({ user }) => {
                 .filter(event => isAfter(event.endDateTime, now)) // Keep if not finished yet
                 .sort((a, b) => a.startDateTime - b.startDateTime) // Sort by start time
                 .slice(0, 3); // Take top 3
-
-            // 2. Quotes to follow up (Sent > 7 days ago)
-            const { data: overdueQuotes } = await supabase
-                .from('quotes')
-                .select('*, clients(name)')
-                .eq('user_id', user.id)
-                .eq('status', 'sent')
-                .lt('date', sevenDaysAgo.toISOString()) // Created before 7 days ago
-                .or(`last_followup_at.is.null,last_followup_at.lt.${sevenDaysAgo.toISOString()}`)
-                .order('date', { ascending: true });
 
             // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
             // 2b. Signed Quotes (Accepted but not yet Billed/Paid) - PRIORITY
@@ -165,7 +152,6 @@ const ActionableDashboard = ({ user }) => {
 
             setActionItems({
                 upcomingEvents: processedEvents || [],
-                overdueQuotes: (overdueQuotes || []).filter(q => !isTestQuote(q)),
                 pendingInvoices: (pendingInvoices || []).filter(q => !isTestQuote(q)),
                 draftQuotes: (draftQuotes || []).filter(q => !isTestQuote(q)),
                 maintenanceAlerts: maintenanceAlerts,
@@ -176,31 +162,6 @@ const ActionableDashboard = ({ user }) => {
             console.error('Error loading dashboard items:', error);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleManualFollowUp = async (e, quoteId) => {
-        e.stopPropagation();
-        const now = new Date().toISOString();
-
-        // Optimistic update
-        setActionItems(prev => ({
-            ...prev,
-            overdueQuotes: prev.overdueQuotes.filter(q => q.id !== quoteId)
-        }));
-
-        const { error } = await supabase
-            .from('quotes')
-            .update({ last_followup_at: now })
-            .eq('id', quoteId);
-
-        if (error) {
-            console.error('Error updating follow-up:', error);
-            // Revert on error (could imply re-fetching, but keeping it simple for now)
-            fetchActionItems();
-        } else {
-            // Met à jour le compteur KPI "Devis à relancer" du tableau de bord
-            invalidateQuotes();
         }
     };
 
@@ -412,67 +373,8 @@ const ActionableDashboard = ({ user }) => {
                     </div>
                 )}
 
-                {/* 2. Overdue Quotes */}
-                {actionItems.overdueQuotes.length > 0 && (
-                    <div className="p-4 bg-amber-50/30 dark:bg-amber-900/10">
-                        <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider mb-3 flex items-center justify-between">
-                            <span className="flex items-center">
-                                <AlertCircle className="w-3 h-3 mr-1" /> Devis à relancer (+7j)
-                                <span className="ml-2 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-                                    {actionItems.overdueQuotes.length}
-                                </span>
-                            </span>
-                            <button
-                                onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
-                                className="text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:underline normal-case tracking-normal"
-                            >
-                                Gérer les relances →
-                            </button>
-                        </h4>
-                        <div className="space-y-2">
-                            {actionItems.overdueQuotes.slice(0, 3).map(quote => {
-                                const daysOverdue = differenceInDays(new Date(), parseISO(quote.date));
-                                return (
-                                    <div
-                                        key={quote.id}
-                                        onClick={() => navigate(`/app/devis/${quote.id}`)}
-                                        className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-amber-100 dark:border-amber-900/30 shadow-sm cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                                    >
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                                                {quote.client_name || quote.clients?.name || 'Client'}
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${daysOverdue > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
-                                                    +{daysOverdue}j
-                                                </span>
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Envoyé le {format(parseISO(quote.date), 'dd MMMM', { locale: fr })} · {(quote.total_ttc || 0).toFixed(2)}€
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={(e) => handleManualFollowUp(e, quote.id)}
-                                                className="p-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-200 transition-colors"
-                                                title="Marquer comme relancé aujourd'hui"
-                                            >
-                                                Relancé
-                                            </button>
-                                            <ArrowRight className="w-4 h-4 text-amber-400" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {actionItems.overdueQuotes.length > 3 && (
-                            <button
-                                onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
-                                className="mt-2 w-full text-xs text-center text-amber-700 dark:text-amber-400 font-medium py-1.5 bg-amber-100/60 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded border border-amber-200 dark:border-amber-800 transition-colors"
-                            >
-                                Voir les {actionItems.overdueQuotes.length - 3} autres devis à relancer →
-                            </button>
-                        )}
-                    </div>
-                )}
+                {/* Les relances de devis sont gérées par le panneau dédié
+                    « Suggestions de relance du jour » (génération, envoi, report). */}
 
                 {/* 3. Pending Invoices */}
                 {actionItems.pendingInvoices.length > 0 && (
@@ -530,7 +432,7 @@ const ActionableDashboard = ({ user }) => {
                 )}
             </div>
 
-            {(actionItems.overdueQuotes.length > 0 || actionItems.pendingInvoices.length > 0) && (
+            {actionItems.pendingInvoices.length > 0 && (
                 <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-center text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
                     💡 Astuce : Passez une facture à "Payé" pour l'archiver.
                 </div>
