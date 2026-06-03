@@ -450,11 +450,91 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
 };
 
 /**
+ * Construit le bloc "INTELLIGENCE" injecté dans le prompt de relance à partir
+ * du contexte renvoyé par `getRelanceContext` (historique client, engagement
+ * e-mail, contexte du devis). Renvoie une chaîne vide si aucun signal.
+ */
+const buildRelanceSignals = (rc) => {
+    if (!rc) return '';
+    const lines = [];
+
+    // ── Contexte du devis ──
+    const q = rc.quote || {};
+    if (q.ageDays != null) {
+        lines.push(`- Devis envoyé il y a ${q.ageDays} jour${q.ageDays > 1 ? 's' : ''}.`);
+    }
+    if (q.followUpCount > 0) {
+        lines.push(`- ${q.followUpCount} relance${q.followUpCount > 1 ? 's' : ''} déjà effectuée${q.followUpCount > 1 ? 's' : ''}${q.daysSinceLastFollowUp != null ? ` (la dernière il y a ${q.daysSinceLastFollowUp} j)` : ''} — espace les sollicitations et change d'angle, ne répète pas le même message.`);
+    }
+    if (q.validUntil && q.daysUntilExpiry != null) {
+        if (q.expired) {
+            lines.push(`- Le devis a dépassé sa date de validité (${q.validUntil}) : propose honnêtement de le réactualiser si besoin (prix matériaux/planning), sans inventer de hausse.`);
+        } else if (q.daysUntilExpiry <= 15) {
+            lines.push(`- Le devis est valable jusqu'au ${q.validUntil} (dans ${q.daysUntilExpiry} j) : tu peux rappeler cette échéance RÉELLE comme repère, sans dramatiser.`);
+        }
+    }
+
+    // ── Historique client ──
+    const c = rc.client || {};
+    if (c.isReturningClient) {
+        lines.push(`- Client FIDÈLE : ${c.signedCount} devis déjà signé${c.signedCount > 1 ? 's' : ''} par le passé${c.relationshipMonths ? `, relation suivie depuis ~${c.relationshipMonths} mois` : ''}. Reconnais cette relation de confiance avec sincérité (réciprocité), reste familier mais pro.`);
+    } else if (c.totalPastQuotes === 0) {
+        lines.push(`- NOUVEAU client (premier projet) : rassure, montre le sérieux et l'expérience du métier (preuve sociale générale et VRAIE, sans inventer de témoignage ni de chiffre).`);
+    }
+    if (c.rejectedCount > 0) {
+        lines.push(`- A déjà refusé ${c.rejectedCount} devis : reste léger, ne force pas, mets en avant l'écoute et la flexibilité.`);
+    }
+    if (c.lastInteraction && c.lastInteraction.daysAgo != null) {
+        lines.push(`- Dernier contact il y a ${c.lastInteraction.daysAgo} j (${c.lastInteraction.type}).`);
+    }
+
+    // ── Engagement e-mail ──
+    const e = rc.engagement || {};
+    if (e.quoteOpened) {
+        lines.push(`- Le client a OUVERT le devis${e.lastOpenedDaysAgo != null ? ` (il y a ${e.lastOpenedDaysAgo} j)` : ''} mais n'a pas encore répondu : il y a probablement une hésitation ou une question en suspens. Invite-le doucement à exprimer son éventuel frein (budget, délai, détail technique).`);
+    } else if (q.followUpCount > 0) {
+        lines.push(`- Aucune ouverture détectée du devis : l'e-mail n'a peut-être pas été vu. Vérifie poliment la bonne réception et propose un autre canal (téléphone).`);
+    }
+
+    if (lines.length === 0) return '';
+    return `\nSIGNAUX À EXPLOITER (personnalise le message en t'appuyant dessus, sans jamais les citer explicitement ni les énumérer) :\n${lines.join('\n')}\n`;
+};
+
+/**
+ * Renvoie les consignes de persuasion selon le niveau choisi par l'artisan.
+ * Tous les niveaux restent HONNÊTES : aucun fait inventé, urgence uniquement si
+ * une vraie échéance existe.
+ */
+const buildPersuasionGuide = (level = 'soft') => {
+    const common = `LEVIERS DE PERSUASION (à doser subtilement, jamais de façon mécanique ni visible) :
+- Réciprocité : offre quelque chose d'utile (un conseil, une disponibilité, une petite flexibilité) avant de demander.
+- Preuve sociale : évoque ton expérience sur des projets similaires de façon générale et VRAIE — n'invente jamais de témoignage, de note, de nom ou de chiffre.
+- Cohérence/engagement : rappelle en douceur l'intérêt initial du client pour le projet.
+- Aversion à la perte : évoque ce qu'un report concret peut impliquer (planning qui se remplit, organisation) sans menace ni urgence factice.
+- Appel à l'action unique et à faible friction : termine par UN seul prochain pas simple (un oui/non, un appel de 10 min, un créneau proposé).`;
+
+    const guards = `GARDE-FOUS (impératifs) :
+- N'invente AUCUN fait : pas de fausse rareté, pas de promotion fictive, pas de hausse de prix imaginaire, pas de témoignage inventé.
+- N'utilise l'urgence QUE si une échéance réelle est fournie (date de validité du devis).
+- Reste honnête, respectueux et humain : la pression déguisée ou culpabilisante est interdite.`;
+
+    const levels = {
+        soft: `NIVEAU DE PERSUASION : DOUX. Priorité absolue à la relation et à la valeur. Très peu (voire pas) d'urgence. Ton chaleureux, jamais insistant. Un seul appel à l'action simple, formulé comme une proposition ouverte.`,
+        balanced: `NIVEAU DE PERSUASION : ÉQUILIBRÉ. Mets en valeur les bénéfices concrets et un appel à l'action clair. Tu peux t'appuyer sur une échéance réelle si elle existe. Reste courtois et sans lourdeur.`,
+        assertive: `NIVEAU DE PERSUASION : APPUYÉ. Ton plus directif et orienté décision, appel à l'action explicite et un peu plus pressant, mise en avant de l'échéance réelle. Toujours honnête, jamais de mensonge ni de culpabilisation.`,
+    };
+
+    return `${levels[level] || levels.soft}\n\n${common}\n\n${guards}`;
+};
+
+/**
  * Generates a follow-up email content using AI.
  * @param {object|object[]} quotes - A single quote or array of quotes (for grouped relances)
  * @param {object} client - The client object
  * @param {object} step - The step configuration (label, context)
- * @param {object} context - User settings/context
+ * @param {object} context - User settings/context. May include:
+ *   - relanceContext: output of getRelanceContext (client history + quote signals)
+ *   - persuasionLevel: 'soft' | 'balanced' | 'assertive' (default 'soft')
  * @returns {Promise<object>} { subject, body }
  */
 export const generateFollowUpEmail = async (quotes, client, step, context = {}) => {
@@ -493,8 +573,11 @@ export const generateFollowUpEmail = async (quotes, client, step, context = {}) 
 
     const guide = stepGuides[stepIndex] || stepGuides[stepGuides.length - 1];
 
-    const systemPrompt = `Tu es un assistant professionnel pour un artisan du bâtiment.
-Rédige un e-mail de relance pour ${isGrouped ? `${quotes.length} devis envoyés` : 'un devis envoyé'} à un client.
+    const signalsBlock = buildRelanceSignals(context.relanceContext);
+    const persuasionGuide = buildPersuasionGuide(context.persuasionLevel || 'soft');
+
+    const systemPrompt = `Tu es un assistant professionnel pour un artisan du bâtiment, spécialiste de la relation client et de la conversion de devis.
+Rédige un e-mail de relance PERSONNALISÉ pour ${isGrouped ? `${quotes.length} devis envoyés` : 'un devis envoyé'} à un client, dont l'objectif est de faire avancer vers la signature avec tact.
 
 ARTISAN : ${artisanSignature}
 CLIENT : ${client.name || 'Client'}
@@ -505,6 +588,8 @@ ${quotesLines}
 ÉTAPE DE RELANCE : ${step.label} (étape ${stepIndex + 1})
 OBJECTIF : ${step.context || "Ton professionnel, courtois et direct."}
 GUIDE : ${guide}
+${signalsBlock}
+${persuasionGuide}
 
 EXEMPLE DE STYLE À SUIVRE (adapte-le au contexte ci-dessus) :
 ---

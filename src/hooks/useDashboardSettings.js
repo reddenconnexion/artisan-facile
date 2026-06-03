@@ -9,6 +9,7 @@ import { toastError } from '../utils/supabaseErrorHandler';
  */
 export const DASHBOARD_WIDGETS = [
     { id: 'kpi_strip',        label: 'Indicateurs clés',           description: 'CA du mois, devis en cours, prochain RDV', defaultVisible: true,  alwaysOn: true  },
+    { id: 'daily_relances',   label: 'Suggestions de relance du jour', description: 'Relances à valider, modifier ou reporter chaque jour', defaultVisible: true,  alwaysOn: false },
     { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: true,  alwaysOn: false },
     { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: true,  alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
