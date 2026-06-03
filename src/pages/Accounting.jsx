@@ -516,17 +516,14 @@ const Accounting = () => {
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Calculator className="w-8 h-8 text-blue-600" />
-          Comptabilité
-        </h2>
+        <h1 className="ios-title">Comptabilité</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
           Charges sociales et livre de recettes
         </p>
       </div>
 
       {/* Onglets */}
-      <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6">
+      <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl mb-6">
         <button
           onClick={() => setActiveTab('charges')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
@@ -555,7 +552,7 @@ const Accounting = () => {
       {activeTab === 'charges' && (
       <>
       {/* Aide débutant */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl px-5 py-4 mb-6 flex gap-3 items-start">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl px-5 py-4 mb-6 flex gap-3 items-start">
         <span className="text-2xl leading-none mt-0.5">💡</span>
         <div>
           <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Comment ça marche ?</p>
@@ -576,7 +573,7 @@ const Accounting = () => {
       </div>
 
       {/* Statut actuel */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
             <FileText className="w-5 h-5 mr-2 text-blue-600" />
@@ -609,7 +606,7 @@ const Accounting = () => {
 
       {/* Message pour les statuts non micro-entreprise */}
       {!isMicroEntreprise && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 mb-6">
           <div className="flex items-start">
             <Info className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
             <div>
@@ -641,7 +638,7 @@ const Accounting = () => {
       {isMicroEntreprise && (
         <>
           {/* Sélection de la période */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
               <Calendar className="w-5 h-5 mr-2 text-blue-600" />
               Période de déclaration
@@ -717,7 +714,7 @@ const Accounting = () => {
           </div>
 
           {/* Chiffre d'affaires et charges */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
               <Calculator className="w-5 h-5 mr-2 text-blue-600" />
               Calcul des charges
@@ -839,7 +836,7 @@ const Accounting = () => {
             {/* Résultat du calcul */}
             {calculateCharges && (
               <div className="space-y-3">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-blue-100">Charges URSSAF à déclarer</p>
                     <button
@@ -920,7 +917,7 @@ const Accounting = () => {
                     href="https://www.autoentrepreneur.urssaf.fr/portail/accueil/declarer-et-payer.html"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-ios text-white rounded-lg hover:bg-ios-dark text-sm font-medium transition-colors"
                   >
                     <ExternalLink className="w-4 h-4" />
                     Déclarer sur URSSAF
@@ -931,7 +928,7 @@ const Accounting = () => {
           </div>
 
           {/* Suivi annuel */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
               <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
               Suivi annuel {selectedYear}
@@ -998,7 +995,7 @@ const Accounting = () => {
           </div>
 
           {/* Suivi Franchise TVA */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
               <Euro className="w-5 h-5 mr-2 text-purple-600" />
               Franchise en base de TVA {selectedYear}
@@ -1066,7 +1063,7 @@ const Accounting = () => {
           </div>
 
           {/* Informations utiles */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6">
             <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-4 flex items-center">
               <Info className="w-5 h-5 mr-2" />
               Informations utiles
@@ -1116,7 +1113,7 @@ const Accounting = () => {
       {activeTab === 'recettes' && (
       <>
         {/* En-tête avec info légale */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6">
           <div className="flex items-start">
             <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800 dark:text-blue-400">
@@ -1130,7 +1127,7 @@ const Accounting = () => {
         </div>
 
         {/* Filtres et export */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
               <BookOpen className="w-5 h-5 mr-2 text-blue-600" />
@@ -1171,7 +1168,7 @@ const Accounting = () => {
         </div>
 
         {/* Tableau du livre de recettes */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
           {recettesData.length === 0 ? (
             <div className="p-12 text-center">
               <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
@@ -1277,7 +1274,7 @@ const Accounting = () => {
 
         {/* Avertissement si modes de règlement manquants */}
         {recettesData.some(r => r.paymentMethod === 'Non renseigné') && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start mb-6">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start mb-6">
             <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-3 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Modes de règlement manquants</p>
@@ -1317,7 +1314,7 @@ const Accounting = () => {
             className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
             onClick={(e) => { if (e.target === e.currentTarget) setDetailModal(null); }}
           >
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
                 <div>
