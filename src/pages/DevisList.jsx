@@ -392,10 +392,9 @@ const DevisList = () => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <FileText className="w-8 h-8 text-blue-600" />
-                    Devis & Factures
-                </h2>
+                <h1 className="ios-title">
+                    Devis &amp; Factures
+                </h1>
                 <div className="flex gap-2 relative">
                     {!mergeMode ? (
                         <>
@@ -409,7 +408,7 @@ const DevisList = () => {
                                     <ChevronDown className="w-4 h-4" />
                                 </button>
                                 {showMoreOptions && (
-                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden">
+                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg z-10 overflow-hidden">
                                         <button
                                             onClick={() => { handleImportClick('archive'); setShowMoreOptions(false); }}
                                             className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
@@ -478,7 +477,7 @@ const DevisList = () => {
                             </button>
                             <button
                                 onClick={() => navigate('/app/devis/new')}
-                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                className="flex items-center justify-center px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors"
                             >
                                 <Plus className="w-5 h-5 mr-2" />
                                 Nouveau Devis
@@ -505,7 +504,7 @@ const DevisList = () => {
 
             {/* Statistiques de création de devis */}
             {hasStats && (
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
                     <button
                         onClick={() => setShowCreationStats(v => !v)}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -527,7 +526,7 @@ const DevisList = () => {
                         <div className="border-t border-gray-100 dark:border-gray-800 px-4 pb-4 pt-3">
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 {/* Temps moyen traditionnel */}
-                                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+                                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 text-center">
                                     <Clock size={16} className="text-gray-400 mx-auto mb-1" />
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                                         Moy. sans IA
@@ -543,7 +542,7 @@ const DevisList = () => {
                                 </div>
 
                                 {/* Temps moyen avec IA */}
-                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
+                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-3 text-center">
                                     <Zap size={16} className="text-purple-500 mx-auto mb-1" />
                                     <p className="text-xs text-purple-600 dark:text-purple-400 mb-0.5">
                                         Moy. avec IA
@@ -559,7 +558,7 @@ const DevisList = () => {
                                 </div>
 
                                 {/* Gain moyen */}
-                                <div className={`col-span-2 sm:col-span-1 rounded-xl p-3 text-center ${avgGain !== null && avgGain > 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                <div className={`col-span-2 sm:col-span-1 rounded-2xl p-3 text-center ${avgGain !== null && avgGain > 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
                                     <TrendingUp size={16} className={`mx-auto mb-1 ${avgGain !== null && avgGain > 0 ? 'text-green-500' : 'text-gray-400'}`} />
                                     <p className={`text-xs mb-0.5 ${avgGain !== null && avgGain > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                         Gain moyen / devis
@@ -622,7 +621,7 @@ const DevisList = () => {
                                 onClick={() => setStatusFilter(status)}
                                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${status === 'followups' ? 'ml-auto' : ''} ${statusFilter === status
                                     ? status === 'followups'
-                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        ? 'bg-ios text-white shadow-sm'
                                         : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                     }`}
@@ -673,7 +672,7 @@ const DevisList = () => {
             ) : (
                 <>
                     {/* Desktop Table View */}
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden hidden md:block">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden hidden md:block">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                             <thead className="bg-gray-50 dark:bg-gray-800/50">
                                 <tr>
@@ -790,7 +789,7 @@ const DevisList = () => {
                         {pagedDevis.map((devis) => (
                             <div
                                 key={devis.id}
-                                className={`bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800'}`}
+                                className={`bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800'}`}
                                 onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
                             >
                                 {mergeMode && (
@@ -865,7 +864,7 @@ const DevisList = () => {
                     {filteredDevis.length === 0 && (
                         devisList.length === 0 ? (
                             /* Aucun devis en base — premier usage */
-                            <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 px-6">
+                            <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 px-6">
                                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                     <FileText className="h-10 w-10 text-blue-400" />
                                 </div>
@@ -877,7 +876,7 @@ const DevisList = () => {
                                 </p>
                                 <button
                                     onClick={() => navigate('/app/devis/new')}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-ios text-white font-semibold rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Créer mon premier devis
@@ -891,7 +890,7 @@ const DevisList = () => {
                             </div>
                         ) : searchTerm ? (
                             /* Recherche sans résultat */
-                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
                                 <Search className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                                 <p className="text-gray-500 dark:text-gray-400">
                                     Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"
@@ -899,7 +898,7 @@ const DevisList = () => {
                             </div>
                         ) : (
                             /* Filtre actif sans résultat */
-                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
                                 <p className="text-gray-500 dark:text-gray-400">
                                     Aucun devis dans cette catégorie.
                                 </p>
@@ -962,7 +961,7 @@ const DevisList = () => {
                     onClick={() => setOpenHistoryModal(null)}
                 >
                     <div
-                        className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col"
+                        className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">

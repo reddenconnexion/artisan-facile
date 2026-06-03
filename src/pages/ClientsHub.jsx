@@ -27,7 +27,7 @@ const ClientsHub = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700 -mx-4 md:mx-0 px-4 md:px-0 overflow-x-auto">
+            <div className="inline-flex items-center gap-1 p-1 bg-gray-200/70 dark:bg-white/10 rounded-xl overflow-x-auto max-w-full">
                 {TABS.map(tab => {
                     const Icon = tab.icon;
                     const isActive = activeId === tab.id;
@@ -35,10 +35,10 @@ const ClientsHub = () => {
                         <button
                             key={tab.id}
                             onClick={() => handleSelect(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                            className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium whitespace-nowrap rounded-lg transition-all ${
                                 isActive
-                                    ? 'border-blue-600 text-blue-700 dark:text-blue-400'
-                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
+                                    ? 'bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                             }`}
                             aria-current={isActive ? 'page' : undefined}
                         >
