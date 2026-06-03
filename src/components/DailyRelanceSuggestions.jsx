@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
-import { useUserProfile } from '../hooks/useDataCache';
+import { useUserProfile, useInvalidateCache } from '../hooks/useDataCache';
 import {
     getDueFollowUps,
     getFollowUpSettings,
@@ -39,6 +39,7 @@ const DailyRelanceSuggestions = () => {
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
     const { data: profile } = useUserProfile();
+    const { invalidateQuotes } = useInvalidateCache();
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
@@ -144,6 +145,7 @@ const DailyRelanceSuggestions = () => {
             await Promise.all(quotes.map(q => snoozeRelance(q.id, user.id, days)));
             toast.success(`Relance reportée de ${days} jour${days > 1 ? 's' : ''}`);
             removeGroup(key);
+            invalidateQuotes(); // rafraîchit le compteur "Devis à relancer" du tableau de bord
         } catch (e) {
             toast.error('Report impossible : ' + e.message);
         } finally {
@@ -210,6 +212,7 @@ const DailyRelanceSuggestions = () => {
             }
             toast.success('Relance enregistrée !');
             removeGroup(key);
+            invalidateQuotes(); // rafraîchit le compteur "Devis à relancer" du tableau de bord
         } catch (err) {
             console.error(err);
             toast.error("Erreur lors de l'enregistrement du suivi");

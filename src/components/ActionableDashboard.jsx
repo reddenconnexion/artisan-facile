@@ -198,6 +198,9 @@ const ActionableDashboard = ({ user }) => {
             console.error('Error updating follow-up:', error);
             // Revert on error (could imply re-fetching, but keeping it simple for now)
             fetchActionItems();
+        } else {
+            // Met à jour le compteur KPI "Devis à relancer" du tableau de bord
+            invalidateQuotes();
         }
     };
 

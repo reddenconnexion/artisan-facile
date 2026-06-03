@@ -232,10 +232,17 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const pendingBilled = allQuotes.filter(q => q.status === 'billed');
     const pendingTotal = pendingBilled.reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
 
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const toRelanceCount = allQuotes.filter(q =>
-        q.status === 'sent' && !q.archived_at && new Date(q.date || q.created_at) < sevenDaysAgo
-    ).length;
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Un devis "à relancer" : envoyé, ni archivé ni reporté, et sans contact
+    // depuis 7 jours (sur la base de la dernière relance si elle existe, sinon
+    // de la date d'envoi). Ainsi relancer/reporter/archiver fait bien baisser
+    // le compteur (les champs sont chargés par useDashboardData).
+    const toRelanceCount = allQuotes.filter(q => {
+        if (q.status !== 'sent' || q.archived_at) return false;
+        if (q.relance_snoozed_until && new Date(q.relance_snoozed_until) > now) return false;
+        const ref = q.last_followup_at ? new Date(q.last_followup_at) : new Date(q.date || q.created_at);
+        return ref < sevenDaysAgo;
+    }).length;
 
     let nextRdvLabel = 'Aucun RDV';
     let nextRdvSub = 'Pas de rendez-vous prévu';

@@ -387,7 +387,7 @@ export function useDashboardData() {
             // Récupérer les devis avec les données clients
             const { data: quotes, error: quotesError } = await supabase
                 .from('quotes')
-                .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title, valid_until, quote_number');
+                .select('total_ht, total_ttc, date, created_at, status, id, client_id, clients(name), type, parent_id, signed_at, items, title, valid_until, quote_number, last_followup_at, follow_up_count, archived_at, relance_snoozed_until');
             if (quotesError) throw quotesError;
 
             // Compter les clients (hors client test)
