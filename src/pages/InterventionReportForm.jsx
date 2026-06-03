@@ -7,6 +7,7 @@ import {
     ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag, Star
 } from 'lucide-react';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
+import { compressImageFile } from '../utils/mediaConverters';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -311,11 +312,13 @@ const InterventionReportForm = () => {
         try {
             const uploaded = [];
             for (const file of valid) {
-                const ext = file.name.split('.').pop();
-                const path = `interventions/${user.id}/${crypto.randomUUID()}.${ext}`;
+                // Compresse avant upload (max 1600 px, JPEG q0.8) pour ne pas
+                // stocker de photos brutes de plusieurs Mo dans le Storage.
+                const compressed = await compressImageFile(file, { maxDim: 1600, quality: 0.8 });
+                const path = `interventions/${user.id}/${crypto.randomUUID()}.jpg`;
                 const { error: uploadError } = await supabase.storage
                     .from('project-photos')
-                    .upload(path, file);
+                    .upload(path, compressed, { contentType: 'image/jpeg' });
                 if (uploadError) throw uploadError;
                 const { data: { publicUrl } } = supabase.storage
                     .from('project-photos')
@@ -396,12 +399,13 @@ const InterventionReportForm = () => {
         setUploadingPhotos(true);
 
         try {
-            // Upload de la photo (même bucket que les autres photos d'intervention)
-            const ext  = file.name.split('.').pop() || 'jpg';
-            const path = `interventions/${user.id}/milestones/${crypto.randomUUID()}.${ext}`;
+            // Upload de la photo (même bucket que les autres photos d'intervention),
+            // compressée au préalable (max 1600 px, JPEG q0.8).
+            const compressed = await compressImageFile(file, { maxDim: 1600, quality: 0.8 });
+            const path = `interventions/${user.id}/milestones/${crypto.randomUUID()}.jpg`;
             const { error: uploadError } = await supabase.storage
                 .from('project-photos')
-                .upload(path, file);
+                .upload(path, compressed, { contentType: 'image/jpeg' });
             if (uploadError) throw uploadError;
             const { data: { publicUrl } } = supabase.storage
                 .from('project-photos')

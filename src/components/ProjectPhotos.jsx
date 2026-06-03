@@ -527,8 +527,8 @@ const ProjectPhotos = ({ clientId }) => {
             // de vidéo HD…) pour les faire passer sous la limite avant validation.
             const prepared = await Promise.all(
                 files.map(f => compressImageFile(f, {
-                    maxDim: 2048,
-                    quality: 0.85,
+                    maxDim: 1600,
+                    quality: 0.8,
                     maxSizeBytes: UPLOAD_PRESETS.image.maxSizeBytes,
                 }))
             );
