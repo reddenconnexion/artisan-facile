@@ -104,17 +104,14 @@ const InterventionReports = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <ClipboardList className="w-8 h-8 text-blue-600" />
-                        Rapports d'intervention
-                    </h1>
+                    <h1 className="ios-title">Rapports d'intervention</h1>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                         Suivi de vos dépannages et interventions
                     </p>
                 </div>
                 <button
                     onClick={() => navigate('/app/interventions/new')}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors font-medium"
                 >
                     <Plus className="w-5 h-5" />
                     Nouveau rapport
@@ -129,7 +126,7 @@ const InterventionReports = () => {
                     { label: 'Terminés', value: stats.completed, color: 'text-blue-600 dark:text-blue-400' },
                     { label: 'Signés', value: stats.signed, color: 'text-green-600 dark:text-green-400' },
                 ].map(stat => (
-                    <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
                         <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
                         <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                     </div>
@@ -166,7 +163,7 @@ const InterventionReports = () => {
                     <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
                     <ClipboardList className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">
                         {searchTerm || statusFilter !== 'all'
@@ -176,7 +173,7 @@ const InterventionReports = () => {
                     {!searchTerm && statusFilter === 'all' && (
                         <button
                             onClick={() => navigate('/app/interventions/new')}
-                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                            className="mt-4 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors text-sm font-medium"
                         >
                             Créer votre premier rapport
                         </button>
@@ -185,7 +182,7 @@ const InterventionReports = () => {
             ) : (
                 <>
                     {/* Desktop Table */}
-                    <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="hidden md:block bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -270,7 +267,7 @@ const InterventionReports = () => {
                         {filtered.map(report => (
                             <div
                                 key={report.id}
-                                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3"
+                                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3"
                             >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">

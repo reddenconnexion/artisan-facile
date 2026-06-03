@@ -270,10 +270,7 @@ const Inventory = () => {
         <div className="max-w-6xl mx-auto pb-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Package className="w-8 h-8 mr-3 text-blue-600" />
-                        Gestion de Stock
-                    </h1>
+                    <h1 className="ios-title">Gestion de Stock</h1>
                     <p className="text-gray-500 dark:text-gray-400">Suivez vos matériaux et scannez vos arrivages</p>
                 </div>
 
@@ -284,14 +281,14 @@ const Inventory = () => {
                             setNewItemData({ id: null, description: '', reference: '', category: 'Matériel', stock_quantity: 1, barcode: '' });
                             setShowNewItemModal(true);
                         }}
-                        className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700 transition-all font-medium"
+                        className="flex items-center px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-lg hover:bg-emerald-700 transition-all font-medium"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         <span className="hidden md:inline">Ajouter</span>
                     </button>
                     <button
                         onClick={() => setShowBarcodeModal(true)}
-                        className="flex items-center px-4 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all font-medium"
+                        className="flex items-center px-4 py-3 bg-ios text-white rounded-2xl shadow-lg hover:bg-ios-dark transition-all font-medium"
                     >
                         <ScanBarcode className="w-5 h-5 mr-2" />
                         <span className="hidden md:inline">Scanner</span>
@@ -300,7 +297,7 @@ const Inventory = () => {
                         href="https://lens.google.com/"
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                        className="flex items-center px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
                         title="Ouvrir Google Lens pour identifier un objet"
                     >
                         <ExternalLink className="w-5 h-5 md:mr-2 text-gray-500 dark:text-gray-400" />
@@ -311,7 +308,7 @@ const Inventory = () => {
 
             {/* Stats / Alerts */}
             {lowStockItems.length > 0 && (
-                <div className="mb-8 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl flex items-start animate-in slide-in-from-top-2">
+                <div className="mb-8 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl flex items-start animate-in slide-in-from-top-2">
                     <AlertTriangle className="w-5 h-5 text-orange-600 mr-3 mt-0.5" />
                     <div className="flex-1">
                         <h3 className="font-semibold text-orange-800 dark:text-orange-300">Alerte Stock Faible</h3>
@@ -328,7 +325,7 @@ const Inventory = () => {
                 <input
                     type="text"
                     placeholder="Rechercher (Nom, Réf, Categorie, Code-barre)..."
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -355,7 +352,7 @@ const Inventory = () => {
             {/* New/Edit Item Modal */}
             {showNewItemModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-6">
                         <h3 className="text-lg font-bold mb-4">
                             {newItemData.id ? "Modifier l'article" : (scannedBarcode ? 'Nouvel Article Détecté' : 'Ajouter un article')}
                         </h3>
@@ -421,7 +418,7 @@ const Inventory = () => {
                                 </div>
                             </div>
 
-                            <button onClick={handleSaveItem} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2">
+                            <button onClick={handleSaveItem} className="w-full py-3 bg-ios text-white font-bold rounded-2xl mt-2">
                                 {newItemData.id ? "Modifier" : "Créer l'article"}
                             </button>
                             <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500 dark:text-gray-400">Annuler</button>
@@ -436,7 +433,7 @@ const Inventory = () => {
                     <div className="py-12 text-center text-gray-400">Chargement...</div>
                 ) : filteredItems.length === 0 ? (
                     items.length === 0 ? (
-                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 px-6 text-gray-900 dark:text-gray-100">
+                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 px-6 text-gray-900 dark:text-gray-100">
                             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
                                 <Package className="h-10 w-10 text-blue-400" />
                             </div>
@@ -447,7 +444,7 @@ const Inventory = () => {
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                 <button
                                     onClick={() => setShowNewItemModal(true)}
-                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-ios text-white font-semibold rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Ajouter un article
@@ -462,7 +459,7 @@ const Inventory = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                             <Search className="w-10 h-10 mx-auto text-gray-300 mb-3" />
                             <p className="text-gray-500 dark:text-gray-400">
                                 {searchTerm
@@ -473,7 +470,7 @@ const Inventory = () => {
                     )
                 ) : (
                     filteredItems.map(item => (
-                        <div key={item.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between group hover:border-blue-200 transition-all">
+                        <div key={item.id} className="bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between group hover:border-blue-200 transition-all">
                             <div className="flex-1 min-w-0 pr-4 cursor-pointer" onClick={() => handleEditItem(item)}>
                                 <h3 className="font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
                                     {item.reference && <span className="text-gray-500 dark:text-gray-400 font-mono text-xs mr-1">[{item.reference}]</span>}

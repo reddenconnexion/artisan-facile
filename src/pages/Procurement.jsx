@@ -181,17 +181,14 @@ const Procurement = () => {
             {/* Header */}
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <ShoppingCart className="w-6 h-6 text-blue-600" />
-                        Matériel à commander
-                    </h1>
+                    <h1 className="ios-title">Matériel à commander</h1>
                     <p className="text-sm text-gray-500 mt-1">
                         Centralisez les besoins notés depuis les chantiers et passez vos commandes.
                     </p>
                 </div>
                 <Link
                     to="/terrain"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ios hover:bg-ios-dark text-white text-sm font-semibold shadow-sm"
                 >
                     <Mic className="w-4 h-4" />
                     Mode terrain
@@ -206,7 +203,7 @@ const Procurement = () => {
                         <button
                             key={id}
                             onClick={() => setStatusFilter(id)}
-                            className={`flex-1 md:flex-initial px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
+                            className={`flex-1 md:flex-initial px-4 py-2 text-sm font-semibold rounded-2xl transition-colors ${
                                 active ? `bg-gray-100 ${color.split(' ')[0]}` : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
@@ -228,7 +225,7 @@ const Procurement = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Rechercher un article ou un chantier…"
-                        className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                 </div>
                 <div className="flex items-center gap-2">
@@ -236,7 +233,7 @@ const Procurement = () => {
                     <select
                         value={categoryFilter}
                         onChange={e => setCategoryFilter(e.target.value)}
-                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="all">Toutes catégories</option>
                         {Object.entries(CATEGORY_META).map(([id, meta]) => (
@@ -246,14 +243,14 @@ const Procurement = () => {
                 </div>
                 <button
                     onClick={copyList}
-                    className="px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm font-medium text-gray-700"
+                    className="px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-2xl text-sm font-medium text-gray-700"
                 >
                     Copier la liste
                 </button>
                 {statusFilter === 'pending' && filtered.length > 0 && (
                     <button
                         onClick={() => bulkMark('ordered')}
-                        className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold inline-flex items-center gap-1.5"
+                        className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-sm font-semibold inline-flex items-center gap-1.5"
                     >
                         <Truck className="w-4 h-4" />
                         Tout marquer commandé
@@ -262,7 +259,7 @@ const Procurement = () => {
                 {statusFilter === 'ordered' && filtered.length > 0 && (
                     <button
                         onClick={() => bulkMark('received')}
-                        className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold inline-flex items-center gap-1.5"
+                        className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-sm font-semibold inline-flex items-center gap-1.5"
                     >
                         <CheckCircle className="w-4 h-4" />
                         Tout marquer reçu
@@ -278,19 +275,19 @@ const Procurement = () => {
                     onChange={e => setNewDesc(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addItem(); }}
                     placeholder="Ajouter un article au bureau…"
-                    className="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 min-w-[200px] px-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                     type="number"
                     min="1"
                     value={newQty}
                     onChange={e => setNewQty(e.target.value)}
-                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
                 />
                 <select
                     value={newCategory}
                     onChange={e => setNewCategory(e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
                 >
                     {Object.entries(CATEGORY_META).filter(([id]) => id !== 'autre').map(([id, meta]) => (
                         <option key={id} value={id}>{meta.label}</option>
@@ -299,7 +296,7 @@ const Procurement = () => {
                 <button
                     onClick={addItem}
                     disabled={!newDesc.trim() || adding}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-semibold inline-flex items-center gap-1.5"
+                    className="px-3 py-2 bg-ios hover:bg-ios-dark disabled:opacity-40 text-white rounded-2xl text-sm font-semibold inline-flex items-center gap-1.5"
                 >
                     {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Ajouter
