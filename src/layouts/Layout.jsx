@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Pin, PinOff, Image } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -28,19 +28,6 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
-  const [isPinned, setIsPinned] = React.useState(
-    () => typeof window !== 'undefined' && localStorage.getItem('nav_pinned') === '1'
-  );
-  const togglePin = useCallback(() => {
-    setIsPinned(prev => {
-      const next = !prev;
-      localStorage.setItem('nav_pinned', next ? '1' : '0');
-      // Le clic se fait alors que le menu est ouvert : on le garde ouvert.
-      // S'il est désépinglé, le repli se fera au survol sortant.
-      setIsCollapsed(false);
-      return next;
-    });
-  }, []);
   const [showTestPanel, setShowTestPanel] = useState(false);
   const { isTestMode, capturedEmails, enableTestMode } = useTestMode();
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
@@ -408,23 +395,14 @@ const Layout = () => {
     }
   }, [location.pathname]);
 
-  // Desktop Hover Logic — désactivé quand la sidebar est épinglée
-  const handleMouseEnter = () => {
-    if (!isPinned && window.innerWidth >= 768) setIsCollapsed(false);
-  };
-
-  const handleMouseLeave = () => {
-    if (!isPinned && window.innerWidth >= 768) setIsCollapsed(true);
-  };
-
   // Close mobile menu on navigation
   React.useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Initial Collapsed State on Load — déplié si épinglé
+  // La barre latérale fonctionne désormais en tiroir (« Tout ») : jamais repliée.
   React.useEffect(() => {
-    setIsCollapsed(!isPinned);
+    setIsCollapsed(false);
   }, []);
 
 
@@ -458,6 +436,12 @@ const Layout = () => {
       toast.error("Erreur lors de la sauvegarde : " + err.message);
     }
   };
+
+  // Nom affiché dans la barre supérieure (« Bonjour … »)
+  const displayName =
+    profile?.company_name ||
+    user?.user_metadata?.full_name ||
+    (user?.email ? user.email.split('@')[0] : 'Artisan');
 
   return (
     <ConfirmProvider>
@@ -551,54 +535,228 @@ const Layout = () => {
         </div>
       )}
 
+      {/* ===== Barre de navigation supérieure — style Amazon (desktop) ===== */}
+      <header className="hidden md:flex flex-col flex-shrink-0 z-40 shadow-sm">
+        {/* Rangée principale : logo · recherche · compte/actions */}
+        <div className="flex items-center gap-3 px-4 h-14 bg-[#131921] text-white">
+          {/* Logo */}
+          <Link
+            to="/app"
+            className="flex items-center gap-2 px-2 py-1.5 rounded border border-transparent hover:border-white/70 transition-colors"
+          >
+            <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded" />
+            <span className="text-lg font-bold whitespace-nowrap">Artisan Facile</span>
+          </Link>
+
+          {/* Recherche globale */}
+          <button
+            onClick={() => setShowSearch(true)}
+            className="group flex flex-1 max-w-2xl items-center h-10 rounded-md overflow-hidden bg-white ring-2 ring-transparent hover:ring-amber-400 focus:ring-amber-400 transition"
+            title="Rechercher (Ctrl+K)"
+          >
+            <span className="flex-1 text-left text-sm text-gray-500 px-4 truncate">
+              Rechercher un client, un devis, un rapport…
+            </span>
+            <span className="flex items-center justify-center h-full px-4 bg-amber-400 group-hover:bg-amber-500 text-gray-900">
+              <Search className="w-5 h-5" />
+            </span>
+          </button>
+
+          {/* Actions à droite */}
+          <div className="flex items-center gap-0.5">
+            {/* Compte & Paramètres */}
+            <button
+              onClick={() => navigate('/app/settings')}
+              className="flex flex-col items-start leading-tight px-2 py-1 rounded border border-transparent hover:border-white/70 transition-colors text-left"
+            >
+              <span className="text-[11px] text-gray-300 whitespace-nowrap">Bonjour {displayName}</span>
+              <span className="text-sm font-bold whitespace-nowrap">Compte &amp; Paramètres</span>
+            </button>
+
+            {/* Notifications */}
+            <NotificationCenter />
+
+            {/* Messages clients */}
+            <button
+              onClick={() => navigate('/app/portal-messages')}
+              className="relative p-2 rounded hover:bg-white/10 transition-colors"
+              title="Messages clients"
+              aria-label="Messages clients"
+            >
+              <MessageSquare className="w-5 h-5" />
+              {unreadPortalMessages > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
+                  {unreadPortalMessages > 9 ? '9+' : unreadPortalMessages}
+                </span>
+              )}
+            </button>
+
+            {/* Thème clair / sombre */}
+            <button
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className="p-2 rounded hover:bg-white/10 transition-colors"
+              title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            {/* « Panier » → À commander */}
+            <Link
+              to="/app/procurement"
+              className="flex items-center gap-1.5 px-2 py-1 rounded border border-transparent hover:border-white/70 transition-colors"
+              title="À commander"
+            >
+              <ShoppingCart className="w-6 h-6" />
+              <span className="text-sm font-bold whitespace-nowrap hidden lg:inline">À commander</span>
+            </Link>
+
+            {/* Déconnexion */}
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded hover:bg-white/10 transition-colors text-red-300 hover:text-red-200"
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Rangée secondaire : « Tout » + catégories */}
+        <div className="flex items-center gap-1 px-2 h-10 bg-[#232f3e] text-white text-sm">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-transparent hover:border-white/70 font-bold transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+            Tout
+          </button>
+
+          {orderedNavigationGroups.map((group) => {
+            if (!group.children) {
+              const isActive = group.href === '/app'
+                ? location.pathname === '/app'
+                : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
+              return (
+                <Link
+                  key={group.name}
+                  to={group.href}
+                  className={`px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors ${
+                    isActive ? 'border-white/70 font-semibold' : ''
+                  }`}
+                >
+                  {group.name}
+                </Link>
+              );
+            }
+
+            const groupActive = group.children.some(child =>
+              location.pathname === child.href || location.pathname.startsWith(child.href + '/')
+            );
+            const groupHovered = hoveredGroup === group.name;
+            const showBadge = group.name === 'Devis & Factures' && pendingCount > 0;
+
+            return (
+              <div
+                key={group.name}
+                className="relative"
+                onMouseEnter={() => handleGroupEnter(group.name)}
+                onMouseLeave={handleGroupLeave}
+              >
+                <button
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors ${
+                    groupActive ? 'border-white/70 font-semibold' : ''
+                  }`}
+                >
+                  {group.name}
+                  {showBadge && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                {groupHovered && (
+                  <div className="absolute left-0 top-full w-60 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-b-md shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                    {group.children.map(child => {
+                      const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
+                      const childBadge = child.href === '/app/received-invoices' && newReceivedCount > 0 ? newReceivedCount : 0;
+                      return (
+                        <Link
+                          key={child.name}
+                          to={child.href}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                            childActive ? 'text-blue-700 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                        >
+                          <child.icon className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                          <span className="flex-1">{child.name}</span>
+                          {childBadge > 0 && (
+                            <span className="bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {childBadge > 9 ? '9+' : childBadge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Droite : abonnement + mode terrain */}
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => navigate('/app/subscription')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors"
+              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
+            >
+              <Crown className={`w-4 h-4 ${isOwner ? 'text-violet-400' : isPro ? 'text-blue-400' : 'text-amber-400'}`} />
+              <span className="text-xs font-bold">{isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}</span>
+            </button>
+            <button
+              onClick={() => navigate('/terrain')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap text-orange-300 hover:text-orange-200 transition-colors"
+              title="Mode terrain — vue simplifiée sur chantier"
+            >
+              <Wrench className="w-4 h-4" />
+              Mode terrain
+            </button>
+          </div>
+        </div>
+      </header>
+
       {/* Main Container */}
       <div className="flex flex-1 overflow-hidden relative">
 
-        {/* Sidebar Overlay for Mobile */}
+        {/* Overlay du tiroir « Tout » (mobile + desktop) */}
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-50 z-40 md:hidden"
+            className="fixed inset-0 bg-gray-600 bg-opacity-50 z-40"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Menu latéral — tiroir « Tout » */}
         <div
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={`fixed md:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-            } md:translate-x-0 transition-all duration-300 ease-in-out bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col ${isCollapsed ? 'md:w-20' : 'md:w-64'
-            } w-64`}
+          className={`fixed inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            } transition-transform duration-300 ease-in-out bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col w-72 max-w-[85vw]`}
         >
-          {/* Desktop Header / Logo */}
-          <div className={`p-6 md:flex items-center hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-            <div className="flex items-center">
-              <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-10 h-10 rounded-lg" />
-              {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">Artisan Facile</h1>}
-            </div>
-            {!isCollapsed && (
-              <button
-                onClick={togglePin}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isPinned
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                    : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
-                title={isPinned ? 'Détacher le menu (repli auto)' : 'Épingler le menu (toujours ouvert)'}
-                aria-label={isPinned ? 'Détacher le menu' : 'Épingler le menu'}
-                aria-pressed={isPinned}
-              >
-                {isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
-              </button>
-            )}
-          </div>
-
-          {/* Mobile Sidebar Header */}
-          <div className="md:hidden p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <span className="font-bold text-lg dark:text-white">Menu</span>
+          {/* En-tête du tiroir */}
+          <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+            <Link
+              to="/app"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-2"
+            >
+              <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-9 h-9 rounded-lg" />
+              <span className="text-lg font-bold text-gray-900 dark:text-white">Artisan Facile</span>
+            </Link>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="dark:text-white"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               aria-label="Fermer le menu"
             >
               <X className="w-5 h-5" />
@@ -728,7 +886,7 @@ const Layout = () => {
             })}
           </nav>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+          <div className="md:hidden p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
             {/* Rangée compacte : Messages + Notifications + Thème */}
             <div className={`flex items-center gap-1 ${isCollapsed && !isMobileMenuOpen ? 'flex-col justify-center' : 'justify-start px-1'}`}>
               <button
