@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Plus, Search, Trash2, Edit, FileDown, CheckCircle, Clock, PenLine, Sparkles } from 'lucide-react';
+import { Button } from '../components/ui';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -109,13 +110,10 @@ const InterventionReports = () => {
                         Suivi de vos dépannages et interventions
                     </p>
                 </div>
-                <button
-                    onClick={() => navigate('/app/interventions/new')}
-                    className="flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors font-medium"
-                >
+                <Button onClick={() => navigate('/app/interventions/new')}>
                     <Plus className="w-5 h-5" />
                     Nouveau rapport
-                </button>
+                </Button>
             </div>
 
             {/* Stats */}
