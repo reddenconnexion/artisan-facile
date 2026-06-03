@@ -9,6 +9,7 @@ import { useZxing } from 'react-zxing';
 import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
 import { useConfirm } from '../context/ConfirmContext';
+import { Button } from '../components/ui';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -442,13 +443,10 @@ const Inventory = () => {
                                 Suivez vos consommables, fournitures et matériel en quelques clics.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                <button
-                                    onClick={() => setShowNewItemModal(true)}
-                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-ios text-white font-semibold rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
-                                >
+                                <Button size="lg" onClick={() => setShowNewItemModal(true)}>
                                     <Plus className="w-4 h-4" />
                                     Ajouter un article
-                                </button>
+                                </Button>
                                 <button
                                     onClick={() => setShowBarcodeModal(true)}
                                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
