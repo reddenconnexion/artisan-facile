@@ -2,6 +2,17 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* ─── Typographie système (style iOS / SF Pro) ──────────── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+
 /* ─── Card cascade entrance ─────────────────────────────── */
 @keyframes cardEntrance {
   from { opacity: 0; transform: translateY(14px); }

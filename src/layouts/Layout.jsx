@@ -27,7 +27,6 @@ import NotificationCenter from '../components/NotificationCenter';
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showTestPanel, setShowTestPanel] = useState(false);
   const { isTestMode, capturedEmails, enableTestMode } = useTestMode();
   const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
@@ -400,13 +399,6 @@ const Layout = () => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // La barre latérale fonctionne désormais en tiroir (« Tout ») : jamais repliée.
-  React.useEffect(() => {
-    setIsCollapsed(false);
-  }, []);
-
-
-
   const [isDemo, setIsDemo] = React.useState(false);
   const [showConvertModal, setShowConvertModal] = React.useState(false);
 
@@ -437,15 +429,20 @@ const Layout = () => {
     }
   };
 
-  // Nom affiché dans la barre supérieure (« Bonjour … »)
+  // Nom & initiales affichés dans la barre latérale (cellule profil iOS)
   const displayName =
     profile?.company_name ||
     user?.user_metadata?.full_name ||
     (user?.email ? user.email.split('@')[0] : 'Artisan');
+  const initials =
+    displayName.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'AF';
+
+  // Couleur d'accent système iOS
+  const IOS_BLUE = '#007AFF';
 
   return (
     <ConfirmProvider>
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden transition-colors duration-200">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-black overflow-hidden transition-colors duration-200">
       <Toaster
         position="top-right"
         richColors
@@ -535,276 +532,81 @@ const Layout = () => {
         </div>
       )}
 
-      {/* ===== Barre de navigation supérieure — style Amazon (desktop) ===== */}
-      <header className="hidden md:flex flex-col flex-shrink-0 z-40 shadow-sm">
-        {/* Rangée principale : logo · recherche · compte/actions */}
-        <div className="flex items-center gap-3 px-4 h-14 bg-[#131921] text-white">
-          {/* Logo */}
-          <Link
-            to="/app"
-            className="flex items-center gap-2 px-2 py-1.5 rounded border border-transparent hover:border-white/70 transition-colors"
-          >
-            <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-8 h-8 rounded" />
-            <span className="text-lg font-bold whitespace-nowrap">Artisan Facile</span>
-          </Link>
-
-          {/* Recherche globale */}
-          <button
-            onClick={() => setShowSearch(true)}
-            className="group flex flex-1 max-w-2xl items-center h-10 rounded-md overflow-hidden bg-white ring-2 ring-transparent hover:ring-amber-400 focus:ring-amber-400 transition"
-            title="Rechercher (Ctrl+K)"
-          >
-            <span className="flex-1 text-left text-sm text-gray-500 px-4 truncate">
-              Rechercher un client, un devis, un rapport…
-            </span>
-            <span className="flex items-center justify-center h-full px-4 bg-amber-400 group-hover:bg-amber-500 text-gray-900">
-              <Search className="w-5 h-5" />
-            </span>
-          </button>
-
-          {/* Actions à droite */}
-          <div className="flex items-center gap-0.5">
-            {/* Compte & Paramètres */}
-            <button
-              onClick={() => navigate('/app/settings')}
-              className="flex flex-col items-start leading-tight px-2 py-1 rounded border border-transparent hover:border-white/70 transition-colors text-left"
-            >
-              <span className="text-[11px] text-gray-300 whitespace-nowrap">Bonjour {displayName}</span>
-              <span className="text-sm font-bold whitespace-nowrap">Compte &amp; Paramètres</span>
-            </button>
-
-            {/* Notifications */}
-            <NotificationCenter />
-
-            {/* Messages clients */}
-            <button
-              onClick={() => navigate('/app/portal-messages')}
-              className="relative p-2 rounded hover:bg-white/10 transition-colors"
-              title="Messages clients"
-              aria-label="Messages clients"
-            >
-              <MessageSquare className="w-5 h-5" />
-              {unreadPortalMessages > 0 && (
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
-                  {unreadPortalMessages > 9 ? '9+' : unreadPortalMessages}
-                </span>
-              )}
-            </button>
-
-            {/* Thème clair / sombre */}
-            <button
-              onClick={() => setIsDarkMode(prev => !prev)}
-              className="p-2 rounded hover:bg-white/10 transition-colors"
-              title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-              aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-            >
-              {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            {/* « Panier » → À commander */}
-            <Link
-              to="/app/procurement"
-              className="flex items-center gap-1.5 px-2 py-1 rounded border border-transparent hover:border-white/70 transition-colors"
-              title="À commander"
-            >
-              <ShoppingCart className="w-6 h-6" />
-              <span className="text-sm font-bold whitespace-nowrap hidden lg:inline">À commander</span>
-            </Link>
-
-            {/* Déconnexion */}
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded hover:bg-white/10 transition-colors text-red-300 hover:text-red-200"
-              title="Déconnexion"
-              aria-label="Déconnexion"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Rangée secondaire : « Tout » + catégories */}
-        <div className="flex items-center gap-1 px-2 h-10 bg-[#232f3e] text-white text-sm">
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-transparent hover:border-white/70 font-bold transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-            Tout
-          </button>
-
-          {orderedNavigationGroups.map((group) => {
-            if (!group.children) {
-              const isActive = group.href === '/app'
-                ? location.pathname === '/app'
-                : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
-              return (
-                <Link
-                  key={group.name}
-                  to={group.href}
-                  className={`px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors ${
-                    isActive ? 'border-white/70 font-semibold' : ''
-                  }`}
-                >
-                  {group.name}
-                </Link>
-              );
-            }
-
-            const groupActive = group.children.some(child =>
-              location.pathname === child.href || location.pathname.startsWith(child.href + '/')
-            );
-            const groupHovered = hoveredGroup === group.name;
-            const showBadge = group.name === 'Devis & Factures' && pendingCount > 0;
-
-            return (
-              <div
-                key={group.name}
-                className="relative"
-                onMouseEnter={() => handleGroupEnter(group.name)}
-                onMouseLeave={handleGroupLeave}
-              >
-                <button
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors ${
-                    groupActive ? 'border-white/70 font-semibold' : ''
-                  }`}
-                >
-                  {group.name}
-                  {showBadge && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {pendingCount > 9 ? '9+' : pendingCount}
-                    </span>
-                  )}
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {groupHovered && (
-                  <div className="absolute left-0 top-full w-60 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-b-md shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
-                    {group.children.map(child => {
-                      const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
-                      const childBadge = child.href === '/app/received-invoices' && newReceivedCount > 0 ? newReceivedCount : 0;
-                      return (
-                        <Link
-                          key={child.name}
-                          to={child.href}
-                          className={`flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                            childActive ? 'text-blue-700 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/20' : ''
-                          }`}
-                        >
-                          <child.icon className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
-                          <span className="flex-1">{child.name}</span>
-                          {childBadge > 0 && (
-                            <span className="bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                              {childBadge > 9 ? '9+' : childBadge}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Droite : abonnement + mode terrain */}
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              onClick={() => navigate('/app/subscription')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap transition-colors"
-              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
-            >
-              <Crown className={`w-4 h-4 ${isOwner ? 'text-violet-400' : isPro ? 'text-blue-400' : 'text-amber-400'}`} />
-              <span className="text-xs font-bold">{isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}</span>
-            </button>
-            <button
-              onClick={() => navigate('/terrain')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-transparent hover:border-white/70 whitespace-nowrap text-orange-300 hover:text-orange-200 transition-colors"
-              title="Mode terrain — vue simplifiée sur chantier"
-            >
-              <Wrench className="w-4 h-4" />
-              Mode terrain
-            </button>
-          </div>
-        </div>
-      </header>
-
       {/* Main Container */}
       <div className="flex flex-1 overflow-hidden relative">
 
-        {/* Overlay du tiroir « Tout » (mobile + desktop) */}
+        {/* Overlay du menu latéral (mobile) */}
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
 
-        {/* Menu latéral — tiroir « Tout » */}
-        <div
-          className={`fixed inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-            } transition-transform duration-300 ease-in-out bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col w-72 max-w-[85vw]`}
+        {/* ===== Barre latérale — style iPadOS ===== */}
+        <aside
+          className={`fixed md:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            } md:translate-x-0 transition-transform duration-300 ease-in-out bg-gray-100/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border-r border-gray-200/80 dark:border-white/10 flex flex-col w-72 max-w-[85vw] md:w-64`}
         >
-          {/* En-tête du tiroir */}
-          <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
+          {/* En-tête : logo */}
+          <div className="px-4 pt-5 pb-2 flex items-center justify-between">
             <Link
               to="/app"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2.5"
             >
-              <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-9 h-9 rounded-lg" />
-              <span className="text-lg font-bold text-gray-900 dark:text-white">Artisan Facile</span>
+              <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-9 h-9 rounded-xl shadow-sm" />
+              <span className="text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">Artisan Facile</span>
             </Link>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="md:hidden p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10"
               aria-label="Fermer le menu"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-0.5 mt-4 md:mt-0 overflow-y-auto">
+          {/* Recherche (champ style iOS) */}
+          <div className="px-4 pt-1 pb-2">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="flex items-center gap-2 w-full h-9 px-3 rounded-xl bg-gray-200/70 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-200 dark:hover:bg-white/15 transition-colors"
+              title="Rechercher (Ctrl+K)"
+            >
+              <Search className="w-4 h-4" />
+              <span>Rechercher…</span>
+            </button>
+          </div>
+
+          {/* Liste de navigation */}
+          <nav className="flex-1 px-3 space-y-0.5 mt-1 overflow-y-auto">
             {orderedNavigationGroups.map((group) => {
               const hasChildren = !!group.children;
 
               if (!hasChildren) {
-                // Single link item
                 const isActive = group.href === '/app'
                   ? location.pathname === '/app'
                   : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
-                const itemBadge = group.badge ?? 0;
                 return (
                   <Link
                     key={group.name}
                     to={group.href}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                      } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+                    className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#007AFF] text-white shadow-sm'
+                        : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
                   >
-                    <div className="relative flex-shrink-0">
-                      <group.icon className={`w-5 h-5 ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-                      {itemBadge > 0 && (
-                        <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                          {itemBadge > 9 ? '9+' : itemBadge}
-                        </span>
-                      )}
-                    </div>
-                    {(!isCollapsed || isMobileMenuOpen) && (
-                      <span className="flex-1 flex items-center gap-2">
-                        {group.name}
-                        {itemBadge > 0 && (
-                          <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            {itemBadge}
-                          </span>
-                        )}
-                      </span>
-                    )}
+                    <group.icon
+                      className="w-[22px] h-[22px] flex-shrink-0"
+                      style={{ color: isActive ? '#fff' : IOS_BLUE }}
+                    />
+                    <span className="flex-1">{group.name}</span>
                   </Link>
                 );
               }
 
-              // Group with collapsible children
               const groupActive = group.children.some(child =>
                 location.pathname === child.href || location.pathname.startsWith(child.href + '/')
               );
@@ -822,39 +624,31 @@ const Layout = () => {
                 >
                   <button
                     onClick={() => { if (!isHoverDevice) toggleGroup(group.name); }}
-                    className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
                       groupActive
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                        : 'text-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                    } ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
+                        ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]'
+                        : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
                   >
-                    <div className="relative flex-shrink-0">
-                      <group.icon className={`w-5 h-5 ${groupActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
+                    <group.icon
+                      className="w-[22px] h-[22px] flex-shrink-0"
+                      style={{ color: IOS_BLUE }}
+                    />
+                    <span className="flex-1 text-left flex items-center gap-2">
+                      {group.name}
                       {showBadge && (
-                        <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                           {pendingCount > 9 ? '9+' : pendingCount}
                         </span>
                       )}
-                    </div>
-                    {(!isCollapsed || isMobileMenuOpen) && (
-                      <>
-                        <span className="flex-1 text-left flex items-center gap-2">
-                          {group.name}
-                          {showBadge && (
-                            <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                              {pendingCount}
-                            </span>
-                          )}
-                        </span>
-                        {groupExpanded
-                          ? <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                          : <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        }
-                      </>
-                    )}
+                    </span>
+                    {groupExpanded
+                      ? <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                      : <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    }
                   </button>
-                  {groupExpanded && (!isCollapsed || isMobileMenuOpen) && (
-                    <div className="ml-4 mt-0.5 mb-1 space-y-0.5 border-l-2 border-gray-100 dark:border-gray-800 pl-3">
+                  {groupExpanded && (
+                    <div className="mt-0.5 mb-1 space-y-0.5 pl-[2.35rem] pr-1">
                       {group.children.map(child => {
                         const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
                         const isReceivedInvoices = child.href === '/app/received-invoices';
@@ -863,13 +657,13 @@ const Layout = () => {
                           <Link
                             key={child.name}
                             to={child.href}
-                            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap ${
+                            className={`flex items-center gap-2.5 px-3 py-2 text-[14px] rounded-lg transition-colors whitespace-nowrap ${
                               childActive
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                                ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF] font-semibold'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
                             }`}
                           >
-                            <child.icon className={`w-4 h-4 mr-2.5 flex-shrink-0 ${childActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                            <child.icon className="w-4 h-4 flex-shrink-0" style={{ color: childActive ? IOS_BLUE : undefined }} />
                             <span className="flex-1">{child.name}</span>
                             {childBadge > 0 && (
                               <span className="ml-1.5 bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
@@ -884,17 +678,51 @@ const Layout = () => {
                 </div>
               );
             })}
+
+            {/* Mode terrain — entrée rapide */}
+            <button
+              onClick={() => navigate('/terrain')}
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+              title="Mode terrain — vue simplifiée sur chantier"
+            >
+              <Wrench className="w-[22px] h-[22px] flex-shrink-0 text-orange-500" />
+              <span className="flex-1 text-left">Mode terrain</span>
+            </button>
           </nav>
 
-          <div className="md:hidden p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-            {/* Rangée compacte : Messages + Notifications + Thème */}
-            <div className={`flex items-center gap-1 ${isCollapsed && !isMobileMenuOpen ? 'flex-col justify-center' : 'justify-start px-1'}`}>
+          {/* Pied : cellule profil + actions (style iOS Réglages) */}
+          <div className="p-3 border-t border-gray-200/70 dark:border-white/10 space-y-2">
+            <button
+              onClick={() => navigate('/app/subscription')}
+              className="flex items-center gap-3 w-full p-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-left"
+              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
+            >
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
+                style={{ backgroundColor: IOS_BLUE }}
+              >
+                {initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName}</div>
+                <div className="flex items-center gap-1 text-xs">
+                  <Crown className={`w-3 h-3 ${isOwner ? 'text-violet-500' : isPro ? 'text-blue-500' : 'text-gray-400'}`} />
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}{!isPro && ' · Passer au Pro'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+
+            {/* Rangée d'actions rapides */}
+            <div className="flex items-center justify-around bg-gray-200/50 dark:bg-white/5 rounded-2xl p-1">
               <button
                 onClick={() => navigate('/app/portal-messages')}
-                className={`relative p-2 rounded-lg transition-colors ${
+                className={`relative p-2 rounded-xl transition-colors ${
                   location.pathname.startsWith('/app/portal-messages')
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-[#007AFF] bg-white dark:bg-white/10'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
                 }`}
                 title="Messages clients"
                 aria-label="Messages clients"
@@ -909,103 +737,54 @@ const Layout = () => {
               <NotificationCenter />
               <button
                 onClick={() => setIsDarkMode(prev => !prev)}
-                className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="p-2 text-gray-500 dark:text-gray-400 rounded-xl hover:bg-white dark:hover:bg-white/10 transition-colors"
                 title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
                 aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
               >
-                {isDarkMode
-                  ? <Sun  className="w-5 h-5 text-amber-400" />
-                  : <Moon className="w-5 h-5" />
-                }
+                {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <button
+                onClick={() => navigate('/app/settings')}
+                className={`p-2 rounded-xl transition-colors ${
+                  location.pathname.startsWith('/app/settings')
+                    ? 'text-[#007AFF] bg-white dark:bg-white/10'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
+                }`}
+                title="Paramètres"
+                aria-label="Paramètres"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-red-500 rounded-xl hover:bg-white dark:hover:bg-white/10 transition-colors"
+                title="Déconnexion"
+                aria-label="Déconnexion"
+              >
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Plan Badge */}
-            <button
-              onClick={() => navigate('/app/subscription')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                isOwner
-                  ? 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/30'
-                  : isPro
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                  : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
-            >
-              <Crown className={`w-5 h-5 flex-shrink-0 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'} ${
-                isOwner ? 'text-violet-500' : isPro ? 'text-blue-500' : 'text-gray-400'
-              }`} />
-              {(!isCollapsed || isMobileMenuOpen) && (
-                <span className="flex items-center gap-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    isOwner
-                      ? 'bg-violet-200 dark:bg-violet-700 text-violet-800 dark:text-violet-100'
-                      : isPro
-                      ? 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100'
-                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                  }`}>
-                    {isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}
-                  </span>
-                  {!isPro && <span className="text-xs text-gray-400 dark:text-gray-500">Passer au Pro</span>}
-                </span>
-              )}
-            </button>
-
-            {/* Mode terrain — accès rapide en mobile uniquement (FAB sur dashboard prend le relais en desktop) */}
-            <button
-              onClick={() => navigate('/terrain')}
-              className="md:hidden flex items-center w-full px-4 py-2 text-sm font-semibold text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/10 whitespace-nowrap"
-              title="Mode terrain — vue simplifiée sur chantier"
-            >
-              <Wrench className="w-5 h-5 flex-shrink-0 text-orange-500 mr-3" />
-              Mode terrain
-            </button>
-
-            <button
-              onClick={() => navigate('/app/settings')}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-            >
-              <Settings className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Paramètres'}
-            </button>
-            <button
-              onClick={handleLogout}
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 whitespace-nowrap ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
-            >
-              <LogOut className={`w-5 h-5 flex-shrink-0 text-red-400 dark:text-red-500 ${isCollapsed && !isMobileMenuOpen ? '' : 'mr-3'}`} />
-              {(!isCollapsed || isMobileMenuOpen) && 'Déconnexion'}
-            </button>
           </div>
-        </div>
+        </aside>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
           <main className="flex-1 overflow-y-auto">
-            {/* Mobile Header - Scrolls with content */}
-            <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:hidden flex-shrink-0">
-              <div className="flex-1" />
-              <div className="flex items-center gap-2">
-                <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-7 h-7 rounded-md" />
-                <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Artisan Facile</h1>
-              </div>
-              <div className="flex-1 flex justify-end items-center gap-1">
-                <button
-                  onClick={() => navigate('/app/portal-messages')}
-                  className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="Messages clients"
-                  aria-label="Messages clients"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                  {unreadPortalMessages > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center font-bold">
-                      {unreadPortalMessages > 9 ? '9+' : unreadPortalMessages}
-                    </span>
-                  )}
-                </button>
+            {/* En-tête mobile translucide (style iOS) */}
+            <div className="sticky top-0 z-30 h-14 bg-gray-100/80 dark:bg-black/70 backdrop-blur-xl border-b border-gray-200/70 dark:border-white/10 flex items-center justify-between px-3 md:hidden">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="p-2 text-[#007AFF] rounded-full active:bg-black/5 dark:active:bg-white/10"
+                aria-label="Ouvrir le menu"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <h1 className="text-[17px] font-semibold text-gray-900 dark:text-white">Artisan Facile</h1>
+              <div className="flex items-center gap-0.5">
                 <NotificationCenter />
                 <button
                   onClick={() => setShowSearch(true)}
-                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 text-[#007AFF] rounded-full active:bg-black/5 dark:active:bg-white/10"
                   title="Recherche"
                   aria-label="Recherche globale"
                 >
@@ -1081,7 +860,7 @@ const Layout = () => {
                 className={`fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 ${
                   fab.to === '/terrain'
                     ? 'bg-orange-500 hover:bg-orange-600'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-[#007AFF] hover:bg-[#0066d6]'
                 }`}
                 aria-label={fab.label}
               >
@@ -1093,24 +872,6 @@ const Layout = () => {
               </button>
             );
           })()}
-          {/* <div className="fixed bottom-24 md:bottom-6 right-6 flex items-center gap-3 z-30">
-            <button
-              onClick={() => setShowVoiceHelp(true)}
-              className="p-3 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-all transform hover:scale-105 active:scale-95"
-              title="Aide commandes vocales"
-            >
-              <HelpCircle className="w-5 h-5 md:w-6 md:h-6" />
-            </button>
-
-            <button
-              onClick={isListening ? stopListening : startListening}
-              className={`p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-600 dark:bg-blue-500'
-                } text-white`}
-              title="Assistant Vocal"
-            >
-              <Mic className="w-6 h-6 md:w-6 md:h-6" />
-            </button>
-          </div> */}
         </div>
       </div>
 
@@ -1120,8 +881,8 @@ const Layout = () => {
       {/* Keyboard Shortcuts Help Modal */}
       <KeyboardShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
-      {/* Mobile Bottom Navigation - Amazon Style */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
+      {/* Barre d'onglets mobile — translucide style iOS */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-t border-gray-200/70 dark:border-white/10 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
         {mobileNavItems.map((item) => {
           const isActive = item.href === '/app'
             ? location.pathname === '/app'
@@ -1130,10 +891,10 @@ const Layout = () => {
             <Link
               key={item.id}
               to={item.href}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
+              className={`flex flex-col items-center justify-center w-full h-full gap-0.5 ${isActive ? 'text-[#007AFF]' : 'text-gray-500 dark:text-gray-400'
                 }`}
             >
-              <item.icon className={`w-5 h-5 ${bouncingHref === item.href ? 'animate-nav-bounce' : ''}`} />
+              <item.icon className={`w-6 h-6 ${bouncingHref === item.href ? 'animate-nav-bounce' : ''}`} />
               <span className="text-[10px] font-medium">{item.name}</span>
             </Link>
           );
@@ -1141,11 +902,11 @@ const Layout = () => {
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isMobileMenuOpen ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
+          className={`flex flex-col items-center justify-center w-full h-full gap-0.5 ${isMobileMenuOpen ? 'text-[#007AFF]' : 'text-gray-500 dark:text-gray-400'
             }`}
         >
-          <Menu className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Menu</span>
+          <Menu className="w-6 h-6" />
+          <span className="text-[10px] font-medium">Plus</span>
         </button>
       </div>
     </div>
