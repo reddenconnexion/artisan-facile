@@ -249,7 +249,7 @@ const ActionableDashboard = ({ user }) => {
     };
 
     if (loading) return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 animate-pulse">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 p-6 animate-pulse">
             <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
             <div className="space-y-3">
                 <div className="h-16 bg-gray-100 rounded"></div>
@@ -261,7 +261,7 @@ const ActionableDashboard = ({ user }) => {
     const hasItems = Object.values(actionItems).some(arr => arr.length > 0);
 
     if (!hasItems) return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 mb-8 flex items-center gap-4">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 p-6 mb-8 flex items-center gap-4">
             <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
@@ -273,7 +273,7 @@ const ActionableDashboard = ({ user }) => {
     );
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden mb-8">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
                     <CheckCircle className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />

@@ -141,16 +141,16 @@ const WelcomeCard = () => {
     if (skillLevel === 'intermediaire') {
         const levelUpInfo = LEVEL_UP_DATA.intermediaire;
         return (
-            <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 border border-blue-100 dark:border-violet-900/40 rounded-xl p-5 mb-6 relative">
+            <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 border border-blue-100 dark:border-violet-900/40 rounded-3xl p-5 mb-6 relative">
                 <button
                     onClick={handleDismiss}
-                    className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-white/60 transition-colors"
+                className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-white/60 transition-colors"
                     title="Masquer"
                 >
                     <X className="w-4 h-4" />
                 </button>
                 <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 bg-violet-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                         <Sparkles className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0 pr-6">
@@ -161,7 +161,7 @@ const WelcomeCard = () => {
                 <button
                     onClick={() => handleLevelUp(levelUpInfo.nextLevel, levelUpInfo.nextLabel)}
                     disabled={levelingUp}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60"
                 >
                     <ArrowUp className="w-4 h-4" />
                     {levelingUp ? 'Activation...' : `Activer le niveau ${levelUpInfo.nextLabel} ${levelUpInfo.emoji}`}
@@ -174,16 +174,16 @@ const WelcomeCard = () => {
     if (allDone) {
         const levelUpInfo = LEVEL_UP_DATA.debutant;
         return (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800/50 rounded-xl p-5 mb-6 relative">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800/50 rounded-3xl p-5 mb-6 relative">
                 <button
                     onClick={handleDismiss}
-                    className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-white/60 transition-colors"
+                className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-white/60 transition-colors"
                     title="Masquer"
                 >
                     <X className="w-4 h-4" />
                 </button>
                 <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 bg-green-500 rounded-2xl flex items-center justify-center flex-shrink-0">
                         <CheckCircle2 className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0 pr-6">
@@ -194,7 +194,7 @@ const WelcomeCard = () => {
                 <button
                     onClick={() => handleLevelUp(levelUpInfo.nextLevel, levelUpInfo.nextLabel)}
                     disabled={levelingUp}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60"
                 >
                     <ArrowUp className="w-4 h-4" />
                     {levelingUp ? 'Activation...' : `Passer au niveau ${levelUpInfo.nextLabel} ${levelUpInfo.emoji}`}
@@ -205,7 +205,7 @@ const WelcomeCard = () => {
 
     // Niveau débutant — étapes en cours : afficher la prochaine étape prioritaire en grand
     return (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl p-5 mb-6 relative">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-3xl p-5 mb-6 relative">
             <button
                 onClick={handleDismiss}
                 className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-white/60 transition-colors"
@@ -215,7 +215,7 @@ const WelcomeCard = () => {
             </button>
 
             <div className="flex items-center gap-3 mb-4 pr-6">
-                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 bg-[#007AFF] rounded-2xl flex items-center justify-center flex-shrink-0">
                     <Rocket className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -225,7 +225,7 @@ const WelcomeCard = () => {
                     <div className="flex items-center gap-2 mt-1.5">
                         <div className="flex-1 bg-white/70 dark:bg-gray-800/60 rounded-full h-2 overflow-hidden">
                             <div
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                className="bg-[#007AFF] h-2 rounded-full transition-all duration-500"
                                 style={{ width: `${progress}%` }}
                             />
                         </div>
@@ -240,9 +240,9 @@ const WelcomeCard = () => {
             {nextStep && (
                 <Link
                     to={nextStep.href}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all border-2 border-blue-200 dark:border-blue-900/40"
+                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all border border-blue-200/70 dark:border-blue-900/40"
                 >
-                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[#007AFF] flex items-center justify-center flex-shrink-0">
                         <span className="text-xs font-bold text-white">{steps.indexOf(nextStep) + 1}</span>
                     </div>
                     <div className="flex-1 min-w-0">

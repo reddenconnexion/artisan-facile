@@ -13,9 +13,9 @@ const QuickActions = () => {
     const shortcuts = useFrequentShortcuts(4);
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-4">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 p-4">
             <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <Zap className="w-4 h-4 text-[#007AFF]" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions rapides</span>
                 <span className="text-[11px] text-gray-400 dark:text-gray-500 normal-case font-normal">· d'après votre utilisation</span>
             </div>
@@ -24,7 +24,7 @@ const QuickActions = () => {
                     <button
                         key={action.id}
                         onClick={() => navigate(action.path)}
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all hover:shadow-sm active:scale-95"
+                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100/70 dark:bg-white/5 hover:bg-gray-200/70 dark:hover:bg-white/10 transition-all active:scale-95"
                         title={action.label}
                     >
                         <span className={`p-1.5 rounded-lg flex-shrink-0 ${action.color}`}>
