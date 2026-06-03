@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
+import { assertWithinQuota } from '../utils/storageQuota';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -310,11 +311,22 @@ const InterventionReportForm = () => {
 
         setUploadingPhotos(true);
         try {
+            // Compresse d'abord (max 1600 px, JPEG q0.8) pour ne pas stocker de
+            // photos brutes de plusieurs Mo, puis vérifie le quota de stockage.
+            const compressedFiles = await Promise.all(
+                valid.map(f => compressImageFile(f, { maxDim: 1600, quality: 0.8 })),
+            );
+            const addBytes = compressedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+            try {
+                await assertWithinQuota(addBytes);
+            } catch (quotaErr) {
+                toast.error(quotaErr.message, { duration: 7000 });
+                return;
+            }
+
             const uploaded = [];
-            for (const file of valid) {
-                // Compresse avant upload (max 1600 px, JPEG q0.8) pour ne pas
-                // stocker de photos brutes de plusieurs Mo dans le Storage.
-                const compressed = await compressImageFile(file, { maxDim: 1600, quality: 0.8 });
+            for (let i = 0; i < compressedFiles.length; i++) {
+                const compressed = compressedFiles[i];
                 const path = `interventions/${user.id}/${crypto.randomUUID()}.jpg`;
                 const { error: uploadError } = await supabase.storage
                     .from('project-photos')
@@ -323,7 +335,7 @@ const InterventionReportForm = () => {
                 const { data: { publicUrl } } = supabase.storage
                     .from('project-photos')
                     .getPublicUrl(path);
-                uploaded.push({ url: publicUrl, path, name: file.name });
+                uploaded.push({ url: publicUrl, path, name: valid[i].name });
             }
             setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), ...uploaded] }));
             toast.success(`${uploaded.length} photo(s) ajoutée(s)`);
@@ -402,6 +414,7 @@ const InterventionReportForm = () => {
             // Upload de la photo (même bucket que les autres photos d'intervention),
             // compressée au préalable (max 1600 px, JPEG q0.8).
             const compressed = await compressImageFile(file, { maxDim: 1600, quality: 0.8 });
+            await assertWithinQuota(compressed.size || 0);
             const path = `interventions/${user.id}/milestones/${crypto.randomUUID()}.jpg`;
             const { error: uploadError } = await supabase.storage
                 .from('project-photos')
@@ -437,7 +450,8 @@ const InterventionReportForm = () => {
             });
         } catch (err) {
             console.error('Milestone capture error:', err);
-            toast.error('Impossible d\'enregistrer le jalon');
+            // Surface le message de quota tel quel, sinon message générique.
+            toast.error(/stockage/i.test(err?.message || '') ? err.message : 'Impossible d\'enregistrer le jalon');
         } finally {
             setUploadingPhotos(false);
         }

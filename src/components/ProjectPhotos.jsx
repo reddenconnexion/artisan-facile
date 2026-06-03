@@ -5,6 +5,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
+import { assertWithinQuota } from '../utils/storageQuota';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -543,6 +544,17 @@ const ProjectPhotos = ({ clientId }) => {
             }
             if (valid.length === 0) {
                 event.target.value = '';
+                return;
+            }
+
+            // Vérifie le quota de stockage avant d'envoyer (espace partagé entre comptes)
+            try {
+                const addBytes = valid.reduce((sum, f) => sum + (f.size || 0), 0);
+                await assertWithinQuota(addBytes);
+            } catch (quotaErr) {
+                toast.error(quotaErr.message, { duration: 7000 });
+                event.target.value = '';
+                setUploading(false);
                 return;
             }
 

@@ -38,6 +38,7 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import DailyRelanceSuggestions from '../components/DailyRelanceSuggestions';
+import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -57,7 +58,7 @@ import { supabase } from '../utils/supabase';
 const DASHBOARD_WIDGET_IDS = [
     'kpi_strip', 'daily_relances', 'expiring_quotes', 'quick_actions', 'actionable',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
-    'clients_memos', 'advanced_stats', 'recent_activity',
+    'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
 
 // Score d'un widget = frecency d'une destination représentative de son domaine.
@@ -914,6 +915,7 @@ const Dashboard = () => {
                 </div>
             );
         },
+        storage_usage: () => isVisible('storage_usage') ? <StorageUsageWidget /> : null,
         recent_activity: () => {
             if (!isVisible('recent_activity')) return null;
             return (

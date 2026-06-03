@@ -20,6 +20,7 @@ export const DASHBOARD_WIDGETS = [
     { id: 'voice_memos',      label: 'Mémos vocaux récents',       description: 'Vos derniers enregistrements vocaux',     defaultVisible: true,  alwaysOn: false },
     { id: 'advanced_stats',   label: 'Statistiques détaillées',    description: 'Graphiques CA, résultat net, conversion', defaultVisible: true,  alwaysOn: false },
     { id: 'recent_activity',  label: 'Activité récente',           description: 'Journal des dernières actions',           defaultVisible: true,  alwaysOn: false },
+    { id: 'storage_usage',    label: 'Espace de stockage',         description: 'Usage du stockage et alerte de quota (photos)', defaultVisible: true,  alwaysOn: false },
 ];
 
 const STORAGE_KEY = 'dashboard_widgets';
