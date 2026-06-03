@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, LayoutDashboard, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -100,15 +100,15 @@ const RecentVoiceMemos = ({ userId, navigate }) => {
     if (memos.length === 0) return null;
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-4">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <Mic size={15} className="text-blue-500" />
+                    <Mic size={15} className="text-[#007AFF]" />
                     Mémos vocaux récents
                 </h3>
                 <button
                     onClick={() => navigate('/app/voice-memos')}
-                    className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                    className="text-xs text-[#007AFF] hover:opacity-70 flex items-center gap-0.5"
                 >
                     Voir tout <ChevronRightIcon size={12} />
                 </button>
@@ -177,15 +177,15 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
     return (
         <button
             onClick={onClick}
-            className={`flex-1 min-w-0 bg-white dark:bg-gray-900 rounded-xl border shadow-sm p-4 text-left transition-all hover:shadow-md active:scale-[0.98] animate-card-entrance ${
+            className={`flex-1 min-w-0 bg-white dark:bg-[#1c1c1e] rounded-2xl border shadow-sm p-4 text-left transition-all hover:shadow-md active:scale-[0.98] animate-card-entrance ${
                 urgent
                     ? 'border-amber-200 dark:border-amber-700/50'
-                    : 'border-gray-100 dark:border-gray-800'
+                    : 'border-gray-200/70 dark:border-white/10'
             }`}
             style={{ animationDelay: `${index * 60}ms` }}
         >
             <div className="flex items-center justify-between mb-2.5">
-                <div className={`p-2 rounded-lg ${iconBg}`}>
+                <div className={`p-2 rounded-xl ${iconBg}`}>
                     <Icon className={`w-4 h-4 ${iconColor}`} />
                 </div>
                 {trend !== undefined && trend !== null ? (
@@ -588,7 +588,7 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
 
     return (
         <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between transition-all duration-300 animate-card-entrance"
+            className="bg-white dark:bg-[#1c1c1e] p-6 rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 flex flex-col justify-between transition-all duration-300 animate-card-entrance"
             style={{ animationDelay: `${cardIndex * 80}ms` }}
         >
             <div className="flex items-center justify-between mb-4">
@@ -747,7 +747,7 @@ const Dashboard = () => {
         return (
             <div className="flex justify-center items-center h-64">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-gray-500 text-sm">Chargement...</span>
                 </div>
             </div>
@@ -782,25 +782,25 @@ const Dashboard = () => {
                 .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
                 .slice(0, 5);
             return (
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/10">
                         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <FileText size={15} className="text-blue-500" />
+                            <FileText size={15} className="text-[#007AFF]" />
                             Derniers documents
                         </h3>
                         <button
                             onClick={() => navigate('/app/devis')}
-                            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5"
+                            className="text-xs text-[#007AFF] hover:opacity-70 flex items-center gap-0.5"
                         >
                             Voir tout <ChevronRightIcon size={12} />
                         </button>
                     </div>
-                    <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                    <div className="divide-y divide-gray-100 dark:divide-white/10">
                         {recent.map(q => (
                             <button
                                 key={q.id}
                                 onClick={() => navigate(`/app/devis/${q.id}`)}
-                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left"
                             >
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -817,6 +817,7 @@ const Dashboard = () => {
                                     <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
                                         {(q.total_ttc || 0).toFixed(0)} €
                                     </span>
+                                    <ChevronRightIcon size={16} className="text-gray-300 dark:text-gray-600" />
                                 </div>
                             </button>
                         ))}
@@ -840,20 +841,20 @@ const Dashboard = () => {
         advanced_stats: () => {
             if (!isVisible('advanced_stats') || !showAdvancedStats || hasNoQuotes) return null;
             return (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 overflow-hidden">
                     <button
                         onClick={toggleStats}
-                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-left"
                         aria-expanded={statsExpanded}
                     >
                         <span className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-sm">
-                            <BarChart3 className="w-4 h-4 text-blue-500" />
+                            <BarChart3 className="w-4 h-4 text-[#007AFF]" />
                             Mes statistiques (CA, résultat net, conversion)
                         </span>
                         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${statsExpanded ? 'rotate-180' : ''}`} />
                     </button>
                     {statsExpanded && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border-t border-gray-100 dark:border-gray-800">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border-t border-gray-100 dark:border-white/10">
                             <RichStatCard
                                 cardIndex={0}
                                 title="Chiffre d'affaires"
@@ -913,12 +914,12 @@ const Dashboard = () => {
         recent_activity: () => {
             if (!isVisible('recent_activity')) return null;
             return (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200/70 dark:border-white/10 p-6">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Activité récente</h3>
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                         {recentActivity.length > 0 ? (
                             recentActivity.map((activity, index) => (
-                                <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-100 dark:border-gray-800">
+                                <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-full ${activity.type === 'quote' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : activity.type === 'signature' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'}`}>
                                             {activity.type === 'quote' ? <FileText className="w-4 h-4" /> : activity.type === 'signature' ? <PenTool className="w-4 h-4" /> : <Users className="w-4 h-4" />}
@@ -974,18 +975,17 @@ const Dashboard = () => {
                 </div>
             )}
 
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <LayoutDashboard className="w-8 h-8 text-blue-600" />
+            <div className="flex items-end justify-between">
+                <h1 className="text-[34px] leading-none font-bold tracking-tight text-gray-900 dark:text-white">
                     Tableau de bord
-                </h2>
+                </h1>
                 <button
                     type="button"
                     onClick={() => setCustomizeOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/15 rounded-full transition-colors"
                     title="Personnaliser le tableau de bord"
                 >
-                    <Settings2 className="w-3.5 h-3.5" />
+                    <Settings2 className="w-4 h-4" />
                     <span className="hidden sm:inline">Personnaliser</span>
                 </button>
             </div>
