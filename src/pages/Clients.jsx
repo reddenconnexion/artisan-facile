@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
+import { Button } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -371,13 +372,10 @@ const Clients = () => {
                             <span className="hidden sm:inline">Exporter CSV</span>
                         </button>
                     )}
-                    <button
-                        onClick={() => navigate('/app/clients/new')}
-                        className="flex items-center justify-center px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
+                    <Button onClick={() => navigate('/app/clients/new')}>
+                        <Plus className="w-5 h-5" />
                         Nouveau Client
-                    </button>
+                    </Button>
                 </div>
             </div>
 
