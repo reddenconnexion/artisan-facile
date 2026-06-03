@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui';
 
 const CATEGORY_META = {
     materiel: { label: 'Matériel', Icon: Package, iconClass: 'text-blue-500' },
@@ -293,14 +294,10 @@ const Procurement = () => {
                         <option key={id} value={id}>{meta.label}</option>
                     ))}
                 </select>
-                <button
-                    onClick={addItem}
-                    disabled={!newDesc.trim() || adding}
-                    className="px-3 py-2 bg-ios hover:bg-ios-dark disabled:opacity-40 text-white rounded-2xl text-sm font-semibold inline-flex items-center gap-1.5"
-                >
+                <Button onClick={addItem} disabled={!newDesc.trim() || adding}>
                     {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Ajouter
-                </button>
+                </Button>
             </div>
 
             {/* List */}
