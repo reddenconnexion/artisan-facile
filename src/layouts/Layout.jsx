@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3 } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -13,6 +13,7 @@ import { useTestMode } from '../context/TestModeContext';
 import { useVoice } from '../hooks/useVoice';
 import { processVoiceCommand } from '../utils/voiceCommands';
 import { usePlanLimits } from '../hooks/usePlanLimits';
+import { isAdmin } from '../constants/admin';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
@@ -688,6 +689,25 @@ const Layout = () => {
               <Wrench className="w-[22px] h-[22px] flex-shrink-0 text-orange-500" />
               <span className="flex-1 text-left">Mode terrain</span>
             </button>
+
+            {/* Statistiques plateforme — réservé à l'administrateur */}
+            {isAdmin(user) && (
+              <Link
+                to="/app/admin"
+                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
+                  location.pathname.startsWith('/app/admin')
+                    ? 'bg-[#007AFF] text-white shadow-sm'
+                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title="Statistiques plateforme — qui utilise l'application"
+              >
+                <BarChart3
+                  className="w-[22px] h-[22px] flex-shrink-0"
+                  style={{ color: location.pathname.startsWith('/app/admin') ? '#fff' : IOS_BLUE }}
+                />
+                <span className="flex-1 text-left">Statistiques</span>
+              </Link>
+            )}
           </nav>
 
           {/* Pied : cellule profil + actions (style iOS Réglages) */}
