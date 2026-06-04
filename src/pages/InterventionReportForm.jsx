@@ -1140,7 +1140,7 @@ const InterventionReportForm = () => {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Rechercher un client
                         </label>
-                        <input
+                        <Input
                             type="text"
                             value={clientSearch}
                             onChange={e => {
@@ -1152,7 +1152,6 @@ const InterventionReportForm = () => {
                             }}
                             onFocus={() => setShowClientDropdown(true)}
                             placeholder="Tapez pour rechercher..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
                         {showClientDropdown && (
                             <ul className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-52 overflow-y-auto">
@@ -1177,18 +1176,14 @@ const InterventionReportForm = () => {
                             </ul>
                         )}
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Nom du client (libre)
-                        </label>
-                        <input
+                    <Field label="Nom du client (libre)">
+                        <Input
                             type="text"
                             value={formData.client_name}
                             onChange={e => updateField('client_name', e.target.value)}
                             placeholder="Ou saisir un nom manuellement"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
+                    </Field>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1223,36 +1218,30 @@ const InterventionReportForm = () => {
                     Lieu d'intervention
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-3">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse</label>
-                        <input
+                    <Field className="md:col-span-3" label="Adresse">
+                        <Input
                             type="text"
                             value={formData.intervention_address}
                             onChange={e => updateField('intervention_address', e.target.value)}
                             placeholder="N° et nom de rue"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code postal</label>
-                        <input
+                    </Field>
+                    <Field label="Code postal">
+                        <Input
                             type="text"
                             value={formData.intervention_postal_code}
                             onChange={e => updateField('intervention_postal_code', e.target.value)}
                             placeholder="75001"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ville</label>
-                        <input
+                    </Field>
+                    <Field className="md:col-span-2" label="Ville">
+                        <Input
                             type="text"
                             value={formData.intervention_city}
                             onChange={e => updateField('intervention_city', e.target.value)}
                             placeholder="Paris"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
+                    </Field>
                 </div>
             </div>
 
@@ -1315,36 +1304,30 @@ const InterventionReportForm = () => {
                     Suivi du temps
                 </h2>
                 <div className="grid grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heure début</label>
-                        <input
+                    <Field label="Heure début">
+                        <Input
                             type="time"
                             value={formData.start_time}
                             onChange={e => updateField('start_time', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heure fin</label>
-                        <input
+                    </Field>
+                    <Field label="Heure fin">
+                        <Input
                             type="time"
                             value={formData.end_time}
                             onChange={e => updateField('end_time', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Durée (h)</label>
-                        <input
+                    </Field>
+                    <Field label="Durée (h)">
+                        <Input
                             type="number"
                             min="0"
                             step="0.25"
                             value={formData.duration_hours}
                             onChange={e => updateField('duration_hours', e.target.value)}
                             placeholder="1.5"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios"
                         />
-                    </div>
+                    </Field>
                 </div>
             </div>
             )}
