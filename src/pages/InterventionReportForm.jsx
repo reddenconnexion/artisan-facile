@@ -6,6 +6,7 @@ import {
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
     ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag, Star
 } from 'lucide-react';
+import { Input, Field } from '../components/ui';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
@@ -1086,43 +1087,31 @@ const InterventionReportForm = () => {
                     Informations générales
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Titre de l'intervention <span className="text-red-500">*</span>
-                        </label>
-                        <input
+                    <Field className="md:col-span-2" label="Titre de l'intervention" required>
+                        <Input
                             type="text"
                             value={formData.title}
                             onChange={e => updateField('title', e.target.value)}
                             placeholder="Ex : Dépannage fuite sous-évier, salle de bain..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            N° de rapport
-                        </label>
-                        <input
+                    </Field>
+                    <Field label="N° de rapport">
+                        <Input
                             type="text"
                             value={formData.report_number}
                             onChange={e => updateField('report_number', e.target.value)}
                             placeholder="INT-2024-001"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
+                    </Field>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Date
-                        </label>
-                        <input
+                    <Field label="Date">
+                        <Input
                             type="date"
                             value={formData.date}
                             onChange={e => updateField('date', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent"
                         />
-                    </div>
+                    </Field>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Statut
@@ -1390,31 +1379,27 @@ const InterventionReportForm = () => {
                         </button>
                     )}
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Problème constaté / Description de la demande
-                    </label>
-                    <textarea
+                <Field label="Problème constaté / Description de la demande">
+                    <Input
+                        as="textarea"
                         value={formData.description}
                         onChange={e => updateField('description', e.target.value)}
                         rows={3}
                         placeholder="Décrire le problème ou la demande du client..."
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent resize-none"
+                        className="resize-none"
                     />
-                </div>
+                </Field>
                 {!isSiteVisit && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Travaux réalisés
-                    </label>
-                    <textarea
+                <Field label="Travaux réalisés">
+                    <Input
+                        as="textarea"
                         value={formData.work_done}
                         onChange={e => updateField('work_done', e.target.value)}
                         rows={4}
                         placeholder="Décrire en détail les travaux effectués, les pièces remplacées, les réglages effectués..."
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-ios focus:border-transparent resize-none"
+                        className="resize-none"
                     />
-                </div>
+                </Field>
                 )}
             </div>
 
