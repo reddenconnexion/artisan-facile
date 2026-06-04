@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
+import { Button } from '../components/ui';
 import { toast } from 'sonner';
 
 const Agenda = () => {
@@ -313,13 +314,10 @@ const Agenda = () => {
                     Agenda
                     <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                 </h1>
-                <button
-                    onClick={openNewEventModal}
-                    className="flex items-center px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
+                <Button onClick={openNewEventModal}>
+                    <Plus className="w-5 h-5" />
                     Nouveau RDV
-                </button>
+                </Button>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 h-full">
@@ -598,12 +596,9 @@ const Agenda = () => {
                                 >
                                     Annuler
                                 </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark"
-                                >
+                                <Button type="submit">
                                     {editingEvent ? 'Enregistrer' : 'Ajouter'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

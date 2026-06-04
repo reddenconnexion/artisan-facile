@@ -11,6 +11,7 @@ import SmartVoiceModal from '../components/SmartVoiceModal';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
+import { Input, Field } from '../components/ui';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -651,12 +652,11 @@ const ClientForm = () => {
                                 Nom complet / Entreprise *
                             </label>
                         </div>
-                        <input
+                        <Input
                             type="text"
                             id="name"
                             name="name"
                             required
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.name}
                             onChange={handleChange}
                         />
@@ -664,38 +664,30 @@ const ClientForm = () => {
 
                     {formData.type === 'professional' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label htmlFor="siren" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    SIREN (9 chiffres)
-                                </label>
-                                <input
+                            <Field label="SIREN (9 chiffres)" htmlFor="siren">
+                                <Input
                                     type="text"
                                     id="siren"
                                     name="siren"
                                     maxLength={9}
                                     placeholder="Ex: 123456789"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.siren}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 9);
                                         setFormData(prev => ({ ...prev, siren: val }));
                                     }}
                                 />
-                            </div>
-                            <div>
-                                <label htmlFor="tva_intracom" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Numéro de TVA Intracom.
-                                </label>
-                                <input
+                            </Field>
+                            <Field label="Numéro de TVA Intracom." htmlFor="tva_intracom">
+                                <Input
                                     type="text"
                                     id="tva_intracom"
                                     name="tva_intracom"
                                     placeholder="Ex: FR00123456789"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.tva_intracom}
                                     onChange={(e) => setFormData(prev => ({ ...prev, tva_intracom: e.target.value.toUpperCase() }))}
                                 />
-                            </div>
+                            </Field>
                         </div>
                     )}
 
@@ -718,11 +710,10 @@ const ClientForm = () => {
                                     )}
                                 </div>
                             </div>
-                            <input
+                            <Input
                                 type="email"
                                 id="email"
                                 name="email"
-                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -755,11 +746,10 @@ const ClientForm = () => {
                                     )}
                                 </div>
                             </div>
-                            <input
+                            <Input
                                 type="tel"
                                 id="phone"
                                 name="phone"
-                                className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                 value={formData.phone}
                                 onChange={handleChange}
                             />
@@ -796,32 +786,29 @@ const ClientForm = () => {
                                 )}
                             </div>
                         </div>
-                        <input
+                        <Input
                             id="address"
                             name="address"
                             type="text"
                             placeholder="N° et nom de rue"
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.address}
                             onChange={handleChange}
                         />
                         <div className="grid grid-cols-3 gap-2 mt-2">
                             <div>
-                                <input
+                                <Input
                                     name="postal_code"
                                     type="text"
                                     placeholder="Code postal"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.postal_code}
                                     onChange={handleChange}
                                 />
                             </div>
                             <div className="col-span-2">
-                                <input
+                                <Input
                                     name="city"
                                     type="text"
                                     placeholder="Ville"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                                     value={formData.city}
                                     onChange={handleChange}
                                 />
@@ -836,11 +823,11 @@ const ClientForm = () => {
                             </label>
                             <span className="text-xs text-gray-400 dark:text-gray-500 italic">Visible uniquement par vous</span>
                         </div>
-                        <textarea
+                        <Input
+                            as="textarea"
                             id="notes"
                             name="notes"
                             rows={2}
-                            className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
                             value={formData.notes}
                             onChange={handleChange}
                         />

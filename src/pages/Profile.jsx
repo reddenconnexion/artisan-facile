@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, KeyRound, ChevronDown, RotateCcw, Send, CheckCircle, Radio, XCircle, Loader2, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield, Upload } from 'lucide-react';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
+import { Button } from '../components/ui';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
@@ -1039,14 +1040,10 @@ const Profile = () => {
                 </div>
 
                 <div className="px-8 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 flex justify-end">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex items-center px-6 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50"
-                    >
-                        <Save className="w-4 h-4 mr-2" />
+                    <Button type="submit" disabled={loading}>
+                        <Save className="w-4 h-4" />
                         {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
-                    </button>
+                    </Button>
                 </div>
             </form >
 
@@ -1143,7 +1140,7 @@ const Profile = () => {
                             </p>
                         </div>
                     ) : (
-                        <button
+                        <Button
                             type="button"
                             onClick={async () => {
                                 const result = await subscribePush();
@@ -1156,11 +1153,11 @@ const Profile = () => {
                                 }
                             }}
                             disabled={isPushLoading}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-ios hover:bg-ios-dark text-white font-medium rounded-2xl shadow-sm transition-colors disabled:opacity-50"
+                            size="lg"
                         >
                             <Bell className="w-4 h-4" />
                             {isPushLoading ? 'Activation...' : 'Activer les notifications push'}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -1184,14 +1181,10 @@ const Profile = () => {
                     )}
 
                     {!showSmtpPanel && !smtpPasswordConfigured ? (
-                        <button
-                            type="button"
-                            onClick={() => setShowSmtpPanel(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors text-sm font-medium"
-                        >
+                        <Button type="button" onClick={() => setShowSmtpPanel(true)}>
                             <Mail className="w-4 h-4" />
                             Configurer mon mail pro
-                        </button>
+                        </Button>
                     ) : (
                         <button
                             type="button"
@@ -1310,15 +1303,10 @@ const Profile = () => {
                             </label>
 
                             <div className="flex flex-wrap gap-2 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={handleSaveSmtp}
-                                    disabled={savingSmtp}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50 text-sm font-medium"
-                                >
+                                <Button type="button" onClick={handleSaveSmtp} disabled={savingSmtp}>
                                     {savingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     Enregistrer
-                                </button>
+                                </Button>
                                 {smtpPasswordConfigured && (
                                     <>
                                         <button
@@ -1455,15 +1443,10 @@ const Profile = () => {
                         )}
 
                         <div className="flex flex-wrap gap-2 pt-2">
-                            <button
-                                type="button"
-                                onClick={handleSaveSignature}
-                                disabled={savingSignature}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors disabled:opacity-50 text-sm font-medium"
-                            >
+                            <Button type="button" onClick={handleSaveSignature} disabled={savingSignature}>
                                 {savingSignature ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Enregistrer la signature
-                            </button>
+                            </Button>
                             {emailSignatureHtml.trim() && (
                                 <button
                                     type="button"
@@ -1814,14 +1797,10 @@ const Profile = () => {
                                 />
                             </div>
                             <div className="flex items-end">
-                                <button
-                                    type="submit"
-                                    disabled={emailChanging || !newEmail.trim()}
-                                    className="px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark disabled:opacity-50 font-medium text-sm transition-colors flex items-center gap-2"
-                                >
+                                <Button type="submit" disabled={emailChanging || !newEmail.trim()}>
                                     <KeyRound className="w-4 h-4" />
                                     {emailChanging ? 'Envoi...' : 'Changer'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     )}
