@@ -26,6 +26,7 @@ import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoServi
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
+import { Input, Field } from '../components/ui';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache } from '../hooks/useDataCache';
@@ -3060,42 +3061,39 @@ Conditions de règlement : Paiement à réception de facture.`
                             />
                         </div>
 
-                        <div className="mb-1">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre / Objet du devis</label>
-                            <input
+                        <Field className="mb-1" label="Titre / Objet du devis">
+                            <Input
                                 type="text"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ios focus:border-ios disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                                className="disabled:bg-gray-100 disabled:text-gray-500"
                                 placeholder="Ex: Rénovation Salle de Bain"
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                 disabled={isLocked}
                             />
-                        </div>
+                        </Field>
 
 
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date d'émission</label>
-                            <input
+                        <Field label="Date d'émission">
+                            <Input
                                 type="date"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ios focus:border-ios disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                                className="disabled:bg-gray-100 disabled:text-gray-500"
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                 disabled={isLocked}
                             />
-                        </div>
+                        </Field>
                         {formData.type !== 'invoice' && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validité jusqu'au</label>
-                                <input
+                            <Field label="Validité jusqu'au">
+                                <Input
                                     type="date"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ios focus:border-ios disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                                    className="disabled:bg-gray-100 disabled:text-gray-500"
                                     value={formData.valid_until}
                                     onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
                                     disabled={isLocked}
                                 />
-                            </div>
+                            </Field>
                         )}
                     </div>
                     <div>
@@ -3852,9 +3850,10 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Sparkles className="w-4 h-4" />
                         </button>
                     </div>
-                    <textarea
+                    <Input
+                        as="textarea"
                         rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ios focus:border-ios disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                        className="disabled:bg-gray-100 disabled:text-gray-500"
                         placeholder="Conditions de paiement, validité du devis..."
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
