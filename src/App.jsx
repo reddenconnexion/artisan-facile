@@ -207,6 +207,7 @@ const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
 const RecurringInvoices = lazyWithRetry(() => import('./pages/RecurringInvoices'));
 const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
+const AdminStats = lazyWithRetry(() => import('./pages/AdminStats'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -284,6 +285,7 @@ function App() {
                 <Route path="recurring" element={<RecurringInvoices />} />
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="route-planner" element={<RoutePlanner />} />
+                <Route path="admin" element={<AdminStats />} />
               </Route>
             </Routes >
           </Suspense >
