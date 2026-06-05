@@ -7,13 +7,16 @@ const fmt = (n) =>
 
 /**
  * Widget trésorerie prédictive à 90 jours.
- * Agrège les devis/factures par bucket temporel pour estimer les encaissements futurs.
+ * Agrège les devis/factures par horizon temporel pour estimer les encaissements futurs.
  *
  * Buckets :
- *   En retard   — factures `billed` dont l'échéance est dépassée
- *   Ce mois     — factures `billed` dues dans les 30 jours
- *   Mois +1     — devis `accepted` non encore facturés (travaux récents = facturation prochaine)
- *   Pipeline    — devis `sent` (probabilité ~50 %)
+ *   En retard   — factures `billed` dont l'échéance est dépassée (créance ferme)
+ *   30 jours    — factures `billed` dues dans les 30 jours (créance ferme)
+ *   60 jours    — factures `billed` dues sous 30-60 j + devis `accepted` restant à facturer
+ *   90 jours    — devis `sent` (pipeline, probabilité ~50 %)
+ *
+ * Les factures d'acompte/situation (`type: 'invoice'` + `parent_id`) déjà émises sont
+ * déduites du montant du devis parent pour éviter de compter deux fois la même somme.
  */
 const CashFlowForecast = ({ allQuotes, navigate }) => {
     const nav = navigate || useNavigate();
@@ -23,20 +26,32 @@ const CashFlowForecast = ({ allQuotes, navigate }) => {
         const in30  = new Date(now); in30.setDate(now.getDate() + 30);
         const in60  = new Date(now); in60.setDate(now.getDate() + 60);
 
+        // Part déjà facturée (acomptes / situations émis ou payés) par devis parent,
+        // afin de ne pas la recompter dans le montant du devis signé.
+        const billedByParent = new Map();
+        for (const q of allQuotes) {
+            if (q.type === 'invoice' && q.parent_id != null &&
+                (q.status === 'billed' || q.status === 'paid')) {
+                billedByParent.set(q.parent_id,
+                    (billedByParent.get(q.parent_id) || 0) + (q.total_ttc || 0));
+            }
+        }
+
         let overdue  = 0; // billed + échéance dépassée
         let thisMonth = 0; // billed + dû dans 30j
-        let toInvoice = 0; // accepted (pas encore facturés)
+        let toInvoice = 0; // factures fermes 30-60j + devis signés à facturer
         let pipeline  = 0; // sent (évalué à 50%)
 
         for (const q of allQuotes) {
             if (q.type === 'invoice' && q.status === 'billed') {
                 const due = q.valid_until ? new Date(q.valid_until) : in30;
-                if (due < now)   overdue   += (q.total_ttc || 0);
+                if (due < now)        overdue   += (q.total_ttc || 0);
                 else if (due <= in30) thisMonth += (q.total_ttc || 0);
-                else              toInvoice += (q.total_ttc || 0) * 0.5; // in 30-60j
+                else                  toInvoice += (q.total_ttc || 0); // facture ferme dûe 30-60j
             } else if (q.status === 'accepted' && q.type !== 'invoice') {
-                // Devis accepté non encore converti en facture
-                toInvoice += (q.total_ttc || 0);
+                // Devis signé : on retire la part déjà facturée (acomptes/situations)
+                const alreadyBilled = billedByParent.get(q.id) || 0;
+                toInvoice += Math.max(0, (q.total_ttc || 0) - alreadyBilled);
             } else if (q.status === 'sent' && q.type !== 'invoice') {
                 pipeline  += (q.total_ttc || 0) * 0.5;
             }
@@ -67,7 +82,7 @@ const CashFlowForecast = ({ allQuotes, navigate }) => {
             {
                 key: 'toInvoice',
                 label: '60 jours',
-                sublabel: 'Devis signés à facturer',
+                sublabel: 'Devis signés & factures à 60 j',
                 amount: toInvoice,
                 color: 'text-blue-600 dark:text-blue-400',
                 bg: 'bg-blue-50 dark:bg-blue-900/20',
