@@ -1645,18 +1645,24 @@ const DevisForm = () => {
                 return;
             }
 
-            // Check if we switched to Paid
-            if (formData.status === 'paid' && initialStatus !== 'paid') {
-                // Pas de demande d'avis Google sur une facture d'acompte
-                // (matériel ou standard) : le chantier n'est pas terminé, la
-                // demande d'avis n'a de sens qu'au paiement final.
-                const isDepositInvoice = (formData.title || '').toLowerCase().includes('acompte');
-                if (!isDepositInvoice) {
+            // Demande d'avis Google dès la fin du chantier : on la déclenche
+            // au passage en "Facturé" (facture émise), sans attendre le
+            // paiement — c'est le moment idéal, le chantier vient d'être
+            // terminé. On la déclenche aussi directement au passage en "Payé"
+            // si l'étape "Facturé" a été sautée. On l'exclut sur les factures
+            // intermédiaires (acompte / situation de travaux) où le chantier
+            // n'est pas encore terminé.
+            const justBilled = formData.status === 'billed' && initialStatus !== 'billed' && initialStatus !== 'paid';
+            const justPaid = formData.status === 'paid' && initialStatus !== 'paid' && initialStatus !== 'billed';
+            if (justBilled || justPaid) {
+                const titleLower = (formData.title || '').toLowerCase();
+                const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
+                if (!isIntermediateInvoice) {
                     setShowReviewRequestModal(true);
-                    setInitialStatus('paid');
+                    setInitialStatus(formData.status);
                     // Don't navigate yet, let user see the modal
                 } else {
-                    setInitialStatus('paid');
+                    setInitialStatus(formData.status);
                     navigate('/app/devis');
                 }
             } else {
