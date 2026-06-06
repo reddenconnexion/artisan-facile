@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown, Info } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -144,23 +144,30 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
 
         {/* Actions */}
         {canAct && (
-          <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex gap-3">
-            <button
-              onClick={() => handleStatusChange('acknowledged')}
-              disabled={!!actioning}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
-            >
-              {actioning === 'acknowledged' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
-              Intégrée
-            </button>
-            <button
-              onClick={() => handleStatusChange('rejected')}
-              disabled={!!actioning}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-red-600 border border-red-200 dark:border-red-800 text-sm font-semibold rounded-xl transition-colors"
-            >
-              {actioning === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
-              Rejeter
-            </button>
+          <div className="p-5 border-t border-gray-200 dark:border-gray-700 space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Suivi de traitement</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleStatusChange('acknowledged')}
+                disabled={!!actioning}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                {actioning === 'acknowledged' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                Marquer intégrée
+              </button>
+              <button
+                onClick={() => handleStatusChange('rejected')}
+                disabled={!!actioning}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-red-600 border border-red-200 dark:border-red-800 text-sm font-semibold rounded-xl transition-colors"
+              >
+                {actioning === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
+                Marquer rejetée
+              </button>
+            </div>
+            <p className="flex items-start gap-1.5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+              Repère personnel pour suivre vos factures. Ce statut n'est pas transmis à votre fournisseur et n'affecte pas votre comptabilité.
+            </p>
           </div>
         )}
       </div>
@@ -214,8 +221,13 @@ const ReceivedInvoices = () => {
       </div>
 
       {/* Bandeau informatif */}
-      <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-300">
-        <strong>Obligation de réception (sept. 2026)</strong> — Les factures que vos fournisseurs vous transmettent via leur Plateforme Agréée apparaissent ici automatiquement.
+      <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-300 space-y-1">
+        <p>
+          <strong>Obligation de réception (sept. 2026)</strong> — Les factures que vos fournisseurs vous transmettent via leur Plateforme Agréée apparaissent ici automatiquement.
+        </p>
+        <p className="text-indigo-700/80 dark:text-indigo-300/70">
+          Les statuts <em>Intégrée</em> et <em>Rejetée</em> sont des repères personnels pour suivre votre traitement : ils ne sont pas transmis à vos fournisseurs.
+        </p>
       </div>
 
       {loading ? (
