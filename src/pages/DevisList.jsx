@@ -57,6 +57,56 @@ const TransmissionBadge = ({ status }) => {
     );
 };
 
+// Libellés FR des statuts pour l'export (alignés sur StatusBadge)
+const STATUS_LABELS = {
+    draft: 'Brouillon', sent: 'Envoyé', accepted: 'Accepté',
+    rejected: 'Refusé', refused: 'Refusé', billed: 'Facturé',
+    paid: 'Payé', postponed: 'Reporté',
+};
+
+const docTypeLabel = (devis) =>
+    devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis');
+
+const docReference = (devis) => {
+    const prefix = devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV');
+    return `${prefix} #${devis.quote_number || devis.id}`;
+};
+
+// Nombre au format FR (décimale = virgule) pour Excel/LibreOffice locale française.
+const frNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : '';
+};
+
+// Aplatit toutes les lignes (items) de tous les devis fournis en une seule liste,
+// prête pour l'export CSV. Les lignes « section » (titres de regroupement) sont
+// ignorées : seules les lignes chiffrées alimentent le référentiel de prix.
+const buildLineItemRows = (devisList) =>
+    devisList.flatMap((devis) => {
+        const items = Array.isArray(devis.items) ? devis.items : [];
+        return items
+            .filter((item) => item && item.type !== 'section' && (item.description || item.price))
+            .map((item) => {
+                const qty = parseFloat(item.quantity) || 0;
+                const price = parseFloat(item.price) || 0;
+                return {
+                    reference: docReference(devis),
+                    doc_type: docTypeLabel(devis),
+                    status: STATUS_LABELS[devis.status] || devis.status || '',
+                    date: devis.date,
+                    client_name: devis.client_name || '',
+                    title: devis.title || '',
+                    line_type: item.type === 'material' ? 'Matériel' : "Main d'œuvre",
+                    description: (item.is_optional ? '(Option) ' : '') + (item.description || ''),
+                    quantity: item.quantity ?? '',
+                    unit: item.unit || '',
+                    unit_price_ht: price,
+                    buying_price_ht: item.buying_price,
+                    line_total_ht: qty * price,
+                };
+            });
+    });
+
 const formatFollowUpDate = (dateStr) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
@@ -461,6 +511,45 @@ const DevisList = () => {
                                         >
                                             <Download className="w-4 h-4 text-gray-400" />
                                             Exporter en CSV
+                                        </button>
+                                        <button
+                                            disabled={filteredDevis.length === 0}
+                                            onClick={() => {
+                                                const rows = buildLineItemRows(filteredDevis);
+                                                if (rows.length === 0) {
+                                                    toast.info('Aucune ligne à exporter dans cette sélection.');
+                                                    setShowMoreOptions(false);
+                                                    return;
+                                                }
+                                                exportToCSV(
+                                                    rows,
+                                                    [
+                                                        { key: 'reference', label: 'Référence' },
+                                                        { key: 'doc_type', label: 'Type document' },
+                                                        { key: 'status', label: 'Statut' },
+                                                        { key: 'date', label: 'Date', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
+                                                        { key: 'client_name', label: 'Client' },
+                                                        { key: 'title', label: 'Objet' },
+                                                        { key: 'line_type', label: 'Type de ligne' },
+                                                        { key: 'description', label: 'Description' },
+                                                        { key: 'quantity', label: 'Quantité' },
+                                                        { key: 'unit', label: 'Unité' },
+                                                        { key: 'unit_price_ht', label: 'Prix unitaire HT', format: frNum },
+                                                        { key: 'buying_price_ht', label: "Prix d'achat HT", format: frNum },
+                                                        { key: 'line_total_ht', label: 'Total ligne HT', format: frNum },
+                                                    ],
+                                                    'referentiel-lignes'
+                                                );
+                                                toast.success(`${rows.length} ligne${rows.length > 1 ? 's' : ''} exportée${rows.length > 1 ? 's' : ''}`);
+                                                setShowMoreOptions(false);
+                                            }}
+                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-left"
+                                        >
+                                            <Layers className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                                            <div>
+                                                <div className="font-medium">Exporter le détail des lignes (CSV)</div>
+                                                <div className="text-xs text-gray-400 dark:text-gray-500">Toutes les lignes (prix unitaires, marges) pour bâtir un référentiel</div>
+                                            </div>
                                         </button>
                                     </div>
                                 )}
