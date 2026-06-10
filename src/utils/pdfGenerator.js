@@ -579,14 +579,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let currentTableY = tableStartY;
 
     if (hasSections) {
-        // Tableau unique avec sections personnalisées — couleur de fond par ligne
+        // Tableau unique : les sections personnalisées deviennent des bandeaux
+        // pleins en couleur d'accent (même rendu que les sections lettrées A/B),
+        // les lignes restent blanches et épurées.
         const rows = allItems.map(item => {
             const desc = trLine(item.description || '');
             if (item.type === 'section') {
                 return [{
                     content: desc || '—',
                     colSpan: 4,
-                    styles: { fontStyle: 'bold', fillColor: accentTint, textColor: accent, halign: 'left', fontSize: 9 }
+                    styles: { fontStyle: 'bold', fillColor: accent, textColor: 255, halign: 'left', fontSize: 9.5, cellPadding: 2.4 }
                 }];
             }
             return [
@@ -602,32 +604,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             head: [tableColumn],
             body: rows,
             ...baseTableStyle,
-            didParseCell: (data) => {
-                styleOfferedCell(data);
-                if (data.section !== 'body') return;
-                const item = allItems[data.row.index];
-                if (!item || item.type === 'section') return;
-                // Couleurs alignées sur la légende pour cohérence visuelle
-                data.cell.styles.fillColor = item.type === 'material'
-                    ? [255, 247, 237]   // orange très clair → matériel
-                    : [255, 255, 255];  // blanc            → MO / prestation
-                // La bande colorée (didDrawCell) occupe 2,5 mm sur le bord gauche :
-                // le texte de la description démarre après pour ne pas être masqué.
-                if (data.column.index === 0) {
-                    data.cell.styles.cellPadding = { top: 2.2, right: 2.2, bottom: 2.2, left: 4.5 };
-                }
-            },
-            didDrawCell: (data) => {
-                if (data.section !== 'body') return;
-                const item = allItems[data.row.index];
-                if (!item || item.type === 'section') return;
-                // Bande colorée sur le bord gauche (premier renforcement visuel)
-                if (data.column.index === 0) {
-                    const isMaterial = item.type === 'material';
-                    doc.setFillColor(...(isMaterial ? [249, 115, 22] : [59, 130, 246]));
-                    doc.rect(data.cell.x, data.cell.y, 2.5, data.cell.height, 'F');
-                }
-            },
+            didParseCell: styleOfferedCell,
         });
 
         currentTableY = doc.lastAutoTable.finalY + 8;
@@ -782,7 +759,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         if (showSubtotals) {
             totalsRows.push([L.subtotalLabor, fmtMoney(sumHT(laborItems))]);
             totalsRows.push([L.subtotalMaterial, fmtMoney(sumHT(materials))]);
-        } else {
+        } else if (devis.include_tva !== false) {
+            // Sans TVA, la ligne "Total HT" serait identique au TOTAL HT final
             totalsRows.push([L.totalHT, fmtMoney(devis.total_ht)]);
         }
         totalsRows.push(devis.include_tva !== false
