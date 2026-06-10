@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFDocument, PDFName, AFRelationship } from 'pdf-lib';
 import { generateFacturXXML } from './facturxGenerator';
+import { getTradeConfig } from '../constants/trades';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -100,10 +101,26 @@ const PDF_I18N = {
         newSolution: 'NOUVELLE SOLUTION',
         additionalMaterial: '- Matériel complémentaire :',
         technicalAddedValue: (v) => `- Plus-value technique : ${v}`,
-        colDescription: 'Description', colQty: 'Quantité', colUnitPrice: 'Prix Unitaire HT', colTotal: 'Total HT',
-        colUnitPriceShort: 'Prix U. HT',
+        colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
+        colUnitPriceShort: 'PU HT',
         optionPrefix: '(Option)',
-        tableLaborHeader: "MAIN D'OEUVRE & PRESTATIONS", tableMaterialHeader: 'MATÉRIEL & FOURNITURES',
+        tableLaborHeader: "Main d'œuvre & prestations", tableMaterialHeader: 'Fournitures et matériel',
+        siteLabel: 'Chantier',
+        sameAsClientAddress: "Identique à l'adresse client",
+        offered: 'Offert',
+        subtotalLabor: "Sous-total main d'œuvre",
+        subtotalMaterial: 'Sous-total fournitures et matériel',
+        vatShort: 'TVA',
+        vatNotApplicableShort: 'Non applicable — art. 293 B du CGI',
+        totalHTFinal: 'TOTAL HT',
+        paymentConditions: 'Conditions de règlement',
+        depositOnOrder: 'Acompte à la commande (100 % des fournitures)',
+        balanceOnCompletion: "Solde à la fin des travaux (main d'œuvre)",
+        depositSentence: "L'acompte correspondant aux fournitures doit être réglé avant tout approvisionnement du matériel. Le solde est dû à la réception des travaux.",
+        forCompany: (name) => `Pour ${name}`,
+        clientApproval: 'Bon pour accord — le client',
+        readApproved: 'Date et mention « Lu et approuvé » :',
+        pageOf: (i, n) => `page ${i}/${n}`,
         financialAdjustment: 'AJUSTEMENT FINANCIER',
         initialQuoteTTC: 'Devis Initial TTC', billedToDate: 'Facturé à ce jour (Situation)',
         includingDeposit: '(incluant acompte)', amendmentAmountTTC: 'Montant Avenant TTC',
@@ -162,10 +179,26 @@ const PDF_I18N = {
         newSolution: 'NEW SOLUTION',
         additionalMaterial: '- Additional materials:',
         technicalAddedValue: (v) => `- Technical added value: ${v}`,
-        colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price (excl. VAT)', colTotal: 'Total (excl. VAT)',
+        colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price', colTotal: 'Total (excl. VAT)',
         colUnitPriceShort: 'Unit Price',
         optionPrefix: '(Optional)',
-        tableLaborHeader: 'LABOUR & SERVICES', tableMaterialHeader: 'MATERIALS & SUPPLIES',
+        tableLaborHeader: 'Labour & services', tableMaterialHeader: 'Materials & supplies',
+        siteLabel: 'Work site',
+        sameAsClientAddress: 'Same as client address',
+        offered: 'Free',
+        subtotalLabor: 'Labour subtotal',
+        subtotalMaterial: 'Materials subtotal',
+        vatShort: 'VAT',
+        vatNotApplicableShort: 'Not applicable — art. 293 B of the French Tax Code',
+        totalHTFinal: 'TOTAL (excl. VAT)',
+        paymentConditions: 'Payment terms',
+        depositOnOrder: 'Deposit on order (100% of materials)',
+        balanceOnCompletion: 'Balance on completion of works (labour)',
+        depositSentence: 'The deposit covering the materials must be paid before any material is ordered. The balance is due upon completion of the works.',
+        forCompany: (name) => `For ${name}`,
+        clientApproval: 'Approved — the client',
+        readApproved: 'Date and mention "Read and approved":',
+        pageOf: (i, n) => `page ${i}/${n}`,
         financialAdjustment: 'FINANCIAL ADJUSTMENT',
         initialQuoteTTC: 'Initial Quote (incl. VAT)', billedToDate: 'Billed to date (Progress)',
         includingDeposit: '(including deposit)', amendmentAmountTTC: 'Amendment Amount (incl. VAT)',
@@ -226,174 +259,183 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const trNotes = (tr && typeof tr.notes === 'string' && tr.notes.trim()) ? tr.notes : devis.notes;
     const trLine = (desc) => (tr?.lines && tr.lines[desc]) ? tr.lines[desc] : desc;
 
-    // Logo
-    // Logo
-    let contentStartY = 35; // Increased from 30 to Avoid Header Crop
+    // ── Charte graphique : couleur d'accent (profil) + palette neutre ──
+    const hexToRgb = (hex) => {
+        const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+        if (!m) return null;
+        const n = parseInt(m[1], 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const accent = hexToRgb(userProfile.brand_color) || (isInvoice ? [46, 125, 50] : [37, 99, 235]);
+    const accentTint = accent.map(c => Math.round(c * 0.10 + 255 * 0.90));
+    const ink = [17, 24, 39];         // texte principal
+    const subtle = [107, 114, 128];   // texte secondaire
+    const faint = [156, 163, 175];    // texte tertiaire
+    const hairline = [229, 231, 235]; // filets
+    const cardBg = [246, 247, 249];   // fonds de cartouches
+
+    // ── En-tête épuré : identité à gauche, cartouche document à droite ──
+    // Logo discret (16 mm, coins arrondis) aligné sur le bloc identité.
+    let leftX = 14;
+    let cursorY = 19;
     if (userProfile.logo_url) {
         try {
             const roundedLogo = await buildRoundedLogoDataUrl(userProfile.logo_url);
-            doc.addImage(roundedLogo, 'PNG', 14, 15, 20, 20);
-            contentStartY = 40;
-        } catch (e) {
-            console.warn("Could not add logo image to PDF", e);
+            doc.addImage(roundedLogo, 'PNG', 14, 13.5, 16, 16);
+            leftX = 34;
+        } catch {
+            // Arrondi impossible (canvas indisponible) : on tente le logo brut
+            try {
+                doc.addImage(userProfile.logo_url, 'PNG', 14, 13.5, 16, 16);
+                leftX = 34;
+            } catch (e2) {
+                console.warn("Could not add logo image to PDF", e2);
+            }
         }
     }
 
-    // Colonne Gauche : Identité & Adresse
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'bold');
     const companyName = userProfile.company_name || userProfile.full_name || L.yourCompany;
-    doc.text(companyName, 14, contentStartY);
-
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(100, 100, 100);
-
-    let leftY = contentStartY + 6;
-    if (userProfile.address) {
-        doc.text(userProfile.address, 14, leftY);
-        leftY += 5;
-    }
-    if (userProfile.postal_code || userProfile.city) {
-        doc.text(`${userProfile.postal_code || ''} ${userProfile.city || ''}`, 14, leftY);
-        leftY += 5;
-    }
-
-    // Colonne Droite : Contact & SIRET
-    let rightY = contentStartY;
-    const rightColX = 90;
-
-    if (userProfile.phone) {
-        doc.text(`${L.phone} : ${userProfile.phone}`, rightColX, rightY);
-        rightY += 5;
-    }
-
-    const emailToDisplay = userProfile.professional_email || userProfile.email;
-    if (emailToDisplay) {
-        doc.text(`${L.email} : ${emailToDisplay}`, rightColX, rightY);
-        rightY += 5;
-    }
-
-    if (userProfile.website) {
-        doc.text(`${L.web} : ${userProfile.website}`, rightColX, rightY);
-        rightY += 5;
-    }
-
-    if (userProfile.siret) {
-        doc.text(`${L.siret} : ${userProfile.siret}`, rightColX, rightY);
-        rightY += 5;
-    }
-
-    // Séparateur
-    doc.setDrawColor(230, 230, 230);
-    doc.line(14, 65, 196, 65); // Moved Y if needed? 65 seems safe as contentStartY is ~35-40 + 15 = 55 max.
-
-    // Info Devis/Facture (Gauche, sous le header)
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
+    doc.setTextColor(...accent);
+    doc.text(companyName.toUpperCase(), leftX, cursorY);
+    cursorY += 5.5;
 
-    if (isAmendment) {
-        doc.text(L.amendmentTitle, 14, 75);
-    } else {
-        doc.text(`${typeDocument} N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`, 14, 75);
+    const tradeLabel = userProfile.trade ? (getTradeConfig(userProfile.trade)?.label || '') : '';
+    if (tradeLabel) {
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'italic');
+        doc.setTextColor(...subtle);
+        doc.text(tradeLabel, leftX, cursorY);
+        cursorY += 4.8;
     }
 
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...subtle);
+    const emailToDisplay = userProfile.professional_email || userProfile.email;
+    const identityLines = [
+        userProfile.full_name && userProfile.full_name !== companyName ? userProfile.full_name : null,
+        [userProfile.address, `${userProfile.postal_code || ''} ${userProfile.city || ''}`.trim()].filter(Boolean).join(', ') || null,
+        [
+            userProfile.phone ? `${L.phone}. ${userProfile.phone}` : null,
+            emailToDisplay || null,
+        ].filter(Boolean).join('  —  ') || null,
+        [
+            userProfile.website || null,
+            userProfile.siret ? `${L.siret} ${userProfile.siret}` : null,
+        ].filter(Boolean).join('  —  ') || null,
+    ].filter(Boolean);
+    identityLines.forEach(line => {
+        doc.text(line, leftX, cursorY);
+        cursorY += 4.2;
+    });
+
+    // Cartouche document (droite) : type, numéro, dates
+    const docRight = 196;
+    let docY = 19;
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(...accent);
+    doc.text(isAmendment ? L.avenant : typeDocument, docRight, docY, { align: 'right' });
+    docY += 6.5;
+    doc.setFontSize(9);
+    doc.setTextColor(...ink);
+    doc.text(`N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`, docRight, docY, { align: 'right' });
+    docY += 4.8;
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(...subtle);
+    doc.text(`${dateLabel} : ${fmtDate(devis.date)}`, docRight, docY, { align: 'right' });
+    docY += 4.8;
+    if (!isInvoice && devis.valid_until) {
+        doc.text(`${L.validUntil} : ${fmtDate(devis.valid_until)}`, docRight, docY, { align: 'right' });
+        docY += 4.8;
+    }
     // Mention "ACQUITTÉE" bien visible en haut de la 1ère page
     if (isInvoice && devis.status === 'paid') {
-        const titleWidth = doc.getTextWidth(`${typeDocument} N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`);
-        const stampX = 14 + titleWidth + 5;
-        doc.setFontSize(13);
+        doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(220, 38, 38);
-        doc.text(L.paid, stampX, 75);
-        // Reset
-        doc.setTextColor(0, 0, 0);
+        doc.text(L.paid, docRight, docY + 1.5, { align: 'right' });
+        docY += 6.5;
     }
 
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${dateLabel} : ${fmtDate(devis.date)}`, 14, 85);
-    if (!isInvoice && devis.valid_until) {
-        doc.text(`${L.validUntil} : ${fmtDate(devis.valid_until)}`, 14, 90);
+    // Double filet d'accent sous l'en-tête
+    const headerBottom = Math.max(cursorY - 1, docY, 34);
+    doc.setDrawColor(...accent);
+    doc.setLineWidth(0.8);
+    doc.line(14, headerBottom, 196, headerBottom);
+    doc.setLineWidth(0.2);
+    doc.line(14, headerBottom + 1.2, 196, headerBottom + 1.2);
+
+    // ── Cartouches CLIENT / CHANTIER côte à côte ──
+    const cardTop = headerBottom + 7;
+    const cardW = 89, cardGap = 4, cardPad = 4;
+    const cardLineH = 4.3;
+
+    const clientLines = [{ text: client.name || L.unknownClient, bold: true }];
+    if (client.address) {
+        doc.setFontSize(9);
+        doc.splitTextToSize(client.address, cardW - cardPad * 2).forEach(t => clientLines.push({ text: t }));
+    }
+    const clientCpCity = `${client.postal_code || ''} ${client.city || ''}`.trim();
+    if (clientCpCity) clientLines.push({ text: clientCpCity });
+    // SIREN/TVA si présents (cohérence visuelle Factur-X)
+    if (client.siren) clientLines.push({ text: `${L.siren} : ${client.siren}` });
+    if (client.tva_intracom) clientLines.push({ text: `${L.tvaIntra} : ${client.tva_intracom}` });
+
+    const siteLines = [];
+    if (devis.intervention_address) {
+        doc.setFontSize(9);
+        doc.splitTextToSize(devis.intervention_address, cardW - cardPad * 2).forEach(t => siteLines.push({ text: t }));
+        const siteCpCity = `${devis.intervention_postal_code || ''} ${devis.intervention_city || ''}`.trim();
+        if (siteCpCity) siteLines.push({ text: siteCpCity });
+    } else {
+        siteLines.push({ text: L.sameAsClientAddress, italic: true });
     }
 
-    // Factur-X Info (Ops Category)
+    const cardH = 10 + Math.max(clientLines.length, siteLines.length) * cardLineH + 2;
+    const drawCard = (x, label, lines) => {
+        doc.setFillColor(...cardBg);
+        doc.roundedRect(x, cardTop, cardW, cardH, 1.5, 1.5, 'F');
+        doc.setFontSize(7.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...accent);
+        doc.text(label.toUpperCase(), x + cardPad, cardTop + 5.5);
+        let y = cardTop + 11;
+        doc.setFontSize(9);
+        lines.forEach(l => {
+            doc.setFont(undefined, l.bold ? 'bold' : (l.italic ? 'italic' : 'normal'));
+            doc.setTextColor(...(l.bold ? ink : subtle));
+            doc.text(l.text, x + cardPad, y);
+            y += cardLineH;
+        });
+    };
+    drawCard(14, L.client, clientLines);
+    drawCard(14 + cardW + cardGap, L.siteLabel, siteLines);
+
+    let afterCards = cardTop + cardH + 7;
+
+    // Infos Factur-X (catégorie d'opération) — factures uniquement
     if (isInvoice && devis.operation_category) {
         const catMap = { 'service': L.catService, 'goods': L.catGoods, 'mixed': L.catMixed };
-        doc.text(`${L.category} : ${catMap[devis.operation_category] || devis.operation_category}`, 14, 95);
-        if (devis.vat_on_debits) {
-            doc.text(L.vatOnDebits, 14, 100);
-        }
-    }
-
-
-    // Info Client (Droite, sous le header)
-    const clientX = 120;
-    const clientY = 75;
-
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'bold');
-    doc.text(`${L.client} :`, clientX, clientY);
-
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(100, 100, 100);
-    doc.text(client.name || L.unknownClient, clientX, clientY + 5);
-
-    let clientAddressY = clientY + 10;
-    if (client.address) {
-        const addressLines = doc.splitTextToSize(client.address, 70);
-        doc.text(addressLines, clientX, clientAddressY);
-        clientAddressY += (addressLines.length * 5);
-    }
-    if (client.postal_code || client.city) {
-        doc.text(`${client.postal_code || ''} ${client.city || ''}`.trim(), clientX, clientAddressY);
-        clientAddressY += 5;
-    }
-
-    // Display SIREN/TVA if present (Required for Factur-X visual consistency)
-    if (client.siren) {
-        doc.text(`${L.siren} : ${client.siren}`, clientX, clientAddressY);
-        clientAddressY += 5;
-    }
-    if (client.tva_intracom) {
-        doc.text(`${L.tvaIntra} : ${client.tva_intracom}`, clientX, clientAddressY);
-    }
-
-    // Adresse d'intervention (si différente)
-    if (devis.intervention_address) {
-        clientAddressY += 10;
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0); // Black for visibility
-        doc.text(`${L.interventionPlace} :`, clientX, clientAddressY);
-
+        doc.setFontSize(8);
         doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100);
-        clientAddressY += 5;
-
-        const interventionAddr = `${devis.intervention_address} ${devis.intervention_postal_code || ''} ${devis.intervention_city || ''}`;
-        const intLines = doc.splitTextToSize(interventionAddr, 70);
-        doc.text(intLines, clientX, clientAddressY);
+        doc.setTextColor(...subtle);
+        doc.text(`${L.category} : ${catMap[devis.operation_category] || devis.operation_category}${devis.vat_on_debits ? ` — ${L.vatOnDebits}` : ''}`, 14, afterCards - 2);
+        afterCards += 4;
     }
 
-
-    // Titre / Objet (Juste au dessus du tableau)
-    let tableStartY = 105;
+    // Titre / Objet (juste au-dessus du tableau)
+    let tableStartY = afterCards;
     if (trTitle) {
-        const titleY = Math.max(95, clientAddressY + 10);
-
-        doc.setFontSize(11);
+        doc.setFontSize(10.5);
         doc.setFont(undefined, 'bold');
-        doc.setTextColor(50, 50, 50);
+        doc.setTextColor(...ink);
         const titleLines = doc.splitTextToSize(`${L.object} : ${trTitle}`, 182);
-        doc.text(titleLines, 14, titleY);
-
-        tableStartY = titleY + titleLines.length * 6 + 2;
+        doc.text(titleLines, 14, tableStartY);
+        tableStartY += titleLines.length * 5.2 + 4;
     }
 
     if (isAmendment) {
@@ -403,12 +445,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             ? L.initialQuoteRef(devis.parent_quote_data.id, fmtDate(devis.parent_quote_data.date))
             : L.initialQuoteRefUnknown;
 
+        let currentY = tableStartY;
+
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(100, 100, 100);
-        doc.text(parentRef, 14, 81); // Under title roughly
-
-        let currentY = tableStartY;
+        doc.text(parentRef, 14, currentY);
+        currentY += 7;
 
         // 2. CONSTAT TERRAIN
         let details = devis.amendment_details || {};
@@ -498,57 +541,81 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const hasSections = allItems.some(i => i.type === 'section');
     const materials = allItems.filter(i => i.type === 'material');
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
-    const headerColor = isInvoice ? [46, 125, 50] : [37, 99, 235];
+
+    const fmtMoney = (n) => `${(Number(n) || 0).toFixed(2)} €`;
+    // Une ligne à 0 € est affichée "Offert" plutôt que "0.00 €" (geste commercial lisible)
+    const unitPriceCell = (item) => (parseFloat(item.price) || 0) === 0 ? L.offered : fmtMoney(item.price);
+    const lineTotalCell = (item) => (parseFloat(item.price) || 0) === 0
+        ? L.offered
+        : fmtMoney((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0));
+
+    // Style commun : en-tête anthracite, filets discrets, montants alignés à droite
+    const baseTableStyle = {
+        theme: 'grid',
+        styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap', cellPadding: 2.2, lineColor: hairline, lineWidth: 0.15, textColor: ink },
+        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 8.5 },
+        columnStyles: {
+            0: { cellWidth: 'auto' },
+            1: { cellWidth: 16, halign: 'right' },
+            2: { cellWidth: 26, halign: 'right' },
+            3: { cellWidth: 26, halign: 'right' },
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 'auto',
+    };
+    // Bandeau de section (lettré) au-dessus des libellés de colonnes
+    const sectionHead = (label) => ([
+        [{ content: label, colSpan: 4, styles: { fillColor: accent, textColor: 255, halign: 'left', fontSize: 9.5, fontStyle: 'bold', cellPadding: 2.4 } }],
+        tableColumn,
+    ]);
+    const styleOfferedCell = (data) => {
+        if (data.section === 'body' && data.cell.raw === L.offered) {
+            data.cell.styles.fontStyle = 'italic';
+            data.cell.styles.textColor = subtle;
+        }
+    };
 
     // Track current Y position for multiple tables
     let currentTableY = tableStartY;
 
     if (hasSections) {
-        // Tableau sans colonne "Type" — couleur de fond par ligne
-        const tableColumnNoType = [L.colDescription, L.colQty, L.colUnitPriceShort, L.colTotal];
+        // Tableau unique avec sections personnalisées — couleur de fond par ligne
         const rows = allItems.map(item => {
             const desc = trLine(item.description || '');
             if (item.type === 'section') {
                 return [{
                     content: desc || '—',
                     colSpan: 4,
-                    styles: { fontStyle: 'bold', fillColor: [230, 236, 255], textColor: [37, 99, 235], halign: 'left', fontSize: 9 }
+                    styles: { fontStyle: 'bold', fillColor: accentTint, textColor: accent, halign: 'left', fontSize: 9 }
                 }];
             }
             return [
                 item.is_optional ? `${L.optionPrefix} ${desc}` : desc,
                 item.quantity ?? '',
-                `${parseFloat(item.price || 0).toFixed(2)} €`,
-                `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
+                unitPriceCell(item),
+                lineTotalCell(item)
             ];
         });
 
         autoTable(doc, {
             startY: currentTableY,
-            head: [tableColumnNoType],
+            head: [tableColumn],
             body: rows,
-            theme: 'grid',
-            headStyles: { fillColor: headerColor },
-            // Largeurs fixes + retour à la ligne : la description occupe la place
-            // restante et les colonnes chiffrées sont bornées, pour qu'aucun
-            // texte ni montant ne déborde de la largeur de page.
-            styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' },
-            columnStyles: {
-                0: { cellWidth: 'auto' },
-                1: { cellWidth: 18, halign: 'right' },
-                2: { cellWidth: 28, halign: 'right' },
-                3: { cellWidth: 28, halign: 'right' },
-            },
-            margin: { left: 14, right: 14 },
-            tableWidth: 'auto',
+            ...baseTableStyle,
             didParseCell: (data) => {
+                styleOfferedCell(data);
                 if (data.section !== 'body') return;
                 const item = allItems[data.row.index];
                 if (!item || item.type === 'section') return;
                 // Couleurs alignées sur la légende pour cohérence visuelle
                 data.cell.styles.fillColor = item.type === 'material'
-                    ? [255, 237, 213]   // orange clair → matériel
-                    : [219, 234, 254];  // bleu clair   → MO / prestation
+                    ? [255, 247, 237]   // orange très clair → matériel
+                    : [255, 255, 255];  // blanc            → MO / prestation
+                // La bande colorée (didDrawCell) occupe 2,5 mm sur le bord gauche :
+                // le texte de la description démarre après pour ne pas être masqué.
+                if (data.column.index === 0) {
+                    data.cell.styles.cellPadding = { top: 2.2, right: 2.2, bottom: 2.2, left: 4.5 };
+                }
             },
             didDrawCell: (data) => {
                 if (data.section !== 'body') return;
@@ -563,71 +630,41 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             },
         });
 
-        currentTableY = doc.lastAutoTable.finalY + 15;
+        currentTableY = doc.lastAutoTable.finalY + 8;
     } else {
-        // Legacy: separate tables for services and materials
+        // Tableaux lettrés : A — Main d'œuvre, B — Fournitures (lettre seulement si les deux existent)
         const services = allItems.filter(i => i.type === 'service' || !i.type);
+        const bothGroups = services.length > 0 && materials.length > 0;
 
         const generateRows = (items) => items.map(item => [
             item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || ''),
             item.quantity,
-            `${parseFloat(item.price || 0).toFixed(2)} €`,
-            `${((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €`
+            unitPriceCell(item),
+            lineTotalCell(item)
         ]);
 
-        // Largeurs fixes + retour à la ligne, partagées par les deux tableaux,
-        // pour qu'aucune description ni aucun montant ne déborde de la page.
-        const legacyLayout = {
-            styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' },
-            columnStyles: {
-                0: { cellWidth: 'auto' },
-                1: { cellWidth: 18, halign: 'right' },
-                2: { cellWidth: 32, halign: 'right' },
-                3: { cellWidth: 28, halign: 'right' },
-            },
-            margin: { left: 14, right: 14 },
-            tableWidth: 'auto',
-        };
-
-        // 1. Table Main d'Oeuvre
         if (services.length > 0) {
-            if (materials.length > 0) {
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'bold');
-                doc.setTextColor(100, 100, 100);
-                doc.text(L.tableLaborHeader, 14, currentTableY - 2);
-            }
-
             autoTable(doc, {
                 startY: currentTableY,
-                head: [tableColumn],
+                head: sectionHead(`${bothGroups ? 'A — ' : ''}${L.tableLaborHeader}`),
                 body: generateRows(services),
-                theme: 'grid',
-                headStyles: { fillColor: headerColor },
-                ...legacyLayout,
+                ...baseTableStyle,
+                didParseCell: styleOfferedCell,
             });
-
-            currentTableY = doc.lastAutoTable.finalY + 15;
+            currentTableY = doc.lastAutoTable.finalY + 6;
         }
 
-        // 2. Table Matériel
         if (materials.length > 0) {
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(100, 100, 100);
-            doc.text(L.tableMaterialHeader, 14, currentTableY - 2);
-
             autoTable(doc, {
                 startY: currentTableY,
-                head: [tableColumn],
+                head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`),
                 body: generateRows(materials),
-                theme: 'grid',
-                headStyles: { fillColor: [84, 110, 122] },
-                ...legacyLayout,
+                ...baseTableStyle,
+                didParseCell: styleOfferedCell,
             });
-
-            currentTableY = doc.lastAutoTable.finalY + 15;
+            currentTableY = doc.lastAutoTable.finalY + 6;
         }
+        currentTableY += 2;
     }
 
     if (isAmendment) {
@@ -736,46 +773,70 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         currentTableY = financeY + 10;
 
     } else {
-        // Totaux
-        let finalY = currentTableY > tableStartY ? currentTableY : 150; // Fallback
-        const labelX = 130;
-        const valueX = 195;
+        // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
+        const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
+        const sumHT = (items) => items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.price) || 0), 0);
+        const showSubtotals = !hasSections && laborItems.length > 0 && materials.length > 0;
 
-        // Le bloc totaux occupe ~22 mm (HT, TVA, TTC). Si on est trop bas en
-        // page, on passe à la page suivante pour ne pas couper le Total TTC.
-        if (finalY + 22 > 285) {
+        const totalsRows = [];
+        if (showSubtotals) {
+            totalsRows.push([L.subtotalLabor, fmtMoney(sumHT(laborItems))]);
+            totalsRows.push([L.subtotalMaterial, fmtMoney(sumHT(materials))]);
+        } else {
+            totalsRows.push([L.totalHT, fmtMoney(devis.total_ht)]);
+        }
+        totalsRows.push(devis.include_tva !== false
+            ? [L.vat('20%'), fmtMoney(devis.total_tva)]
+            : [L.vatShort, L.vatNotApplicableShort]);
+        const grandLabel = devis.include_tva !== false ? L.totalTTC : L.totalHTFinal;
+        const grandValue = fmtMoney(devis.total_ttc);
+
+        const totX = 106, totRight = 196, rowH = 7;
+        const blockH = (totalsRows.length + 1) * rowH + 3;
+
+        let finalY = currentTableY > tableStartY ? currentTableY : 150;
+        if (finalY + blockH > 282) {
             doc.addPage();
             finalY = 20;
-            currentTableY = finalY;
         }
 
-        doc.setFont(undefined, 'normal');
-        // ... Totals rendering ...
-        doc.text(`${L.totalHT} :`, labelX, finalY);
-        doc.text(`${(Number(devis.total_ht) || 0).toFixed(2)} €`, valueX, finalY, { align: 'right' });
-
-        if (devis.include_tva !== false) {
-            doc.text(`${L.vat('20%')} :`, labelX, finalY + 6);
-            doc.text(`${(Number(devis.total_tva) || 0).toFixed(2)} €`, valueX, finalY + 6, { align: 'right' });
-        } else {
+        let rowY = finalY + 2;
+        totalsRows.forEach(([label, value]) => {
             doc.setFontSize(9);
-            doc.setTextColor(100, 100, 100);
-            doc.text(L.vatNotApplicable, labelX, finalY + 6);
-        }
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...subtle);
+            doc.text(label, totX, rowY + 2.5);
+            const isVatMention = value === L.vatNotApplicableShort;
+            doc.setFontSize(isVatMention ? 7.8 : 9.5);
+            doc.setFont(undefined, isVatMention ? 'italic' : 'normal');
+            doc.setTextColor(...(isVatMention ? subtle : ink));
+            doc.text(value, totRight - 2, rowY + 2.5, { align: 'right' });
+            doc.setDrawColor(...hairline);
+            doc.setLineWidth(0.15);
+            doc.line(totX, rowY + 5, totRight, rowY + 5);
+            rowY += rowH;
+        });
 
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${L.totalTTC} :`, labelX, finalY + 14);
-        doc.text(`${(Number(devis.total_ttc) || 0).toFixed(2)} €`, valueX, finalY + 14, { align: 'right' });
+        // Ligne du total : fond teinté accent, montant en gras
+        doc.setFillColor(...accentTint);
+        doc.roundedRect(totX - 2, rowY - 1.5, totRight - totX + 4, rowH + 1.5, 1.2, 1.2, 'F');
+        doc.setFontSize(10.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...accent);
+        doc.text(grandLabel, totX, rowY + 3.5);
+        doc.setFontSize(11.5);
+        doc.text(grandValue, totRight - 2, rowY + 3.5, { align: 'right' });
+
+        currentTableY = rowY + rowH + 4;
     }
 
     // Position for Notes
-    const finalTableY = isAmendment ? currentTableY : (currentTableY > tableStartY ? currentTableY : 150) + 14;
-    let currentY = finalTableY + 20;
+    const finalTableY = isAmendment ? currentTableY + 4 : currentTableY;
+    let currentY = finalTableY + 8;
 
-    let allNotes = trNotes || '';
+    const allNotes = trNotes || '';
 
-    // Automatic Material Deposit Note for Quotes
+    // ── Conditions de règlement (acompte matériel) : tableau acompte / solde ──
     if (!isInvoice && materials.length > 0 && devis.has_material_deposit === true) {
         const materialHT = materials.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
@@ -787,10 +848,44 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         // Calculate VAT part for materials using effective rate
         const materialTTC = devis.include_tva !== false ? materialHT * (1 + vatRate) : materialHT;
+        const balanceTTC = Math.max((Number(devis.total_ttc) || 0) - materialTTC, 0);
 
-        const depositNote = L.materialDepositNote(materialTTC.toFixed(2));
+        const sentenceLines = doc.splitTextToSize(L.depositSentence, 182);
+        const depositBlockH = 8 + 2 * 7 + sentenceLines.length * 3.6 + 6;
+        if (currentY + depositBlockH > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
 
-        allNotes += depositNote;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...ink);
+        doc.text(L.paymentConditions, 14, currentY);
+        currentY += 5.5;
+
+        const depositRows = [
+            [L.depositOnOrder, fmtMoney(materialTTC), true],
+            [L.balanceOnCompletion, fmtMoney(balanceTTC), false],
+        ];
+        depositRows.forEach(([label, value, highlight]) => {
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...subtle);
+            doc.text(label, 14, currentY + 2.5);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...(highlight ? accent : ink));
+            doc.text(value, 196, currentY + 2.5, { align: 'right' });
+            doc.setDrawColor(...hairline);
+            doc.setLineWidth(0.15);
+            doc.line(14, currentY + 5, 196, currentY + 5);
+            currentY += 7;
+        });
+
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'italic');
+        doc.setTextColor(...subtle);
+        doc.text(sentenceLines, 14, currentY + 3);
+        currentY += sentenceLines.length * 3.6 + 8;
     }
 
     // --- NEW: Add Before/After Montage to PDF if title matches ---
@@ -899,38 +994,57 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         currentY += 10;
     }
 
-    // Signature (Masqué si payé, "Bon pour accord" n'a plus de sens sur une quittance)
-    if (devis.signature && devis.status !== 'paid') {
-        if (currentY + 40 > 280) {
+    // ── Bloc d'accord à deux colonnes : artisan / "Bon pour accord — le client" ──
+    // Toujours affiché sur un devis (zone de signature même en impression papier).
+    // Masqué si payé : "Bon pour accord" n'a plus de sens sur une quittance.
+    const showApprovalBlock = devis.status !== 'paid' && (!isInvoice || devis.signature);
+    if (showApprovalBlock) {
+        const approvalH = devis.signature ? 48 : 26;
+        if (currentY + approvalH > 280) {
             doc.addPage();
             currentY = 20;
         }
 
-        const signatureY = currentY + 10;
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : L.bonPourAccord;
-        doc.text(`${bonPourAccordText} :`, 120, signatureY);
+        const approvalY = currentY + 6;
 
-        const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
-        doc.text(L.signedOn(signedDate.toLocaleDateString(L.dateLocale)), 120, signatureY + 5);
-
-        try {
-            doc.addImage(devis.signature, 'PNG', 120, signatureY + 10, 50, 25);
-        } catch (e) {
-            console.warn("Could not add signature to PDF", e);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...ink);
+        doc.text(L.forCompany(companyName), 14, approvalY);
+        if (userProfile.full_name) {
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...subtle);
+            doc.text(userProfile.full_name, 14, approvalY + 5);
         }
+
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...ink);
+        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : L.clientApproval;
+        doc.text(bonPourAccordText, 110, approvalY);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(...subtle);
+
+        if (devis.signature) {
+            const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
+            doc.text(L.signedOn(signedDate.toLocaleDateString(L.dateLocale)), 110, approvalY + 5);
+            try {
+                doc.addImage(devis.signature, 'PNG', 110, approvalY + 8, 50, 25);
+            } catch (e) {
+                console.warn("Could not add signature to PDF", e);
+            }
+        } else {
+            doc.text(L.readApproved, 110, approvalY + 5);
+        }
+
+        currentY += approvalH;
     }
 
     // Informations de paiement (IBAN + Wero)
     const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
     const weroNumber = (userProfile.wero_phone && userProfile.wero_phone.trim().length > 0) ? userProfile.wero_phone : null;
 
-    // Determine content start Y (after Notes/Signature)
-    let elementY = currentY + 40;
-    if (devis.signature && devis.status !== 'paid') {
-        elementY = currentY + 50;
-    }
+    // Determine content start Y (after Notes/Approval block)
+    let elementY = currentY + 6;
 
     if (hasIban || weroNumber) {
         const boxHeight = 32;
@@ -942,14 +1056,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
 
         // Box
-        doc.setDrawColor(200, 200, 200);
-        doc.setFillColor(248, 250, 252);
-        doc.rect(14, elementY, 180, boxHeight, 'FD');
+        doc.setDrawColor(...hairline);
+        doc.setLineWidth(0.2);
+        doc.setFillColor(...cardBg);
+        doc.roundedRect(14, elementY, 182, boxHeight, 1.5, 1.5, 'FD');
 
         // Title
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
+        doc.setTextColor(...ink);
         doc.text(`${L.paymentMethods} :`, 20, elementY + 8);
 
         doc.setFontSize(9);
@@ -1120,13 +1235,25 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
     }
 
-    // Pied de page
+    // ── Pied de page : filet accent, ligne légale, pagination ──
     const pageCount = doc.internal.getNumberOfPages();
+    const legalBits = [
+        companyName,
+        userProfile.full_name && userProfile.full_name !== companyName ? userProfile.full_name : null,
+        userProfile.city || null,
+        userProfile.siret ? `${L.siret} ${userProfile.siret}` : null,
+    ].filter(Boolean).join(' — ');
+    const vatMention = devis.include_tva === false ? ` — ${L.vatNotApplicable}` : '';
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(L.footer(isAmendment ? L.avenant : typeDocument), 105, 290, { align: 'center' });
+        doc.setDrawColor(...accent);
+        doc.setLineWidth(0.4);
+        doc.line(14, 284, 196, 284);
+        doc.setFontSize(6.8);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(...faint);
+        doc.text(`${legalBits}${vatMention}`, 105, 287.5, { align: 'center' });
+        doc.text(`${L.footer(isAmendment ? L.avenant : typeDocument)} — ${L.pageOf(i, pageCount)}`, 105, 291, { align: 'center' });
     }
 
     // ---------------------------------------------------------
