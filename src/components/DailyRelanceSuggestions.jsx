@@ -15,10 +15,11 @@ import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import {
-    Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2,
+    Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2, History,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuoteViewHistory from './QuoteViewHistory';
+import RelanceHistory from './RelanceHistory';
 
 const SNOOZE_OPTIONS = [
     { label: '3 jours', days: 3 },
@@ -56,6 +57,7 @@ const DailyRelanceSuggestions = () => {
     const [snoozeMenu, setSnoozeMenu] = useState(null); // { key, quotes, top, right }
     const [archiving, setArchiving] = useState({});
     const [historyQuoteId, setHistoryQuoteId] = useState(null);
+    const [relanceHistoryIds, setRelanceHistoryIds] = useState(null); // quote ids du groupe
 
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
@@ -308,6 +310,7 @@ const DailyRelanceSuggestions = () => {
                         ? Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24))
                         : 0;
                     const totalAmount = quotes.reduce((s, q) => s + (Number(q.total_ttc) || 0), 0);
+                    const pastRelances = quotes.reduce((s, q) => s + (q.follow_up_count || 0), 0);
 
                     return (
                         <div key={key} className="p-4">
@@ -353,6 +356,17 @@ const DailyRelanceSuggestions = () => {
                                             : (ref.title || 'Travaux')}
                                         <span className="font-semibold text-gray-700 dark:text-gray-300"> — {totalAmount.toFixed(0)} €</span>
                                     </p>
+                                    {pastRelances > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setRelanceHistoryIds(quotes.map(q => q.id))}
+                                            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
+                                            title="Voir l'historique des relances passées"
+                                        >
+                                            <History className="w-3 h-3" />
+                                            {pastRelances} relance{pastRelances > 1 ? 's' : ''} envoyée{pastRelances > 1 ? 's' : ''} — voir l'historique
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-2 shrink-0">
@@ -471,6 +485,14 @@ const DailyRelanceSuggestions = () => {
             <QuoteViewHistory
                 quoteId={historyQuoteId}
                 onClose={() => setHistoryQuoteId(null)}
+            />,
+            document.body
+        )}
+
+        {relanceHistoryIds && createPortal(
+            <RelanceHistory
+                quoteIds={relanceHistoryIds}
+                onClose={() => setRelanceHistoryIds(null)}
             />,
             document.body
         )}
