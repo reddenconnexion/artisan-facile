@@ -104,7 +104,7 @@ const PDF_I18N = {
         colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
         colUnitPriceShort: 'PU HT',
         optionPrefix: '(Option)',
-        tableLaborHeader: "Main d'œuvre & prestations", tableMaterialHeader: 'Fournitures et matériel',
+        tableLaborHeader: "Main d'œuvre", tableMaterialHeader: 'Fournitures et matériel',
         siteLabel: 'Chantier',
         sameAsClientAddress: "Identique à l'adresse client",
         offered: 'Offert',
@@ -548,11 +548,14 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         ? L.offered
         : fmtMoney((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0));
 
-    // Style commun : en-tête anthracite, filets discrets, montants alignés à droite
+    // Style commun : filets discrets, zébrage léger, montants alignés à droite.
+    // La couleur d'en-tête (bandeau + ligne Désignation) est fixée par tableau :
+    // rouge accent pour A — Main d'œuvre, noir pour B — Fournitures (cf. modèle).
+    const tableDark = [51, 51, 51];
     const baseTableStyle = {
         theme: 'grid',
         styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap', cellPadding: 2.2, lineColor: hairline, lineWidth: 0.15, textColor: ink },
-        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 8.5 },
+        alternateRowStyles: { fillColor: [249, 249, 249] },
         columnStyles: {
             0: { cellWidth: 'auto' },
             1: { cellWidth: 16, halign: 'right' },
@@ -562,11 +565,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         margin: { left: 14, right: 14 },
         tableWidth: 'auto',
     };
-    // Bandeau de section (lettré) au-dessus des libellés de colonnes
-    const sectionHead = (label) => ([
-        [{ content: label, colSpan: 4, styles: { fillColor: accent, textColor: 255, halign: 'left', fontSize: 9.5, fontStyle: 'bold', cellPadding: 2.4 } }],
-        tableColumn,
+    // Bandeau de section (lettré) au-dessus des libellés de colonnes, dans la
+    // même couleur que la ligne de libellés
+    const sectionHead = (label, color, columns = tableColumn) => ([
+        [{ content: label, colSpan: 4, styles: { fillColor: color, textColor: 255, halign: 'left', fontSize: 9.5, fontStyle: 'bold', cellPadding: 2.4 } }],
+        columns,
     ]);
+    const headStylesFor = (color) => ({ fillColor: color, textColor: 255, fontSize: 8.5, fontStyle: 'bold' });
     const styleOfferedCell = (data) => {
         if (data.section === 'body' && data.cell.raw === L.offered) {
             data.cell.styles.fontStyle = 'italic';
@@ -617,11 +622,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         };
 
         if (services.length > 0) {
+            const laborColumns = [L.colDescription, `${L.colQty} (h)`, L.colUnitPrice, L.colTotal];
             autoTable(doc, {
                 startY: currentTableY,
-                head: sectionHead(`${bothGroups ? 'A — ' : ''}${L.tableLaborHeader}`),
+                head: sectionHead(`${bothGroups ? 'A — ' : ''}${L.tableLaborHeader}`, accent, laborColumns),
                 body: buildGroupRows(i => i.type === 'service' || !i.type),
                 ...baseTableStyle,
+                headStyles: headStylesFor(accent),
                 didParseCell: styleOfferedCell,
             });
             currentTableY = doc.lastAutoTable.finalY + 6;
@@ -630,9 +637,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         if (materials.length > 0) {
             autoTable(doc, {
                 startY: currentTableY,
-                head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`),
+                head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`, tableDark),
                 body: buildGroupRows(i => i.type === 'material'),
                 ...baseTableStyle,
+                headStyles: headStylesFor(tableDark),
                 didParseCell: styleOfferedCell,
             });
             currentTableY = doc.lastAutoTable.finalY + 6;
