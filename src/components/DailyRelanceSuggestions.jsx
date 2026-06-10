@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useUserProfile, useInvalidateCache } from '../hooks/useDataCache';
@@ -16,6 +17,7 @@ import {
     Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import QuoteViewHistory from './QuoteViewHistory';
 
 const SNOOZE_OPTIONS = [
     { label: '3 jours', days: 3 },
@@ -51,6 +53,7 @@ const DailyRelanceSuggestions = () => {
     const [sending, setSending] = useState({});
     const [snoozing, setSnoozing] = useState({});
     const [snoozeOpen, setSnoozeOpen] = useState({});
+    const [historyQuoteId, setHistoryQuoteId] = useState(null);
 
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
@@ -227,6 +230,7 @@ const DailyRelanceSuggestions = () => {
     const totalCount = groups.length;
 
     return (
+        <>
         <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-amber-200/70 dark:border-amber-700/30 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-amber-100 dark:border-amber-900/30 bg-gradient-to-r from-amber-50 to-orange-50/40 dark:from-amber-900/20 dark:to-orange-900/10 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -290,9 +294,14 @@ const DailyRelanceSuggestions = () => {
                                         )}
                                         {engagement && (
                                             engagement.opened ? (
-                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 flex items-center gap-0.5" title="Le client a ouvert le devis ou une relance">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setHistoryQuoteId(ref.id)}
+                                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 flex items-center gap-0.5 cursor-pointer transition-colors"
+                                                    title="Voir l'historique des ouvertures"
+                                                >
                                                     <Eye className="w-2.5 h-2.5" /> consulté
-                                                </span>
+                                                </button>
                                             ) : (
                                                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 flex items-center gap-0.5" title="Aucune ouverture détectée">
                                                     <EyeOff className="w-2.5 h-2.5" /> non ouvert
@@ -402,6 +411,15 @@ const DailyRelanceSuggestions = () => {
                 })}
             </div>
         </div>
+
+        {historyQuoteId && createPortal(
+            <QuoteViewHistory
+                quoteId={historyQuoteId}
+                onClose={() => setHistoryQuoteId(null)}
+            />,
+            document.body
+        )}
+        </>
     );
 };
 
