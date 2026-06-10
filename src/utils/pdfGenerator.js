@@ -283,7 +283,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             const roundedLogo = await buildRoundedLogoDataUrl(userProfile.logo_url);
             doc.addImage(roundedLogo, 'PNG', 14, 13.5, 16, 16);
             leftX = 34;
-        } catch (e) {
+        } catch {
             // Arrondi impossible (canvas indisponible) : on tente le logo brut
             try {
                 doc.addImage(userProfile.logo_url, 'PNG', 14, 13.5, 16, 16);
