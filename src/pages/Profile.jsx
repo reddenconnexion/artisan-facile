@@ -171,6 +171,7 @@ const Profile = () => {
         facebook_review_url: '',
         pages_jaunes_review_url: '',
         trade: 'general',
+        brand_color: '',
         iban: '',
         artisan_status: 'micro_entreprise',
         activity_type: 'services'
@@ -237,6 +238,7 @@ const Profile = () => {
                     facebook_review_url: data.facebook_review_url || '',
                     pages_jaunes_review_url: data.pages_jaunes_review_url || '',
                     trade: data.trade || 'general',
+                    brand_color: data.brand_color || '',
                     iban: data.iban || '',
                     wero_phone: data.wero_phone || '',
                     artisan_status: aiPrefs.artisan_status || 'micro_entreprise',
@@ -329,6 +331,7 @@ const Profile = () => {
                     facebook_review_url: formData.facebook_review_url,
                     pages_jaunes_review_url: formData.pages_jaunes_review_url,
                     trade: formData.trade,
+                    brand_color: formData.brand_color || null,
                     iban: formData.iban,
                     wero_phone: formData.wero_phone,
 
@@ -1034,6 +1037,28 @@ const Profile = () => {
                                     name="logo_url"
                                     value={formData.logo_url}
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Couleur de marque (PDF)</label>
+                                <div className="flex items-center space-x-3">
+                                    <input
+                                        type="color"
+                                        value={formData.brand_color || '#2563EB'}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, brand_color: e.target.value }))}
+                                        className="h-10 w-14 p-1 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer"
+                                        title="Couleur d'accent de vos devis et factures PDF"
+                                    />
+                                    {formData.brand_color && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, brand_color: '' }))}
+                                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
+                                        >
+                                            Revenir à la couleur par défaut
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Couleur d'accent de vos PDF (en-tête, totaux, sections). Par défaut : bleu pour les devis, vert pour les factures.</p>
                             </div>
                         </div>
                     </div>
