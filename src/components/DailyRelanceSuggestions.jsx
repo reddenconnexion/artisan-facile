@@ -9,12 +9,13 @@ import {
     getRelanceContext,
     recordFollowUp,
     snoozeRelance,
+    archiveQuote,
 } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import {
-    Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock,
+    Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuoteViewHistory from './QuoteViewHistory';
@@ -52,7 +53,8 @@ const DailyRelanceSuggestions = () => {
     const [expanded, setExpanded] = useState({});
     const [sending, setSending] = useState({});
     const [snoozing, setSnoozing] = useState({});
-    const [snoozeOpen, setSnoozeOpen] = useState({});
+    const [snoozeMenu, setSnoozeMenu] = useState(null); // { key, quotes, top, right }
+    const [archiving, setArchiving] = useState({});
     const [historyQuoteId, setHistoryQuoteId] = useState(null);
 
     const aiContext = useMemo(() => ({
@@ -153,7 +155,42 @@ const DailyRelanceSuggestions = () => {
             toast.error('Report impossible : ' + e.message);
         } finally {
             setSnoozing(prev => ({ ...prev, [key]: false }));
-            setSnoozeOpen(prev => ({ ...prev, [key]: false }));
+            setSnoozeMenu(null);
+        }
+    };
+
+    // Ouvre/ferme le menu « Reporter ». Positionné via portail (fixed) pour ne
+    // pas être rogné par l'overflow du panneau ni sortir de l'écran sur mobile.
+    const toggleSnoozeMenu = (e, key, quotes) => {
+        if (snoozeMenu?.key === key) {
+            setSnoozeMenu(null);
+            return;
+        }
+        const r = e.currentTarget.getBoundingClientRect();
+        setSnoozeMenu({
+            key,
+            quotes,
+            top: r.bottom + 4,
+            right: Math.max(8, window.innerWidth - r.right),
+        });
+    };
+
+    const handleArchive = async (key, quotes) => {
+        const label = quotes.length > 1
+            ? `${quotes.length} devis seront archivés et ne seront plus relancés. Continuer ?`
+            : 'Ce devis sera archivé et ne sera plus relancé. Continuer ?';
+        if (!window.confirm(label)) return;
+
+        setArchiving(prev => ({ ...prev, [key]: true }));
+        try {
+            await Promise.all(quotes.map(q => archiveQuote(q.id, user.id)));
+            toast.success(quotes.length > 1 ? 'Devis archivés' : 'Devis archivé');
+            removeGroup(key);
+            invalidateQuotes(); // rafraîchit le compteur "Devis à relancer" du tableau de bord
+        } catch (e) {
+            toast.error('Archivage impossible : ' + e.message);
+        } finally {
+            setArchiving(prev => ({ ...prev, [key]: false }));
         }
     };
 
@@ -263,6 +300,7 @@ const DailyRelanceSuggestions = () => {
                     const isGenerating = !!generating[key];
                     const isSending = !!sending[key];
                     const isSnoozing = !!snoozing[key];
+                    const isArchiving = !!archiving[key];
                     const stepLabel = ref.next_step?.label || 'Relance';
                     const engagement = openMap[ref.id];
                     const dueDate = ref.next_step?.due_date ? new Date(ref.next_step.due_date) : null;
@@ -318,31 +356,26 @@ const DailyRelanceSuggestions = () => {
                                 </div>
 
                                 <div className="flex items-center gap-2 shrink-0">
+                                    {/* Archiver */}
+                                    <button
+                                        onClick={() => handleArchive(key, quotes)}
+                                        disabled={isArchiving}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 bg-gray-50 dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-60"
+                                        title={quotes.length > 1 ? 'Archiver ces devis' : 'Archiver ce devis'}
+                                    >
+                                        {isArchiving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                    </button>
+
                                     {/* Reporter */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setSnoozeOpen(prev => ({ ...prev, [key]: !prev[key] }))}
-                                            disabled={isSnoozing}
-                                            className="px-2.5 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-1"
-                                            title="Reporter la relance"
-                                        >
-                                            {isSnoozing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarClock className="w-3.5 h-3.5" />}
-                                            <span className="hidden sm:inline">Reporter</span>
-                                        </button>
-                                        {snoozeOpen[key] && (
-                                            <div className="absolute right-0 mt-1 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[130px]">
-                                                {SNOOZE_OPTIONS.map(opt => (
-                                                    <button
-                                                        key={opt.days}
-                                                        onClick={() => handleSnooze(key, quotes, opt.days)}
-                                                        className="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                    >
-                                                        {opt.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <button
+                                        onClick={(e) => toggleSnoozeMenu(e, key, quotes)}
+                                        disabled={isSnoozing}
+                                        className="px-2.5 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-1"
+                                        title="Reporter la relance"
+                                    >
+                                        {isSnoozing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarClock className="w-3.5 h-3.5" />}
+                                        <span className="hidden sm:inline">Reporter</span>
+                                    </button>
 
                                     {/* Préparer / Modifier */}
                                     {!draft ? (
@@ -411,6 +444,28 @@ const DailyRelanceSuggestions = () => {
                 })}
             </div>
         </div>
+
+        {snoozeMenu && createPortal(
+            <>
+                {/* Fond transparent pour fermer au clic en dehors */}
+                <div className="fixed inset-0 z-40" onClick={() => setSnoozeMenu(null)} />
+                <div
+                    className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[130px]"
+                    style={{ top: snoozeMenu.top, right: snoozeMenu.right }}
+                >
+                    {SNOOZE_OPTIONS.map(opt => (
+                        <button
+                            key={opt.days}
+                            onClick={() => handleSnooze(snoozeMenu.key, snoozeMenu.quotes, opt.days)}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </>,
+            document.body
+        )}
 
         {historyQuoteId && createPortal(
             <QuoteViewHistory
