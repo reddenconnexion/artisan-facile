@@ -275,15 +275,22 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const cardBg = [246, 247, 249];   // fonds de cartouches
 
     // ── En-tête épuré : identité à gauche, cartouche document à droite ──
+    // Logo discret (16 mm, coins arrondis) aligné sur le bloc identité.
     let leftX = 14;
     let cursorY = 19;
     if (userProfile.logo_url) {
         try {
             const roundedLogo = await buildRoundedLogoDataUrl(userProfile.logo_url);
-            doc.addImage(roundedLogo, 'PNG', 14, 13, 19, 19);
-            leftX = 38;
+            doc.addImage(roundedLogo, 'PNG', 14, 13.5, 16, 16);
+            leftX = 34;
         } catch (e) {
-            console.warn("Could not add logo image to PDF", e);
+            // Arrondi impossible (canvas indisponible) : on tente le logo brut
+            try {
+                doc.addImage(userProfile.logo_url, 'PNG', 14, 13.5, 16, 16);
+                leftX = 34;
+            } catch (e2) {
+                console.warn("Could not add logo image to PDF", e2);
+            }
         }
     }
 
