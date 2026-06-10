@@ -107,6 +107,13 @@ const DevisForm = () => {
     const [showViewHistory, setShowViewHistory] = useState(false);
     const [viewCount, setViewCount] = useState(0);
 
+    // Versions archivées (table quote_versions) — chaque version envoyée au client
+    // est conservée ; un devis envoyé ne peut plus être modifié silencieusement.
+    const [quoteVersions, setQuoteVersions] = useState([]);
+    const [versionPdfLoading, setVersionPdfLoading] = useState(null);
+    // L'artisan a explicitement déverrouillé un devis envoyé pour créer une nouvelle version
+    const [revisionUnlocked, setRevisionUnlocked] = useState(false);
+
     // --- Chronométrage et essai IA ---
     // Heure de début de création (ref pour ne pas déclencher de re-render)
     const creationStartRef = useRef(Date.now());
@@ -862,6 +869,14 @@ const DevisForm = () => {
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
 
+                // Versions archivées du document (envois, modifications, restaurations)
+                supabase
+                    .from('quote_versions')
+                    .select('id, version_number, reason, created_at, pdf_url, snapshot')
+                    .eq('quote_id', id)
+                    .order('version_number', { ascending: false })
+                    .then(({ data: versions }) => setQuoteVersions(versions || []));
+
                 // Load follow-up steps for the "Marquer comme relancé" button
                 if (data.status === 'sent') {
                     getFollowUpSettings(user.id).then(settings => {
@@ -1342,6 +1357,10 @@ const DevisForm = () => {
 
         setEmailPreview(null);
 
+        // Archive la version transmise (instantané + PDF figé) et passe le devis
+        // en "envoyé" : c'est cette archive qui fait foi en cas de modification ultérieure.
+        archiveSentVersion().catch(err => console.error('Sent version archive failed:', err));
+
         // After send: nudge user to enable push notifications if not yet subscribed
         if (isPushSupported && !isPushSubscribed) {
             setTimeout(() => {
@@ -1359,6 +1378,148 @@ const DevisForm = () => {
                 });
             }, 1500);
         }
+    };
+
+    // Archive la version envoyée au client : instantané complet du devis + PDF
+    // figé dans le storage. C'est la référence en cas de litige ou de modification.
+    const archiveSentVersion = async () => {
+        if (!id || id === 'new') return;
+        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+
+        const snapshot = {
+            id: parseInt(id, 10),
+            user_id: user.id,
+            client_id: formData.client_id,
+            client_name: selectedClient?.name || 'Client',
+            quote_number: formData.quote_number || null,
+            title: formData.title,
+            date: formData.date,
+            valid_until: formData.valid_until || null,
+            status: 'sent',
+            type: formData.type,
+            items: formData.items.map(i => ({
+                ...i,
+                quantity: parseFloat(i.quantity) || 0,
+                price: parseFloat(i.price) || 0,
+                buying_price: parseFloat(i.buying_price) || 0,
+            })),
+            total_ht: subtotal,
+            total_tva: tva,
+            total_ttc: total,
+            include_tva: formData.include_tva,
+            notes: formData.notes,
+            has_material_deposit: formData.has_material_deposit,
+            amendment_details: formData.amendment_details || {},
+            parent_quote_id: formData.parent_quote_id || null,
+            content_en: formData.content_en || null,
+        };
+
+        // Ré-envoi à l'identique : ne pas dupliquer l'archive existante
+        const latest = quoteVersions[0];
+        const sameAsLatest = latest
+            && JSON.stringify(latest.snapshot?.items) === JSON.stringify(snapshot.items)
+            && Number(latest.snapshot?.total_ttc) === Number(snapshot.total_ttc)
+            && (latest.snapshot?.notes || '') === (snapshot.notes || '');
+
+        if (!sameAsLatest) {
+            // PDF figé — l'instantané reste archivé même si la génération échoue
+            let pdfUrl = null;
+            try {
+                const blob = await generateDevisPDF(snapshot, selectedClient || { name: snapshot.client_name }, userProfile, formData.type === 'invoice', 'blob');
+                const pdfPath = `${user.id}/versions/devis-${id}-${Date.now()}.pdf`;
+                const { error: uploadError } = await supabase.storage
+                    .from('quote_files')
+                    .upload(pdfPath, blob, { contentType: 'application/pdf' });
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage.from('quote_files').getPublicUrl(pdfPath);
+                    pdfUrl = publicUrl;
+                }
+            } catch (pdfErr) {
+                console.error('Sent PDF archive failed:', pdfErr);
+            }
+
+            const { data: maxRow } = await supabase
+                .from('quote_versions')
+                .select('version_number')
+                .eq('quote_id', id)
+                .order('version_number', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const { data: inserted, error } = await supabase
+                .from('quote_versions')
+                .insert([{
+                    quote_id: parseInt(id, 10),
+                    user_id: user.id,
+                    version_number: (maxRow?.version_number || 0) + 1,
+                    reason: 'sent',
+                    snapshot,
+                    pdf_url: pdfUrl,
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error archiving sent version:', error);
+            } else if (inserted) {
+                setQuoteVersions(prev => [inserted, ...prev]);
+            }
+        }
+
+        // L'envoi confirme le devis : un brouillon passe en "envoyé"
+        // (le trigger DB n'archive pas de doublon grâce à la déduplication).
+        if (formData.status === 'draft') {
+            const { error: statusError } = await supabase
+                .from('quotes')
+                .update({ status: 'sent', updated_at: new Date() })
+                .eq('id', id);
+            if (!statusError) {
+                setFormData(prev => ({ ...prev, status: 'sent' }));
+                setInitialStatus('sent');
+                setRevisionUnlocked(false);
+            }
+        }
+    };
+
+    // Ouvre le PDF d'une version archivée : le PDF figé s'il existe,
+    // sinon une régénération à partir de l'instantané.
+    const handleViewVersionPdf = async (version) => {
+        try {
+            setVersionPdfLoading(version.id);
+            if (version.pdf_url) {
+                let url = version.pdf_url;
+                if (url.includes('/quote_files/')) {
+                    const path = url.split('/quote_files/')[1];
+                    const { data: signed } = await supabase.storage
+                        .from('quote_files')
+                        .createSignedUrl(decodeURIComponent(path), 3600);
+                    if (signed?.signedUrl) url = signed.signedUrl;
+                }
+                window.open(url, '_blank');
+                return;
+            }
+            const snap = version.snapshot || {};
+            const snapClient = clients.find(c => c.id?.toString() === (snap.client_id ?? '').toString())
+                || { name: snap.client_name || 'Client' };
+            const blobUrl = await generateDevisPDF(snap, snapClient, userProfile, snap.type === 'invoice', 'bloburl');
+            window.open(blobUrl, '_blank');
+        } catch (err) {
+            console.error('Version PDF error:', err);
+            toast.error('Impossible d\'afficher le PDF de cette version');
+        } finally {
+            setVersionPdfLoading(null);
+        }
+    };
+
+    // Déverrouillage explicite d'un devis envoyé : l'artisan acte que la
+    // version transmise reste archivée et que le client verra la nouvelle version.
+    const handleUnlockRevision = async () => {
+        const ok = await confirm({
+            title: 'Modifier un devis envoyé',
+            message: "Ce devis a déjà été transmis au client. La version envoyée reste archivée dans l'historique des versions, et le lien client affichera la nouvelle version après enregistrement. Continuer ?",
+            confirmLabel: 'Créer une nouvelle version'
+        });
+        if (ok) setRevisionUnlocked(true);
     };
 
     const handleMarkAsFollowedUp = async () => {
@@ -2465,7 +2626,11 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     // Verrouillage si Signé/Facturé/Payé/Annulé
-    const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status);
+    // Un devis envoyé est verrouillé par défaut : la version transmise au client
+    // fait foi. L'artisan peut le déverrouiller explicitement (nouvelle version,
+    // l'ancienne restant archivée dans quote_versions).
+    const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status)
+        || (formData.status === 'sent' && !revisionUnlocked);
 
     if (isEditing && !dataLoaded) {
         return (
@@ -2524,13 +2689,91 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="p-1 bg-amber-100 rounded-full text-amber-600">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     </div>
-                    <div>
-                        <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Document Verrouillé</h4>
-                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                            Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
-                            Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
-                        </p>
-                    </div>
+                    {formData.status === 'sent' ? (
+                        <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Devis envoyé au client</h4>
+                            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                                La version transmise au client fait foi : les champs sont verrouillés pour éviter
+                                toute modification involontaire. Pour le réviser, créez une nouvelle version —
+                                la version envoyée restera archivée ci-dessous. Pour des travaux supplémentaires,
+                                préférez un avenant.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleUnlockRevision}
+                                    className="px-3 py-1.5 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg"
+                                >
+                                    Modifier (nouvelle version)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleCreateAvenant}
+                                    className="px-3 py-1.5 text-sm font-semibold text-amber-700 dark:text-amber-400 bg-white dark:bg-gray-900 border border-amber-300 hover:bg-amber-100 rounded-lg"
+                                >
+                                    Créer un avenant
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-400">Document Verrouillé</h4>
+                            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                                Ce document est <strong>{formData.status === 'accepted' ? 'signé' : 'clôturé'}</strong>. Pour garantir l'intégrité légale, les modifications sont désactivées.<br />
+                                Pour modifier le périmètre, veuillez créer un avenant ou repasser le statut en "Brouillon" (déconseillé si déjà envoyé).
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Historique des versions archivées — la trace de ce qui a été envoyé au client */}
+            {isEditing && quoteVersions.length > 0 && (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center mb-3">
+                        <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                        Versions archivées
+                    </h4>
+                    <ul className="space-y-2">
+                        {quoteVersions.map(v => {
+                            const reasonLabels = {
+                                sent: { label: 'Envoyée au client', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                                pre_modification: { label: 'Avant modification', cls: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' },
+                                restore: { label: 'Restaurée', cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' },
+                            };
+                            const reason = reasonLabels[v.reason] || reasonLabels.pre_modification;
+                            const versionTtc = parseFloat(v.snapshot?.total_ttc);
+                            return (
+                                <li key={v.id} className="flex items-center justify-between gap-3 text-sm">
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                        <span className="font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0">V{v.version_number}</span>
+                                        <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                            {new Date(v.created_at).toLocaleDateString('fr-FR')}
+                                        </span>
+                                        {!Number.isNaN(versionTtc) && (
+                                            <span className="font-medium text-gray-900 dark:text-gray-100 flex-shrink-0">
+                                                {versionTtc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                            </span>
+                                        )}
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${reason.cls}`}>
+                                            {reason.label}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleViewVersionPdf(v)}
+                                        disabled={versionPdfLoading === v.id}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg flex-shrink-0"
+                                    >
+                                        {versionPdfLoading === v.id
+                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            : <FileText className="w-3.5 h-3.5" />}
+                                        PDF
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 </div>
             )}
             {/* Bandeau "Essai IA actif" — visible pendant toute la session d'essai */}
@@ -4058,8 +4301,9 @@ Conditions de règlement : Paiement à réception de facture.`
                 />
             )}
 
-            {/* Mobile sticky bottom bar — Send + Save */}
-            {!isLocked && (
+            {/* Mobile sticky bottom bar — Send + Save (reste visible pour un devis
+                envoyé : ré-envoi et changement de statut restent possibles) */}
+            {(!isLocked || formData.status === 'sent') && (
                 <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-3 safe-area-bottom">
                     <button
                         type="button"
