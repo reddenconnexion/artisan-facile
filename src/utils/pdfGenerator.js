@@ -538,7 +538,6 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // ---------------------------------------------------------
 
     const allItems = devis.items || [];
-    const hasSections = allItems.some(i => i.type === 'section');
     const materials = allItems.filter(i => i.type === 'material');
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
 
@@ -578,53 +577,50 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Track current Y position for multiple tables
     let currentTableY = tableStartY;
 
-    if (hasSections) {
-        // Tableau unique : les sections personnalisées deviennent des bandeaux
-        // pleins en couleur d'accent (même rendu que les sections lettrées A/B),
-        // les lignes restent blanches et épurées.
-        const rows = allItems.map(item => {
-            const desc = trLine(item.description || '');
-            if (item.type === 'section') {
-                return [{
-                    content: desc || '—',
-                    colSpan: 4,
-                    styles: { fontStyle: 'bold', fillColor: accent, textColor: 255, halign: 'left', fontSize: 9.5, cellPadding: 2.4 }
-                }];
-            }
-            return [
-                item.is_optional ? `${L.optionPrefix} ${desc}` : desc,
-                item.quantity ?? '',
-                unitPriceCell(item),
-                lineTotalCell(item)
-            ];
-        });
-
-        autoTable(doc, {
-            startY: currentTableY,
-            head: [tableColumn],
-            body: rows,
-            ...baseTableStyle,
-            didParseCell: styleOfferedCell,
-        });
-
-        currentTableY = doc.lastAutoTable.finalY + 8;
-    } else {
-        // Tableaux lettrés : A — Main d'œuvre, B — Fournitures (lettre seulement si les deux existent)
+    {
+        // Tableaux lettrés : A — Main d'œuvre, B — Fournitures (lettre seulement si
+        // les deux existent). Les sections personnalisées du devis deviennent des
+        // sous-titres teintés à l'intérieur du groupe où se trouvent leurs lignes.
         const services = allItems.filter(i => i.type === 'service' || !i.type);
         const bothGroups = services.length > 0 && materials.length > 0;
 
-        const generateRows = (items) => items.map(item => [
+        const itemRow = (item) => [
             item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || ''),
             item.quantity,
             unitPriceCell(item),
             lineTotalCell(item)
-        ]);
+        ];
+        // Parcourt tous les items dans l'ordre : émet les lignes du type demandé,
+        // précédées du sous-titre de leur section personnalisée (une seule fois
+        // par section et par tableau, même si la section mélange les types).
+        const buildGroupRows = (matches) => {
+            const rows = [];
+            let currentSection = null;
+            let emittedSection = null;
+            for (const item of allItems) {
+                if (item.type === 'section') {
+                    currentSection = trLine(item.description || '').trim();
+                    continue;
+                }
+                if (!matches(item)) continue;
+                if (currentSection && currentSection !== emittedSection) {
+                    rows.push([{
+                        content: currentSection,
+                        colSpan: 4,
+                        styles: { fontStyle: 'bold', fillColor: accentTint, textColor: accent, halign: 'left', fontSize: 9 }
+                    }]);
+                    emittedSection = currentSection;
+                }
+                rows.push(itemRow(item));
+            }
+            return rows;
+        };
 
         if (services.length > 0) {
             autoTable(doc, {
                 startY: currentTableY,
                 head: sectionHead(`${bothGroups ? 'A — ' : ''}${L.tableLaborHeader}`),
-                body: generateRows(services),
+                body: buildGroupRows(i => i.type === 'service' || !i.type),
                 ...baseTableStyle,
                 didParseCell: styleOfferedCell,
             });
@@ -635,7 +631,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             autoTable(doc, {
                 startY: currentTableY,
                 head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`),
-                body: generateRows(materials),
+                body: buildGroupRows(i => i.type === 'material'),
                 ...baseTableStyle,
                 didParseCell: styleOfferedCell,
             });
@@ -753,7 +749,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
         const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
         const sumHT = (items) => items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.price) || 0), 0);
-        const showSubtotals = !hasSections && laborItems.length > 0 && materials.length > 0;
+        const showSubtotals = laborItems.length > 0 && materials.length > 0;
 
         const totalsRows = [];
         if (showSubtotals) {
