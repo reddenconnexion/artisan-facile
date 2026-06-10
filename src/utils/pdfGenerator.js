@@ -549,6 +549,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 data.cell.styles.fillColor = item.type === 'material'
                     ? [255, 237, 213]   // orange clair → matériel
                     : [219, 234, 254];  // bleu clair   → MO / prestation
+                // La bande colorée (didDrawCell) occupe 2,5 mm sur le bord gauche :
+                // le texte de la description démarre après pour ne pas être masqué.
+                if (data.column.index === 0) {
+                    const defaultPadding = 5 / doc.internal.scaleFactor;
+                    data.cell.styles.cellPadding = {
+                        top: defaultPadding,
+                        right: defaultPadding,
+                        bottom: defaultPadding,
+                        left: 4.5,
+                    };
+                }
             },
             didDrawCell: (data) => {
                 if (data.section !== 'body') return;
