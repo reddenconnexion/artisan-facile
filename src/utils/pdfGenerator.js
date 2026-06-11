@@ -1003,6 +1003,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     // Notes / Conditions Display
     if (allNotes) {
+        // La taille de police doit être fixée AVANT splitTextToSize : le découpage
+        // mesure la largeur avec la police courante. Sans ça, le texte hérite d'une
+        // police plus petite (8pt) du bloc précédent, est découpé trop large, puis
+        // rendu en 10pt — et dépasse alors la marge droite.
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
         const splitNotes = doc.splitTextToSize(allNotes, 180);
 
         // Check if header fits on current page
@@ -1011,7 +1017,6 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             currentY = 20;
         }
 
-        doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text(`${L.notesConditions} :`, 14, currentY);
         currentY += 6;
@@ -1229,9 +1234,14 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         legalTerms.splice(1, 0, L.legalTechnical);
     }
 
+    // Réaffirme la police avant de mesurer : un tableau d'échéances (autoTable)
+    // ou le bloc de paiement précédent a pu changer la taille courante, ce qui
+    // ferait déborder les mentions hors de la marge droite.
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(110, 110, 110);
+
     for (const term of legalTerms) {
-        // Roughly estimate height: 180 width, ~240 chars per line at size 7? 
-        // Actually size 7 is small. 
         const splitTerm = doc.splitTextToSize(term, 180);
         const termHeight = splitTerm.length * 3 + 2; // 3 units per line height
 
