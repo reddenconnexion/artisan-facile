@@ -117,6 +117,8 @@ const PDF_I18N = {
         depositOnOrder: 'Acompte à la commande (100 % des fournitures)',
         balanceOnCompletion: "Solde à la fin des travaux (main d'œuvre)",
         depositSentence: "L'acompte correspondant aux fournitures doit être réglé avant tout approvisionnement du matériel. Le solde est dû à la réception des travaux.",
+        depositOnSignature: (pct) => `Acompte à la signature (${pct} %)`,
+        depositSentenceGeneric: "L'acompte est dû à la signature du devis. Le solde est dû à la réception des travaux.",
         forCompany: (name) => `Pour ${name}`,
         clientApproval: 'Bon pour accord — le client',
         readApproved: 'Date et mention « Lu et approuvé » :',
@@ -195,6 +197,8 @@ const PDF_I18N = {
         depositOnOrder: 'Deposit on order (100% of materials)',
         balanceOnCompletion: 'Balance on completion of works (labour)',
         depositSentence: 'The deposit covering the materials must be paid before any material is ordered. The balance is due upon completion of the works.',
+        depositOnSignature: (pct) => `Deposit on signature (${pct}%)`,
+        depositSentenceGeneric: 'The deposit is due upon signature of the quote. The balance is due upon completion of the works.',
         forCompany: (name) => `For ${name}`,
         clientApproval: 'Approved — the client',
         readApproved: 'Date and mention "Read and approved":',
@@ -847,6 +851,54 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         const depositRows = [
             [L.depositOnOrder, fmtMoney(materialTTC), true],
+            [L.balanceOnCompletion, fmtMoney(balanceTTC), false],
+        ];
+        depositRows.forEach(([label, value, highlight]) => {
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...subtle);
+            doc.text(label, 14, currentY + 2.5);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...(highlight ? accent : ink));
+            doc.text(value, 196, currentY + 2.5, { align: 'right' });
+            doc.setDrawColor(...hairline);
+            doc.setLineWidth(0.15);
+            doc.line(14, currentY + 5, 196, currentY + 5);
+            currentY += 7;
+        });
+
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'italic');
+        doc.setTextColor(...subtle);
+        doc.text(sentenceLines, 14, currentY + 3);
+        currentY += sentenceLines.length * 3.6 + 8;
+    }
+
+    // ── Conditions de règlement (acompte en % du total) : tableau acompte / solde ──
+    // Affiché pour les devis avec un acompte demandé, sauf si le tableau d'acompte
+    // matériel ci-dessus est déjà rendu (pour éviter deux tableaux contradictoires).
+    const materialDepositShown = !isInvoice && materials.length > 0 && devis.has_material_deposit === true;
+    const depositPct = Number(devis.deposit_percentage) || 0;
+    if (!isInvoice && !materialDepositShown && depositPct > 0) {
+        const totalTTC = Number(devis.total_ttc) || 0;
+        const depositTTC = totalTTC * depositPct / 100;
+        const balanceTTC = Math.max(totalTTC - depositTTC, 0);
+
+        const sentenceLines = doc.splitTextToSize(L.depositSentenceGeneric, 182);
+        const depositBlockH = 8 + 2 * 7 + sentenceLines.length * 3.6 + 6;
+        if (currentY + depositBlockH > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...ink);
+        doc.text(L.paymentConditions, 14, currentY);
+        currentY += 5.5;
+
+        const depositRows = [
+            [L.depositOnSignature(depositPct), fmtMoney(depositTTC), true],
             [L.balanceOnCompletion, fmtMoney(balanceTTC), false],
         ];
         depositRows.forEach(([label, value, highlight]) => {

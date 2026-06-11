@@ -383,6 +383,7 @@ const DevisForm = () => {
         operation_category: 'service',
         vat_on_debits: false,
         has_material_deposit: true,
+        deposit_percentage: 0,
         intervention_address: '',
         intervention_postal_code: '',
         intervention_city: '',
@@ -815,6 +816,7 @@ const DevisForm = () => {
                     follow_up_count: data.follow_up_count || 0,
                     updated_at: data.updated_at || null,
                     has_material_deposit: data.has_material_deposit !== false,
+                    deposit_percentage: data.deposit_percentage || 0,
                     intervention_address: data.intervention_address || '',
                     intervention_postal_code: data.intervention_postal_code || '',
                     intervention_city: data.intervention_city || '',
@@ -1409,6 +1411,7 @@ const DevisForm = () => {
             include_tva: formData.include_tva,
             notes: formData.notes,
             has_material_deposit: formData.has_material_deposit,
+            deposit_percentage: formData.deposit_percentage || 0,
             amendment_details: formData.amendment_details || {},
             parent_quote_id: formData.parent_quote_id || null,
             content_en: formData.content_en || null,
@@ -1611,6 +1614,7 @@ const DevisForm = () => {
                 original_pdf_url: formData.original_pdf_url,
                 is_external: formData.is_external,
                 has_material_deposit: formData.has_material_deposit,
+                deposit_percentage: formData.deposit_percentage || 0,
                 intervention_address: formData.intervention_address,
                 intervention_postal_code: formData.intervention_postal_code,
 
@@ -4032,6 +4036,29 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Demander un acompte matériel
                                 </label>
                             </div>
+                            <div className="flex items-center justify-end gap-2 mb-4">
+                                <label htmlFor="deposit_percentage" className="block text-sm text-gray-900 dark:text-white">
+                                    Acompte à la signature
+                                </label>
+                                <div className="relative w-20">
+                                    <input
+                                        type="number"
+                                        id="deposit_percentage"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        className="h-8 w-full text-right pr-6 text-sm rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                        value={formData.deposit_percentage || ''}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                            const v = e.target.value === '' ? 0 : Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                                            setFormData({ ...formData, deposit_percentage: v });
+                                        }}
+                                        disabled={isLocked}
+                                    />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">%</span>
+                                </div>
+                            </div>
                             <div className="flex justify-between text-gray-600 dark:text-gray-400">
                                 <span>Total HT</span>
                                 <span>{subtotal.toFixed(2)} €</span>
@@ -4124,6 +4151,26 @@ Conditions de règlement : Paiement à réception de facture.`
                                         return mTTC.toFixed(2);
                                     })()} € TTC) est requis à la signature."
                                 </span>
+                            </div>
+                        </div>
+                    )}
+                    {/* Aperçu acompte en % du total (devis sans acompte matériel actif) */}
+                    {formData.type !== 'invoice' && (Number(formData.deposit_percentage) || 0) > 0 &&
+                        !(formData.items.some(i => i.type === 'material') && formData.has_material_deposit) && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                            <div className="mt-0.5"><Star className="w-4 h-4" /></div>
+                            <div>
+                                <strong>Conditions de règlement : Acompte</strong><br />
+                                {(() => {
+                                    const pct = Number(formData.deposit_percentage) || 0;
+                                    const dep = total * pct / 100;
+                                    const solde = Math.max(total - dep, 0);
+                                    return (
+                                        <span className="italic opacity-80">
+                                            Acompte à la signature ({pct} %) : {dep.toFixed(2)} € TTC — Solde à la fin des travaux : {solde.toFixed(2)} € TTC. Cette mention sera ajoutée au PDF.
+                                        </span>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )}
