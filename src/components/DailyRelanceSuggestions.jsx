@@ -80,20 +80,22 @@ const DailyRelanceSuggestions = () => {
             const filtered = (data || []).filter(q => !isTestQuote(q));
             setDueQuotes(filtered);
 
-            // Engagement e-mail : une seule requête pour tous les devis dus.
+            // Engagement : le client a-t-il vu le devis ? On combine deux signaux
+            // distincts pour éviter les incohérences (ex. « non ouvert » alors que
+            // le devis a été vu plusieurs fois) :
+            //  - email_send_stats : ouvertures de l'e-mail de relance (pixel)
+            //  - quote_views      : ouvertures de la page du devis (lien partagé)
             const ids = filtered.map(q => q.id);
             if (ids.length > 0) {
-                const { data: stats } = await supabase
-                    .from('email_send_stats')
-                    .select('quote_id, open_count')
-                    .in('quote_id', ids);
+                const [{ data: stats }, { data: views }] = await Promise.all([
+                    supabase.from('email_send_stats').select('quote_id, open_count').in('quote_id', ids),
+                    supabase.from('quote_views').select('quote_id').in('quote_id', ids),
+                ]);
                 const map = {};
-                (stats || []).forEach(s => {
-                    const cur = map[s.quote_id] || { opened: false, openCount: 0 };
-                    cur.openCount += s.open_count || 0;
-                    cur.opened = cur.openCount > 0;
-                    map[s.quote_id] = cur;
-                });
+                const ensure = (qid) => (map[qid] = map[qid] || { opened: false, emailOpens: 0, viewCount: 0 });
+                (stats || []).forEach(s => { ensure(s.quote_id).emailOpens += s.open_count || 0; });
+                (views || []).forEach(v => { ensure(v.quote_id).viewCount += 1; });
+                Object.values(map).forEach(c => { c.opened = c.emailOpens > 0 || c.viewCount > 0; });
                 setOpenMap(map);
             } else {
                 setOpenMap({});
