@@ -33,6 +33,30 @@ function pixelResponse() {
     return new Response(TRANSPARENT_PNG, { status: 200, headers: pixelHeaders });
 }
 
+// ── Détection des ouvertures automatiques (non humaines) ────────────────────
+// Le pixel est massivement déclenché par des agents qui chargent les images
+// sans action du destinataire : proxy Gmail (GoogleImageProxy/ggpht),
+// passerelles de sécurité (Proofpoint, Mimecast, Barracuda…), bots de
+// prévisualisation de lien (Outlook SafeLinks "Edge/12.246", facebookexternalhit,
+// Slackbot…). On les marque `is_bot` pour qu'ils n'inflatent pas le compteur.
+const BOT_UA_RE =
+    /googleimageproxy|ggpht\.com|yahoo(mail)?proxy|mailproxy|bingpreview|facebookexternalhit|facebot|slackbot|slack-imgproxy|twitterbot|discordbot|telegrambot|whatsapp|linkedinbot|skypeuripreview|microsoft office|msoffice|microsoft-webdav|office365|proofpoint|mimecast|barracuda|ironport|forcepoint|fireeye|trustwave|cloudmark|messagelabs|symantec|crawler|spider|\bbot\b|bot\/|curl\/|wget|python-requests|go-http-client|java\/|okhttp|node-fetch|axios|headlesschrome|phantomjs|edge\/12\.246/i;
+
+// Une ouverture survenue dans les 10 s suivant l'envoi provient quasi-
+// systématiquement d'une passerelle de sécurité qui scanne le mail à la
+// livraison, pas du destinataire.
+const PREFETCH_WINDOW_MS = 10_000;
+
+function isBotOpen(userAgent: string | null, sentAt: string | null): boolean {
+    if (!userAgent || userAgent.trim() === '') return true;
+    if (BOT_UA_RE.test(userAgent)) return true;
+    if (sentAt) {
+        const delta = Date.now() - new Date(sentAt).getTime();
+        if (delta >= 0 && delta <= PREFETCH_WINDOW_MS) return true;
+    }
+    return false;
+}
+
 Deno.serve(async (req) => {
     // Quel que soit le résultat de l'enregistrement, on renvoie toujours le
     // pixel — on ne veut surtout pas casser l'affichage du mail côté client.
@@ -54,7 +78,7 @@ Deno.serve(async (req) => {
 
         const { data: send } = await supabase
             .from('email_sends')
-            .select('id')
+            .select('id, sent_at')
             .eq('tracking_token', token)
             .maybeSingle();
 
@@ -68,6 +92,7 @@ Deno.serve(async (req) => {
                 email_send_id: send.id,
                 user_agent: userAgent,
                 ip_address: ip,
+                is_bot: isBotOpen(userAgent, send.sent_at ?? null),
             });
         }
     } catch (err) {
