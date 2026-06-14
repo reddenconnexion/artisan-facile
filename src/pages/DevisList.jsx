@@ -243,7 +243,7 @@ const DevisList = () => {
         if (!stats?.email_send_id) return;
         const { data, error } = await supabase
             .from('email_opens')
-            .select('opened_at, user_agent, ip_address')
+            .select('opened_at, user_agent, ip_address, is_bot')
             .eq('email_send_id', stats.email_send_id)
             .order('opened_at', { ascending: false });
         if (error) {
@@ -1054,9 +1054,20 @@ const DevisList = () => {
                                     <MailOpen className="w-5 h-5 text-emerald-500" />
                                     Historique d'ouverture
                                 </h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {openHistoryModal.opens.length} ouverture{openHistoryModal.opens.length > 1 ? 's' : ''} détectée{openHistoryModal.opens.length > 1 ? 's' : ''}
-                                </p>
+                                {(() => {
+                                    const genuine = openHistoryModal.opens.filter(o => !o.is_bot).length;
+                                    const bots = openHistoryModal.opens.length - genuine;
+                                    return (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            {genuine} ouverture{genuine > 1 ? 's' : ''} client{genuine > 1 ? 's' : ''}
+                                            {bots > 0 && (
+                                                <span className="text-gray-400 dark:text-gray-500">
+                                                    {' · '}{bots} automatique{bots > 1 ? 's' : ''} (ignorée{bots > 1 ? 's' : ''})
+                                                </span>
+                                            )}
+                                        </p>
+                                    );
+                                })()}
                             </div>
                             <button
                                 onClick={() => setOpenHistoryModal(null)}
@@ -1073,13 +1084,18 @@ const DevisList = () => {
                             ) : (
                                 <ul className="space-y-3">
                                     {openHistoryModal.opens.map((o, i) => (
-                                        <li key={i} className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                                            <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                                                <MailOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        <li key={i} className={`flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800 last:border-0 ${o.is_bot ? 'opacity-60' : ''}`}>
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${o.is_bot ? 'bg-gray-100 dark:bg-gray-800' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                                                <MailOpen className={`w-3.5 h-3.5 ${o.is_bot ? 'text-gray-400 dark:text-gray-500' : 'text-emerald-600 dark:text-emerald-400'}`} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                                                     {new Date(o.opened_at).toLocaleString('fr-FR')}
+                                                    {o.is_bot && (
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                                            Automatique
+                                                        </span>
+                                                    )}
                                                 </p>
                                                 {o.user_agent && (
                                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate" title={o.user_agent}>
@@ -1092,7 +1108,7 @@ const DevisList = () => {
                                 </ul>
                             )}
                             <p className="mt-4 text-[11px] text-gray-400 dark:text-gray-500 italic">
-                                ⓘ Certains clients mail (Gmail web notamment) chargent les images via un proxy — l'ouverture est détectée mais l'IP/adresse n'est pas celle du destinataire final.
+                                ⓘ Les ouvertures « automatiques » (proxy d'images Gmail, antivirus/passerelles de sécurité, aperçus de lien) sont détectées puis écartées du compteur : seules les ouvertures réelles du client sont comptabilisées. Le filtrage reste indicatif et peut ne pas être exhaustif.
                             </p>
                         </div>
                     </div>
