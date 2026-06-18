@@ -86,6 +86,10 @@ const DevisForm = () => {
     const [showCalculator, setShowCalculator] = useState(false);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
+    // Quand le modal s'ouvre automatiquement après l'envoi/paiement, on renvoie
+    // l'utilisateur vers la liste à la fermeture. Lorsqu'il l'ouvre manuellement
+    // (bouton "Demander un avis"), on reste sur la facture en cours.
+    const [reviewNavigateOnClose, setReviewNavigateOnClose] = useState(true);
     const [initialStatus, setInitialStatus] = useState('draft');
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
@@ -1823,6 +1827,7 @@ const DevisForm = () => {
                 const titleLower = (formData.title || '').toLowerCase();
                 const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
                 if (!isIntermediateInvoice) {
+                    setReviewNavigateOnClose(true);
                     setShowReviewRequestModal(true);
                     setInitialStatus(formData.status);
                     // Don't navigate yet, let user see the modal
@@ -2922,6 +2927,18 @@ Conditions de règlement : Paiement à réception de facture.`
                         </button>
                     )}
 
+                    {formData.type === 'invoice' && id && id !== 'new' && formData.client_id && userProfile?.google_review_url && (
+                        <button
+                            type="button"
+                            onClick={() => { setReviewNavigateOnClose(false); setShowReviewRequestModal(true); }}
+                            className="flex items-center px-3 sm:px-4 py-2 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 rounded-lg hover:bg-yellow-100 font-medium transition-colors"
+                            title="Demander un avis Google au client"
+                        >
+                            <Star className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Demander un avis</span>
+                        </button>
+                    )}
+
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
@@ -3089,7 +3106,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
                                 {['accepted', 'paid', 'billed'].includes(formData.status) && (
                                     <button
-                                        onClick={() => { setShowReviewRequestModal(true); setShowActionsMenu(false); }}
+                                        onClick={() => { setReviewNavigateOnClose(false); setShowReviewRequestModal(true); setShowActionsMenu(false); }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
                                         <Star className="w-4 h-4 mr-3 text-yellow-500" />
@@ -4202,7 +4219,9 @@ Conditions de règlement : Paiement à réception de facture.`
                 isOpen={showReviewRequestModal}
                 onClose={() => {
                     setShowReviewRequestModal(false);
-                    navigate('/app/devis');
+                    if (reviewNavigateOnClose) {
+                        navigate('/app/devis');
+                    }
                 }}
                 client={clients.find(c => c.id == formData.client_id)}
                 userProfile={userProfile}
