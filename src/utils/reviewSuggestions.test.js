@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReviewSuggestions, buildReviewSMS } from './reviewSuggestions';
+import { buildReviewSuggestions, buildReviewSMS, resolveReviewCity } from './reviewSuggestions';
 
 describe('buildReviewSuggestions', () => {
     it('ne plante pas quand userProfile/client/intervention valent null', () => {
@@ -27,6 +27,64 @@ describe('buildReviewSuggestions', () => {
         });
         expect(variants[0]).toContain('Plomberie Dupont');
         expect(variants[0]).toContain('Lyon');
+    });
+    it('met en avant la ville du lieu d\'intervention plutôt que celle du client', () => {
+        const variants = buildReviewSuggestions({
+            userProfile: { company_name: 'Plomberie Dupont', trade: 'plombier' },
+            client: { city: 'Paris', address: '1 rue de Paris, 75001 Paris' },
+            intervention: { workDone: 'Réparation fuite', city: 'Lyon' },
+        });
+        expect(variants[0]).toContain('Lyon');
+        expect(variants[0]).not.toContain('Paris');
+    });
+
+    it('déduit la ville depuis l\'adresse d\'intervention quand la ville n\'est pas renseignée', () => {
+        const variants = buildReviewSuggestions({
+            userProfile: { company_name: 'Plomberie Dupont', trade: 'plombier' },
+            client: { city: 'Paris', address: '1 rue de Paris, 75001 Paris' },
+            intervention: { workDone: 'Réparation fuite', address: '12 rue des Lilas, 69001 Lyon' },
+        });
+        expect(variants[0]).toContain('Lyon');
+        expect(variants[0]).not.toContain('Paris');
+    });
+
+    it('n\'utilise pas la ville du client quand le chantier est ailleurs sans ville identifiable', () => {
+        const variants = buildReviewSuggestions({
+            userProfile: { company_name: 'Plomberie Dupont', trade: 'plombier' },
+            client: { city: 'Paris', address: '1 rue de Paris, 75001 Paris' },
+            intervention: { workDone: 'Réparation fuite', address: 'Chantier zone industrielle' },
+        });
+        expect(variants[0]).not.toContain('Paris');
+    });
+});
+
+describe('resolveReviewCity', () => {
+    it('priorise la ville d\'intervention explicite', () => {
+        expect(resolveReviewCity({
+            intervention: { city: 'Lyon', address: 'X' },
+            client: { city: 'Paris', address: 'Y' },
+        })).toBe('Lyon');
+    });
+
+    it('se rabat sur la ville du client quand aucun lieu d\'intervention distinct', () => {
+        expect(resolveReviewCity({
+            intervention: {},
+            client: { city: 'Paris' },
+        })).toBe('Paris');
+    });
+
+    it('utilise la ville du client si l\'adresse d\'intervention est identique', () => {
+        expect(resolveReviewCity({
+            intervention: { address: '1 rue de Paris, 75001 Paris' },
+            client: { city: 'Paris', address: '1 rue de Paris, 75001 Paris' },
+        })).toBe('Paris');
+    });
+
+    it('extrait la ville de l\'adresse d\'intervention quand elle diffère', () => {
+        expect(resolveReviewCity({
+            intervention: { address: '12 rue des Lilas, 69001 Lyon' },
+            client: { city: 'Paris', address: '1 rue de Paris, 75001 Paris' },
+        })).toBe('Lyon');
     });
 });
 

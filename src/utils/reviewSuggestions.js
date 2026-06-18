@@ -27,6 +27,44 @@ const cleanCity = (city) => {
     return c.split(' ').map(w => w.length > 2 ? cap(w.toLowerCase()) : w.toLowerCase()).join(' ');
 };
 
+// Tente d'extraire la ville d'une adresse libre française.
+// Cas couvert : "... 69001 Lyon" → "Lyon" (le texte qui suit le code postal).
+const extractCityFromAddress = (address) => {
+    if (!address) return '';
+    const oneLine = String(address).replace(/\s+/g, ' ').trim();
+    const match = oneLine.match(/\b\d{5}\b\s*[,-]?\s*(.+)$/);
+    if (match && match[1]) {
+        return match[1].replace(/[,;.]+$/, '').trim();
+    }
+    return '';
+};
+
+// Détermine la ville à mettre en avant dans l'avis Google.
+// Priorité au LIEU D'INTERVENTION : quand le chantier a lieu ailleurs que chez
+// le client, mentionner la ville du client fausserait le référencement local.
+export const resolveReviewCity = ({ intervention = {}, client = {} } = {}) => {
+    // 1. Ville d'intervention explicitement renseignée → prioritaire.
+    if (intervention.city) return intervention.city;
+
+    const interventionAddr = (intervention.address || '').trim();
+    const clientAddr = (client.address || '').trim();
+    const interventionElsewhere = Boolean(
+        interventionAddr && clientAddr && interventionAddr !== clientAddr
+    );
+
+    // 2. Une adresse d'intervention est renseignée : on en déduit la ville.
+    if (interventionAddr) {
+        const fromAddr = extractCityFromAddress(interventionAddr);
+        if (fromAddr) return fromAddr;
+        // Adresse présente mais ville non identifiable : si le chantier est
+        // ailleurs que chez le client, mieux vaut aucune ville qu'une fausse.
+        if (interventionElsewhere) return '';
+    }
+
+    // 3. Pas de lieu d'intervention distinct → chantier supposé chez le client.
+    return client.city || '';
+};
+
 const shortWorkSummary = (workDone, title) => {
     const raw = (workDone || title || '').trim();
     if (!raw) return '';
@@ -52,7 +90,7 @@ export const buildReviewSuggestions = ({ userProfile, client, intervention } = {
     const [primaryKw, secondaryKw] = tradeKeywords(trade);
     const tradeLabel = TRADE_CONFIG[trade]?.label?.split(' /')[0] || primaryKw;
 
-    const city = cleanCity(intervention.city || client.city);
+    const city = cleanCity(resolveReviewCity({ intervention, client }));
     const workSummary = shortWorkSummary(intervention.workDone, intervention.title);
     const locationPart = city ? ` à ${city}` : '';
     const workPart = workSummary ? ` pour ${workSummary.toLowerCase()}` : '';
