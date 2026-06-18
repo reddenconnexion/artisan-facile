@@ -3,7 +3,7 @@ import { X, Mail, MessageSquare, Copy, Star, RefreshCw, MapPin } from 'lucide-re
 import { toast } from 'sonner';
 import { useTestMode } from '../context/TestModeContext';
 import { useModalA11y } from '../hooks/useModalA11y';
-import { buildReviewSuggestions, buildReviewSMS } from '../utils/reviewSuggestions';
+import { buildReviewSuggestions, buildReviewSMS, resolveReviewCity } from '../utils/reviewSuggestions';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention = null }) => {
     const { isTestMode, captureEmail } = useTestMode();
@@ -23,7 +23,7 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
     const companyName = userProfile?.company_name || 'votre artisan';
     const suggestedReview = suggestions[variantIndex] || suggestions[0] || '';
 
-    const contextCity = intervention?.city || client?.city || '';
+    const contextCity = resolveReviewCity({ intervention: intervention || {}, client: client || {} });
     const isPersonalized = Boolean(intervention && (intervention.city || intervention.workDone || intervention.title));
 
     const emailSubject = `Votre avis compte pour ${companyName}`;
