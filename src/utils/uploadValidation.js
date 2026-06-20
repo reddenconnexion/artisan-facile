@@ -83,6 +83,32 @@ function matchesAnySignature(bytes, signatures) {
 }
 
 /**
+ * Recherche une signature binaire n'importe où dans une fenêtre d'octets.
+ * @returns {number} Offset de la première occurrence, ou -1 si absente
+ */
+function findSignature(bytes, sig, maxOffset = bytes.length) {
+    const limit = Math.min(bytes.length - sig.length, maxOffset);
+    for (let i = 0; i <= limit; i++) {
+        let ok = true;
+        for (let j = 0; j < sig.length; j++) {
+            if (bytes[i + j] !== sig[j]) { ok = false; break; }
+        }
+        if (ok) return i;
+    }
+    return -1;
+}
+
+/**
+ * Vérification PDF : l'en-tête "%PDF" doit normalement être au tout début, mais
+ * de nombreux PDF réels (export mobile, scanners, BOM/espaces parasites) le
+ * placent quelques octets plus loin. Les lecteurs PDF tolèrent jusqu'à ~1 Ko de
+ * contenu avant l'en-tête : on fait pareil pour ne pas rejeter de vrais PDF.
+ */
+function isPdf(bytes) {
+    return findSignature(bytes, [0x25, 0x50, 0x44, 0x46], 1024) !== -1; // "%PDF"
+}
+
+/**
  * Vérification spéciale WEBP : "RIFF????WEBP" (offset 8 = "WEBP")
  */
 function isWebp(bytes) {
@@ -110,7 +136,7 @@ function detectActualType(bytes) {
     if (matchesAnySignature(bytes, SIGNATURES['image/gif']))  return 'image/gif';
     if (isWebp(bytes))                                        return 'image/webp';
     if (isHeic(bytes))                                        return 'image/heic';
-    if (matchesAnySignature(bytes, SIGNATURES['application/pdf'])) return 'application/pdf';
+    if (isPdf(bytes))                                         return 'application/pdf';
     if (matchesAnySignature(bytes, SIGNATURES['application/zip'])) return 'application/zip';
     return null;
 }
@@ -152,9 +178,11 @@ export async function validateFileForUpload(file, options) {
     }
 
     // 3. Magic bytes
+    // On lit une fenêtre large (1 Ko) : assez pour les signatures à offset 0
+    // (images) ET pour retrouver l'en-tête "%PDF" même précédé d'octets parasites.
     let bytes;
     try {
-        bytes = await readFirstBytes(file, 16);
+        bytes = await readFirstBytes(file, 1024);
     } catch {
         return { ok: false, error: 'Lecture du fichier impossible.' };
     }
