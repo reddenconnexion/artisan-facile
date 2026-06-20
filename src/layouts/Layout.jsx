@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -186,6 +186,7 @@ const Layout = () => {
       ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
+      { name: 'Comparateur achats', href: '/app/supplier-comparator', icon: Scale },
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
@@ -216,7 +217,7 @@ const Layout = () => {
         children: showConfirme
           ? activiteChildren
           : activiteChildren.filter(c =>
-              ['/app/agenda', '/app/interventions', '/app/procurement'].includes(c.href)
+              ['/app/agenda', '/app/interventions', '/app/procurement', '/app/supplier-comparator'].includes(c.href)
             ),
       }] : []),
       ...(showInter ? [{ name: 'Outils', href: '/app/ressources', icon: Zap }] : []),

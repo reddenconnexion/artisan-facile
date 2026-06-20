@@ -167,6 +167,99 @@ export const extractQuoteFromPdfText = async (pdfText) => {
 };
 
 /**
+ * System prompt used to extract a SUPPLIER (material) invoice from raw PDF text.
+ * Unlike a quote, here every line is a purchased product and we also want the
+ * supplier identity + invoice header so the comparator can rank suppliers.
+ */
+const SUPPLIER_INVOICE_PROMPT = `Tu es un expert en lecture de factures de fournisseurs de matériel du bâtiment (négoces, grossistes). Tu reçois le TEXTE BRUT extrait d'un PDF de facture (colonnes parfois désalignées, descriptions sur plusieurs lignes).
+
+Ta mission : extraire FIDÈLEMENT l'en-tête de la facture et la liste COMPLÈTE des produits achetés, en JSON STRICT. N'invente aucune ligne, n'omets aucune ligne chiffrée, ne fusionne pas deux produits distincts.
+
+RÈGLES :
+- "supplier_name" : raison sociale du FOURNISSEUR (émetteur de la facture), pas du client/artisan.
+- "invoice_number" : numéro de la facture si présent, sinon null.
+- "invoice_date" : date de la facture au format AAAA-MM-JJ, sinon null.
+- "total_ht" / "total_ttc" : totaux de la facture (nombres), sinon null.
+- "currency" : "EUR" par défaut.
+- Pour chaque ligne produit : "product_name" (libellé concis), "reference" (code/référence article si présent, sinon null), "quantity", "unit" (u, m2, m3, ml, kg, l, h, forfait…), "unit_price" (prix unitaire HT), "total_price" (montant de la ligne HT).
+- Convertis les nombres au format anglais (point décimal, pas d'espace milliers). "1 234,56 €" devient 1234.56.
+- COHÉRENCE : unit_price ≈ total_price / quantity. Si une valeur manque, déduis-la des deux autres ; en cas d'incohérence, fais confiance au total affiché.
+- IGNORE : coordonnées, mentions légales, conditions de paiement, totaux globaux/TVA/écotaxe en pied de tableau (ne les mets pas comme produits), frais de port uniquement s'ils ne sont pas une vraie ligne facturée (sinon garde-les).
+
+FORMAT JSON STRICT (sans markdown, sans texte avant/après) :
+{
+  "supplier_name": "Nom du fournisseur ou null",
+  "invoice_number": "... ou null",
+  "invoice_date": "AAAA-MM-JJ ou null",
+  "total_ht": 0.00,
+  "total_ttc": 0.00,
+  "currency": "EUR",
+  "items": [
+    {"product_name":"...", "reference":"... ou null", "quantity":1, "unit":"u", "unit_price":0.00, "total_price":0.00}
+  ]
+}`;
+
+/**
+ * Extracts a structured supplier (material) invoice from raw PDF text using the
+ * AI proxy. Returns the supplier/header fields and the purchased product lines.
+ *
+ * @param {string} pdfText - Raw text previously extracted from the invoice PDF.
+ * @returns {Promise<{supplier_name, invoice_number, invoice_date, total_ht, total_ttc, currency, items: Array}>}
+ */
+export const extractSupplierInvoiceFromText = async (pdfText) => {
+    if (!pdfText || pdfText.trim().length < 20) {
+        throw new Error('Texte trop court pour être analysé.');
+    }
+
+    const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + '\n…[tronqué]' : pdfText;
+
+    const rawResponse = await callAiProxy({
+        systemPrompt: SUPPLIER_INVOICE_PROMPT,
+        userMessage: `TEXTE DE LA FACTURE À ANALYSER :\n\n${truncated}`,
+    });
+
+    let parsed;
+    try {
+        parsed = extractJsonObject(rawResponse);
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide pour l'extraction de la facture.");
+    }
+
+    const items = Array.isArray(parsed.items) ? parsed.items.map(it => {
+        const quantity = toSafeNumber(it.quantity, 1, 'inv.quantity');
+        let unitPrice = toSafeNumber(it.unit_price, 0, 'inv.unit_price');
+        const totalPrice = toSafeNumber(it.total_price, NaN, 'inv.total_price');
+
+        // Déduire le prix unitaire manquant à partir du total de ligne.
+        if (!unitPrice && Number.isFinite(totalPrice) && totalPrice !== 0 && quantity > 0) {
+            unitPrice = totalPrice / quantity;
+        }
+        const finalUnit = Number.isFinite(unitPrice) ? Math.round(unitPrice * 100) / 100 : 0;
+
+        return {
+            product_name: String(it.product_name || '').trim(),
+            reference: it.reference ? String(it.reference).trim() : '',
+            quantity,
+            unit: it.unit || 'u',
+            unit_price: finalUnit,
+            total_price: Number.isFinite(totalPrice)
+                ? Math.round(totalPrice * 100) / 100
+                : Math.round(finalUnit * quantity * 100) / 100,
+        };
+    }).filter(it => it.product_name.length > 0) : [];
+
+    return {
+        supplier_name: typeof parsed.supplier_name === 'string' ? parsed.supplier_name.trim() : '',
+        invoice_number: typeof parsed.invoice_number === 'string' ? parsed.invoice_number.trim() : '',
+        invoice_date: typeof parsed.invoice_date === 'string' ? parsed.invoice_date.trim() : '',
+        total_ht: toSafeNumber(parsed.total_ht, NaN, 'inv.total_ht'),
+        total_ttc: toSafeNumber(parsed.total_ttc, NaN, 'inv.total_ttc'),
+        currency: typeof parsed.currency === 'string' && parsed.currency.trim() ? parsed.currency.trim() : 'EUR',
+        items,
+    };
+};
+
+/**
  * Translates the free-text content of a quote (line-item descriptions, title,
  * notes) into the target language. Amounts, quantities and units are NOT sent
  * and never change — only human-written labels are translated.
