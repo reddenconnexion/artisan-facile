@@ -232,14 +232,22 @@ const SupplierComparator = () => {
             // 2. Extraction du texte
             const text = await extractTextFromPDF(file);
 
-            // 3. Lecture regex (gratuite) puis affinage IA si le résultat est faible
+            // 3. Lecture regex (gratuite) puis affinage IA si le résultat est faible.
+            // L'IA distingue mieux le fournisseur (émetteur) et le n° de facture
+            // que les heuristiques regex : on la déclenche aussi quand l'en-tête
+            // est incomplet, et on privilégie alors ses champs d'en-tête.
             let result = parseSupplierInvoiceText(text);
-            const weak = result.items.length < 2 || !result.supplier_name;
+            const weak = result.items.length < 2 || !result.supplier_name || !result.invoice_number;
             if (weak && text && text.trim().length > 50) {
                 try {
                     toast.info("Affinage de l'extraction par IA…");
                     const ai = await extractSupplierInvoiceFromText(text);
-                    if (ai.items.length >= result.items.length) result = ai;
+                    result = {
+                        supplier_name: ai.supplier_name || result.supplier_name,
+                        invoice_number: ai.invoice_number || result.invoice_number,
+                        invoice_date: ai.invoice_date || result.invoice_date,
+                        items: ai.items.length >= result.items.length ? ai.items : result.items,
+                    };
                 } catch (aiErr) {
                     console.warn('IA indisponible, on garde la lecture automatique:', aiErr);
                 }

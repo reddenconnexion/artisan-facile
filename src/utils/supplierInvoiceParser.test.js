@@ -7,7 +7,7 @@ vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: vi.fn() }))
 vi.mock('mammoth', () => ({ default: { extractRawText: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), message: vi.fn() } }));
 
-const { normalizeProductKey, guessSupplierName, toISODate } = await import('./supplierInvoiceParser');
+const { normalizeProductKey, guessSupplierName, toISODate, extractInvoiceNumber, isDateLike } = await import('./supplierInvoiceParser');
 
 describe('normalizeProductKey', () => {
     it('regroupe les libellés équivalents malgré accents/casse/ponctuation', () => {
@@ -44,6 +44,34 @@ describe('toISODate', () => {
         expect(toISODate('pas une date')).toBeNull();
         expect(toISODate('')).toBeNull();
         expect(toISODate('45/13/2026')).toBeNull();
+    });
+});
+
+describe('extractInvoiceNumber', () => {
+    it('extrait un numéro avec marqueur explicite', () => {
+        expect(extractInvoiceNumber('Facture N° FA-2026-001')).toBe('FA-2026-001');
+        expect(extractInvoiceNumber('FACTURE NUMÉRO 12345')).toBe('12345');
+        expect(extractInvoiceNumber('N° de facture : 2026/0012')).toBe('2026/0012');
+    });
+
+    it('ne capture jamais une date comme numéro de facture', () => {
+        expect(extractInvoiceNumber('Facture du 20/06/2026')).toBe('');
+        expect(extractInvoiceNumber('Facture N° 20/06/2026')).toBe('');
+        expect(extractInvoiceNumber('Date de facture : 20/06/2026')).toBe('');
+    });
+
+    it('exige un marqueur et au moins un chiffre', () => {
+        expect(extractInvoiceNumber('Facture acquittée')).toBe('');
+        expect(extractInvoiceNumber('Merci de votre confiance')).toBe('');
+    });
+});
+
+describe('isDateLike', () => {
+    it('reconnaît les formats de date courants', () => {
+        expect(isDateLike('20/06/2026')).toBe(true);
+        expect(isDateLike('2026-06-20')).toBe(true);
+        expect(isDateLike('FA-2026-001')).toBe(false);
+        expect(isDateLike('12345')).toBe(false);
     });
 });
 

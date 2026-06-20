@@ -57,15 +57,53 @@ export const normalizeProductKey = (name, reference = '') => {
 export const guessSupplierName = (text) => {
     if (!text) return '';
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 15);
-    const SKIP = /(facture|devis|bon de|n°|date|tva|siret|siren|rcs|tél|tel|email|e-mail|www|http|adresse|client|code postal|page|montant|total|€)/i;
+    const SKIP = /(facture|devis|bon de|n[°ºo]|date|tva|siret|siren|rcs|ape|naf|iban|bic|capital|t[ée]l|email|e-mail|courriel|www|http|adresse|client|destinataire|doit|code postal|page|montant|total|€|\bht\b|\bttc\b)/i;
     for (const line of lines) {
         if (line.length < 3 || line.length > 60) continue;
         if (SKIP.test(line)) continue;
         if (/^\d/.test(line)) continue;                 // commence par un chiffre (adresse, montant)
+        if (isDateLike(line)) continue;                 // ligne = une date
         if (/^[^a-zA-ZÀ-ÿ]+$/.test(line)) continue;     // pas de lettres
         const letters = line.replace(/[^a-zA-ZÀ-ÿ]/g, '').length;
         if (letters < 3) continue;
+        // Trop de chiffres → probablement une adresse / un montant, pas une raison sociale
+        const digits = line.replace(/[^0-9]/g, '').length;
+        if (digits > letters) continue;
         return line.replace(/\s+/g, ' ').trim();
+    }
+    return '';
+};
+
+/** Vrai si la chaîne est essentiellement une date (JJ/MM/AAAA ou AAAA-MM-JJ). */
+export const isDateLike = (s) => {
+    const t = String(s || '').trim();
+    return /^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$/.test(t) ||
+        /^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$/.test(t);
+};
+
+/**
+ * Extrait le numéro de facture. On EXIGE un marqueur explicite (n°, numéro, #)
+ * pour éviter de capturer autre chose (ex. "Facture du 20/06/2026" → la date).
+ * Tout résultat qui ressemble à une date, ou qui ne contient aucun chiffre, est
+ * rejeté.
+ *
+ * @param {string} text Texte brut extrait du PDF
+ * @returns {string} numéro de facture (vide si non trouvé de façon fiable)
+ */
+export const extractInvoiceNumber = (text) => {
+    if (!text) return '';
+    const TOKEN = '([A-Za-z0-9][A-Za-z0-9\\-/_.]{1,29})';
+    const patterns = [
+        new RegExp(`facture\\s*(?:n[°ºo]|num[ée]ro|#)\\s*[:.]?\\s*${TOKEN}`, 'i'),
+        new RegExp(`n[°ºo]\\s*(?:de\\s*)?facture\\s*[:.]?\\s*${TOKEN}`, 'i'),
+    ];
+    for (const re of patterns) {
+        const m = text.match(re);
+        if (!m) continue;
+        const n = m[1].replace(/[.,;]+$/, '');
+        if (isDateLike(n)) continue;   // pas une date
+        if (!/\d/.test(n)) continue;   // un vrai numéro contient au moins un chiffre
+        return n;
     }
     return '';
 };
@@ -98,12 +136,10 @@ export const parseSupplierInvoiceText = (text) => {
         })
         .filter(it => it.product_name.length > 1);
 
-    // N° de facture : "Facture n° 12345" / "FACTURE N°FA-2026-001"
-    const invMatch = (text || '').match(/facture\s*(?:n[°o]|num[ée]ro)?\s*[:.]?\s*([A-Za-z0-9\-/_.]{2,30})/i);
-
+    // N° de facture : marqueur explicite requis, jamais une date.
     return {
         supplier_name: guessSupplierName(text),
-        invoice_number: invMatch ? invMatch[1].replace(/[.,;]+$/, '') : '',
+        invoice_number: extractInvoiceNumber(text),
         invoice_date: meta.date || '',
         items,
     };
