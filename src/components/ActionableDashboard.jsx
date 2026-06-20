@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper } from 'lucide-react';
+import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper, Package } from 'lucide-react';
+import ChantierMaterialModal from './ChantierMaterialModal';
 import { useNavigate } from 'react-router-dom';
 import { format, isAfter, addDays, parseISO, addHours } from 'date-fns';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ const ActionableDashboard = ({ user }) => {
     );
     const [loading, setLoading] = useState(true);
     const [convertingId, setConvertingId] = useState(null);
+    const [materialEvent, setMaterialEvent] = useState(null);
     const [actionItems, setActionItems] = useState({
         upcomingEvents: [],
         pendingInvoices: [],
@@ -344,8 +346,18 @@ const ActionableDashboard = ({ user }) => {
                                                 {event.address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{event.address}</p>}
                                             </div>
                                         </div>
+                                        <div className="flex gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                        {(event.quote_id || event.client_id) && (
+                                            <button
+                                                onClick={() => setMaterialEvent(event)}
+                                                className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center shadow-sm"
+                                                title="Matériel à charger"
+                                            >
+                                                <Package className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         {isNext && event.address && (
-                                            <div className="flex gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                            <>
                                                 <a
                                                     href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`}
                                                     target="_blank"
@@ -364,8 +376,9 @@ const ActionableDashboard = ({ user }) => {
                                                 >
                                                     <Car className="w-4 h-4" />
                                                 </a>
-                                            </div>
+                                            </>
                                         )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -436,6 +449,10 @@ const ActionableDashboard = ({ user }) => {
                 <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-center text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
                     💡 Astuce : Passez une facture à "Payé" pour l'archiver.
                 </div>
+            )}
+
+            {materialEvent && (
+                <ChantierMaterialModal event={materialEvent} onClose={() => setMaterialEvent(null)} />
             )}
         </div>
     );
