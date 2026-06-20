@@ -95,7 +95,7 @@ const ReviewModal = ({ draft, onClose, onSave, saving }) => {
                                 value={header.supplier_name}
                                 onChange={e => setHeader(h => ({ ...h, supplier_name: e.target.value }))}
                                 placeholder="Ex. Rexel, Point P…"
-                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                             />
                         </label>
                         <label className="text-sm">
@@ -103,7 +103,7 @@ const ReviewModal = ({ draft, onClose, onSave, saving }) => {
                             <input
                                 value={header.invoice_number}
                                 onChange={e => setHeader(h => ({ ...h, invoice_number: e.target.value }))}
-                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                             />
                         </label>
                         <label className="text-sm">
@@ -112,7 +112,7 @@ const ReviewModal = ({ draft, onClose, onSave, saving }) => {
                                 type="date"
                                 value={toISODate(header.invoice_date) || ''}
                                 onChange={e => setHeader(h => ({ ...h, invoice_date: e.target.value }))}
-                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                             />
                         </label>
                     </div>
@@ -128,22 +128,22 @@ const ReviewModal = ({ draft, onClose, onSave, saving }) => {
                                     value={l.product_name}
                                     onChange={e => updateLine(l._id, { product_name: e.target.value })}
                                     placeholder="Désignation du produit"
-                                    className="col-span-2 sm:col-span-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                    className="col-span-2 sm:col-span-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                                 />
                                 <input
                                     type="number" step="any" min="0" value={l.quantity}
                                     onChange={e => updateLine(l._id, { quantity: e.target.value })}
-                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                                 />
                                 <input
                                     value={l.unit}
                                     onChange={e => updateLine(l._id, { unit: e.target.value })}
-                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                                 />
                                 <input
                                     type="number" step="any" min="0" value={l.unit_price}
                                     onChange={e => updateLine(l._id, { unit_price: e.target.value })}
-                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+                                    className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400"
                                 />
                                 <button onClick={() => removeLine(l._id)} className="justify-self-end p-1.5 text-gray-300 hover:text-red-500">
                                     <Trash2 className="w-4 h-4" />
@@ -445,7 +445,7 @@ const SupplierComparator = () => {
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 placeholder="Rechercher un produit ou un fournisseur…"
-                                className="w-full pl-10 pr-3 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
+                                className="w-full pl-10 pr-3 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
                     )}
