@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     Scale, Upload, Loader2, FileText, Trash2, Plus, X, Check,
-    Search, ExternalLink, Award, TrendingDown, Package,
+    Search, ExternalLink, Award, TrendingDown, Package, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -193,6 +193,13 @@ const SupplierComparator = () => {
     const [draft, setDraft] = useState(null); // données en relecture
     const [saving, setSaving] = useState(false);
     const [search, setSearch] = useState('');
+    const [expanded, setExpanded] = useState(() => new Set()); // clés produits dépliées
+
+    const toggleExpanded = (key) => setExpanded(prev => {
+        const next = new Set(prev);
+        next.has(key) ? next.delete(key) : next.add(key);
+        return next;
+    });
 
     const fetchData = async () => {
         if (!user) return;
@@ -340,6 +347,30 @@ const SupplierComparator = () => {
         toast.success('Facture supprimée');
     };
 
+    // Suppression d'une ligne enregistrée par erreur (sans toucher au reste).
+    const deletePurchase = async (row) => {
+        const previousPurchases = purchases;
+        const previousInvoices = invoices;
+        setPurchases(prev => prev.filter(p => p.id !== row.id));
+        // Garder le compteur d'articles de la facture cohérent
+        if (row.invoice_id) {
+            setInvoices(prev => prev.map(i =>
+                i.id === row.invoice_id ? { ...i, item_count: Math.max(0, (i.item_count || 1) - 1) } : i));
+        }
+        const { error } = await supabase.from('supplier_purchases').delete().eq('id', row.id);
+        if (error) {
+            toast.error('Suppression impossible');
+            setPurchases(previousPurchases);
+            setInvoices(previousInvoices);
+            return;
+        }
+        if (row.invoice_id) {
+            const remaining = previousPurchases.filter(p => p.invoice_id === row.invoice_id && p.id !== row.id).length;
+            supabase.from('supplier_invoices').update({ item_count: remaining }).eq('id', row.invoice_id).then(() => {});
+        }
+        toast.success('Ligne supprimée');
+    };
+
     // ── Construction du comparateur ───────────────────────────────────────────
     const groups = useMemo(() => {
         const map = new Map();
@@ -385,6 +416,9 @@ const SupplierComparator = () => {
                 best,
                 savings: worst.price - best.price,
                 multiSupplier: suppliers.length > 1,
+                // Lignes brutes enregistrées (pour suppression à l'unité), récentes d'abord
+                rows: rows.slice().sort((a, b) =>
+                    new Date(b.purchase_date || b.created_at) - new Date(a.purchase_date || a.created_at)),
             });
         }
         // Les produits avec un vrai choix (plusieurs fournisseurs) et les plus
@@ -503,6 +537,35 @@ const SupplierComparator = () => {
                                             );
                                         })}
                                     </ul>
+
+                                    {/* Détail des lignes enregistrées + suppression à l'unité */}
+                                    <button
+                                        onClick={() => toggleExpanded(g.key)}
+                                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-t border-gray-100 dark:border-gray-800"
+                                    >
+                                        {expanded.has(g.key) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                        {g.rows.length} ligne{g.rows.length > 1 ? 's' : ''} enregistrée{g.rows.length > 1 ? 's' : ''}
+                                    </button>
+                                    {expanded.has(g.key) && (
+                                        <ul className="divide-y divide-gray-50 dark:divide-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                                            {g.rows.map(row => (
+                                                <li key={row.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs">
+                                                    <div className="min-w-0">
+                                                        <span className="font-medium text-gray-700 dark:text-gray-300">{row.supplier_name || 'Inconnu'}</span>
+                                                        <span className="text-gray-400"> · {fmtDate(row.purchase_date || row.created_at)} · {Number(row.quantity)} {row.unit || 'u'} × {fmtMoney(row.unit_price)}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deletePurchase(row)}
+                                                        className="p-1 text-gray-300 hover:text-red-500 rounded shrink-0"
+                                                        aria-label="Supprimer cette ligne"
+                                                        title="Supprimer cette ligne"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
                             ))}
                         </div>
