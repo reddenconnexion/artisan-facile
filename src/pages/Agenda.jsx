@@ -15,12 +15,13 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
+import ChantierMaterialModal from '../components/ChantierMaterialModal';
 import { Button } from '../components/ui';
 import { toast } from 'sonner';
 
@@ -34,7 +35,11 @@ const Agenda = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
-    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '' });
+    const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '', quote_id: null });
+    // Devis du client sélectionné, proposés pour association au RDV/chantier.
+    const [clientQuotes, setClientQuotes] = useState([]);
+    // RDV dont on consulte la liste de matériel à charger.
+    const [materialEvent, setMaterialEvent] = useState(null);
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -153,6 +158,25 @@ const Agenda = () => {
         return () => clearInterval(interval);
     }, [events]);
 
+    // Charge les devis du client sélectionné pour les proposer à l'association.
+    // Un chantier programmé découle souvent d'un devis : le rattacher permet de
+    // retrouver la liste du matériel la veille et le matin de l'intervention.
+    useEffect(() => {
+        if (!showModal || !newEvent.client_id) {
+            setClientQuotes([]);
+            return;
+        }
+        let active = true;
+        supabase
+            .from('quotes')
+            .select('id, title, date, status, type')
+            .eq('client_id', newEvent.client_id)
+            .neq('type', 'invoice')
+            .order('date', { ascending: false })
+            .then(({ data }) => { if (active) setClientQuotes(data || []); });
+        return () => { active = false; };
+    }, [showModal, newEvent.client_id]);
+
     const addToGoogleCalendar = (event) => {
         const eventDate = new Date(event.date);
         const [hours, minutes] = event.time.split(':');
@@ -206,6 +230,7 @@ const Agenda = () => {
                 ...newEvent,
                 // Use the date from the input, ensuring it's treated as the correct day
                 date: new Date(newEvent.date).toISOString(),
+                quote_id: newEvent.quote_id || null,
                 user_id: user.id
             };
             // Remove the date string property before sending if needed, but spread handles it. 
@@ -247,7 +272,7 @@ const Agenda = () => {
             setShowModal(false);
             setEditingEvent(null);
 
-            setNewEvent({ title: '', time: '', client_name: '', client_id: null, address: '', date: '' });
+            setNewEvent({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '', quote_id: null });
         } catch (error) {
             toast.error('Erreur lors de la sauvegarde du rendez-vous');
             console.error('Error saving event:', error);
@@ -263,6 +288,7 @@ const Agenda = () => {
             client_id: event.client_id || null,
             address: event.address || '',
             details: event.details || '',
+            quote_id: event.quote_id || null,
             date: format(event.date, 'yyyy-MM-dd')
         });
         setShowModal(true);
@@ -296,6 +322,7 @@ const Agenda = () => {
             client_id: null,
             address: '',
             details: '',
+            quote_id: null,
             date: format(selectedDate, 'yyyy-MM-dd')
         });
         setShowModal(true);
@@ -346,7 +373,7 @@ const Agenda = () => {
                     </div>
 
                     <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((day, dayIdx) => {
+                        {calendarDays.map((day) => {
                             const isSelected = isSameDay(day, selectedDate);
                             const isCurrentMonth = isSameMonth(day, monthStart);
                             const hasEvents = events.some(event => isSameDay(event.date, day));
@@ -441,6 +468,15 @@ const Agenda = () => {
                                     </div>
 
                                     <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                        {(event.quote_id || event.client_id) && (
+                                            <button
+                                                onClick={() => setMaterialEvent(event)}
+                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg"
+                                                title="Matériel à charger"
+                                            >
+                                                <Package className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => addToGoogleCalendar(event)}
                                             className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
@@ -588,6 +624,28 @@ const Agenda = () => {
                                     placeholder="Notes sur l'intervention..."
                                 />
                             </div>
+                            {newEvent.client_id && clientQuotes.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Devis associé (Optionnel)
+                                    </label>
+                                    <select
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                        value={newEvent.quote_id || ''}
+                                        onChange={e => setNewEvent({ ...newEvent, quote_id: e.target.value ? Number(e.target.value) : null })}
+                                    >
+                                        <option value="">Aucun devis</option>
+                                        {clientQuotes.map(q => (
+                                            <option key={q.id} value={q.id}>
+                                                {(q.title || `Devis #${q.id}`)}{q.date ? ` · ${format(parseISO(q.date), 'dd/MM/yyyy')}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                        La liste du matériel sera accessible depuis le tableau de bord, la veille et le matin du chantier.
+                                    </p>
+                                </div>
+                            )}
                             <div className="flex justify-end space-x-3 pt-4">
                                 <button
                                     type="button"
@@ -603,6 +661,10 @@ const Agenda = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {materialEvent && (
+                <ChantierMaterialModal event={materialEvent} onClose={() => setMaterialEvent(null)} />
             )}
         </div>
     );
