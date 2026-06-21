@@ -544,7 +544,7 @@ const Agenda = () => {
 
             {/* Modal Ajout/Edit RDV */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[80] sm:p-4">
                     <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col overflow-hidden">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white px-6 pt-6 pb-4 shrink-0">
                             {editingEvent ? 'Modifier le Rendez-vous' : 'Nouveau Rendez-vous'}
