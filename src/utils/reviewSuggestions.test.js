@@ -10,13 +10,22 @@ describe('buildReviewSuggestions', () => {
         ).not.toThrow();
 
         const variants = buildReviewSuggestions({ userProfile: null, client: null, intervention: null });
-        expect(variants).toHaveLength(3);
-        expect(variants[0]).toContain('cet artisan');
+        expect(variants).toHaveLength(6);
+        // Tous les modèles mentionnent l'artisan, quel que soit l'ordre tiré.
+        variants.forEach(v => expect(v).toContain('cet artisan'));
     });
 
     it('ne plante pas sans aucun argument', () => {
         expect(() => buildReviewSuggestions()).not.toThrow();
-        expect(buildReviewSuggestions()).toHaveLength(3);
+        expect(buildReviewSuggestions()).toHaveLength(6);
+    });
+
+    it('varie les formulations proposées (tirage aléatoire)', () => {
+        // Sur plusieurs appels, l'ordre/sélection doit changer au moins une fois.
+        const ctx = { userProfile: { company_name: 'Plomberie Dupont', trade: 'plombier' }, client: { city: 'Lyon' } };
+        const runs = Array.from({ length: 8 }, () => buildReviewSuggestions(ctx).join('|'));
+        const distinct = new Set(runs);
+        expect(distinct.size).toBeGreaterThan(1);
     });
 
     it('utilise le nom de société quand il est fourni', () => {

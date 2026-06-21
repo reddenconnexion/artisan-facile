@@ -9,11 +9,15 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
     const { isTestMode, captureEmail } = useTestMode();
     const containerRef = useModalA11y(isOpen, onClose);
 
+    // `seed` permet de régénérer un nouveau lot de suggestions à la demande.
+    const [seed, setSeed] = useState(0);
     const suggestions = useMemo(
-        () => buildReviewSuggestions({ userProfile, client, intervention: intervention || {} }),
-        [userProfile, client, intervention]
+        () => {
+            void seed; // régénère un nouveau lot quand l'utilisateur en demande d'autres
+            return buildReviewSuggestions({ userProfile, client, intervention: intervention || {} });
+        },
+        [userProfile, client, intervention, seed]
     );
-
     const [variantIndex, setVariantIndex] = useState(0);
 
     if (!isOpen) return null;
@@ -82,7 +86,15 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
     };
 
     const handleNextVariant = () => {
-        setVariantIndex((variantIndex + 1) % suggestions.length);
+        const next = variantIndex + 1;
+        if (next >= suggestions.length) {
+            // Fin du lot courant : on régénère de nouvelles formulations pour
+            // varier davantage au lieu de boucler sur les mêmes.
+            setSeed(s => s + 1);
+            setVariantIndex(0);
+        } else {
+            setVariantIndex(next);
+        }
     };
 
     return (
