@@ -509,11 +509,12 @@ const Agenda = () => {
             {/* Modal Ajout/Edit RDV */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col overflow-hidden">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white px-6 pt-6 pb-4 shrink-0">
                             {editingEvent ? 'Modifier le Rendez-vous' : 'Nouveau Rendez-vous'}
                         </h3>
-                        <form onSubmit={handleAddEvent} className="space-y-4">
+                        <form onSubmit={handleAddEvent} className="flex flex-col min-h-0 flex-1">
+                            <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre</label>
                                 <input
@@ -588,7 +589,8 @@ const Agenda = () => {
                                     placeholder="Notes sur l'intervention..."
                                 />
                             </div>
-                            <div className="flex justify-end space-x-3 pt-4">
+                            </div>
+                            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 dark:border-gray-800 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
                                 <button
                                     type="button"
                                     onClick={() => { setShowModal(false); setEditingEvent(null); }}
