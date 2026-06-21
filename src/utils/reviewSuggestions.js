@@ -95,28 +95,59 @@ export const buildReviewSuggestions = ({ userProfile, client, intervention } = {
     const locationPart = city ? ` à ${city}` : '';
     const workPart = workSummary ? ` pour ${workSummary.toLowerCase()}` : '';
 
-    const variants = [];
+    const p = { companyName, city, tradeLabel, primaryKw, secondaryKw, workSummary, locationPart, workPart };
 
-    variants.push(
-        `J'ai fait appel à ${companyName}${locationPart}${workPart} et je recommande sans hésiter. ` +
-        `Travail soigné, délais respectés et communication impeccable. ` +
-        `Un ${primaryKw}${city ? ` sur ${city}` : ''} sérieux et fiable !`
-    );
+    // Vivier de modèles d'avis (point de vue du client). On en tire un sous-ensemble
+    // au hasard à chaque appel pour éviter de toujours proposer les mêmes 3.
+    // Chaque modèle reste cohérent que la ville / le détail des travaux soient
+    // présents ou non, et mentionne le métier + la ville pour le référencement local.
+    const templates = [
+        (p) =>
+            `J'ai fait appel à ${p.companyName}${p.locationPart}${p.workPart} et je recommande sans hésiter. ` +
+            `Travail soigné, délais respectés et communication impeccable. ` +
+            `Un ${p.primaryKw}${p.city ? ` sur ${p.city}` : ''} sérieux et fiable !`,
+        (p) =>
+            `Excellente prestation de ${p.companyName}${p.city ? ` (${p.tradeLabel} à ${p.city})` : ` — ${p.tradeLabel}`}. ` +
+            `${p.workSummary ? `Intervention : ${p.workSummary}. ` : ''}` +
+            `Devis clair, intervention propre, résultat à la hauteur. ` +
+            `Si vous cherchez un bon ${p.primaryKw}${p.city ? ` sur ${p.city}` : ''}, foncez.`,
+        (p) =>
+            `Très satisfait du travail réalisé par ${p.companyName}${p.locationPart}. ` +
+            `${p.workSummary ? `${cap(p.workSummary)} — du sérieux du début à la fin. ` : 'Du sérieux du début à la fin. '}` +
+            `Je recommande pour tous travaux de ${p.secondaryKw}${p.city ? ` autour de ${p.city}` : ''}.`,
+        (p) =>
+            `${p.companyName}, c'est du travail de pro${p.workPart}${p.locationPart}. ` +
+            `Ponctualité, propreté et bons conseils. ` +
+            `Je n'hésiterai pas à refaire appel à ce ${p.primaryKw}${p.city ? ` sur ${p.city}` : ''}.`,
+        (p) =>
+            `Intervention au top par ${p.companyName}${p.locationPart}. ` +
+            `${p.workSummary ? `${cap(p.workSummary)}, le tout ` : 'Le tout '}réalisé proprement et dans les temps. ` +
+            `Un ${p.primaryKw} que je recommande les yeux fermés.`,
+        (p) =>
+            `Merci à ${p.companyName} pour ${p.workSummary ? p.workSummary.toLowerCase() : 'cette intervention'}${p.locationPart}. ` +
+            `Sérieux, à l'écoute et tarifs honnêtes. ` +
+            `Parfait si vous cherchez un ${p.primaryKw}${p.city ? ` à ${p.city}` : ''}.`,
+        (p) =>
+            `Rien à redire sur ${p.companyName}${p.city ? ` (${p.tradeLabel}${p.locationPart})` : ''}. ` +
+            `${p.workSummary ? `${cap(p.workSummary)}. ` : ''}` +
+            `Devis respecté, finitions nickel. Je recommande vivement pour des travaux de ${p.secondaryKw}.`,
+        (p) =>
+            `Très bonne expérience avec ${p.companyName}${p.locationPart}${p.workPart}. ` +
+            `Professionnel, réactif et soigneux. ` +
+            `Un excellent ${p.primaryKw}${p.city ? ` sur le secteur de ${p.city}` : ''}.`,
+        (p) =>
+            `${p.companyName} a fait un travail impeccable${p.workPart}${p.locationPart}. ` +
+            `Conseils avisés, chantier propre, résultat conforme au devis. ` +
+            `Je recommande ce ${p.primaryKw} sans réserve.`,
+        (p) =>
+            `Artisan de confiance : ${p.companyName}${p.locationPart} a parfaitement géré ${p.workSummary ? p.workSummary.toLowerCase() : 'mon projet'}. ` +
+            `Communication claire et travail de qualité. ` +
+            `Foncez si vous cherchez un bon ${p.primaryKw}${p.city ? ` à ${p.city}` : ''}.`,
+    ];
 
-    variants.push(
-        `Excellente prestation de ${companyName}${city ? ` (${tradeLabel}${locationPart})` : ` — ${tradeLabel}`}. ` +
-        `${workSummary ? `Intervention : ${workSummary}. ` : ''}` +
-        `Devis clair, intervention propre, résultat à la hauteur. ` +
-        `Si vous cherchez un bon ${primaryKw}${city ? ` sur ${city}` : ''}, foncez.`
-    );
-
-    variants.push(
-        `Très satisfait du travail réalisé par ${companyName}${locationPart}. ` +
-        `${workSummary ? `${cap(workSummary)} — du sérieux du début à la fin. ` : 'Du sérieux du début à la fin. '}` +
-        `Je recommande pour tous travaux de ${secondaryKw}${city ? ` autour de ${city}` : ''}.`
-    );
-
-    return variants.map(v => v.replace(/\s+/g, ' ').trim());
+    const count = Math.min(6, templates.length);
+    const shuffled = [...templates].sort(() => Math.random() - 0.5).slice(0, count);
+    return shuffled.map(fn => fn(p).replace(/\s+/g, ' ').trim());
 };
 
 /**
