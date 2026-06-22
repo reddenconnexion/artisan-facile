@@ -28,6 +28,8 @@ const ReviewReplyGenerator = () => {
     const [reviewText, setReviewText] = useState('');
     const [rating, setRating] = useState(5);
     const [customerName, setCustomerName] = useState('');
+    const [interventionCity, setInterventionCity] = useState('');
+    const [workObject, setWorkObject] = useState('');
     const [tone, setTone] = useState('chaleureux');
     const [count, setCount] = useState(3);
 
@@ -68,6 +70,8 @@ const ReviewReplyGenerator = () => {
                 reviewText,
                 rating,
                 customerName: customerName.trim(),
+                interventionCity: interventionCity.trim(),
+                workObject: workObject.trim(),
                 tone,
                 business: business || {},
                 count,
@@ -182,6 +186,37 @@ const ReviewReplyGenerator = () => {
                         className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     />
                 </div>
+
+                {/* Contexte intervention — utile quand l'avis ne le précise pas */}
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Lieu d'intervention <span className="text-gray-400 font-normal">(optionnel)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={interventionCity}
+                            onChange={(e) => setInterventionCity(e.target.value)}
+                            placeholder={business?.city ? `Ex : ${business.city}` : 'Ex : Lyon'}
+                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Objet de l'intervention <span className="text-gray-400 font-normal">(optionnel)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={workObject}
+                            onChange={(e) => setWorkObject(e.target.value)}
+                            placeholder="Ex : rénovation salle de bain"
+                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                    Renseignez-les si l'avis ne les mentionne pas : ils seront évoqués naturellement dans la réponse (utile pour le référencement local).
+                </p>
 
                 <div className="grid md:grid-cols-2 gap-4">
                     {/* Ton */}
