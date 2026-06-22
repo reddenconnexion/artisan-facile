@@ -753,6 +753,8 @@ export const generateReviewReply = async ({
     reviewText,
     rating = 5,
     customerName = '',
+    interventionCity = '',
+    workObject = '',
     tone = 'chaleureux',
     business = {},
     count = 3,
@@ -788,6 +790,17 @@ export const generateReviewReply = async ({
         signature && `- Signature à utiliser : ${signature}`,
     ].filter(Boolean).join('\n');
 
+    // Contexte d'intervention saisi par l'artisan (souvent absent de l'avis).
+    const interv = String(interventionCity || '').trim();
+    const obj = String(workObject || '').trim();
+    const interventionContextLines = [
+        interv && `- Lieu d'intervention de ce chantier : ${interv}`,
+        obj && `- Objet / nature des travaux : ${obj}`,
+    ].filter(Boolean).join('\n');
+    const interventionRule = (interv || obj)
+        ? `\n- Si l'avis ne le mentionne pas déjà, évoque NATURELLEMENT (une seule fois) ${[interv && `le lieu d'intervention (${interv})`, obj && `la nature des travaux (${obj})`].filter(Boolean).join(' et ')} — utile pour le référencement local. N'invente jamais un autre lieu ni des travaux non fournis.`
+        : '';
+
     const seoRules = isNegative
         ? `RÈGLES POUR UN AVIS NÉGATIF (note ${safeRating}/5) :
 - Reste calme, empathique et professionnel — jamais sur la défensive.
@@ -800,7 +813,7 @@ export const generateReviewReply = async ({
 - Remercie sincèrement le client${customerName ? ` (${customerName})` : ''} et rebondis sur un détail PRÉCIS qu'il a mentionné dans son avis.
 - Intègre NATURELLEMENT, une seule fois chacun et seulement s'ils sont fournis : le nom de l'entreprise, le métier${city ? ', la ville' : ''}. Ces éléments aident le référencement local Google.
 - INTERDIT : le bourrage de mots-clés, les listes de villes, les phrases artificielles. La réponse doit sonner 100 % humaine et authentique.
-- ${isNeutral ? "Montre ta volonté de t'améliorer et invite le client à te recontacter." : 'Invite chaleureusement le client à refaire appel à toi ou à te recommander.'}`;
+- ${isNeutral ? "Montre ta volonté de t'améliorer et invite le client à te recontacter." : 'Invite chaleureusement le client à refaire appel à toi ou à te recommander.'}${interventionRule}`;
 
     // ── Variété ──────────────────────────────────────────────────────────────
     // On tire au sort un angle d'ouverture, un axe de contenu et une longueur
@@ -869,7 +882,7 @@ export const generateReviewReply = async ({
 
 CONTEXTE ENTREPRISE :
 ${localContextLines || '- (aucune information fournie, reste générique mais authentique)'}
-
+${interventionContextLines ? `\nCONTEXTE DE CETTE INTERVENTION (fourni par l'artisan, peut ne pas figurer dans l'avis) :\n${interventionContextLines}\n` : ''}
 ${seoRules}
 
 ${varietyRules}
