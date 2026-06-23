@@ -15,13 +15,14 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import ChantierMaterialModal from '../components/ChantierMaterialModal';
+import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import { Button } from '../components/ui';
 import { toast } from 'sonner';
 
@@ -40,6 +41,8 @@ const Agenda = () => {
     const [clientQuotes, setClientQuotes] = useState([]);
     // RDV dont on consulte la liste de matériel à charger.
     const [materialEvent, setMaterialEvent] = useState(null);
+    // RDV pour lequel on prend des photos rapidement (client déjà connu).
+    const [photoEvent, setPhotoEvent] = useState(null);
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -468,6 +471,15 @@ const Agenda = () => {
                                     </div>
 
                                     <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                        {event.client_id && (
+                                            <button
+                                                onClick={() => setPhotoEvent(event)}
+                                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                                                title="Ajouter des photos"
+                                            >
+                                                <Camera className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         {(event.quote_id || event.client_id) && (
                                             <button
                                                 onClick={() => setMaterialEvent(event)}
@@ -667,6 +679,15 @@ const Agenda = () => {
 
             {materialEvent && (
                 <ChantierMaterialModal event={materialEvent} onClose={() => setMaterialEvent(null)} />
+            )}
+
+            {photoEvent && (
+                <QuickPhotoCapture
+                    clientId={photoEvent.client_id}
+                    clientName={photoEvent.client_name}
+                    contextLabel={photoEvent.title}
+                    onClose={() => setPhotoEvent(null)}
+                />
             )}
         </div>
     );

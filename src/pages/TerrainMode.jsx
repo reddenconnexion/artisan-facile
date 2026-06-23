@@ -7,10 +7,11 @@ import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
-    ShoppingCart,
+    ShoppingCart, MapPin, User,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 import ProcurementMode from '../components/ProcurementMode';
+import QuickPhotoCapture from '../components/QuickPhotoCapture';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,24 @@ const TerrainMode = () => {
     const filteredClients = clients.filter(c =>
         !clientName || c.name.toLowerCase().includes(clientName.toLowerCase())
     );
+
+    // ── Interventions planifiées aujourd'hui (RDV avec client connu) ──────────
+    const [todayEvents, setTodayEvents] = useState([]);
+    const [photoEvent, setPhotoEvent] = useState(null); // RDV pour photos rapides
+
+    useEffect(() => {
+        if (!user) return;
+        supabase.from('events')
+            .select('id, title, time, client_id, client_name, address, date')
+            .not('client_id', 'is', null)
+            .then(({ data }) => {
+                const todayStr = today();
+                const list = (data || [])
+                    .filter(e => new Date(e.date).toISOString().split('T')[0] === todayStr)
+                    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                setTodayEvents(list);
+            });
+    }, [user]);
 
     // ── Chronomètre ──────────────────────────────────────────────────────────
     const [timerRunning, setTimerRunning] = useState(false);
@@ -295,7 +314,48 @@ const TerrainMode = () => {
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 flex flex-col justify-center p-5 gap-4">
+                <div className="flex-1 overflow-y-auto flex flex-col justify-center p-5 gap-4">
+                    {/* Interventions planifiées aujourd'hui — photos sans rechercher le client */}
+                    {todayEvents.length > 0 && (
+                        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-4">
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" /> Planifié aujourd'hui
+                            </p>
+                            <div className="space-y-2">
+                                {todayEvents.map(ev => (
+                                    <button
+                                        key={ev.id}
+                                        onClick={() => setPhotoEvent(ev)}
+                                        className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-gray-800 active:scale-[0.99] transition-all text-left"
+                                    >
+                                        <div className="flex flex-col items-center justify-center w-12 shrink-0">
+                                            <span className="text-sm font-bold text-blue-600">{ev.time || '--:--'}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{ev.title}</p>
+                                            {ev.client_name && (
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
+                                                    <User className="w-3 h-3 shrink-0" /> {ev.client_name}
+                                                </p>
+                                            )}
+                                            {ev.address && (
+                                                <p className="text-xs text-gray-400 flex items-center gap-1 truncate">
+                                                    <MapPin className="w-3 h-3 shrink-0" /> {ev.address}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                                            <Camera className="w-4 h-4 text-blue-600" />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-3">
+                                Touchez un rendez-vous pour ajouter des photos — le client est déjà rempli.
+                            </p>
+                        </div>
+                    )}
+
                     <button
                         onClick={() => setMode('depannage')}
                         className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
@@ -347,6 +407,15 @@ const TerrainMode = () => {
                         </div>
                     </button>
                 </div>
+
+                {photoEvent && (
+                    <QuickPhotoCapture
+                        clientId={photoEvent.client_id}
+                        clientName={photoEvent.client_name}
+                        contextLabel={photoEvent.title}
+                        onClose={() => setPhotoEvent(null)}
+                    />
+                )}
             </div>
         );
     }
