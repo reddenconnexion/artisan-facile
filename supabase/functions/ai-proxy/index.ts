@@ -163,7 +163,17 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           contents: [{
             parts: [{ text: `${resolvedSystemPrompt}\n\n${userMessage}` }]
-          }]
+          }],
+          // gemini-2.5-flash est un modèle "thinking" : sur un prompt lourd
+          // (ex. conseiller comptable, qui attend un gros JSON structuré), le
+          // temps de réflexion peut dépasser le délai de la Edge Function et
+          // faire tomber la connexion ("Failed to send a request to the Edge
+          // Function"). On désactive la réflexion (thinkingBudget: 0) pour
+          // retrouver la latence du 2.0-flash et on borne la sortie.
+          generationConfig: {
+            maxOutputTokens: 8192,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         })
       });
 
