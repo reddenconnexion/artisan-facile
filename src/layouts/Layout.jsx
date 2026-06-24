@@ -17,7 +17,7 @@ import { isAdmin } from '../constants/admin';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
-import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount } from '../hooks/useDataCache';
+import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount, useNewFeedbackCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTrackUsage, useFrequentShortcuts } from '../hooks/useUsageTracking';
 import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
@@ -37,6 +37,7 @@ const Layout = () => {
   const { total: pendingCount } = usePendingCounts();
   const newReceivedCount = useNewReceivedInvoicesCount();
   const unreadPortalMessages = useUnreadPortalMessagesCount();
+  const newFeedbackCount = useNewFeedbackCount();
   const { plan, isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
@@ -741,6 +742,15 @@ const Layout = () => {
                   style={{ color: location.pathname.startsWith('/app/admin/feedback') ? '#fff' : IOS_BLUE }}
                 />
                 <span className="flex-1 text-left">Retours artisans</span>
+                {newFeedbackCount > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    location.pathname.startsWith('/app/admin/feedback')
+                      ? 'bg-white text-[#007AFF]'
+                      : 'bg-red-500 text-white'
+                  }`}>
+                    {newFeedbackCount > 9 ? '9+' : newFeedbackCount}
+                  </span>
+                )}
               </Link>
             )}
           </nav>
