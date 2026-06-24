@@ -59,12 +59,15 @@ CREATE POLICY "Users read their own feedback"
 
 -- ── updated_at automatique ──────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_feedback_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS trg_feedback_updated_at ON feedback;
 CREATE TRIGGER trg_feedback_updated_at
