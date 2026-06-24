@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
 import { toastError } from '../utils/supabaseErrorHandler';
+import { isAdmin } from '../constants/admin';
 
 /**
  * Hooks de cache pour les données principales
@@ -279,6 +280,24 @@ export function useNewReceivedInvoicesCount() {
         enabled: !!user,
         staleTime: 60 * 1000, // 1 minute
     });
+    return count;
+}
+
+// Nombre de retours artisans « nouveaux » (pour pastille nav, admin uniquement)
+export function useNewFeedbackCount() {
+    const { user } = useAuth();
+    const allowed = isAdmin(user);
+
+    const { data: count = 0 } = useQuery({
+        queryKey: ['newFeedbackCount', user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_new_feedback_count');
+            return error ? 0 : (data ?? 0);
+        },
+        enabled: !!user && allowed,
+        staleTime: 60 * 1000, // 1 minute
+    });
+
     return count;
 }
 

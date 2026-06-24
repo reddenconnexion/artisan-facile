@@ -72,6 +72,9 @@ const AdminFeedback = () => {
     onSuccess: () => {
       toast.success('Statut mis à jour');
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      // Rafraîchit la pastille de navigation (un retour quittant le statut
+      // 'new' doit décrémenter le compteur).
+      queryClient.invalidateQueries({ queryKey: ['newFeedbackCount'] });
     },
     onError: (err) => {
       toast.error('Mise à jour impossible', { description: err?.message });
