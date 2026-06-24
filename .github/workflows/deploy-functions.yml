@@ -37,22 +37,17 @@ jobs:
       - name: Deploy Edge Functions
         run: |
           FAILED=()
-          FUNCTIONS=(
-            ai-proxy
-            plan-vision
-            voice-transcribe
-            create-checkout-session
-            stripe-portal
-            stripe-webhook
-            transmit-invoice
-            request-quote-otp
-            save-openai-key
-            notify-artisan-portal-signature
-            pdp-webhook
-            save-smtp-config
-            send-document-email
-            track-email-open
-          )
+          # Auto-découverte : chaque sous-dossier de supabase/functions/ contenant
+          # un index.ts est une fonction à déployer (on ignore _shared, qui n'est
+          # qu'une librairie partagée). Plus besoin de maintenir une liste à la main.
+          FUNCTIONS=()
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            [ "$name" = "_shared" ] && continue
+            [ -f "${dir}index.ts" ] || continue
+            FUNCTIONS+=("$name")
+          done
+          echo "Fonctions détectées : ${FUNCTIONS[*]}"
           for fn in "${FUNCTIONS[@]}"; do
             echo "→ Deploying $fn..."
             if ! supabase functions deploy "$fn" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} 2>&1; then
