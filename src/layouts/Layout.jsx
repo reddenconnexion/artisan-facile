@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -24,6 +24,7 @@ import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import { SHORTCUT_CATALOG } from '../constants/shortcuts';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import NotificationCenter from '../components/NotificationCenter';
+import FeedbackModal from '../components/FeedbackModal';
 
 const Layout = () => {
   const location = useLocation();
@@ -327,6 +328,7 @@ const Layout = () => {
   // Keyboard shortcuts
   const [showShortcuts, setShowShortcuts] = React.useState(false);
   const [showSearch, setShowSearch] = React.useState(false);
+  const [showFeedback, setShowFeedback] = React.useState(false);
 
   const focusSearchInput = useCallback(() => {
     const input = document.querySelector(
@@ -374,11 +376,14 @@ const Layout = () => {
   useEffect(() => {
     const onToggleTheme = () => setIsDarkMode(prev => !prev);
     const onOpenShortcuts = () => setShowShortcuts(true);
+    const onOpenFeedback = () => setShowFeedback(true);
     window.addEventListener('artisan:toggle-theme', onToggleTheme);
     window.addEventListener('artisan:open-shortcuts', onOpenShortcuts);
+    window.addEventListener('artisan:open-feedback', onOpenFeedback);
     return () => {
       window.removeEventListener('artisan:toggle-theme', onToggleTheme);
       window.removeEventListener('artisan:open-shortcuts', onOpenShortcuts);
+      window.removeEventListener('artisan:open-feedback', onOpenFeedback);
     };
   }, []);
 
@@ -691,12 +696,22 @@ const Layout = () => {
               <span className="flex-1 text-left">Mode terrain</span>
             </button>
 
+            {/* Donner mon avis — collecte des retours d'utilisation */}
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+              title="Signaler un bug ou proposer une amélioration"
+            >
+              <MessageSquarePlus className="w-[22px] h-[22px] flex-shrink-0 text-emerald-500" />
+              <span className="flex-1 text-left">Donner mon avis</span>
+            </button>
+
             {/* Statistiques plateforme — réservé à l'administrateur */}
             {isAdmin(user) && (
               <Link
                 to="/app/admin"
                 className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
-                  location.pathname.startsWith('/app/admin')
+                  location.pathname === '/app/admin'
                     ? 'bg-[#007AFF] text-white shadow-sm'
                     : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
@@ -704,9 +719,28 @@ const Layout = () => {
               >
                 <BarChart3
                   className="w-[22px] h-[22px] flex-shrink-0"
-                  style={{ color: location.pathname.startsWith('/app/admin') ? '#fff' : IOS_BLUE }}
+                  style={{ color: location.pathname === '/app/admin' ? '#fff' : IOS_BLUE }}
                 />
                 <span className="flex-1 text-left">Statistiques</span>
+              </Link>
+            )}
+
+            {/* Retours des artisans — réservé à l'administrateur */}
+            {isAdmin(user) && (
+              <Link
+                to="/app/admin/feedback"
+                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
+                  location.pathname.startsWith('/app/admin/feedback')
+                    ? 'bg-[#007AFF] text-white shadow-sm'
+                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title="Retours envoyés par les artisans"
+              >
+                <MessageSquarePlus
+                  className="w-[22px] h-[22px] flex-shrink-0"
+                  style={{ color: location.pathname.startsWith('/app/admin/feedback') ? '#fff' : IOS_BLUE }}
+                />
+                <span className="flex-1 text-left">Retours artisans</span>
               </Link>
             )}
           </nav>
@@ -901,6 +935,9 @@ const Layout = () => {
 
       {/* Keyboard Shortcuts Help Modal */}
       <KeyboardShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Donner mon avis — recueil des retours artisans */}
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
 
       {/* Barre d'onglets mobile — translucide style iOS */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-t border-gray-200/70 dark:border-white/10 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
