@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale, LineChart } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -751,6 +751,25 @@ const Layout = () => {
                     {newFeedbackCount > 9 ? '9+' : newFeedbackCount}
                   </span>
                 )}
+              </Link>
+            )}
+
+            {/* Rapports hebdomadaires des retours — réservé à l'administrateur */}
+            {isAdmin(user) && (
+              <Link
+                to="/app/admin/reports"
+                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${
+                  location.pathname.startsWith('/app/admin/reports')
+                    ? 'bg-[#007AFF] text-white shadow-sm'
+                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title="Synthèse hebdomadaire des retours artisans"
+              >
+                <LineChart
+                  className="w-[22px] h-[22px] flex-shrink-0"
+                  style={{ color: location.pathname.startsWith('/app/admin/reports') ? '#fff' : IOS_BLUE }}
+                />
+                <span className="flex-1 text-left">Rapports hebdo</span>
               </Link>
             )}
           </nav>

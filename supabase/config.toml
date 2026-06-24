@@ -21,3 +21,8 @@ verify_jwt = false
 # Pixel de tracking d'ouverture des emails (chargé par le client mail du destinataire — pas de JWT)
 [functions.track-email-open]
 verify_jwt = false
+
+# Rapport hebdo des retours artisans (appelé par pg_cron via x-cron-secret, ou
+# par l'admin avec son JWT — authentification gérée dans la fonction)
+[functions.weekly-feedback-report]
+verify_jwt = false

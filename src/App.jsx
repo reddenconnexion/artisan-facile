@@ -210,6 +210,7 @@ const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
 const AdminStats = lazyWithRetry(() => import('./pages/AdminStats'));
 const AdminFeedback = lazyWithRetry(() => import('./pages/AdminFeedback'));
+const AdminFeedbackReports = lazyWithRetry(() => import('./pages/AdminFeedbackReports'));
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -290,6 +291,7 @@ function App() {
                 <Route path="route-planner" element={<RoutePlanner />} />
                 <Route path="admin" element={<AdminStats />} />
                 <Route path="admin/feedback" element={<AdminFeedback />} />
+                <Route path="admin/reports" element={<AdminFeedbackReports />} />
               </Route>
             </Routes >
           </Suspense >
