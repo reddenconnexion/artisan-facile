@@ -942,6 +942,115 @@ Rédige ${variantCount > 1 ? `${variantCount} variantes distinctes` : 'la répon
 
 
 /**
+ * Génère un bilan comptable et des conseils d'optimisation personnalisés, à la
+ * manière d'un expert-comptable, à partir d'agrégats financiers (jamais de
+ * données client nominatives).
+ *
+ * @param {object} params
+ * @param {string} params.facts - Bloc factuel construit par buildAdviceFacts().
+ * @param {string} [params.question] - Question libre optionnelle de l'artisan.
+ * @returns {Promise<object>} Conseils structurés (voir FORMAT JSON ci-dessous).
+ */
+export const generateAccountingAdvice = async ({ facts, question = '' } = {}) => {
+    if (!facts || !facts.trim()) {
+        throw new Error('Aucune donnée comptable à analyser pour le moment.');
+    }
+
+    const systemPrompt = `Tu es un expert-comptable français spécialisé dans l'accompagnement des artisans du bâtiment (TPE, micro-entreprises, EI, EURL, SASU). Tu analyses la situation chiffrée d'un artisan et tu lui donnes des conseils CONCRETS et CHIFFRÉS pour optimiser légalement ses cotisations sociales, son imposition et la déduction de ses charges.
+
+RÈGLES IMPÉRATIVES :
+- Base-toi UNIQUEMENT sur les chiffres fournis. N'invente AUCUN montant : si une donnée manque, dis-le.
+- Raisonne sur le STATUT le plus adapté (micro-entreprise vs régime réel : EI au réel, EURL à l'IR ou à l'IS, SASU) selon le niveau et la trajectoire de CA, et le niveau réel de charges déductibles de l'artisan.
+- Couvre systématiquement, quand c'est pertinent : le choix micro vs réel (intérêt de déduire les charges réelles si elles dépassent l'abattement forfaitaire), l'option du versement libératoire de l'impôt, l'ACRE, le passage ou non à la TVA (récupération de la TVA sur achats vs franchise en base), et le seuil de bascule micro→réel.
+- Liste des CHARGES DÉDUCTIBLES typiques d'un artisan qu'il devrait penser à comptabiliser (sous un régime réel) : matériaux, outillage, véhicule/carburant, assurance décennale, sous-traitance, frais de déplacement, téléphonie, comptable, etc. — uniquement celles plausibles pour un artisan.
+- Chiffre les gains/économies estimés quand c'est possible (ordres de grandeur, en précisant « estimation »).
+- Conseils actionnables, pédagogiques, sans jargon inutile. Tutoiement professionnel.
+- Tu n'es pas un avis fiscal personnalisé opposable : rappelle brièvement de valider avec un expert-comptable avant toute démarche importante.
+- Seuils/taux 2025-2026 : micro services BIC cotisations ≈ 21,2 %, vente BIC ≈ 12,3 %, libéral BNC ≈ 24,6 %. Plafonds micro : 77 700 € (services/BNC), 188 700 € (vente). Franchise TVA : 37 500 € (services), 85 000 € (vente).
+
+FORMAT DE RÉPONSE — JSON STRICT UNIQUEMENT, sans markdown, sans texte avant/après :
+{
+  "synthese": "2-4 phrases résumant la situation et l'enjeu principal.",
+  "statut": {
+    "actuel": "Statut actuel en clair",
+    "recommande": "Statut recommandé (peut être identique à l'actuel)",
+    "raison": "Pourquoi, en 1-2 phrases chiffrées."
+  },
+  "recommandations": [
+    {
+      "titre": "Titre court de la recommandation",
+      "categorie": "statut" | "cotisations" | "impot" | "tva" | "charges" | "tresorerie",
+      "priorite": "haute" | "moyenne" | "basse",
+      "explication": "Explication claire et chiffrée (2-4 phrases).",
+      "gain_estime": "Économie/gain estimé ou 'Non chiffrable' ",
+      "action": "Prochaine étape concrète."
+    }
+  ],
+  "charges_deductibles": [
+    { "poste": "Nom du poste", "exemple": "Exemple concret", "condition": "Condition pour déduire (ex: passage au réel)" }
+  ],
+  "points_vigilance": ["Point de vigilance 1", "Point de vigilance 2"],
+  "avertissement": "Rappel que ces conseils sont informatifs et à valider avec un expert-comptable."
+}`;
+
+    const userMessage = `DONNÉES COMPTABLES DE L'ARTISAN :
+${facts}
+${question && question.trim() ? `\nQUESTION SPÉCIFIQUE DE L'ARTISAN : "${question.trim()}"` : ''}
+
+Analyse cette situation et renvoie le bilan + les conseils au format JSON demandé.`;
+
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage });
+
+    let parsed;
+    try {
+        parsed = extractJsonObject(rawResponse);
+    } catch {
+        throw new Error("L'IA a renvoyé un format invalide. Veuillez réessayer.");
+    }
+
+    // Normalisation défensive : on garantit la forme attendue côté UI.
+    const asArray = (v) => (Array.isArray(v) ? v : []);
+    const recommandations = asArray(parsed.recommandations)
+        .filter((r) => r && typeof r === 'object')
+        .map((r) => ({
+            titre: String(r.titre || '').trim(),
+            categorie: ['statut', 'cotisations', 'impot', 'tva', 'charges', 'tresorerie'].includes(r.categorie)
+                ? r.categorie
+                : 'charges',
+            priorite: ['haute', 'moyenne', 'basse'].includes(r.priorite) ? r.priorite : 'moyenne',
+            explication: String(r.explication || '').trim(),
+            gain_estime: String(r.gain_estime || '').trim(),
+            action: String(r.action || '').trim(),
+        }))
+        .filter((r) => r.titre || r.explication);
+
+    const chargesDeductibles = asArray(parsed.charges_deductibles)
+        .filter((c) => c && typeof c === 'object')
+        .map((c) => ({
+            poste: String(c.poste || '').trim(),
+            exemple: String(c.exemple || '').trim(),
+            condition: String(c.condition || '').trim(),
+        }))
+        .filter((c) => c.poste);
+
+    const statut = parsed.statut && typeof parsed.statut === 'object' ? parsed.statut : {};
+
+    return {
+        synthese: String(parsed.synthese || '').trim(),
+        statut: {
+            actuel: String(statut.actuel || '').trim(),
+            recommande: String(statut.recommande || '').trim(),
+            raison: String(statut.raison || '').trim(),
+        },
+        recommandations,
+        charges_deductibles: chargesDeductibles,
+        points_vigilance: asArray(parsed.points_vigilance).map((p) => String(p || '').trim()).filter(Boolean),
+        avertissement: String(parsed.avertissement || '').trim(),
+    };
+};
+
+
+/**
  * ─── Assistant conversationnel "Copilot Artisan" ──────────────────────────
  *
  * Aplatit l'historique de conversation en un seul `userMessage` pour passer
