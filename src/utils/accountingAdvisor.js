@@ -249,8 +249,125 @@ export const analyzeFinancials = (invoices, prefs = {}, now = new Date()) => {
     projection,
     headlineGrowth,
     referenceCa,
+    referenceCaServices,
     thresholds,
     hasData: years.length > 0,
+  };
+};
+
+// ── Charges professionnelles & comparaison micro / régime réel ───────────────
+
+// Libellés des catégories de charges (doivent rester cohérents avec
+// ChargesManager.jsx et la colonne business_charges.category).
+export const CHARGE_CATEGORIES = {
+  materiel: 'Matériel & outillage',
+  vehicule: 'Véhicule & carburant',
+  assurance: 'Assurances (décennale, RC Pro…)',
+  loyer: 'Local / loyer',
+  fournitures: 'Fournitures & consommables',
+  sous_traitance: 'Sous-traitance',
+  telephonie: 'Téléphonie & internet',
+  logiciels: 'Logiciels & abonnements',
+  comptable: 'Expert-comptable / gestion',
+  banque: 'Frais bancaires & financiers',
+  formation: 'Formation',
+  deplacement: 'Déplacements & repas',
+  autre: 'Autres charges',
+};
+
+// Taux de cotisations sociales estimé au régime réel (TNS) — ordre de grandeur
+// usuel pour un artisan en EI/EURL à l'IR. Sert uniquement à l'estimation.
+const TNS_REAL_RATE = 0.45;
+// Tranche marginale d'imposition par défaut pour la comparaison (proxy neutre).
+const DEFAULT_TMI = 0.11;
+
+const chargeAnnualAmount = (c) => {
+  const amt = toNumber(c.amount);
+  return c.periodicity === 'monthly' ? amt * 12 : amt;
+};
+
+/**
+ * Agrège une liste de charges (business_charges) en total annualisé + ventilation
+ * par catégorie. Aucune dépendance réseau/React.
+ */
+export const summarizeCharges = (charges = []) => {
+  const list = Array.isArray(charges) ? charges : [];
+  const byCategory = new Map();
+  let annualTotal = 0;
+  list.forEach((c) => {
+    const annual = chargeAnnualAmount(c);
+    annualTotal += annual;
+    const key = c.category || 'autre';
+    byCategory.set(key, (byCategory.get(key) || 0) + annual);
+  });
+  return {
+    annualTotal,
+    count: list.length,
+    byCategory: Array.from(byCategory.entries())
+      .map(([category, total]) => ({ category, label: CHARGE_CATEGORIES[category] || category, total }))
+      .sort((a, b) => b.total - a.total),
+  };
+};
+
+const microAbatementAmount = (caServices, caVente, activityType) => {
+  const abServices = caServices * (activityType === 'liberal' ? MICRO_ABATEMENT.liberal : MICRO_ABATEMENT.services);
+  const abVente = caVente * MICRO_ABATEMENT.vente;
+  return abServices + abVente;
+};
+
+/**
+ * Compare, sur le CA de référence, le régime micro (cotisations sur le CA +
+ * abattement forfaitaire) au régime réel (cotisations TNS sur le résultat +
+ * déduction des charges réelles). Tous les montants du réel sont des
+ * ESTIMATIONS (TNS ≈ 45 %, TMI proxy) destinées à éclairer la décision.
+ *
+ * @returns {object|null} comparaison, ou null si pas de CA de référence.
+ */
+export const computeStatusComparison = (analysis, chargesAnnual = 0, tmi = DEFAULT_TMI) => {
+  const ca = analysis.referenceCa || 0;
+  if (ca <= 0) return null;
+
+  const caServices = analysis.referenceCaServices || 0;
+  const caVente = Math.max(0, ca - caServices);
+
+  // MICRO — cotisations sur le CA (taux normaux, hors ACRE temporaire).
+  const microCotisations =
+    caServices * microRate('services', analysis.activityType, false) +
+    caVente * microRate('vente', analysis.activityType, false);
+  const microAbatement = microAbatementAmount(caServices, caVente, analysis.activityType);
+  const microTaxable = Math.max(0, ca - microAbatement);
+
+  // RÉEL — déduction des charges réelles, cotisations TNS sur le résultat.
+  const reelResultat = Math.max(0, ca - chargesAnnual);
+  const reelCotisations = reelResultat * TNS_REAL_RATE;
+  const reelTaxable = Math.max(0, reelResultat - reelCotisations);
+
+  // Prélèvements globaux proxy = cotisations + IR(tmi) sur la base imposable.
+  const microPrelevements = microCotisations + microTaxable * tmi;
+  const reelPrelevements = reelCotisations + reelTaxable * tmi;
+
+  const cotisationsSaving = microCotisations - reelCotisations; // >0 ⇒ le réel coûte moins de cotisations
+  const globalSaving = microPrelevements - reelPrelevements; // >0 ⇒ réel globalement plus avantageux
+
+  const overMicroCeiling = analysis.thresholds.caLimit > 0 && ca > analysis.thresholds.caLimit;
+
+  // Verdict prudent : seuil de 2 % du CA pour éviter de trancher sur du bruit.
+  let verdict = 'comparable';
+  if (overMicroCeiling) verdict = 'reel';
+  else if (globalSaving > ca * 0.02) verdict = 'reel';
+  else if (globalSaving < -ca * 0.02) verdict = 'micro';
+
+  return {
+    referenceCa: ca,
+    chargesAnnual,
+    tmi,
+    chargesRatio: ca > 0 ? chargesAnnual / ca : 0,
+    overMicroCeiling,
+    micro: { cotisations: microCotisations, abatement: microAbatement, taxable: microTaxable },
+    reel: { resultat: reelResultat, cotisations: reelCotisations, taxable: reelTaxable, rate: TNS_REAL_RATE },
+    cotisationsSaving,
+    globalSaving,
+    verdict,
   };
 };
 
@@ -258,7 +375,7 @@ export const analyzeFinancials = (invoices, prefs = {}, now = new Date()) => {
  * Construit le bloc de données factuelles, compact et lisible, injecté dans le
  * prompt IA. On ne transmet QUE des agrégats (jamais les détails clients).
  */
-export const buildAdviceFacts = (analysis) => {
+export const buildAdviceFacts = (analysis, { chargesSummary = null, comparison = null } = {}) => {
   const fmt = (n) => (n == null ? 'n/a' : Math.round(n).toLocaleString('fr-FR') + ' €');
   const pct = (n) => (n == null ? 'n/a' : (n * 100).toFixed(1) + ' %');
 
@@ -297,6 +414,47 @@ export const buildAdviceFacts = (analysis) => {
       0
     )} %.`
   );
+
+  // Charges professionnelles déductibles saisies par l'artisan.
+  lines.push('');
+  if (chargesSummary && chargesSummary.count > 0) {
+    lines.push(
+      `Charges professionnelles déductibles déclarées (annualisées) : ${fmt(chargesSummary.annualTotal)} au total, réparties ainsi :`
+    );
+    chargesSummary.byCategory.forEach((c) => lines.push(`- ${c.label} : ${fmt(c.total)}`));
+  } else {
+    lines.push(
+      "L'artisan n'a pas encore renseigné ses charges professionnelles déductibles : invite-le à les saisir pour fiabiliser la comparaison micro/réel."
+    );
+  }
+
+  // Comparaison déterministe micro vs réel (estimations) fournie en contexte
+  // pour que l'IA s'appuie sur ces chiffres au lieu d'en inventer.
+  if (comparison) {
+    lines.push('');
+    lines.push('Comparaison estimée micro vs régime réel (sur le CA de référence) :');
+    lines.push(
+      `- MICRO : cotisations ${fmt(comparison.micro.cotisations)} (sur le CA), abattement forfaitaire ${fmt(
+        comparison.micro.abatement
+      )} ⇒ base imposable ${fmt(comparison.micro.taxable)}.`
+    );
+    lines.push(
+      `- RÉEL : résultat ${fmt(comparison.reel.resultat)} (CA − charges réelles), cotisations TNS estimées ${fmt(
+        comparison.reel.cotisations
+      )} (≈45 % du résultat) ⇒ base imposable ${fmt(comparison.reel.taxable)}.`
+    );
+    lines.push(
+      `- Charges déclarées = ${pct(comparison.chargesRatio)} du CA. Économie estimée de cotisations au réel : ${fmt(
+        comparison.cotisationsSaving
+      )} ; gain global estimé (cotisations + IR proxy) : ${fmt(comparison.globalSaving)}.`
+    );
+    lines.push(
+      `- Lecture déterministe (à affiner par tes soins) : régime le plus avantageux ≈ « ${comparison.verdict} ».`
+    );
+    if (comparison.overMicroCeiling) {
+      lines.push('- ⚠ Le CA de référence dépasse le plafond micro : le régime réel devient obligatoire.');
+    }
+  }
 
   return lines.join('\n');
 };

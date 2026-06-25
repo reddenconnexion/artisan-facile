@@ -961,6 +961,7 @@ export const generateAccountingAdvice = async ({ facts, question = '' } = {}) =>
 RÈGLES IMPÉRATIVES :
 - Base-toi UNIQUEMENT sur les chiffres fournis. N'invente AUCUN montant : si une donnée manque, dis-le.
 - Raisonne sur le STATUT le plus adapté (micro-entreprise vs régime réel : EI au réel, EURL à l'IR ou à l'IS, SASU) selon le niveau et la trajectoire de CA, et le niveau réel de charges déductibles de l'artisan.
+- EXPLOITE EN PRIORITÉ les charges professionnelles réelles déclarées par l'artisan et la comparaison micro/réel chiffrée fournie dans les données : confirme ou nuance ce calcul, explique quel régime est le plus avantageux et de combien. Si l'artisan n'a pas saisi ses charges, dis-lui clairement que la comparaison micro/réel sera bien plus fiable une fois ses charges renseignées.
 - Couvre systématiquement, quand c'est pertinent : le choix micro vs réel (intérêt de déduire les charges réelles si elles dépassent l'abattement forfaitaire), l'option du versement libératoire de l'impôt, l'ACRE, le passage ou non à la TVA (récupération de la TVA sur achats vs franchise en base), et le seuil de bascule micro→réel.
 - Liste des CHARGES DÉDUCTIBLES typiques d'un artisan qu'il devrait penser à comptabiliser (sous un régime réel) : matériaux, outillage, véhicule/carburant, assurance décennale, sous-traitance, frais de déplacement, téléphonie, comptable, etc. — uniquement celles plausibles pour un artisan.
 - Chiffre les gains/économies estimés quand c'est possible (ordres de grandeur, en précisant « estimation »).
@@ -975,6 +976,12 @@ FORMAT DE RÉPONSE — JSON STRICT UNIQUEMENT, sans markdown, sans texte avant/a
     "actuel": "Statut actuel en clair",
     "recommande": "Statut recommandé (peut être identique à l'actuel)",
     "raison": "Pourquoi, en 1-2 phrases chiffrées."
+  },
+  "comparatif_statut": {
+    "verdict": "micro" | "reel" | "comparable",
+    "explication": "Explication chiffrée du régime le plus avantageux compte tenu des charges réelles déclarées (ou indication que les charges manquent pour trancher).",
+    "micro": { "cotisations": "Montant ou ordre de grandeur", "base_imposable": "Montant", "commentaire": "1 phrase" },
+    "reel": { "cotisations": "Montant estimé", "base_imposable": "Montant estimé", "commentaire": "1 phrase" }
   },
   "recommandations": [
     {
@@ -1035,6 +1042,25 @@ Analyse cette situation et renvoie le bilan + les conseils au format JSON demand
 
     const statut = parsed.statut && typeof parsed.statut === 'object' ? parsed.statut : {};
 
+    // Comparatif micro vs réel (optionnel) — normalisé défensivement.
+    const comp = parsed.comparatif_statut && typeof parsed.comparatif_statut === 'object' ? parsed.comparatif_statut : null;
+    const regime = (r) => {
+        const o = r && typeof r === 'object' ? r : {};
+        return {
+            cotisations: String(o.cotisations || '').trim(),
+            base_imposable: String(o.base_imposable || '').trim(),
+            commentaire: String(o.commentaire || '').trim(),
+        };
+    };
+    const comparatifStatut = comp
+        ? {
+              verdict: ['micro', 'reel', 'comparable'].includes(comp.verdict) ? comp.verdict : 'comparable',
+              explication: String(comp.explication || '').trim(),
+              micro: regime(comp.micro),
+              reel: regime(comp.reel),
+          }
+        : null;
+
     return {
         synthese: String(parsed.synthese || '').trim(),
         statut: {
@@ -1042,6 +1068,7 @@ Analyse cette situation et renvoie le bilan + les conseils au format JSON demand
             recommande: String(statut.recommande || '').trim(),
             raison: String(statut.raison || '').trim(),
         },
+        comparatif_statut: comparatifStatut,
         recommandations,
         charges_deductibles: chargesDeductibles,
         points_vigilance: asArray(parsed.points_vigilance).map((p) => String(p || '').trim()).filter(Boolean),
