@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react';
 import {
-  Sparkles, TrendingUp, TrendingDown, Loader2, AlertCircle, Lightbulb, Scale,
+  Sparkles, TrendingUp, Loader2, AlertCircle, Lightbulb, Scale,
   Receipt, ShieldCheck, Info, ArrowRight, Euro, Percent,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
 } from 'recharts';
-import { analyzeFinancials, buildAdviceFacts, STATUS_LABELS } from '../utils/accountingAdvisor';
+import {
+  analyzeFinancials, buildAdviceFacts, STATUS_LABELS,
+  summarizeCharges, computeStatusComparison,
+} from '../utils/accountingAdvisor';
 import { generateAccountingAdvice } from '../utils/aiService';
+import ChargesManager from './ChargesManager';
 
 const fmtCurrency = (n) =>
   (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -35,10 +39,74 @@ const KpiCard = ({ label, value, sub, accent = 'text-gray-900 dark:text-white' }
   </div>
 );
 
+const VERDICT_META = {
+  micro: { label: 'Le régime micro reste le plus avantageux', cls: 'text-indigo-700 dark:text-indigo-300' },
+  reel: { label: 'Un passage au régime réel serait plus avantageux', cls: 'text-emerald-700 dark:text-emerald-300' },
+  comparable: { label: 'Les deux régimes sont proches', cls: 'text-gray-700 dark:text-gray-300' },
+};
+
+// Colonne d'un régime dans la comparaison chiffrée.
+const RegimeColumn = ({ title, cotisations, base, highlight }) => (
+  <div className={`flex-1 rounded-xl p-4 border ${highlight ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/20' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40'}`}>
+    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{title}</p>
+    <div className="space-y-1.5 text-sm">
+      <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Cotisations</span><span className="font-medium text-gray-900 dark:text-white">{cotisations}</span></div>
+      <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">Base imposable</span><span className="font-medium text-gray-900 dark:text-white">{base}</span></div>
+    </div>
+  </div>
+);
+
+const ComparisonCard = ({ comparison, fmtCurrency }) => {
+  const meta = VERDICT_META[comparison.verdict] || VERDICT_META.comparable;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-1">
+        <Scale className="w-5 h-5 mr-2 text-indigo-600" />
+        Micro vs régime réel
+      </h3>
+      <p className={`text-sm font-medium mb-4 ${meta.cls}`}>{meta.label}</p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <RegimeColumn
+          title="Régime micro"
+          cotisations={fmtCurrency(comparison.micro.cotisations)}
+          base={fmtCurrency(comparison.micro.taxable)}
+          highlight={comparison.verdict === 'micro'}
+        />
+        <RegimeColumn
+          title="Régime réel (estimé)"
+          cotisations={fmtCurrency(comparison.reel.cotisations)}
+          base={fmtCurrency(comparison.reel.taxable)}
+          highlight={comparison.verdict === 'reel'}
+        />
+      </div>
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+          <Receipt className="w-3.5 h-3.5" />
+          Charges déclarées : {(comparison.chargesRatio * 100).toFixed(0)} % du CA
+        </div>
+        <div className={`flex items-center gap-1.5 font-medium ${comparison.globalSaving > 0 ? 'text-emerald-600' : 'text-gray-500 dark:text-gray-400'}`}>
+          <TrendingUp className="w-3.5 h-3.5" />
+          Gain global estimé au réel : {comparison.globalSaving > 0 ? fmtCurrency(comparison.globalSaving) : '—'}
+        </div>
+      </div>
+      {comparison.overMicroCeiling && (
+        <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+          ⚠ Votre CA de référence dépasse le plafond micro : le régime réel devient obligatoire.
+        </p>
+      )}
+      <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed">
+        Estimations indicatives (cotisations réel ≈ 45 % du résultat, impôt estimé sur une base neutre). L'analyse IA
+        ci-dessous affine ce calcul ; validez tout changement avec un expert-comptable.
+      </p>
+    </div>
+  );
+};
+
 const AccountingAdvisor = ({ invoices = [], profile }) => {
   const [advice, setAdvice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [charges, setCharges] = useState([]);
 
   const prefs = profile?.ai_preferences || {};
 
@@ -46,6 +114,12 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
     () => analyzeFinancials(invoices, prefs),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [invoices, prefs.artisan_status, prefs.activity_type, prefs.has_acre]
+  );
+
+  const chargesSummary = useMemo(() => summarizeCharges(charges), [charges]);
+  const comparison = useMemo(
+    () => computeStatusComparison(analysis, chargesSummary.annualTotal),
+    [analysis, chargesSummary.annualTotal]
   );
 
   const chartData = useMemo(
@@ -63,7 +137,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
     setError(null);
     setLoading(true);
     try {
-      const facts = buildAdviceFacts(analysis);
+      const facts = buildAdviceFacts(analysis, { chargesSummary, comparison });
       const result = await generateAccountingAdvice({ facts });
       setAdvice(result);
     } catch (err) {
@@ -80,12 +154,16 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
 
   if (!analysis.hasData) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 text-center">
-        <Lightbulb className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-        <p className="text-gray-600 dark:text-gray-300 font-medium">Pas encore assez de données à analyser</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          Marquez quelques factures comme «&nbsp;Payé&nbsp;» pour que le conseiller puisse analyser votre activité et son évolution.
-        </p>
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 text-center">
+          <Lightbulb className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-300 font-medium">Pas encore assez de données à analyser</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            Marquez quelques factures comme «&nbsp;Payé&nbsp;» pour que le conseiller puisse analyser votre activité et son évolution.
+          </p>
+        </div>
+        {/* La saisie des charges reste accessible pour préparer la comparaison. */}
+        <ChargesManager onChange={setCharges} />
       </div>
     );
   }
@@ -177,6 +255,12 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
         </p>
       </div>
 
+      {/* Saisie des charges déductibles */}
+      <ChargesManager onChange={setCharges} />
+
+      {/* Comparaison chiffrée micro vs réel (déterministe, locale) */}
+      {comparison && <ComparisonCard comparison={comparison} fmtCurrency={fmtCurrency} />}
+
       {/* Bouton de génération */}
       {!advice && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 text-center">
@@ -247,6 +331,45 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
               </div>
             )}
           </div>
+
+          {/* Comparatif micro vs réel détaillé par l'IA */}
+          {advice.comparatif_statut && (advice.comparatif_statut.explication || advice.comparatif_statut.micro.cotisations) && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center mb-3">
+                <Scale className="w-5 h-5 mr-2 text-indigo-600" />
+                Comparaison micro vs réel — analyse
+              </h3>
+              {advice.comparatif_statut.explication && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">{advice.comparatif_statut.explication}</p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {[
+                  { key: 'micro', title: 'Régime micro', data: advice.comparatif_statut.micro },
+                  { key: 'reel', title: 'Régime réel', data: advice.comparatif_statut.reel },
+                ].map(({ key, title, data }) => (
+                  <div
+                    key={key}
+                    className={`flex-1 rounded-xl p-4 border ${
+                      advice.comparatif_statut.verdict === key
+                        ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/20'
+                        : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{title}</p>
+                    {data.cotisations && (
+                      <div className="flex justify-between text-sm"><span className="text-gray-500 dark:text-gray-400">Cotisations</span><span className="font-medium text-gray-900 dark:text-white">{data.cotisations}</span></div>
+                    )}
+                    {data.base_imposable && (
+                      <div className="flex justify-between text-sm mt-1"><span className="text-gray-500 dark:text-gray-400">Base imposable</span><span className="font-medium text-gray-900 dark:text-white">{data.base_imposable}</span></div>
+                    )}
+                    {data.commentaire && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">{data.commentaire}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Recommandations */}
           {advice.recommandations.length > 0 && (

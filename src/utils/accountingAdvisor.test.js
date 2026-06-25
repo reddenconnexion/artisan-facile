@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeFinancials, buildAdviceFacts, CA_LIMITS } from './accountingAdvisor';
+import {
+  analyzeFinancials, buildAdviceFacts, CA_LIMITS,
+  summarizeCharges, computeStatusComparison,
+} from './accountingAdvisor';
 
 const paidInvoice = (overrides = {}) => ({
   id: Math.random(),
@@ -87,5 +90,66 @@ describe('buildAdviceFacts', () => {
     expect(facts).toContain('2024');
     expect(facts).toContain('Micro-entreprise');
     expect(facts).toMatch(/CA/);
+  });
+
+  it('mentions charges and the comparison when provided', () => {
+    const invoices = [paidInvoice({ total_ht: 50000, date: '2024-05-01' })];
+    const analysis = analyzeFinancials(invoices, { artisan_status: 'micro_entreprise', activity_type: 'services' }, new Date('2025-06-15'));
+    const chargesSummary = summarizeCharges([{ category: 'vehicule', amount: 1000, periodicity: 'annual' }]);
+    const comparison = computeStatusComparison(analysis, chargesSummary.annualTotal);
+    const facts = buildAdviceFacts(analysis, { chargesSummary, comparison });
+    expect(facts).toMatch(/Charges professionnelles déductibles déclarées/);
+    expect(facts).toMatch(/micro vs régime réel/i);
+  });
+});
+
+describe('summarizeCharges', () => {
+  it('annualizes monthly amounts and groups by category', () => {
+    const res = summarizeCharges([
+      { category: 'vehicule', amount: 100, periodicity: 'monthly' }, // 1200/an
+      { category: 'vehicule', amount: 300, periodicity: 'annual' },  // 300/an
+      { category: 'assurance', amount: 1200, periodicity: 'annual' },
+    ]);
+    expect(res.annualTotal).toBe(2700);
+    expect(res.count).toBe(3);
+    const vehicule = res.byCategory.find((c) => c.category === 'vehicule');
+    expect(vehicule.total).toBe(1500);
+    // Trié par total décroissant : véhicule (1500) avant assurance (1200).
+    expect(res.byCategory[0].category).toBe('vehicule');
+  });
+
+  it('handles an empty list', () => {
+    const res = summarizeCharges([]);
+    expect(res.annualTotal).toBe(0);
+    expect(res.byCategory).toEqual([]);
+  });
+});
+
+describe('computeStatusComparison', () => {
+  const microAnalysis = (ca) =>
+    analyzeFinancials([paidInvoice({ total_ht: ca, date: '2024-05-01' })],
+      { artisan_status: 'micro_entreprise', activity_type: 'services' }, new Date('2025-06-15'));
+
+  it('returns null when there is no reference CA', () => {
+    const analysis = analyzeFinancials([], { artisan_status: 'micro_entreprise' });
+    expect(computeStatusComparison(analysis, 5000)).toBeNull();
+  });
+
+  it('favours micro when real charges are low', () => {
+    const res = computeStatusComparison(microAnalysis(50000), 2000);
+    expect(res.micro.cotisations).toBeCloseTo(10600, 0); // 50000 * 21.2%
+    expect(res.verdict).toBe('micro');
+  });
+
+  it('favours réel when real charges are high', () => {
+    const res = computeStatusComparison(microAnalysis(50000), 38000);
+    expect(res.verdict).toBe('reel');
+    expect(res.reel.resultat).toBe(12000); // 50000 - 38000
+  });
+
+  it('forces réel and flags the ceiling when CA exceeds the micro limit', () => {
+    const res = computeStatusComparison(microAnalysis(90000), 1000);
+    expect(res.overMicroCeiling).toBe(true);
+    expect(res.verdict).toBe('reel');
   });
 });
