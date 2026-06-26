@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import SignatureCanvas from './SignaturePad';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useModalA11y } from '../hooks/useModalA11y';
