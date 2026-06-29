@@ -150,11 +150,15 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pour</label>
                                 <input
-                                    type="text"
-                                    readOnly
+                                    type="email"
                                     value={localPreview.email}
-                                    className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300 text-sm"
+                                    onChange={e => setLocalPreview(p => ({ ...p, email: e.target.value }))}
+                                    placeholder="destinataire@email.fr"
+                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 text-sm focus:ring-blue-500 focus:border-blue-500"
                                 />
+                                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                    Pré-rempli avec l'email du client. Modifiable (ex&nbsp;: tuteur, mandataire, comptable).
+                                </p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objet</label>
@@ -209,7 +213,7 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                     </button>
                     <button
                         type="button"
-                        onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody)}
+                        onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email)}
                         className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
                         title={userProfile?.smtp_config?.host ? `Envoi direct depuis ${userProfile.smtp_config.from_email}` : 'Ouvre votre client mail'}
                     >
