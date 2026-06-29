@@ -4149,7 +4149,20 @@ Conditions de règlement : Paiement à réception de facture.`
                         className="disabled:bg-gray-100 disabled:text-gray-500"
                         placeholder="Conditions de paiement, validité du devis..."
                         value={formData.notes}
-                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        onChange={(e) => {
+                            setFormData({ ...formData, notes: e.target.value });
+                            // Déplie le champ au fil de la saisie pour tout afficher.
+                            autoGrow(e.target);
+                        }}
+                        onFocus={(e) => {
+                            // Au clic, déplie le champ pour avoir une vue complète
+                            // des notes/conditions (plus de scroll interne).
+                            autoGrow(e.target);
+                        }}
+                        onBlur={(e) => {
+                            // Revient à la hauteur compacte (3 lignes) une fois désélectionné.
+                            e.target.style.height = '';
+                        }}
                         disabled={isLocked}
                     />
                     {/* Auto-calculate Material Deposit Hint */}
