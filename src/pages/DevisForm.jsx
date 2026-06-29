@@ -1286,16 +1286,20 @@ const DevisForm = () => {
         }
     };
 
-    const handleConfirmSendEmail = async (subject, body) => {
+    const handleConfirmSendEmail = async (subject, body, overrideEmail) => {
         if (!emailPreview) return;
 
+        // L'adresse saisie dans la modale prime sur l'email enregistré du client
+        // (ex : devis adressé à un tuteur/mandataire au nom du client protégé).
+        const recipientEmail = (overrideEmail ?? emailPreview.email)?.trim() || '';
+
         const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
-        const mailtoUrl = `mailto:${emailPreview.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const mailtoUrl = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         if (isTestMode) {
-            captureEmail({ email: emailPreview.email, subject, body });
+            captureEmail({ email: recipientEmail, subject, body });
             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
-        } else if (smtpConfigured && emailPreview.email) {
+        } else if (smtpConfigured && recipientEmail) {
             // Envoi direct depuis l'adresse pro de l'artisan via Edge Function
             const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
             try {
@@ -1308,7 +1312,7 @@ const DevisForm = () => {
                         'Authorization': `Bearer ${session.access_token}`,
                     },
                     body: JSON.stringify({
-                        to: emailPreview.email,
+                        to: recipientEmail,
                         subject,
                         text: body,
                         quote_id: id,
@@ -1318,7 +1322,7 @@ const DevisForm = () => {
                 const result = await res.json();
                 toast.dismiss(sendingToast);
                 if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
-                toast.success(`Email envoyé à ${emailPreview.email}`);
+                toast.success(`Email envoyé à ${recipientEmail}`);
             } catch (err) {
                 toast.dismiss(sendingToast);
                 console.error('Direct email send failed:', err);
