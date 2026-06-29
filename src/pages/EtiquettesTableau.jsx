@@ -21,6 +21,7 @@ import {
   Wand2,
   ShieldCheck,
   ToggleRight,
+  Power,
   Clock,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
@@ -53,6 +54,7 @@ const MODULE_OPTIONS = [
 // Catégories de circuits avec icône Lucide et couleur d'accent
 const CATEGORIES = {
   differentiel: { label: "Différentiel", icon: ShieldCheck, color: "#0EA5E9" },
+  sectionneur: { label: "Inter. sectionneur", icon: Power, color: "#E11D48" },
   eclairage: { label: "Éclairage", icon: Lightbulb, color: "#F59E0B" },
   prises: { label: "Prises", icon: Plug, color: "#3B82F6" },
   cuisine: { label: "Cuisine", icon: Utensils, color: "#F97316" },
@@ -76,6 +78,11 @@ const PRESET_CIRCUITS = [
   { category: "differentiel", label: "ID 40A Type F 30mA", breaker: 40, modules: 2 },
   { category: "differentiel", label: "ID 63A Type F 30mA", breaker: 63, modules: 2 },
   { category: "differentiel", label: "ID 25A Type AC 300mA", breaker: 25, modules: 2 },
+  // Interrupteurs sectionneurs — mono (bipolaire 2P) / tri (tétrapolaire 4P)
+  { category: "sectionneur", label: "Inter. sectionneur 63A mono", breaker: 63, modules: 2 },
+  { category: "sectionneur", label: "Inter. sectionneur 40A mono", breaker: 40, modules: 2 },
+  { category: "sectionneur", label: "Inter. sectionneur 63A tri", breaker: 63, modules: 4 },
+  { category: "sectionneur", label: "Inter. sectionneur 40A tri", breaker: 40, modules: 4 },
   // Éclairage
   { category: "eclairage", label: "Éclairage Cuisine", breaker: 10 },
   { category: "eclairage", label: "Éclairage Salon", breaker: 10 },
