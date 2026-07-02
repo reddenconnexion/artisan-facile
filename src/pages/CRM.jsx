@@ -8,8 +8,11 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowLeft, ArrowRight, CheckCircle, Hammer, Phone,
-    CreditCard, Package, Kanban
+    CreditCard, Package, Kanban, Timer, CalendarRange
 } from 'lucide-react';
+import SegmentedControl from '../components/ui/SegmentedControl';
+import WorksitePlanning from '../components/WorksitePlanning';
+import { estimatedHoursFromItems, formatHours, laborProfitability } from '../utils/timeTracking';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -17,7 +20,9 @@ const WorksitePilot = () => {
     const [updating, setUpdating] = useState(false);
     const [loading, setLoading] = useState(true);
     const [worksites, setWorksites] = useState([]);
+    const [spentByQuote, setSpentByQuote] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
+    const [view, setView] = useState(() => localStorage.getItem('crm_view') || 'kanban');
     const [zoomLevel, setZoomLevel] = useState(() => {
         const saved = localStorage.getItem('crm_zoom_level');
         return saved ? parseFloat(saved) : 1;
@@ -68,6 +73,10 @@ const WorksitePilot = () => {
     }, [zoomLevel]);
 
     useEffect(() => {
+        localStorage.setItem('crm_view', view);
+    }, [view]);
+
+    useEffect(() => {
         if (user) {
             fetchWorksites();
         }
@@ -95,7 +104,7 @@ const WorksitePilot = () => {
 
         container.addEventListener('wheel', handleWheel, { passive: false });
         return () => container.removeEventListener('wheel', handleWheel);
-    }, [loading]);
+    }, [loading, view]);
 
     const fetchWorksites = async () => {
         try {
@@ -110,9 +119,18 @@ const WorksitePilot = () => {
 
             // Fetch ALL quotes to find children (deposits) manually since self-join is tricky without explicit FK alias sometimes
             // Or simple separate query for safety
-            const { data: allQuotes } = await supabase
-                .from('quotes')
-                .select('id, parent_id, status, type, total_ttc');
+            const [{ data: allQuotes }, { data: tracking }] = await Promise.all([
+                supabase.from('quotes').select('id, parent_id, status, type, total_ttc'),
+                supabase.from('task_tracking').select('quote_id, hours_spent'),
+            ]);
+
+            // Heures pointées cumulées par chantier (voir page Heures & rentabilité)
+            const spent = {};
+            for (const t of tracking || []) {
+                if (t.quote_id == null) continue;
+                spent[t.quote_id] = (spent[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
+            }
+            setSpentByQuote(spent);
 
             const depositsMap = {};
             if (allQuotes) {
@@ -239,7 +257,7 @@ const WorksitePilot = () => {
     if (loading) return <div className="flex justify-center items-center h-64">Chargement des chantiers...</div>;
 
     return (
-        <div className="md:h-[calc(100vh-100px)] md:overflow-hidden flex flex-col">
+        <div className={`flex flex-col ${view === 'kanban' ? 'md:h-[calc(100vh-100px)] md:overflow-hidden' : ''}`}>
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 px-4 shrink-0 gap-4">
                 <div>
@@ -252,15 +270,28 @@ const WorksitePilot = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400">Gérez l'avancement de vos travaux signés.</p>
                 </div>
 
-                <div className="flex gap-2 w-full md:w-auto items-center">
+                <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
+                    {/* Bascule Kanban / Planning */}
+                    <SegmentedControl
+                        options={[
+                            { id: 'kanban', label: 'Kanban', icon: Kanban },
+                            { id: 'planning', label: 'Planning', icon: CalendarRange },
+                        ]}
+                        value={view}
+                        onChange={setView}
+                    />
+
                     {/* Zoom Controls */}
+                    {view === 'kanban' && (
                     <div className="hidden md:flex items-center bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 mr-4 shadow-sm">
                         <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-l-lg disabled:opacity-50"><Minimize2 className="w-4 h-4" /></button>
                         <span className="px-2 text-xs font-medium text-gray-600 dark:text-gray-400 w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
                         <button onClick={handleZoomIn} className="p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-r-lg disabled:opacity-50"><Maximize2 className="w-4 h-4" /></button>
                     </div>
+                    )}
 
                     {/* Search */}
+                    {view === 'kanban' && (
                     <div className="relative flex-1 md:w-64">
                         <input
                             type="text"
@@ -271,8 +302,9 @@ const WorksitePilot = () => {
                         />
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     </div>
+                    )}
 
-                    {focusedColumn && (
+                    {focusedColumn && view === 'kanban' && (
                         <button onClick={() => setFocusedColumn(null)} className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 flex items-center">
                             <Minimize2 className="w-4 h-4 md:mr-2" />
                             <span className="hidden md:inline">Vue d'ensemble</span>
@@ -281,7 +313,11 @@ const WorksitePilot = () => {
                 </div>
             </div>
 
+            {/* Planning — timeline des chantiers */}
+            {view === 'planning' && <WorksitePlanning worksites={worksites} />}
+
             {/* Canvas */}
+            {view === 'kanban' && (
             <div
                 ref={containerRef}
                 className={`flex gap-4 px-4 pb-4 md:h-full ${focusedColumn ? 'overflow-hidden' : 'flex-col md:flex-row md:overflow-x-auto'}`}
@@ -376,6 +412,27 @@ const WorksitePilot = () => {
                                                         {job.clients.phone}
                                                     </div>
                                                 )}
+                                                {(() => {
+                                                    // Heures pointées vs prévues — indicateur discret, absent si rien à dire
+                                                    const spentH = spentByQuote[job.id] || 0;
+                                                    const estimatedH = estimatedHoursFromItems(job.items);
+                                                    if (spentH <= 0 && estimatedH <= 0) return null;
+                                                    const { status } = laborProfitability(estimatedH, spentH);
+                                                    const dot = status === 'over' ? 'bg-red-500'
+                                                        : status === 'warning' ? 'bg-amber-500'
+                                                        : status === 'ok' ? 'bg-emerald-500'
+                                                        : 'bg-gray-300 dark:bg-gray-600';
+                                                    return (
+                                                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                                                            <Timer className="w-3 h-3 mr-1.5" />
+                                                            <span className="tabular-nums">
+                                                                {formatHours(spentH)}
+                                                                {estimatedH > 0 && <span className="text-gray-400"> / {formatHours(estimatedH)}</span>}
+                                                            </span>
+                                                            <span className={`ml-1.5 w-1.5 h-1.5 rounded-full ${dot}`} />
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
 
                                             {/* Card Bottom: Actions */}
@@ -456,6 +513,7 @@ const WorksitePilot = () => {
                     })}
                 </div>
             </div>
+            )}
         </div>
     );
 };
