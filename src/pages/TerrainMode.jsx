@@ -12,6 +12,7 @@ import {
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 import ProcurementMode from '../components/ProcurementMode';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
+import TimeClockWidget from '../components/TimeClockWidget';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -315,6 +316,9 @@ const TerrainMode = () => {
 
                 {/* Cards */}
                 <div className="flex-1 overflow-y-auto flex flex-col justify-center p-5 gap-4">
+                    {/* Pointage chantier : j'arrive / je repars */}
+                    <TimeClockWidget compact />
+
                     {/* Interventions planifiées aujourd'hui — photos sans rechercher le client */}
                     {todayEvents.length > 0 && (
                         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-4">
