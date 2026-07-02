@@ -95,6 +95,14 @@ const PDF_I18N = {
         object: 'Objet',
         initialQuoteRef: (id, date) => `Devis initial N° ${id} du ${date}`,
         initialQuoteRefUnknown: 'Devis initial Référence Inconnue',
+        situationTitle: 'FACTURE DE SITUATION',
+        situationRef: (n, ref, date) => `Situation n°${n} — Devis initial N° ${ref}${date ? ` du ${date}` : ''}`,
+        situationRecapTitle: (withVat) => `AVANCEMENT DU CHANTIER${withVat ? ' (montants TTC)' : ''}`,
+        situationQuoteTotal: (ref) => `Montant total du devis N° ${ref}`,
+        situationPreviouslyBilled: 'Déjà facturé (situations et acomptes précédents)',
+        situationThisInvoice: 'Présente situation (montant à régler)',
+        situationRemaining: 'Reste à facturer après cette situation',
+        situationExplain: "Cette facture ne porte que sur la part des travaux réalisés à ce jour, et non sur le montant total du devis. Le pourcentage d'avancement de chaque poste est précisé dans le détail ci-dessus.",
         fieldReport: 'CONSTAT TERRAIN',
         discoveredOn: (date) => `Lors de l'intervention du ${date}, découverte de :`,
         impossibility: (reason) => `» Impossibilité de réaliser la solution initiale pour cause de ${reason}`,
@@ -175,6 +183,14 @@ const PDF_I18N = {
         object: 'Subject',
         initialQuoteRef: (id, date) => `Initial quote No. ${id} dated ${date}`,
         initialQuoteRefUnknown: 'Initial quote — reference unknown',
+        situationTitle: 'PROGRESS INVOICE',
+        situationRef: (n, ref, date) => `Progress billing No. ${n} — Initial quote No. ${ref}${date ? ` dated ${date}` : ''}`,
+        situationRecapTitle: (withVat) => `PROJECT PROGRESS${withVat ? ' (amounts incl. VAT)' : ''}`,
+        situationQuoteTotal: (ref) => `Total of quote No. ${ref}`,
+        situationPreviouslyBilled: 'Previously billed (prior progress invoices and deposits)',
+        situationThisInvoice: 'This progress invoice (amount due)',
+        situationRemaining: 'Remaining to be billed after this invoice',
+        situationExplain: 'This invoice only covers the share of the works completed to date, not the full amount of the quote. The completion percentage of each item is shown in the details above.',
         fieldReport: 'SITE FINDINGS',
         discoveredOn: (date) => `During the intervention on ${date}, the following was found:`,
         impossibility: (reason) => `» Unable to carry out the initial solution due to ${reason}`,
@@ -253,6 +269,22 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const typeDocument = isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis);
     const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
+
+    // Facture de situation : le contexte d'avancement (total du devis parent,
+    // déjà facturé, n° de situation) est mémorisé sur la facture elle-même
+    // (amendment_details.situation) à la création, pour que le PDF reste
+    // complet partout (app, lien public, portail) sans recharger le parent.
+    let situationInfo = null;
+    if (isInvoice) {
+        let situationDetails = devis.amendment_details;
+        if (typeof situationDetails === 'string') {
+            try { situationDetails = JSON.parse(situationDetails); } catch { situationDetails = null; }
+        }
+        if (situationDetails?.situation && typeof situationDetails.situation === 'object') {
+            situationInfo = situationDetails.situation;
+        }
+    }
+    const isSituation = !!situationInfo;
 
     // Translated free-text content (title / notes / per-line descriptions).
     // `content_en` is stored on the quote when the artisan sends it in English;
@@ -338,10 +370,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Cartouche document (droite) : type, numéro, dates
     const docRight = 196;
     let docY = 19;
-    doc.setFontSize(16);
+    // Libellé plus long pour les situations : taille réduite pour éviter de
+    // chevaucher le bloc identité à gauche.
+    doc.setFontSize(isSituation ? 13.5 : 16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...accent);
-    doc.text(isAmendment ? L.avenant : typeDocument, docRight, docY, { align: 'right' });
+    doc.text(isAmendment ? L.avenant : (isSituation ? L.situationTitle : typeDocument), docRight, docY, { align: 'right' });
     docY += 6.5;
     doc.setFontSize(9);
     doc.setTextColor(...ink);
@@ -440,6 +474,23 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const titleLines = doc.splitTextToSize(`${L.object} : ${trTitle}`, 182);
         doc.text(titleLines, 14, tableStartY);
         tableStartY += titleLines.length * 5.2 + 4;
+    }
+
+    // Rattachement au devis initial : indispensable pour que le client situe
+    // cette facture partielle dans le marché global.
+    if (isSituation) {
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(...subtle);
+        doc.text(
+            L.situationRef(
+                situationInfo.index || 1,
+                situationInfo.parent_quote_number || situationInfo.parent_quote_id || '—',
+                situationInfo.parent_date ? fmtDate(situationInfo.parent_date) : ''
+            ),
+            14, tableStartY
+        );
+        tableStartY += 6;
     }
 
     if (isAmendment) {
@@ -821,6 +872,60 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     let currentY = finalTableY + 8;
 
     const allNotes = trNotes || '';
+
+    // ── Avancement du chantier (facture de situation) : situe la facture dans
+    // le marché global — total du devis, déjà facturé, présente situation,
+    // reste à facturer. Le reste est recalculé ici pour rester cohérent avec
+    // le total affiché même si la facture a été modifiée après création. ──
+    if (isSituation && (Number(situationInfo.parent_total_ttc) || 0) > 0) {
+        const parentTotal = Number(situationInfo.parent_total_ttc) || 0;
+        const previouslyBilled = Number(situationInfo.previously_billed_ttc) || 0;
+        const thisInvoiceTTC = Number(devis.total_ttc) || 0;
+        const remaining = Math.max(parentTotal - previouslyBilled - thisInvoiceTTC, 0);
+        const parentRef = situationInfo.parent_quote_number || situationInfo.parent_quote_id || '—';
+
+        const explainLines = doc.splitTextToSize(L.situationExplain, 182);
+        const recapRows = [
+            [L.situationQuoteTotal(parentRef), fmtMoney(parentTotal), false],
+            [L.situationThisInvoice, fmtMoney(thisInvoiceTTC), true],
+            [L.situationRemaining, fmtMoney(remaining), false],
+        ];
+        // Ligne "déjà facturé" seulement à partir de la 2e situation (sinon 0 €)
+        if (previouslyBilled > 0) {
+            recapRows.splice(1, 0, [L.situationPreviouslyBilled, fmtMoney(previouslyBilled), false]);
+        }
+        const recapBlockH = 8 + recapRows.length * 7 + explainLines.length * 3.6 + 6;
+        if (currentY + recapBlockH > 280) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...ink);
+        doc.text(L.situationRecapTitle(devis.include_tva !== false), 14, currentY);
+        currentY += 5.5;
+
+        recapRows.forEach(([label, value, highlight]) => {
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...subtle);
+            doc.text(label, 14, currentY + 2.5);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...(highlight ? accent : ink));
+            doc.text(value, 196, currentY + 2.5, { align: 'right' });
+            doc.setDrawColor(...hairline);
+            doc.setLineWidth(0.15);
+            doc.line(14, currentY + 5, 196, currentY + 5);
+            currentY += 7;
+        });
+
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'italic');
+        doc.setTextColor(...subtle);
+        doc.text(explainLines, 14, currentY + 3);
+        currentY += explainLines.length * 3.6 + 8;
+    }
 
     // ── Conditions de règlement (acompte matériel) : tableau acompte / solde ──
     if (!isInvoice && materials.length > 0 && devis.has_material_deposit === true) {
