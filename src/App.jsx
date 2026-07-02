@@ -208,6 +208,7 @@ const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
 const RecurringInvoices = lazyWithRetry(() => import('./pages/RecurringInvoices'));
 const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
+const TimeTracking = lazyWithRetry(() => import('./pages/TimeTracking'));
 const AdminStats = lazyWithRetry(() => import('./pages/AdminStats'));
 const AdminFeedback = lazyWithRetry(() => import('./pages/AdminFeedback'));
 const AdminFeedbackReports = lazyWithRetry(() => import('./pages/AdminFeedbackReports'));
@@ -289,6 +290,7 @@ function App() {
                 <Route path="recurring" element={<RecurringInvoices />} />
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="route-planner" element={<RoutePlanner />} />
+                <Route path="heures" element={<TimeTracking />} />
                 <Route path="admin" element={<AdminStats />} />
                 <Route path="admin/feedback" element={<AdminFeedback />} />
                 <Route path="admin/reports" element={<AdminFeedbackReports />} />
