@@ -872,6 +872,51 @@ const DevisForm = () => {
                     }
                 }
 
+                // Facture de situation : (re)calcule le contexte d'avancement depuis
+                // le devis parent à chaque ouverture, pour que le récapitulatif du PDF
+                // et le mail d'envoi reflètent les situations créées ou annulées
+                // entre-temps. Les situations créées avant cette fonctionnalité (sans
+                // contexte mémorisé) sont reconnues via leur titre.
+                const isSituationInvoice = data.type === 'invoice' && data.parent_id &&
+                    (data.amendment_details?.situation || /situation/i.test(data.title || ''));
+                if (isSituationInvoice) {
+                    const { data: parentQuote } = await supabase
+                        .from('quotes')
+                        .select('id, quote_number, date, title, total_ttc')
+                        .eq('id', data.parent_id)
+                        .single();
+
+                    if (parentQuote) {
+                        const { data: siblingInvoices } = await supabase
+                            .from('quotes')
+                            .select('id, total_ttc, title, amendment_details')
+                            .eq('parent_id', data.parent_id)
+                            .eq('type', 'invoice')
+                            .neq('status', 'cancelled');
+
+                        // "Déjà facturé" = factures rattachées au même devis émises
+                        // avant celle-ci (l'id croît avec l'ordre de création).
+                        const previous = (siblingInvoices || []).filter(inv => inv.id < data.id);
+                        const previouslyBilled = previous.reduce((sum, inv) => sum + (inv.total_ttc || 0), 0);
+                        const situation = {
+                            parent_quote_id: parentQuote.id,
+                            parent_quote_number: parentQuote.quote_number || parentQuote.id,
+                            parent_date: parentQuote.date,
+                            parent_title: parentQuote.title || '',
+                            parent_total_ttc: parentQuote.total_ttc || 0,
+                            previously_billed_ttc: previouslyBilled,
+                            remaining_ttc: Math.max((parentQuote.total_ttc || 0) - previouslyBilled - (data.total_ttc || 0), 0),
+                            index: previous.filter(inv =>
+                                inv.amendment_details?.situation || /situation/i.test(inv.title || '')
+                            ).length + 1,
+                        };
+                        setFormData(prev => ({
+                            ...prev,
+                            amendment_details: { ...(prev.amendment_details || {}), situation }
+                        }));
+                    }
+                }
+
                 setSignature(data.signature || null);
                 setInitialStatus(data.status || 'draft');
 
@@ -1068,6 +1113,12 @@ const DevisForm = () => {
                     public_token: token,
                     token_revoked: false,
                     token_expires_at: newExpiry,
+                    // Facture de situation : persiste le contexte d'avancement
+                    // (recalculé à l'ouverture) pour que le PDF téléchargé depuis
+                    // le lien public affiche le même récapitulatif que l'aperçu.
+                    ...(formData.type === 'invoice' && formData.amendment_details?.situation
+                        ? { amendment_details: formData.amendment_details }
+                        : {}),
                 })
                 .eq('id', id);
 
@@ -1156,13 +1207,35 @@ const DevisForm = () => {
             const isDeposit = (formData.title || '').toLowerCase().includes('acompte');
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
 
+            // Facture de situation : mail dédié qui explique au client qu'il ne
+            // s'agit que de la part des travaux réalisés, avec un point chiffré.
+            const situationInfo = isInvoice ? formData.amendment_details?.situation : null;
+            const fmtAmount = (n) => `${(Number(n) || 0).toFixed(2)} €${formData.include_tva ? ' TTC' : ''}`;
+            const buildSituationRecap = (labels) => {
+                const parentTotal = Number(situationInfo?.parent_total_ttc) || 0;
+                const previouslyBilled = Number(situationInfo?.previously_billed_ttc) || 0;
+                const remaining = Math.max(parentTotal - previouslyBilled - total, 0);
+                return [
+                    `• ${labels.total} : ${fmtAmount(parentTotal)}`,
+                    previouslyBilled > 0 ? `• ${labels.billed} : ${fmtAmount(previouslyBilled)}` : null,
+                    `• ${labels.current} : ${fmtAmount(total)}`,
+                    `• ${labels.remaining} : ${fmtAmount(remaining)}`,
+                ].filter(Boolean).join('\n');
+            };
+
             // Template Construction — bilingue (fr par défaut, en sur demande)
             const EMAIL_I18N = {
                 fr: {
-                    subjectPrefix: isInvoice ? 'Facture' : 'Devis',
+                    subjectPrefix: isInvoice ? (situationInfo ? 'Facture de situation' : 'Facture') : 'Devis',
                     defaultProject: 'Votre projet',
                     defaultWorks: 'Travaux',
                     introInvoice: (name, title) => `Bonjour ${name},\n\nJe vous transmets votre facture pour le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
+                    introSituation: (name, title) => `Bonjour ${name},\n\nLes travaux du projet "${title}" suivent leur cours. Je vous transmets la facture de situation n°${situationInfo?.index || 1} : elle correspond uniquement à la part des travaux réalisés à ce jour, et non au montant total du devis.\n\nOù en est le chantier :\n${buildSituationRecap({
+                        total: 'Montant total du devis',
+                        billed: 'Déjà facturé avant cette situation',
+                        current: 'Cette situation (montant à régler)',
+                        remaining: "Restera à facturer d'ici la fin du chantier",
+                    })}\n\nVous trouverez ci-dessous le lien pour accéder à la facture.`,
                     introQuote: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter.`,
                     actionInvoice: 'Consulter et télécharger votre facture',
                     actionQuote: 'Consulter, télécharger et signer votre devis',
@@ -1171,10 +1244,16 @@ const DevisForm = () => {
                     closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
                 },
                 en: {
-                    subjectPrefix: isInvoice ? 'Invoice' : 'Quote',
+                    subjectPrefix: isInvoice ? (situationInfo ? 'Progress invoice' : 'Invoice') : 'Quote',
                     defaultProject: 'Your project',
                     defaultWorks: 'Works',
                     introInvoice: (name, title) => `Hello ${name},\n\nPlease find attached your invoice for the project "${title}".\nYou will find the link to access it below.`,
+                    introSituation: (name, title) => `Hello ${name},\n\nWork on the project "${title}" is progressing. Please find progress invoice No. ${situationInfo?.index || 1}: it only covers the share of the works completed to date, not the full amount of the quote.\n\nWhere the project stands:\n${buildSituationRecap({
+                        total: 'Total amount of the quote',
+                        billed: 'Previously billed before this invoice',
+                        current: 'This progress invoice (amount due)',
+                        remaining: 'Remaining to be billed by the end of the project',
+                    })}\n\nYou will find the link to access the invoice below.`,
                     introQuote: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find my quote proposal for the project "${title}".\nYou will find the link to view it below.`,
                     actionInvoice: 'View and download your invoice',
                     actionQuote: 'View, download and sign your quote',
@@ -1196,7 +1275,9 @@ const DevisForm = () => {
 
             const projectTitle = localizedTitle || E.defaultWorks;
             const introduction = isInvoice
-                ? E.introInvoice(selectedClient.name, projectTitle)
+                ? (situationInfo
+                    ? E.introSituation(selectedClient.name, situationInfo.parent_title || projectTitle)
+                    : E.introInvoice(selectedClient.name, projectTitle))
                 : E.introQuote(selectedClient.name, projectTitle);
 
             const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
@@ -2032,10 +2113,28 @@ Conditions de règlement : Paiement à réception de facture.`
             situationItems.forEach(i => total_ht += i.price);
 
             // Re-calc TVA based on quote settings (or item specific if complex, but assuming global tva boolean for now)
-            // Ideally we check each item type/vat rate if we had that detail. 
+            // Ideally we check each item type/vat rate if we had that detail.
             // For now, simple standard logic as per original code
             let total_tva = formData.include_tva ? total_ht * 0.20 : 0;
             let total_ttc = total_ht + total_tva;
+
+            // Contexte d'avancement mémorisé sur la facture (amendment_details.situation) :
+            // le PDF (app, lien public, portail) peut ainsi afficher le récapitulatif
+            // "total du devis / déjà facturé / reste" sans recharger le devis parent.
+            const parentId = parseInt(id, 10);
+            const { data: siblingInvoices } = await supabase
+                .from('quotes')
+                .select('id, total_ttc, title, amendment_details')
+                .eq('parent_id', parentId)
+                .eq('type', 'invoice')
+                .neq('status', 'cancelled');
+            const previouslyBilled = (siblingInvoices || []).reduce((sum, inv) => sum + (inv.total_ttc || 0), 0);
+            // Les situations antérieures à cette fonctionnalité n'ont pas de
+            // contexte mémorisé : on les reconnaît via leur titre.
+            const situationIndex = (siblingInvoices || []).filter(inv =>
+                inv.amendment_details?.situation || /situation/i.test(inv.title || '')
+            ).length + 1;
+            const parentRef = formData.quote_number || parentId;
 
             const situationData = {
                 user_id: user.id,
@@ -2050,8 +2149,20 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: total_ht,
                 total_tva: total_tva,
                 total_ttc: total_ttc,
-                parent_id: parseInt(id, 10),
-                notes: `Facture de situation générée le ${new Date().toLocaleDateString("fr-FR")} depuis devis ${id}`
+                parent_id: parentId,
+                amendment_details: {
+                    situation: {
+                        parent_quote_id: parentId,
+                        parent_quote_number: parentRef,
+                        parent_date: formData.date,
+                        parent_title: formData.title || '',
+                        parent_total_ttc: total,
+                        previously_billed_ttc: previouslyBilled,
+                        remaining_ttc: Math.max(total - previouslyBilled - total_ttc, 0),
+                        index: situationIndex,
+                    }
+                },
+                notes: `Facture de situation n°${situationIndex} du ${new Date().toLocaleDateString("fr-FR")}, établie selon l'avancement des travaux du devis n°${parentRef} « ${formData.title || 'Travaux'} ».`
             };
 
             const { data, error } = await supabase

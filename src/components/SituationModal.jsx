@@ -235,8 +235,12 @@ const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
                         </div>
                         <div className="text-right">
                             <div className="text-gray-600 dark:text-gray-300">Total HT: <span className="font-medium">{totalAmount.toFixed(2)}€</span></div>
-                            <div className="text-gray-600 dark:text-gray-300">TVA (20%): <span className="font-medium">{totalTVA.toFixed(2)}€</span></div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">Total TTC: {totalTTC.toFixed(2)}€</div>
+                            {quote.include_tva ? (
+                                <div className="text-gray-600 dark:text-gray-300">TVA (20%): <span className="font-medium">{totalTVA.toFixed(2)}€</span></div>
+                            ) : (
+                                <div className="text-xs text-gray-400 dark:text-gray-500 italic">TVA non applicable, art. 293 B du CGI</div>
+                            )}
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{quote.include_tva ? 'Total TTC' : 'Total'}: {totalTTC.toFixed(2)}€</div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-3">
