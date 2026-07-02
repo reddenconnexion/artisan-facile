@@ -797,12 +797,16 @@ const LandingPage = () => {
                             <ul className="space-y-3 mb-8">
                                 {[
                                     'Tout du plan Essentiel, plus :',
+                                    '🤖 Génération de devis par IA',
+                                    'Saisie & mémos vocaux transcrits',
+                                    'Comparateur de prix fournisseurs',
+                                    'Planificateur de tournée (trajets optimisés)',
+                                    'Location de matériel & gestion des stocks',
                                     'Relances automatiques impayés',
                                     'Comptabilité avancée & export',
-                                    'Rapports d\'intervention PDF',
-                                    'Gestion des stocks',
-                                    'Notes vocales transcrites',
                                     'Portail client personnalisé',
+                                    'Marketing & collecte d\'avis Google',
+                                    'Rapports d\'intervention PDF',
                                     'Support prioritaire',
                                 ].map((f, i) => (
                                     <li key={f} className={`flex items-center gap-3 text-sm ${i === 0 ? 'font-semibold text-white' : 'text-blue-100'}`}>
