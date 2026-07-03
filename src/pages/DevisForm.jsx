@@ -1223,39 +1223,57 @@ const DevisForm = () => {
                 ].filter(Boolean).join('\n');
             };
 
+            // Facture acquittée : le mail est un justificatif de paiement, pas
+            // une demande de règlement — texte dédié, avec la date du paiement
+            // si elle est renseignée.
+            const isPaidInvoice = isInvoice && formData.status === 'paid';
+            const paidDate = (isPaidInvoice && formData.paid_at)
+                ? new Date(formData.paid_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR')
+                : '';
+
             // Template Construction — bilingue (fr par défaut, en sur demande)
             const EMAIL_I18N = {
                 fr: {
-                    subjectPrefix: isInvoice ? (situationInfo ? 'Facture de situation' : 'Facture') : 'Devis',
+                    subjectPrefix: isInvoice
+                        ? `${situationInfo ? 'Facture de situation' : 'Facture'}${isPaidInvoice ? ' acquittée' : ''}`
+                        : 'Devis',
                     defaultProject: 'Votre projet',
                     defaultWorks: 'Travaux',
                     introInvoice: (name, title) => `Bonjour ${name},\n\nJe vous transmets votre facture pour le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
-                    introSituation: (name, title) => `Bonjour ${name},\n\nLes travaux du projet "${title}" suivent leur cours. Je vous transmets la facture de situation n°${situationInfo?.index || 1} : elle correspond uniquement à la part des travaux réalisés à ce jour, et non au montant total du devis.\n\nOù en est le chantier :\n${buildSituationRecap({
+                    introInvoicePaid: (name, title) => `Bonjour ${name},\n\nVotre règlement${paidDate ? ` du ${paidDate}` : ''} a bien été reçu — je vous en remercie.\nJe vous transmets votre facture acquittée pour le projet "${title}", à conserver comme justificatif de paiement.\nVous trouverez ci-dessous le lien pour y accéder.`,
+                    introSituation: (name, title) => `Bonjour ${name},\n\n${isPaidInvoice
+                        ? `Votre règlement${paidDate ? ` du ${paidDate}` : ''} a bien été reçu — je vous en remercie. Je vous transmets la facture de situation n°${situationInfo?.index || 1} acquittée pour le projet "${title}", à conserver comme justificatif de paiement.`
+                        : `Les travaux du projet "${title}" suivent leur cours. Je vous transmets la facture de situation n°${situationInfo?.index || 1} : elle correspond uniquement à la part des travaux réalisés à ce jour, et non au montant total du devis.`}\n\nOù en est le chantier :\n${buildSituationRecap({
                         total: 'Montant total du devis',
                         billed: 'Déjà facturé avant cette situation',
-                        current: 'Cette situation (montant à régler)',
+                        current: isPaidInvoice ? 'Cette situation (réglée)' : 'Cette situation (montant à régler)',
                         remaining: "Restera à facturer d'ici la fin du chantier",
                     })}\n\nVous trouverez ci-dessous le lien pour accéder à la facture.`,
                     introQuote: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter.`,
-                    actionInvoice: 'Consulter et télécharger votre facture',
+                    actionInvoice: isPaidInvoice ? 'Consulter et télécharger votre facture acquittée' : 'Consulter et télécharger votre facture',
                     actionQuote: 'Consulter, télécharger et signer votre devis',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
                     portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
                     closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
                 },
                 en: {
-                    subjectPrefix: isInvoice ? (situationInfo ? 'Progress invoice' : 'Invoice') : 'Quote',
+                    subjectPrefix: isInvoice
+                        ? `${situationInfo ? 'Progress invoice' : 'Invoice'}${isPaidInvoice ? ' (paid)' : ''}`
+                        : 'Quote',
                     defaultProject: 'Your project',
                     defaultWorks: 'Works',
                     introInvoice: (name, title) => `Hello ${name},\n\nPlease find attached your invoice for the project "${title}".\nYou will find the link to access it below.`,
-                    introSituation: (name, title) => `Hello ${name},\n\nWork on the project "${title}" is progressing. Please find progress invoice No. ${situationInfo?.index || 1}: it only covers the share of the works completed to date, not the full amount of the quote.\n\nWhere the project stands:\n${buildSituationRecap({
+                    introInvoicePaid: (name, title) => `Hello ${name},\n\nYour payment${paidDate ? ` of ${paidDate}` : ''} has been received — thank you.\nPlease find your paid invoice for the project "${title}", to keep as proof of payment.\nYou will find the link to access it below.`,
+                    introSituation: (name, title) => `Hello ${name},\n\n${isPaidInvoice
+                        ? `Your payment${paidDate ? ` of ${paidDate}` : ''} has been received — thank you. Please find paid progress invoice No. ${situationInfo?.index || 1} for the project "${title}", to keep as proof of payment.`
+                        : `Work on the project "${title}" is progressing. Please find progress invoice No. ${situationInfo?.index || 1}: it only covers the share of the works completed to date, not the full amount of the quote.`}\n\nWhere the project stands:\n${buildSituationRecap({
                         total: 'Total amount of the quote',
                         billed: 'Previously billed before this invoice',
-                        current: 'This progress invoice (amount due)',
+                        current: isPaidInvoice ? 'This progress invoice (paid)' : 'This progress invoice (amount due)',
                         remaining: 'Remaining to be billed by the end of the project',
                     })}\n\nYou will find the link to access the invoice below.`,
                     introQuote: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find my quote proposal for the project "${title}".\nYou will find the link to view it below.`,
-                    actionInvoice: 'View and download your invoice',
+                    actionInvoice: isPaidInvoice ? 'View and download your paid invoice' : 'View and download your invoice',
                     actionQuote: 'View, download and sign your quote',
                     reportLine: `The intervention report is also available from this link.`,
                     portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
@@ -1277,7 +1295,9 @@ const DevisForm = () => {
             const introduction = isInvoice
                 ? (situationInfo
                     ? E.introSituation(selectedClient.name, situationInfo.parent_title || projectTitle)
-                    : E.introInvoice(selectedClient.name, projectTitle))
+                    : (isPaidInvoice
+                        ? E.introInvoicePaid(selectedClient.name, projectTitle)
+                        : E.introInvoice(selectedClient.name, projectTitle)))
                 : E.introQuote(selectedClient.name, projectTitle);
 
             const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
