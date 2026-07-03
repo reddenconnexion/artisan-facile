@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { clientGreetingName } from './clientGreeting';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -464,7 +465,7 @@ export const sendInstallmentReminder = async (installment, userId, captureEmail 
     const isLate = new Date(installment.due_date) < new Date();
 
     const subject = `Rappel de paiement : Échéance du ${new Date(installment.due_date).toLocaleDateString()} - ${invoice.title}`;
-    const body = `Bonjour ${client.name},\n\n` +
+    const body = `Bonjour ${clientGreetingName(client.name)},\n\n` +
         `Sauf erreur de notre part, nous n'avons pas reçu le règlement de l'échéance suivante concernant la facture n°${invoice.id} :\n\n` +
         `- Date d'échéance : ${new Date(installment.due_date).toLocaleDateString()}\n` +
         `- Montant attendu : ${installment.amount.toFixed(2)} €\n` +
