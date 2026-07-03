@@ -10,6 +10,7 @@ import { Input, Field } from '../components/ui';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
+import { clientGreetingName } from '../utils/clientGreeting';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -633,7 +634,7 @@ const InterventionReportForm = () => {
         const signatureBlock = [companyName, userProfile?.phone || '', userProfile?.professional_email || userProfile?.email || ''].filter(Boolean).join('\n');
         const subject = `Facture : ${linkedInvoice.title || formData.title} - ${companyName}`;
         const body =
-            `Bonjour ${client.name},\n\n` +
+            `Bonjour ${clientGreetingName(client.name)},\n\n` +
             `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
             `Vous trouverez ci-dessous le lien pour consulter et télécharger les documents :\n\n` +
             `Facture :\n${invoiceUrl}\n\n` +
@@ -830,7 +831,7 @@ const InterventionReportForm = () => {
             ].filter(Boolean).join('\n');
 
             const body =
-                `Bonjour ${client.name},\n\n` +
+                `Bonjour ${clientGreetingName(client.name)},\n\n` +
                 `Le rapport d'intervention "${formData.title}" est terminé.\n\n` +
                 `Vous trouverez ci-dessous le lien pour consulter et télécharger les documents :\n\n` +
                 `Facture de clôture :\n${invoiceUrl}\n\n` +

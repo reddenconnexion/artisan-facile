@@ -12,6 +12,7 @@ import { generateDevisPDF } from '../utils/pdfGenerator';
 import { extractQuoteFromPdfText, translateQuoteContent } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
+import { clientGreetingName } from '../utils/clientGreeting';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
@@ -1292,13 +1293,16 @@ const DevisForm = () => {
             const subject = `${E.subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
 
             const projectTitle = localizedTitle || E.defaultWorks;
+            // « M. Cohignac Erwan » → « Bonjour M. Cohignac » (civilité + nom
+            // seul) ; sans civilité dans la fiche, nom complet inchangé.
+            const greetingName = clientGreetingName(selectedClient.name, lang);
             const introduction = isInvoice
                 ? (situationInfo
-                    ? E.introSituation(selectedClient.name, situationInfo.parent_title || projectTitle)
+                    ? E.introSituation(greetingName, situationInfo.parent_title || projectTitle)
                     : (isPaidInvoice
-                        ? E.introInvoicePaid(selectedClient.name, projectTitle)
-                        : E.introInvoice(selectedClient.name, projectTitle)))
-                : E.introQuote(selectedClient.name, projectTitle);
+                        ? E.introInvoicePaid(greetingName, projectTitle)
+                        : E.introInvoice(greetingName, projectTitle)))
+                : E.introQuote(greetingName, projectTitle);
 
             const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
             const callToAction = `${actionText} :\n${publicUrl}`;
