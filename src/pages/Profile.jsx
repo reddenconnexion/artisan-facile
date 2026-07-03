@@ -1881,6 +1881,16 @@ const Profile = () => {
                         >
                             Réinitialiser l'application
                         </button>
+
+                        {/* Version installée : sert à vérifier qu'un appareil est
+                            bien à jour (le cache PWA peut retenir une vieille
+                            version malgré les déploiements). */}
+                        <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+                            Version {import.meta.env.PACKAGE_VERSION || '—'}
+                            {import.meta.env.BUILD_DATE
+                                ? ` — mise en ligne le ${new Date(import.meta.env.BUILD_DATE).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                                : ''}
+                        </p>
                     </div>
                 </div>
             </div>

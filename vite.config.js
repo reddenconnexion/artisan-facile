@@ -146,7 +146,10 @@ export default defineConfig({
     }
   },
   define: {
-    'import.meta.env.PACKAGE_VERSION': JSON.stringify(process.env.npm_package_version)
+    'import.meta.env.PACKAGE_VERSION': JSON.stringify(process.env.npm_package_version),
+    // Horodatage du build, affiché dans Paramètres : permet de vérifier en un
+    // coup d'œil quelle version tourne sur un appareil (diagnostic PWA/cache).
+    'import.meta.env.BUILD_DATE': JSON.stringify(new Date().toISOString())
   },
   optimizeDeps: {
     include: ['pdfjs-dist']
