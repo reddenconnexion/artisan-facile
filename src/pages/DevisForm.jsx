@@ -1290,7 +1290,10 @@ const DevisForm = () => {
                 ? contentEn.title
                 : formData.title;
 
-            const subject = `${E.subjectPrefix}${formData.id ? ` N°${formData.quote_number || formData.id}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
+            // `formData.id` n'existe pas (l'id vient de l'URL) : depuis toujours
+            // l'objet du mail omettait le numéro du document. On utilise l'id
+            // de la route — l'envoi exige un document déjà enregistré (isEditing).
+            const subject = `${E.subjectPrefix}${id ? ` N°${formData.quote_number || id}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
 
             const projectTitle = localizedTitle || E.defaultWorks;
             // « M. Cohignac Erwan » → « Bonjour M. Cohignac » (civilité + nom
