@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mail, Send, Copy, FileText, Loader2, X } from 'lucide-react';
+import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 
 /**
  * Modal de prévisualisation avant envoi d'un devis/facture par email.
@@ -22,8 +23,12 @@ import { generateDevisPDF } from '../utils/pdfGenerator';
 const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userProfile, quoteId, isEditing, totals }) => {
     const [localPreview, setLocalPreview] = useState(null);
     const [pdfUrl, setPdfUrl] = useState(null);
+    // Pages du PDF rendues en images : seul affichage fiable sur mobile/iOS,
+    // où une <iframe> sur un blob PDF reste blanche (ou ne montre que la 1re page).
+    const [pdfPageImages, setPdfPageImages] = useState([]);
     const [pdfLoading, setPdfLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('pdf');
+    const isIOS = isIosLikeDevice();
 
     // Synchronise l'état local quand le parent ouvre/ferme la modal
     useEffect(() => {
@@ -46,8 +51,10 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
 
         let cancelled = false;
         let blobUrl = null;
+        let pageBlobUrls = [];
         setPdfLoading(true);
         setPdfUrl(null);
+        setPdfPageImages([]);
 
         const { subtotal, tva, total } = totals;
         const devisData = {
@@ -66,14 +73,21 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
             amendment_details: formData.amendment_details || {},
         };
 
-        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'bloburl', localPreview.lang || 'fr')
-            .then(url => {
-                if (cancelled) {
-                    if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
-                    return;
+        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'blob', localPreview.lang || 'fr')
+            .then(async pdfBlob => {
+                if (cancelled) return;
+                blobUrl = URL.createObjectURL(pdfBlob);
+                setPdfUrl(blobUrl);
+                // Rendu image pour mobile/iOS — en cas d'échec, l'iframe et le
+                // bouton « Ouvrir le PDF » restent disponibles.
+                try {
+                    const urls = await renderPdfBlobToPageImages(pdfBlob, () => cancelled);
+                    if (cancelled) return;
+                    pageBlobUrls = urls;
+                    setPdfPageImages(urls);
+                } catch (renderErr) {
+                    console.error('Email PDF page rendering failed:', renderErr);
                 }
-                blobUrl = url;
-                setPdfUrl(url);
             })
             .catch(err => {
                 if (!cancelled) {
@@ -86,7 +100,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
         return () => {
             cancelled = true;
             if (blobUrl?.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
+            pageBlobUrls.forEach(u => URL.revokeObjectURL(u));
             setPdfUrl(null);
+            setPdfPageImages([]);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [localPreview?.email, localPreview?.lang, formData.client_id, isEditing, quoteId, userProfile?.id, totals.subtotal, totals.tva, totals.total]);
@@ -135,7 +151,38 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                 <p className="text-sm">Génération de l'aperçu PDF…</p>
                             </div>
                         ) : pdfUrl ? (
-                            <iframe src={pdfUrl} title="Aperçu PDF" className="flex-1 w-full border-0 bg-white" />
+                            <>
+                                {/* Desktop (hors iOS) : iframe native, zoom et pagination du navigateur */}
+                                {!isIOS && (
+                                    <iframe src={pdfUrl} title="Aperçu PDF" className="hidden md:block flex-1 w-full border-0 bg-white" />
+                                )}
+                                {/* Mobile / iOS : pages rendues en images (l'iframe reste blanche) */}
+                                <div className={`${isIOS ? 'flex' : 'md:hidden flex'} flex-1 flex-col overflow-y-auto p-3 gap-3`}>
+                                    {pdfPageImages.length > 0 ? (
+                                        pdfPageImages.map((src, i) => (
+                                            <img
+                                                key={src}
+                                                src={src}
+                                                alt={`Page ${i + 1} du PDF`}
+                                                className="w-full h-auto rounded shadow-sm bg-white"
+                                            />
+                                        ))
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-3 px-6 text-center">
+                                            <FileText className="w-7 h-7" />
+                                            <p className="text-sm">L'aperçu intégré n'est pas disponible sur cet appareil.</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => window.open(pdfUrl, '_blank', 'noopener')}
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                                Ouvrir le PDF
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-2 px-6 text-center">
                                 <FileText className="w-7 h-7" />
