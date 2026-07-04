@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -38,6 +38,9 @@ import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
 import DevisEmailModal from '../components/DevisEmailModal';
 import DevisAIModal from '../components/DevisAIModal';
+import LineInternalDetail from '../components/LineInternalDetail';
+import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
+import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quoteInternalDetail';
 
 const DevisForm = () => {
     const navigate = useNavigate();
@@ -104,6 +107,11 @@ const DevisForm = () => {
 
     // AI Assistant State
     const [showAIModal, setShowAIModal] = useState(false);
+
+    // Chiffrage interne : id de la ligne dont le panneau privé est déplié
+    const [internalDetailItemId, setInternalDetailItemId] = useState(null);
+    // Modale « Commander le matériel » (envoi des fournitures vers la liste d'achats)
+    const [showSupplyModal, setShowSupplyModal] = useState(false);
 
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
@@ -1073,7 +1081,9 @@ const DevisForm = () => {
         }
         const lineItems = formData.items.filter(item => item.type !== 'section');
         const subtotal = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
-        const totalCost = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.buying_price) || 0)), 0);
+        // Coût matière : prix d'achat de la ligne, ou à défaut la somme des
+        // fournitures du chiffrage interne (lignes groupées sans buying_price)
+        const totalCost = lineItems.reduce((sum, item) => sum + effectiveLineCost(item), 0);
         const tva = formData.include_tva ? subtotal * 0.20 : 0;
         const total = subtotal + tva;
         return { subtotal, tva, total, totalCost };
@@ -4044,8 +4054,34 @@ Conditions de règlement : Paiement à réception de facture.`
                                     >
                                         OPT
                                     </button>
+                                    {/* Chiffrage interne : reste consultable même quand le devis
+                                        est verrouillé (revue avec le client), en lecture seule. */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setInternalDetailItemId(prev => prev === item.id ? null : item.id)}
+                                        className={`relative flex items-center justify-center px-1.5 py-1 rounded border transition-colors ${
+                                            internalDetailItemId === item.id || lineComponents(item).length > 0 || (item.internal_note || '').trim()
+                                                ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                                                : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'
+                                        }`}
+                                        title="Chiffrage interne : fournitures et note privées de cette ligne (jamais visibles par le client)"
+                                    >
+                                        <Lock className="w-3.5 h-3.5" />
+                                        {lineComponents(item).length > 0 && (
+                                            <span className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                                {lineComponents(item).length}
+                                            </span>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
+                            )}
+                            {item.type !== 'section' && internalDetailItemId === item.id && (
+                                <LineInternalDetail
+                                    item={item}
+                                    onChange={(field, value) => updateItem(item.id, field, value)}
+                                    disabled={isLocked}
+                                />
                             )}
                             {/* Zone d'insertion entre lignes */}
                             {!isLocked && index < formData.items.length - 1 && (
@@ -4098,6 +4134,18 @@ Conditions de règlement : Paiement à réception de facture.`
                             Section
                         </button>
 
+                        {supplyEntries(formData.items).length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setShowSupplyModal(true)}
+                                className="flex items-center gap-1.5 text-sm font-medium text-green-700 hover:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/20 px-3 py-1.5 rounded-lg border border-green-200 transition-colors"
+                                title="Envoie les fournitures du devis (lignes Matériel + chiffrage interne) vers votre liste d'achats, pour passer commande sans chercher dans vos notes."
+                            >
+                                <ShoppingCart className="w-4 h-4" />
+                                Commander le matériel
+                            </button>
+                        )}
+
                         <button
                             onClick={() => setShowAIModal(true)}
                             className="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm transition-all disabled:opacity-50 ml-auto"
@@ -4115,7 +4163,8 @@ Conditions de règlement : Paiement à réception de facture.`
                             <strong className="text-gray-500 dark:text-gray-400">Main d'œuvre</strong> = votre temps de travail ·{' '}
                             <strong className="text-gray-500 dark:text-gray-400">Matériel</strong> = fournitures achetées ·{' '}
                             <strong className="text-gray-500 dark:text-gray-400">Section</strong> = titre de regroupement (facultatif) ·{' '}
-                            <strong className="text-gray-500 dark:text-gray-400">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas
+                            <strong className="text-gray-500 dark:text-gray-400">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas ·{' '}
+                            <strong className="text-gray-500 dark:text-gray-400">🔒 Chiffrage interne</strong> = le détail privé d'une ligne groupée (fournitures, note) — jamais montré au client
                         </span>
                     </p>
                 </div>
@@ -4128,6 +4177,15 @@ Conditions de règlement : Paiement à réception de facture.`
                         setUsedAiInSession(true);
                     }}
                     userProfile={userProfile}
+                />
+
+                <QuoteSupplyListModal
+                    open={showSupplyModal}
+                    onClose={() => setShowSupplyModal(false)}
+                    quoteId={isEditing ? id : null}
+                    quoteLabel={formData.title || (isEditing ? `Devis #${id}` : null)}
+                    clientId={formData.client_id}
+                    items={formData.items}
                 />
 
                 {/* Payment Schedule (Invoices) */}
