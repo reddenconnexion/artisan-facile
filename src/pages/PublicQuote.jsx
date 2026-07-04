@@ -2,13 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
-
-// pdf.js worker is hosted in /public and shared with documentParser.js.
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // Client anonyme dédié à la page publique : pas de session, pas de refresh token.
 // Évite le timeout de vérification de session de l'artisan qui cause data=null sur le RPC.
@@ -71,10 +68,7 @@ const PublicQuote = () => {
     // compris sur iPad (qui se déclare comme un Mac desktop). On bascule donc
     // ces appareils sur le rendu image multi-pages, qui affiche tout le devis
     // et les boutons de signature, quelle que soit la largeur d'écran.
-    const isIOS = typeof navigator !== 'undefined' && (
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    );
+    const isIOS = isIosLikeDevice();
     const [quote, setQuote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -311,37 +305,9 @@ const PublicQuote = () => {
                 // Render every page as an image so the mobile view (and any
                 // browser that won't render blob: PDFs in iframes — iOS Safari,
                 // some Android Chrome versions) can show the document inline.
-                // We pass the raw bytes to pdfjs (more reliable than blob URLs
-                // across mobile browsers) and emit JPEG via canvas.toBlob to
-                // keep memory footprint low on multi-page quotes.
                 try {
-                    const arrayBuffer = await pdfBlob.arrayBuffer();
+                    const newPageUrls = await renderPdfBlobToPageImages(pdfBlob, () => cancelled);
                     if (cancelled) return;
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-                    const targetWidth = Math.min(window.innerWidth, 1200);
-                    const newPageUrls = [];
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        if (cancelled) break;
-                        const page = await pdf.getPage(i);
-                        const baseViewport = page.getViewport({ scale: 1 });
-                        const scale = (targetWidth / baseViewport.width) * dpr;
-                        const viewport = page.getViewport({ scale });
-                        const canvas = document.createElement('canvas');
-                        canvas.width = Math.floor(viewport.width);
-                        canvas.height = Math.floor(viewport.height);
-                        const ctx = canvas.getContext('2d');
-                        await page.render({ canvasContext: ctx, viewport }).promise;
-                        const pageBlob = await new Promise(resolve =>
-                            canvas.toBlob(resolve, 'image/jpeg', 0.85)
-                        );
-                        if (!pageBlob) continue;
-                        newPageUrls.push(URL.createObjectURL(pageBlob));
-                    }
-                    if (cancelled) {
-                        newPageUrls.forEach(u => URL.revokeObjectURL(u));
-                        return;
-                    }
                     pageBlobUrls = newPageUrls;
                     setPdfPageImages(newPageUrls);
                 } catch (renderErr) {
