@@ -21,6 +21,7 @@ const SegmentedControl = ({ options, value, onChange, className = '' }) => (
       return (
         <button
           key={opt.id}
+          type="button"
           role="tab"
           aria-selected={isActive}
           onClick={() => onChange(opt.id)}

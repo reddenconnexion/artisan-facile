@@ -27,7 +27,7 @@ import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoServi
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
-import { Input, Field } from '../components/ui';
+import { Input, Field, SegmentedControl } from '../components/ui';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache } from '../hooks/useDataCache';
@@ -387,6 +387,7 @@ const DevisForm = () => {
         notes: '',
         status: 'draft',
         type: 'quote', // 'quote' or 'invoice'
+        client_display_mode: 'detailed', // 'detailed' | 'grouped' (présentation PDF/lien public)
         include_tva: true,
         original_pdf_url: null,
         is_external: false,
@@ -815,6 +816,7 @@ const DevisForm = () => {
                     content_en: data.content_en || null,
                     status: data.status || 'draft',
                     type: data.type || 'quote',
+                    client_display_mode: data.client_display_mode || 'detailed',
                     include_tva: typeof data.include_tva === 'boolean'
                         ? data.include_tva
                         : (data.total_tva > 0 || (data.total_ht === 0 && data.total_tva === 0)),
@@ -1541,6 +1543,7 @@ const DevisForm = () => {
             amendment_details: formData.amendment_details || {},
             parent_quote_id: formData.parent_quote_id || null,
             content_en: formData.content_en || null,
+            client_display_mode: formData.client_display_mode || 'detailed',
         };
 
         // Ré-envoi à l'identique : ne pas dupliquer l'archive existante
@@ -1737,6 +1740,7 @@ const DevisForm = () => {
                 notes: formData.notes,
                 status: formData.status,
                 type: formData.type,
+                client_display_mode: formData.client_display_mode || 'detailed',
                 original_pdf_url: formData.original_pdf_url,
                 is_external: formData.is_external,
                 has_material_deposit: formData.has_material_deposit,
@@ -3776,6 +3780,31 @@ Conditions de règlement : Paiement à réception de facture.`
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                         Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
                     </h3>
+                    {/* Présentation client : le devis reste détaillé ici (commandes,
+                        chantiers) ; « Groupée » ne change que le PDF et le lien public. */}
+                    {!formData.is_external && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-4 -mt-2">
+                            <span
+                                className="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                title="Choisissez ce que le client voit sur le PDF et le lien public. Votre devis reste détaillé ici, pour vos commandes et vos chantiers."
+                            >
+                                Présentation pour le client (PDF & lien) :
+                            </span>
+                            <SegmentedControl
+                                options={[
+                                    { id: 'detailed', label: 'Détaillée' },
+                                    { id: 'grouped', label: 'Groupée par section' },
+                                ]}
+                                value={formData.client_display_mode || 'detailed'}
+                                onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
+                            />
+                            {(formData.client_display_mode || 'detailed') === 'grouped' && (
+                                <span className="text-xs text-gray-400 w-full sm:w-auto">
+                                    Le client ne voit qu'un total par section (les options restent listées) — vous gardez le détail ici.
+                                </span>
+                            )}
+                        </div>
+                    )}
                     {/* Column headers — desktop only */}
                     <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
                         <div className="flex-1 pl-1">Désignation</div>
