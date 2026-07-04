@@ -3843,10 +3843,9 @@ Conditions de règlement : Paiement à réception de facture.`
                             />
                             {(formData.client_display_mode || 'detailed') === 'grouped' && (
                                 <span className="text-xs text-gray-400 w-full sm:w-auto">
-                                    Les fournitures s'affichent sans prix unitaires isolés (les quantités &gt; 1 restent explicites : « 3 × 12,44 € »).
-                                    Règle d'or : ce qui se vend à la pièce (prises, spots) peut rester détaillé ; ce qui se vend en ensemble fonctionnel
-                                    (tableau, cuisine, clim) se replie en un poste avec la case « Fournitures en montant unique » de sa section.
-                                    Le détail exact reste dans le chiffrage interne 🔒.
+                                    Les fournitures de chaque section s'affichent par défaut en <strong>un montant unique</strong> (ensemble complet, au titre de la section).
+                                    Cochez « Détailler les fournitures » sur les lots qui se vendent à la pièce (prises, spots…) — leurs quantités restent alors explicites (« 3 × 12,44 € »).
+                                    La main d'œuvre reste détaillée, les fournitures hors section restent listées, et le détail exact garde sa place dans le chiffrage interne 🔒.
                                 </span>
                             )}
                         </div>
@@ -3879,21 +3878,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                         onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                         disabled={isLocked}
                                     />
-                                    {/* En présentation groupée : vendre les fournitures de ce lot
-                                        comme un ensemble (une seule ligne au titre de la section) */}
+                                    {/* En présentation groupée, les fournitures de chaque section
+                                        s'affichent par défaut en UN montant unique (ensemble complet).
+                                        Cocher pour détailler ce qui se vend à la pièce (prises, spots…). */}
                                     {(formData.client_display_mode || 'detailed') === 'grouped' && (
                                         <label
-                                            className={`flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap px-1.5 py-1 rounded border ${item.collapse_materials ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' : 'text-gray-400 border-gray-200 dark:border-gray-700 hover:text-gray-600'}`}
-                                            title="Sur le PDF et le lien client, les fournitures de cette section s'affichent en UNE seule ligne au titre de la section (ensemble complet, un seul montant). La main d'œuvre du lot reste détaillée, les options restent listées."
+                                            className={`flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap px-1.5 py-1 rounded border ${item.detail_materials ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' : 'text-gray-400 border-gray-200 dark:border-gray-700 hover:text-gray-600'}`}
+                                            title="Par défaut en présentation groupée, les fournitures de cette section s'affichent en UNE seule ligne au titre de la section (ensemble complet, un seul montant). Cochez pour détailler les fournitures de ce lot — utile pour ce qui se vend à la pièce (prises, spots, points lumineux)."
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={!!item.collapse_materials}
-                                                onChange={(e) => updateItem(item.id, 'collapse_materials', e.target.checked)}
+                                                checked={!!item.detail_materials}
+                                                onChange={(e) => updateItem(item.id, 'detail_materials', e.target.checked)}
                                                 disabled={isLocked}
                                                 className="w-3.5 h-3.5 accent-blue-600"
                                             />
-                                            Fournitures en montant unique
+                                            Détailler les fournitures
                                         </label>
                                     )}
                                     <div className="flex gap-1">

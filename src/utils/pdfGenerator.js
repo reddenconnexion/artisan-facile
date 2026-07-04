@@ -696,20 +696,23 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             return rows;
         };
 
-        // Fournitures en présentation groupée, avec repli par lot : une section
-        // marquée « fournitures en montant unique » (section.collapse_materials)
-        // vend ses fournitures comme un ensemble — UNE ligne au titre de la
-        // section, somme de ses lignes matériel non optionnelles. Le détail
-        // pièce par pièce reste une donnée d'atelier. Les lignes optionnelles
-        // du lot restent listées (le client doit pouvoir choisir), la main
-        // d'œuvre du lot reste détaillée dans le tableau A.
+        // Fournitures en présentation groupée : PAR DÉFAUT, chaque section vend
+        // ses fournitures comme un ensemble — UNE ligne au titre de la section,
+        // somme de ses lignes matériel non optionnelles. Le détail pièce par
+        // pièce reste une donnée d'atelier. L'artisan peut à l'inverse marquer
+        // une section « fournitures détaillées » (section.detail_materials)
+        // pour ce qui se vend à la pièce : prises, spots… Les lignes
+        // optionnelles restent toujours listées (le client doit pouvoir
+        // choisir), la main d'œuvre reste détaillée dans le tableau A, et les
+        // fournitures hors de toute section restent listées (pas de titre pour
+        // nommer l'ensemble).
         const buildGroupedMaterialRows = () => {
             // 1re passe : somme des fournitures non optionnelles par section repliée
             const collapsedSums = new Map();
             let sectionKey = null;
             for (const item of allItems) {
                 if (item.type === 'section') {
-                    sectionKey = item.collapse_materials ? (item.id ?? trLine(item.description || '')) : null;
+                    sectionKey = item.detail_materials ? null : (item.id ?? trLine(item.description || ''));
                     continue;
                 }
                 if (sectionKey === null || item.type !== 'material' || item.is_optional) continue;
@@ -725,7 +728,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                     currentSection = {
                         label: trLine(item.description || '').trim(),
                         key: item.id ?? trLine(item.description || ''),
-                        collapsed: !!item.collapse_materials,
+                        collapsed: !item.detail_materials,
                         sumEmitted: false,
                         subtitleEmitted: false,
                     };
