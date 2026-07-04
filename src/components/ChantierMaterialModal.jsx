@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
+import { lineComponents } from '../utils/quoteInternalDetail';
 
 // Clé de stockage local pour mémoriser les lignes déjà chargées dans le camion,
 // par couple (rendez-vous, devis). Permet de cocher la veille et de retrouver
@@ -16,11 +17,29 @@ const storageKey = (eventId, quoteId) => `chantier-material:${eventId}:${quoteId
 const lineKey = (item, idx) => String(item.id ?? idx);
 
 // Ne garde que les lignes chiffrables (on ignore les titres de section) et on
-// met le matériel en avant : c'est lui qu'on charge dans le camion.
-const usableLines = (items) =>
+// met le matériel en avant : c'est lui qu'on charge dans le camion. Les
+// fournitures du chiffrage interne (détail privé des lignes groupées) sont
+// dépliées en sous-lignes cochables, rattachées à leur ligne parente.
+const usableLines = (items) => {
+    const lines = [];
     (Array.isArray(items) ? items : [])
         .filter((it) => it && it.type !== 'section' && (it.description || it.price))
-        .map((it, idx) => ({ ...it, _key: lineKey(it, idx) }));
+        .forEach((it, idx) => {
+            const key = lineKey(it, idx);
+            lines.push({ ...it, _key: key });
+            lineComponents(it).forEach((c, ci) => {
+                lines.push({
+                    description: c.description,
+                    quantity: c.quantity,
+                    unit: c.unit,
+                    type: 'material',
+                    _key: `${key}:c${c.id ?? ci}`,
+                    _parent: (it.description || '').trim() || null,
+                });
+            });
+        });
+    return lines;
+};
 
 const ChantierMaterialModal = ({ event, onClose }) => {
     const navigate = useNavigate();
@@ -123,7 +142,7 @@ const ChantierMaterialModal = ({ event, onClose }) => {
                 <button
                     type="button"
                     onClick={() => toggle(line._key)}
-                    className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-start gap-3 ${line._parent ? 'pl-8 pr-3' : 'px-3'} py-2.5 rounded-lg text-left transition-colors ${
                         isChecked
                             ? 'bg-green-50 dark:bg-green-900/20'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -136,9 +155,10 @@ const ChantierMaterialModal = ({ event, onClose }) => {
                         <span className={`block text-sm ${isChecked ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                             {line.is_optional ? '(Option) ' : ''}{line.description || 'Ligne sans description'}
                         </span>
-                        {(line.quantity || line.unit) && (
+                        {(line.quantity || line.unit || line._parent) && (
                             <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 {line.quantity ?? ''} {line.unit || ''}
+                                {line._parent ? ` · dans « ${line._parent} »` : ''}
                             </span>
                         )}
                     </span>
