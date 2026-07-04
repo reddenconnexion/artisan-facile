@@ -3,7 +3,6 @@ import autoTable from 'jspdf-autotable';
 import { PDFDocument, PDFName, AFRelationship } from 'pdf-lib';
 import { generateFacturXXML } from './facturxGenerator';
 import { getTradeConfig } from '../constants/trades';
-import { groupedDisplayBlocks } from './quoteDisplay';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -111,7 +110,6 @@ const PDF_I18N = {
         additionalMaterial: '- Matériel complémentaire :',
         technicalAddedValue: (v) => `- Plus-value technique : ${v}`,
         colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
-        tableGroupedHeader: 'Récapitulatif des prestations', groupedDefaultBlock: 'Prestations',
         colUnitPriceShort: 'PU HT',
         optionPrefix: '(Option)',
         tableLaborHeader: "Main d'œuvre", tableMaterialHeader: 'Fournitures et matériel',
@@ -200,7 +198,6 @@ const PDF_I18N = {
         additionalMaterial: '- Additional materials:',
         technicalAddedValue: (v) => `- Technical added value: ${v}`,
         colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price', colTotal: 'Total (excl. VAT)',
-        tableGroupedHeader: 'Summary of works', groupedDefaultBlock: 'Works',
         colUnitPriceShort: 'Unit Price',
         optionPrefix: '(Optional)',
         tableLaborHeader: 'Labour & services', tableMaterialHeader: 'Materials & supplies',
@@ -640,54 +637,35 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Track current Y position for multiple tables
     let currentTableY = tableStartY;
 
-    // Présentation « groupée » choisie par l'artisan pour ce client : un seul
-    // tableau avec un total par section, sans quantités ni prix unitaires. Le
-    // détail reste sur le devis côté artisan (commandes, chantiers). Les
-    // factures de situation gardent le détail (le % d'avancement y est par poste).
-    if (devis.client_display_mode === 'grouped' && !isSituation) {
-        const groupedColumns = [L.colDescription, L.colTotal];
-        const rows = [];
-        for (const block of groupedDisplayBlocks(allItems)) {
-            if (block.count > 0) {
-                rows.push([trLine(block.label || L.groupedDefaultBlock), fmtMoney(block.total)]);
-            }
-            for (const opt of block.options) {
-                rows.push([`${L.optionPrefix} ${trLine(opt.description || '')}`, lineTotalCell(opt)]);
-            }
-        }
-        if (rows.length > 0) {
-            autoTable(doc, {
-                startY: currentTableY,
-                head: sectionHead(L.tableGroupedHeader, accent, groupedColumns),
-                body: rows,
-                ...baseTableStyle,
-                columnStyles: {
-                    0: { cellWidth: 'auto' },
-                    1: { cellWidth: 30, halign: 'right' },
-                },
-                headStyles: headStylesFor(accent),
-                didParseCell: styleOfferedCell,
-            });
-            currentTableY = doc.lastAutoTable.finalY + 6;
-        }
-        currentTableY += 2;
-    } else {
+    // Présentation « groupée » choisie par l'artisan pour ce client : chaque
+    // poste reste expliqué (la description détaille ce qu'il couvre) mais les
+    // FOURNITURES s'affichent sans quantités ni prix unitaires — un montant par
+    // poste. Le devis ne peut pas servir de liste de courses, la main d'œuvre
+    // reste détaillée (heures, taux). Les factures de situation gardent le
+    // détail complet (le % d'avancement y est par poste).
+    const groupedDisplay = devis.client_display_mode === 'grouped' && !isSituation;
+
+    {
         // Tableaux lettrés : A — Main d'œuvre, B — Fournitures (lettre seulement si
         // les deux existent). Les sections personnalisées du devis deviennent des
         // sous-titres teintés à l'intérieur du groupe où se trouvent leurs lignes.
         const services = allItems.filter(i => i.type === 'service' || !i.type);
         const bothGroups = services.length > 0 && materials.length > 0;
 
+        const itemLabel = (item) =>
+            item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || '');
         const itemRow = (item) => [
-            item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || ''),
+            itemLabel(item),
             item.quantity,
             unitPriceCell(item),
             lineTotalCell(item)
         ];
+        // Ligne fourniture en présentation groupée : désignation + montant du poste
+        const groupedMaterialRow = (item) => [itemLabel(item), lineTotalCell(item)];
         // Parcourt tous les items dans l'ordre : émet les lignes du type demandé,
         // précédées du sous-titre de leur section personnalisée (une seule fois
         // par section et par tableau, même si la section mélange les types).
-        const buildGroupRows = (matches) => {
+        const buildGroupRows = (matches, rowFn = itemRow, colCount = 4) => {
             const rows = [];
             let currentSection = null;
             let emittedSection = null;
@@ -700,12 +678,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 if (currentSection && currentSection !== emittedSection) {
                     rows.push([{
                         content: currentSection,
-                        colSpan: 4,
+                        colSpan: colCount,
                         styles: { fontStyle: 'bold', fillColor: accentTint, textColor: accent, halign: 'left', fontSize: 9 }
                     }]);
                     emittedSection = currentSection;
                 }
-                rows.push(itemRow(item));
+                rows.push(rowFn(item));
             }
             return rows;
         };
@@ -724,11 +702,22 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
 
         if (materials.length > 0) {
+            const materialColumns = groupedDisplay ? [L.colDescription, L.colTotal] : tableColumn;
             autoTable(doc, {
                 startY: currentTableY,
-                head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`, tableDark),
-                body: buildGroupRows(i => i.type === 'material'),
+                head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`, tableDark, materialColumns),
+                body: buildGroupRows(
+                    i => i.type === 'material',
+                    groupedDisplay ? groupedMaterialRow : itemRow,
+                    materialColumns.length
+                ),
                 ...baseTableStyle,
+                ...(groupedDisplay ? {
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        1: { cellWidth: 30, halign: 'right' },
+                    },
+                } : {}),
                 headStyles: headStylesFor(tableDark),
                 didParseCell: styleOfferedCell,
             });
@@ -844,12 +833,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     } else {
         // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
-        // En présentation groupée, pas de sous-totaux main d'œuvre / fournitures :
-        // ils contrediraient le parti pris de ne montrer qu'un total par section.
         const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
         const sumHT = (items) => items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.price) || 0), 0);
-        const isGroupedDisplay = devis.client_display_mode === 'grouped' && !isSituation;
-        const showSubtotals = !isGroupedDisplay && laborItems.length > 0 && materials.length > 0;
+        const showSubtotals = laborItems.length > 0 && materials.length > 0;
 
         const totalsRows = [];
         if (showSubtotals) {
