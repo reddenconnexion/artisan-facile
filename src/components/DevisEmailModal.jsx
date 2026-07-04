@@ -143,8 +143,10 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
 
                 {/* Corps : 2 panneaux desktop, 1 selon onglet mobile */}
                 <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-                    {/* Panneau PDF */}
-                    <div className={`flex-1 min-w-0 bg-gray-100 dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 ${activeTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
+                    {/* Panneau PDF — min-h-0 indispensable : sans lui, ce flex item
+                        grandit à la hauteur des images et le défilement interne
+                        ne s'active jamais sur mobile. */}
+                    <div className={`flex-1 min-w-0 min-h-0 bg-gray-100 dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 ${activeTab === 'pdf' ? 'flex' : 'hidden md:flex'} flex-col`}>
                         {pdfLoading ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-3">
                                 <Loader2 className="w-7 h-7 animate-spin" />
@@ -157,7 +159,7 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                     <iframe src={pdfUrl} title="Aperçu PDF" className="hidden md:block flex-1 w-full border-0 bg-white" />
                                 )}
                                 {/* Mobile / iOS : pages rendues en images (l'iframe reste blanche) */}
-                                <div className={`${isIOS ? 'flex' : 'md:hidden flex'} flex-1 flex-col overflow-y-auto p-3 gap-3`}>
+                                <div className={`${isIOS ? 'flex' : 'md:hidden flex'} flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain p-3 gap-3`}>
                                     {pdfPageImages.length > 0 ? (
                                         pdfPageImages.map((src, i) => (
                                             <img
@@ -191,8 +193,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                         )}
                     </div>
 
-                    {/* Panneau Email */}
-                    <div className={`md:w-96 flex-shrink-0 ${activeTab === 'email' ? 'flex' : 'hidden md:flex'} flex-col overflow-y-auto`}>
+                    {/* Panneau Email — même contrainte : flex-1/min-h-0 sur mobile
+                        pour que le panneau défile au lieu de déborder de la modale. */}
+                    <div className={`flex-1 min-h-0 md:flex-none md:w-96 flex-shrink-0 ${activeTab === 'email' ? 'flex' : 'hidden md:flex'} flex-col overflow-y-auto overscroll-contain`}>
                         <div className="p-4 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pour</label>
