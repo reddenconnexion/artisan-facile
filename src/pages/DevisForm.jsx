@@ -20,6 +20,7 @@ import MarginGauge from '../components/MarginGauge';
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
 import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
+import { parseQuoteCsv } from '../utils/quoteCsvImport';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -631,6 +632,43 @@ const DevisForm = () => {
     // Reusable function to process imported file
     const processImportedFile = async (file, mode = 'archive') => {
         if (!file) return;
+
+        // CSV : parsing local pur (pas d'archive PDF, pas d'upload, pas d'IA).
+        // Un CSV n'a pas de magic bytes — validation par extension + taille.
+        const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
+        if (isCsv) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('Fichier CSV trop volumineux (2 MB maximum).');
+                return;
+            }
+            try {
+                setImporting(true);
+                const text = await file.text();
+                const { items: csvItems, skipped, error: parseError } = parseQuoteCsv(text);
+                if (parseError) {
+                    toast.error(parseError);
+                    return;
+                }
+                setFormData(prev => ({
+                    ...prev,
+                    title: prev.title || file.name.replace(/\.csv$/i, '').replace(/[_-]+/g, ' ').trim(),
+                    items: csvItems,
+                }));
+                setShowImportZone(false);
+                const lineCount = csvItems.filter(i => i.type !== 'section').length;
+                toast.success(
+                    `${lineCount} ligne${lineCount > 1 ? 's' : ''} importée${lineCount > 1 ? 's' : ''} depuis le CSV`
+                    + `${skipped > 0 ? ` (${skipped} ignorée${skipped > 1 ? 's' : ''})` : ''}.`
+                );
+            } catch (error) {
+                console.error('Import CSV error:', error);
+                toast.error("Erreur lors de l'import CSV : " + error.message);
+            } finally {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+            return;
+        }
 
         // Validation stricte : magic bytes + taille (PDF ou DOCX uniquement, max 20 MB)
         const validation = await validateFileForUpload(file, UPLOAD_PRESETS.quoteDocument);
@@ -3277,7 +3315,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     {importing ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Upload className="w-4 h-4 mr-3 text-gray-400" />}
-                                    Importer (PDF / Word)
+                                    Importer (PDF / Word / CSV)
                                 </button>
 
                                 <button
@@ -3295,7 +3333,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         type="file"
                         ref={fileInputRef}
                         className="hidden"
-                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        accept="application/pdf, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document, .csv, text/csv"
                         onChange={handleImportFile}
                     />
                     <input
@@ -3342,10 +3380,13 @@ Conditions de règlement : Paiement à réception de facture.`
                         )}
                         <div>
                             <p className="font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
-                                {importing ? 'Traitement en cours…' : 'Importer un devis existant (PDF ou Word)'}
+                                {importing ? 'Traitement en cours…' : 'Importer un devis existant (PDF, Word ou CSV)'}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option
                             </p>
                         </div>
                     </div>
