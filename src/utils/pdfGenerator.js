@@ -660,8 +660,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             unitPriceCell(item),
             lineTotalCell(item)
         ];
-        // Ligne fourniture en présentation groupée : désignation + montant du poste
-        const groupedMaterialRow = (item) => [itemLabel(item), lineTotalCell(item)];
+        // Ligne fourniture en présentation groupée : désignation + montant du
+        // poste. Quand une ligne à la pièce reste visible avec une quantité > 1,
+        // on explicite « 3 × 12,44 € » dans la désignation — sinon le client lit
+        // le total comme un prix unitaire (« un disjoncteur à 37 € ? »).
+        const groupedMaterialRow = (item) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const price = parseFloat(item.price) || 0;
+            const qtyHint = qty > 1 && price > 0 ? ` — ${item.quantity} × ${fmtMoney(item.price)}` : '';
+            return [`${itemLabel(item)}${qtyHint}`, lineTotalCell(item)];
+        };
         // Parcourt tous les items dans l'ordre : émet les lignes du type demandé,
         // précédées du sous-titre de leur section personnalisée (une seule fois
         // par section et par tableau, même si la section mélange les types).
@@ -688,6 +696,67 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             return rows;
         };
 
+        // Fournitures en présentation groupée, avec repli par lot : une section
+        // marquée « fournitures en montant unique » (section.collapse_materials)
+        // vend ses fournitures comme un ensemble — UNE ligne au titre de la
+        // section, somme de ses lignes matériel non optionnelles. Le détail
+        // pièce par pièce reste une donnée d'atelier. Les lignes optionnelles
+        // du lot restent listées (le client doit pouvoir choisir), la main
+        // d'œuvre du lot reste détaillée dans le tableau A.
+        const buildGroupedMaterialRows = () => {
+            // 1re passe : somme des fournitures non optionnelles par section repliée
+            const collapsedSums = new Map();
+            let sectionKey = null;
+            for (const item of allItems) {
+                if (item.type === 'section') {
+                    sectionKey = item.collapse_materials ? (item.id ?? trLine(item.description || '')) : null;
+                    continue;
+                }
+                if (sectionKey === null || item.type !== 'material' || item.is_optional) continue;
+                collapsedSums.set(sectionKey,
+                    (collapsedSums.get(sectionKey) || 0) + (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0));
+            }
+
+            // 2e passe : émission des lignes dans l'ordre du devis
+            const rows = [];
+            let currentSection = null; // { label, key, collapsed, sumEmitted, subtitleEmitted }
+            for (const item of allItems) {
+                if (item.type === 'section') {
+                    currentSection = {
+                        label: trLine(item.description || '').trim(),
+                        key: item.id ?? trLine(item.description || ''),
+                        collapsed: !!item.collapse_materials,
+                        sumEmitted: false,
+                        subtitleEmitted: false,
+                    };
+                    continue;
+                }
+                if (item.type !== 'material') continue;
+
+                if (currentSection?.collapsed && !item.is_optional) {
+                    if (!currentSection.sumEmitted) {
+                        rows.push([
+                            currentSection.label || L.tableMaterialHeader,
+                            fmtMoney(collapsedSums.get(currentSection.key) || 0),
+                        ]);
+                        currentSection.sumEmitted = true;
+                    }
+                    continue;
+                }
+
+                if (currentSection && !currentSection.collapsed && currentSection.label && !currentSection.subtitleEmitted) {
+                    rows.push([{
+                        content: currentSection.label,
+                        colSpan: 2,
+                        styles: { fontStyle: 'bold', fillColor: accentTint, textColor: accent, halign: 'left', fontSize: 9 }
+                    }]);
+                    currentSection.subtitleEmitted = true;
+                }
+                rows.push(groupedMaterialRow(item));
+            }
+            return rows;
+        };
+
         if (services.length > 0) {
             const laborColumns = [L.colDescription, `${L.colQty} (h)`, L.colUnitPrice, L.colTotal];
             autoTable(doc, {
@@ -706,11 +775,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             autoTable(doc, {
                 startY: currentTableY,
                 head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`, tableDark, materialColumns),
-                body: buildGroupRows(
-                    i => i.type === 'material',
-                    groupedDisplay ? groupedMaterialRow : itemRow,
-                    materialColumns.length
-                ),
+                body: groupedDisplay
+                    ? buildGroupedMaterialRows()
+                    : buildGroupRows(i => i.type === 'material'),
                 ...baseTableStyle,
                 ...(groupedDisplay ? {
                     columnStyles: {
