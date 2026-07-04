@@ -3836,14 +3836,15 @@ Conditions de règlement : Paiement à réception de facture.`
                             <SegmentedControl
                                 options={[
                                     { id: 'detailed', label: 'Détaillée' },
-                                    { id: 'grouped', label: 'Groupée par section' },
+                                    { id: 'grouped', label: 'Groupée (fournitures par poste)' },
                                 ]}
                                 value={formData.client_display_mode || 'detailed'}
                                 onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
                             />
                             {(formData.client_display_mode || 'detailed') === 'grouped' && (
                                 <span className="text-xs text-gray-400 w-full sm:w-auto">
-                                    Le client ne voit qu'un total par section (les options restent listées) — vous gardez le détail ici.
+                                    Les fournitures s'affichent sans quantités ni prix unitaires : un montant par poste, la description explique ce qu'il couvre.
+                                    La main d'œuvre reste détaillée. Le détail exact de vos fournitures a sa place dans le chiffrage interne 🔒.
                                 </span>
                             )}
                         </div>
