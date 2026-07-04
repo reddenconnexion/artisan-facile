@@ -813,11 +813,13 @@ const DevisForm = () => {
                 ...settings
             });
 
-            // Pour un nouveau devis (pas d'id en URL), un artisan en franchise
-            // de TVA (micro-entreprise / auto-entrepreneur) ne facture pas la
-            // TVA — décocher par défaut pour faire apparaître la mention
-            // « TVA non applicable, art. 293 B du CGI » sur le PDF.
-            if (!id && aiPrefs.artisan_status === 'micro_entreprise') {
+            // Pour un nouveau devis, un artisan en franchise de TVA
+            // (micro-entreprise / auto-entrepreneur) ne facture pas la TVA —
+            // décocher par défaut pour faire apparaître la mention « TVA non
+            // applicable, art. 293 B du CGI » sur le PDF. Attention : sur la
+            // route /app/devis/new, `id` vaut la chaîne 'new' (truthy) — il
+            // faut tester isEditing, pas `!id`.
+            if (!isEditing && aiPrefs.artisan_status === 'micro_entreprise') {
                 setFormData(prev => ({ ...prev, include_tva: false }));
             }
         }
@@ -3386,7 +3388,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option
+                                CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
                             </p>
                         </div>
                     </div>

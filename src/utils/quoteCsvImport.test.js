@@ -108,6 +108,48 @@ describe('parseQuoteCsv', () => {
         expect(parseQuoteCsv(undefined).error).toMatch(/vide/);
     });
 
+    it('ne casse pas les descriptions à virgules dans un fichier « ; »', () => {
+        const csv = [
+            'Description;Quantité;Prix unitaire',
+            'Fourniture et pose prises, boîtes et accessoires;12;18,50',
+        ].join('\n');
+        const { items, error } = parseQuoteCsv(csv);
+        expect(error).toBeNull();
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({
+            description: 'Fourniture et pose prises, boîtes et accessoires',
+            quantity: 12,
+            price: 18.5,
+        });
+    });
+
+    it('respecte les champs entre guillemets (virgule dans un fichier « , »)', () => {
+        const csv = 'Description,Qty,Price\n"Cabling, sockets and boxes",4,25.5\n';
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0]).toMatchObject({ description: 'Cabling, sockets and boxes', quantity: 4, price: 25.5 });
+    });
+
+    it('respecte un « ; » à l\'intérieur d\'un champ entre guillemets', () => {
+        const csv = 'Description;Prix\n"Tableau 2 rangées ; peignes verticaux";320\n';
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0].description).toBe('Tableau 2 rangées ; peignes verticaux');
+        expect(items[0].price).toBe(320);
+    });
+
+    it('lit la colonne Référence dans la note interne privée', () => {
+        const csv = 'Description;Prix;Référence\nDisjoncteur 16A;12;123elec réf DIS-16A-LEG\nPose;35;\n';
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0].internal_note).toBe('123elec réf DIS-16A-LEG');
+        expect(items[1].internal_note).toBeUndefined();
+    });
+
+    it('le Type explicite prime sur la détection par mots-clés', () => {
+        const csv = 'Description;Type\nPassage câbles et fournitures diverses;Main d\'œuvre\nPetit outillage;matériel\n';
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0].type).toBe('service');
+        expect(items[1].type).toBe('material');
+    });
+
     it('génère des ids uniques', () => {
         const csv = 'Description\nA\nB\nC\n';
         const { items } = parseQuoteCsv(csv);

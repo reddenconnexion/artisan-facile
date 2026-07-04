@@ -6,8 +6,9 @@ import Papa from 'papaparse';
 // Format attendu : une ligne d'en-têtes puis une ligne par prestation. Seule la
 // colonne « Description » est obligatoire ; tout le reste a une valeur par
 // défaut. Les intitulés d'en-têtes courants (FR/EN) sont reconnus, le
-// séparateur (";", "," ou tabulation) est détecté automatiquement et les
-// nombres au format français ("1 234,56 €") sont compris.
+// séparateur (";" prioritaire, puis tabulation, puis ",") est déduit de la
+// ligne d'en-têtes, les champs entre guillemets sont respectés et les nombres
+// au format français ("1 234,56 €") sont compris.
 //
 // Sections : soit une colonne « Section » (ou Lot/Groupe/Catégorie) — un titre
 // de section est inséré à chaque changement de valeur — soit des lignes dont la
@@ -22,6 +23,24 @@ const HEADER_ALIASES = {
     type: ['type', 'nature'],
     section: ['section', 'lot', 'groupe', 'catégorie', 'categorie', 'category'],
     optional: ['option', 'optionnel', 'optionnelle', 'optional'],
+    // Texte privé de la ligne (réf fournisseur, remarque) : rejoint le
+    // chiffrage interne (item.internal_note) — jamais montré au client.
+    internal_note: ['référence', 'reference', 'réf', 'ref', 'référence fournisseur', 'ref fournisseur', 'note interne', 'note', 'remarque', 'internal_note'],
+};
+
+/**
+ * Séparateur : décidé sur la ligne d'en-têtes, priorité au « ; » (format
+ * Excel FR — la virgule y sert de séparateur décimal), puis tabulation,
+ * puis virgule. On ne laisse pas l'auto-détection statistique trancher :
+ * des libellés pleins de virgules (« prises, boîtes et accessoires »)
+ * pourraient faire gagner la virgule sur un fichier pourtant en « ; ».
+ */
+const detectDelimiter = (text) => {
+    const headerLine = String(text).split(/\r?\n/, 1)[0] || '';
+    const outsideQuotes = headerLine.replace(/"[^"]*"/g, '');
+    if (outsideQuotes.includes(';')) return ';';
+    if (outsideQuotes.includes('\t')) return '\t';
+    return ',';
 };
 
 /** Nombre au format français ou anglais : "1 234,56 €", "1,234.56", "12.5"… */
@@ -80,6 +99,7 @@ export const parseQuoteCsv = (text) => {
 
     const result = Papa.parse(clean, {
         header: true,
+        delimiter: detectDelimiter(clean),
         skipEmptyLines: 'greedy',
         transformHeader: (h) => String(h || '').trim(),
     });
@@ -126,6 +146,7 @@ export const parseQuoteCsv = (text) => {
             continue;
         }
 
+        const internalNote = String((cols.internal_note ? row[cols.internal_note] : '') ?? '').trim();
         pushItem({
             description,
             quantity: parseCsvNumber(cols.quantity ? row[cols.quantity] : null) ?? 1,
@@ -134,6 +155,7 @@ export const parseQuoteCsv = (text) => {
             buying_price: parseCsvNumber(cols.buying_price ? row[cols.buying_price] : null) ?? 0,
             type,
             ...(cols.optional && TRUTHY.test(String(row[cols.optional] ?? '').trim()) ? { is_optional: true } : {}),
+            ...(internalNote ? { internal_note: internalNote } : {}),
         });
     }
 
