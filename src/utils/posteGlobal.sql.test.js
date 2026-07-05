@@ -19,6 +19,9 @@ import { PGlite } from '@electric-sql/pglite';
 const ROOT = cwd();
 const MIG = path.join(ROOT, 'supabase/migrations/20260705120000_add_poste_global_display_mode.sql');
 const STRIP_MIG = path.join(ROOT, 'supabase/migrations/20260704120000_hide_internal_quote_item_fields.sql');
+// Redéfinition de build_poste_global_items avec le défaut « à l'unité » conditionné
+// à la section (une section technique — tableau… — fusionne ses composants).
+const SECTION_AWARE_MIG = path.join(ROOT, 'supabase/migrations/20260705140000_poste_global_section_aware_per_unit.sql');
 
 // Champs qui ne doivent JAMAIS transiter vers le client (internes) ni exposer un
 // quantitatif de composant fusionné.
@@ -51,6 +54,8 @@ beforeAll(async () => {
   db = await PGlite.create();
   await db.exec(extractStrip(readFileSync(STRIP_MIG, 'utf8')));
   await db.exec(extractPureFunctions(readFileSync(MIG, 'utf8')));
+  // Applique la redéfinition section-aware par-dessus (CREATE OR REPLACE).
+  await db.exec(readFileSync(SECTION_AWARE_MIG, 'utf8'));
 });
 
 afterAll(async () => {
@@ -129,14 +134,19 @@ describe('build_poste_global_items (fusion serveur)', () => {
   it('fusionne les fournitures obligatoires en un poste par section', async () => {
     const out = await buildPosteGlobal(realQuote());
     const postes = out.filter((i) => i.type === 'material' && i.is_poste);
-    // Lot 1 : Tableau (320.5) + Câble (70) ; Disjoncteur exclu (à l'unité).
+    // Lot 1 est une section TECHNIQUE (« Tableau électrique ») : le disjoncteur
+    // (unité « u ») ne reste PAS à l'unité, il fusionne. Poste = Tableau (320.5)
+    // + Disjoncteur (12×8.9 = 106.8) + Câble (70) = 497.3.
     const lot1 = postes.find((p) => p.description.includes('Lot 1'));
-    expect(Number(lot1.line_total)).toBe(390.5);
-    // Lot 2 : Spots forcés (120) + Goulotte (40) ; Prises exclues (à l'unité).
+    expect(Number(lot1.line_total)).toBe(497.3);
+    // Lot 2 (finition, non technique) : Spots forcés (120) + Goulotte (40) ;
+    // Prises exclues (vendues à l'unité).
     const lot2 = postes.find((p) => p.description.includes('Lot 2'));
     expect(Number(lot2.line_total)).toBe(160);
     // Un seul poste fournitures par section.
     expect(postes).toHaveLength(2);
+    // Le disjoncteur d'une section technique ne doit jamais rester à l'unité.
+    expect(out.some((i) => i.description === 'Disjoncteur 16A')).toBe(false);
   });
 
   it('garde la main d\'œuvre en une ligne par section', async () => {
@@ -199,6 +209,36 @@ describe('build_poste_global_items (fusion serveur)', () => {
 
   it('renvoie [] pour une entrée vide ou non-tableau', async () => {
     expect(await buildPosteGlobal([])).toEqual([]);
+  });
+});
+
+describe('défaut « à l\'unité » conditionné à la section', () => {
+  // Même ligne « u », placée dans une section technique vs une section de finition.
+  const uItem = { id: 2, type: 'material', description: 'Disjoncteur 16A', quantity: 12, unit: 'u', price: 8.9 };
+
+  it('un composant « u » d\'une section technique fusionne (jamais à l\'unité)', async () => {
+    for (const title of ['Lot 1 — Tableau électrique', 'Coffret de communication', 'Armoire', 'GTL', 'Appareillage modulaire']) {
+      const out = await buildPosteGlobal([{ id: 1, type: 'section', description: title }, uItem]);
+      expect(out.some((i) => i.per_unit), `section « ${title} »`).toBe(false);
+      const poste = out.find((i) => i.is_poste && i.type === 'material');
+      expect(Number(poste.line_total)).toBe(106.8); // fusionné
+    }
+  });
+
+  it('le même « u » dans une section de finition reste quantifié', async () => {
+    const out = await buildPosteGlobal([{ id: 1, type: 'section', description: 'Prises et éclairage' }, uItem]);
+    const line = out.find((i) => i.description === 'Disjoncteur 16A');
+    expect(line.per_unit).toBe(true);
+    expect(Number(line.quantity)).toBe(12);
+  });
+
+  it('la surcharge display_per_unit prime sur la section technique', async () => {
+    // Forcer « à l'unité » un composant de tableau reste possible ligne par ligne.
+    const out = await buildPosteGlobal([
+      { id: 1, type: 'section', description: 'Tableau électrique' },
+      { ...uItem, display_per_unit: true },
+    ]);
+    expect(out.some((i) => i.per_unit && i.description === 'Disjoncteur 16A')).toBe(true);
   });
 });
 

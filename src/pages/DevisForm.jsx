@@ -1164,6 +1164,17 @@ const DevisForm = () => {
         return generateDevisPDF(data, ...rest);
     };
 
+    // Titre de la section (Lot) courant pour chaque ligne, par index — sert au
+    // défaut « à l'unité » du mode poste global (une ligne d'une section
+    // technique fusionne dans le poste au lieu d'être détaillée).
+    const sectionTitleByIndex = React.useMemo(() => {
+        let current = '';
+        return (formData.items || []).map((it) => {
+            if (it.type === 'section') { current = it.description || ''; return current; }
+            return current;
+        });
+    }, [formData.items]);
+
 
 
 
@@ -4247,14 +4258,15 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                     {/* Présentation « poste global » : cette ligne matériel est-elle
                                         affichée à l'unité (quantité visible) ou fondue dans le poste ?
-                                        Pré-cochée pour les unités u/pièce/point, surchargeable. */}
+                                        Pré-cochée pour les unités u/pièce/point HORS section technique
+                                        (tableau…), surchargeable. */}
                                     {formData.client_display_mode === 'poste_global' && item.type === 'material' && (
                                         <button
                                             type="button"
-                                            onClick={() => updateItem(item.id, 'display_per_unit', !isPerUnit(item))}
+                                            onClick={() => updateItem(item.id, 'display_per_unit', !isPerUnit(item, sectionTitleByIndex[index]))}
                                             disabled={isLocked}
-                                            className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'opacity-40' : ''} ${isPerUnit(item) ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
-                                            title={isPerUnit(item)
+                                            className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'opacity-40' : ''} ${isPerUnit(item, sectionTitleByIndex[index]) ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
+                                            title={isPerUnit(item, sectionTitleByIndex[index])
                                                 ? "Affiché à l'unité (quantité visible côté client) — cliquer pour fondre dans le poste global"
                                                 : "Fondu dans le poste global — cliquer pour afficher à l'unité (quantité visible)"}
                                         >

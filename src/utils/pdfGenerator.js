@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { PDFDocument, PDFName, AFRelationship } from 'pdf-lib';
 import { generateFacturXXML } from './facturxGenerator';
 import { getTradeConfig } from '../constants/trades';
+import { pluralizeFrenchHead } from './frenchText';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -674,7 +675,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // unitaire). C'est la désignation qui décrit le contenu — « Tableau
         // 4 rangées Schneider XE précâblé comprenant parafoudre, 4 inter diff
         // 63 A et 25 disjoncteurs », « 12 spots LED encastrés »…
-        const groupedMaterialRow = (item) => [itemLabel(item), lineTotalCell(item)];
+        //
+        // Comme la quantité est masquée, on accorde le nom de tête au pluriel
+        // quand il y en a plusieurs, pour que le client ne croie pas n'acheter
+        // qu'une pièce (« Disjoncteur 16A » → « Disjoncteurs 16A »).
+        const groupedMaterialLabel = (item) => {
+            let desc = trLine(item.description || '');
+            if ((parseFloat(item.quantity) || 0) > 1) desc = pluralizeFrenchHead(desc);
+            return item.is_optional ? `${L.optionPrefix} ${desc}` : desc;
+        };
+        const groupedMaterialRow = (item) => [groupedMaterialLabel(item), lineTotalCell(item)];
         // Présentation « poste global » : le libellé du poste + son total. Les
         // lignes vendues à l'unité (per_unit) gardent leur quantité en suffixe.
         const posteLabel = (item) => {
