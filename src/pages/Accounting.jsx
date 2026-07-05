@@ -7,6 +7,7 @@ import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro,
 import { Link } from 'react-router-dom';
 import CopilotChat from '../components/CopilotChat';
 import AccountingAdvisor from '../components/AccountingAdvisor';
+import { DismissibleHelp } from '../components/ui';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -57,35 +58,6 @@ const VAT_LIMITS = {
   services: { base: 37500, majore: 41250 },
   vente: { base: 85000, majore: 93500 },
   liberal: { base: 37500, majore: 41250 }
-};
-
-// Bandeau d'aide que l'utilisateur peut masquer définitivement une fois
-// compris (petite croix), pour alléger l'interface. Le choix est mémorisé
-// par navigateur, indépendamment pour chaque `storageKey`.
-const HELP_DISMISS_PREFIX = 'accounting_help_dismissed_';
-const DismissibleHelp = ({ storageKey, children }) => {
-  const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(HELP_DISMISS_PREFIX + storageKey) === '1'; } catch { return false; }
-  });
-  if (dismissed) return null;
-  const dismiss = () => {
-    try { localStorage.setItem(HELP_DISMISS_PREFIX + storageKey, '1'); } catch { /* stockage indisponible */ }
-    setDismissed(true);
-  };
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Masquer cette aide"
-        title="J'ai compris — masquer cette aide"
-        className="absolute top-2 right-2 z-10 p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors"
-      >
-        <X className="w-4 h-4" />
-      </button>
-      {children}
-    </div>
-  );
 };
 
 const Accounting = () => {
