@@ -8,6 +8,7 @@ import {
     TrendingUp, AlertTriangle, CheckCircle, HelpCircle, Hammer,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
+import { DismissibleHelp } from '../components/ui';
 import TimeClockWidget from '../components/TimeClockWidget';
 import { exportToCSV } from '../utils/csvExport';
 import {
@@ -289,10 +290,12 @@ const TimeTracking = () => {
                     </div>
                 )}
                 {hourlyRate === 0 && worksites.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        💡 Renseignez votre taux horaire dans <Link to="/app/settings" className="underline">vos réglages</Link> (section IA)
-                        pour valoriser les dépassements en euros.
-                    </p>
+                    <DismissibleHelp storageKey="timetracking_hourly_rate_tip">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 pr-8">
+                            💡 Renseignez votre taux horaire dans <Link to="/app/settings" className="underline">vos réglages</Link> (section IA)
+                            pour valoriser les dépassements en euros.
+                        </p>
+                    </DismissibleHelp>
                 )}
             </section>
 

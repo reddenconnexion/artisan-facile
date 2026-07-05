@@ -3,6 +3,7 @@ import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { DismissibleHelp } from '../components/ui';
 
 const STATUS_CONFIG = {
   new:          { label: 'Nouvelle',        color: 'bg-blue-100 text-blue-700 border-blue-200',   icon: Clock },
@@ -164,10 +165,12 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
                 Marquer rejetée
               </button>
             </div>
-            <p className="flex items-start gap-1.5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
-              <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-              Repère personnel pour suivre vos factures. Ce statut n'est pas transmis à votre fournisseur et n'affecte pas votre comptabilité.
-            </p>
+            <DismissibleHelp storageKey="received_invoices_status_note">
+              <p className="flex items-start gap-1.5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed pr-8">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+                Repère personnel pour suivre vos factures. Ce statut n'est pas transmis à votre fournisseur et n'affecte pas votre comptabilité.
+              </p>
+            </DismissibleHelp>
           </div>
         )}
       </div>

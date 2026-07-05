@@ -4,6 +4,7 @@ import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
 import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban, Repeat } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
+import { DismissibleHelp } from '../../components/ui';
 
 const ActivitySettings = () => {
     const { user } = useAuth();
@@ -238,9 +239,11 @@ const ActivitySettings = () => {
                         );
                     })}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-                    💡 Le niveau <strong>Confirmé</strong> respecte les activations ci-dessous. Les autres niveaux ont une sélection prédéfinie.
-                </p>
+                <DismissibleHelp storageKey="activity_levels_tip">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 pr-8">
+                        💡 Le niveau <strong>Confirmé</strong> respecte les activations ci-dessous. Les autres niveaux ont une sélection prédéfinie.
+                    </p>
+                </DismissibleHelp>
             </div>
 
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">

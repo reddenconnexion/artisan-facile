@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper, Package } from 'lucide-react';
+import { DismissibleHelp } from './ui';
 import ChantierMaterialModal from './ChantierMaterialModal';
 import { useNavigate } from 'react-router-dom';
 import { format, isAfter, addDays, parseISO, addHours } from 'date-fns';
@@ -446,9 +447,11 @@ const ActionableDashboard = ({ user }) => {
             </div>
 
             {actionItems.pendingInvoices.length > 0 && (
-                <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-center text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
-                    💡 Astuce : Passez une facture à "Payé" pour l'archiver.
-                </div>
+                <DismissibleHelp storageKey="dashboard_paid_archive_tip">
+                    <div className="px-6 py-3 pr-10 bg-gray-50 dark:bg-gray-800/50 text-xs text-center text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                        💡 Astuce : Passez une facture à "Payé" pour l'archiver.
+                    </div>
+                </DismissibleHelp>
             )}
 
             {materialEvent && (
