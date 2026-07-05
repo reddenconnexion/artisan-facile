@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -99,6 +99,7 @@ const DevisForm = () => {
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
     const [showAdvancedQuoteOptions, setShowAdvancedQuoteOptions] = useState(false);
+    const [showGroupedModeHelp, setShowGroupedModeHelp] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
     const [showSendSuccess, setShowSendSuccess] = useState(false);
 
@@ -3842,11 +3843,25 @@ Conditions de règlement : Paiement à réception de facture.`
                                 onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
                             />
                             {(formData.client_display_mode || 'detailed') === 'grouped' && (
-                                <span className="text-xs text-gray-400 w-full sm:w-auto">
-                                    Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
-                                    Rédigez la désignation pour qu'elle décrive le contenu : « Tableau 4 rangées précâblé comprenant parafoudre, 4 inter diff et 25 disjoncteurs », « 12 spots LED encastrés »…
-                                    La main d'œuvre reste détaillée, et le détail exact (réfs, quantités) garde sa place dans le chiffrage interne 🔒.
-                                </span>
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowGroupedModeHelp(prev => !prev)}
+                                        aria-expanded={showGroupedModeHelp}
+                                        aria-label="Aide sur la présentation groupée"
+                                        title="Comment fonctionne la présentation groupée ?"
+                                        className={`p-0.5 rounded-full transition-colors ${showGroupedModeHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                                    >
+                                        <HelpCircle className="w-4 h-4" />
+                                    </button>
+                                    {showGroupedModeHelp && (
+                                        <span className="text-xs text-gray-400 w-full">
+                                            Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
+                                            Rédigez la désignation pour qu'elle décrive le contenu : « Tableau 4 rangées précâblé comprenant parafoudre, 4 inter diff et 25 disjoncteurs », « 12 spots LED encastrés »…
+                                            La main d'œuvre reste détaillée, et le détail exact (réfs, quantités) garde sa place dans le chiffrage interne 🔒.
+                                        </span>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
