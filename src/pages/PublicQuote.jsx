@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { lineAmount } from '../utils/clientView';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -154,7 +155,7 @@ const PublicQuote = () => {
         );
         const ht = filteredItems
             .filter(i => i.type !== 'section')
-            .reduce((s, i) => s + (parseFloat(i.quantity) || 1) * (parseFloat(i.price) || 0), 0);
+            .reduce((s, i) => s + lineAmount(i), 0);
         const tva = includeTva ? ht * tvaRate : 0;
         return {
             ...quote,
@@ -376,7 +377,7 @@ const PublicQuote = () => {
     const includeTva = quote.include_tva !== false;
     const tvaRate = 0.20;
 
-    const itemTotal = (item) => (parseFloat(item.quantity) || 1) * (parseFloat(item.price) || 0);
+    const itemTotal = (item) => lineAmount(item);
     const mandatoryHT = (quote.items || [])
         .filter(i => !i.is_optional && i.type !== 'section')
         .reduce((s, i) => s + itemTotal(i), 0);

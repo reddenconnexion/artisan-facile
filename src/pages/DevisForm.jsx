@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { clientFacingItems, isPerUnit } from '../utils/clientView';
 import { extractQuoteFromPdfText, translateQuoteContent } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
@@ -1151,6 +1152,18 @@ const DevisForm = () => {
         return { subtotal, tva, total, totalCost };
     };
 
+    // Génère le PDF tel que le CLIENT le verra. En présentation « poste global »,
+    // la fusion des lignes (et son contrôle d'égalité) est demandée au serveur —
+    // source de vérité unique, identique au lien public — avant le rendu ; les
+    // modes detailed/grouped passent les items inchangés. Une incohérence
+    // détectée côté serveur remonte ici sous forme d'erreur (pas de PDF faux).
+    const generateClientPDF = async (devisData, ...rest) => {
+        const data = devisData?.client_display_mode === 'poste_global'
+            ? { ...devisData, items: await clientFacingItems(devisData.items, 'poste_global') }
+            : devisData;
+        return generateDevisPDF(data, ...rest);
+    };
+
 
 
 
@@ -1617,7 +1630,7 @@ const DevisForm = () => {
             // PDF figé — l'instantané reste archivé même si la génération échoue
             let pdfUrl = null;
             try {
-                const blob = await generateDevisPDF(snapshot, selectedClient || { name: snapshot.client_name }, userProfile, formData.type === 'invoice', 'blob');
+                const blob = await generateClientPDF(snapshot, selectedClient || { name: snapshot.client_name }, userProfile, formData.type === 'invoice', 'blob');
                 const pdfPath = `${user.id}/versions/devis-${id}-${Date.now()}.pdf`;
                 const { error: uploadError } = await supabase.storage
                     .from('quote_files')
@@ -1693,7 +1706,7 @@ const DevisForm = () => {
             const snap = version.snapshot || {};
             const snapClient = clients.find(c => c.id?.toString() === (snap.client_id ?? '').toString())
                 || { name: snap.client_name || 'Client' };
-            const blobUrl = await generateDevisPDF(snap, snapClient, userProfile, snap.type === 'invoice', 'bloburl');
+            const blobUrl = await generateClientPDF(snap, snapClient, userProfile, snap.type === 'invoice', 'bloburl');
             window.open(blobUrl, '_blank');
         } catch (err) {
             console.error('Version PDF error:', err);
@@ -2560,7 +2573,7 @@ Conditions de règlement : Paiement à réception de facture.`
             };
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
-            await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice);
+            await generateClientPDF(devisData, selectedClient, userProfile, isInvoice);
             toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
         } catch (error) {
             console.error('Error generating PDF:', error);
@@ -2612,7 +2625,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 amendment_details: formData.amendment_details || {}
             };
 
-            const url = await generateDevisPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
+            const url = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
 
             if (url) {
                 window.open(url, '_blank');
@@ -3909,18 +3922,19 @@ Conditions de règlement : Paiement à réception de facture.`
                                 options={[
                                     { id: 'detailed', label: 'Détaillée' },
                                     { id: 'grouped', label: 'Groupée (fournitures par poste)' },
+                                    { id: 'poste_global', label: 'Poste global (1 ligne / section)' },
                                 ]}
                                 value={formData.client_display_mode || 'detailed'}
                                 onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
                             />
-                            {(formData.client_display_mode || 'detailed') === 'grouped' && !dismissedHelps.grouped_mode && (
+                            {['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && !dismissedHelps.grouped_mode && (
                                 <>
                                     <button
                                         type="button"
                                         onClick={() => setShowGroupedModeHelp(prev => !prev)}
                                         aria-expanded={showGroupedModeHelp}
-                                        aria-label="Aide sur la présentation groupée"
-                                        title="Comment fonctionne la présentation groupée ?"
+                                        aria-label="Aide sur la présentation client"
+                                        title="Comment fonctionne cette présentation ?"
                                         className={`p-0.5 rounded-full transition-colors ${showGroupedModeHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
                                     >
                                         <HelpCircle className="w-4 h-4" />
@@ -3936,13 +3950,19 @@ Conditions de règlement : Paiement à réception de facture.`
                                             <X className="w-3 h-3" />
                                         </button>
                                     )}
-                                    {showGroupedModeHelp && (
+                                    {showGroupedModeHelp && (formData.client_display_mode === 'poste_global' ? (
+                                        <span className="text-xs text-gray-400 w-full">
+                                            Chaque section (Lot) est réduite à <strong>un poste fournitures</strong> (libellé + un seul total) et <strong>une ligne main d'œuvre</strong>.
+                                            Les éléments vendus à l'unité (prises, spots, points lumineux) restent quantifiés — cochez « à l'unité » sur la ligne pour l'ajuster. Les options restent listées séparément.
+                                            La fusion et le total sont calculés <strong>côté serveur</strong> : aucun composant, quantité, prix d'achat ni référence ne part chez le client. Votre détail reste intact ici 🔒.
+                                        </span>
+                                    ) : (
                                         <span className="text-xs text-gray-400 w-full">
                                             Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
                                             Rédigez la désignation pour qu'elle décrive le contenu : « Tableau 4 rangées précâblé comprenant parafoudre, 4 inter diff et 25 disjoncteurs », « 12 spots LED encastrés »…
                                             La main d'œuvre reste détaillée, et le détail exact (réfs, quantités) garde sa place dans le chiffrage interne 🔒.
                                         </span>
-                                    )}
+                                    ))}
                                 </>
                             )}
                         </div>
@@ -4225,6 +4245,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                     >
                                         OPT
                                     </button>
+                                    {/* Présentation « poste global » : cette ligne matériel est-elle
+                                        affichée à l'unité (quantité visible) ou fondue dans le poste ?
+                                        Pré-cochée pour les unités u/pièce/point, surchargeable. */}
+                                    {formData.client_display_mode === 'poste_global' && item.type === 'material' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => updateItem(item.id, 'display_per_unit', !isPerUnit(item))}
+                                            disabled={isLocked}
+                                            className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'opacity-40' : ''} ${isPerUnit(item) ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
+                                            title={isPerUnit(item)
+                                                ? "Affiché à l'unité (quantité visible côté client) — cliquer pour fondre dans le poste global"
+                                                : "Fondu dans le poste global — cliquer pour afficher à l'unité (quantité visible)"}
+                                        >
+                                            /U
+                                        </button>
+                                    )}
                                     {/* Chiffrage interne : reste consultable même quand le devis
                                         est verrouillé (revue avec le client), en lecture seule. */}
                                     <button
