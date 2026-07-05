@@ -13,27 +13,8 @@
 
 import { supabase } from './supabase';
 
-// Unités considérées « vendues à l'unité » par défaut (prises, spots, points
-// lumineux…). DOIT rester synchronisé avec build_poste_global_items côté SQL.
-const PER_UNIT_UNITS = new Set([
-  'u', 'unité', 'unite', 'pièce', 'piece', 'pce', 'pc', 'point', 'pt', 'points',
-]);
-
-/**
- * Valeur par défaut du flag « afficher à l'unité » pour une ligne matériel,
- * déduite de son unité. L'artisan peut ensuite surcharger via item.display_per_unit.
- */
-export const defaultPerUnit = (unit) =>
-  PER_UNIT_UNITS.has((unit || '').trim().toLowerCase());
-
-/**
- * État effectif « à l'unité » d'une ligne : surcharge explicite si présente,
- * sinon défaut déduit de l'unité.
- */
-export const isPerUnit = (item) =>
-  typeof item?.display_per_unit === 'boolean'
-    ? item.display_per_unit
-    : defaultPerUnit(item?.unit);
+// Défaut « à l'unité » (unité + section) — logique pure, testable sans Supabase.
+export { isTechnicalSection, defaultPerUnit, isPerUnit } from './perUnit';
 
 /**
  * Demande au serveur les items tels que le client les verra, selon le mode.
