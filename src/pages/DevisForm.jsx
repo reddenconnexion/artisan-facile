@@ -43,6 +43,13 @@ import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quoteInternalDetail';
 
+// Aides « ? » du formulaire : chacune peut être supprimée définitivement
+// (petite croix) une fois comprise — mémorisé par navigateur.
+const DISMISSED_HELPS_KEY = 'devis_dismissed_helps';
+const readDismissedHelps = () => {
+    try { return JSON.parse(localStorage.getItem(DISMISSED_HELPS_KEY)) || {}; } catch { return {}; }
+};
+
 const DevisForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -102,7 +109,16 @@ const DevisForm = () => {
     const [showGroupedModeHelp, setShowGroupedModeHelp] = useState(false);
     const [showItemTypesHelp, setShowItemTypesHelp] = useState(false);
     const [showCsvFormatHelp, setShowCsvFormatHelp] = useState(false);
+    const [showMaterialDepositHelp, setShowMaterialDepositHelp] = useState(false);
     const [showSpecialStatuses, setShowSpecialStatuses] = useState(false);
+    const [dismissedHelps, setDismissedHelps] = useState(readDismissedHelps);
+    const dismissHelp = (key) => {
+        setDismissedHelps(prev => {
+            const next = { ...prev, [key]: true };
+            try { localStorage.setItem(DISMISSED_HELPS_KEY, JSON.stringify(next)); } catch { /* stockage indisponible */ }
+            return next;
+        });
+    };
     const [isExiting, setIsExiting] = useState(false);
     const [showSendSuccess, setShowSendSuccess] = useState(false);
 
@@ -3394,19 +3410,36 @@ Conditions de règlement : Paiement à réception de facture.`
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
                             </p>
-                            <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setShowCsvFormatHelp(prev => !prev); }}
-                                aria-expanded={showCsvFormatHelp}
-                                className={`mt-1 inline-flex items-center gap-1 text-xs transition-colors ${showCsvFormatHelp ? 'text-ios' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                            >
-                                <HelpCircle className="w-3.5 h-3.5" />
-                                Format CSV attendu
-                            </button>
-                            {showCsvFormatHelp && (
-                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                    CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
-                                </p>
+                            {!dismissedHelps.csv_format && (
+                                <>
+                                    <span className="mt-1 inline-flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setShowCsvFormatHelp(prev => !prev); }}
+                                            aria-expanded={showCsvFormatHelp}
+                                            className={`inline-flex items-center gap-1 text-xs transition-colors ${showCsvFormatHelp ? 'text-ios' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                                        >
+                                            <HelpCircle className="w-3.5 h-3.5" />
+                                            Format CSV attendu
+                                        </button>
+                                        {showCsvFormatHelp && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); dismissHelp('csv_format'); }}
+                                                aria-label="Ne plus afficher cette aide"
+                                                title="J'ai compris — ne plus afficher cette aide"
+                                                className="p-0.5 rounded-full text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </span>
+                                    {showCsvFormatHelp && (
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                            CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
@@ -3880,7 +3913,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 value={formData.client_display_mode || 'detailed'}
                                 onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
                             />
-                            {(formData.client_display_mode || 'detailed') === 'grouped' && (
+                            {(formData.client_display_mode || 'detailed') === 'grouped' && !dismissedHelps.grouped_mode && (
                                 <>
                                     <button
                                         type="button"
@@ -3892,6 +3925,17 @@ Conditions de règlement : Paiement à réception de facture.`
                                     >
                                         <HelpCircle className="w-4 h-4" />
                                     </button>
+                                    {showGroupedModeHelp && (
+                                        <button
+                                            type="button"
+                                            onClick={() => dismissHelp('grouped_mode')}
+                                            aria-label="Ne plus afficher cette aide"
+                                            title="J'ai compris — ne plus afficher cette aide"
+                                            className="p-0.5 rounded-full text-gray-300 hover:text-red-500 transition-colors"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
                                     {showGroupedModeHelp && (
                                         <span className="text-xs text-gray-400 w-full">
                                             Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
@@ -4282,20 +4326,35 @@ Conditions de règlement : Paiement à réception de facture.`
                             Générer avec l'IA
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setShowItemTypesHelp(prev => !prev)}
-                            aria-expanded={showItemTypesHelp}
-                            aria-label="Aide sur les types de lignes"
-                            title="Main d'œuvre, Matériel, Section, HT… c'est quoi ?"
-                            className={`self-center p-1 rounded-full transition-colors ${showItemTypesHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                        >
-                            <HelpCircle className="w-4 h-4" />
-                        </button>
+                        {!dismissedHelps.item_types && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowItemTypesHelp(prev => !prev)}
+                                    aria-expanded={showItemTypesHelp}
+                                    aria-label="Aide sur les types de lignes"
+                                    title="Main d'œuvre, Matériel, Section, HT… c'est quoi ?"
+                                    className={`self-center p-1 rounded-full transition-colors ${showItemTypesHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                                >
+                                    <HelpCircle className="w-4 h-4" />
+                                </button>
+                                {showItemTypesHelp && (
+                                    <button
+                                        type="button"
+                                        onClick={() => dismissHelp('item_types')}
+                                        aria-label="Ne plus afficher cette aide"
+                                        title="J'ai compris — ne plus afficher cette aide"
+                                        className="self-center p-0.5 rounded-full text-gray-300 hover:text-red-500 transition-colors"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </>
+                        )}
                     </div>
 
                     {/* Légende pour les débutants — repliée derrière le « ? » ci-dessus */}
-                    {showItemTypesHelp && (
+                    {showItemTypesHelp && !dismissedHelps.item_types && (
                         <p className="mt-3 text-xs text-gray-400 flex items-start gap-1.5">
                             <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                             <span>
@@ -4392,7 +4451,38 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <label htmlFor="has_material_deposit" className="ml-2 block text-sm text-gray-900 dark:text-white">
                                     Demander un acompte matériel
                                 </label>
+                                {!dismissedHelps.material_deposit && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowMaterialDepositHelp(prev => !prev)}
+                                            aria-expanded={showMaterialDepositHelp}
+                                            aria-label="Aide sur l'acompte matériel"
+                                            title="À quoi sert l'acompte matériel ?"
+                                            className={`ml-1.5 p-0.5 rounded-full transition-colors ${showMaterialDepositHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                                        >
+                                            <HelpCircle className="w-4 h-4" />
+                                        </button>
+                                        {showMaterialDepositHelp && (
+                                            <button
+                                                type="button"
+                                                onClick={() => dismissHelp('material_deposit')}
+                                                aria-label="Ne plus afficher cette aide"
+                                                title="J'ai compris — ne plus afficher cette aide"
+                                                className="p-0.5 rounded-full text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                             </div>
+                            {showMaterialDepositHelp && !dismissedHelps.material_deposit && (
+                                <p className="text-xs text-gray-400 -mt-3 mb-4 text-right">
+                                    Ajoute au PDF une mention demandant, à la signature, un acompte couvrant la totalité du matériel du devis.
+                                    Le client finance les fournitures avant la commande : vous n'avancez pas leur coût.
+                                </p>
+                            )}
                             <div className="flex items-center justify-end gap-2 mb-4">
                                 <label htmlFor="deposit_percentage" className="block text-sm text-gray-900 dark:text-white">
                                     Acompte à la signature
