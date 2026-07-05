@@ -1811,6 +1811,7 @@ const DevisForm = () => {
             }
 
             let error;
+            let savedQuoteId = isEditing ? id : null;
             if (isEditing) {
                 // For updates: exclude user_id, include updated_at
                 const { user_id, ...updateData } = quoteData;
@@ -1825,11 +1826,12 @@ const DevisForm = () => {
                 }
                 error = updateError;
             } else {
-                const { error: insertError } = await supabase
+                const { data: insertData, error: insertError } = await supabase
                     .from('quotes')
                     .insert([quoteData])
                     .select();
                 error = insertError;
+                savedQuoteId = insertData?.[0]?.id ?? null;
             }
 
             if (error) throw error;
@@ -1993,20 +1995,21 @@ const DevisForm = () => {
             // n'est pas encore terminé.
             const justBilled = formData.status === 'billed' && initialStatus !== 'billed' && initialStatus !== 'paid';
             const justPaid = formData.status === 'paid' && initialStatus !== 'paid' && initialStatus !== 'billed';
+            setInitialStatus(formData.status);
             if (justBilled || justPaid) {
                 const titleLower = (formData.title || '').toLowerCase();
                 const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
                 if (!isIntermediateInvoice) {
                     setReviewNavigateOnClose(true);
                     setShowReviewRequestModal(true);
-                    setInitialStatus(formData.status);
-                    // Don't navigate yet, let user see the modal
-                } else {
-                    setInitialStatus(formData.status);
-                    navigate('/app/devis');
+                    // Don't navigate, let user see the modal
+                    return;
                 }
-            } else {
-                navigate('/app/devis');
+            }
+            // On reste sur le devis après l'enregistrement : il faut pouvoir
+            // l'envoyer ensuite. Un nouveau devis bascule sur son URL d'édition.
+            if (!isEditing && savedQuoteId) {
+                navigate(`/app/devis/${savedQuoteId}`, { replace: true });
             }
         } catch (error) {
             console.error('Error saving quote:', error);
