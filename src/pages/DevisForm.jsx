@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -102,6 +102,7 @@ const DevisForm = () => {
     const [showGroupedModeHelp, setShowGroupedModeHelp] = useState(false);
     const [showItemTypesHelp, setShowItemTypesHelp] = useState(false);
     const [showCsvFormatHelp, setShowCsvFormatHelp] = useState(false);
+    const [showSpecialStatuses, setShowSpecialStatuses] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
     const [showSendSuccess, setShowSendSuccess] = useState(false);
 
@@ -3610,29 +3611,50 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </div>
                             );
                         })()}
-                        {/* Statuts d'exception (hors flux normal) */}
-                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wider">Cas particuliers :</span>
-                            {[
+                        {/* Statuts d'exception (hors flux normal) — repliés derrière un
+                            dropdown ; le bloc reste ouvert si un statut particulier est actif. */}
+                        {(() => {
+                            const specialStatuses = [
                                 { key: 'refused', label: 'Refusé', activeColor: 'bg-red-100 text-red-700 dark:text-red-400 border-red-300' },
                                 { key: 'postponed', label: 'Reporté', activeColor: 'bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300' },
                                 { key: 'cancelled', label: 'Annulé', activeColor: 'bg-gray-200 text-gray-700 dark:text-gray-300 border-gray-400' },
-                            ].map(opt => {
-                                const isActive = formData.status === opt.key;
-                                return (
+                            ];
+                            const activeSpecial = specialStatuses.find(opt => opt.key === formData.status);
+                            const open = showSpecialStatuses || !!activeSpecial;
+                            return (
+                                <div className="mt-2">
                                     <button
-                                        key={opt.key}
                                         type="button"
-                                        onClick={() => setFormData(p => ({ ...p, status: isActive ? 'draft' : opt.key }))}
-                                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${
-                                            isActive ? opt.activeColor : 'bg-white dark:bg-gray-900 text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                        }`}
+                                        onClick={() => setShowSpecialStatuses(prev => !prev)}
+                                        aria-expanded={open}
+                                        disabled={!!activeSpecial}
+                                        className="flex items-center gap-1 text-[10px] text-gray-400 uppercase tracking-wider hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:hover:text-gray-400"
                                     >
-                                        {opt.label}
+                                        Cas particuliers
+                                        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
                                     </button>
-                                );
-                            })}
-                        </div>
+                                    {open && (
+                                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                            {specialStatuses.map(opt => {
+                                                const isActive = formData.status === opt.key;
+                                                return (
+                                                    <button
+                                                        key={opt.key}
+                                                        type="button"
+                                                        onClick={() => setFormData(p => ({ ...p, status: isActive ? 'draft' : opt.key }))}
+                                                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${
+                                                            isActive ? opt.activeColor : 'bg-white dark:bg-gray-900 text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                        }`}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                         {formData.last_followup_at && (
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
