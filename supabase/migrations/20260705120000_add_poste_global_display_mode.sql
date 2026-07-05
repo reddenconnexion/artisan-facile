@@ -395,6 +395,9 @@ DECLARE
     client_quotes     json;
     client_photos     json;
     client_reports    json;
+    v_quotes          jsonb := '[]'::jsonb;
+    v_items           jsonb;
+    q                 record;
 BEGIN
     -- Identifier client + artisan + état du token
     SELECT id, user_id, portal_token_revoked, portal_token_expires_at
@@ -424,18 +427,52 @@ BEGIN
       FROM profiles p
      WHERE id = target_user_id;
 
-    -- Devis (hors brouillons) — items rendus selon le mode d'affichage client
-    SELECT json_agg(
-            jsonb_set(
-              to_jsonb(q),
-              '{items}',
-              public.client_facing_items(q.items, q.client_display_mode)
-            )::json
-            ORDER BY q.date DESC
-        ) INTO client_quotes
-      FROM quotes q
-     WHERE client_id = target_client_id
-       AND q.status != 'draft';
+    -- Devis (hors brouillons) — items rendus selon le mode d'affichage client.
+    --
+    -- Résilience « lecture de liste » : le portail affiche PLUSIEURS devis. Si la
+    -- fusion « poste global » d'un devis échoue (contrôle d'égalité, données
+    -- incohérentes…), on ISOLE ce devis — repli en présentation détaillée de
+    -- secours (les champs internes restent expurgés) — sans interrompre
+    -- l'affichage des autres, et on consigne le devis fautif dans audit_logs pour
+    -- que l'artisan le corrige. Le RAISE reste bloquant ailleurs (get_public_quote
+    -- sur un devis isolé, et get_client_facing_items à la génération/l'envoi).
+    FOR q IN
+        SELECT *
+          FROM quotes
+         WHERE client_id = target_client_id
+           AND status != 'draft'
+         ORDER BY date DESC
+    LOOP
+        BEGIN
+            v_items := public.client_facing_items(q.items, q.client_display_mode);
+        EXCEPTION WHEN OTHERS THEN
+            v_items := public.strip_internal_item_fields(q.items);
+            BEGIN
+                INSERT INTO audit_logs (user_id, action, entity_type, entity_id, entity_label, details)
+                VALUES (
+                    q.user_id,
+                    'quote.display_fallback',
+                    'quote',
+                    q.id,
+                    COALESCE(q.title, q.quote_number, 'Devis'),
+                    jsonb_build_object(
+                        'client_display_mode', q.client_display_mode,
+                        'fallback', 'detailed',
+                        'error', SQLERRM
+                    )
+                );
+            EXCEPTION WHEN OTHERS THEN
+                -- Ne jamais casser la lecture du portail pour un échec de log.
+                NULL;
+            END;
+        END;
+
+        v_quotes := v_quotes || jsonb_build_array(
+            jsonb_set(to_jsonb(q), '{items}', v_items)
+        );
+    END LOOP;
+
+    client_quotes := v_quotes::json;
 
     -- Photos
     SELECT json_agg(pp ORDER BY created_at DESC) INTO client_photos
