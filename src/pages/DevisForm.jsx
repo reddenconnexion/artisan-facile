@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -99,6 +99,9 @@ const DevisForm = () => {
     const [focusedInput, setFocusedInput] = useState(null);
     const [fullScreenEditItem, setFullScreenEditItem] = useState(null);
     const [showAdvancedQuoteOptions, setShowAdvancedQuoteOptions] = useState(false);
+    const [showGroupedModeHelp, setShowGroupedModeHelp] = useState(false);
+    const [showItemTypesHelp, setShowItemTypesHelp] = useState(false);
+    const [showCsvFormatHelp, setShowCsvFormatHelp] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
     const [showSendSuccess, setShowSendSuccess] = useState(false);
 
@@ -3387,9 +3390,20 @@ Conditions de règlement : Paiement à réception de facture.`
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
                             </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
-                            </p>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setShowCsvFormatHelp(prev => !prev); }}
+                                aria-expanded={showCsvFormatHelp}
+                                className={`mt-1 inline-flex items-center gap-1 text-xs transition-colors ${showCsvFormatHelp ? 'text-ios' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                            >
+                                <HelpCircle className="w-3.5 h-3.5" />
+                                Format CSV attendu
+                            </button>
+                            {showCsvFormatHelp && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -3842,11 +3856,25 @@ Conditions de règlement : Paiement à réception de facture.`
                                 onChange={(mode) => { if (!isLocked) setFormData(prev => ({ ...prev, client_display_mode: mode })); }}
                             />
                             {(formData.client_display_mode || 'detailed') === 'grouped' && (
-                                <span className="text-xs text-gray-400 w-full sm:w-auto">
-                                    Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
-                                    Rédigez la désignation pour qu'elle décrive le contenu : « Tableau 4 rangées précâblé comprenant parafoudre, 4 inter diff et 25 disjoncteurs », « 12 spots LED encastrés »…
-                                    La main d'œuvre reste détaillée, et le détail exact (réfs, quantités) garde sa place dans le chiffrage interne 🔒.
-                                </span>
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowGroupedModeHelp(prev => !prev)}
+                                        aria-expanded={showGroupedModeHelp}
+                                        aria-label="Aide sur la présentation groupée"
+                                        title="Comment fonctionne la présentation groupée ?"
+                                        className={`p-0.5 rounded-full transition-colors ${showGroupedModeHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                                    >
+                                        <HelpCircle className="w-4 h-4" />
+                                    </button>
+                                    {showGroupedModeHelp && (
+                                        <span className="text-xs text-gray-400 w-full">
+                                            Chaque ligne fourniture s'affiche avec sa désignation et <strong>un seul montant</strong> — sans quantités ni prix unitaires.
+                                            Rédigez la désignation pour qu'elle décrive le contenu : « Tableau 4 rangées précâblé comprenant parafoudre, 4 inter diff et 25 disjoncteurs », « 12 spots LED encastrés »…
+                                            La main d'œuvre reste détaillée, et le détail exact (réfs, quantités) garde sa place dans le chiffrage interne 🔒.
+                                        </span>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
@@ -4228,19 +4256,32 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Sparkles className="w-3.5 h-3.5" />
                             Générer avec l'IA
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowItemTypesHelp(prev => !prev)}
+                            aria-expanded={showItemTypesHelp}
+                            aria-label="Aide sur les types de lignes"
+                            title="Main d'œuvre, Matériel, Section, HT… c'est quoi ?"
+                            className={`self-center p-1 rounded-full transition-colors ${showItemTypesHelp ? 'text-ios' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                        >
+                            <HelpCircle className="w-4 h-4" />
+                        </button>
                     </div>
 
-                    {/* Légende pour les débutants */}
-                    <p className="mt-3 text-xs text-gray-400 flex items-start gap-1.5">
-                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                        <span>
-                            <strong className="text-gray-500 dark:text-gray-400">Main d'œuvre</strong> = votre temps de travail ·{' '}
-                            <strong className="text-gray-500 dark:text-gray-400">Matériel</strong> = fournitures achetées ·{' '}
-                            <strong className="text-gray-500 dark:text-gray-400">Section</strong> = titre de regroupement (facultatif) ·{' '}
-                            <strong className="text-gray-500 dark:text-gray-400">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas ·{' '}
-                            <strong className="text-gray-500 dark:text-gray-400">🔒 Chiffrage interne</strong> = le détail privé d'une ligne groupée (fournitures, note) — jamais montré au client
-                        </span>
-                    </p>
+                    {/* Légende pour les débutants — repliée derrière le « ? » ci-dessus */}
+                    {showItemTypesHelp && (
+                        <p className="mt-3 text-xs text-gray-400 flex items-start gap-1.5">
+                            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            <span>
+                                <strong className="text-gray-500 dark:text-gray-400">Main d'œuvre</strong> = votre temps de travail ·{' '}
+                                <strong className="text-gray-500 dark:text-gray-400">Matériel</strong> = fournitures achetées ·{' '}
+                                <strong className="text-gray-500 dark:text-gray-400">Section</strong> = titre de regroupement (facultatif) ·{' '}
+                                <strong className="text-gray-500 dark:text-gray-400">HT</strong> = hors taxes — la TVA est ajoutée automatiquement en bas ·{' '}
+                                <strong className="text-gray-500 dark:text-gray-400">🔒 Chiffrage interne</strong> = le détail privé d'une ligne groupée (fournitures, note) — jamais montré au client
+                            </span>
+                        </p>
+                    )}
                 </div>
 
                 <DevisAIModal
@@ -4439,45 +4480,34 @@ Conditions de règlement : Paiement à réception de facture.`
                         }}
                         disabled={isLocked}
                     />
-                    {/* Auto-calculate Material Deposit Hint */}
-                    {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (
-                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
-                            <div className="mt-0.5"><Star className="w-4 h-4" /></div>
-                            <div>
-                                <strong>Note automatique : Acompte Matériel</strong><br />
-                                Le devis contient du matériel. Une mention sera ajoutée automatiquement au PDF :<br />
-                                <span className="italic opacity-80">
-                                    "Un acompte correspondant à la totalité du matériel (
-                                    {(() => {
-                                        const mItems = formData.items.filter(i => i.type === 'material');
-                                        const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                                        const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
-                                        return mTTC.toFixed(2);
-                                    })()} € TTC) est requis à la signature."
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                    {/* Auto-calculate Material Deposit Hint — ligne compacte, phrase complète en infobulle */}
+                    {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (() => {
+                        const mItems = formData.items.filter(i => i.type === 'material');
+                        const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                        const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
+                        return (
+                            <p
+                                className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1.5 cursor-help"
+                                title={`Mention ajoutée au PDF : "Un acompte correspondant à la totalité du matériel (${mTTC.toFixed(2)} € TTC) est requis à la signature."`}
+                            >
+                                <Star className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-400" />
+                                <span>Mention « Acompte matériel » ({mTTC.toFixed(2)} € TTC à la signature) ajoutée automatiquement au PDF.</span>
+                            </p>
+                        );
+                    })()}
                     {/* Aperçu acompte en % du total (devis sans acompte matériel actif) */}
                     {formData.type !== 'invoice' && (Number(formData.deposit_percentage) || 0) > 0 &&
-                        !(formData.items.some(i => i.type === 'material') && formData.has_material_deposit) && (
-                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
-                            <div className="mt-0.5"><Star className="w-4 h-4" /></div>
-                            <div>
-                                <strong>Conditions de règlement : Acompte</strong><br />
-                                {(() => {
-                                    const pct = Number(formData.deposit_percentage) || 0;
-                                    const dep = total * pct / 100;
-                                    const solde = Math.max(total - dep, 0);
-                                    return (
-                                        <span className="italic opacity-80">
-                                            Acompte à la signature ({pct} %) : {dep.toFixed(2)} € TTC — Solde à la fin des travaux : {solde.toFixed(2)} € TTC. Cette mention sera ajoutée au PDF.
-                                        </span>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    )}
+                        !(formData.items.some(i => i.type === 'material') && formData.has_material_deposit) && (() => {
+                        const pct = Number(formData.deposit_percentage) || 0;
+                        const dep = total * pct / 100;
+                        const solde = Math.max(total - dep, 0);
+                        return (
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1.5">
+                                <Star className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-400" />
+                                <span>Mention ajoutée au PDF : acompte à la signature ({pct} %) {dep.toFixed(2)} € TTC — solde à la fin des travaux {solde.toFixed(2)} € TTC.</span>
+                            </p>
+                        );
+                    })()}
                 </div>
             </div>
 
