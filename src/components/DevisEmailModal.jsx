@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { clientFacingItems } from '../utils/clientView';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 
 /**
@@ -73,7 +74,19 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
             amendment_details: formData.amendment_details || {},
         };
 
-        generateDevisPDF(devisData, selectedClient, userProfile, formData.type === 'invoice', 'blob', localPreview.lang || 'fr')
+        // En « poste global », l'aperçu montre exactement la version fusionnée
+        // par le serveur (comme le lien public), pas le détail local.
+        const renderPreview = async () => {
+            const items = formData.client_display_mode === 'poste_global'
+                ? await clientFacingItems(devisData.items, 'poste_global')
+                : devisData.items;
+            return generateDevisPDF(
+                { ...devisData, items },
+                selectedClient, userProfile, formData.type === 'invoice', 'blob', localPreview.lang || 'fr',
+            );
+        };
+
+        renderPreview()
             .then(async pdfBlob => {
                 if (cancelled) return;
                 blobUrl = URL.createObjectURL(pdfBlob);

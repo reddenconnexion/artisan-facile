@@ -597,11 +597,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
 
     const fmtMoney = (n) => `${(Number(n) || 0).toFixed(2)} €`;
+    // Montant d'une ligne : en présentation « poste global », le serveur a déjà
+    // fusionné les lignes et fourni un total (line_total), sans quantité ni prix
+    // unitaire. Sinon on calcule quantité × prix comme d'habitude.
+    const lineAmountOf = (item) => (item.line_total != null && item.line_total !== '')
+        ? (parseFloat(item.line_total) || 0)
+        : (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0);
     // Une ligne à 0 € est affichée "Offert" plutôt que "0.00 €" (geste commercial lisible)
     const unitPriceCell = (item) => (parseFloat(item.price) || 0) === 0 ? L.offered : fmtMoney(item.price);
-    const lineTotalCell = (item) => (parseFloat(item.price) || 0) === 0
-        ? L.offered
-        : fmtMoney((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0));
+    const lineTotalCell = (item) => lineAmountOf(item) === 0 ? L.offered : fmtMoney(lineAmountOf(item));
 
     // Style commun : filets discrets, zébrage léger, montants alignés à droite.
     // La couleur d'en-tête (bandeau + ligne Désignation) est fixée par tableau :
@@ -644,6 +648,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // reste détaillée (heures, taux). Les factures de situation gardent le
     // détail complet (le % d'avancement y est par poste).
     const groupedDisplay = devis.client_display_mode === 'grouped' && !isSituation;
+    // Présentation « poste global » : les items reçus sont DÉJÀ fusionnés côté
+    // serveur (un poste par section : libellé + total, sans détail). Le rendu se
+    // contente d'afficher désignation + total ; les éléments à l'unité gardent
+    // leur quantité en suffixe (« Prises encastrées — 17 u »).
+    const posteGlobalDisplay = devis.client_display_mode === 'poste_global' && !isSituation;
 
     {
         // Tableaux lettrés : A — Main d'œuvre, B — Fournitures (lettre seulement si
@@ -666,6 +675,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // 4 rangées Schneider XE précâblé comprenant parafoudre, 4 inter diff
         // 63 A et 25 disjoncteurs », « 12 spots LED encastrés »…
         const groupedMaterialRow = (item) => [itemLabel(item), lineTotalCell(item)];
+        // Présentation « poste global » : le libellé du poste + son total. Les
+        // lignes vendues à l'unité (per_unit) gardent leur quantité en suffixe.
+        const posteLabel = (item) => {
+            const base = itemLabel(item);
+            if (!item.per_unit) return base;
+            const q = parseFloat(item.quantity) || 0;
+            const qStr = Number.isInteger(q) ? String(q) : q.toLocaleString('fr-FR');
+            return `${base} — ${qStr} ${item.unit || 'u'}`;
+        };
+        const posteRow = (item) => [posteLabel(item), lineTotalCell(item)];
         // Parcourt tous les items dans l'ordre : émet les lignes du type demandé,
         // précédées du sous-titre de leur section personnalisée (une seule fois
         // par section et par tableau, même si la section mélange les types).
@@ -692,13 +711,29 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             return rows;
         };
 
+        // Colonnes réduites (Désignation + Total) partagées par « groupé » et
+        // « poste global » : aucune quantité ni prix unitaire de fourniture.
+        const twoColStyle = {
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 30, halign: 'right' },
+            },
+        };
+
         if (services.length > 0) {
-            const laborColumns = [L.colDescription, `${L.colQty} (h)`, L.colUnitPrice, L.colTotal];
+            // En « poste global », la main d'œuvre est réduite à une ligne par
+            // section (libellé + total) ; sinon détail heures / taux / total.
+            const laborColumns = posteGlobalDisplay
+                ? [L.colDescription, L.colTotal]
+                : [L.colDescription, `${L.colQty} (h)`, L.colUnitPrice, L.colTotal];
             autoTable(doc, {
                 startY: currentTableY,
                 head: sectionHead(`${bothGroups ? 'A — ' : ''}${L.tableLaborHeader}`, accent, laborColumns),
-                body: buildGroupRows(i => i.type === 'service' || !i.type),
+                body: posteGlobalDisplay
+                    ? buildGroupRows(i => i.type === 'service' || !i.type, posteRow, 2)
+                    : buildGroupRows(i => i.type === 'service' || !i.type),
                 ...baseTableStyle,
+                ...(posteGlobalDisplay ? twoColStyle : {}),
                 headStyles: headStylesFor(accent),
                 didParseCell: styleOfferedCell,
             });
@@ -706,20 +741,18 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
 
         if (materials.length > 0) {
-            const materialColumns = groupedDisplay ? [L.colDescription, L.colTotal] : tableColumn;
+            const twoColMaterial = groupedDisplay || posteGlobalDisplay;
+            const materialColumns = twoColMaterial ? [L.colDescription, L.colTotal] : tableColumn;
             autoTable(doc, {
                 startY: currentTableY,
                 head: sectionHead(`${bothGroups ? 'B — ' : ''}${L.tableMaterialHeader}`, tableDark, materialColumns),
-                body: groupedDisplay
-                    ? buildGroupRows(i => i.type === 'material', groupedMaterialRow, 2)
-                    : buildGroupRows(i => i.type === 'material'),
+                body: posteGlobalDisplay
+                    ? buildGroupRows(i => i.type === 'material', posteRow, 2)
+                    : groupedDisplay
+                        ? buildGroupRows(i => i.type === 'material', groupedMaterialRow, 2)
+                        : buildGroupRows(i => i.type === 'material'),
                 ...baseTableStyle,
-                ...(groupedDisplay ? {
-                    columnStyles: {
-                        0: { cellWidth: 'auto' },
-                        1: { cellWidth: 30, halign: 'right' },
-                    },
-                } : {}),
+                ...(twoColMaterial ? twoColStyle : {}),
                 headStyles: headStylesFor(tableDark),
                 didParseCell: styleOfferedCell,
             });
@@ -836,7 +869,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     } else {
         // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
         const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
-        const sumHT = (items) => items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.price) || 0), 0);
+        // lineAmountOf gère aussi les postes fusionnés (line_total) du mode global.
+        const sumHT = (items) => items.reduce((s, i) => s + lineAmountOf(i), 0);
         const showSubtotals = laborItems.length > 0 && materials.length > 0;
 
         const totalsRows = [];
