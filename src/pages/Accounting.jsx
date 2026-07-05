@@ -59,6 +59,35 @@ const VAT_LIMITS = {
   liberal: { base: 37500, majore: 41250 }
 };
 
+// Bandeau d'aide que l'utilisateur peut masquer définitivement une fois
+// compris (petite croix), pour alléger l'interface. Le choix est mémorisé
+// par navigateur, indépendamment pour chaque `storageKey`.
+const HELP_DISMISS_PREFIX = 'accounting_help_dismissed_';
+const DismissibleHelp = ({ storageKey, children }) => {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(HELP_DISMISS_PREFIX + storageKey) === '1'; } catch { return false; }
+  });
+  if (dismissed) return null;
+  const dismiss = () => {
+    try { localStorage.setItem(HELP_DISMISS_PREFIX + storageKey, '1'); } catch { /* stockage indisponible */ }
+    setDismissed(true);
+  };
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Masquer cette aide"
+        title="J'ai compris — masquer cette aide"
+        className="absolute top-2 right-2 z-10 p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+      {children}
+    </div>
+  );
+};
+
 const Accounting = () => {
   const { user } = useAuth();
   const { isTestMode, testClient } = useTestMode();
@@ -564,7 +593,8 @@ const Accounting = () => {
       {activeTab === 'charges' && (
       <>
       {/* Aide débutant */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl px-5 py-4 mb-6 flex gap-3 items-start">
+      <DismissibleHelp storageKey="charges_intro">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl px-5 py-4 pr-10 mb-6 flex gap-3 items-start">
         <span className="text-2xl leading-none mt-0.5">💡</span>
         <div>
           <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Comment ça marche ?</p>
@@ -583,6 +613,7 @@ const Accounting = () => {
           </p>
         </div>
       </div>
+      </DismissibleHelp>
 
       {/* Statut actuel */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
@@ -618,7 +649,8 @@ const Accounting = () => {
 
       {/* Message pour les statuts non micro-entreprise */}
       {!isMicroEntreprise && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 mb-6">
+        <DismissibleHelp storageKey="charges_non_micro">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 pr-12 mb-6">
           <div className="flex items-start">
             <Info className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
             <div>
@@ -644,6 +676,7 @@ const Accounting = () => {
             </div>
           </div>
         </div>
+        </DismissibleHelp>
       )}
 
       {/* Calcul des charges - uniquement pour micro-entreprise */}
@@ -892,7 +925,8 @@ const Accounting = () => {
 
                 {/* Provision mensuelle suggérée */}
                 {calculateCharges.total > 0 && (
-                  <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-lg px-4 py-3 text-sm">
+                  <DismissibleHelp storageKey="charges_provision">
+                  <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-lg px-4 py-3 pr-10 text-sm">
                     <span className="text-amber-500 flex-shrink-0 mt-0.5">💡</span>
                     <p className="text-amber-800 dark:text-amber-200">
                       <strong>À mettre de côté</strong> — pour ne pas être pris au dépourvu le jour de la déclaration,
@@ -905,6 +939,7 @@ const Accounting = () => {
                       sur un compte dédié.
                     </p>
                   </div>
+                  </DismissibleHelp>
                 )}
 
                 {/* Actions post-calcul */}
@@ -1125,7 +1160,8 @@ const Accounting = () => {
       {activeTab === 'recettes' && (
       <>
         {/* En-tête avec info légale */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6">
+        <DismissibleHelp storageKey="recettes_legal">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 pr-12 mb-6">
           <div className="flex items-start">
             <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800 dark:text-blue-400">
@@ -1137,6 +1173,7 @@ const Accounting = () => {
             </div>
           </div>
         </div>
+        </DismissibleHelp>
 
         {/* Filtres et export */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
