@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon, ClipboardPaste } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -45,6 +45,12 @@ const ProjectPhotos = ({ clientId }) => {
 
 
     const canvasRef = React.useRef(null);
+
+    // Garde anti double-import + pointeur vers la dernière closure uploadFiles
+    // (pour que l'écouteur global « paste », monté une seule fois, utilise
+    // toujours l'onglet/dossier courant).
+    const uploadingRef = React.useRef(false);
+    const uploadFilesRef = React.useRef(null);
 
     // Long Press Refs
     const longPressTimer = React.useRef(null);
@@ -517,17 +523,26 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
-    const handleFileUpload = async (event) => {
-        try {
-            const files = Array.from(event.target.files);
-            if (files.length === 0) return;
+    // Cœur d'import partagé par l'input fichier, l'appareil photo, le collage
+    // (Ctrl/⌘+V) et le bouton « Coller » : compression → validation → quota →
+    // upload → enregistrement. Prend une liste de File (peu importe l'origine).
+    const uploadFiles = async (files) => {
+        const list = Array.from(files || []).filter(Boolean);
+        if (list.length === 0) return;
+        if (!user || !clientId) return;
+        if (uploadingRef.current) {
+            toast.info('Import déjà en cours, patientez…');
+            return;
+        }
 
+        try {
+            uploadingRef.current = true;
             setUploading(true);
 
             // Redimensionne/compresse les très grosses images (captures DJI, images
             // de vidéo HD…) pour les faire passer sous la limite avant validation.
             const prepared = await Promise.all(
-                files.map(f => compressImageFile(f, {
+                list.map(f => compressImageFile(f, {
                     maxDim: 1600,
                     quality: 0.8,
                     maxSizeBytes: UPLOAD_PRESETS.image.maxSizeBytes,
@@ -542,10 +557,7 @@ const ProjectPhotos = ({ clientId }) => {
                     duration: 6000,
                 });
             }
-            if (valid.length === 0) {
-                event.target.value = '';
-                return;
-            }
+            if (valid.length === 0) return;
 
             // Vérifie le quota de stockage avant d'envoyer (espace partagé entre comptes)
             try {
@@ -553,16 +565,16 @@ const ProjectPhotos = ({ clientId }) => {
                 await assertWithinQuota(addBytes);
             } catch (quotaErr) {
                 toast.error(quotaErr.message, { duration: 7000 });
-                event.target.value = '';
-                setUploading(false);
                 return;
             }
 
             // Process uploads in parallel
             const uploadPromises = valid.map(async (file) => {
                 try {
-                    // 1. Upload to Storage
-                    const fileExt = file.name.split('.').pop();
+                    // 1. Upload to Storage. L'extension vient du type MIME : une image
+                    // collée (presse-papiers) peut ne pas avoir de nom exploitable.
+                    const fileExt = (file.type && file.type.split('/')[1])
+                        || (file.name && file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
                     const fileName = `${user.id}/${clientId}/${crypto.randomUUID()}.${fileExt}`;
 
                     const { error: uploadError } = await supabase.storage
@@ -615,11 +627,73 @@ const ProjectPhotos = ({ clientId }) => {
             console.error('Error in batch upload:', error);
             toast.error("Erreur lors de l'envoi des photos");
         } finally {
+            uploadingRef.current = false;
             setUploading(false);
-            // Reset input
-            event.target.value = '';
         }
     };
+
+    const handleFileUpload = async (event) => {
+        const files = Array.from(event.target.files || []);
+        await uploadFiles(files);
+        event.target.value = ''; // permet de re-sélectionner le même fichier
+    };
+
+    // Bouton « Coller » : lit une image du presse-papiers via la Clipboard API
+    // (surtout desktop). Le collage clavier Ctrl/⌘+V est géré par un écouteur
+    // global (voir useEffect « paste » plus bas).
+    const handlePasteFromClipboard = async () => {
+        try {
+            if (!navigator.clipboard?.read) {
+                toast.error("Ce navigateur ne permet pas de coller directement. Utilisez Ctrl/⌘+V.");
+                return;
+            }
+            const items = await navigator.clipboard.read();
+            const files = [];
+            for (const item of items) {
+                const imgType = item.types.find(t => t.startsWith('image/'));
+                if (imgType) {
+                    const blob = await item.getType(imgType);
+                    const ext = imgType.split('/')[1] || 'png';
+                    files.push(new File([blob], `collage-${Date.now()}-${files.length}.${ext}`, { type: imgType }));
+                }
+            }
+            if (files.length === 0) {
+                toast.error('Aucune image dans le presse-papiers');
+                return;
+            }
+            await uploadFiles(files);
+        } catch (err) {
+            console.error('Clipboard paste error:', err);
+            toast.error("Impossible de lire le presse-papiers");
+        }
+    };
+
+    // Garde le pointeur à jour à chaque rendu pour l'écouteur global « paste ».
+    uploadFilesRef.current = uploadFiles;
+
+    // Collage clavier (Ctrl/⌘+V) d'une capture d'écran ou d'une image copiée :
+    // on n'intercepte QUE si le presse-papiers contient une image (le collage de
+    // texte dans un champ reste intact). Monté une seule fois ; utilise la
+    // dernière closure via uploadFilesRef pour cibler l'onglet/dossier courant.
+    useEffect(() => {
+        const onPaste = (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            const images = [];
+            // DataTransferItemList est « array-like » (pas garanti itérable) → Array.from.
+            for (const it of Array.from(items)) {
+                if (it.kind === 'file' && it.type.startsWith('image/')) {
+                    const f = it.getAsFile();
+                    if (f) images.push(f);
+                }
+            }
+            if (images.length === 0) return; // pas une image → laisser le collage natif
+            e.preventDefault();
+            uploadFilesRef.current?.(images);
+        };
+        window.addEventListener('paste', onPaste);
+        return () => window.removeEventListener('paste', onPaste);
+    }, []);
 
     const handleDelete = async (photoId, photoUrl) => {
         const ok = await confirm({ title: 'Supprimer cette photo', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
@@ -1087,7 +1161,7 @@ const ProjectPhotos = ({ clientId }) => {
             </div>
 
             {/* Upload Area */}
-            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="mb-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Option 1: Select Files */}
                 <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 cursor-not-allowed' : 'bg-gray-50 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-600'}`}>
                     {uploading ? (
@@ -1129,7 +1203,29 @@ const ProjectPhotos = ({ clientId }) => {
                         disabled={uploading}
                     />
                 </label>
+
+                {/* Option 3: Paste from clipboard */}
+                <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    disabled={uploading}
+                    className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl transition-all ${uploading ? 'bg-emerald-50/30 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900 cursor-not-allowed' : 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 hover:border-emerald-300 dark:hover:border-emerald-700 cursor-pointer'}`}
+                >
+                    {uploading ? (
+                        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+                    ) : (
+                        <div className="flex flex-col items-center">
+                            <ClipboardPaste className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2" />
+                            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Coller une image</p>
+                            <p className="text-xs text-emerald-500 dark:text-emerald-500 mt-1">Depuis le presse-papiers</p>
+                        </div>
+                    )}
+                </button>
             </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-6 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                Astuce : copiez une capture d'écran ou une image, puis collez-la ici avec <kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] font-mono">Ctrl/⌘+V</kbd>.
+            </p>
 
             {/* Photo Grid */}
             {
