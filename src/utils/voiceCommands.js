@@ -19,9 +19,9 @@ export const processVoiceCommand = (transcript, navigate) => {
             navigate('/app/devis');
             return 'Ouverture des devis';
         }
-        if (command.includes('crm') || command.includes('suivi')) {
-            navigate('/app/crm');
-            return 'Ouverture du CRM';
+        if (command.includes('chantier') || command.includes('crm') || command.includes('suivi')) {
+            navigate('/app/chantiers');
+            return 'Ouverture des chantiers';
         }
         if (command.includes('accueil') || command.includes('tableau de bord')) {
             navigate('/app');

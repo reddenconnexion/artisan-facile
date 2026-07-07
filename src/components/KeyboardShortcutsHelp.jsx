@@ -26,6 +26,7 @@ const SECTIONS = [
             { keys: [['g'], ['h']], description: 'Tableau de bord (chord)' },
             { keys: [['g'], ['d']], description: 'Devis & factures' },
             { keys: [['g'], ['c']], description: 'Clients' },
+            { keys: [['g'], ['w']], description: 'Chantiers' },
             { keys: [['g'], ['a']], description: 'Agenda' },
         ],
     },
