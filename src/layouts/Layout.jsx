@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale, LineChart, PanelLeftClose, PanelLeftOpen, Timer } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale, LineChart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -204,6 +204,7 @@ const Layout = () => {
     return [
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
+      { name: 'Chantiers', href: '/app/chantiers', icon: Kanban },
       {
         name: 'Devis & Factures',
         icon: FileText,
@@ -364,6 +365,7 @@ const Layout = () => {
     'g h': () => navigate('/app'),
     'g d': () => navigate('/app/devis'),
     'g c': () => navigate('/app/clients'),
+    'g w': () => navigate('/app/chantiers'),
     'g a': () => navigate('/app/agenda'),
     n: newOnCurrentPage,
     '/': (e) => {

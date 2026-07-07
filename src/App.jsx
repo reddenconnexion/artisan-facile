@@ -178,6 +178,7 @@ if (typeof window !== 'undefined') {
 // Cela réduit le temps de chargement initial de ~50%
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
 const ClientsHub = lazyWithRetry(() => import('./pages/ClientsHub'));
+const WorksitePilot = lazyWithRetry(() => import('./pages/CRM'));
 const ClientForm = lazyWithRetry(() => import('./pages/ClientForm'));
 const DevisList = lazyWithRetry(() => import('./pages/DevisList'));
 const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
@@ -262,7 +263,8 @@ function App() {
                 <Route path="clients" element={<ClientsHub />} />
                 <Route path="clients/new" element={<ClientForm />} />
                 <Route path="clients/:id" element={<ClientForm />} />
-                <Route path="crm" element={<Navigate to="/app/clients?view=worksites" replace />} />
+                <Route path="chantiers" element={<WorksitePilot />} />
+                <Route path="crm" element={<Navigate to="/app/chantiers" replace />} />
                 <Route path="devis" element={<DevisList />} />
                 <Route path="devis/:id" element={<DevisForm />} />
                 <Route path="maintenance" element={<Maintenance />} />

@@ -1,7 +1,7 @@
 import {
     FilePlus, UserPlus, FileText, Users, Calendar, Calculator, Inbox, Box,
     ShoppingCart, ClipboardList, BookOpen, Wrench, Repeat, Truck, Image,
-    Megaphone, Mic, Map,
+    Megaphone, Mic, Map, Kanban,
 } from 'lucide-react';
 
 /**
@@ -26,6 +26,7 @@ export const SHORTCUT_CATALOG = [
     { id: 'intervention-new',  label: 'Nouveau rapport',      short: 'Rapport',   kind: 'action',  icon: ClipboardList, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',       path: '/app/interventions/new',  match: (p) => p === '/app/interventions/new' },
     { id: 'devis',             label: 'Devis & factures',     short: 'Devis',     kind: 'section', icon: FileText,      color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',          path: '/app/devis',              match: (p) => p === '/app/devis' || p.startsWith('/app/devis/') },
     { id: 'clients',           label: 'Clients',              short: 'Clients',   kind: 'section', icon: Users,         color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400', path: '/app/clients',            match: (p) => p === '/app/clients' || p.startsWith('/app/clients/') },
+    { id: 'chantiers',         label: 'Chantiers',            short: 'Chantiers', kind: 'section', icon: Kanban,        color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',       path: '/app/chantiers',          match: (p) => p.startsWith('/app/chantiers') },
     { id: 'agenda',            label: 'Agenda',               short: 'Agenda',    kind: 'section', icon: Calendar,      color: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',     path: '/app/agenda',             match: (p) => p.startsWith('/app/agenda') },
     { id: 'accounting',        label: 'Comptabilité',         short: 'Compta',    kind: 'section', icon: Calculator,    color: 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',          path: '/app/accounting',         match: (p) => p.startsWith('/app/accounting') },
     { id: 'received-invoices', label: 'Factures reçues',      short: 'Reçues',    kind: 'section', icon: Inbox,         color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',     path: '/app/received-invoices',  match: (p) => p.startsWith('/app/received-invoices') },
