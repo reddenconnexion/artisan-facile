@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon, ClipboardPaste } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -695,6 +695,36 @@ const ProjectPhotos = ({ clientId }) => {
         return () => window.removeEventListener('paste', onPaste);
     }, []);
 
+    // Copie une photo du chantier dans le presse-papiers (pour la coller ailleurs :
+    // email, message, autre fiche…). On télécharge le fichier via Supabase (blob
+    // same-origin, pas de « canvas tainted ») et on convertit en PNG — seul format
+    // image accepté par l'API presse-papiers. La conversion se fait DANS la
+    // promesse du ClipboardItem pour rester dans l'activation utilisateur.
+    const handleCopyPhoto = async (photoUrl) => {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+            toast.error("Ce navigateur ne permet pas de copier l'image.");
+            return;
+        }
+        const makePng = async () => {
+            const { img, objectUrl } = await loadComparisonImage(photoUrl);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            return await new Promise((resolve, reject) =>
+                canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob-failed'))), 'image/png'));
+        };
+        const toastId = toast.loading('Copie de la photo…');
+        try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': makePng() })]);
+            toast.success('Photo copiée dans le presse-papiers', { id: toastId });
+        } catch (err) {
+            console.error('Copy photo error:', err);
+            toast.error("Impossible de copier la photo", { id: toastId });
+        }
+    };
+
     const handleDelete = async (photoId, photoUrl) => {
         const ok = await confirm({ title: 'Supprimer cette photo', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
         if (!ok) return;
@@ -1289,6 +1319,13 @@ const ProjectPhotos = ({ clientId }) => {
                                             <Maximize2 className="w-5 h-5" />
                                         </button>
                                         <button
+                                            onClick={(e) => { e.stopPropagation(); handleCopyPhoto(photo.photo_url); }}
+                                            className="p-2 bg-white text-emerald-600 rounded-full hover:bg-emerald-50"
+                                            title="Copier la photo"
+                                        >
+                                            <Copy className="w-5 h-5" />
+                                        </button>
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); openMoveModal(photo.id); }}
                                             className="p-2 bg-white text-blue-600 rounded-full hover:bg-blue-50"
                                             title="Déplacer dans un dossier"
@@ -1685,8 +1722,18 @@ const ProjectPhotos = ({ clientId }) => {
                             </TransformWrapper>
                         </div>
 
-                        {/* Mobile Action Bar (Move / Delete) */}
+                        {/* Mobile Action Bar (Copy / Move / Delete) */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 z-50">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyPhoto(filteredPhotos[selectedPhotoIndex].photo_url);
+                                }}
+                                className="bg-white/10 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/20 border border-white/20 shadow-lg"
+                                title="Copier la photo"
+                            >
+                                <Copy className="w-6 h-6" />
+                            </button>
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
