@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles, TrendingUp, Loader2, AlertCircle, Lightbulb, Scale,
   Receipt, ShieldCheck, Info, ArrowRight, Euro, Percent,
@@ -134,6 +134,17 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
     [analysis]
   );
 
+  // Recharts 3 : le ResponsiveContainer boucle (React #185 « Maximum update
+  // depth ») s'il est monté avant que son conteneur ait une taille — cas du
+  // chargement direct de /app/accounting?tab=conseils, où la mise en page n'est
+  // pas encore faite (largeur mesurée à -1). On attend une frame avant de le
+  // rendre. (Dashboard évite le souci en ne montant son graphique que sur toggle.)
+  const [chartReady, setChartReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setChartReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   const handleGenerate = async () => {
     setError(null);
     setLoading(true);
@@ -233,6 +244,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
           Évolution de votre activité
         </h3>
         <div className="h-72 w-full">
+          {chartReady && (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.4} vertical={false} />
@@ -254,6 +266,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
               {analysis.isMicro && <Bar dataKey="Charges" fill="#F59E0B" radius={[4, 4, 0, 0]} />}
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
           * Année en cours (incomplète).{' '}
