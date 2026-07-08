@@ -42,7 +42,8 @@ import DevisEmailModal from '../components/DevisEmailModal';
 import DevisAIModal from '../components/DevisAIModal';
 import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
-import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quoteInternalDetail';
+import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
+import { estimatedHoursFromItems } from '../utils/timeTracking';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
 // (petite croix) une fois comprise — mémorisé par navigateur.
@@ -1764,7 +1765,7 @@ const DevisForm = () => {
         }
     };
 
-    const { subtotal, tva, total, totalCost } = calculateTotal();
+    const { subtotal, tva, total } = calculateTotal();
 
     // Helper to auto-update CRM status
     const updateClientCRMStatus = async (clientId, quoteStatus) => {
@@ -4569,18 +4570,49 @@ Conditions de règlement : Paiement à réception de facture.`
                                     TVA non applicable, art. 293 B du CGI
                                 </div>
                             )}
-                            {/* Marge estimée — visible seulement si coût matière renseigné */}
-                            {totalCost > 0 && subtotal > 0 && (() => {
-                                const margin = (subtotal - totalCost) / subtotal;
-                                const pct = Math.round(margin * 100);
-                                const color = margin >= 0.35 ? 'text-green-600' : margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                            {/* Marge — nette (main d'œuvre incluse) si le coût horaire
+                                est renseigné, sinon marge matière. Invite contextuelle
+                                pour renseigner le coût horaire quand il manque. */}
+                            {(() => {
+                                const laborRate = parseFloat(userProfile?.labor_cost_rate) || 0;
+                                const m = quoteMargin(formData.items, subtotal, laborRate);
+                                const laborHours = estimatedHoursFromItems(formData.items);
+                                const showPrompt = laborHours > 0 && laborRate <= 0;
+
                                 return (
-                                    <div className="flex justify-between text-sm pt-2 border-t border-dashed border-gray-100 dark:border-gray-800">
-                                        <span className="text-gray-400">Marge estimée</span>
-                                        <span className={`font-semibold ${color}`} title={`Coût matière : ${totalCost.toFixed(2)} €`}>
-                                            {pct} %
-                                        </span>
-                                    </div>
+                                    <>
+                                        {showPrompt && (
+                                            <div className="flex items-start gap-2 pt-2 border-t border-dashed border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                                <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-500" />
+                                                <span>
+                                                    {laborHours}h de main d'œuvre non déduites.{' '}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate('/app/accounting?tab=conseils')}
+                                                        className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                                                    >
+                                                        Calculer mon coût horaire
+                                                    </button>{' '}
+                                                    pour voir votre marge nette.
+                                                </span>
+                                            </div>
+                                        )}
+                                        {m.cost > 0 && subtotal > 0 && (() => {
+                                            const pct = Math.round(m.margin * 100);
+                                            const color = m.margin >= 0.35 ? 'text-green-600' : m.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                                            const tip = m.hasLabor
+                                                ? `Matière : ${m.materialCost.toFixed(2)} € · Main d'œuvre : ${m.laborHours}h × ${laborRate.toFixed(2)}€ = ${m.laborCost.toFixed(2)} €`
+                                                : `Coût matière : ${m.materialCost.toFixed(2)} €`;
+                                            return (
+                                                <div className="flex justify-between text-sm pt-2 border-t border-dashed border-gray-100 dark:border-gray-800">
+                                                    <span className="text-gray-400">{m.hasLabor ? 'Marge nette' : 'Marge matière'}</span>
+                                                    <span className={`font-semibold ${color}`} title={tip}>
+                                                        {pct} %
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </>
                                 );
                             })()}
                             <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-700">

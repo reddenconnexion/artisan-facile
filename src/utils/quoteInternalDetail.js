@@ -14,6 +14,8 @@
 // les RPC publiques (lien /q/:token et portail client) — voir la migration
 // 20260704120000_hide_internal_quote_item_fields.sql.
 
+import { estimatedHoursFromItems } from './timeTracking';
+
 /** Fournitures internes exploitables d'une ligne (description renseignée). */
 export const lineComponents = (item) =>
     (Array.isArray(item?.components) ? item.components : [])
@@ -35,6 +37,33 @@ export const componentsCost = (item) =>
 export const effectiveLineCost = (item) => {
     const direct = (parseFloat(item?.quantity) || 0) * (parseFloat(item?.buying_price) || 0);
     return direct > 0 ? direct : componentsCost(item);
+};
+
+/**
+ * Marge d'un devis, matière et (si connu) main d'œuvre incluses.
+ *
+ * - Coût matière = Σ effectiveLineCost (prix d'achat lignes / chiffrage interne).
+ * - Coût main d'œuvre = heures estimées (lignes en h/j) × coût horaire de revient.
+ *   Le coût horaire vient du profil (ai_preferences.labor_cost_rate) ; s'il n'est
+ *   pas renseigné (0), la main d'œuvre n'est pas déduite → `hasLabor` = false et
+ *   la marge reste une simple marge matière.
+ *
+ * @param {Array} items            Lignes du devis (quotes.items).
+ * @param {number} sellingSubtotal Total HT vendu (Σ quantité × prix de vente).
+ * @param {number} laborCostRate   Coût horaire de revient (€/h), 0 si inconnu.
+ * @returns {{ materialCost:number, laborHours:number, laborCost:number,
+ *            cost:number, margin:number, hasLabor:boolean }}
+ */
+export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
+    const list = (Array.isArray(items) ? items : []).filter((i) => i && i.type !== 'section');
+    const materialCost = list.reduce((sum, i) => sum + effectiveLineCost(i), 0);
+    const laborHours = estimatedHoursFromItems(list);
+    const rate = parseFloat(laborCostRate) || 0;
+    const laborCost = laborHours * rate;
+    const cost = materialCost + laborCost;
+    const revenue = parseFloat(sellingSubtotal) || 0;
+    const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
+    return { materialCost, laborHours, laborCost, cost, margin, hasLabor: rate > 0 };
 };
 
 /**

@@ -4,6 +4,7 @@ import {
     componentsCost,
     effectiveLineCost,
     supplyEntries,
+    quoteMargin,
 } from './quoteInternalDetail';
 
 describe('lineComponents', () => {
@@ -113,5 +114,42 @@ describe('supplyEntries', () => {
         ]);
         expect(entries.map((e) => e.description)).toEqual(['Disjoncteur 16A']);
         expect(entries[0].context).toBe('Tableau électrique équipé');
+    });
+});
+
+describe('quoteMargin', () => {
+    // 1000 € vendus : 200 € de matière, 10 h de main d'œuvre.
+    const items = [
+        { type: 'material', description: 'Fournitures', quantity: 1, price: 400, buying_price: 200 },
+        { type: 'service', description: 'Pose', quantity: 10, unit: 'h', price: 60, buying_price: 0 },
+    ];
+
+    it('sans coût horaire : marge matière seule, hasLabor=false', () => {
+        const r = quoteMargin(items, 1000, 0);
+        expect(r.materialCost).toBe(200);
+        expect(r.laborCost).toBe(0);
+        expect(r.hasLabor).toBe(false);
+        expect(r.margin).toBeCloseTo(0.8, 5); // (1000 - 200) / 1000
+    });
+
+    it('avec coût horaire : déduit aussi la main d\'œuvre (marge nette)', () => {
+        const r = quoteMargin(items, 1000, 45); // 10 h × 45 € = 450 €
+        expect(r.laborHours).toBe(10);
+        expect(r.laborCost).toBe(450);
+        expect(r.cost).toBe(650);
+        expect(r.hasLabor).toBe(true);
+        expect(r.margin).toBeCloseTo(0.35, 5); // (1000 - 650) / 1000
+    });
+
+    it('forfait sans lignes en heures : aucune main d\'œuvre déduite', () => {
+        const forfait = [{ type: 'service', description: 'Forfait', quantity: 1, unit: 'forfait', price: 1000, buying_price: 200 }];
+        const r = quoteMargin(forfait, 1000, 45);
+        expect(r.laborHours).toBe(0);
+        expect(r.laborCost).toBe(0);
+        expect(r.margin).toBeCloseTo(0.8, 5);
+    });
+
+    it('revenu nul : marge 0 sans division par zéro', () => {
+        expect(quoteMargin([], 0, 45).margin).toBe(0);
     });
 });

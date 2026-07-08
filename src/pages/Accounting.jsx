@@ -4,7 +4,7 @@ import { useUserProfile, useQuotes } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import CopilotChat from '../components/CopilotChat';
 import AccountingAdvisor from '../components/AccountingAdvisor';
 import { DismissibleHelp } from '../components/ui';
@@ -83,7 +83,19 @@ const Accounting = () => {
   const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3));
   const [hasAcre, setHasAcre] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [activeTab, setActiveTab] = useState('charges'); // 'charges' or 'recettes'
+  // Onglet actif, initialisable via ?tab= (deep-link depuis le devis vers le
+  // calculateur de coût horaire, situé dans « Bilan & Conseils »).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const TAB_IDS = ['charges', 'recettes', 'conseils'];
+  const requestedTab = searchParams.get('tab');
+  const [activeTab, setActiveTabState] = useState(TAB_IDS.includes(requestedTab) ? requestedTab : 'charges');
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'charges') next.delete('tab');
+    else next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
   const [detailModal, setDetailModal] = useState(null); // null | 'services' | 'vente' | 'total'
   const [recettesYear, setRecettesYear] = useState(new Date().getFullYear());
   const [recettesSearch, setRecettesSearch] = useState('');
