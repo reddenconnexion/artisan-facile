@@ -11,6 +11,17 @@ const DAY_UNITS = ['j', 'j.', 'jour', 'jours', 'journée', 'journées'];
 export const HOURS_PER_DAY = 7;
 
 /**
+ * Vrai si la ligne est de la main d'œuvre facturée au temps (unité en heures ou
+ * en jours). Sert à la fois à estimer les heures et à éviter de compter ces
+ * lignes dans le coût matière (leur coût = heures × coût horaire de revient).
+ */
+export const isLaborLine = (item) => {
+    if (!item || item.type === 'section') return false;
+    const unit = String(item.unit || '').trim().toLowerCase();
+    return HOUR_UNITS.includes(unit) || DAY_UNITS.includes(unit);
+};
+
+/**
  * Estime les heures de main d'œuvre prévues dans un devis à partir de ses
  * lignes : les quantités en heures comptent telles quelles, les quantités en
  * jours sont converties (7 h/jour). Les autres unités (m², forfait…) sont
@@ -19,13 +30,12 @@ export const HOURS_PER_DAY = 7;
 export const estimatedHoursFromItems = (items) => {
     if (!Array.isArray(items)) return 0;
     return items.reduce((acc, item) => {
-        if (!item || item.type === 'section') return acc;
+        if (!isLaborLine(item)) return acc;
         const unit = String(item.unit || '').trim().toLowerCase();
         const qty = parseFloat(item.quantity);
         if (!Number.isFinite(qty) || qty <= 0) return acc;
         if (HOUR_UNITS.includes(unit)) return acc + qty;
-        if (DAY_UNITS.includes(unit)) return acc + qty * HOURS_PER_DAY;
-        return acc;
+        return acc + qty * HOURS_PER_DAY;
     }, 0);
 };
 

@@ -152,4 +152,23 @@ describe('quoteMargin', () => {
     it('revenu nul : marge 0 sans division par zéro', () => {
         expect(quoteMargin([], 0, 45).margin).toBe(0);
     });
+
+    it('ne compte pas deux fois la main d\'œuvre quand la ligne de pose porte un prix d\'achat', () => {
+        // Cas réel (devis 158) : lignes de pose en heures avec un buying_price
+        // auto (44 €/h), + un coût horaire de revient (36,74 €/h). Sans garde-fou,
+        // les 28 h étaient déduites deux fois → marge faussement négative.
+        const items = [
+            { type: 'service', description: 'Pose', quantity: 28, unit: 'h', price: 55, buying_price: 44 },
+            { type: 'material', description: 'Fournitures', quantity: 1, unit: 'u', price: 1584.1, buying_price: 1068.56 },
+        ];
+        const subtotal = 28 * 55 + 1584.1; // 3124.10
+        const r = quoteMargin(items, subtotal, 36.74);
+        // Le prix d'achat de la ligne de pose (44 €/h) est ignoré : compté via le coût horaire uniquement.
+        expect(r.materialCost).toBeCloseTo(1068.56, 2);
+        expect(r.laborHours).toBe(28);
+        expect(r.laborCost).toBeCloseTo(28 * 36.74, 2);
+        expect(r.cost).toBeCloseTo(2097.28, 2);
+        expect(r.margin).toBeGreaterThan(0); // ~ +33 %, plus la fausse marge négative
+        expect(r.margin).toBeCloseTo(0.3287, 3);
+    });
 });
