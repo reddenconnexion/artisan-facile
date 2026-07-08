@@ -11,6 +11,11 @@ const fmtCurrency = (n) =>
 
 const CATEGORY_KEYS = Object.keys(CHARGE_CATEGORIES);
 
+// Référence stable pour l'état « aucune donnée » : un `[]` recréé à chaque rendu
+// rendrait la dépendance de l'effet onChange instable → boucle infinie de
+// re-rendus du parent (React #185). Voir plus bas.
+const EMPTY_CHARGES = [];
+
 /**
  * Saisie et gestion des charges professionnelles déductibles de l'artisan.
  * Persistées dans business_charges (RLS : propriétaire uniquement). Remonte la
@@ -25,7 +30,7 @@ const ChargesManager = ({ onChange }) => {
   const [amount, setAmount] = useState('');
   const [periodicity, setPeriodicity] = useState('annual');
 
-  const { data: charges = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['business-charges', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,6 +43,14 @@ const ChargesManager = ({ onChange }) => {
     enabled: !!user,
     staleTime: 60 * 1000,
   });
+
+  // IMPORTANT : garder une référence stable tant que la requête n'a pas renvoyé
+  // de données. Un `data ?? []` (ou le défaut `= []` du destructuring) crée un
+  // nouveau tableau à chaque rendu, ce qui rend la dépendance de l'effet
+  // ci-dessous instable → onChange → setCharges(parent) → re-rendu → nouveau
+  // tableau → boucle infinie (React #185, visible sur l'onglet Bilan & Conseils
+  // au chargement à froid).
+  const charges = data ?? EMPTY_CHARGES;
 
   // Remonte la liste courante au parent dès qu'elle change.
   useEffect(() => {
