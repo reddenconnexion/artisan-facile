@@ -14,7 +14,7 @@
 // les RPC publiques (lien /q/:token et portail client) — voir la migration
 // 20260704120000_hide_internal_quote_item_fields.sql.
 
-import { estimatedHoursFromItems } from './timeTracking';
+import { estimatedHoursFromItems, isLaborLine } from './timeTracking';
 
 /** Fournitures internes exploitables d'une ligne (description renseignée). */
 export const lineComponents = (item) =>
@@ -42,7 +42,13 @@ export const effectiveLineCost = (item) => {
 /**
  * Marge d'un devis, matière et (si connu) main d'œuvre incluses.
  *
- * - Coût matière = Σ effectiveLineCost (prix d'achat lignes / chiffrage interne).
+ * Règle anti-double-comptage : une ligne compte SOIT en matière (son prix
+ * d'achat), SOIT en main d'œuvre (heures × coût horaire), jamais les deux. Les
+ * lignes facturées au temps (unité h/j) sont donc exclues du coût matière —
+ * sinon un prix d'achat saisi sur une ligne de pose serait déduit une première
+ * fois comme « matière », puis une seconde via le coût horaire.
+ *
+ * - Coût matière = Σ effectiveLineCost des lignes NON main d'œuvre.
  * - Coût main d'œuvre = heures estimées (lignes en h/j) × coût horaire de revient.
  *   Le coût horaire vient du profil (ai_preferences.labor_cost_rate) ; s'il n'est
  *   pas renseigné (0), la main d'œuvre n'est pas déduite → `hasLabor` = false et
@@ -56,7 +62,7 @@ export const effectiveLineCost = (item) => {
  */
 export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
     const list = (Array.isArray(items) ? items : []).filter((i) => i && i.type !== 'section');
-    const materialCost = list.reduce((sum, i) => sum + effectiveLineCost(i), 0);
+    const materialCost = list.reduce((sum, i) => sum + (isLaborLine(i) ? 0 : effectiveLineCost(i)), 0);
     const laborHours = estimatedHoursFromItems(list);
     const rate = parseFloat(laborCostRate) || 0;
     const laborCost = laborHours * rate;
