@@ -12,6 +12,7 @@ import {
 } from '../utils/accountingAdvisor';
 import { generateAccountingAdvice } from '../utils/aiService';
 import ChargesManager from './ChargesManager';
+import HourlyCostCalculator from './HourlyCostCalculator';
 
 const fmtCurrency = (n) =>
   (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -164,6 +165,12 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
         </div>
         {/* La saisie des charges reste accessible pour préparer la comparaison. */}
         <ChargesManager onChange={setCharges} />
+        <HourlyCostCalculator
+          profile={profile}
+          chargesAnnual={chargesSummary.annualTotal}
+          cotisationsAnnual={comparison?.micro?.cotisations ?? null}
+          billingRate={prefs.ai_hourly_rate}
+        />
       </div>
     );
   }
@@ -257,6 +264,14 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
 
       {/* Saisie des charges déductibles */}
       <ChargesManager onChange={setCharges} />
+
+      {/* Coût horaire de revient — nourrit la marge nette des devis */}
+      <HourlyCostCalculator
+        profile={profile}
+        chargesAnnual={chargesSummary.annualTotal}
+        cotisationsAnnual={comparison?.micro?.cotisations ?? null}
+        billingRate={prefs.ai_hourly_rate}
+      />
 
       {/* Comparaison chiffrée micro vs réel (déterministe, locale) */}
       {comparison && <ComparisonCard comparison={comparison} fmtCurrency={fmtCurrency} />}
