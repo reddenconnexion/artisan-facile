@@ -13,6 +13,7 @@ import {
 import SegmentedControl from '../components/ui/SegmentedControl';
 import WorksitePlanning from '../components/WorksitePlanning';
 import { estimatedHoursFromItems, formatHours, laborProfitability } from '../utils/timeTracking';
+import { fetchWorksites as fetchWorksitesData } from '../utils/worksites';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -108,82 +109,10 @@ const WorksitePilot = () => {
 
     const fetchWorksites = async () => {
         try {
-            // Fetch accepted quotes (jobs) AND their children (invoices/deposits)
-            const { data, error } = await supabase
-                .from('quotes')
-                .select('*, clients(*)')
-                .in('status', ['accepted', 'billed', 'paid'])
-                .order('updated_at', { ascending: false });
-
-            if (error) throw error;
-
-            // Fetch ALL quotes to find children (deposits) manually since self-join is tricky without explicit FK alias sometimes
-            // Or simple separate query for safety
-            const [{ data: allQuotes }, { data: tracking }] = await Promise.all([
-                supabase.from('quotes').select('id, parent_id, status, type, total_ttc'),
-                supabase.from('task_tracking').select('quote_id, hours_spent'),
-            ]);
-
-            // Heures pointées cumulées par chantier (voir page Heures & rentabilité)
-            const spent = {};
-            for (const t of tracking || []) {
-                if (t.quote_id == null) continue;
-                spent[t.quote_id] = (spent[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
-            }
+            // Chantiers + heures pointées, avec étapes auto-classées (util partagé
+            // avec le widget du tableau de bord pour garder des chiffres cohérents).
+            const { worksites: processedData, spentByQuote: spent } = await fetchWorksitesData();
             setSpentByQuote(spent);
-
-            const depositsMap = {};
-            if (allQuotes) {
-                allQuotes.forEach(q => {
-                    if (q.parent_id && (q.type === 'invoice' || q.status === 'paid')) {
-                        if (!depositsMap[q.parent_id]) depositsMap[q.parent_id] = [];
-                        depositsMap[q.parent_id].push(q);
-                    }
-                });
-            }
-
-            // Process and Auto-Update Stages
-            const processedData = await Promise.all((data || []).filter(q =>
-                q.type === 'quote' && !q.title?.toLowerCase().includes('acompte')
-            ).map(async (q) => {
-                // Determine Auto Stage
-                let autoStage = q.work_stage;
-
-                // Check contents
-                const hasMaterial = q.items && Array.isArray(q.items) && q.items.some(i => i.type === 'material');
-                const deposits = depositsMap[q.id] || [];
-                const hasPaidDeposit = deposits.some(d => d.status === 'paid');
-
-                // Logic:
-                // If not started (no stage or early stage), apply automation
-                if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order' || autoStage === 'planned') {
-                    if (hasMaterial) {
-                        if (hasPaidDeposit) {
-                            // If it was pending, move to material order
-                            if (!autoStage || autoStage === 'pending_deposit') {
-                                autoStage = 'material_order';
-                            }
-                        } else {
-                            // No deposit paid yet
-                            autoStage = 'pending_deposit';
-                        }
-                    } else {
-                        // No material -> Ready to plan
-                        if (!autoStage || autoStage === 'pending_deposit' || autoStage === 'material_order') {
-                            autoStage = 'planned';
-                        }
-                    }
-                }
-
-                // If stage changed from DB value, use the calculated one for display
-                // We DO NOT update DB here to avoid infinite loops with the subscription
-                if (autoStage !== q.work_stage) {
-                    return { ...q, work_stage: autoStage };
-                }
-
-                return q;
-            }));
-
             setWorksites(processedData);
         } catch (error) {
             toast.error('Erreur chargement chantiers');
