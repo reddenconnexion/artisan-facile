@@ -38,7 +38,7 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import DailyRelanceSuggestions from '../components/DailyRelanceSuggestions';
-import WorksitesWidget from '../components/WorksitesWidget';
+import WorksitesKanban from '../components/WorksitesKanban';
 import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
@@ -792,7 +792,7 @@ const Dashboard = () => {
             ? <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
             : null,
         daily_relances: () => isVisible('daily_relances') ? <DailyRelanceSuggestions /> : null,
-        worksites: () => isVisible('worksites') ? <WorksitesWidget /> : null,
+        worksites: () => isVisible('worksites') ? <WorksitesKanban /> : null,
         expiring_quotes: () => isVisible('expiring_quotes')
             ? <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
             : null,
