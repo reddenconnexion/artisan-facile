@@ -29,6 +29,22 @@ export const suggestedSellingPrice = (buyingPrice, coefficient) => {
     return Math.round(bp * coef * 100) / 100;
 };
 
+/**
+ * Coefficient à appliquer au prix d'achat RÉEL (fournisseur, ex. Sonepar) pour
+ * retrouver un prix de vente historiquement calé sur le prix catalogue public.
+ * Deux étages de marge : la marge catalogue ET la remise fournisseur.
+ * @param catalogMargin       multiplicateur sur catalogue (1.25 = +25 %)
+ * @param supplierDiscountPct remise obtenue vs prix public (35 = −35 %)
+ * @returns coefficient arrondi au centième, ou null si entrées inexploitables
+ */
+export const coefficientFromCatalog = (catalogMargin, supplierDiscountPct) => {
+    const m = parseFloat(catalogMargin);
+    const d = parseFloat(supplierDiscountPct);
+    if (!Number.isFinite(m) || m <= 0) return null;
+    if (!Number.isFinite(d) || d < 0 || d >= 100) return null;
+    return Math.round((m / (1 - d / 100)) * 100) / 100;
+};
+
 const normalizeCatalogType = (raw) => {
     const t = String(raw || '').toLowerCase();
     if (/mat|fourniture/.test(t)) return 'material';

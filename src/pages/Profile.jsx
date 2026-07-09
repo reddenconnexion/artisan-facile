@@ -11,6 +11,7 @@ import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { coefficientFromCatalog } from '../utils/priceLibraryCsv';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -118,6 +119,10 @@ const Profile = () => {
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, permission: pushPermission, subscribe: subscribePush, unsubscribe: unsubscribePush, sendTestNotification: sendTestPush } = usePushNotifications();
     const [isTestingPush, setIsTestingPush] = useState(false);
     const [loading, setLoading] = useState(false);
+    // Calculateur du coefficient de marge (dérive le coef à appliquer au prix
+    // d'achat réel depuis la marge catalogue et la remise fournisseur).
+    const [calcCatalog, setCalcCatalog] = useState('1.25');
+    const [calcDiscount, setCalcDiscount] = useState('');
     // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
     const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -1619,7 +1624,7 @@ const Profile = () => {
                                     type="number"
                                     step="0.05"
                                     min="0"
-                                    placeholder="ex: 1.5"
+                                    placeholder="ex: 1.9"
                                     className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
                                     value={formData.default_margin_coefficient || ''}
                                     onChange={(e) => {
@@ -1627,8 +1632,61 @@ const Profile = () => {
                                     }}
                                 />
                                 <p className="text-xs text-purple-600/70 dark:text-purple-300/60 mt-1">
-                                    Dans la Bibliothèque de Prix, le prix de vente est pré-calculé : prix d'achat × coefficient.
+                                    Dans la Bibliothèque de Prix, le prix de vente est pré-calculé : <strong>prix d'achat réel × coefficient</strong>.
+                                    Attention : ce coefficient s'applique à votre coût fournisseur (ex. Sonepar), <strong>pas</strong> au prix catalogue public.
+                                    N'y reportez pas votre marge catalogue (ex. 1,25) : sur un coût déjà remisé, elle brade vos prix. Utilisez le calculateur.
                                 </p>
+
+                                {/* Calculateur : marge catalogue + remise fournisseur → coefficient */}
+                                {(() => {
+                                    const suggestedCoef = coefficientFromCatalog(calcCatalog, calcDiscount);
+                                    return (
+                                        <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40">
+                                            <p className="text-xs font-semibold text-purple-800 dark:text-purple-200 mb-2">Trouver mon coefficient</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-xs text-purple-700 dark:text-purple-300 mb-1">Marge sur catalogue</label>
+                                                    <input
+                                                        type="number"
+                                                        step="0.05"
+                                                        min="0"
+                                                        placeholder="1.25"
+                                                        className="w-full px-2 py-1.5 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                                        value={calcCatalog}
+                                                        onChange={(e) => setCalcCatalog(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-purple-700 dark:text-purple-300 mb-1">Remise fournisseur (%)</label>
+                                                    <input
+                                                        type="number"
+                                                        step="1"
+                                                        min="0"
+                                                        max="99"
+                                                        placeholder="ex: 35"
+                                                        className="w-full px-2 py-1.5 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                                        value={calcDiscount}
+                                                        onChange={(e) => setCalcDiscount(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-purple-500/80 dark:text-purple-300/60 mt-1.5">= marge catalogue ÷ (1 − remise fournisseur)</p>
+                                            <div className="flex items-center justify-between gap-2 mt-2">
+                                                <p className="text-sm text-purple-800 dark:text-purple-200">
+                                                    Coefficient conseillé : <strong>{suggestedCoef !== null ? suggestedCoef : '—'}</strong>
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    disabled={suggestedCoef === null}
+                                                    onClick={() => setFormData({ ...formData, default_margin_coefficient: String(suggestedCoef) })}
+                                                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Utiliser ce coefficient
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 

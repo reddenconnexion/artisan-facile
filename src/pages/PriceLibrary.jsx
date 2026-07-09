@@ -531,7 +531,7 @@ const PriceLibrary = () => {
                                 const margin = Math.round(((p - bp) / p) * 100);
                                 return (
                                     <p className={`text-xs -mt-2 ${margin < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                        Marge : {margin} %{coefficient > 0 && !priceEdited ? ` (prix de vente pré-calculé ×${coefficient})` : ''}
+                                        Marge : {margin} %{coefficient > 0 && !priceEdited ? ` · pré-rempli (achat ×${coefficient})` : ''}
                                     </p>
                                 );
                             })()}
