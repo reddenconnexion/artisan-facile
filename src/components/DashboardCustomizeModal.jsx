@@ -1,23 +1,27 @@
-import React from 'react';
-import { Settings2, X, RotateCcw, Loader2, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings2, X, RotateCcw, Loader2, Check, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { DASHBOARD_WIDGETS, useDashboardSettings } from '../hooks/useDashboardSettings';
 import { useAuth } from '../context/AuthContext';
 import { clearAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import { toast } from 'sonner';
 
+const WIDGET_BY_ID = Object.fromEntries(DASHBOARD_WIDGETS.map(w => [w.id, w]));
+
 /**
  * Modal de personnalisation du tableau de bord :
+ * - Réorganisation des widgets (glisser-déposer ou flèches)
  * - Toggle de visibilité par widget
  * - Bouton "Réinitialiser" (remet aux défauts)
  * - Sauvegarde dans user_metadata
  */
 const DashboardCustomizeModal = ({ open, onClose }) => {
-    const { isVisible, toggle, reset, save, saving } = useDashboardSettings();
+    const { isVisible, toggle, order, moveWidget, reorderWidget, reset, save, saving } = useDashboardSettings();
     const { user } = useAuth();
+    const [draggingId, setDraggingId] = useState(null);
 
     if (!open) return null;
 
-    // Réinitialise visibilité ET ordre adaptatif (recalculé au prochain montage).
+    // Réinitialise visibilité, ordre manuel ET ordre adaptatif (recalculé au prochain montage).
     const handleReset = () => {
         reset();
         clearAdaptiveOrder('dashboard', user?.id);
@@ -48,7 +52,7 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
                         <div>
                             <h2 className="font-bold text-gray-900 dark:text-white text-base">Personnaliser le tableau de bord</h2>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {visibleCount} sur {DASHBOARD_WIDGETS.length} widgets affichés
+                                {visibleCount} sur {DASHBOARD_WIDGETS.length} widgets · glissez ou utilisez les flèches pour réordonner
                             </p>
                         </div>
                     </div>
@@ -61,40 +65,64 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
                     </button>
                 </div>
 
-                {/* Liste */}
+                {/* Liste ordonnée */}
                 <div className="flex-1 overflow-y-auto p-2">
-                    {DASHBOARD_WIDGETS.map(widget => {
-                        const visible = isVisible(widget.id);
+                    {order.map((id, idx) => {
+                        const widget = WIDGET_BY_ID[id];
+                        if (!widget) return null;
+                        const visible = isVisible(id);
                         const locked = !!widget.alwaysOn;
+                        const canUp = idx > 0 && !WIDGET_BY_ID[order[idx - 1]]?.alwaysOn;
+                        const canDown = idx < order.length - 1;
                         return (
-                            <button
-                                key={widget.id}
-                                type="button"
-                                onClick={() => !locked && toggle(widget.id)}
-                                disabled={locked}
-                                className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors ${
-                                    locked
-                                        ? 'cursor-default opacity-70'
-                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                                }`}
+                            <div
+                                key={id}
+                                draggable={!locked}
+                                onDragStart={() => !locked && setDraggingId(id)}
+                                onDragEnd={() => setDraggingId(null)}
+                                onDragOver={(e) => { if (draggingId && !locked) e.preventDefault(); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    if (draggingId && !locked) reorderWidget(draggingId, id);
+                                    setDraggingId(null);
+                                }}
+                                className={`flex items-center gap-2 p-2.5 rounded-xl transition-colors ${
+                                    locked ? 'opacity-70' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                } ${draggingId === id ? 'opacity-40' : ''}`}
                             >
+                                {/* Poignée de glisser-déposer */}
+                                {locked ? (
+                                    <span className="w-4 flex-shrink-0" />
+                                ) : (
+                                    <GripVertical className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+                                )}
+
                                 {/* Toggle visuel */}
-                                <div
+                                <button
+                                    type="button"
                                     role="switch"
                                     aria-checked={visible}
-                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors mt-0.5 ${
+                                    aria-label={`Afficher ${widget.label}`}
+                                    onClick={() => !locked && toggle(id)}
+                                    disabled={locked}
+                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
                                         visible ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-                                    } ${locked ? '' : 'cursor-pointer'}`}
+                                    } ${locked ? 'cursor-default' : 'cursor-pointer'}`}
                                 >
                                     <span
                                         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
                                             visible ? 'translate-x-5' : 'translate-x-1'
                                         }`}
                                     />
-                                </div>
+                                </button>
 
-                                {/* Texte */}
-                                <div className="flex-1 min-w-0">
+                                {/* Texte (clic = toggle) */}
+                                <button
+                                    type="button"
+                                    onClick={() => !locked && toggle(id)}
+                                    disabled={locked}
+                                    className={`flex-1 min-w-0 text-left ${locked ? 'cursor-default' : 'cursor-pointer'}`}
+                                >
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <p className={`text-sm font-semibold ${visible ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                             {widget.label}
@@ -105,11 +133,35 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                         {widget.description}
                                     </p>
-                                </div>
-                            </button>
+                                </button>
+
+                                {/* Flèches monter / descendre */}
+                                {!locked && (
+                                    <div className="flex flex-col flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => moveWidget(id, -1)}
+                                            disabled={!canUp}
+                                            aria-label={`Monter ${widget.label}`}
+                                            className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:hover:text-gray-400"
+                                        >
+                                            <ChevronUp className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveWidget(id, 1)}
+                                            disabled={!canDown}
+                                            aria-label={`Descendre ${widget.label}`}
+                                            className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:hover:text-gray-400"
+                                        >
+                                            <ChevronDown className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
