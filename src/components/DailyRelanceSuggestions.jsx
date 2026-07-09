@@ -15,7 +15,7 @@ import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import {
-    Sparkles, Send, Mail, Clock, ChevronRight, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2, History,
+    Sparkles, Send, Mail, Clock, ChevronRight, ChevronDown, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2, History,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuoteViewHistory from './QuoteViewHistory';
@@ -26,6 +26,11 @@ const SNOOZE_OPTIONS = [
     { label: '1 semaine', days: 7 },
     { label: '2 semaines', days: 14 },
 ];
+
+// Nombre de suggestions affichées avant de replier le reste derrière un bouton
+// « voir plus ». Garde le panneau compact sur le tableau de bord.
+const PREVIEW_COUNT = 3;
+const COLLAPSE_KEY = 'dailyRelancesCollapsed';
 
 /**
  * « Suggestions de relance du jour » — panneau du tableau de bord.
@@ -58,6 +63,19 @@ const DailyRelanceSuggestions = () => {
     const [archiving, setArchiving] = useState({});
     const [historyQuoteId, setHistoryQuoteId] = useState(null);
     const [relanceHistoryIds, setRelanceHistoryIds] = useState(null); // quote ids du groupe
+    // Panneau replié : préférence persistée pour ne pas encombrer le tableau de bord.
+    const [collapsed, setCollapsed] = useState(() => {
+        try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; }
+    });
+    const [showAll, setShowAll] = useState(false); // déplier au-delà de PREVIEW_COUNT
+
+    const toggleCollapsed = useCallback(() => {
+        setCollapsed(prev => {
+            const next = !prev;
+            try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0'); } catch { /* ignore */ }
+            return next;
+        });
+    }, []);
 
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
@@ -269,34 +287,53 @@ const DailyRelanceSuggestions = () => {
     if (loading || groups.length === 0) return null;
 
     const totalCount = groups.length;
+    const visibleGroups = collapsed || showAll ? groups : groups.slice(0, PREVIEW_COUNT);
+    const hiddenCount = totalCount - PREVIEW_COUNT;
 
     return (
         <>
         <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-amber-200/70 dark:border-amber-700/30 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-amber-100 dark:border-amber-900/30 bg-gradient-to-r from-amber-50 to-orange-50/40 dark:from-amber-900/20 dark:to-orange-900/10 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40">
+            <div className="px-5 py-4 border-b border-amber-100 dark:border-amber-900/30 bg-gradient-to-r from-amber-50 to-orange-50/40 dark:from-amber-900/20 dark:to-orange-900/10 flex items-center justify-between gap-2">
+                <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    className="flex items-center gap-2.5 min-w-0 text-left"
+                    aria-expanded={!collapsed}
+                    title={collapsed ? 'Afficher les suggestions' : 'Replier les suggestions'}
+                >
+                    <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40 shrink-0">
                         <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
                             Suggestions de relance du jour
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                {totalCount}
+                            </span>
+                            <ChevronDown
+                                size={15}
+                                className={`text-amber-600 dark:text-amber-400 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+                            />
                         </h3>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {totalCount} suggestion{totalCount > 1 ? 's' : ''} — validez, modifiez ou reportez
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                            {collapsed
+                                ? 'Repliées — cliquez pour afficher'
+                                : `${totalCount} suggestion${totalCount > 1 ? 's' : ''} — validez, modifiez ou reportez`}
                         </p>
                     </div>
-                </div>
+                </button>
                 <button
                     onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
-                    className="text-xs text-amber-700 dark:text-amber-400 hover:opacity-70 flex items-center gap-0.5 font-medium"
+                    className="text-xs text-amber-700 dark:text-amber-400 hover:opacity-70 flex items-center gap-0.5 font-medium shrink-0"
                 >
-                    Centre de relance <ChevronRight size={13} />
+                    <span className="hidden sm:inline">Centre de relance</span>
+                    <ChevronRight size={13} />
                 </button>
             </div>
 
+            {!collapsed && (
             <div className="divide-y divide-gray-100 dark:divide-white/10">
-                {groups.map(({ key, client, quotes }) => {
+                {visibleGroups.map(({ key, client, quotes }) => {
                     const ref = quotes[0];
                     const isGrouped = quotes.length > 1;
                     const draft = drafts[key];
@@ -458,7 +495,20 @@ const DailyRelanceSuggestions = () => {
                         </div>
                     );
                 })}
+                {totalCount > PREVIEW_COUNT && (
+                    <button
+                        type="button"
+                        onClick={() => setShowAll(prev => !prev)}
+                        className="w-full px-4 py-2.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 flex items-center justify-center gap-1 transition-colors"
+                    >
+                        {showAll
+                            ? 'Voir moins'
+                            : `Voir les ${hiddenCount} autre${hiddenCount > 1 ? 's' : ''} suggestion${hiddenCount > 1 ? 's' : ''}`}
+                        <ChevronDown size={13} className={`transition-transform ${showAll ? 'rotate-180' : ''}`} />
+                    </button>
+                )}
             </div>
+            )}
         </div>
 
         {snoozeMenu && createPortal(
