@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
     Check, CheckCircle, RotateCcw, Loader2, ExternalLink,
-    Truck, Mic, Filter,
+    Truck, Mic, Filter, FileText,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -76,15 +76,29 @@ const Procurement = () => {
             );
     }, [items, statusFilter, categoryFilter, search]);
 
-    // Group by site_label for the office view (handy to copy a single order)
+    // Groupe pour la vue bureau (pratique pour copier une commande d'un bloc).
+    // Le matériel envoyé depuis un devis est isolé par devis (clé quote_id) afin
+    // de rester identifié au devis et de ne pas se mélanger au reste — même si
+    // deux devis portent le même intitulé. Les autres lignes restent groupées
+    // par chantier (site_label).
     const groupedBySite = useMemo(() => {
         const groups = new Map();
         for (const item of filtered) {
-            const key = item.site_label || 'Sans chantier';
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(item);
+            const fromQuote = item.quote_id != null;
+            const key = fromQuote
+                ? `quote:${item.quote_id}`
+                : `site:${item.site_label || 'Sans chantier'}`;
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    quoteId: fromQuote ? item.quote_id : null,
+                    label: item.site_label || (fromQuote ? `Devis #${item.quote_id}` : 'Sans chantier'),
+                    items: [],
+                });
+            }
+            groups.get(key).items.push(item);
         }
-        return Array.from(groups.entries());
+        return Array.from(groups.values());
     }, [filtered]);
 
     const updateStatus = async (id, newStatus) => {
@@ -322,11 +336,21 @@ const Procurement = () => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {groupedBySite.map(([siteLabel, list]) => (
-                        <div key={siteLabel} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wide">
-                                {siteLabel}
-                                <span className="ml-2 font-normal normal-case text-gray-400">
+                    {groupedBySite.map(({ key, label, quoteId, items: list }) => (
+                        <div key={key} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600 uppercase tracking-wide">
+                                {quoteId != null && (
+                                    <Link
+                                        to={`/app/devis/${quoteId}`}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 normal-case tracking-normal font-semibold hover:bg-blue-100"
+                                        title="Ouvrir le devis"
+                                    >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        Devis
+                                    </Link>
+                                )}
+                                <span>{label}</span>
+                                <span className="font-normal normal-case text-gray-400">
                                     · {list.length} article{list.length > 1 ? 's' : ''}
                                 </span>
                             </div>

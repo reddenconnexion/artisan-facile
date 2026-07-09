@@ -51,9 +51,11 @@ const QuoteSupplyListModal = ({ open, onClose, quoteId, quoteLabel, clientId, it
         setSending(true);
         try {
             const parsedClientId = parseInt(clientId, 10);
+            const parsedQuoteId = parseInt(quoteId, 10);
             const rows = selected.map((e) => ({
                 user_id: user.id,
                 client_id: Number.isNaN(parsedClientId) ? null : parsedClientId,
+                quote_id: Number.isNaN(parsedQuoteId) ? null : parsedQuoteId,
                 site_label: quoteLabel || null,
                 description: e.description,
                 quantity: e.quantity,
