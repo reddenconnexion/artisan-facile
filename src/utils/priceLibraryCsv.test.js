@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Papa from 'papaparse';
-import { suggestedSellingPrice, mapImportedRows, splitUpsert, priceLibraryCsvColumns } from './priceLibraryCsv';
+import { suggestedSellingPrice, coefficientFromCatalog, mapImportedRows, splitUpsert, priceLibraryCsvColumns } from './priceLibraryCsv';
 import { HEADER_ALIASES, parseCsvNumber } from './quoteCsvImport';
 import { buildCsv } from './csvExport';
 
@@ -16,6 +16,24 @@ describe('suggestedSellingPrice', () => {
         expect(suggestedSellingPrice(10, 0)).toBeNull();
         expect(suggestedSellingPrice('', 1.5)).toBeNull();
         expect(suggestedSellingPrice(10, null)).toBeNull();
+    });
+});
+
+describe('coefficientFromCatalog', () => {
+    it('dérive le coefficient depuis la marge catalogue et la remise fournisseur', () => {
+        expect(coefficientFromCatalog(1.25, 35)).toBe(1.92);
+        expect(coefficientFromCatalog(1.25, 40)).toBe(2.08);
+        expect(coefficientFromCatalog(1.25, 30)).toBe(1.79);
+        expect(coefficientFromCatalog(1.25, 0)).toBe(1.25); // pas de remise → marge catalogue seule
+        expect(coefficientFromCatalog('1.25', '35')).toBe(1.92); // strings du champ
+    });
+
+    it('renvoie null pour des entrées inexploitables', () => {
+        expect(coefficientFromCatalog(1.25, 100)).toBeNull(); // remise ≥ 100 % → division par 0/négatif
+        expect(coefficientFromCatalog(1.25, -5)).toBeNull();
+        expect(coefficientFromCatalog(0, 35)).toBeNull();
+        expect(coefficientFromCatalog('', 35)).toBeNull();
+        expect(coefficientFromCatalog(1.25, '')).toBeNull();
     });
 });
 
