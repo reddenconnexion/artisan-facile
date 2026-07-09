@@ -10,6 +10,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
+import { useInvalidateCache } from '../hooks/useDataCache';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -113,6 +114,7 @@ const Profile = () => {
     // Component for managing artisan profile settings
     const { user } = useAuth();
     const confirm = useConfirm();
+    const { invalidateProfile } = useInvalidateCache();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, isLoading: isPushLoading, permission: pushPermission, subscribe: subscribePush, unsubscribe: unsubscribePush, sendTestNotification: sendTestPush } = usePushNotifications();
     const [isTestingPush, setIsTestingPush] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -245,6 +247,7 @@ const Profile = () => {
                     activity_type: aiPrefs.activity_type || 'services',
                     ai_provider: aiPrefs.ai_provider || 'openai',
                     ai_hourly_rate: aiPrefs.ai_hourly_rate || '',
+                    default_margin_coefficient: aiPrefs.default_margin_coefficient || '',
                     // Zones
                     zone1_radius: aiPrefs.zone1_radius || '',
                     zone1_price: aiPrefs.zone1_price || '',
@@ -339,6 +342,7 @@ const Profile = () => {
                         // La clé API est gérée séparément via l'Edge Function save-openai-key
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
+                        default_margin_coefficient: formData.default_margin_coefficient,
                         zone1_radius: formData.zone1_radius,
                         zone1_price: formData.zone1_price,
                         zone2_radius: formData.zone2_radius,
@@ -356,6 +360,9 @@ const Profile = () => {
                 .eq('id', user.id);
 
             if (error) throw error;
+            // Rafraîchit le cache react-query du profil (coefficient de marge,
+            // taux horaire…) pour les pages qui le consomment via useUserProfile.
+            invalidateProfile();
             toast.success('Profil mis à jour avec succès');
 
             // Si le SIRET est renseigné, enregistrer le SIREN dans l'annuaire DGFIP via B2BRouter
@@ -1604,6 +1611,24 @@ const Profile = () => {
                                         setFormData({ ...formData, ai_hourly_rate: e.target.value });
                                     }}
                                 />
+                            </div>
+
+                            <div className="mt-3">
+                                <label className="block text-xs font-medium text-purple-800 dark:text-purple-300 mb-1">Coefficient de marge par défaut</label>
+                                <input
+                                    type="number"
+                                    step="0.05"
+                                    min="0"
+                                    placeholder="ex: 1.5"
+                                    className="w-full px-3 py-2 border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                    value={formData.default_margin_coefficient || ''}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, default_margin_coefficient: e.target.value });
+                                    }}
+                                />
+                                <p className="text-xs text-purple-600/70 dark:text-purple-300/60 mt-1">
+                                    Dans la Bibliothèque de Prix, le prix de vente est pré-calculé : prix d'achat × coefficient.
+                                </p>
                             </div>
                         </div>
 

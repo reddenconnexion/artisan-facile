@@ -1127,6 +1127,26 @@ const DevisForm = () => {
         }));
     };
 
+    // Applique un article de la Bibliothèque de Prix à une ligne : le prix de
+    // vente, le prix d'achat (BPU) et le type suivent ensemble — la marge du
+    // devis est juste sans ressaisie du coût fournisseur.
+    const applyLibraryItem = (itemId, lib, { withDescription = false } = {}) => {
+        setFormData(prev => ({
+            ...prev,
+            items: prev.items.map(item =>
+                item.id === itemId
+                    ? {
+                        ...item,
+                        ...(withDescription ? { description: lib.description } : {}),
+                        price: lib.price,
+                        buying_price: parseFloat(lib.buying_price) || 0,
+                        ...(lib.type ? { type: lib.type } : {})
+                    }
+                    : item
+            )
+        }));
+    };
+
     // Toggling option_group_required affects every item in the same group, so
     // they stay consistent (the public client view reads this flag from the
     // first item of the group).
@@ -1931,6 +1951,7 @@ const DevisForm = () => {
 
                     const normalizeDesc = desc.toLowerCase();
                     const price = parseFloat(item.price) || 0;
+                    const buyingPrice = parseFloat(item.buying_price) || 0;
 
                     if (seenDescriptions.has(normalizeDesc)) continue;
                     seenDescriptions.add(normalizeDesc);
@@ -1938,11 +1959,15 @@ const DevisForm = () => {
                     const existing = libraryMap.get(normalizeDesc);
 
                     if (existing) {
-                        // Update price if different
-                        if (Math.abs((existing.price || 0) - price) > 0.01) {
+                        // Update if price or known buying price differ — a
+                        // buying price of 0 (unknown) never overwrites a real one
+                        const priceChanged = Math.abs((existing.price || 0) - price) > 0.01;
+                        const buyingChanged = buyingPrice > 0 && Math.abs((existing.buying_price || 0) - buyingPrice) > 0.01;
+                        if (priceChanged || buyingChanged) {
                             toUpdate.push({
                                 ...existing,
                                 price: price,
+                                ...(buyingPrice > 0 ? { buying_price: buyingPrice } : {}),
                                 updated_at: new Date()
                             });
                         }
@@ -1952,6 +1977,7 @@ const DevisForm = () => {
                             user_id: user.id,
                             description: desc,
                             price: price,
+                            buying_price: buyingPrice,
                             unit: item.unit || 'u',
                             type: item.type || 'service'
                         });
@@ -2889,6 +2915,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
                         const normalizeDesc = desc.toLowerCase();
                         const price = parseFloat(item.price) || 0;
+                        const buyingPrice = parseFloat(item.buying_price) || 0;
 
                         if (seenDescriptions.has(normalizeDesc)) continue;
                         seenDescriptions.add(normalizeDesc);
@@ -2896,10 +2923,13 @@ Conditions de règlement : Paiement à réception de facture.`
                         const existing = libraryMap.get(normalizeDesc);
 
                         if (existing) {
-                            if (Math.abs((existing.price || 0) - price) > 0.01) {
+                            const priceChanged = Math.abs((existing.price || 0) - price) > 0.01;
+                            const buyingChanged = buyingPrice > 0 && Math.abs((existing.buying_price || 0) - buyingPrice) > 0.01;
+                            if (priceChanged || buyingChanged) {
                                 toUpdate.push({
                                     ...existing,
                                     price: price,
+                                    ...(buyingPrice > 0 ? { buying_price: buyingPrice } : {}),
                                     updated_at: new Date()
                                 });
                             }
@@ -2908,6 +2938,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 user_id: user.id,
                                 description: desc,
                                 price: price,
+                                buying_price: buyingPrice,
                                 unit: item.unit || 'u',
                                 type: item.type || 'service'
                             });
@@ -4317,11 +4348,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     // Auto-price logic (Exact Match)
                                                     const libraryItem = priceLibrary.find(lib => lib.description === val);
                                                     if (libraryItem) {
-                                                        updateItem(item.id, 'price', libraryItem.price);
-                                                        // Also sync type from library if it exists
-                                                        if (libraryItem.type) {
-                                                            updateItem(item.id, 'type', libraryItem.type);
-                                                        }
+                                                        applyLibraryItem(item.id, libraryItem);
                                                     }
                                                 }}
                                                 onFocus={(e) => {
@@ -4361,10 +4388,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                                     key={lib.id}
                                                                     type="button"
                                                                     className="block w-full text-left px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm border-b border-gray-50 last:border-0"
-                                                                    onClick={() => {
-                                                                        updateItem(item.id, 'description', lib.description);
-                                                                        updateItem(item.id, 'price', lib.price);
-                                                                    }}
+                                                                    onClick={() => applyLibraryItem(item.id, lib, { withDescription: true })}
                                                                 >
                                                                     <span className="font-medium text-gray-900 dark:text-white">{lib.description}</span>
                                                                     <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">{lib.price} €</span>
@@ -5048,10 +5072,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     {matches.map(lib => (
                                                         <button
                                                             key={lib.id}
-                                                            onClick={() => {
-                                                                updateItem(item.id, 'description', lib.description);
-                                                                updateItem(item.id, 'price', lib.price);
-                                                            }}
+                                                            onClick={() => applyLibraryItem(item.id, lib, { withDescription: true })}
                                                             className="flex-shrink-0 bg-white dark:bg-gray-900 border border-blue-200 rounded-lg px-4 py-2 text-left shadow-sm min-w-[200px]"
                                                         >
                                                             <div className="font-medium text-blue-900 truncate">{lib.description}</div>

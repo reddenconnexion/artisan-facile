@@ -3,11 +3,24 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import { useUserProfile } from '../hooks/useDataCache';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { toast } from 'sonner';
-import { Plus, Upload, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
+import { Plus, Upload, Download, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
 import Papa from 'papaparse';
 import readXlsxFile from 'read-excel-file/browser';
+import { exportToCSV } from '../utils/csvExport';
+import { mapImportedRows, splitUpsert, suggestedSellingPrice, priceLibraryCsvColumns } from '../utils/priceLibraryCsv';
+
+const EMPTY_ITEM = {
+    description: '',
+    price: '',
+    buying_price: '',
+    unit: 'unité',
+    category: '',
+    barcode: '',
+    reference: ''
+};
 
 const PriceLibrary = () => {
     const { user } = useAuth();
@@ -21,15 +34,16 @@ const PriceLibrary = () => {
     const fileInputRef = useRef(null);
 
     // New Item State
-    const [newItem, setNewItem] = useState({
-        description: '',
-        price: '',
-        unit: 'unité',
-        category: '',
-        barcode: '',
-        reference: ''
-    });
+    const [newItem, setNewItem] = useState({ ...EMPTY_ITEM });
     const [editingItem, setEditingItem] = useState(null);
+    // Vrai dès que le prix de vente a été saisi à la main : le pré-calcul
+    // « prix d'achat × coefficient » ne doit alors plus l'écraser.
+    const [priceEdited, setPriceEdited] = useState(false);
+
+    // Coefficient de marge par défaut (Profil → Personnalisation du contexte).
+    // 0 = non configuré : aucun pré-remplissage du prix de vente.
+    const { data: profile } = useUserProfile();
+    const coefficient = parseFloat(profile?.default_margin_coefficient) || 0;
 
     useEffect(() => {
         if (user) {
@@ -112,53 +126,32 @@ const PriceLibrary = () => {
     };
 
     const processImportedData = async (data) => {
-        // Expected columns: Description, Prix, Unité, Catégorie (optional)
-        // Map various common column names
-        const formattedData = data.map(row => {
-            // Normalize keys to lowercase for easier matching
-            const keys = Object.keys(row).reduce((acc, key) => {
-                acc[key.toLowerCase().trim()] = row[key];
-                return acc;
-            }, {});
+        const { rows } = mapImportedRows(data, { coefficient });
 
-            const description = keys['description'] || keys['libellé'] || keys['ouvrage'] || keys['nom'];
-            const price = keys['prix'] || keys['price'] || keys['pu'] || keys['prix unitaire'];
-            const unit = keys['unité'] || keys['unit'] || keys['u'] || 'unité';
-            const category = keys['catégorie'] || keys['category'] || keys['famille'] || '';
-
-            // Separate mapping for Barcode (EAN) and Reference (Manufacturer)
-            const barcode = keys['barcode'] || keys['ean'] || keys['code-barres'] || '';
-            const reference = keys['reference'] || keys['ref'] || keys['référence'] || '';
-
-            if (!description || !price) return null;
-
-            // Exclude acomptes as requested
-            if (description.toLowerCase().includes('acompte')) return null;
-
-            return {
-                user_id: user.id,
-                description: description,
-                price: parseFloat(String(price).replace(',', '.')) || 0,
-                unit: unit,
-                category: category,
-                barcode: barcode,
-                reference: reference
-            };
-        }).filter(item => item !== null);
-
-        if (formattedData.length === 0) {
-            toast.error("Aucune donnée valide trouvée. Vérifiez les colonnes (Description, Prix).");
+        if (rows.length === 0) {
+            toast.error("Aucune donnée valide trouvée. Vérifiez les colonnes (Description, Prix ou Prix d'achat).");
             return;
         }
 
+        // Réimport = mise à jour : les articles déjà connus (même EAN,
+        // référence ou description) sont mis à jour au lieu d'être dupliqués.
+        const { toInsert, toUpdate } = splitUpsert(rows, items, user.id);
+
         try {
-            const { error } = await supabase
-                .from('price_library')
-                .insert(formattedData);
+            if (toInsert.length > 0) {
+                const { error } = await supabase.from('price_library').insert(toInsert);
+                if (error) throw error;
+            }
+            if (toUpdate.length > 0) {
+                const { error } = await supabase.from('price_library').upsert(toUpdate);
+                if (error) throw error;
+            }
 
-            if (error) throw error;
-
-            toast.success(`${formattedData.length} articles importés avec succès`);
+            const unchanged = rows.length - toInsert.length - toUpdate.length;
+            toast.success(
+                `Import terminé : ${toInsert.length} ajouté(s), ${toUpdate.length} mis à jour` +
+                (unchanged > 0 ? `, ${unchanged} inchangé(s)` : '')
+            );
             setShowImportModal(false);
             fetchItems();
         } catch (error) {
@@ -171,14 +164,29 @@ const PriceLibrary = () => {
         setNewItem({
             description: item.description,
             price: item.price,
+            buying_price: item.buying_price > 0 ? item.buying_price : '',
             unit: item.unit,
             category: item.category || '',
             type: item.type || 'service',
             barcode: item.barcode || '',
             reference: item.reference || ''
         });
+        // En modification, le prix de vente existant fait foi : pas de
+        // recalcul automatique tant qu'il n'est pas vidé volontairement.
+        setPriceEdited(true);
         setEditingItem(item);
         setShowAddModal(true);
+    };
+
+    const handleBuyingPriceChange = (value) => {
+        setNewItem(prev => {
+            const next = { ...prev, buying_price: value };
+            if (!priceEdited && coefficient > 0) {
+                const suggested = suggestedSellingPrice(value, coefficient);
+                next.price = suggested !== null ? suggested : '';
+            }
+            return next;
+        });
     };
 
     const handleAddItem = async (e) => {
@@ -190,6 +198,7 @@ const PriceLibrary = () => {
                     .update({
                         description: newItem.description,
                         price: parseFloat(newItem.price),
+                        buying_price: parseFloat(newItem.buying_price) || 0,
                         unit: newItem.unit,
                         category: newItem.category,
                         type: newItem.type || 'service',
@@ -206,14 +215,15 @@ const PriceLibrary = () => {
                     .insert([{
                         user_id: user.id,
                         ...newItem,
-                        price: parseFloat(newItem.price)
+                        price: parseFloat(newItem.price),
+                        buying_price: parseFloat(newItem.buying_price) || 0
                     }]);
 
                 if (error) throw error;
                 toast.success('Article ajouté');
             }
 
-            setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+            setNewItem({ ...EMPTY_ITEM });
             setEditingItem(null);
             setShowAddModal(false);
             fetchItems();
@@ -263,6 +273,19 @@ const PriceLibrary = () => {
                 </div>
                 <div className="flex gap-3">
                     <button
+                        onClick={() => {
+                            if (items.length === 0) {
+                                toast.error('La bibliothèque est vide, rien à exporter');
+                                return;
+                            }
+                            exportToCSV(items, priceLibraryCsvColumns, 'bibliotheque_prix');
+                        }}
+                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Exporter (CSV)
+                    </button>
+                    <button
                         onClick={() => setShowImportModal(true)}
                         className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
                     >
@@ -272,7 +295,8 @@ const PriceLibrary = () => {
                     <button
                         onClick={() => {
                             setEditingItem(null);
-                            setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+                            setNewItem({ ...EMPTY_ITEM });
+                            setPriceEdited(false);
                             setShowAdvancedFields(false);
                             setShowAddModal(true);
                         }}
@@ -304,6 +328,7 @@ const PriceLibrary = () => {
                             <tr>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Description</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Catégorie</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Prix d'achat</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Prix Unitaire</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Actions</th>
                             </tr>
@@ -311,11 +336,11 @@ const PriceLibrary = () => {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Chargement...</td>
+                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">Chargement...</td>
                                 </tr>
                             ) : filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-16 text-center">
+                                    <td colSpan="5" className="px-6 py-16 text-center">
                                         <p className="text-3xl mb-3">⚡</p>
                                         <p className="font-semibold text-gray-900 dark:text-white mb-1">
                                             {searchTerm ? 'Aucun résultat' : 'Votre bibliothèque est vide'}
@@ -327,7 +352,7 @@ const PriceLibrary = () => {
                                         </p>
                                         {!searchTerm && (
                                             <button
-                                                onClick={() => { setEditingItem(null); setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' }); setShowAddModal(true); }}
+                                                onClick={() => { setEditingItem(null); setNewItem({ ...EMPTY_ITEM }); setPriceEdited(false); setShowAddModal(true); }}
                                                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                                             >
                                                 <Plus className="w-4 h-4" />
@@ -351,6 +376,20 @@ const PriceLibrary = () => {
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800">
                                                     {item.category}
                                                 </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400">
+                                            {item.buying_price > 0 ? (
+                                                <div>
+                                                    <span>{item.buying_price.toFixed(2)} €</span>
+                                                    {item.price > 0 && (
+                                                        <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                                                            marge {Math.round(((item.price - item.buying_price) / item.price) * 100)} %
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-300 dark:text-gray-600">—</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right text-gray-900 dark:text-white font-medium">
@@ -392,9 +431,13 @@ const PriceLibrary = () => {
                             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
                                 <p className="font-semibold mb-1">Format attendu (Excel ou CSV) :</p>
                                 <ul className="list-disc list-inside space-y-1">
-                                    <li>Colonnes : <strong>Description</strong>, <strong>Prix</strong></li>
-                                    <li>Optionnel : Unité, Catégorie</li>
+                                    <li>Colonnes : <strong>Description</strong>, <strong>Prix</strong> et/ou <strong>Prix d'achat</strong></li>
+                                    <li>Optionnel : Unité, Catégorie, Type, Référence, EAN</li>
+                                    <li>Les articles déjà connus (même référence, EAN ou description) sont <strong>mis à jour</strong>, pas dupliqués</li>
                                 </ul>
+                                <p className="mt-2 text-xs">
+                                    Astuce : exportez d'abord votre bibliothèque, complétez la colonne « Prix d'achat » depuis vos factures fournisseur, puis réimportez le fichier.
+                                </p>
                             </div>
                             <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 onClick={() => fileInputRef.current?.click()}>
@@ -426,7 +469,7 @@ const PriceLibrary = () => {
                                 onClick={() => {
                                     setShowAddModal(false);
                                     setEditingItem(null);
-                                    setNewItem({ description: '', price: '', unit: 'unité', category: '', barcode: '', reference: '' });
+                                    setNewItem({ ...EMPTY_ITEM });
                                 }}
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                             >
@@ -444,16 +487,31 @@ const PriceLibrary = () => {
                                     onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prix</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prix d'achat HT</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                        value={newItem.buying_price}
+                                        onChange={e => handleBuyingPriceChange(e.target.value)}
+                                        placeholder="Fournisseur"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prix de vente HT</label>
                                     <input
                                         type="number"
                                         step="0.01"
                                         required
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.price}
-                                        onChange={e => setNewItem({ ...newItem, price: e.target.value })}
+                                        onChange={e => {
+                                            setPriceEdited(true);
+                                            setNewItem({ ...newItem, price: e.target.value });
+                                        }}
                                     />
                                 </div>
                                 <div>
@@ -466,6 +524,17 @@ const PriceLibrary = () => {
                                     />
                                 </div>
                             </div>
+                            {(() => {
+                                const bp = parseFloat(newItem.buying_price);
+                                const p = parseFloat(newItem.price);
+                                if (!(bp > 0) || !(p > 0)) return null;
+                                const margin = Math.round(((p - bp) / p) * 100);
+                                return (
+                                    <p className={`text-xs -mt-2 ${margin < 0 ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        Marge : {margin} %{coefficient > 0 && !priceEdited ? ` (prix de vente pré-calculé ×${coefficient})` : ''}
+                                    </p>
+                                );
+                            })()}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>
