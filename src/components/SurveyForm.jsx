@@ -1,0 +1,279 @@
+import React from 'react';
+import { Plus, Minus, Trash2, Check, AlertTriangle } from 'lucide-react';
+import { createEmptyZone } from '../utils/surveyText';
+
+// Formulaire de trame de relevé (mode Visite technique). Composant 100 %
+// contrôlé : { template, survey, onChange } — aucune logique métier ici,
+// l'assemblage du texte vit dans src/utils/surveyText.js.
+// Pensé pour une saisie au pouce sur chantier : steppers larges, claviers
+// numériques natifs, cartes empilées.
+
+const sectionTitle = 'text-xs font-bold text-gray-500 uppercase tracking-wide';
+const inputClass = 'w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent';
+
+const Stepper = ({ value, onChange }) => {
+    const n = Number(value) || 0;
+    return (
+        <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+                type="button"
+                onClick={() => onChange(Math.max(0, n - 1))}
+                className="w-11 h-11 flex items-center justify-center bg-gray-100 rounded-xl text-gray-600 active:scale-95 transition-transform"
+                aria-label="Diminuer"
+            >
+                <Minus className="w-4 h-4" />
+            </button>
+            <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={n === 0 ? '' : String(n)}
+                placeholder="0"
+                onChange={(e) => {
+                    const parsed = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                    onChange(Number.isFinite(parsed) ? Math.max(0, parsed) : 0);
+                }}
+                className="w-11 h-11 text-center text-base font-semibold tabular-nums bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            />
+            <button
+                type="button"
+                onClick={() => onChange(n + 1)}
+                className="w-11 h-11 flex items-center justify-center bg-violet-100 rounded-xl text-violet-700 active:scale-95 transition-transform"
+                aria-label="Augmenter"
+            >
+                <Plus className="w-4 h-4" />
+            </button>
+        </div>
+    );
+};
+
+const SurveyForm = ({ template, survey, onChange }) => {
+    const updateZone = (zoneId, patch) => onChange({
+        ...survey,
+        zones: survey.zones.map((z) => (z.id === zoneId ? { ...z, ...patch } : z)),
+    });
+    const updateTableau = (patch) => onChange({ ...survey, tableau: { ...survey.tableau, ...patch } });
+    const toggleChecklist = (itemId, state) => {
+        const current = survey.checklist[itemId];
+        onChange({
+            ...survey,
+            checklist: { ...survey.checklist, [itemId]: current === state ? undefined : state },
+        });
+    };
+
+    return (
+        <div className="space-y-5">
+            {/* ── Zones ── */}
+            <div>
+                <p className={`${sectionTitle} mb-2`}>Relevé par pièce</p>
+                <div className="space-y-3">
+                    {survey.zones.map((zone, index) => (
+                        <div key={zone.id} className="bg-white border border-gray-200 rounded-2xl p-3 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={zone.name}
+                                    onChange={(e) => updateZone(zone.id, { name: e.target.value })}
+                                    placeholder={`Pièce ${index + 1} — cuisine, salon, SdB…`}
+                                    className={`${inputClass} font-semibold`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => onChange({ ...survey, zones: survey.zones.filter((z) => z.id !== zone.id) })}
+                                    className="w-11 h-11 flex items-center justify-center flex-shrink-0 text-gray-400 hover:text-red-500 rounded-xl hover:bg-red-50 transition-colors"
+                                    aria-label="Supprimer la pièce"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                            {template.zoneCounters.map(({ key, label }) => (
+                                <div key={key} className="flex items-center justify-between gap-2">
+                                    <span className="text-sm text-gray-700 leading-tight">{label}</span>
+                                    <Stepper
+                                        value={zone.counters[key]}
+                                        onChange={(n) => updateZone(zone.id, { counters: { ...zone.counters, [key]: n } })}
+                                    />
+                                </div>
+                            ))}
+                            {template.zoneExtraFields.map(({ key, label, placeholder }) => (
+                                <div key={key}>
+                                    <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
+                                    <input
+                                        type="text"
+                                        value={zone.fields[key] || ''}
+                                        onChange={(e) => updateZone(zone.id, { fields: { ...zone.fields, [key]: e.target.value } })}
+                                        placeholder={placeholder}
+                                        className={inputClass}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => onChange({ ...survey, zones: [...survey.zones, createEmptyZone()] })}
+                        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-violet-200 rounded-2xl text-sm font-semibold text-violet-600 hover:bg-violet-50 transition-colors active:scale-[0.98]"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Ajouter une pièce
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Tableau électrique ── */}
+            {template.hasTableau && (
+                <div>
+                    <p className={`${sectionTitle} mb-2`}>Tableau électrique</p>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-3 space-y-3">
+                        <div className="grid grid-cols-3 gap-1.5">
+                            {template.tableauEtats.map(({ value, label }) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => updateTableau({ etat: survey.tableau.etat === value ? '' : value })}
+                                    className={`py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                                        survey.tableau.etat === value
+                                            ? 'bg-violet-600 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        <label className="flex items-center justify-between gap-2 py-1 cursor-pointer">
+                            <span className="text-sm text-gray-700">
+                                Rénovation complète du tableau
+                                <span className="block text-xs text-gray-400">⇒ parafoudre type 2 par défaut</span>
+                            </span>
+                            <input
+                                type="checkbox"
+                                checked={survey.tableau.renovationComplete}
+                                onChange={(e) => updateTableau({ renovationComplete: e.target.checked })}
+                                className="w-5 h-5 rounded text-violet-600 focus:ring-violet-500 flex-shrink-0"
+                            />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { key: 'rangees', label: 'Rangées existantes' },
+                                { key: 'placesDispo', label: 'Places disponibles' },
+                                { key: 'diffTypeA', label: 'Diff. type A 30 mA à créer' },
+                                { key: 'diffTypeAC', label: 'Diff. type AC 30 mA à créer' },
+                            ].map(({ key, label }) => (
+                                <div key={key}>
+                                    <p className="text-xs font-medium text-gray-500 mb-1 leading-tight">{label}</p>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={survey.tableau[key]}
+                                        onChange={(e) => updateTableau({ [key]: e.target.value.replace(/\D/g, '') })}
+                                        placeholder="0"
+                                        className={`${inputClass} tabular-nums`}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 mb-1">Disjoncteurs à créer</p>
+                            <input
+                                type="text"
+                                value={survey.tableau.disjoncteurs}
+                                onChange={(e) => updateTableau({ disjoncteurs: e.target.value })}
+                                placeholder="2 × 32A four/plaque, 3 × 16A prises…"
+                                className={inputClass}
+                            />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 mb-1">Observations coffret</p>
+                            <textarea
+                                rows={2}
+                                value={survey.tableau.observations}
+                                onChange={(e) => updateTableau({ observations: e.target.value })}
+                                placeholder="État général, repérage, accessibilité…"
+                                className={`${inputClass} resize-none`}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Check-list conformité ── */}
+            {template.checklist.length > 0 && (
+                <div>
+                    <p className={`${sectionTitle} mb-2`}>Check-list conformité</p>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-3 space-y-3">
+                        {template.checklist.map(({ id, label, hint }) => {
+                            const state = survey.checklist[id];
+                            return (
+                                <div key={id} className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="text-sm text-gray-700 leading-tight">{label}</p>
+                                        {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+                                    </div>
+                                    <div className="flex gap-1 flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleChecklist(id, 'verifie')}
+                                            className={`flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                                                state === 'verifie'
+                                                    ? 'bg-emerald-500 text-white'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'
+                                            }`}
+                                        >
+                                            <Check className="w-3.5 h-3.5" />
+                                            Vérifié
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleChecklist(id, 'prevu')}
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                                                state === 'prevu'
+                                                    ? 'bg-orange-500 text-white'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-orange-50 hover:text-orange-600'
+                                            }`}
+                                        >
+                                            À prévoir
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {template.checklistWarning && (
+                            <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-700">{template.checklistWarning}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Non-conformités ── */}
+            <div>
+                <p className={`${sectionTitle} mb-2`}>Non-conformités relevées</p>
+                <textarea
+                    rows={3}
+                    value={survey.nonConformites}
+                    onChange={(e) => onChange({ ...survey, nonConformites: e.target.value })}
+                    placeholder="Décrivez les non-conformités constatées — elles seront consignées sur le devis."
+                    className={`${inputClass} resize-none`}
+                />
+            </div>
+
+            {/* ── Notes libres ── */}
+            <div>
+                <p className={`${sectionTitle} mb-2`}>Notes libres</p>
+                <textarea
+                    rows={3}
+                    value={survey.notesLibres}
+                    onChange={(e) => onChange({ ...survey, notesLibres: e.target.value })}
+                    placeholder="Accès, contraintes, distances, points d'attention…"
+                    className={`${inputClass} resize-none`}
+                />
+            </div>
+        </div>
+    );
+};
+
+export default SurveyForm;

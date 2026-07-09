@@ -6,6 +6,9 @@ import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
 import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
+import { getSurveyTemplate } from '../constants/surveyTemplates';
+import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
+import SurveyForm from './SurveyForm';
 import {
     formatDuration,
     fmtEur,
@@ -19,6 +22,7 @@ import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
+    ClipboardList,
 } from 'lucide-react';
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -52,6 +56,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // Tips panel
     const [showTips, setShowTips] = useState(false);
+
+    // Trame de relevé structurée (optionnelle), adaptée au métier du profil
+    const surveyTemplate = getSurveyTemplate(profile?.trade);
+    const [survey, setSurvey] = useState(createEmptySurvey);
+    const [showSurvey, setShowSurvey] = useState(false);
 
     const { isRecording, duration, startRecording, stopRecording, cancelRecording, isSupported } = useAudioRecorder();
     const galleryInputRef = useRef(null);
@@ -115,7 +124,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // ── Analysis ───────────────────────────────────────────────────────────
 
-    const canAnalyze = voiceNotes.length > 0 || photos.length > 0 || textNotes.trim().length > 0;
+    const canAnalyze = voiceNotes.length > 0 || photos.length > 0 || textNotes.trim().length > 0 || hasSurveyContent(survey);
 
     const handleAnalyze = async () => {
         setStep('processing');
@@ -164,10 +173,12 @@ const VisiteTechniqueMode = ({ onBack }) => {
             }
 
             setActivePhase('quote');
+            const surveyText = buildSurveyText(survey, surveyTemplate);
             const context = {
                 hourlyRate: profile?.ai_hourly_rate || '',
                 instructions: profile?.ai_instructions || '',
                 customSystemPrompt: profile?.ai_preferences?.quote_system_prompt || profile?.quote_system_prompt || '',
+                surveyText,
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
 
@@ -183,13 +194,14 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         client_id: clientId || null,
                         client_name: clientName || null,
                         title: quoteResult.title,
-                        description: transcripts.join('\n') || null,
+                        description: [surveyText, transcripts.join('\n')].filter(Boolean).join('\n\n') || null,
                         intervention_address: address || null,
                         notes: JSON.stringify({
                             suggestions: quoteResult.suggestions,
                             price_range: quoteResult.price_range,
                             estimated_duration: quoteResult.estimated_duration,
                             confidence: quoteResult.confidence,
+                            ...(hasSurveyContent(survey) ? { survey } : {}),
                         }),
                         materials_used: quoteResult.items,
                         status: 'draft',
@@ -340,6 +352,35 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 placeholder="Rue, ville…"
                                 className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                             />
+                        </div>
+
+                        {/* Trame de relevé structurée */}
+                        <div>
+                            <button
+                                onClick={() => setShowSurvey(v => !v)}
+                                className="w-full flex items-center gap-2 px-3 py-3 bg-violet-50 border border-violet-200 rounded-2xl text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+                            >
+                                <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                                <span className="flex-1 text-left">
+                                    Trame de relevé — {surveyTemplate.label}
+                                    <span className="block text-xs text-violet-400 font-normal">
+                                        Comptez pièce par pièce, l'IA chiffre le reste (optionnel)
+                                    </span>
+                                </span>
+                                {hasSurveyContent(survey) && (
+                                    <span className="text-violet-700 bg-violet-200 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                                        {survey.zones.length > 0
+                                            ? `${survey.zones.length} pièce${survey.zones.length > 1 ? 's' : ''}`
+                                            : 'remplie'}
+                                    </span>
+                                )}
+                                {showSurvey ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                            </button>
+                            {showSurvey && (
+                                <div className="mt-2 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl">
+                                    <SurveyForm template={surveyTemplate} survey={survey} onChange={setSurvey} />
+                                </div>
+                            )}
                         </div>
 
                         {/* Voice notes */}
@@ -682,6 +723,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         {canAnalyze && (
                             <span className="text-violet-200 text-sm font-normal">
                                 ({[
+                                    hasSurveyContent(survey) && 'trame',
                                     voiceNotes.length > 0 && `${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''}`,
                                     photos.length > 0 && `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
                                     textNotes.trim() && 'notes texte',

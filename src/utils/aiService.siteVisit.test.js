@@ -71,6 +71,31 @@ describe('generateQuoteFromSiteVisit', () => {
         expect(body.userMessage).toContain('VISITE CHANTIER');
     });
 
+    it('place le relevé structuré en tête du message et sa consigne dans extras', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
+
+        await generateQuoteFromSiteVisit(['note vocale cuisine'], [], {
+            hourlyRate: 50,
+            surveyText: 'RELEVÉ PAR ZONE :\n- Cuisine : Prises 2P+T : 6',
+        });
+
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain('RELEVÉ STRUCTURÉ (trame de visite):');
+        expect(body.userMessage.indexOf('RELEVÉ STRUCTURÉ')).toBeLessThan(body.userMessage.indexOf('NOTES VOCALES'));
+        expect(body.extras).toContain('CONSIGNE RELEVÉ STRUCTURÉ');
+        expect(body.extras).toContain('50');
+    });
+
+    it("sans relevé structuré, le message et extras restent inchangés (non-régression)", async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
+
+        await generateQuoteFromSiteVisit(['note'], [], { hourlyRate: 50, surveyText: '' });
+
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).not.toContain('RELEVÉ STRUCTURÉ');
+        expect(body.extras).not.toContain('CONSIGNE RELEVÉ STRUCTURÉ');
+    });
+
     it('routes through a custom system prompt when provided', async () => {
         invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
 
