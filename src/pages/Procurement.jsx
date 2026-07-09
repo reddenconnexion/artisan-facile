@@ -17,6 +17,12 @@ const CATEGORY_META = {
     autre: { label: 'Autre', Icon: ShoppingCart, iconClass: 'text-gray-500' },
 };
 
+const formatPrice = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+};
+
 const STATUS_TABS = [
     { id: 'pending', label: 'À commander', color: 'text-blue-700 border-blue-600' },
     { id: 'ordered', label: 'Commandé', color: 'text-amber-700 border-amber-500' },
@@ -73,6 +79,7 @@ const Procurement = () => {
             .filter(i => !q
                 || (i.description || '').toLowerCase().includes(q)
                 || (i.site_label || '').toLowerCase().includes(q)
+                || (i.supplier || '').toLowerCase().includes(q)
             );
     }, [items, statusFilter, categoryFilter, search]);
 
@@ -148,6 +155,22 @@ const Procurement = () => {
         }
     };
 
+    // Enregistre le prix d'achat / le fournisseur saisis librement au bureau.
+    // Sauvegarde optimiste ; on ne réécrit que si la valeur change réellement.
+    const saveItemFields = async (id, patch) => {
+        const current = items.find(i => i.id === id);
+        if (!current) return;
+        const changed = Object.keys(patch).some(k => (current[k] ?? null) !== (patch[k] ?? null));
+        if (!changed) return;
+        const previous = items;
+        setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+        const { error } = await supabase.from('procurement_items').update(patch).eq('id', id);
+        if (error) {
+            toast.error('Enregistrement impossible');
+            setItems(previous);
+        }
+    };
+
     const addItem = async () => {
         const desc = newDesc.trim();
         if (!desc || !user) return;
@@ -177,7 +200,9 @@ const Procurement = () => {
 
     const copyList = async () => {
         const lines = filtered.map(i =>
-            `- ${i.quantity} ${i.unit || 'u'} × ${i.description}${i.site_label ? `  (${i.site_label})` : ''}`
+            `- ${i.quantity} ${i.unit || 'u'} × ${i.description}`
+            + (i.supplier ? `  [${i.supplier}]` : '')
+            + (i.site_label ? `  (${i.site_label})` : '')
         );
         if (!lines.length) {
             toast.info('Aucun article à copier');
@@ -239,7 +264,7 @@ const Procurement = () => {
                         type="text"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        placeholder="Rechercher un article ou un chantier…"
+                        placeholder="Rechercher un article, un fournisseur ou un chantier…"
                         className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                 </div>
@@ -359,16 +384,49 @@ const Procurement = () => {
                                     const meta = CATEGORY_META[item.category] || CATEGORY_META.autre;
                                     const Icon = meta.Icon;
                                     return (
-                                        <li key={item.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-                                            <Icon className={`w-5 h-5 shrink-0 ${meta.iconClass}`} />
+                                        <li key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
+                                            <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${meta.iconClass}`} />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
                                                     {item.description}
                                                 </p>
                                                 <p className="text-xs text-gray-400">
                                                     {item.quantity} {item.unit || 'u'} · {meta.label}
+                                                    {item.sale_price != null && (
+                                                        <span className="ml-2 text-gray-500">
+                                                            · PV {formatPrice(item.sale_price)}/{item.unit || 'u'}
+                                                        </span>
+                                                    )}
                                                     {item.source === 'voice' && <span className="ml-2 inline-flex items-center gap-0.5 text-blue-500"><Mic className="w-3 h-3" /> vocal</span>}
                                                 </p>
+                                                {/* Champs libres répertoriés pour le prochain devis */}
+                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            defaultValue={item.buying_price ?? ''}
+                                                            onBlur={e => {
+                                                                const v = e.target.value.trim();
+                                                                saveItemFields(item.id, { buying_price: v === '' ? null : parseFloat(v) });
+                                                            }}
+                                                            placeholder="Prix d'achat"
+                                                            className="w-28 pl-2 pr-5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        />
+                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">€</span>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        defaultValue={item.supplier ?? ''}
+                                                        onBlur={e => {
+                                                            const v = e.target.value.trim();
+                                                            saveItemFields(item.id, { supplier: v === '' ? null : v });
+                                                        }}
+                                                        placeholder="Fournisseur"
+                                                        className="w-36 px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {item.status === 'pending' && (

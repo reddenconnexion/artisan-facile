@@ -78,7 +78,12 @@ export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
  * groupées). Chaque entrée porte une clé stable pour mémoriser les envois
  * vers la liste d'achats.
  *
- * @returns {Array<{key: string, description: string, quantity: number, unit: string, context: string|null}>}
+ * `salePrice` / `buyingPrice` sont les prix unitaires connus au devis : ils sont
+ * repris tels quels dans la liste d'achats pour être répertoriés et retrouvés au
+ * prochain devis. Les fournitures du chiffrage interne n'ont pas de prix de vente
+ * propre (elles sont vendues dans le forfait de leur ligne) → salePrice = null.
+ *
+ * @returns {Array<{key: string, description: string, quantity: number, unit: string, context: string|null, salePrice: number|null, buyingPrice: number|null}>}
  */
 export const supplyEntries = (items) => {
     const entries = [];
@@ -95,6 +100,8 @@ export const supplyEntries = (items) => {
                 quantity: parseFloat(item.quantity) || 1,
                 unit: item.unit || 'u',
                 context: null,
+                salePrice: parseFloat(item.price) || null,
+                buyingPrice: parseFloat(item.buying_price) || null,
             });
         }
         components.forEach((c, ci) => {
@@ -104,6 +111,8 @@ export const supplyEntries = (items) => {
                 quantity: parseFloat(c.quantity) || 1,
                 unit: c.unit || 'u',
                 context: (item.description || '').trim() || null,
+                salePrice: null,
+                buyingPrice: parseFloat(c.buying_price) || null,
             });
         });
     });

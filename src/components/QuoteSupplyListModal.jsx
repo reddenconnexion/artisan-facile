@@ -61,6 +61,8 @@ const QuoteSupplyListModal = ({ open, onClose, quoteId, quoteLabel, clientId, it
                 quantity: e.quantity,
                 unit: e.unit,
                 category: 'materiel',
+                sale_price: e.salePrice ?? null,
+                buying_price: e.buyingPrice ?? null,
                 notes: e.context ? `Ligne du devis : ${e.context}` : null,
                 source: 'manual',
             }));
