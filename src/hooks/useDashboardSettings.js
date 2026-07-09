@@ -25,9 +25,46 @@ export const DASHBOARD_WIDGETS = [
 ];
 
 const STORAGE_KEY = 'dashboard_widgets';
+const ORDER_KEY = 'dashboard_widget_order';
+
+// Widgets épinglés en tête, non déplaçables (ex. les indicateurs clés).
+const PINNED_IDS = new Set(DASHBOARD_WIDGETS.filter(w => w.alwaysOn).map(w => w.id));
 
 function getDefaultVisibility() {
     return Object.fromEntries(DASHBOARD_WIDGETS.map(w => [w.id, w.defaultVisible]));
+}
+
+/** Ordre par défaut = ordre de déclaration du catalogue. */
+export function getDefaultWidgetOrder() {
+    return DASHBOARD_WIDGETS.map(w => w.id);
+}
+
+/**
+ * Réconcilie un ordre enregistré avec le catalogue courant : conserve les ids
+ * connus dans l'ordre choisi, insère les nouveaux widgets à leur place par
+ * défaut, et garde les widgets épinglés en tête. Tolère un ordre absent/partiel.
+ */
+export function reconcileWidgetOrder(stored) {
+    const all = getDefaultWidgetOrder();
+    const known = Array.isArray(stored) ? stored.filter(id => all.includes(id)) : [];
+
+    // Insère chaque id manquant juste après son voisin de gauche par défaut.
+    const result = [...known];
+    for (const id of all) {
+        if (result.includes(id)) continue;
+        const defIdx = all.indexOf(id);
+        let insertAt = result.length;
+        for (let i = defIdx - 1; i >= 0; i--) {
+            const pos = result.indexOf(all[i]);
+            if (pos !== -1) { insertAt = pos + 1; break; }
+        }
+        result.splice(insertAt, 0, id);
+    }
+
+    // Les widgets épinglés reviennent toujours en tête, dans l'ordre du catalogue.
+    const pinned = all.filter(id => PINNED_IDS.has(id));
+    const rest = result.filter(id => !PINNED_IDS.has(id));
+    return [...pinned, ...rest];
 }
 
 /**
@@ -40,6 +77,7 @@ export function useDashboardSettings() {
         const stored = user?.user_metadata?.[STORAGE_KEY];
         return { ...getDefaultVisibility(), ...(stored || {}) };
     });
+    const [order, setOrder] = useState(() => reconcileWidgetOrder(user?.user_metadata?.[ORDER_KEY]));
     const [saving, setSaving] = useState(false);
 
     // Resync si l'objet user change (login, refresh, etc.)
@@ -47,6 +85,7 @@ export function useDashboardSettings() {
         if (user?.user_metadata?.[STORAGE_KEY]) {
             setVisibility({ ...getDefaultVisibility(), ...user.user_metadata[STORAGE_KEY] });
         }
+        setOrder(reconcileWidgetOrder(user?.user_metadata?.[ORDER_KEY]));
     }, [user?.id]);
 
     const isVisible = useCallback(
@@ -60,8 +99,38 @@ export function useDashboardSettings() {
         setVisibility(prev => ({ ...prev, [widgetId]: !isVisible(widgetId) }));
     }, [isVisible]);
 
+    // Déplace un widget d'un cran (dir = -1 haut, +1 bas). Les widgets épinglés
+    // restent en tête et ne peuvent être ni déplacés ni dépassés.
+    const moveWidget = useCallback((widgetId, dir) => {
+        if (PINNED_IDS.has(widgetId)) return;
+        setOrder(prev => {
+            const idx = prev.indexOf(widgetId);
+            const target = idx + dir;
+            if (idx === -1 || target < 0 || target >= prev.length) return prev;
+            if (PINNED_IDS.has(prev[target])) return prev; // ne pas passer devant un épinglé
+            const next = [...prev];
+            [next[idx], next[target]] = [next[target], next[idx]];
+            return next;
+        });
+    }, []);
+
+    // Réordonne par glisser-déposer : insère `sourceId` à la place de `targetId`.
+    const reorderWidget = useCallback((sourceId, targetId) => {
+        if (PINNED_IDS.has(sourceId) || PINNED_IDS.has(targetId) || sourceId === targetId) return;
+        setOrder(prev => {
+            const from = prev.indexOf(sourceId);
+            const to = prev.indexOf(targetId);
+            if (from === -1 || to === -1) return prev;
+            const next = [...prev];
+            const [moved] = next.splice(from, 1);
+            next.splice(next.indexOf(targetId) + (to > from ? 1 : 0), 0, moved);
+            return next;
+        });
+    }, []);
+
     const reset = useCallback(() => {
         setVisibility(getDefaultVisibility());
+        setOrder(getDefaultWidgetOrder());
     }, []);
 
     /** Persiste les préférences dans `user_metadata` */
@@ -69,7 +138,7 @@ export function useDashboardSettings() {
         setSaving(true);
         try {
             const { error } = await supabase.auth.updateUser({
-                data: { [STORAGE_KEY]: visibility },
+                data: { [STORAGE_KEY]: visibility, [ORDER_KEY]: order },
             });
             if (error) throw error;
             return { success: true };
@@ -79,7 +148,7 @@ export function useDashboardSettings() {
         } finally {
             setSaving(false);
         }
-    }, [visibility]);
+    }, [visibility, order]);
 
-    return { visibility, isVisible, toggle, reset, save, saving };
+    return { visibility, order, isVisible, toggle, moveWidget, reorderWidget, reset, save, saving };
 }

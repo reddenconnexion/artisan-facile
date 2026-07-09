@@ -48,7 +48,7 @@ import CopilotChat from '../components/CopilotChat';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
-import { useDashboardSettings } from '../hooks/useDashboardSettings';
+import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
 import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
@@ -707,7 +707,25 @@ const Dashboard = () => {
 
     // Ordre des widgets adapté à l'usage, figé pendant la session (recalcul
     // périodique). « kpi_strip » reste en tête.
-    const orderedWidgetIds = useAdaptiveOrder('dashboard', DASHBOARD_WIDGET_IDS, widgetScoreFn, { pinnedIds: ['kpi_strip'] });
+    const adaptiveOrder = useAdaptiveOrder('dashboard', DASHBOARD_WIDGET_IDS, widgetScoreFn, { pinnedIds: ['kpi_strip'] });
+
+    // Un ordre manuel enregistré (personnalisation) prévaut sur l'ordre adaptatif.
+    // L'ordre est stocké au niveau des réglages (top_clients / voice_memos
+    // distincts) ; on le projette sur les unités de rendu où « clients_memos »
+    // regroupe les deux.
+    const rawOrder = user?.user_metadata?.dashboard_widget_order;
+    const orderedWidgetIds = useMemo(() => {
+        if (!Array.isArray(rawOrder) || rawOrder.length === 0) return adaptiveOrder;
+        const units = [];
+        for (const id of reconcileWidgetOrder(rawOrder)) {
+            const unit = (id === 'top_clients' || id === 'voice_memos') ? 'clients_memos' : id;
+            if (!units.includes(unit)) units.push(unit);
+        }
+        // Complète avec toute unité de rendu manquante (robustesse).
+        for (const id of DASHBOARD_WIDGET_IDS) if (!units.includes(id)) units.push(id);
+        // « kpi_strip » toujours en tête.
+        return ['kpi_strip', ...units.filter(id => id !== 'kpi_strip')];
+    }, [rawOrder, adaptiveOrder]);
 
     const toggleStats = () => {
         setStatsExpanded(prev => {
