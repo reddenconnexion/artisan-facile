@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -93,6 +93,14 @@ const DevisForm = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
+    // Vue « aperçu PDF » d'un devis finalisé : à l'ouverture d'un document déjà
+    // finalisé (envoyé, signé, facturé, payé…), on présente d'abord le PDF pour
+    // une vue d'ensemble claire, avec un bouton « Modifier » vers l'éditeur.
+    const [pdfOverviewMode, setPdfOverviewMode] = useState(false);
+    const [overviewPdfUrl, setOverviewPdfUrl] = useState(null);
+    const [overviewLoading, setOverviewLoading] = useState(false);
+    const [overviewError, setOverviewError] = useState(null);
+    const overviewInitedRef = useRef(false);
     const fileInputRef = useRef(null);
     // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
     // without the actual user.id or quote id changing.
@@ -2653,6 +2661,80 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
+    // Génère (en mémoire) le PDF affiché dans la vue « aperçu » d'un devis finalisé.
+    // Réutilise la génération client — le rendu est identique à ce que voit le client.
+    const generateOverviewPdf = async () => {
+        // Document externe : on affiche directement le PDF importé, pas de génération.
+        if (formData.is_external) return;
+        if (!userProfile) {
+            fetchUserProfile();
+            return;
+        }
+        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+        if (!selectedClient) {
+            setOverviewError('client');
+            return;
+        }
+        setOverviewLoading(true);
+        setOverviewError(null);
+        try {
+            const isInvoice = formData.type === 'invoice';
+            const devisData = {
+                id: isEditing ? id : 'PROVISOIRE',
+                ...formData,
+                items: formData.items.map(i => ({
+                    ...i,
+                    quantity: parseFloat(i.quantity) || 0,
+                    price: parseFloat(i.price) || 0,
+                })),
+                total_ht: subtotal,
+                total_tva: tva,
+                total_ttc: total,
+                include_tva: formData.include_tva,
+                has_material_deposit: formData.has_material_deposit,
+                amendment_details: formData.amendment_details || {},
+            };
+            const url = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
+            if (!url) throw new Error("La génération du PDF n'a retourné aucune URL");
+            setOverviewPdfUrl(prev => {
+                if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                return url;
+            });
+        } catch (error) {
+            console.error('Error generating overview PDF:', error);
+            setOverviewError(error.message || 'unknown');
+        } finally {
+            setOverviewLoading(false);
+        }
+    };
+
+    // À l'ouverture d'un devis déjà finalisé (statut ≠ brouillon), on bascule
+    // automatiquement en vue « aperçu PDF ». On ne le fait qu'une seule fois pour
+    // ne pas repiéger l'utilisateur qui a cliqué « Modifier ».
+    useEffect(() => {
+        if (overviewInitedRef.current) return;
+        if (!isEditing || !dataLoaded) return;
+        overviewInitedRef.current = true;
+        if (formData.status && formData.status !== 'draft') {
+            setPdfOverviewMode(true);
+        }
+    }, [isEditing, dataLoaded, formData.status]);
+
+    // Génère le PDF dès qu'on entre en vue aperçu (une fois les données prêtes).
+    useEffect(() => {
+        if (!pdfOverviewMode) return;
+        if (formData.is_external) return;              // PDF externe : affiché tel quel
+        if (overviewPdfUrl || overviewLoading) return; // déjà généré / en cours
+        if (!dataLoaded || !userProfile) return;       // attendre les données
+        generateOverviewPdf();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pdfOverviewMode, dataLoaded, userProfile, clients]);
+
+    // Libère l'URL blob de l'aperçu au démontage.
+    useEffect(() => () => {
+        if (overviewPdfUrl && overviewPdfUrl.startsWith('blob:')) URL.revokeObjectURL(overviewPdfUrl);
+    }, [overviewPdfUrl]);
+
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
             title: 'Convertir en facture',
@@ -2892,6 +2974,155 @@ Conditions de règlement : Paiement à réception de facture.`
                     <Loader2 className="w-8 h-8 animate-spin" />
                     <span className="text-sm">Chargement du document...</span>
                 </div>
+            </div>
+        );
+    }
+
+    // ─── Vue « aperçu PDF » d'un devis finalisé ───────────────────────────────
+    // Présente le document tel que le client le voit, avec accès direct à
+    // l'éditeur via « Modifier ». Le PDF affiché est soit le document importé
+    // (mode externe), soit le PDF généré à la volée.
+    if (isEditing && dataLoaded && pdfOverviewMode) {
+        const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
+        const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'amendment' ? 'AVT' : 'DEV');
+        const docRef = `${refPrefix} #${formData.quote_number || id}`;
+        const statusMeta = {
+            draft: { label: 'Brouillon', cls: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
+            sent: { label: 'Envoyé', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+            accepted: { label: 'Signé', cls: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+            rejected: { label: 'Refusé', cls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+            refused: { label: 'Refusé', cls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+            billed: { label: 'Facturé', cls: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+            paid: { label: 'Payé', cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' },
+            postponed: { label: 'Reporté', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+        }[formData.status] || null;
+
+        const goToEditor = () => setPdfOverviewMode(false);
+
+        return (
+            <div className="max-w-5xl mx-auto pb-12 animate-slide-in-right">
+                {/* Barre d'outils */}
+                <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button
+                            onClick={handleBack}
+                            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex-shrink-0"
+                        >
+                            <ArrowLeft className="w-5 h-5 sm:mr-2" />
+                            <span className="hidden sm:inline">Retour</span>
+                        </button>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">{docRef}</h1>
+                                {statusMeta && (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusMeta.cls}`}>
+                                        {statusMeta.label}
+                                    </span>
+                                )}
+                            </div>
+                            {(formData.title || formData.client_name) && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {[formData.client_name, formData.title].filter(Boolean).join(' — ')}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {overviewSrc && (
+                            <a
+                                href={overviewSrc}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hidden sm:flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                title="Ouvrir dans un nouvel onglet"
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                            </a>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => handleDownloadPDF(formData.status === 'accepted')}
+                            className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            title="Télécharger le PDF"
+                        >
+                            <Download className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Télécharger</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={goToEditor}
+                            className="flex items-center px-3 sm:px-4 py-2 text-white bg-ios rounded-lg hover:bg-ios-dark shadow-sm"
+                            title="Ouvrir l'éditeur pour modifier ce document"
+                        >
+                            <Pencil className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Modifier</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Visionneuse PDF */}
+                <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px]">
+                    {overviewSrc ? (
+                        <iframe
+                            src={overviewSrc}
+                            title="Aperçu du document"
+                            className="w-full h-full border-0"
+                            style={{ background: '#525659' }}
+                        />
+                    ) : overviewError ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
+                            <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    Impossible d'afficher l'aperçu PDF
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
+                                    {overviewError === 'client'
+                                        ? "Le client associé est introuvable. Ouvrez l'éditeur pour vérifier le document."
+                                        : "Une erreur est survenue pendant la génération du PDF."}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {overviewError !== 'client' && (
+                                    <button
+                                        onClick={() => { setOverviewError(null); generateOverviewPdf(); }}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />
+                                        Réessayer
+                                    </button>
+                                )}
+                                <button
+                                    onClick={goToEditor}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                    Ouvrir l'éditeur
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
+                            <Loader2 className="w-8 h-8 animate-spin" />
+                            <span className="text-sm">Génération de l'aperçu…</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Repli mobile : ouvrir le PDF en plein écran */}
+                {overviewSrc && (
+                    <div className="mt-3 text-center sm:hidden">
+                        <a
+                            href={overviewSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg"
+                        >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Ouvrir en plein écran
+                        </a>
+                    </div>
+                )}
             </div>
         );
     }
@@ -3148,6 +3379,19 @@ Conditions de règlement : Paiement à réception de facture.`
                     {!isEditing && (
                         <AutoSaveIndicator lastSaved={lastSaved} saving={saving} />
                     )}
+                    {/* Retour à la vue aperçu PDF (documents finalisés) */}
+                    {isEditing && formData.status && formData.status !== 'draft' && (
+                        <button
+                            type="button"
+                            onClick={() => setPdfOverviewMode(true)}
+                            className="flex items-center px-3 sm:px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                            title="Revenir à l'aperçu PDF"
+                        >
+                            <Eye className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Aperçu</span>
+                        </button>
+                    )}
+
                     {/* Primary Actions */}
                     <button
                         type="button"
