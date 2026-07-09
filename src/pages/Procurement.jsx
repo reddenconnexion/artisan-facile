@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
     Check, CheckCircle, RotateCcw, Loader2, ExternalLink,
-    Truck, Mic, Filter, FileText,
+    Truck, Mic, Filter, FileText, BookOpen,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../hooks/useDataCache';
 import { Button } from '../components/ui';
+import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 
 const CATEGORY_META = {
     materiel: { label: 'Matériel', Icon: Package, iconClass: 'text-blue-500' },
@@ -31,6 +33,7 @@ const STATUS_TABS = [
 
 const Procurement = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('pending');
@@ -40,6 +43,11 @@ const Procurement = () => {
     const [newDesc, setNewDesc] = useState('');
     const [newQty, setNewQty] = useState(1);
     const [newCategory, setNewCategory] = useState('materiel');
+    const [libraryItems, setLibraryItems] = useState([]);
+    const [cataloguing, setCataloguing] = useState({});
+
+    const { data: profile } = useUserProfile();
+    const coefficient = parseFloat(profile?.default_margin_coefficient) || 0;
 
     const fetchItems = async () => {
         if (!user) return;
@@ -60,10 +68,67 @@ const Procurement = () => {
         }
     };
 
+    const fetchLibrary = async () => {
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('price_library')
+            .select('id, user_id, description, price, buying_price, supplier, unit')
+            .eq('user_id', user.id);
+        if (!error) setLibraryItems(data || []);
+    };
+
     useEffect(() => {
-        if (user) fetchItems();
+        if (user) { fetchItems(); fetchLibrary(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
+
+    // Répertorie du matériel dans la Bibliothèque de Prix (BPU) : le prix
+    // d'achat constaté, le prix de vente et le fournisseur remontent au catalogue
+    // pour préremplir les prochains devis. Sans doublon (upsert par description).
+    // `silent` : pas de toast si rien n'était répertoriable (déclenchement auto).
+    const catalogToLibrary = async (list, { silent = false } = {}) => {
+        if (!user) return;
+        const catalogable = (list || []).filter(isCatalogable);
+        if (catalogable.length === 0) {
+            if (!silent) toast.info("Renseignez d'abord un prix d'achat ou de vente pour répertorier");
+            return;
+        }
+        const { toInsert, toUpdate } = buildCatalogUpsert(catalogable, libraryItems, user.id, { coefficient });
+        if (toInsert.length === 0 && toUpdate.length === 0) {
+            if (!silent) toast.info('Déjà à jour dans la bibliothèque');
+            return;
+        }
+        try {
+            if (toInsert.length > 0) {
+                const { error } = await supabase.from('price_library').insert(toInsert);
+                if (error) throw error;
+            }
+            if (toUpdate.length > 0) {
+                const { error } = await supabase.from('price_library').upsert(toUpdate);
+                if (error) throw error;
+            }
+            const n = toInsert.length + toUpdate.length;
+            toast.success(
+                `${n} article${n > 1 ? 's' : ''} répertorié${n > 1 ? 's' : ''} dans la bibliothèque`,
+                {
+                    action: {
+                        label: 'Voir',
+                        onClick: () => navigate('/app/library'),
+                    },
+                }
+            );
+            fetchLibrary();
+        } catch (err) {
+            console.error('Erreur mise au catalogue:', err);
+            if (!silent) toast.error('Impossible de répertorier dans la bibliothèque');
+        }
+    };
+
+    const catalogOne = async (item) => {
+        setCataloguing(prev => ({ ...prev, [item.id]: true }));
+        await catalogToLibrary([item]);
+        setCataloguing(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+    };
 
     const counts = useMemo(() => ({
         pending: items.filter(i => i.status === 'pending').length,
@@ -120,6 +185,12 @@ const Procurement = () => {
         if (error) {
             toast.error('Mise à jour impossible');
             setItems(previous);
+            return;
+        }
+        // Un matériel reçu est un achat confirmé : on le répertorie au catalogue.
+        if (newStatus === 'received') {
+            const item = previous.find(i => i.id === id);
+            if (item) catalogToLibrary([item], { silent: true });
         }
     };
 
@@ -142,6 +213,10 @@ const Procurement = () => {
             setItems(previous);
         } else {
             toast.success(`${ids.length} article${ids.length > 1 ? 's' : ''} mis à jour`);
+            if (newStatus === 'received') {
+                const list = previous.filter(i => ids.includes(i.id));
+                catalogToLibrary(list, { silent: true });
+            }
         }
     };
 
@@ -429,6 +504,19 @@ const Procurement = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
+                                                {isCatalogable(item) && (
+                                                    <button
+                                                        onClick={() => catalogOne(item)}
+                                                        disabled={!!cataloguing[item.id]}
+                                                        title="Répertorier dans la Bibliothèque de Prix"
+                                                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+                                                        aria-label="Répertorier dans la bibliothèque"
+                                                    >
+                                                        {cataloguing[item.id]
+                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                            : <BookOpen className="w-4 h-4" />}
+                                                    </button>
+                                                )}
                                                 {item.status === 'pending' && (
                                                     <button
                                                         onClick={() => updateStatus(item.id, 'ordered')}

@@ -107,6 +107,37 @@ describe('supplyEntries', () => {
         expect(supplyEntries([])).toEqual([]);
     });
 
+    it('reprend le prix de vente unitaire des lignes Matériel', () => {
+        const entries = supplyEntries([
+            { id: 30, type: 'material', description: 'Radiateur', quantity: 2, unit: 'u', price: 180, buying_price: 90 },
+        ]);
+        expect(entries[0].salePrice).toBe(180);
+        expect(entries[0].buyingPrice).toBe(90);
+    });
+
+    it('dérive le prix de vente des fournitures internes au prorata de leur coût', () => {
+        // Forfait vendu 300 € ; coût des fournitures = 100 (recveur) + 120 (6×20) = 220.
+        const entries = supplyEntries([
+            { id: 40, type: 'material', description: 'Douche', quantity: 1, price: 300,
+              components: [
+                  { id: 1, description: 'Receveur', quantity: 1, unit: 'u', buying_price: 100 },
+                  { id: 2, description: 'Carrelage', quantity: 6, unit: 'm2', buying_price: 20 },
+              ] },
+        ]);
+        // Receveur : 300 × 100 / 220 = 136,36 €/u
+        expect(entries[0].salePrice).toBeCloseTo(136.36, 2);
+        // Carrelage : 300 × 20 / 220 = 27,27 €/m2
+        expect(entries[1].salePrice).toBeCloseTo(27.27, 2);
+    });
+
+    it('laisse le prix de vente à null quand la ligne parente n\'a pas de prix', () => {
+        const entries = supplyEntries([
+            { id: 50, type: 'service', description: 'Forfait', quantity: 1,
+              components: [{ id: 1, description: 'Vis', quantity: 1, buying_price: 5 }] },
+        ]);
+        expect(entries[0].salePrice).toBeNull();
+    });
+
     it('remplace une ligne Matériel par ses fournitures internes quand elle en a', () => {
         const entries = supplyEntries([
             { id: 20, type: 'material', description: 'Tableau électrique équipé', quantity: 1, unit: 'u',
