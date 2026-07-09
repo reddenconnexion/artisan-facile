@@ -14,7 +14,7 @@ import Papa from 'papaparse';
 // de section est inséré à chaque changement de valeur — soit des lignes dont la
 // colonne Type vaut « section ».
 
-const HEADER_ALIASES = {
+export const HEADER_ALIASES = {
     description: ['description', 'désignation', 'designation', 'libellé', 'libelle', 'ouvrage', 'prestation', 'intitulé', 'intitule', 'nom'],
     quantity: ['quantité', 'quantite', 'qté', 'qte', 'qty', 'quantity'],
     unit: ['unité', 'unite', 'unit', 'u'],
