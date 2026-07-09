@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
     Check, CheckCircle, RotateCcw, Loader2, ExternalLink,
-    Truck, Mic, Filter, FileText, BookOpen,
+    Truck, Mic, Filter, FileText,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -44,7 +44,6 @@ const Procurement = () => {
     const [newQty, setNewQty] = useState(1);
     const [newCategory, setNewCategory] = useState('materiel');
     const [libraryItems, setLibraryItems] = useState([]);
-    const [cataloguing, setCataloguing] = useState({});
 
     const { data: profile } = useUserProfile();
     const coefficient = parseFloat(profile?.default_margin_coefficient) || 0;
@@ -122,12 +121,6 @@ const Procurement = () => {
             console.error('Erreur mise au catalogue:', err);
             if (!silent) toast.error('Impossible de répertorier dans la bibliothèque');
         }
-    };
-
-    const catalogOne = async (item) => {
-        setCataloguing(prev => ({ ...prev, [item.id]: true }));
-        await catalogToLibrary([item]);
-        setCataloguing(prev => { const next = { ...prev }; delete next[item.id]; return next; });
     };
 
     const counts = useMemo(() => ({
@@ -504,19 +497,6 @@ const Procurement = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                {isCatalogable(item) && (
-                                                    <button
-                                                        onClick={() => catalogOne(item)}
-                                                        disabled={!!cataloguing[item.id]}
-                                                        title="Répertorier dans la Bibliothèque de Prix"
-                                                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50"
-                                                        aria-label="Répertorier dans la bibliothèque"
-                                                    >
-                                                        {cataloguing[item.id]
-                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
-                                                            : <BookOpen className="w-4 h-4" />}
-                                                    </button>
-                                                )}
                                                 {item.status === 'pending' && (
                                                     <button
                                                         onClick={() => updateStatus(item.id, 'ordered')}
