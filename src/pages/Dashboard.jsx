@@ -38,6 +38,7 @@ import { useTestMode } from '../context/TestModeContext';
 
 import ActionableDashboard from '../components/ActionableDashboard';
 import DailyRelanceSuggestions from '../components/DailyRelanceSuggestions';
+import WorksitesWidget from '../components/WorksitesWidget';
 import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
 import WelcomeCard from '../components/WelcomeCard';
@@ -56,7 +57,7 @@ import { supabase } from '../utils/supabase';
 // « clients_memos » regroupe top_clients + voice_memos (grille 2 colonnes
 // indivisible). L'ordre effectif est ensuite adapté à l'usage, voir plus bas.
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'daily_relances', 'expiring_quotes', 'quick_actions', 'actionable',
+    'kpi_strip', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
@@ -65,6 +66,7 @@ const DASHBOARD_WIDGET_IDS = [
 // Un widget n'étant pas « visité » comme une route, on infère sa pertinence.
 const WIDGET_SCORE = {
     daily_relances:     (s) => (s['devis'] || 0) + 1, // priorité haute : action quotidienne
+    worksites:          (s) => s['chantiers'] || 0,
     expiring_quotes:    (s) => s['devis'] || 0,
     actionable:         (s) => s['devis'] || 0,
     recent_documents:   (s) => s['devis'] || 0,
@@ -772,6 +774,7 @@ const Dashboard = () => {
             ? <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
             : null,
         daily_relances: () => isVisible('daily_relances') ? <DailyRelanceSuggestions /> : null,
+        worksites: () => isVisible('worksites') ? <WorksitesWidget /> : null,
         expiring_quotes: () => isVisible('expiring_quotes')
             ? <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
             : null,
