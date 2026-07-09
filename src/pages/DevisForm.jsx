@@ -4483,11 +4483,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Appliquer la TVA (20%)
                                 </label>
                             </div>
-                            {!formData.include_tva && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 mb-4 text-right">
-                                    La mention « TVA non applicable, art. 293 B du CGI » sera ajoutée au PDF.
-                                </p>
-                            )}
                             <div className="flex items-center justify-end mb-4">
                                 <input
                                     type="checkbox"
