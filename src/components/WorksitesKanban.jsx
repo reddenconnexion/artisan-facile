@@ -118,7 +118,7 @@ const WorksitesKanban = () => {
             </div>
 
             {/* Colonnes — défilement horizontal, chaque colonne défile verticalement */}
-            <div className="flex gap-3 overflow-x-auto p-3">
+            <div className="flex gap-3 overflow-x-auto p-3" role="group" aria-label="Chantiers par étape">
                 {WORKSITE_STAGES.map(stage => {
                     const meta = COLUMN_META[stage.id];
                     const Icon = meta.icon;
