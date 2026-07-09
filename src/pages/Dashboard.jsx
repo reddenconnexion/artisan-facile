@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -308,17 +308,32 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                     onClick={() => navigate('/app/agenda')}
                 />
                 {nextEvent?.address && (
-                    <a
-                        href={`https://waze.com/ul?q=${encodeURIComponent(nextEvent.address)}&navigate=yes`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        title={`Naviguer vers ${nextEvent.address} avec Waze`}
-                        aria-label="Naviguer avec Waze"
-                        className="md:hidden absolute top-3 right-3 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
-                    >
-                        <Car className="w-4 h-4" />
-                    </a>
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        {/* Waze */}
+                        <a
+                            href={`https://waze.com/ul?q=${encodeURIComponent(nextEvent.address)}&navigate=yes`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Naviguer vers ${nextEvent.address} avec Waze`}
+                            aria-label="Naviguer avec Waze"
+                            className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                        >
+                            <Car className="w-4 h-4" />
+                        </a>
+                        {/* Google Maps */}
+                        <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextEvent.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Naviguer vers ${nextEvent.address} avec Google Maps`}
+                            aria-label="Naviguer avec Google Maps"
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                        >
+                            <MapPin className="w-4 h-4" />
+                        </a>
+                    </div>
                 )}
             </div>
         </div>
