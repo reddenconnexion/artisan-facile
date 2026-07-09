@@ -104,15 +104,26 @@ export const supplyEntries = (items) => {
                 buyingPrice: parseFloat(item.buying_price) || null,
             });
         }
+        // Les fournitures du chiffrage interne n'ont pas de prix de vente propre
+        // (elles sont vendues dans le forfait de leur ligne). On dérive donc un
+        // prix de vente unitaire au prorata du coût d'achat de chaque fourniture
+        // dans le total vendu de la ligne — repère utile au moment de commander.
+        const lineTotalSale = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1);
+        const compCost = componentsCost(item);
         components.forEach((c, ci) => {
+            const cQty = parseFloat(c.quantity) || 1;
+            const cBuy = parseFloat(c.buying_price) || 0;
+            const derivedSale = lineTotalSale > 0 && compCost > 0
+                ? Math.round((lineTotalSale * cBuy / compCost) * 100) / 100
+                : null;
             entries.push({
                 key: `comp:${lineId}:${c.id ?? ci}`,
                 description: c.description.trim(),
-                quantity: parseFloat(c.quantity) || 1,
+                quantity: cQty,
                 unit: c.unit || 'u',
                 context: (item.description || '').trim() || null,
-                salePrice: null,
-                buyingPrice: parseFloat(c.buying_price) || null,
+                salePrice: derivedSale,
+                buyingPrice: cBuy || null,
             });
         });
     });

@@ -16,6 +16,7 @@ const EMPTY_ITEM = {
     description: '',
     price: '',
     buying_price: '',
+    supplier: '',
     unit: 'unité',
     category: '',
     barcode: '',
@@ -165,6 +166,7 @@ const PriceLibrary = () => {
             description: item.description,
             price: item.price,
             buying_price: item.buying_price > 0 ? item.buying_price : '',
+            supplier: item.supplier || '',
             unit: item.unit,
             category: item.category || '',
             type: item.type || 'service',
@@ -199,6 +201,7 @@ const PriceLibrary = () => {
                         description: newItem.description,
                         price: parseFloat(newItem.price),
                         buying_price: parseFloat(newItem.buying_price) || 0,
+                        supplier: newItem.supplier?.trim() || null,
                         unit: newItem.unit,
                         category: newItem.category,
                         type: newItem.type || 'service',
@@ -216,7 +219,8 @@ const PriceLibrary = () => {
                         user_id: user.id,
                         ...newItem,
                         price: parseFloat(newItem.price),
-                        buying_price: parseFloat(newItem.buying_price) || 0
+                        buying_price: parseFloat(newItem.buying_price) || 0,
+                        supplier: newItem.supplier?.trim() || null
                     }]);
 
                 if (error) throw error;
@@ -255,7 +259,8 @@ const PriceLibrary = () => {
         if (item.description.toLowerCase().includes('acompte')) return false;
 
         return item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+            (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
     });
 
     return (
@@ -367,6 +372,7 @@ const PriceLibrary = () => {
                                         <td className="px-6 py-4 text-gray-900 dark:text-white font-medium">
                                             {item.description}
                                             <div className="flex flex-col gap-0.5 mt-1">
+                                                {item.supplier && <span className="text-xs text-gray-500 dark:text-gray-400">Fournisseur : {item.supplier}</span>}
                                                 {item.reference && <span className="text-xs text-blue-600 font-mono">Réf: {item.reference}</span>}
                                                 {item.barcode && <span className="text-xs text-gray-400 font-mono">EAN: {item.barcode}</span>}
                                             </div>
@@ -497,7 +503,7 @@ const PriceLibrary = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         value={newItem.buying_price}
                                         onChange={e => handleBuyingPriceChange(e.target.value)}
-                                        placeholder="Fournisseur"
+                                        placeholder="0,00"
                                     />
                                 </div>
                                 <div>
@@ -535,6 +541,16 @@ const PriceLibrary = () => {
                                     </p>
                                 );
                             })()}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fournisseur</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                    value={newItem.supplier || ''}
+                                    onChange={e => setNewItem({ ...newItem, supplier: e.target.value })}
+                                    placeholder="Ex: Rexel, Point P…"
+                                />
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catégorie</label>

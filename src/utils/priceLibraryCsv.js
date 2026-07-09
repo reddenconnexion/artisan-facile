@@ -15,6 +15,7 @@ const CATALOG_ALIASES = {
     type: ['type', 'nature'],
     barcode: ['barcode', 'ean', 'code-barres', 'code barres', 'code-barre'],
     reference: ['référence', 'reference', 'réf', 'ref', 'référence fabricant', 'ref fabricant'],
+    supplier: ['fournisseur', 'supplier', 'fournisseurs'],
 };
 
 /**
@@ -104,6 +105,7 @@ export const mapImportedRows = (data, { coefficient = 0 } = {}) => {
             type: normalizeCatalogType(pick('type')),
             barcode: String(pick('barcode') ?? '').trim(),
             reference: String(pick('reference') ?? '').trim(),
+            supplier: String(pick('supplier') ?? '').trim(),
         });
     }
 
@@ -157,6 +159,7 @@ export const splitUpsert = (rows, existingItems, userId) => {
                 category: row.category,
                 barcode: row.barcode,
                 reference: row.reference,
+                ...(row.supplier ? { supplier: row.supplier } : {}),
                 ...(row.type ? { type: row.type } : {}),
             });
             continue;
@@ -172,7 +175,7 @@ export const splitUpsert = (rows, existingItems, userId) => {
             updated.buying_price = row.buying_price;
             changed = true;
         }
-        for (const field of ['unit', 'category', 'barcode', 'reference', 'type']) {
+        for (const field of ['unit', 'category', 'barcode', 'reference', 'supplier', 'type']) {
             if (row[field] && row[field] !== (existing[field] || '')) {
                 updated[field] = row[field];
                 changed = true;
@@ -197,5 +200,6 @@ export const priceLibraryCsvColumns = [
     { key: 'price', label: 'Prix' },
     { key: 'unit', label: 'Unité' },
     { key: 'category', label: 'Catégorie' },
+    { key: 'supplier', label: 'Fournisseur' },
     { key: 'type', label: 'Type', format: (v) => (v === 'material' ? 'Matériel' : "Main d'oeuvre") },
 ];
