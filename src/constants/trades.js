@@ -134,17 +134,17 @@ export const TRADE_CONFIG = {
     }
 };
 
-export const getTradeConfig = (tradeKey) => {
-    // Handle potential English legacy keys maps to French
-    const map = {
-        'plumber': 'plombier',
-        'electrician': 'electricien',
-        'painter': 'peintre',
-        'mason': 'macon',
-        'carpenter': 'menuisier', // Or charpentier? Traditionally carpenter is Menuisier/Charpentier. Let's map to Menuisier as standard wood worker.
-        'landscaper': 'paysagiste'
-    };
+// Handle potential English legacy keys maps to French
+export const LEGACY_TRADE_KEY_MAP = {
+    'plumber': 'plombier',
+    'electrician': 'electricien',
+    'painter': 'peintre',
+    'mason': 'macon',
+    'carpenter': 'menuisier', // Or charpentier? Traditionally carpenter is Menuisier/Charpentier. Let's map to Menuisier as standard wood worker.
+    'landscaper': 'paysagiste'
+};
 
-    const key = map[tradeKey] || tradeKey;
+export const getTradeConfig = (tradeKey) => {
+    const key = LEGACY_TRADE_KEY_MAP[tradeKey] || tradeKey;
     return TRADE_CONFIG[key] || TRADE_CONFIG.general;
 };

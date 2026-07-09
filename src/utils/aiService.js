@@ -5,6 +5,7 @@ import {
     extractJsonObject,
     parseQuoteResponse,
 } from './quoteValidation';
+import { SURVEY_AI_INSTRUCTION } from './surveyText';
 
 // Re-exported so callers that already import these from aiService keep working.
 export { toSafeNumber };
@@ -489,11 +490,18 @@ FORMAT JSON pur (sans markdown) :
  * Generates a quote from a site visit (voice notes + photos).
  * @param {string[]} voiceTranscripts - Transcriptions of voice notes
  * @param {string[]} photoAnalyses - Descriptions of photos from vision AI
- * @param {object} context - Optional context (hourlyRate, instructions)
+ * @param {object} context - Optional context (hourlyRate, instructions,
+ *   surveyText: relevé structuré issu de la trame de visite — traité comme
+ *   source prioritaire pour les quantités)
  * @returns {Promise<object>} { title, items, suggestions, estimated_duration, price_range, confidence }
  */
 export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
     const parts = [];
+    // La trame en premier : source la plus fiable pour les quantités, les
+    // notes vocales et photos viennent la compléter.
+    if (context.surveyText) {
+        parts.push('RELEVÉ STRUCTURÉ (trame de visite):\n' + context.surveyText);
+    }
     if (voiceTranscripts.length > 0) {
         parts.push('NOTES VOCALES:\n' + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
     }
@@ -508,6 +516,7 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     let extras = '';
     if (hourlyRate) extras += `\nTaux horaire MO: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS: ${instructions}`;
+    if (context.surveyText) extras += `\n${SURVEY_AI_INSTRUCTION}`;
 
     const userMessage = `VISITE CHANTIER:\n\n${combined}`;
     const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
