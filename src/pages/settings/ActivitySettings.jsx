@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban, Repeat } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban, Repeat, Target } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 import { DismissibleHelp } from '../../components/ui';
 
@@ -10,6 +10,7 @@ const ActivitySettings = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [revenueGoal, setRevenueGoal] = useState(''); // objectif de CA mensuel (profiles), '' = non défini
 
     // Default settings
     const [settings, setSettings] = useState({
@@ -45,6 +46,13 @@ const ActivitySettings = () => {
 
             // However, Supabase auth.users metadata is editable.
             // Let's check if we have them in metadata, otherwise defaults.
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('monthly_revenue_goal')
+                .eq('id', user.id)
+                .single();
+            if (profile?.monthly_revenue_goal) setRevenueGoal(String(profile.monthly_revenue_goal));
+
             const meta = user.user_metadata?.activity_settings;
 
             if (meta) {
@@ -79,6 +87,14 @@ const ActivitySettings = () => {
             });
 
             if (error) throw error;
+
+            const goalValue = parseFloat(String(revenueGoal).replace(',', '.'));
+            const { error: goalError } = await supabase
+                .from('profiles')
+                .update({ monthly_revenue_goal: goalValue > 0 ? goalValue : null })
+                .eq('id', user.id);
+            if (goalError) throw goalError;
+
             toast.success("Préférences enregistrées !");
         } catch (error) {
             console.error('Error saving settings:', error);
@@ -244,6 +260,33 @@ const ActivitySettings = () => {
                         💡 Le niveau <strong>Confirmé</strong> respecte les activations ci-dessous. Les autres niveaux ont une sélection prédéfinie.
                     </p>
                 </DismissibleHelp>
+            </div>
+
+            {/* Objectif de CA mensuel (anneau du Dashboard) */}
+            <div className="mb-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <Target className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">Objectif de CA mensuel</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-3">
+                            Affiche un anneau de progression sur le tableau de bord. Laissez vide pour le désactiver.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                value={revenueGoal}
+                                onChange={(e) => setRevenueGoal(e.target.value)}
+                                placeholder="ex : 8000"
+                                className="w-36 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                            />
+                            <span className="text-sm text-gray-400">€ / mois</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
