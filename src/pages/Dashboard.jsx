@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, Pencil, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -247,8 +247,82 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
     );
 };
 
+// Petite modale pour définir / modifier l'objectif de CA mensuel directement
+// depuis le tableau de bord (raccourci vers le champ des réglages).
+const GoalEditorModal = ({ current, onClose, onSaved }) => {
+    const { user } = useAuth();
+    const [draft, setDraft] = useState(current > 0 ? String(current) : '');
+    const [saving, setSaving] = useState(false);
+
+    const save = async (e) => {
+        e.preventDefault();
+        const value = parseFloat(String(draft).replace(',', '.'));
+        const goal = value > 0 ? value : null; // champ vidé => on désactive l'anneau
+        setSaving(true);
+        const { error } = await supabase
+            .from('profiles')
+            .update({ monthly_revenue_goal: goal })
+            .eq('id', user.id);
+        setSaving(false);
+        if (error) {
+            toast.error("Impossible d'enregistrer l'objectif");
+            return;
+        }
+        onSaved(goal);
+        onClose();
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={onClose}
+        >
+            <form
+                onSubmit={save}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-xl border border-gray-200/70 dark:border-white/10 p-5"
+            >
+                <div className="flex items-center gap-2.5 mb-1">
+                    <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30">
+                        <Target size={18} className="text-[#007AFF]" />
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">Objectif de CA mensuel</h3>
+                    <button type="button" onClick={onClose} className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                        <X size={18} />
+                    </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    Affiche un anneau de progression sur votre CA du mois. Laissez vide pour le désactiver.
+                </p>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        autoFocus
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        placeholder="ex : 8000"
+                        className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/40"
+                    />
+                    <span className="text-sm text-gray-400">€ / mois</span>
+                </div>
+                <div className="flex justify-end gap-2 mt-5">
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">
+                        Annuler
+                    </button>
+                    <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#007AFF] rounded-lg hover:opacity-90 disabled:opacity-50">
+                        {saving ? 'Enregistrement...' : 'Enregistrer'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
 const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const { user } = useAuth();
+    const [showGoalModal, setShowGoalModal] = useState(false);
     const now = new Date();
     const thisMonthStart = startOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
@@ -336,24 +410,47 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <KpiCard
-                index={0}
-                rawValue={caThisMonth}
-                formatFn={fmtEur}
-                icon={TrendingUp}
-                iconBg="bg-green-100 dark:bg-green-900/30"
-                iconColor="text-green-600 dark:text-green-400"
-                value={fmtEur(caThisMonth)}
-                label={`CA ${format(now, 'MMMM', { locale: fr })}`}
-                sub={monthlyGoal > 0
-                    ? (goalReached
-                        ? `Objectif ${fmtEur(monthlyGoal)} atteint 🎉`
-                        : `${Math.round(goalPct * 100)}% de l'objectif (${fmtEur(monthlyGoal)})`)
-                    : (caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
-                trend={caTrend}
-                ring={monthlyGoal > 0 ? { pct: goalPct, color: goalReached ? '#34C759' : '#007AFF' } : undefined}
-                onClick={() => navigate('/app/accounting')}
-            />
+            {showGoalModal && (
+                <GoalEditorModal
+                    current={monthlyGoal}
+                    onClose={() => setShowGoalModal(false)}
+                    onSaved={(g) => setMonthlyGoal(g)}
+                />
+            )}
+            <div className="relative flex">
+                <KpiCard
+                    index={0}
+                    rawValue={caThisMonth}
+                    formatFn={fmtEur}
+                    icon={TrendingUp}
+                    iconBg="bg-green-100 dark:bg-green-900/30"
+                    iconColor="text-green-600 dark:text-green-400"
+                    value={fmtEur(caThisMonth)}
+                    label={`CA ${format(now, 'MMMM', { locale: fr })}`}
+                    sub={monthlyGoal > 0
+                        ? (goalReached
+                            ? `Objectif ${fmtEur(monthlyGoal)} atteint 🎉`
+                            : `${Math.round(goalPct * 100)}% de l'objectif (${fmtEur(monthlyGoal)})`)
+                        : (caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
+                    trend={caTrend}
+                    ring={monthlyGoal > 0 ? { pct: goalPct, color: goalReached ? '#34C759' : '#007AFF' } : undefined}
+                    onClick={() => navigate('/app/accounting')}
+                />
+                {/* Raccourci direct pour définir / modifier l'objectif */}
+                <button
+                    onClick={() => setShowGoalModal(true)}
+                    title={monthlyGoal > 0 ? "Modifier l'objectif" : "Définir un objectif de CA"}
+                    className={`absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full font-medium transition-colors ${
+                        monthlyGoal > 0
+                            ? 'p-1.5 text-gray-400 hover:text-[#007AFF] hover:bg-[#007AFF]/10'
+                            : 'px-2 py-1 text-[11px] text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20'
+                    }`}
+                >
+                    {monthlyGoal > 0
+                        ? <Pencil size={13} />
+                        : <><Target size={12} /> Objectif</>}
+                </button>
+            </div>
             <KpiCard
                 index={1}
                 rawValue={toRelanceCount}
