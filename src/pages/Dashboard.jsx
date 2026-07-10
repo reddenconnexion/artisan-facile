@@ -51,14 +51,13 @@ import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
 import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import CashFlowForecast from '../components/CashFlowForecast';
-import MonthlyGoalRing from '../components/MonthlyGoalRing';
 import { supabase } from '../utils/supabase';
 
 // Ordre par défaut des widgets (à froid / repli). « kpi_strip » est épinglé.
 // « clients_memos » regroupe top_clients + voice_memos (grille 2 colonnes
 // indivisible). L'ordre effectif est ensuite adapté à l'usage, voir plus bas.
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'monthly_goal', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
+    'kpi_strip', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
@@ -66,7 +65,6 @@ const DASHBOARD_WIDGET_IDS = [
 // Score d'un widget = frecency d'une destination représentative de son domaine.
 // Un widget n'étant pas « visité » comme une route, on infère sa pertinence.
 const WIDGET_SCORE = {
-    monthly_goal:       (s) => s['accounting'] || 0,
     daily_relances:     (s) => (s['devis'] || 0) + 1, // priorité haute : action quotidienne
     worksites:          (s) => s['chantiers'] || 0,
     expiring_quotes:    (s) => s['devis'] || 0,
@@ -178,7 +176,46 @@ const TrendBadge = ({ deltaPercent }) => {
     );
 };
 
-const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn, trend }) => {
+// Petit anneau de progression (objectif) autour de l'icône d'un KpiCard.
+// ring = { pct: 0..1, color } — animé au montage, façon Apple Watch.
+const KPI_RING_R = 19;
+const KPI_RING_C = 2 * Math.PI * KPI_RING_R;
+
+const KpiIcon = ({ Icon, iconBg, iconColor, ring }) => {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const t = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(t);
+    }, []);
+
+    if (!ring) {
+        return (
+            <div className={`p-2 rounded-xl ${iconBg}`}>
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+            </div>
+        );
+    }
+
+    const offset = KPI_RING_C * (1 - (mounted ? ring.pct : 0));
+    return (
+        <div className="relative w-11 h-11 shrink-0">
+            <svg width="44" height="44" viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
+                <circle cx="22" cy="22" r={KPI_RING_R} fill="none" strokeWidth="4" className="stroke-gray-100 dark:stroke-white/10" />
+                <circle
+                    cx="22" cy="22" r={KPI_RING_R} fill="none"
+                    stroke={ring.color} strokeWidth="4" strokeLinecap="round"
+                    strokeDasharray={KPI_RING_C} strokeDashoffset={offset}
+                    style={{ transition: 'stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+            </div>
+        </div>
+    );
+};
+
+const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn, trend, ring }) => {
     const counted = useCountUp(typeof rawValue === 'number' ? rawValue : 0, 900);
     const displayValue = typeof rawValue === 'number' && formatFn ? formatFn(counted) : value;
     return (
@@ -192,9 +229,7 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
             style={{ animationDelay: `${index * 60}ms` }}
         >
             <div className="flex items-center justify-between mb-2.5">
-                <div className={`p-2 rounded-xl ${iconBg}`}>
-                    <Icon className={`w-4 h-4 ${iconColor}`} />
-                </div>
+                <KpiIcon Icon={Icon} iconBg={iconBg} iconColor={iconColor} ring={ring} />
                 {trend !== undefined && trend !== null ? (
                     <TrendBadge deltaPercent={trend} />
                 ) : urgent ? (
@@ -213,6 +248,7 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
 };
 
 const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
+    const { user } = useAuth();
     const now = new Date();
     const thisMonthStart = startOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
@@ -220,6 +256,34 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const caThisMonth = allQuotes
         .filter(q => q.status === 'paid' && new Date(q.date || q.created_at) >= thisMonthStart)
         .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
+
+    // Objectif de CA mensuel (profiles.monthly_revenue_goal) : quand il est
+    // défini, la carte « CA du mois » affiche un anneau de progression et
+    // fête l'objectif une fois par mois (renforcement discret, pas d'élément
+    // permanent en plus).
+    const [monthlyGoal, setMonthlyGoal] = useState(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        supabase
+            .from('profiles')
+            .select('monthly_revenue_goal')
+            .eq('id', user.id)
+            .single()
+            .then(({ data }) => setMonthlyGoal(data?.monthly_revenue_goal ?? null));
+    }, [user?.id]);
+
+    const goalPct = monthlyGoal > 0 ? Math.min(caThisMonth / monthlyGoal, 1) : 0;
+    const goalReached = monthlyGoal > 0 && caThisMonth >= monthlyGoal;
+
+    useEffect(() => {
+        if (!goalReached) return;
+        const key = `goal_celebrated_${format(now, 'yyyy-MM')}`;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, '1');
+        toast.success('Objectif du mois atteint 🎉', {
+            description: `${fmtEur(caThisMonth)} encaissés ce mois-ci.`,
+        });
+    }, [goalReached, caThisMonth]);
 
     const caLastMonth = allQuotes
         .filter(q => {
@@ -281,8 +345,13 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 iconColor="text-green-600 dark:text-green-400"
                 value={fmtEur(caThisMonth)}
                 label={`CA ${format(now, 'MMMM', { locale: fr })}`}
-                sub={caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois'}
+                sub={monthlyGoal > 0
+                    ? (goalReached
+                        ? `Objectif ${fmtEur(monthlyGoal)} atteint 🎉`
+                        : `${Math.round(goalPct * 100)}% de l'objectif (${fmtEur(monthlyGoal)})`)
+                    : (caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
                 trend={caTrend}
+                ring={monthlyGoal > 0 ? { pct: goalPct, color: goalReached ? '#34C759' : '#007AFF' } : undefined}
                 onClick={() => navigate('/app/accounting')}
             />
             <KpiCard
@@ -808,7 +877,6 @@ const Dashboard = () => {
         kpi_strip: () => isVisible('kpi_strip')
             ? <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
             : null,
-        monthly_goal: () => isVisible('monthly_goal') ? <MonthlyGoalRing allQuotes={allQuotes} user={user} /> : null,
         daily_relances: () => isVisible('daily_relances') ? <DailyRelanceSuggestions /> : null,
         worksites: () => isVisible('worksites') ? <WorksitesKanban /> : null,
         expiring_quotes: () => isVisible('expiring_quotes')
