@@ -6,6 +6,7 @@ import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, 
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui';
+import AchievementsCard from '../components/AchievementsCard';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
 import { DEFAULT_QUOTE_PROMPT } from '../utils/aiService';
@@ -1083,6 +1084,9 @@ const Profile = () => {
                     </Button>
                 </div>
             </form >
+
+            {/* Jalons de maîtrise (gamification discrète) */}
+            <AchievementsCard />
 
             {/* Notifications Push */}
             <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800/40 overflow-hidden">

@@ -17,6 +17,7 @@ import { isAdmin } from '../constants/admin';
 
 import { JOB_LIBRARIES } from '../constants/jobLibraries';
 import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
+import { useAchievements } from '../hooks/useAchievements';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount, useNewFeedbackCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTrackUsage, useFrequentShortcuts } from '../hooks/useUsageTracking';
@@ -35,6 +36,7 @@ const Layout = () => {
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
+  useAchievements({ notify: true }); // toasts discrets au déblocage des jalons
   const newReceivedCount = useNewReceivedInvoicesCount();
   const unreadPortalMessages = useUnreadPortalMessagesCount();
   const newFeedbackCount = useNewFeedbackCount();
