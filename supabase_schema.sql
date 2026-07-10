@@ -4,7 +4,8 @@ create table profiles (
   email text,
   full_name text,
   avatar_url text,
-  updated_at timestamp with time zone
+  updated_at timestamp with time zone,
+  monthly_revenue_goal numeric -- objectif de CA mensuel (anneau du Dashboard), NULL = non défini
 );
 
 -- Set up Row Level Security (RLS)

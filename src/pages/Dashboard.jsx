@@ -51,13 +51,14 @@ import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
 import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import CashFlowForecast from '../components/CashFlowForecast';
+import MonthlyGoalRing from '../components/MonthlyGoalRing';
 import { supabase } from '../utils/supabase';
 
 // Ordre par défaut des widgets (à froid / repli). « kpi_strip » est épinglé.
 // « clients_memos » regroupe top_clients + voice_memos (grille 2 colonnes
 // indivisible). L'ordre effectif est ensuite adapté à l'usage, voir plus bas.
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
+    'kpi_strip', 'monthly_goal', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
@@ -65,6 +66,7 @@ const DASHBOARD_WIDGET_IDS = [
 // Score d'un widget = frecency d'une destination représentative de son domaine.
 // Un widget n'étant pas « visité » comme une route, on infère sa pertinence.
 const WIDGET_SCORE = {
+    monthly_goal:       (s) => s['accounting'] || 0,
     daily_relances:     (s) => (s['devis'] || 0) + 1, // priorité haute : action quotidienne
     worksites:          (s) => s['chantiers'] || 0,
     expiring_quotes:    (s) => s['devis'] || 0,
@@ -806,6 +808,7 @@ const Dashboard = () => {
         kpi_strip: () => isVisible('kpi_strip')
             ? <KpiStrip allQuotes={allQuotes} navigate={navigate} nextEvent={nextEvent} />
             : null,
+        monthly_goal: () => isVisible('monthly_goal') ? <MonthlyGoalRing allQuotes={allQuotes} user={user} /> : null,
         daily_relances: () => isVisible('daily_relances') ? <DailyRelanceSuggestions /> : null,
         worksites: () => isVisible('worksites') ? <WorksitesKanban /> : null,
         expiring_quotes: () => isVisible('expiring_quotes')
