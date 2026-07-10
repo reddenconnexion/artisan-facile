@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, Pencil, X } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -215,7 +215,7 @@ const KpiIcon = ({ Icon, iconBg, iconColor, ring }) => {
     );
 };
 
-const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onClick, index = 0, rawValue, formatFn, trend, ring }) => {
+const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, subClassName, urgent, onClick, index = 0, rawValue, formatFn, trend, ring }) => {
     const counted = useCountUp(typeof rawValue === 'number' ? rawValue : 0, 900);
     const displayValue = typeof rawValue === 'number' && formatFn ? formatFn(counted) : value;
     return (
@@ -242,7 +242,7 @@ const KpiCard = ({ icon: Icon, iconBg, iconColor, value, label, sub, urgent, onC
                 {displayValue}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
-            {sub && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{sub}</p>}
+            {sub && <p className={`text-[11px] mt-0.5 truncate ${subClassName || 'text-gray-400 dark:text-gray-500'}`}>{sub}</p>}
         </button>
     );
 };
@@ -432,24 +432,29 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                             ? `Objectif ${fmtEur(monthlyGoal)} atteint 🎉`
                             : `${Math.round(goalPct * 100)}% de l'objectif (${fmtEur(monthlyGoal)})`)
                         : (caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
+                    subClassName={monthlyGoal > 0 ? 'text-[#007AFF] dark:text-[#0a84ff] underline decoration-dotted underline-offset-2' : undefined}
                     trend={caTrend}
                     ring={monthlyGoal > 0 ? { pct: goalPct, color: goalReached ? '#34C759' : '#007AFF' } : undefined}
                     onClick={() => navigate('/app/accounting')}
                 />
-                {/* Raccourci direct pour définir / modifier l'objectif */}
-                <button
-                    onClick={() => setShowGoalModal(true)}
-                    title={monthlyGoal > 0 ? "Modifier l'objectif" : "Définir un objectif de CA"}
-                    className={`absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full font-medium transition-colors ${
-                        monthlyGoal > 0
-                            ? 'p-1.5 text-gray-400 hover:text-[#007AFF] hover:bg-[#007AFF]/10'
-                            : 'px-2 py-1 text-[11px] text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20'
-                    }`}
-                >
-                    {monthlyGoal > 0
-                        ? <Pencil size={13} />
-                        : <><Target size={12} /> Objectif</>}
-                </button>
+                {/* Raccourci direct : objectif défini => le sous-texte (montant) est
+                    cliquable ; sinon, pastille pour en définir un. */}
+                {monthlyGoal > 0 ? (
+                    <button
+                        onClick={() => setShowGoalModal(true)}
+                        title="Modifier l'objectif"
+                        aria-label="Modifier l'objectif de CA"
+                        className="absolute left-3 right-3 bottom-2.5 h-5"
+                    />
+                ) : (
+                    <button
+                        onClick={() => setShowGoalModal(true)}
+                        title="Définir un objectif de CA"
+                        className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
+                    >
+                        <Target size={12} /> Objectif
+                    </button>
+                )}
             </div>
             <KpiCard
                 index={1}
