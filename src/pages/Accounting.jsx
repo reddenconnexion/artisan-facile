@@ -11,7 +11,7 @@ import AccountingAdvisor from '../components/AccountingAdvisor';
 import { DismissibleHelp } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
-import { computeNetIncome, estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE } from '../utils/netIncome';
+import { computeNetIncome, estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -122,6 +122,7 @@ const Accounting = () => {
   const { invalidateProfile } = useInvalidateCache();
   const [netMarginRate, setNetMarginRate] = useState(String(Math.round(DEFAULT_MATERIAL_MARGIN_RATE * 100)));
   const [netTaxMethod, setNetTaxMethod] = useState('versement_liberatoire');
+  const [netTmi, setNetTmi] = useState(DEFAULT_TMI);
   const [netTaxOverride, setNetTaxOverride] = useState('');
   const [savingNetPrefs, setSavingNetPrefs] = useState(false);
 
@@ -131,6 +132,7 @@ const Accounting = () => {
     if (!p) return;
     if (p.material_margin_rate != null) setNetMarginRate(String(Math.round(p.material_margin_rate * 100)));
     if (p.income_tax_method) setNetTaxMethod(p.income_tax_method);
+    if (p.income_tax_tmi != null) setNetTmi(p.income_tax_tmi);
   }, [profile]);
 
   // Charges professionnelles fixes (business_charges) pour la déduction du net.
@@ -321,6 +323,7 @@ const Accounting = () => {
       caMateriel: effectiveCaVente,
       activityType,
       method: netTaxMethod,
+      tmi: netTmi,
     });
     const incomeTax = netTaxOverride.trim() !== '' ? (parseFloat(netTaxOverride) || 0) : estimatedTax;
     const detail = computeNetIncome({
@@ -337,7 +340,7 @@ const Accounting = () => {
       estimatedTax,
       isMicro: artisanStatus === 'micro_entreprise',
     };
-  }, [netMarginRate, businessCharges, selectedPeriod, calculateCharges, effectiveCaService, effectiveCaVente, activityType, netTaxMethod, netTaxOverride, artisanStatus]);
+  }, [netMarginRate, businessCharges, selectedPeriod, calculateCharges, effectiveCaService, effectiveCaVente, activityType, netTaxMethod, netTmi, netTaxOverride, artisanStatus]);
 
   const handleSaveNetPrefs = async () => {
     if (!user) return;
@@ -348,6 +351,7 @@ const Accounting = () => {
         ...prefs,
         material_margin_rate: (parseFloat(netMarginRate) || 0) / 100,
         income_tax_method: netTaxMethod,
+        income_tax_tmi: netTmi,
       };
       const { error } = await supabase.from('profiles').update({ ai_preferences: nextPrefs }).eq('id', user.id);
       if (error) throw error;
@@ -1119,8 +1123,22 @@ const Accounting = () => {
                           className="text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-2 py-1"
                         >
                           <option value="versement_liberatoire">Versement libératoire</option>
-                          <option value="bareme">Barème (TMI 11 %)</option>
+                          <option value="bareme">Barème (impôt sur le revenu)</option>
                         </select>
+                        {netTaxMethod === 'bareme' && (
+                          <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            Ma tranche&nbsp;:
+                            <select
+                              value={netTmi}
+                              onChange={(e) => setNetTmi(parseFloat(e.target.value))}
+                              className="text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-2 py-1"
+                            >
+                              {TMI_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
                         <span className="relative inline-flex">
                           <input
                             type="number"
