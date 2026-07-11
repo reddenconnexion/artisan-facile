@@ -848,6 +848,7 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
+    const [showTooltip, setShowTooltip] = useState(false);
 
     // Calculate stats specifically for this card's localDate
     const stats = useMemo(() => calculateStats(allQuotes, localDate, materialMarginRate), [allQuotes, localDate, materialMarginRate]);
@@ -886,10 +887,23 @@ const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass,
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</span>
                         {tooltip && (
-                            <HelpCircle
-                                className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 cursor-help flex-shrink-0"
-                                title={tooltip}
-                            />
+                            <span className="relative flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setShowTooltip(v => !v); }}
+                                    onBlur={() => setShowTooltip(false)}
+                                    aria-label="Aide"
+                                    title={tooltip}
+                                    className="flex items-center text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400"
+                                >
+                                    <HelpCircle className="w-3.5 h-3.5 cursor-help" />
+                                </button>
+                                {showTooltip && (
+                                    <span className="absolute left-0 top-6 z-30 w-56 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-[11px] leading-snug p-2 shadow-lg">
+                                        {tooltip}
+                                    </span>
+                                )}
+                            </span>
                         )}
                         {/* Mini Navigation Controls in Title Area */}
                         {period !== 'lastYear' && (
