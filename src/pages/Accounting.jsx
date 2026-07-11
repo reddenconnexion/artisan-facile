@@ -1,13 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { useUserProfile, useQuotes } from '../hooks/useDataCache';
+import { useUserProfile, useQuotes, useInvalidateCache } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
-import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles, Wallet, Loader2 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import CopilotChat from '../components/CopilotChat';
 import AccountingAdvisor from '../components/AccountingAdvisor';
 import { DismissibleHelp } from '../components/ui';
+import { supabase } from '../utils/supabase';
+import { summarizeCharges } from '../utils/accountingAdvisor';
+import { computeNetIncome, estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE } from '../utils/netIncome';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -113,6 +117,36 @@ const Accounting = () => {
   // Pour activité mixte
   const [caVente, setCaVente] = useState('');
   const [caServices, setCaServices] = useState('');
+
+  // Revenu net : marge conservée sur le matériel (%) + méthode/override impôt.
+  const { invalidateProfile } = useInvalidateCache();
+  const [netMarginRate, setNetMarginRate] = useState(String(Math.round(DEFAULT_MATERIAL_MARGIN_RATE * 100)));
+  const [netTaxMethod, setNetTaxMethod] = useState('versement_liberatoire');
+  const [netTaxOverride, setNetTaxOverride] = useState('');
+  const [savingNetPrefs, setSavingNetPrefs] = useState(false);
+
+  // Synchroniser les préférences de revenu net depuis le profil.
+  useEffect(() => {
+    const p = profile?.ai_preferences;
+    if (!p) return;
+    if (p.material_margin_rate != null) setNetMarginRate(String(Math.round(p.material_margin_rate * 100)));
+    if (p.income_tax_method) setNetTaxMethod(p.income_tax_method);
+  }, [profile]);
+
+  // Charges professionnelles fixes (business_charges) pour la déduction du net.
+  const { data: businessCharges } = useQuery({
+    queryKey: ['business-charges', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('business_charges')
+        .select('amount, periodicity, category')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
 
   // No need for loadData or useEffect for fetching
 
@@ -271,6 +305,60 @@ const Accounting = () => {
       ca: effectiveCa
     };
   }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
+
+  // Revenu net de la période : marge chantier (main d'œuvre + marge matériel)
+  // puis déduction URSSAF (sur le CA total) + charges pro + impôt estimé.
+  const netIncomeData = useMemo(() => {
+    const materialMarginRate = (parseFloat(netMarginRate) || 0) / 100;
+    const chargesSummary = summarizeCharges(businessCharges || []);
+    // Charges pro fixes ramenées à la période affichée.
+    const proChargesForPeriod = selectedPeriod === 'month'
+      ? chargesSummary.annualTotal / 12
+      : chargesSummary.annualTotal / 4;
+    const urssafCharges = calculateCharges?.total || 0;
+    const estimatedTax = estimateIncomeTax({
+      caServices: effectiveCaService,
+      caMateriel: effectiveCaVente,
+      activityType,
+      method: netTaxMethod,
+    });
+    const incomeTax = netTaxOverride.trim() !== '' ? (parseFloat(netTaxOverride) || 0) : estimatedTax;
+    const detail = computeNetIncome({
+      caServices: effectiveCaService,
+      caMateriel: effectiveCaVente,
+      materialMarginRate,
+      urssafCharges,
+      proChargesForPeriod,
+      incomeTax,
+    });
+    return {
+      ...detail,
+      proChargesAnnual: chargesSummary.annualTotal,
+      estimatedTax,
+      isMicro: artisanStatus === 'micro_entreprise',
+    };
+  }, [netMarginRate, businessCharges, selectedPeriod, calculateCharges, effectiveCaService, effectiveCaVente, activityType, netTaxMethod, netTaxOverride, artisanStatus]);
+
+  const handleSaveNetPrefs = async () => {
+    if (!user) return;
+    setSavingNetPrefs(true);
+    try {
+      const prefs = profile?.ai_preferences || {};
+      const nextPrefs = {
+        ...prefs,
+        material_margin_rate: (parseFloat(netMarginRate) || 0) / 100,
+        income_tax_method: netTaxMethod,
+      };
+      const { error } = await supabase.from('profiles').update({ ai_preferences: nextPrefs }).eq('id', user.id);
+      if (error) throw error;
+      invalidateProfile();
+      toast.success('Préférences de revenu net enregistrées');
+    } catch (err) {
+      toast.error('Enregistrement impossible', { description: err?.message });
+    } finally {
+      setSavingNetPrefs(false);
+    }
+  };
 
   // Calcul du CA Services annuel pour le plafond mixte (sans doublons)
   const yearlyRevenueServices = useMemo(() => {
@@ -897,12 +985,6 @@ const Accounting = () => {
                           <span>{formatCurrency(calculateCharges.total)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-sm pt-3 border-t border-blue-400">
-                        <span className="text-blue-100">Revenu net estimé</span>
-                        <span className="font-semibold">
-                          {formatCurrency(effectiveCa - calculateCharges.total)}
-                        </span>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -956,6 +1038,139 @@ const Accounting = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Revenu net de la période */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <Wallet className="w-5 h-5 mr-2 text-emerald-600" />
+                Revenu net — {selectedPeriod === 'month' ? months[selectedMonth] : `T${selectedQuarter + 1}`} {selectedYear}
+              </h3>
+            </div>
+
+            {/* Ce qui te reste vraiment */}
+            <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white mb-5">
+              <p className="text-emerald-50">
+                {netIncomeData.isMicro ? 'Ce qui te reste (net après charges)' : 'Marge chantier'}
+              </p>
+              <p className="text-4xl font-bold">
+                {formatCurrency(netIncomeData.isMicro ? netIncomeData.revenuNet : netIncomeData.margeChantier)}
+              </p>
+              <p className="text-emerald-50 text-sm mt-1">
+                Marge chantier : {formatCurrency(netIncomeData.margeChantier)} (main d'œuvre + {(netIncomeData.materialMarginRate * 100).toFixed(0)} % du matériel)
+              </p>
+            </div>
+
+            {/* Cascade détaillée */}
+            <div className="space-y-2.5 text-sm">
+              <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                <span>Main d'œuvre encaissée</span>
+                <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(netIncomeData.caServices)}</span>
+              </div>
+              <div className="flex items-center justify-between text-gray-600 dark:text-gray-300">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span>Marge sur matériel</span>
+                  <span className="relative inline-flex">
+                    <input
+                      type="number"
+                      value={netMarginRate}
+                      onChange={(e) => setNetMarginRate(e.target.value)}
+                      min="0"
+                      max="100"
+                      className="w-16 pl-2 pr-5 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                    <span className="absolute right-2 top-1.5 text-gray-400 text-xs">%</span>
+                  </span>
+                  <span className="text-gray-400">de {formatCurrency(netIncomeData.caMateriel)}</span>
+                </div>
+                <span className="font-medium text-gray-900 dark:text-white">+ {formatCurrency(netIncomeData.margeMateriel)}</span>
+              </div>
+              <div className="flex justify-between pt-2.5 border-t border-gray-100 dark:border-gray-700 font-semibold text-gray-900 dark:text-white">
+                <span>= Marge chantier</span>
+                <span>{formatCurrency(netIncomeData.margeChantier)}</span>
+              </div>
+
+              {netIncomeData.isMicro ? (
+                <>
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>− Cotisations URSSAF</span>
+                    <span className="text-red-500">− {formatCurrency(netIncomeData.urssafCharges)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>
+                      − Charges pro ({selectedPeriod === 'month' ? 'ce mois' : 'ce trimestre'})
+                      {netIncomeData.proChargesAnnual > 0 && (
+                        <span className="text-gray-400 text-xs block">
+                          {formatCurrency(netIncomeData.proChargesAnnual)}/an —{' '}
+                          <button type="button" onClick={() => setActiveTab('conseils')} className="text-emerald-600 hover:underline">gérer mes charges</button>
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-red-500">− {formatCurrency(netIncomeData.proChargesForPeriod)}</span>
+                  </div>
+                  <div className="flex items-start justify-between text-gray-600 dark:text-gray-300">
+                    <div className="flex flex-col gap-1">
+                      <span>− Impôt sur le revenu (estimé)</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          value={netTaxMethod}
+                          onChange={(e) => setNetTaxMethod(e.target.value)}
+                          className="text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-2 py-1"
+                        >
+                          <option value="versement_liberatoire">Versement libératoire</option>
+                          <option value="bareme">Barème (TMI 11 %)</option>
+                        </select>
+                        <span className="relative inline-flex">
+                          <input
+                            type="number"
+                            value={netTaxOverride}
+                            onChange={(e) => setNetTaxOverride(e.target.value)}
+                            placeholder={netIncomeData.estimatedTax.toFixed(0)}
+                            className="w-24 pl-2 pr-5 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-xs"
+                          />
+                          <span className="absolute right-2 top-1.5 text-gray-400 text-xs">€</span>
+                        </span>
+                        <span className="text-gray-400 text-xs">montant perso (facultatif)</span>
+                      </div>
+                    </div>
+                    <span className="text-red-500">− {formatCurrency(netIncomeData.incomeTax)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2.5 border-t border-gray-200 dark:border-gray-600 text-base font-bold text-emerald-700 dark:text-emerald-400">
+                    <span>= Revenu net</span>
+                    <span>{formatCurrency(netIncomeData.revenuNet)}</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 pt-3">
+                    <button
+                      onClick={handleSaveNetPrefs}
+                      disabled={savingNetPrefs}
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60 text-sm font-medium transition-colors"
+                    >
+                      {savingNetPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                      Enregistrer mes réglages
+                    </button>
+                  </div>
+
+                  <DismissibleHelp storageKey="net_income_help">
+                    <div className="flex items-start gap-2.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-lg px-4 py-3 pr-10 text-sm mt-2">
+                      <span className="text-emerald-500 flex-shrink-0 mt-0.5">💡</span>
+                      <p className="text-emerald-800 dark:text-emerald-200">
+                        <strong>Comment on calcule</strong> — sur le matériel encaissé, seule ta marge (par défaut 25 %) te
+                        revient, le reste ressort pour l'acheter. On ajoute la main d'œuvre, puis on retire les cotisations
+                        URSSAF (calculées sur ton CA total), tes charges pro et une estimation d'impôt. URSSAF et impôt sont
+                        des <strong>estimations</strong>, ajustables.
+                      </p>
+                    </div>
+                  </DismissibleHelp>
+                </>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 pt-2">
+                  L'estimation du net après charges (URSSAF + impôt) n'est disponible que pour la micro-entreprise.
+                  La marge chantier ci-dessus reste valable pour ton statut.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Suivi annuel */}

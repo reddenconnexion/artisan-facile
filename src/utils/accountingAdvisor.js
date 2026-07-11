@@ -38,7 +38,7 @@ export const ACTIVITY_LABELS = {
 };
 
 // Abattement forfaitaire micro-fiscal (pour estimer un résultat imposable).
-const MICRO_ABATEMENT = {
+export const MICRO_ABATEMENT = {
   services: 0.5, // BIC services
   vente: 0.71, // BIC vente/revente
   liberal: 0.34, // BNC

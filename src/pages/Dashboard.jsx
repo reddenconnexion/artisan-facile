@@ -26,13 +26,16 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, Pencil, X } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, Pencil, X, Wallet } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useDashboardData, useNextEvent } from '../hooks/useDataCache';
+import { useQuery } from '@tanstack/react-query';
+import { useDashboardData, useNextEvent, useUserProfile } from '../hooks/useDataCache';
+import { summarizeCharges } from '../utils/accountingAdvisor';
+import { computeNetIncome, estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 
@@ -325,6 +328,65 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const [showGoalModal, setShowGoalModal] = useState(false);
     const now = new Date();
     const thisMonthStart = startOfMonth(now);
+
+    // Préférences de calcul du revenu net (partagées avec la page Comptabilité).
+    const { data: kpiProfile } = useUserProfile();
+    const kpiPrefs = kpiProfile?.ai_preferences || {};
+    const netMarginRate = kpiPrefs.material_margin_rate ?? DEFAULT_MATERIAL_MARGIN_RATE;
+    const netActivityType = kpiPrefs.activity_type || 'services';
+    const netStatus = kpiPrefs.artisan_status || 'micro_entreprise';
+    const netHasAcre = kpiPrefs.has_acre === true;
+    const netTaxMethod = kpiPrefs.income_tax_method || 'versement_liberatoire';
+    const netIsMicro = netStatus === 'micro_entreprise';
+
+    const { data: kpiCharges } = useQuery({
+        queryKey: ['business-charges', user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('business_charges')
+                .select('amount, periodicity, category');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!user,
+        staleTime: 60 * 1000,
+    });
+
+    // Revenu net réel du mois courant (Figure 2) : marge chantier − URSSAF − charges pro − impôt.
+    const monthlyNet = useMemo(() => {
+        const paidQuoteIds = new Set(
+            allQuotes.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
+        );
+        let caServices = 0;
+        let caMateriel = 0;
+        allQuotes.forEach(q => {
+            if ((q.status || '').toLowerCase() !== 'paid') return;
+            const type = (q.type || 'quote').toLowerCase();
+            if (type === 'invoice' && q.parent_id && paidQuoteIds.has(q.parent_id)) return;
+            const d = new Date(q.date || q.created_at);
+            if (isNaN(d.getTime()) || d < thisMonthStart) return;
+            if (Array.isArray(q.items) && q.items.length > 0) {
+                q.items.forEach(it => {
+                    const line = (parseFloat(it.price) || 0) * (parseFloat(it.quantity) || 0);
+                    if (it.type === 'material') caMateriel += line;
+                    else caServices += line;
+                });
+            } else {
+                caServices += (q.total_ht || q.total_ttc || 0);
+            }
+        });
+        const urssaf = estimateUrssafCharges({ caServices, caMateriel, activityType: netActivityType, hasAcre: netHasAcre, status: netStatus }) || 0;
+        const proMonthly = summarizeCharges(kpiCharges || []).annualTotal / 12;
+        const tax = estimateIncomeTax({ caServices, caMateriel, activityType: netActivityType, method: netTaxMethod });
+        return computeNetIncome({
+            caServices,
+            caMateriel,
+            materialMarginRate: netMarginRate,
+            urssafCharges: urssaf,
+            proChargesForPeriod: proMonthly,
+            incomeTax: tax,
+        });
+    }, [allQuotes, thisMonthStart, kpiCharges, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod]);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
 
     const caThisMonth = allQuotes
@@ -409,6 +471,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         : `${Math.round(v)} €`;
 
     return (
+        <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {showGoalModal && (
                 <GoalEditorModal
@@ -505,11 +568,39 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 )}
             </div>
         </div>
+
+        {/* Revenu net réel du mois (Figure 2) */}
+        <button
+            onClick={() => navigate('/app/accounting')}
+            className="w-full text-left bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-white/10 p-4 flex items-center justify-between hover:shadow-sm transition-shadow"
+        >
+            <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                    <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {netIsMicro ? 'Revenu net' : 'Marge chantier'} {format(now, 'MMMM', { locale: fr })}
+                    </p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                        {fmtEur(netIsMicro ? monthlyNet.revenuNet : monthlyNet.margeChantier)}
+                    </p>
+                </div>
+            </div>
+            <div className="text-right">
+                <p className="text-[11px] text-gray-400">Marge chantier</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{fmtEur(monthlyNet.margeChantier)}</p>
+                {netIsMicro && (
+                    <p className="text-[11px] text-gray-400 mt-0.5">après URSSAF, charges &amp; impôt</p>
+                )}
+            </div>
+        </button>
+        </div>
     );
 };
 
 // --- Helper for Stats Calculation (Pure Function) ---
-const calculateStats = (allQuotes, referenceDate) => {
+const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_MATERIAL_MARGIN_RATE) => {
     // Default safe return structure matching buildMetricObject shape
     const getSafeEmptyMetric = () => {
         const emptyItem = { value: 0, max: 100, chart: [], details: [] };
@@ -589,28 +680,31 @@ const calculateStats = (allQuotes, referenceDate) => {
                 if (!isDuplicate) {
                     metrics.revenue.total += amount;
 
-                    // Net Income (calculated in HT)
+                    // Marge chantier (HT) : main d'œuvre + marge conservée sur le
+                    // matériel. Sur le matériel encaissé, l'essentiel ressort pour
+                    // l'achat ; seule la marge (materialMarginRate, 25 % par défaut)
+                    // reste à l'artisan.
                     let netAmount = 0;
                     const isDeposit = (quote.title && /a(c)?compte/i.test(quote.title)) ||
                         (quote.items && quote.items.some(i => i.description && /a(c)?compte/i.test(i.description) && (parseFloat(i.price) || 0) > 0));
 
                     if (isDeposit) {
-                        netAmount = 0; // Deposits are 100% material/cashflow, 0% Net Result (Labor)
+                        // Acompte matériel : on ne conserve que la marge dessus.
+                        netAmount = amount * materialMarginRate;
                     } else {
-                        // Materials Cost (HT)
+                        // Coût matériel (HT)
                         const materialItems = quote.items.filter(i => i.type === 'material');
                         const materialHT = materialItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                        // Detect Deductions (Deposits already paid)
-                        // Look for negative price items that are likely deposit deductions
+                        // Détection des déductions (acomptes déjà réglés) : lignes à prix négatif.
                         const deductionItems = quote.items.filter(i => (parseFloat(i.price) || 0) < 0);
                         const deductionHT = deductionItems.reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
 
-                        // Adjusted Material Cost = Total Material - Material Already Paid (Deduction)
-                        // We assume deduction covers material first.
+                        // Matériel net = matériel total − matériel déjà réglé (la déduction couvre le matériel en premier).
                         const adjustedMaterialHT = Math.max(0, materialHT - deductionHT);
 
-                        netAmount = amount - adjustedMaterialHT;
+                        // Marge chantier = CA − coût matériel (soit main d'œuvre + marge matériel).
+                        netAmount = amount - adjustedMaterialHT * (1 - materialMarginRate);
                     }
 
 
@@ -749,13 +843,13 @@ const calculateStats = (allQuotes, referenceDate) => {
 };
 
 // --- Reusable Smart Card with Individual Navigation ---
-const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick, cardIndex = 0 }) => {
+const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick, cardIndex = 0, materialMarginRate = DEFAULT_MATERIAL_MARGIN_RATE }) => {
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
 
     // Calculate stats specifically for this card's localDate
-    const stats = useMemo(() => calculateStats(allQuotes, localDate), [allQuotes, localDate]);
+    const stats = useMemo(() => calculateStats(allQuotes, localDate, materialMarginRate), [allQuotes, localDate, materialMarginRate]);
     const currentData = stats[type]?.[period]; // Data for current period
     const displayValue = type === 'conversion' ? stats.conversion?.[period]?.value : currentData?.value;
 
@@ -938,6 +1032,8 @@ const Dashboard = () => {
     // Utilisation du cache React Query
     const { data, isLoading: loading } = useDashboardData();
     const { data: nextEvent } = useNextEvent();
+    const { data: dashProfile } = useUserProfile();
+    const materialMarginRate = dashProfile?.ai_preferences?.material_margin_rate ?? DEFAULT_MATERIAL_MARGIN_RATE;
     const skillLevel = user?.user_metadata?.activity_settings?.skill_level ?? 'debutant';
     const showAdvancedStats = skillLevel !== 'debutant';
 
@@ -1084,11 +1180,12 @@ const Dashboard = () => {
                             />
                             <RichStatCard
                                 cardIndex={1}
-                                title="Résultat Net"
-                                tooltip="Chiffre d'affaires moins le coût de vos matériaux. C'est ce qui reste pour couvrir vos charges et votre rémunération."
+                                title="Marge chantier"
+                                tooltip="Main d'œuvre encaissée + votre marge sur le matériel (25 % par défaut, le reste ressort pour l'acheter). Avant cotisations, charges et impôt."
                                 allQuotes={allQuotes}
                                 type="netIncome"
-                                staticSubText="(Hors Matériel)"
+                                materialMarginRate={materialMarginRate}
+                                staticSubText="Avant charges"
                                 icon={TrendingUp}
                                 colorClass="bg-emerald-600"
                                 colorHex="#059669"
