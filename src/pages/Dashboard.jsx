@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { useDashboardData, useNextEvent, useUserProfile } from '../hooks/useDataCache';
 import { summarizeCharges } from '../utils/accountingAdvisor';
-import { computeNetIncome, estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE } from '../utils/netIncome';
+import { computeNetIncome, estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 
@@ -337,6 +337,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const netStatus = kpiPrefs.artisan_status || 'micro_entreprise';
     const netHasAcre = kpiPrefs.has_acre === true;
     const netTaxMethod = kpiPrefs.income_tax_method || 'versement_liberatoire';
+    const netTmi = kpiPrefs.income_tax_tmi ?? DEFAULT_TMI;
     const netIsMicro = netStatus === 'micro_entreprise';
 
     const { data: kpiCharges } = useQuery({
@@ -377,7 +378,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         });
         const urssaf = estimateUrssafCharges({ caServices, caMateriel, activityType: netActivityType, hasAcre: netHasAcre, status: netStatus }) || 0;
         const proMonthly = summarizeCharges(kpiCharges || []).annualTotal / 12;
-        const tax = estimateIncomeTax({ caServices, caMateriel, activityType: netActivityType, method: netTaxMethod });
+        const tax = estimateIncomeTax({ caServices, caMateriel, activityType: netActivityType, method: netTaxMethod, tmi: netTmi });
         return computeNetIncome({
             caServices,
             caMateriel,
@@ -386,7 +387,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
             proChargesForPeriod: proMonthly,
             incomeTax: tax,
         });
-    }, [allQuotes, thisMonthStart, kpiCharges, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod]);
+    }, [allQuotes, thisMonthStart, kpiCharges, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod, netTmi]);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
 
     const caThisMonth = allQuotes

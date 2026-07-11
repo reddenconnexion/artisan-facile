@@ -95,6 +95,12 @@ describe('estimateIncomeTax', () => {
         expect(t).toBeCloseTo(55, 6);
     });
 
+    it('barème : la TMI choisie est bien prise en compte', () => {
+        const t = estimateIncomeTax({ caServices: 1000, caMateriel: 0, activityType: 'services', method: 'bareme', tmi: 0.30 });
+        // taxable = 500 → impôt = 150 à 30 %
+        expect(t).toBeCloseTo(150, 6);
+    });
+
     it('les deux méthodes donnent des résultats différents (sanity check)', () => {
         const vl = estimateIncomeTax({ caServices: 5000, activityType: 'services', method: 'versement_liberatoire' });
         const bar = estimateIncomeTax({ caServices: 5000, activityType: 'services', method: 'bareme' });

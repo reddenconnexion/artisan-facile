@@ -33,6 +33,15 @@ export const VERSEMENT_LIBERATOIRE_RATES = {
 // Tranche marginale d'imposition par défaut pour l'estimation au barème.
 export const DEFAULT_TMI = 0.11;
 
+// Tranches marginales d'imposition 2026 (barème IR) proposées dans l'UI.
+export const TMI_OPTIONS = [
+    { value: 0, label: '0 %' },
+    { value: 0.11, label: '11 %' },
+    { value: 0.30, label: '30 %' },
+    { value: 0.41, label: '41 %' },
+    { value: 0.45, label: '45 %' },
+];
+
 const num = (v) => {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : 0;
