@@ -9,7 +9,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Mode « prompt » : la nouvelle version ne s'active PAS silencieusement.
+      // Le service worker reste en attente et déclenche needRefresh, ce qui
+      // affiche un bandeau « Nouvelle version disponible — Recharger » (cf.
+      // ReloadPrompt). Sans cela (autoUpdate + skipWaiting), les onglets/apps
+      // gardés ouverts (desktop, PWA macOS) restaient bloqués sur l'ancien
+      // cache sans aucune invite.
+      registerType: 'prompt',
       devOptions: {
         enabled: true
       },
@@ -48,8 +54,10 @@ export default defineConfig({
       },
       workbox: {
         importScripts: ['push-handler.js'],
+        // Pas de skipWaiting : en mode « prompt », le nouveau service worker
+        // attend le clic de l'utilisateur (updateServiceWorker) avant de
+        // s'activer. clientsClaim prend alors effet à ce moment-là.
         clientsClaim: true,
-        skipWaiting: true,
         maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
