@@ -7,6 +7,7 @@ import { TestModeProvider } from './context/TestModeContext';
 import Layout from './layouts/Layout';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
+import { PwaUpdateProvider } from './context/PwaUpdateContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Skip noisy errors that the rest of the app already surfaces (auth flows
@@ -231,6 +232,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TestModeProvider>
+        <PwaUpdateProvider>
         <ReloadPrompt />
         <OfflineBanner />
         <BrowserRouter>
@@ -300,6 +302,7 @@ function App() {
             </Routes >
           </Suspense >
         </BrowserRouter >
+        </PwaUpdateProvider>
         </TestModeProvider>
       </AuthProvider >
     </QueryClientProvider >

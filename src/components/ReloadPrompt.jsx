@@ -1,90 +1,26 @@
 import React from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
 import { toast } from 'sonner'
 import { RefreshCw, X } from 'lucide-react'
+import { usePwaUpdate } from '../context/PwaUpdateContext'
 
-// Sans vérification périodique, le service worker ne cherche une nouvelle
-// version qu'au chargement initial de la page : les utilisateurs qui gardent
-// l'app ouverte (PWA installée, onglet épinglé) restent bloqués sur une
-// version en cache pendant des jours. On vérifie donc au retour de l'app au
-// premier plan (throttlé) et toutes les heures.
-const SW_CHECK_INTERVAL_MS = 60 * 60 * 1000
-const SW_CHECK_MIN_GAP_MS = 5 * 60 * 1000
-
+// Bandeau « Nouvelle version disponible ». L'enregistrement du service worker et
+// la détection des mises à jour vivent dans PwaUpdateContext (source unique,
+// partagée avec le bouton du profil).
 function ReloadPrompt() {
-    const {
-        offlineReady: [offlineReady, setOfflineReady],
-        needRefresh: [needRefresh, setNeedRefresh],
-        updateServiceWorker,
-    } = useRegisterSW({
-        onRegisteredSW(swUrl, r) {
-            console.log('SW Registered: ' + swUrl)
-            if (!r) return
-
-            let lastCheck = Date.now()
-            const checkForUpdate = async () => {
-                if (r.installing || !navigator.onLine) return
-                lastCheck = Date.now()
-                try {
-                    // Vérifie que le sw.js est joignable (réseau captif, serveur
-                    // down…) avant de demander la mise à jour, comme recommandé
-                    // par la doc vite-plugin-pwa.
-                    const resp = await fetch(swUrl, {
-                        cache: 'no-store',
-                        headers: { 'cache-control': 'no-cache' },
-                    })
-                    if (resp.status === 200) await r.update()
-                } catch {
-                    // Hors ligne ou réseau instable : on réessaiera au prochain cycle
-                }
-            }
-
-            setInterval(checkForUpdate, SW_CHECK_INTERVAL_MS)
-            // Retour au premier plan (cas typique : PWA mobile rouverte depuis
-            // les apps récentes) — throttlé pour ne pas vérifier à chaque
-            // changement d'onglet.
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible' && Date.now() - lastCheck > SW_CHECK_MIN_GAP_MS) {
-                    checkForUpdate()
-                }
-            })
-        },
-        onRegisterError(error) {
-            console.log('SW registration error', error)
-        },
-    })
+    const { offlineReady, setOfflineReady, needRefresh, setNeedRefresh, applyUpdate } = usePwaUpdate()
 
     const close = () => {
         setOfflineReady(false)
         setNeedRefresh(false)
     }
 
-    // updateServiceWorker(true) n'active le nouveau worker et ne recharge que
-    // s'il existe un worker « en attente » au moment du clic (sur controllerchange).
-    // Dans certains cas (worker déjà activé via clientsClaim, race au démarrage…),
-    // ce rechargement automatique ne se déclenche pas et le bouton semble sans
-    // effet. On ajoute donc un filet de sécurité : on demande la mise à jour, puis
-    // on force le rechargement si la page n'a pas déjà été rechargée.
-    const applyUpdate = React.useCallback(async () => {
-        try {
-            await updateServiceWorker(true)
-        } catch {
-            // ignore : on force le rechargement quoi qu'il arrive
-        }
-        setTimeout(() => window.location.reload(), 1500)
-    }, [updateServiceWorker])
-
     React.useEffect(() => {
         if (offlineReady) {
             toast.success("L'application est prête à être utilisée hors ligne.")
             setOfflineReady(false)
         }
-    }, [offlineReady])
+    }, [offlineReady, setOfflineReady])
 
-    // Bandeau visible (pas un toast discret) : une nouvelle version est en
-    // attente et ne s'activera qu'au clic sur « Recharger ». C'est ce qui
-    // débloque les onglets/apps gardés ouverts (desktop, PWA macOS) qui, en
-    // mode auto-update silencieux, restaient sur l'ancien cache.
     if (!needRefresh) return null
 
     return (
