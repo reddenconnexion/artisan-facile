@@ -774,7 +774,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     if (isAmendment) {
         // AJUSTEMENT FINANCIER
         const details = devis.amendment_details || {};
-        const finalY = (currentTableY > tableStartY ? currentTableY : tableStartY) + 10;
+        let finalY = (currentTableY > tableStartY ? currentTableY : tableStartY) + 10;
+
+        // Le bloc « Ajustement Financier » occupe ~45 mm (titre + 4 à 5 lignes).
+        // S'il ne tient pas en bas de la page courante, on passe à une nouvelle
+        // page pour ne pas le tronquer (constat + solution + tableau peuvent
+        // pousser ce bloc tout en bas).
+        const pageHeightMm = doc.internal.pageSize.getHeight();
+        if (finalY + 50 > pageHeightMm - 15) {
+            doc.addPage();
+            finalY = 20;
+        }
 
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
