@@ -932,22 +932,39 @@ const DevisForm = () => {
                         .single();
 
                     if (parentData) {
-                        // Calculate progress total (Situation invoices sums)
-                        // This mirrors get_public_quote RPC logic to ensure inconsistent PDF preview
-                        const { data: progressInvoices } = await supabase
+                        // Un avenant COMPLÈTE le devis (modèle additif), il ne le remplace pas.
+                        // On distingue donc, parmi les factures rattachées au devis :
+                        //  - les vraies situations d'avancement (facturation par tranches qui
+                        //    remplace le devis comme base de calcul) → progress_total ;
+                        //  - les simples acomptes déjà versés → deposit_total, à DÉDUIRE du
+                        //    solde, en gardant le devis initial comme référence.
+                        // Sans cette distinction, un acompte (ex. acompte matériel) était pris
+                        // pour une situation et faussait le « Nouveau Total Projet » de l'avenant.
+                        const { data: childInvoices } = await supabase
                             .from('quotes')
-                            .select('total_ttc')
-                            .eq('parent_id', data.parent_quote_id) // Situations are children of the Original Quote
+                            .select('total_ttc, title, amendment_details')
+                            .eq('parent_id', data.parent_quote_id)
                             .eq('type', 'invoice')
                             .neq('status', 'cancelled');
 
-                        const progressTotal = (progressInvoices || []).reduce((sum, inv) => sum + (inv.total_ttc || 0), 0);
+                        const isSituationInv = (inv) =>
+                            inv.amendment_details?.situation || /situation/i.test(inv.title || '');
+                        const isClosingInv = (inv) => /cl[oô]ture/i.test(inv.title || '');
+
+                        let progressTotal = 0;
+                        let depositTotal = 0;
+                        (childInvoices || []).forEach((inv) => {
+                            if (isClosingInv(inv)) return; // ni situation ni acompte
+                            if (isSituationInv(inv)) progressTotal += inv.total_ttc || 0;
+                            else depositTotal += inv.total_ttc || 0;
+                        });
 
                         setFormData(prev => ({
                             ...prev,
                             parent_quote_data: {
                                 ...parentData,
-                                progress_total: progressTotal
+                                progress_total: progressTotal,
+                                deposit_total: depositTotal
                             }
                         }));
                     }
@@ -4897,9 +4914,14 @@ Conditions de règlement : Paiement à réception de facture.`
                             {formData.type === 'amendment' && (() => {
                                 const initialTTC = parseFloat(formData.parent_quote_data?.total_ttc) || 0;
                                 const progressTotal = parseFloat(formData.parent_quote_data?.progress_total) || 0;
+                                const depositTotal = parseFloat(formData.parent_quote_data?.deposit_total) || 0;
                                 const baseline = progressTotal > 0 ? progressTotal : initialTTC;
                                 const amendmentTTC = total; // delta, peut être négatif (moins-value)
                                 const newTotal = baseline + amendmentTTC;
+                                // Modèle additif (sans situation) : l'acompte déjà versé est une
+                                // avance à déduire du nouveau total pour obtenir le reste à régler.
+                                const showDeposit = progressTotal === 0 && depositTotal > 0;
+                                const remaining = newTotal - depositTotal;
                                 return (
                                     <div className="mt-3 space-y-2">
                                         <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -4921,10 +4943,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     {amendmentTTC >= 0 ? '+' : ''}{amendmentTTC.toFixed(2)} €
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800">
+                                            <div className={`flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800 ${showDeposit ? '' : ''}`}>
                                                 <span>Nouveau Total Projet</span>
                                                 <span>{newTotal.toFixed(2)} €</span>
                                             </div>
+                                            {showDeposit && (
+                                                <>
+                                                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                                        <span>Acompte déjà versé</span>
+                                                        <span className="text-red-600 dark:text-red-400 font-medium">−{depositTotal.toFixed(2)} €</span>
+                                                    </div>
+                                                    <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800">
+                                                        <span>Reste à régler</span>
+                                                        <span>{remaining.toFixed(2)} €</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 );

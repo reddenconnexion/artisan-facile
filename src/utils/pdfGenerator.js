@@ -789,10 +789,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const amendmentTTC = devis.total_ttc || 0;
         const newTotalTTC = initialTTC + amendmentTTC;
 
-        // Try to estimate deposit or assume 0 if not passed
-        const deposit = details?.initial_deposit_amount || 0;
+        // Acompte(s) déjà versé(s) sur le devis initial : un avenant COMPLÈTE le
+        // devis, l'acompte est une avance à déduire du solde (il ne remplace pas
+        // le devis). deposit_total est calculé côté formulaire (somme des factures
+        // d'acompte, hors situations) ; on retombe sur initial_deposit_amount si
+        // cette valeur n'a pas été fournie.
+        const deposit = (devis.parent_quote_data?.deposit_total || 0)
+            || (details?.initial_deposit_amount || 0);
 
-        // Progress invoices (Situations) already billed on parent quote
+        // Situations d'avancement déjà facturées (hors acomptes) sur le devis parent.
         const progressTotal = devis.parent_quote_data?.progress_total || 0;
 
         // SCENARIO CHECK: Has Progress (Situation) Invoice?
