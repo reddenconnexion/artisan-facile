@@ -1171,7 +1171,11 @@ const DevisForm = () => {
                 totalCost: 0
             };
         }
-        const lineItems = formData.items.filter(item => item.type !== 'section');
+        // Les lignes optionnelles (is_optional) ne font PAS partie du total ferme :
+        // le devis public, le PDF et la RPC select_quote_options les excluent tous.
+        // On aligne le total interne (listes, tableau de bord, acomptes, clôture)
+        // sur cette même règle, sans quoi il est gonflé par des options non retenues.
+        const lineItems = formData.items.filter(item => item.type !== 'section' && !item.is_optional);
         const subtotal = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
         // Coût matière : prix d'achat de la ligne, ou à défaut la somme des
         // fournitures du chiffrage interne (lignes groupées sans buying_price)
@@ -2175,8 +2179,11 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleCreateMaterialDeposit = async () => {
-        // Calculate total amount for items with type 'material'
-        const materialItems = formData.items.filter(i => i.type === 'material');
+        // Calculate total amount for items with type 'material'.
+        // On exclut les fournitures optionnelles (is_optional) : tant qu'une option
+        // n'est pas retenue par le client, elle ne fait pas partie du chiffrage ferme
+        // et ne doit donc pas gonfler l'acompte matériel.
+        const materialItems = formData.items.filter(i => i.type === 'material' && !i.is_optional);
 
         if (materialItems.length === 0) {
             toast.error("Aucun article de type 'Matériel' trouvé dans ce devis.");
@@ -4879,9 +4886,49 @@ Conditions de règlement : Paiement à réception de facture.`
                                 );
                             })()}
                             <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-700">
-                                <span>Total TTC</span>
+                                <span>{formData.type === 'amendment' ? "Montant de l'avenant TTC" : 'Total TTC'}</span>
                                 <span>{total.toFixed(2)} €</span>
                             </div>
+                            {/* Avenant : le total ci-dessus n'est QUE le delta (+/− travaux).
+                                Le nouveau total projet est calculé automatiquement (identique au
+                                PDF : devis initial — ou situations déjà facturées — + montant de
+                                l'avenant). On invite donc à ne PAS saisir de ligne « nouveau total »
+                                ni « moins-value totale », qui feraient double emploi. */}
+                            {formData.type === 'amendment' && (() => {
+                                const initialTTC = parseFloat(formData.parent_quote_data?.total_ttc) || 0;
+                                const progressTotal = parseFloat(formData.parent_quote_data?.progress_total) || 0;
+                                const baseline = progressTotal > 0 ? progressTotal : initialTTC;
+                                const amendmentTTC = total; // delta, peut être négatif (moins-value)
+                                const newTotal = baseline + amendmentTTC;
+                                return (
+                                    <div className="mt-3 space-y-2">
+                                        <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-orange-500" />
+                                            <span>
+                                                Ne saisissez que les lignes <strong>ajoutées ou retirées</strong> (le delta).
+                                                Inutile d'ajouter une ligne « Nouveau total » ou « Moins-value totale » :
+                                                le nouveau total du projet est calculé automatiquement ci-dessous.
+                                            </span>
+                                        </div>
+                                        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 space-y-1.5 text-sm">
+                                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                                <span>{progressTotal > 0 ? 'Déjà facturé (situations)' : 'Devis initial TTC'}</span>
+                                                <span>{baseline.toFixed(2)} €</span>
+                                            </div>
+                                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                                <span>Montant de l'avenant TTC</span>
+                                                <span className={amendmentTTC < 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-blue-600 dark:text-blue-400 font-medium'}>
+                                                    {amendmentTTC >= 0 ? '+' : ''}{amendmentTTC.toFixed(2)} €
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800">
+                                                <span>Nouveau Total Projet</span>
+                                                <span>{newTotal.toFixed(2)} €</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
