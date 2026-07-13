@@ -3863,7 +3863,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <input
                                     type="number"
                                     step="0.01"
-                                    className="block w-full pl-3 pr-8 py-2 border border-blue-300 rounded-lg focus:ring-ios focus:border-ios bg-blue-50 dark:bg-blue-900/20 font-bold text-blue-900"
+                                    className="block w-full pl-3 pr-8 py-2 border border-blue-300 dark:border-blue-800 rounded-lg focus:ring-ios focus:border-ios bg-blue-50 dark:bg-blue-900/20 font-bold text-blue-900 dark:text-blue-100"
                                     value={formData.manual_total_ttc}
                                     onChange={(e) => setFormData(prev => ({ ...prev, manual_total_ttc: parseFloat(e.target.value) || 0 }))}
                                 />
@@ -4455,7 +4455,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             <input
                                                 type="text"
                                                 placeholder="Groupe d'exclusivité (ex: Revêtement)"
-                                                className="px-2 py-1 border border-purple-200 bg-purple-50/50 rounded text-xs w-56 focus:ring-purple-400 focus:border-purple-400"
+                                                className="px-2 py-1 border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/20 rounded text-xs w-56 text-gray-900 dark:text-purple-100 placeholder-purple-400 dark:placeholder-purple-500 focus:ring-purple-400 focus:border-purple-400"
                                                 value={item.option_group || ''}
                                                 onChange={(e) => updateItem(item.id, 'option_group', e.target.value)}
                                                 disabled={isLocked}
@@ -5170,7 +5170,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {/* Text Area */}
                                 <div className="flex-1 p-4 relative bg-white dark:bg-gray-900">
                                     <textarea
-                                        className="w-full h-full text-lg resize-none outline-none placeholder-gray-300 font-sans leading-relaxed"
+                                        className="w-full h-full text-lg resize-none outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 font-sans leading-relaxed"
                                         placeholder="Saisissez la description détaillée..."
                                         value={item.description}
                                         onChange={(e) => updateItem(item.id, 'description', e.target.value)}
