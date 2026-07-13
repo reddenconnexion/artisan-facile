@@ -1,6 +1,7 @@
 import React from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { toast } from 'sonner'
+import { RefreshCw, X } from 'lucide-react'
 
 // Sans vérification périodique, le service worker ne cherche une nouvelle
 // version qu'au chargement initial de la page : les utilisateurs qui gardent
@@ -65,24 +66,37 @@ function ReloadPrompt() {
         }
     }, [offlineReady])
 
-    React.useEffect(() => {
-        if (needRefresh) {
-            toast.info(
-                <div className="flex flex-col gap-2">
-                    <span>Une nouvelle version est disponible.</span>
-                    <button
-                        onClick={() => updateServiceWorker(true)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700"
-                    >
-                        Mettre à jour
-                    </button>
-                </div>,
-                { duration: Infinity, onDismiss: close }
-            )
-        }
-    }, [needRefresh])
+    // Bandeau visible (pas un toast discret) : une nouvelle version est en
+    // attente et ne s'activera qu'au clic sur « Recharger ». C'est ce qui
+    // débloque les onglets/apps gardés ouverts (desktop, PWA macOS) qui, en
+    // mode auto-update silencieux, restaient sur l'ancien cache.
+    if (!needRefresh) return null
 
-    return null
+    return (
+        <div className="fixed inset-x-0 bottom-0 z-[9999] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="mx-auto flex max-w-md items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-white shadow-lg ring-1 ring-black/5">
+                <RefreshCw className="h-5 w-5 flex-shrink-0" />
+                <p className="flex-1 text-sm font-medium leading-snug">
+                    Une nouvelle version est disponible.
+                </p>
+                <button
+                    type="button"
+                    onClick={() => updateServiceWorker(true)}
+                    className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
+                >
+                    Recharger
+                </button>
+                <button
+                    type="button"
+                    onClick={close}
+                    aria-label="Ignorer"
+                    className="flex-shrink-0 text-white/80 transition-colors hover:text-white"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+        </div>
+    )
 }
 
 export default ReloadPrompt
