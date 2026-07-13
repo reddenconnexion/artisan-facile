@@ -838,7 +838,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'bold');
             doc.setTextColor(37, 99, 235); // Blue
             doc.text(`${L.amendmentAmountTTC} :`, leftX, financeY);
-            doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            doc.text(`${amendmentTTC >= 0 ? '+' : ''}${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
@@ -870,7 +870,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'bold');
             doc.setTextColor(37, 99, 235);
             doc.text(`${L.amendmentComplementTTC} :`, leftX, financeY);
-            doc.text(`+${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            doc.text(`${amendmentTTC >= 0 ? '+' : ''}${amendmentTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
