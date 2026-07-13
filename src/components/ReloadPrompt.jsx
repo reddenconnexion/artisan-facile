@@ -59,6 +59,21 @@ function ReloadPrompt() {
         setNeedRefresh(false)
     }
 
+    // updateServiceWorker(true) n'active le nouveau worker et ne recharge que
+    // s'il existe un worker « en attente » au moment du clic (sur controllerchange).
+    // Dans certains cas (worker déjà activé via clientsClaim, race au démarrage…),
+    // ce rechargement automatique ne se déclenche pas et le bouton semble sans
+    // effet. On ajoute donc un filet de sécurité : on demande la mise à jour, puis
+    // on force le rechargement si la page n'a pas déjà été rechargée.
+    const applyUpdate = React.useCallback(async () => {
+        try {
+            await updateServiceWorker(true)
+        } catch {
+            // ignore : on force le rechargement quoi qu'il arrive
+        }
+        setTimeout(() => window.location.reload(), 1500)
+    }, [updateServiceWorker])
+
     React.useEffect(() => {
         if (offlineReady) {
             toast.success("L'application est prête à être utilisée hors ligne.")
@@ -81,7 +96,7 @@ function ReloadPrompt() {
                 </p>
                 <button
                     type="button"
-                    onClick={() => updateServiceWorker(true)}
+                    onClick={applyUpdate}
                     className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50"
                 >
                     Recharger
