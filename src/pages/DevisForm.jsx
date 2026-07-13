@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -3367,29 +3367,42 @@ Conditions de règlement : Paiement à réception de facture.`
                     <span className="hidden sm:inline">Retour</span>
                 </button>
 
-                {/* Type Switch - Only for new or drafts? Or allows conversion? allow anytime for flexibility */}
-                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mx-2 sm:mx-4">
-                    <button
-                        type="button"
-                        onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
-                            ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
-                            }`}
-                    >
-                        Devis
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
-                            ? 'bg-white dark:bg-gray-900 text-green-600 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
-                            }`}
-                    >
-                        Fac<span className="hidden sm:inline">ture</span>
-                    </button>
-                </div>
+                {/* Type Switch — Devis / Facture. Masqué pour les avenants : un
+                    avenant est un type de document à part (avec ses sections
+                    constat/solution) qu'on ne doit pas convertir en devis/facture
+                    via ce raccourci. Sans ce garde-fou, un clic accidentel sur
+                    « Facture » changeait le type, masquait la section Avenant et
+                    n'offrait aucun retour possible. On affiche à la place un badge
+                    non cliquable indiquant qu'il s'agit d'un avenant. */}
+                {formData.type === 'amendment' ? (
+                    <div className="flex items-center gap-1.5 mx-2 sm:mx-4 px-3 py-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 text-sm font-semibold">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Avenant
+                    </div>
+                ) : (
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mx-2 sm:mx-4">
+                        <button
+                            type="button"
+                            onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
+                                ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+                                }`}
+                        >
+                            Devis
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData(p => ({ ...p, type: 'invoice' }))}
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type === 'invoice'
+                                ? 'bg-white dark:bg-gray-900 text-green-600 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+                                }`}
+                        >
+                            Fac<span className="hidden sm:inline">ture</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Presence Indicator */}
                 <div className="flex flex-col items-center justify-center mr-auto ml-2">
