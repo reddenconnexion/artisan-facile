@@ -3475,7 +3475,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <span className="hidden sm:inline">Envoyer</span>
                     </button>
 
-                    {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                    {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                         <button
                             type="button"
                             onClick={handleConvertToInvoice}
@@ -3593,7 +3593,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
 
-                                {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                                {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                                     <>
                                         <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
