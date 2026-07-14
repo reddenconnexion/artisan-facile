@@ -30,6 +30,7 @@ import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { Input, Field, SegmentedControl } from '../components/ui';
+import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache } from '../hooks/useDataCache';
@@ -4227,6 +4228,20 @@ Conditions de règlement : Paiement à réception de facture.`
                 {/* Amendment Configuration Fields */}
                 {formData.type === 'amendment' && (
                     <div className="mb-8">
+                        {/* Guide contextuel : évite les erreurs courantes sur les avenants
+                            (saisie du delta, signature, facturation via la clôture). Masquable. */}
+                        <DismissibleHelp storageKey="avenant_lifecycle" className="mb-4">
+                            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 pr-10 text-sm">
+                                <p className="font-semibold flex items-center gap-2 mb-1.5 text-orange-900 dark:text-orange-200">
+                                    <Info className="w-4 h-4 flex-shrink-0" /> Comment fonctionne un avenant
+                                </p>
+                                <ul className="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-300/90 text-[13px] leading-relaxed">
+                                    <li>Saisissez uniquement les lignes <strong>ajoutées ou retirées</strong> (le delta, en +/−). Le nouveau total du projet se calcule automatiquement.</li>
+                                    <li>Faites‑le <strong>signer par le client</strong> (bouton « Envoyer ») : il passera en « Accepté ».</li>
+                                    <li>Il sera <strong>facturé via la « Facture de Clôture »</strong> du devis initial (menu Actions du devis) — inutile, et déconseillé, de le convertir en facture.</li>
+                                </ul>
+                            </div>
+                        </DismissibleHelp>
                         <AmendmentFields formData={formData} setFormData={setFormData} />
                     </div>
                 )}
