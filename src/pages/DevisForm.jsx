@@ -30,6 +30,7 @@ import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { Input, Field, SegmentedControl } from '../components/ui';
+import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache } from '../hooks/useDataCache';
@@ -2491,7 +2492,11 @@ Conditions de règlement : Paiement à réception de facture.`
             let totalDeducted = 0;
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
-                totalDeducted += amountHT;
+                // Le récap doit refléter le montant RÉELLEMENT déduit, qui est
+                // toujours une valeur absolue (ligne de déduction = -Math.abs(...)).
+                // Sans le Math.abs ici, un acompte négatif (ex. avenant moins-value
+                // converti en facture) faussait le total récapitulatif de la note.
+                totalDeducted += Math.abs(amountHT);
                 // Inherit the type from the deposit's items so the deduction offsets
                 // the right category (material vs service) in accounting and net income.
                 const depositItems = Array.isArray(inv.items) ? inv.items : [];
@@ -3471,7 +3476,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <span className="hidden sm:inline">Envoyer</span>
                     </button>
 
-                    {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                    {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                         <button
                             type="button"
                             onClick={handleConvertToInvoice}
@@ -3589,7 +3594,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
 
-                                {id && id !== 'new' && formData.type !== 'invoice' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                                {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                                     <>
                                         <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
@@ -4223,6 +4228,20 @@ Conditions de règlement : Paiement à réception de facture.`
                 {/* Amendment Configuration Fields */}
                 {formData.type === 'amendment' && (
                     <div className="mb-8">
+                        {/* Guide contextuel : évite les erreurs courantes sur les avenants
+                            (saisie du delta, signature, facturation via la clôture). Masquable. */}
+                        <DismissibleHelp storageKey="avenant_lifecycle" className="mb-4">
+                            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 pr-10 text-sm">
+                                <p className="font-semibold flex items-center gap-2 mb-1.5 text-orange-900 dark:text-orange-200">
+                                    <Info className="w-4 h-4 flex-shrink-0" /> Comment fonctionne un avenant
+                                </p>
+                                <ul className="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-300/90 text-[13px] leading-relaxed">
+                                    <li>Saisissez uniquement les lignes <strong>ajoutées ou retirées</strong> (le delta, en +/−). Le nouveau total du projet se calcule automatiquement.</li>
+                                    <li>Faites‑le <strong>signer par le client</strong> (bouton « Envoyer ») : il passera en « Accepté ».</li>
+                                    <li>Il sera <strong>facturé via la « Facture de Clôture »</strong> du devis initial (menu Actions du devis) — inutile, et déconseillé, de le convertir en facture.</li>
+                                </ul>
+                            </div>
+                        </DismissibleHelp>
                         <AmendmentFields formData={formData} setFormData={setFormData} />
                     </div>
                 )}
