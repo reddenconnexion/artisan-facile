@@ -2491,7 +2491,11 @@ Conditions de règlement : Paiement à réception de facture.`
             let totalDeducted = 0;
             const deductionItems = deposits.map(inv => {
                 const amountHT = parseFloat(inv.total_ht) || 0;
-                totalDeducted += amountHT;
+                // Le récap doit refléter le montant RÉELLEMENT déduit, qui est
+                // toujours une valeur absolue (ligne de déduction = -Math.abs(...)).
+                // Sans le Math.abs ici, un acompte négatif (ex. avenant moins-value
+                // converti en facture) faussait le total récapitulatif de la note.
+                totalDeducted += Math.abs(amountHT);
                 // Inherit the type from the deposit's items so the deduction offsets
                 // the right category (material vs service) in accounting and net income.
                 const depositItems = Array.isArray(inv.items) ? inv.items : [];
