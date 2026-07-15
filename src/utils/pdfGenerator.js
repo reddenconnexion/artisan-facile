@@ -267,6 +267,29 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const L = PDF_I18N[lang] || PDF_I18N.fr;
     const fmtDate = (d) => formatDate(d, L.dateLocale);
 
+    // ── Utilitaires anti-débordement ──
+    // Le rendu jsPDF écrit à une abscisse fixe sans limite de largeur : un nom de
+    // société ou une adresse longue déborde alors sur le cartouche de droite, la
+    // marge, ou la colonne voisine. Ces deux helpers contraignent le texte à une
+    // largeur maximale (mm) en réduisant la police puis, en dernier recours, en
+    // tronquant avec « … ». Ils reposent sur la police/taille/style posés juste
+    // avant l'appel (doc.getTextWidth mesure avec l'état courant).
+    const fitFontSize = (text, maxWidth, baseSize, minSize) => {
+        let size = baseSize;
+        doc.setFontSize(size);
+        while (size > minSize && doc.getTextWidth(text) > maxWidth) {
+            size = Math.max(minSize, size - 0.5);
+            doc.setFontSize(size);
+        }
+        return size;
+    };
+    const ellipsize = (text, maxWidth) => {
+        if (doc.getTextWidth(text) <= maxWidth) return text;
+        let t = text;
+        while (t.length > 1 && doc.getTextWidth(t + '…') > maxWidth) t = t.slice(0, -1);
+        return t.replace(/\s+$/, '') + '…';
+    };
+
     const typeDocument = isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis);
     const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
@@ -332,10 +355,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     }
 
     const companyName = userProfile.company_name || userProfile.full_name || L.yourCompany;
-    doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...accent);
-    doc.text(companyName.toUpperCase(), leftX, cursorY);
+    // Le grand titre partage la 1re ligne avec le libellé document (droite, ~166 mm+).
+    // On borne à 156 mm, on réduit la police au besoin, puis on tronque en secours.
+    const titleUpper = companyName.toUpperCase();
+    const titleMaxWidth = 156 - leftX;
+    fitFontSize(titleUpper, titleMaxWidth, 16, 11);
+    doc.text(ellipsize(titleUpper, titleMaxWidth), leftX, cursorY);
+    doc.setFontSize(16);
     cursorY += 5.5;
 
     const tradeLabel = userProfile.trade ? (getTradeConfig(userProfile.trade)?.label || '') : '';
@@ -363,9 +391,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             userProfile.siret ? `${L.siret} ${userProfile.siret}` : null,
         ].filter(Boolean).join('  —  ') || null,
     ].filter(Boolean);
+    // Les lignes d'identité longent verticalement le cartouche document (dates à
+    // droite, bord gauche ~148 mm). On borne à 145 mm et on enroule au lieu de
+    // déborder sur les dates ou hors marge.
+    const identityMaxWidth = 145 - leftX;
     identityLines.forEach(line => {
-        doc.text(line, leftX, cursorY);
-        cursorY += 4.2;
+        doc.splitTextToSize(line, identityMaxWidth).forEach(wrapped => {
+            doc.text(wrapped, leftX, cursorY);
+            cursorY += 4.2;
+        });
     });
 
     // Cartouche document (droite) : type, numéro, dates
@@ -1235,15 +1269,21 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         const approvalY = currentY + 6;
 
-        doc.setFontSize(9);
+        // Colonne gauche bornée avant la colonne droite (x=110) pour éviter le
+        // chevauchement avec « Bon pour accord — le client ».
+        const approvalColWidth = 110 - 14 - 4;
         doc.setFont(undefined, 'bold');
         doc.setTextColor(...ink);
-        doc.text(L.forCompany(companyName), 14, approvalY);
+        const forCompanyText = L.forCompany(companyName);
+        fitFontSize(forCompanyText, approvalColWidth, 9, 7);
+        doc.text(ellipsize(forCompanyText, approvalColWidth), 14, approvalY);
         if (userProfile.full_name) {
+            doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(...subtle);
-            doc.text(userProfile.full_name, 14, approvalY + 5);
+            doc.text(ellipsize(userProfile.full_name, approvalColWidth), 14, approvalY + 5);
         }
+        doc.setFontSize(9);
 
         doc.setFont(undefined, 'bold');
         doc.setTextColor(...ink);
@@ -1482,10 +1522,14 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setDrawColor(...accent);
         doc.setLineWidth(0.4);
         doc.line(14, 284, 196, 284);
-        doc.setFontSize(6.8);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(...faint);
-        doc.text(`${legalBits}${vatMention}`, 105, 287.5, { align: 'center' });
+        // Ligne légale centrée : bornée à la largeur utile (182 mm) pour ne pas
+        // être rognée aux deux marges quand raison sociale + nom + SIRET sont longs.
+        const footerLine = `${legalBits}${vatMention}`;
+        fitFontSize(footerLine, 182, 6.8, 5.5);
+        doc.text(ellipsize(footerLine, 182), 105, 287.5, { align: 'center' });
+        doc.setFontSize(6.8);
         doc.text(`${L.footer(isAmendment ? L.avenant : typeDocument)} — ${L.pageOf(i, pageCount)}`, 105, 291, { align: 'center' });
     }
 
