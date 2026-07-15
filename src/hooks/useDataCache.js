@@ -223,24 +223,39 @@ export function useAgendaEvents(startDate, endDate) {
 // Prochain événement agenda (pour le dashboard KPI)
 export function useNextEvent() {
     const { user } = useAuth();
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     return useQuery({
         queryKey: ['nextEvent', user?.id],
         queryFn: async () => {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            // On récupère les prochains événements à partir d'aujourd'hui, triés
+            // par date puis par heure, puis on filtre côté client sur la date+heure
+            // réelle pour ignorer les rendez-vous déjà passés dans la journée.
             const { data, error } = await supabase
                 .from('events')
                 .select('id, title, date, time, type, address')
                 .eq('user_id', user.id)
                 .gte('date', today)
                 .order('date', { ascending: true })
-                .limit(1);
+                .order('time', { ascending: true })
+                .limit(20);
             if (error) throw error;
-            return data?.length > 0 ? data[0] : null;
+            if (!data || data.length === 0) return null;
+            const next = data.find(ev => {
+                const evDate = new Date(ev.date);
+                const [h, m] = (ev.time || '09:00').split(':');
+                evDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+                return evDate.getTime() >= now.getTime();
+            });
+            return next || null;
         },
         enabled: !!user,
-        staleTime: 2 * 60 * 1000,
+        staleTime: 60 * 1000,
         gcTime: 10 * 60 * 1000,
+        // Réévalue chaque minute pour qu'une fois le RDV passé, le prochain
+        // s'affiche automatiquement sans rechargement de page.
+        refetchInterval: 60 * 1000,
     });
 }
 
