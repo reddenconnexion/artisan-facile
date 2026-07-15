@@ -15,7 +15,7 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera, Navigation } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -471,6 +471,18 @@ const Agenda = () => {
                                     </div>
 
                                     <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                        {event.address && (
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
+                                                title="Naviguer vers l'adresse"
+                                                aria-label="Naviguer vers l'adresse"
+                                            >
+                                                <Navigation className="w-4 h-4" />
+                                            </a>
+                                        )}
                                         {event.client_id && (
                                             <button
                                                 onClick={() => setPhotoEvent(event)}
