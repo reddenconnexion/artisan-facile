@@ -109,6 +109,18 @@ button:active:not(:disabled) {
   transition: transform 0.08s ease;
 }
 
+/* ─── Safe area insets (encoche / barre de statut mobile) ── */
+/* Requiert viewport-fit=cover dans le meta viewport pour être actif. */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ─── Utility classes ────────────────────────────────────── */
 .animate-card-entrance {
   animation: cardEntrance 0.38s ease-out both;

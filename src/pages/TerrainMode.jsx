@@ -300,7 +300,7 @@ const TerrainMode = () => {
                 <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
                 {/* Header */}
-                <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-3 py-3 flex items-center gap-2">
+                <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-3 py-3 flex items-center gap-2 safe-area-top">
                     <button
                         onClick={() => navigate('/app')}
                         className="p-2 -ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 rounded-xl active:bg-gray-100"
@@ -447,7 +447,7 @@ const TerrainMode = () => {
             <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
             {/* ── Barre de titre + chrono ─────────────────────────────────── */}
-            <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm safe-area-top">
                 <div className="px-3 py-3 flex items-center gap-2">
                     {/* Retour à la sélection */}
                     <button

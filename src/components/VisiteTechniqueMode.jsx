@@ -258,7 +258,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans overflow-hidden">
 
             {/* Header */}
-            <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3">
+            <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3 safe-area-top">
                 <button
                     onClick={handleBack}
                     className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
