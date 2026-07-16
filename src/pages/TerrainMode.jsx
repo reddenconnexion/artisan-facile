@@ -315,7 +315,8 @@ const TerrainMode = () => {
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 overflow-y-auto flex flex-col justify-center p-5 gap-4">
+                <div className="flex-1 overflow-y-auto">
+                  <div className="min-h-full flex flex-col justify-center p-5 gap-4">
                     {/* Pointage chantier : j'arrive / je repars */}
                     <TimeClockWidget compact />
 
@@ -410,6 +411,7 @@ const TerrainMode = () => {
                             </div>
                         </div>
                     </button>
+                  </div>
                 </div>
 
                 {photoEvent && (
