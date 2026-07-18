@@ -143,6 +143,7 @@ const DevisForm = () => {
     const [overviewLoading, setOverviewLoading] = useState(false);
     const [overviewError, setOverviewError] = useState(null);
     const overviewInitedRef = useRef(false);
+    const printFrameRef = useRef(null);
     const fileInputRef = useRef(null);
     // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
     // without the actual user.id or quote id changing.
@@ -2825,6 +2826,65 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
+    // Impression du document affiché dans l'aperçu PDF.
+    // Le bouton d'impression natif du visualiseur PDF embarqué (dans l'iframe)
+    // est souvent inopérant selon le navigateur (bug connu de Chrome avec les
+    // PDF affichés en iframe). On déclenche donc l'impression nous-mêmes.
+    // - PDF généré (blob same-origin) : impression via un iframe caché dédié,
+    //   pattern fiable et sans dépendance.
+    // - PDF externe (URL signée cross-origin) : l'impression JS est bloquée par
+    //   le navigateur → on ouvre le document dans un onglet dédié où
+    //   l'utilisateur peut lancer l'impression.
+    const handlePrintOverview = () => {
+        const src = formData.is_external ? displayPdfUrl : overviewPdfUrl;
+        if (!src) {
+            toast.error("L'aperçu n'est pas encore prêt, réessayez dans un instant.");
+            return;
+        }
+
+        if (formData.is_external) {
+            window.open(src, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        // Retirer un éventuel iframe d'impression précédent.
+        if (printFrameRef.current) {
+            printFrameRef.current.remove();
+            printFrameRef.current = null;
+        }
+
+        const printFrame = document.createElement('iframe');
+        printFrame.style.position = 'fixed';
+        printFrame.style.right = '0';
+        printFrame.style.bottom = '0';
+        printFrame.style.width = '0';
+        printFrame.style.height = '0';
+        printFrame.style.border = '0';
+        printFrame.setAttribute('aria-hidden', 'true');
+        printFrame.src = src;
+        printFrame.onload = () => {
+            try {
+                const cw = printFrame.contentWindow;
+                cw.focus();
+                // Nettoyer l'iframe une fois la boîte de dialogue fermée.
+                cw.addEventListener?.('afterprint', () => {
+                    setTimeout(() => {
+                        printFrame.remove();
+                        if (printFrameRef.current === printFrame) printFrameRef.current = null;
+                    }, 500);
+                });
+                cw.print();
+            } catch (e) {
+                console.error('Impression impossible via iframe, ouverture dans un onglet :', e);
+                printFrame.remove();
+                if (printFrameRef.current === printFrame) printFrameRef.current = null;
+                window.open(src, '_blank', 'noopener,noreferrer');
+            }
+        };
+        printFrameRef.current = printFrame;
+        document.body.appendChild(printFrame);
+    };
+
     // À l'ouverture d'un devis déjà finalisé (statut ≠ brouillon), on bascule
     // automatiquement en vue « aperçu PDF ». On ne le fait qu'une seule fois pour
     // ne pas repiéger l'utilisateur qui a cliqué « Modifier ».
@@ -2851,6 +2911,14 @@ Conditions de règlement : Paiement à réception de facture.`
     useEffect(() => () => {
         if (overviewPdfUrl && overviewPdfUrl.startsWith('blob:')) URL.revokeObjectURL(overviewPdfUrl);
     }, [overviewPdfUrl]);
+
+    // Retire l'iframe d'impression caché au démontage.
+    useEffect(() => () => {
+        if (printFrameRef.current) {
+            printFrameRef.current.remove();
+            printFrameRef.current = null;
+        }
+    }, []);
 
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
@@ -3160,6 +3228,17 @@ Conditions de règlement : Paiement à réception de facture.`
                             >
                                 <ExternalLink className="w-4 h-4" />
                             </a>
+                        )}
+                        {overviewSrc && (
+                            <button
+                                type="button"
+                                onClick={handlePrintOverview}
+                                className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                title="Imprimer le document"
+                            >
+                                <Printer className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Imprimer</span>
+                            </button>
                         )}
                         <button
                             type="button"
