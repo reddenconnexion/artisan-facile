@@ -6,6 +6,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { supplyEntries } from '../utils/quoteInternalDetail';
+import { useInvalidateCache } from '../hooks/useDataCache';
 
 // Mémorise, par devis, les fournitures déjà envoyées vers la liste d'achats
 // pour éviter les doublons quand on rouvre la modale plus tard.
@@ -22,6 +23,7 @@ const storageKey = (quoteId) => `devis-supply-sent:${quoteId || 'nouveau'}`;
 const QuoteSupplyListModal = ({ open, onClose, quoteId, quoteLabel, clientId, items }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { invalidateProcurement } = useInvalidateCache();
     const [checked, setChecked] = useState({});
     const [alreadySent, setAlreadySent] = useState({});
     const [sending, setSending] = useState(false);
@@ -68,6 +70,7 @@ const QuoteSupplyListModal = ({ open, onClose, quoteId, quoteLabel, clientId, it
             }));
             const { error } = await supabase.from('procurement_items').insert(rows);
             if (error) throw error;
+            invalidateProcurement();
 
             const sent = { ...alreadySent };
             selected.forEach((e) => { sent[e.key] = true; });
