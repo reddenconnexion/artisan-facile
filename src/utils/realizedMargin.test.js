@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     procurementCostByQuote,
+    spentHoursByQuote,
     realizedQuoteMargin,
     groupMaterialsMargin,
     realizedNetAdjustment,
@@ -36,6 +37,25 @@ describe('procurementCostByQuote', () => {
     });
 });
 
+describe('spentHoursByQuote', () => {
+    it('cumule les heures pointées par devis, en ignorant les pointages sans chantier', () => {
+        const map = spentHoursByQuote([
+            { quote_id: 7, hours_spent: 2.5 },
+            { quote_id: 7, hours_spent: 1.5 },
+            { quote_id: 9, hours_spent: '3' },
+            { quote_id: null, hours_spent: 4 },
+        ]);
+        expect(map.get(7)).toBe(4);
+        expect(map.get(9)).toBe(3);
+        expect(map.size).toBe(2);
+    });
+
+    it('tolère les listes vides ou invalides', () => {
+        expect(spentHoursByQuote([]).size).toBe(0);
+        expect(spentHoursByQuote(null).size).toBe(0);
+    });
+});
+
 describe('realizedQuoteMargin', () => {
     // Devis : 1000 € HT vendus, 300 € de matériel prévu, pas de main d'œuvre chiffrée.
     const items = [
@@ -67,6 +87,36 @@ describe('realizedQuoteMargin', () => {
         expect(r.laborCost).toBe(60); // 2 h × 30 €
         expect(r.cost).toBe(310);
         expect(r.hasLabor).toBe(true);
+        expect(r.laborIsReal).toBe(false);
+    });
+
+    const withLabor = [
+        ...items,
+        { type: 'service', description: 'Main d\'œuvre', quantity: 2, unit: 'h', price: 50, buying_price: 0 },
+    ];
+
+    it('pointage réalisé : la main d\'œuvre est valorisée au temps réellement passé', () => {
+        const agg = { cost: 250, pricedCount: 1, totalCount: 1 };
+        // 2 h facturées, mais 3 h pointées sur le chantier.
+        const r = realizedQuoteMargin(withLabor, 1100, 30, agg, 3);
+        expect(r.laborIsReal).toBe(true);
+        expect(r.laborCost).toBe(90);         // 3 h pointées × 30 €
+        expect(r.cost).toBe(340);             // 250 + 90
+        expect(r.spentHours).toBe(3);
+        expect(r.estimatedHours).toBe(2);
+        expect(r.margin).toBeCloseTo((1100 - 340) / 1100, 6);
+    });
+
+    it('pointage seul (sans achats suivis) : matière au prévu, main d\'œuvre au réel', () => {
+        const r = realizedQuoteMargin(withLabor, 1100, 30, undefined, 4);
+        expect(r.materialIsReal).toBe(false);
+        expect(r.materialCost).toBe(300);     // coût matière prévu au devis
+        expect(r.laborCost).toBe(120);        // 4 h × 30 €
+        expect(r.laborIsReal).toBe(true);
+    });
+
+    it('pointage sans coût horaire connu : rien de chiffrable, null', () => {
+        expect(realizedQuoteMargin(withLabor, 1100, 0, undefined, 4)).toBeNull();
     });
 });
 

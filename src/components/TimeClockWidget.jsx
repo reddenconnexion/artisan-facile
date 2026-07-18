@@ -7,6 +7,7 @@ import {
     getRunningClock, startClock, stopClock,
     elapsedSeconds, secondsToHours, formatHours,
 } from '../utils/timeTracking';
+import { useInvalidateCache } from '../hooks/useDataCache';
 
 const pad = (n) => String(n).padStart(2, '0');
 const formatChrono = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
@@ -24,6 +25,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
     const [clock, setClock] = useState(() => getRunningClock());
     const [now, setNow] = useState(Date.now());
     const [saving, setSaving] = useState(false);
+    const { invalidateTimeTracking } = useInvalidateCache();
 
     // Chantiers pointables : devis acceptés (non archivés, non factures).
     const [worksites, setWorksites] = useState([]);
@@ -89,6 +91,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
                 notes: `Pointage ${range}`,
             });
             if (error) throw error;
+            invalidateTimeTracking();
             stopClock();
             setClock(null);
             toast.success(`${formatHours(hours)} enregistrées${clock.quoteLabel && clock.quoteId ? ` sur ${clock.quoteLabel}` : ''}`);

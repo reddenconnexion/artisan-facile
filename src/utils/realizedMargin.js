@@ -60,36 +60,70 @@ export const procurementCostByQuote = (rows) => {
 };
 
 /**
- * Marge réalisée d'un devis : le coût matière du devis est remplacé par le
- * coût réel des achats liés ; la main d'œuvre reste celle du devis (heures ×
- * coût horaire), comme dans quoteMargin.
+ * Heures réellement pointées par devis (table task_tracking : pointages
+ * « J'arrive au chantier / Je repars » et saisies manuelles d'heures).
+ *
+ * @param {Array<{quote_id:number|null, hours_spent:number}>} rows
+ * @returns {Map<number, number>} quote_id → heures pointées cumulées.
+ */
+export const spentHoursByQuote = (rows) => {
+    const map = new Map();
+    (Array.isArray(rows) ? rows : []).forEach((r) => {
+        if (r == null || r.quote_id == null) return;
+        const key = Number(r.quote_id);
+        if (!Number.isFinite(key)) return;
+        map.set(key, (map.get(key) || 0) + num(r.hours_spent));
+    });
+    return map;
+};
+
+/**
+ * Marge réalisée d'un devis, à partir de ce qui s'est VRAIMENT passé :
+ *   - coût matière : prix d'achat réels des lignes « Matériel à commander »
+ *     liées au devis (à défaut, le coût prévu au devis) ;
+ *   - main d'œuvre : heures réellement pointées × coût horaire (à défaut,
+ *     les heures facturées au devis × coût horaire, comme quoteMargin).
+ * Le devis lui-même n'est jamais modifié.
  *
  * @param {Array} items          Lignes du devis (quotes.items) — non modifiées.
  * @param {number} subtotal      Total HT vendu.
  * @param {number} laborCostRate Coût horaire de revient (€/h), 0 si inconnu.
  * @param {object|null} agg      Entrée de procurementCostByQuote pour ce devis.
- * @returns {null|{margin:number, materialCost:number, laborCost:number,
- *          cost:number, plannedMargin:number, delta:number, hasLabor:boolean,
- *          pricedCount:number, totalCount:number}}
- *   null si aucun achat au prix renseigné (rien de « réalisé » à montrer).
+ * @param {number} [spentHours]  Heures pointées sur ce chantier (0 si aucune).
+ * @returns {null|{margin:number, materialCost:number, materialIsReal:boolean,
+ *          laborCost:number, laborIsReal:boolean, spentHours:number,
+ *          estimatedHours:number, cost:number, plannedMargin:number,
+ *          delta:number, hasLabor:boolean, pricedCount:number, totalCount:number}}
+ *   null si rien de « réalisé » (ni achat au prix renseigné, ni pointage).
  */
-export const realizedQuoteMargin = (items, subtotal, laborCostRate, agg) => {
-    if (!agg || agg.pricedCount === 0) return null;
+export const realizedQuoteMargin = (items, subtotal, laborCostRate, agg, spentHours = 0) => {
+    const materialIsReal = !!agg && agg.pricedCount > 0;
+    const spent = num(spentHours);
+    const rate = num(laborCostRate);
+    // Le pointage seul ne « réalise » la main d'œuvre que si on sait la chiffrer.
+    const laborIsReal = spent > 0 && rate > 0;
+    if (!materialIsReal && !laborIsReal) return null;
+
     const planned = quoteMargin(items, subtotal, laborCostRate);
     const revenue = num(subtotal);
-    const materialCost = agg.cost;
-    const cost = materialCost + planned.laborCost;
+    const materialCost = materialIsReal ? agg.cost : planned.materialCost;
+    const laborCost = laborIsReal ? spent * rate : planned.laborCost;
+    const cost = materialCost + laborCost;
     const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
     return {
         margin,
         materialCost,
-        laborCost: planned.laborCost,
+        materialIsReal,
+        laborCost,
+        laborIsReal,
+        spentHours: spent,
+        estimatedHours: planned.laborHours,
         cost,
         plannedMargin: planned.margin,
         delta: margin - planned.margin,
-        hasLabor: planned.hasLabor,
-        pricedCount: agg.pricedCount,
-        totalCount: agg.totalCount,
+        hasLabor: planned.hasLabor || laborIsReal,
+        pricedCount: agg?.pricedCount || 0,
+        totalCount: agg?.totalCount || 0,
     };
 };
 
