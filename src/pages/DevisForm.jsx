@@ -33,7 +33,8 @@ import { Input, Field, SegmentedControl } from '../components/ui';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
-import { useInvalidateCache } from '../hooks/useDataCache';
+import { useInvalidateCache, useProcurementCostByQuote } from '../hooks/useDataCache';
+import { realizedQuoteMargin } from '../utils/realizedMargin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -120,6 +121,9 @@ const DevisForm = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [signature, setSignature] = useState(null);
     const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
+    // Coûts d'achat réels (« Matériel à commander ») agrégés par devis, pour
+    // l'indicateur « Marge réalisée » — lecture seule, le devis n'est pas modifié.
+    const procurementCosts = useProcurementCostByQuote();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
@@ -4989,6 +4993,39 @@ Conditions de règlement : Paiement à réception de facture.`
                                                     <span className="text-gray-400">{m.hasLabor ? 'Marge nette' : 'Marge matière'}</span>
                                                     <span className={`font-semibold ${color}`} title={tip}>
                                                         {pct} %
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                        {/* Marge RÉALISÉE : recalculée avec les prix d'achat
+                                            réels saisis dans « Matériel à commander » (lignes
+                                            liées à ce devis). Purement informatif : le devis
+                                            n'est jamais modifié. */}
+                                        {subtotal > 0 && (() => {
+                                            const agg = procurementCosts.get(Number(id))
+                                                ?? (formData.parent_quote_id ? procurementCosts.get(Number(formData.parent_quote_id)) : undefined);
+                                            const r = realizedQuoteMargin(formData.items, subtotal, laborRate, agg);
+                                            if (!r) return null;
+                                            const pct = Math.round(r.margin * 100);
+                                            const color = r.margin >= 0.35 ? 'text-green-600' : r.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                                            const deltaPts = Math.round(r.delta * 100);
+                                            const tip = `D'après vos achats (${r.pricedCount}/${r.totalCount} article${r.totalCount > 1 ? 's' : ''} au prix renseigné) : `
+                                                + `coût matière réel ${r.materialCost.toFixed(2)} €`
+                                                + (r.hasLabor ? ` + main d'œuvre ${r.laborCost.toFixed(2)} €` : '')
+                                                + `. Marge prévue au devis : ${Math.round(r.plannedMargin * 100)} %.`;
+                                            return (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-400 inline-flex items-center gap-1">
+                                                        <ShoppingCart className="w-3.5 h-3.5" />
+                                                        Marge réalisée (achats)
+                                                    </span>
+                                                    <span className={`font-semibold ${color}`} title={tip}>
+                                                        {pct} %
+                                                        {deltaPts !== 0 && (
+                                                            <span className={`ml-1.5 font-normal text-xs ${deltaPts > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                                                ({deltaPts > 0 ? '+' : ''}{deltaPts} pt{Math.abs(deltaPts) > 1 ? 's' : ''})
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 </div>
                                             );

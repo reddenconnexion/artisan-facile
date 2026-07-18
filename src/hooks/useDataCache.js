@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
+import { procurementCostByQuote } from '../utils/realizedMargin';
 import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
@@ -191,6 +192,14 @@ export function useProcurementItems() {
         staleTime: 2 * 60 * 1000,
         gcTime: 15 * 60 * 1000,
     });
+}
+
+// Coût d'achat réel agrégé par devis, dérivé du cache useProcurementItems
+// (aucune requête supplémentaire). Alimente l'indicateur « Marge réalisée »
+// des devis et l'ajustement aux coûts réels de la Comptabilité / du Dashboard.
+export function useProcurementCostByQuote() {
+    const { data: rows = [] } = useProcurementItems();
+    return useMemo(() => procurementCostByQuote(rows), [rows]);
 }
 
 // Cache de l'inventaire (matériaux dans price_library)

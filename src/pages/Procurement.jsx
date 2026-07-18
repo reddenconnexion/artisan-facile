@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useProcurementItems } from '../hooks/useDataCache';
 import { Button } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
+import { groupMaterialsMargin } from '../utils/realizedMargin';
 
 const CATEGORY_META = {
     materiel: { label: 'Matériel', Icon: Package, iconClass: 'text-blue-500' },
@@ -451,6 +452,25 @@ const Procurement = () => {
                                 <span className="font-normal normal-case text-gray-400">
                                     · {list.length} article{list.length > 1 ? 's' : ''}
                                 </span>
+                                {/* Marge matériel du devis, recalculée en direct au fil de la
+                                    saisie des prix d'achat (toutes les lignes du devis, quel
+                                    que soit l'onglet). Le devis n'est pas modifié. */}
+                                {quoteId != null && (() => {
+                                    const gm = groupMaterialsMargin(items.filter(i => Number(i.quote_id) === Number(quoteId)));
+                                    if (!gm) return null;
+                                    const pct = Math.round(gm.margin * 100);
+                                    const cls = gm.margin >= 0.35 ? 'bg-green-50 text-green-700'
+                                        : gm.margin >= 0.20 ? 'bg-amber-50 text-amber-700'
+                                        : 'bg-red-50 text-red-600';
+                                    return (
+                                        <span
+                                            className={`ml-auto inline-flex items-center px-2 py-0.5 rounded-full normal-case tracking-normal font-semibold ${cls}`}
+                                            title={`Marge matériel réalisée d'après vos prix d'achat (${gm.pricedCount}/${gm.totalCount} article${gm.totalCount > 1 ? 's' : ''} renseigné${gm.pricedCount > 1 ? 's' : ''}) : vente ${formatPrice(gm.saleKnown)} − achat ${formatPrice(gm.costKnown)}. Se met à jour à chaque prix saisi, sans modifier le devis.`}
+                                        >
+                                            Marge matériel {pct} %
+                                        </span>
+                                    );
+                                })()}
                             </div>
                             <ul className="divide-y divide-gray-100">
                                 {list.map(item => {

@@ -3,7 +3,8 @@ import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, 
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuotes } from '../hooks/useDataCache';
+import { useQuotes, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
+import { realizedQuoteMargin } from '../utils/realizedMargin';
 import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -53,6 +54,34 @@ const TransmissionBadge = ({ status }) => {
         <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${color}`} title={`Transmission e-facture : ${label}`}>
             <Icon className="w-3 h-3" />
             {label}
+        </span>
+    );
+};
+
+// Marge réalisée d'après les prix d'achat réels saisis dans « Matériel à
+// commander » (lignes liées au devis). Purement informatif : le devis n'est
+// pas modifié. N'apparaît que si au moins un achat a son prix renseigné.
+const RealizedMarginBadge = ({ devis, costByQuote, laborRate }) => {
+    const agg = costByQuote.get(Number(devis.id))
+        ?? (devis.parent_id != null ? costByQuote.get(Number(devis.parent_id)) : undefined);
+    if (!agg) return null;
+    const subtotal = parseFloat(devis.total_ht)
+        || (Array.isArray(devis.items)
+            ? devis.items.reduce((s, i) => s + (parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0), 0)
+            : 0);
+    const r = realizedQuoteMargin(devis.items, subtotal, laborRate, agg);
+    if (!r) return null;
+    const pct = Math.round(r.margin * 100);
+    const color = r.margin >= 0.35 ? 'text-green-600 dark:text-green-400'
+        : r.margin >= 0.20 ? 'text-orange-500 dark:text-orange-400'
+        : 'text-red-500 dark:text-red-400';
+    const deltaPts = Math.round(r.delta * 100);
+    const tip = `Marge réalisée d'après vos achats (${r.pricedCount}/${r.totalCount} article${r.totalCount > 1 ? 's' : ''} au prix renseigné). `
+        + `Marge prévue au devis : ${Math.round(r.plannedMargin * 100)} %.`;
+    return (
+        <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${color}`} title={tip}>
+            <TrendingUp className="w-3 h-3" />
+            Marge réelle {pct} %{deltaPts !== 0 ? ` (${deltaPts > 0 ? '+' : ''}${deltaPts} pt${Math.abs(deltaPts) > 1 ? 's' : ''})` : ''}
         </span>
     );
 };
@@ -235,6 +264,10 @@ const DevisList = () => {
     const queryClient = useQueryClient();
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
+    // Marge réalisée : coûts d'achat réels par devis + coût horaire du profil.
+    const costByQuote = useProcurementCostByQuote();
+    const { data: marginProfile } = useUserProfile();
+    const laborRate = parseFloat(marginProfile?.labor_cost_rate) || 0;
     const { data: emailStats } = useEmailSendStats();
     const { isTestMode, testClient } = useTestMode();
     const [openHistoryModal, setOpenHistoryModal] = useState(null);
@@ -830,6 +863,7 @@ const DevisList = () => {
                                                     stats={emailStats?.byQuote.get(devis.id)}
                                                     onOpenHistory={handleShowHistory}
                                                 />
+                                                <RealizedMarginBadge devis={devis} costByQuote={costByQuote} laborRate={laborRate} />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
@@ -920,6 +954,7 @@ const DevisList = () => {
                                             stats={emailStats?.byQuote.get(devis.id)}
                                             onOpenHistory={handleShowHistory}
                                         />
+                                        <RealizedMarginBadge devis={devis} costByQuote={costByQuote} laborRate={laborRate} />
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>
