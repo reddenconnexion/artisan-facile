@@ -5,7 +5,7 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, toDateString } from '../utils/timeTracking';
 
 // Vue planning des chantiers, volontairement minimale : une ligne par
-// chantier, une barre entre son premier et son dernier rendez-vous d'agenda.
+// chantier, un segment coloré sur chaque jour où il a un rendez-vous d'agenda.
 // Pas de dépendance Gantt — juste des dates, des barres et aujourd'hui.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,6 +23,24 @@ const STAGE_COLORS = {
 
 const dayIndex = (dateStr, rangeStart) =>
     Math.round((new Date(`${dateStr}T00:00:00`) - rangeStart) / DAY_MS);
+
+// À partir des jours d'un chantier (YYYY-MM-DD), construit des segments
+// [début, fin] d'indices de jours : les jours consécutifs fusionnent en une
+// barre, mais un trou (jour sans RDV) coupe le segment. On ne colore ainsi
+// que les jours réellement occupés, pas tout l'intervalle premier→dernier RDV.
+const buildSegments = (dates, rangeStart) => {
+    const idx = [...new Set(dates.map(d => dayIndex(d, rangeStart)))].sort((a, b) => a - b);
+    const segments = [];
+    for (const i of idx) {
+        const last = segments[segments.length - 1];
+        if (last && i === last.endIdx + 1) {
+            last.endIdx = i;
+        } else {
+            segments.push({ startIdx: i, endIdx: i });
+        }
+    }
+    return segments;
+};
 
 const WorksitePlanning = ({ worksites }) => {
     const navigate = useNavigate();
@@ -216,14 +234,12 @@ const WorksitePlanning = ({ worksites }) => {
                             Aucun rendez-vous de chantier sur cette période.
                         </div>
                     ) : (
-                        planned.map(({ worksite: w, from, to, dates }) => {
-                            const startIdx = dayIndex(from, rangeStart);
-                            const endIdx = dayIndex(to, rangeStart);
-                            // Hors champ ? On dessine quand même la partie visible.
-                            const visStart = Math.max(0, startIdx);
-                            const visEnd = Math.min(DAYS_SHOWN - 1, endIdx);
-                            const visible = visEnd >= 0 && visStart <= DAYS_SHOWN - 1;
+                        planned.map(({ worksite: w, dates }) => {
                             const color = STAGE_COLORS[w.work_stage || 'planned'] || STAGE_COLORS.planned;
+                            // Un segment coloré par plage de jours réellement occupés
+                            // (les jours sans RDV entre deux rendez-vous restent vierges).
+                            const segments = buildSegments(dates, rangeStart);
+                            const rdvCount = new Set(dates).size;
                             return (
                                 <div key={w.id} className="flex items-center border-b border-gray-50 dark:border-gray-800/60 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                     <button
@@ -245,17 +261,28 @@ const WorksitePlanning = ({ worksites }) => {
                                                 style={{ left: todayIdx * DAY_WIDTH + DAY_WIDTH / 2 }}
                                             />
                                         )}
-                                        {visible && (
-                                            <button
-                                                onClick={() => navigate(`/app/devis/${w.id}`)}
-                                                className={`absolute top-1/2 -translate-y-1/2 h-3.5 rounded-full ${color} opacity-90 hover:opacity-100 transition-opacity`}
-                                                style={{
-                                                    left: visStart * DAY_WIDTH + 4,
-                                                    width: Math.max((visEnd - visStart + 1) * DAY_WIDTH - 8, DAY_WIDTH - 8),
-                                                }}
-                                                title={`${label(w)} — du ${new Date(`${from}T00:00:00`).toLocaleDateString('fr-FR')} au ${new Date(`${to}T00:00:00`).toLocaleDateString('fr-FR')} (${dates.length} RDV)`}
-                                            />
-                                        )}
+                                        {segments.map((seg, si) => {
+                                            // Hors champ ? On dessine quand même la partie visible.
+                                            const visStart = Math.max(0, seg.startIdx);
+                                            const visEnd = Math.min(DAYS_SHOWN - 1, seg.endIdx);
+                                            if (visEnd < 0 || visStart > DAYS_SHOWN - 1) return null;
+                                            const spanDays = seg.endIdx - seg.startIdx + 1;
+                                            const dayLabel = spanDays === 1
+                                                ? new Date(rangeStart.getTime() + seg.startIdx * DAY_MS).toLocaleDateString('fr-FR')
+                                                : `du ${new Date(rangeStart.getTime() + seg.startIdx * DAY_MS).toLocaleDateString('fr-FR')} au ${new Date(rangeStart.getTime() + seg.endIdx * DAY_MS).toLocaleDateString('fr-FR')}`;
+                                            return (
+                                                <button
+                                                    key={si}
+                                                    onClick={() => navigate(`/app/devis/${w.id}`)}
+                                                    className={`absolute top-1/2 -translate-y-1/2 h-3.5 rounded-full ${color} opacity-90 hover:opacity-100 transition-opacity`}
+                                                    style={{
+                                                        left: visStart * DAY_WIDTH + 4,
+                                                        width: Math.max((visEnd - visStart + 1) * DAY_WIDTH - 8, DAY_WIDTH - 8),
+                                                    }}
+                                                    title={`${label(w)} — ${dayLabel} (${rdvCount} RDV)`}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );
