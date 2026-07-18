@@ -400,7 +400,11 @@ const PublicQuote = () => {
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-            <Toaster position="top-right" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
+            {/* Toaster ancré en bas : sur mobile, un toast en haut (ex. « appli
+                prête hors ligne ») s'affiche pleine largeur et recouvre la barre
+                d'action collée en haut, interceptant le tap sur « Signer ». En bas,
+                aucun toast ne masque plus la CTA principale. */}
+            <Toaster position="bottom-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
             {/* Sticky top bar */}
             <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
