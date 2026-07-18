@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
@@ -8,7 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useUserProfile } from '../hooks/useDataCache';
+import { useUserProfile, useProcurementItems } from '../hooks/useDataCache';
 import { Button } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 
@@ -34,8 +35,7 @@ const STATUS_TABS = [
 const Procurement = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [statusFilter, setStatusFilter] = useState('pending');
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
@@ -48,24 +48,27 @@ const Procurement = () => {
     const { data: profile } = useUserProfile();
     const coefficient = parseFloat(profile?.default_margin_coefficient) || 0;
 
-    const fetchItems = async () => {
-        if (!user) return;
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('procurement_items')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            setItems(data || []);
-        } catch (err) {
-            console.error(err);
-            toast.error('Erreur de chargement');
-        } finally {
-            setLoading(false);
-        }
+    // La liste est mise en cache par React Query (hook partagé) : elle reste en
+    // mémoire entre les pages, donc revenir sur l'écran ne relance plus un
+    // chargement complet avec spinner. Le cache est aussi la source de vérité
+    // pour les mises à jour optimistes ci-dessous.
+    const { data: items = [], isLoading, isError } = useProcurementItems();
+    // Spinner uniquement au tout premier chargement (aucune donnée en cache).
+    const loading = isLoading && items.length === 0;
+
+    const itemsKey = ['procurementItems', user?.id];
+    // Applique une transformation optimiste au cache et renvoie l'état
+    // précédent pour permettre un rollback en cas d'erreur réseau.
+    const patchItems = (updater) => {
+        const previous = queryClient.getQueryData(itemsKey) || [];
+        queryClient.setQueryData(itemsKey, updater(previous));
+        return previous;
     };
+    const restoreItems = (previous) => queryClient.setQueryData(itemsKey, previous);
+
+    useEffect(() => {
+        if (isError) toast.error('Erreur de chargement');
+    }, [isError]);
 
     const fetchLibrary = async () => {
         if (!user) return;
@@ -77,7 +80,7 @@ const Procurement = () => {
     };
 
     useEffect(() => {
-        if (user) { fetchItems(); fetchLibrary(); }
+        if (user) fetchLibrary();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
@@ -167,17 +170,16 @@ const Procurement = () => {
     }, [filtered]);
 
     const updateStatus = async (id, newStatus) => {
-        const previous = items;
         const patch = { status: newStatus };
         if (newStatus === 'ordered') patch.ordered_at = new Date().toISOString();
         if (newStatus === 'received') patch.received_at = new Date().toISOString();
         if (newStatus === 'pending') { patch.ordered_at = null; patch.received_at = null; }
 
-        setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+        const previous = patchItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
         const { error } = await supabase.from('procurement_items').update(patch).eq('id', id);
         if (error) {
             toast.error('Mise à jour impossible');
-            setItems(previous);
+            restoreItems(previous);
             return;
         }
         // Un matériel reçu est un achat confirmé : on le répertorie au catalogue.
@@ -190,20 +192,19 @@ const Procurement = () => {
     const bulkMark = async (newStatus) => {
         const ids = filtered.map(i => i.id);
         if (ids.length === 0) return;
-        const previous = items;
         const now = new Date().toISOString();
         const patch = { status: newStatus };
         if (newStatus === 'ordered') patch.ordered_at = now;
         if (newStatus === 'received') patch.received_at = now;
 
-        setItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, ...patch } : i));
+        const previous = patchItems(prev => prev.map(i => ids.includes(i.id) ? { ...i, ...patch } : i));
         const { error } = await supabase
             .from('procurement_items')
             .update(patch)
             .in('id', ids);
         if (error) {
             toast.error('Mise à jour impossible');
-            setItems(previous);
+            restoreItems(previous);
         } else {
             toast.success(`${ids.length} article${ids.length > 1 ? 's' : ''} mis à jour`);
             if (newStatus === 'received') {
@@ -214,12 +215,11 @@ const Procurement = () => {
     };
 
     const removeItem = async (id) => {
-        const previous = items;
-        setItems(prev => prev.filter(i => i.id !== id));
+        const previous = patchItems(prev => prev.filter(i => i.id !== id));
         const { error } = await supabase.from('procurement_items').delete().eq('id', id);
         if (error) {
             toast.error('Suppression impossible');
-            setItems(previous);
+            restoreItems(previous);
         }
     };
 
@@ -230,12 +230,11 @@ const Procurement = () => {
         if (!current) return;
         const changed = Object.keys(patch).some(k => (current[k] ?? null) !== (patch[k] ?? null));
         if (!changed) return;
-        const previous = items;
-        setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+        const previous = patchItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
         const { error } = await supabase.from('procurement_items').update(patch).eq('id', id);
         if (error) {
             toast.error('Enregistrement impossible');
-            setItems(previous);
+            restoreItems(previous);
         }
     };
 
@@ -260,7 +259,7 @@ const Procurement = () => {
             toast.error("Impossible d'ajouter");
             return;
         }
-        setItems(prev => [data, ...prev]);
+        patchItems(prev => [data, ...prev]);
         setNewDesc('');
         setNewQty(1);
         toast.success('Ajouté');

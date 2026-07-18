@@ -170,6 +170,29 @@ export function useUserProfile() {
     });
 }
 
+// Cache du matériel à commander (procurement_items)
+// Gardé en mémoire entre les pages : revenir sur « Matériel à commander »
+// n'entraîne plus de rechargement complet avec spinner.
+export function useProcurementItems() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['procurementItems', user?.id],
+        queryFn: withOfflineCache(`procurementItems_${user?.id}`, async () => {
+            const { data, error } = await supabase
+                .from('procurement_items')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        }),
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
+    });
+}
+
 // Cache de l'inventaire (matériaux dans price_library)
 export function useInventory() {
     const { user } = useAuth();
@@ -370,6 +393,7 @@ export function useInvalidateCache() {
         invalidatePriceLibrary: () => queryClient.invalidateQueries({ queryKey: ['priceLibrary'] }),
         invalidateProfile: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
         invalidateInventory: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+        invalidateProcurement: () => queryClient.invalidateQueries({ queryKey: ['procurementItems'] }),
         invalidateAgenda: () => queryClient.invalidateQueries({ queryKey: ['agenda'] }),
         invalidateAll: () => queryClient.invalidateQueries(),
         invalidateInterventionReports: () => queryClient.invalidateQueries({ queryKey: ['interventionReports'] }),

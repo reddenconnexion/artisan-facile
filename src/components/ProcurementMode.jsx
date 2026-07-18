@@ -7,6 +7,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
+import { useInvalidateCache } from '../hooks/useDataCache';
 import { parseProcurementTranscript } from '../utils/procurementParser';
 
 const CATEGORIES = [
@@ -35,6 +36,7 @@ const CATEGORIES = [
 
 const ProcurementMode = ({ onBack }) => {
     const { user } = useAuth();
+    const { invalidateProcurement } = useInvalidateCache();
     const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
 
     // Site context
@@ -107,6 +109,7 @@ const ProcurementMode = ({ onBack }) => {
                 .select();
             if (error) throw error;
             setItems(prev => [...(data || []), ...prev]);
+            invalidateProcurement();
             toast.success(
                 rows.length === 1
                     ? 'Ajouté à la liste'
@@ -165,6 +168,8 @@ const ProcurementMode = ({ onBack }) => {
         if (error) {
             toast.error('Mise à jour impossible');
             setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: item.quantity } : i));
+        } else {
+            invalidateProcurement();
         }
     };
 
@@ -178,6 +183,8 @@ const ProcurementMode = ({ onBack }) => {
         if (error) {
             toast.error('Suppression impossible');
             setItems(previous);
+        } else {
+            invalidateProcurement();
         }
     };
 
