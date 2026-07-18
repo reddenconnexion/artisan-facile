@@ -112,7 +112,10 @@ const WorksitePlanning = ({ worksites }) => {
             if (dates.length > 0) {
                 const sorted = [...dates].sort();
                 planned.push({ worksite: w, from: sorted[0], to: sorted[sorted.length - 1], dates: sorted });
-            } else {
+            } else if (w.work_stage !== 'pending_deposit') {
+                // Un chantier en attente d'acompte n'est pas confirmé : inutile
+                // de l'inviter à « planifier » tant que l'acompte n'est pas payé.
+                // (S'il a déjà un RDV, il reste visible via la branche ci-dessus.)
                 unplanned.push(w);
             }
         }
