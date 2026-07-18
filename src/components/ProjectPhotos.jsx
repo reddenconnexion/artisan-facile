@@ -442,11 +442,16 @@ const ProjectPhotos = ({ clientId }) => {
     // Sélectionne (ou crée) automatiquement le dossier du dernier devis/facture actif
     const initDefaultProject = async (existingProjects) => {
         try {
+            // On cible le dernier DEVIS actif (on exclut les factures, dont le
+            // titre « Facture … » ferait un mauvais nom de chantier) et on inclut
+            // le statut « paid » : un devis facturé/payé reste un chantier à
+            // documenter (sinon son dossier photos n'était jamais créé).
             const { data: quote } = await supabase
                 .from('quotes')
                 .select('id, title, type, status')
                 .eq('client_id', clientId)
-                .in('status', ['sent', 'accepted', 'billed'])
+                .neq('type', 'invoice')
+                .in('status', ['sent', 'accepted', 'billed', 'paid'])
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
