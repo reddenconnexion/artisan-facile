@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
+import { procurementCostByQuote, spentHoursByQuote } from '../utils/realizedMargin';
 import { useAuth } from '../context/AuthContext';
 import { saveToOfflineCache, getFromOfflineCache } from '../utils/offlineCache';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
@@ -191,6 +192,36 @@ export function useProcurementItems() {
         staleTime: 2 * 60 * 1000,
         gcTime: 15 * 60 * 1000,
     });
+}
+
+// Coût d'achat réel agrégé par devis, dérivé du cache useProcurementItems
+// (aucune requête supplémentaire). Alimente l'indicateur « Marge réalisée »
+// des devis et l'ajustement aux coûts réels de la Comptabilité / du Dashboard.
+export function useProcurementCostByQuote() {
+    const { data: rows = [] } = useProcurementItems();
+    return useMemo(() => procurementCostByQuote(rows), [rows]);
+}
+
+// Heures réellement pointées par devis (task_tracking), en cache partagé.
+// Met en relation la main d'œuvre facturée et la durée réelle des
+// interventions dans l'indicateur « Marge réalisée » des devis.
+export function useSpentHoursByQuote() {
+    const { user } = useAuth();
+    const { data: rows = [] } = useQuery({
+        queryKey: ['taskTracking', user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('task_tracking')
+                .select('quote_id, hours_spent')
+                .eq('user_id', user.id);
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
+    });
+    return useMemo(() => spentHoursByQuote(rows), [rows]);
 }
 
 // Cache de l'inventaire (matériaux dans price_library)
@@ -394,6 +425,7 @@ export function useInvalidateCache() {
         invalidateProfile: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
         invalidateInventory: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
         invalidateProcurement: () => queryClient.invalidateQueries({ queryKey: ['procurementItems'] }),
+        invalidateTimeTracking: () => queryClient.invalidateQueries({ queryKey: ['taskTracking'] }),
         invalidateAgenda: () => queryClient.invalidateQueries({ queryKey: ['agenda'] }),
         invalidateAll: () => queryClient.invalidateQueries(),
         invalidateInterventionReports: () => queryClient.invalidateQueries({ queryKey: ['interventionReports'] }),

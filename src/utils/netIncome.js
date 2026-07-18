@@ -112,10 +112,19 @@ export const estimateIncomeTax = ({
  * il ne faut donc PAS soustraire à nouveau le matériel. urssafCharges, proCharges
  * et incomeTax sont des flux distincts (aucun double comptage).
  *
+ * Coûts matériel réels (« Matériel à commander ») : quand une partie du CA
+ * matériel provient de chantiers dont les achats sont suivis avec leur prix
+ * fournisseur réel, cette part bascule du forfait (taux) vers la marge réelle :
+ *   marge matériel = (caMateriel − caMaterielReal) × taux
+ *                  + (caMaterielReal − realMaterialCost)
+ * Sans ces paramètres (défaut 0), le calcul historique est inchangé.
+ *
  * @param {object} p
  * @param {number} p.caServices           Main d'œuvre encaissée sur la période (HT).
  * @param {number} p.caMateriel           Part matériel encaissée sur la période (HT).
  * @param {number} [p.materialMarginRate] Marge conservée sur le matériel (défaut 0,25).
+ * @param {number} [p.caMaterielReal]     Part du CA matériel couverte par des achats suivis.
+ * @param {number} [p.realMaterialCost]   Coût d'achat réel correspondant à cette part.
  * @param {number} [p.urssafCharges]      Cotisations sociales de la période.
  * @param {number} [p.proChargesForPeriod] Charges pro fixes ramenées à la période.
  * @param {number} [p.incomeTax]          Impôt estimé de la période.
@@ -125,6 +134,8 @@ export const computeNetIncome = ({
     caServices = 0,
     caMateriel = 0,
     materialMarginRate = DEFAULT_MATERIAL_MARGIN_RATE,
+    caMaterielReal = 0,
+    realMaterialCost = 0,
     urssafCharges = 0,
     proChargesForPeriod = 0,
     incomeTax = 0,
@@ -132,9 +143,14 @@ export const computeNetIncome = ({
     const s = num(caServices);
     const m = num(caMateriel);
     const rate = num(materialMarginRate);
+    // La part « réelle » ne peut excéder le CA matériel de la période (garde-fou
+    // si le CA a été corrigé à la main en dessous du CA calculé).
+    const mReal = Math.min(Math.max(num(caMaterielReal), 0), m);
+    const realCost = mReal > 0 ? num(realMaterialCost) : 0;
 
     const caTotal = s + m;
-    const margeMateriel = m * rate;
+    const margeMaterielReelle = mReal - realCost; // peut être négative : info réelle
+    const margeMateriel = (m - mReal) * rate + margeMaterielReelle;
     const margeChantier = s + margeMateriel; // FIGURE 1
 
     const urssaf = num(urssafCharges);
@@ -147,6 +163,9 @@ export const computeNetIncome = ({
         caServices: s,
         caMateriel: m,
         materialMarginRate: rate,
+        caMaterielReal: mReal,
+        realMaterialCost: realCost,
+        margeMaterielReelle,
         margeMateriel,
         margeChantier,
         urssafCharges: urssaf,

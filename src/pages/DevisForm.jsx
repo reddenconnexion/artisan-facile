@@ -33,7 +33,8 @@ import { Input, Field, SegmentedControl } from '../components/ui';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
-import { useInvalidateCache } from '../hooks/useDataCache';
+import { useInvalidateCache, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
+import { realizedQuoteMargin } from '../utils/realizedMargin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -44,7 +45,7 @@ import DevisAIModal from '../components/DevisAIModal';
 import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
-import { estimatedHoursFromItems } from '../utils/timeTracking';
+import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
 // (petite croix) une fois comprise — mémorisé par navigateur.
@@ -120,6 +121,11 @@ const DevisForm = () => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [signature, setSignature] = useState(null);
     const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
+    // Coûts d'achat réels (« Matériel à commander ») et heures pointées
+    // (task_tracking) agrégés par devis, pour l'indicateur « Marge réalisée »
+    // — lecture seule, le devis n'est pas modifié.
+    const procurementCosts = useProcurementCostByQuote();
+    const spentHoursMap = useSpentHoursByQuote();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
@@ -4991,6 +4997,63 @@ Conditions de règlement : Paiement à réception de facture.`
                                                         {pct} %
                                                     </span>
                                                 </div>
+                                            );
+                                        })()}
+                                        {/* Marge RÉALISÉE : recalculée avec les prix d'achat
+                                            réels saisis dans « Matériel à commander » et les
+                                            heures réellement pointées sur le chantier.
+                                            Purement informatif : le devis n'est jamais modifié. */}
+                                        {subtotal > 0 && (() => {
+                                            const agg = procurementCosts.get(Number(id))
+                                                ?? (formData.parent_quote_id ? procurementCosts.get(Number(formData.parent_quote_id)) : undefined);
+                                            const spent = spentHoursMap.get(Number(id))
+                                                ?? (formData.parent_quote_id ? spentHoursMap.get(Number(formData.parent_quote_id)) : 0)
+                                                ?? 0;
+                                            const r = realizedQuoteMargin(formData.items, subtotal, laborRate, agg, spent);
+                                            if (!r) return null;
+                                            const pct = Math.round(r.margin * 100);
+                                            const color = r.margin >= 0.35 ? 'text-green-600' : r.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                                            const deltaPts = Math.round(r.delta * 100);
+                                            const sources = [
+                                                r.materialIsReal ? `matière réelle ${r.materialCost.toFixed(2)} € (${r.pricedCount}/${r.totalCount} achat${r.totalCount > 1 ? 's' : ''} au prix renseigné)` : null,
+                                                r.laborIsReal ? `main d'œuvre pointée ${formatHours(r.spentHours)} × ${laborRate.toFixed(2)} € = ${r.laborCost.toFixed(2)} €` : null,
+                                            ].filter(Boolean).join(' · ');
+                                            const tip = `D'après le terrain : ${sources}. Marge prévue au devis : ${Math.round(r.plannedMargin * 100)} %.`;
+                                            const hoursOver = r.laborIsReal && r.estimatedHours > 0
+                                                ? r.spentHours - r.estimatedHours
+                                                : 0;
+                                            return (
+                                                <>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-400 inline-flex items-center gap-1">
+                                                            <ShoppingCart className="w-3.5 h-3.5" />
+                                                            Marge réalisée{r.laborIsReal && r.materialIsReal ? '' : r.laborIsReal ? ' (pointage)' : ' (achats)'}
+                                                        </span>
+                                                        <span className={`font-semibold ${color}`} title={tip}>
+                                                            {pct} %
+                                                            {deltaPts !== 0 && (
+                                                                <span className={`ml-1.5 font-normal text-xs ${deltaPts > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                                                    ({deltaPts > 0 ? '+' : ''}{deltaPts} pt{Math.abs(deltaPts) > 1 ? 's' : ''})
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    {/* Rentabilité main d'œuvre : temps pointé vs heures facturées */}
+                                                    {r.spentHours > 0 && r.estimatedHours > 0 && (
+                                                        <div className="flex justify-between text-xs text-gray-400">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" />
+                                                                Temps pointé
+                                                            </span>
+                                                            <span title={hoursOver > 0 ? `Dépassement : ${formatHours(hoursOver)} de plus que la main d'œuvre facturée` : 'Dans le temps facturé au devis'}>
+                                                                {formatHours(r.spentHours)} / {formatHours(r.estimatedHours)} facturées
+                                                                {hoursOver > 0 && (
+                                                                    <span className="ml-1 text-red-400 font-medium">(+{formatHours(hoursOver)})</span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </>
                                             );
                                         })()}
                                     </>

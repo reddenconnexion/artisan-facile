@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { useUserProfile, useQuotes, useInvalidateCache } from '../hooks/useDataCache';
+import { useUserProfile, useQuotes, useInvalidateCache, useProcurementCostByQuote } from '../hooks/useDataCache';
+import { realizedNetAdjustment } from '../utils/realizedMargin';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles, Wallet, Loader2 } from 'lucide-react';
@@ -211,6 +212,7 @@ const Accounting = () => {
       totalMaterial += materialAmt;
       detail.push({
         id: inv.id,
+        parentId: inv.parent_id ?? null,
         quoteNumber: inv.quote_number,
         docType: inv.type || 'quote',
         client: inv.client_name || 'Client inconnu',
@@ -308,8 +310,14 @@ const Accounting = () => {
     };
   }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
 
+  // Coûts d'achat réels (« Matériel à commander ») agrégés par devis d'origine.
+  const costByQuote = useProcurementCostByQuote();
+
   // Revenu net de la période : marge chantier (main d'œuvre + marge matériel)
   // puis déduction URSSAF (sur le CA total) + charges pro + impôt estimé.
+  // La marge matériel des chantiers dont les achats sont suivis (prix
+  // fournisseur renseigné) est calculée au RÉEL ; le forfait % ne s'applique
+  // qu'au reste. Les devis, eux, ne sont jamais modifiés.
   const netIncomeData = useMemo(() => {
     const materialMarginRate = (parseFloat(netMarginRate) || 0) / 100;
     const chargesSummary = summarizeCharges(businessCharges || []);
@@ -326,21 +334,25 @@ const Accounting = () => {
       tmi: netTmi,
     });
     const incomeTax = netTaxOverride.trim() !== '' ? (parseFloat(netTaxOverride) || 0) : estimatedTax;
+    const real = realizedNetAdjustment(periodData.detail || [], costByQuote);
     const detail = computeNetIncome({
       caServices: effectiveCaService,
       caMateriel: effectiveCaVente,
       materialMarginRate,
+      caMaterielReal: real.caMaterielReal,
+      realMaterialCost: real.realMaterialCost,
       urssafCharges,
       proChargesForPeriod,
       incomeTax,
     });
     return {
       ...detail,
+      realCoveredCount: real.coveredCount,
       proChargesAnnual: chargesSummary.annualTotal,
       estimatedTax,
       isMicro: artisanStatus === 'micro_entreprise',
     };
-  }, [netMarginRate, businessCharges, selectedPeriod, calculateCharges, effectiveCaService, effectiveCaVente, activityType, netTaxMethod, netTmi, netTaxOverride, artisanStatus]);
+  }, [netMarginRate, businessCharges, selectedPeriod, calculateCharges, effectiveCaService, effectiveCaVente, activityType, netTaxMethod, netTmi, netTaxOverride, artisanStatus, periodData, costByQuote]);
 
   const handleSaveNetPrefs = async () => {
     if (!user) return;
@@ -1062,7 +1074,10 @@ const Accounting = () => {
                 {formatCurrency(netIncomeData.isMicro ? netIncomeData.revenuNet : netIncomeData.margeChantier)}
               </p>
               <p className="text-emerald-50 text-sm mt-1">
-                Marge chantier : {formatCurrency(netIncomeData.margeChantier)} (main d'œuvre + {(netIncomeData.materialMarginRate * 100).toFixed(0)} % du matériel)
+                Marge chantier : {formatCurrency(netIncomeData.margeChantier)}{' '}
+                {netIncomeData.realCoveredCount > 0
+                  ? `(main d'œuvre + marge matériel réelle sur ${netIncomeData.realCoveredCount} chantier${netIncomeData.realCoveredCount > 1 ? 's' : ''}, sinon ${(netIncomeData.materialMarginRate * 100).toFixed(0)} %)`
+                  : `(main d'œuvre + ${(netIncomeData.materialMarginRate * 100).toFixed(0)} % du matériel)`}
               </p>
             </div>
 
@@ -1090,6 +1105,15 @@ const Accounting = () => {
                 </div>
                 <span className="font-medium text-gray-900 dark:text-white">+ {formatCurrency(netIncomeData.margeMateriel)}</span>
               </div>
+              {netIncomeData.realCoveredCount > 0 && (
+                <div className="flex justify-between text-xs text-emerald-700 dark:text-emerald-400 pl-4">
+                  <span title="Chantiers dont les achats sont suivis dans « Matériel à commander » avec leur prix fournisseur : la marge est calculée au réel (CA matériel − coût d'achat), le taux % ne s'applique qu'au reste.">
+                    dont marge réelle d'après vos achats ({netIncomeData.realCoveredCount} chantier{netIncomeData.realCoveredCount > 1 ? 's' : ''},{' '}
+                    {formatCurrency(netIncomeData.caMaterielReal)} de matériel)
+                  </span>
+                  <span className="font-medium">{netIncomeData.margeMaterielReelle < 0 ? '− ' : '+ '}{formatCurrency(Math.abs(netIncomeData.margeMaterielReelle))}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-2.5 border-t border-gray-100 dark:border-gray-700 font-semibold text-gray-900 dark:text-white">
                 <span>= Marge chantier</span>
                 <span>{formatCurrency(netIncomeData.margeChantier)}</span>

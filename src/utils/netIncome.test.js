@@ -32,6 +32,51 @@ describe('computeNetIncome — marge chantier (Figure 1)', () => {
     });
 });
 
+describe('computeNetIncome — coûts matériel réels (Matériel à commander)', () => {
+    it('sans paramètres réels, le calcul historique est inchangé', () => {
+        const before = computeNetIncome({ caServices: 2000, caMateriel: 1200 });
+        const after = computeNetIncome({ caServices: 2000, caMateriel: 1200, caMaterielReal: 0, realMaterialCost: 0 });
+        expect(after.margeChantier).toBe(before.margeChantier);
+        expect(after.margeMaterielReelle).toBe(0);
+    });
+
+    it('la part couverte bascule au réel, le forfait ne s\'applique qu\'au reste', () => {
+        // 1000 € de matériel dont 600 € couverts par des achats réels à 450 €.
+        const r = computeNetIncome({
+            caServices: 0,
+            caMateriel: 1000,
+            caMaterielReal: 600,
+            realMaterialCost: 450,
+        });
+        // forfait sur 400 € (25 % = 100) + réel 600 − 450 = 150 → 250
+        expect(r.margeMaterielReelle).toBe(150);
+        expect(r.margeMateriel).toBe(250);
+        expect(r.margeChantier).toBe(250);
+    });
+
+    it('une marge réelle négative (achat plus cher que prévu) est conservée', () => {
+        const r = computeNetIncome({
+            caServices: 500,
+            caMateriel: 1000,
+            caMaterielReal: 1000,
+            realMaterialCost: 1100,
+        });
+        expect(r.margeMaterielReelle).toBe(-100);
+        expect(r.margeChantier).toBe(400); // 500 − 100
+    });
+
+    it('borne la part réelle au CA matériel de la période (CA corrigé à la main)', () => {
+        const r = computeNetIncome({
+            caServices: 0,
+            caMateriel: 500,
+            caMaterielReal: 800, // > CA matériel
+            realMaterialCost: 300,
+        });
+        expect(r.caMaterielReal).toBe(500);
+        expect(r.margeMateriel).toBe(200); // 0 forfait + (500 − 300)
+    });
+});
+
 describe('computeNetIncome — revenu net réel (Figure 2)', () => {
     it('déduit URSSAF, charges pro et impôt de la marge chantier', () => {
         const r = computeNetIncome({

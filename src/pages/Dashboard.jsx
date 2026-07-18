@@ -33,7 +33,8 @@ import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { useDashboardData, useNextEvent, useUserProfile } from '../hooks/useDataCache';
+import { useDashboardData, useNextEvent, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
+import { realizedNetAdjustment } from '../utils/realizedMargin';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { computeNetIncome, estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
@@ -353,6 +354,11 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         staleTime: 60 * 1000,
     });
 
+    // Coûts d'achat réels (« Matériel à commander ») agrégés par devis : quand un
+    // chantier payé a des achats suivis, sa marge matériel est calculée au réel
+    // plutôt qu'au forfait — sans modifier les devis.
+    const costByQuote = useProcurementCostByQuote();
+
     // Revenu net réel du mois courant (Figure 2) : marge chantier − URSSAF − charges pro − impôt.
     const monthlyNet = useMemo(() => {
         const paidQuoteIds = new Set(
@@ -360,34 +366,43 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         );
         let caServices = 0;
         let caMateriel = 0;
+        const countedInvoices = [];
         allQuotes.forEach(q => {
             if ((q.status || '').toLowerCase() !== 'paid') return;
             const type = (q.type || 'quote').toLowerCase();
             if (type === 'invoice' && q.parent_id && paidQuoteIds.has(q.parent_id)) return;
             const d = new Date(q.date || q.created_at);
             if (isNaN(d.getTime()) || d < thisMonthStart) return;
+            let materialAmount = 0;
             if (Array.isArray(q.items) && q.items.length > 0) {
                 q.items.forEach(it => {
                     const line = (parseFloat(it.price) || 0) * (parseFloat(it.quantity) || 0);
-                    if (it.type === 'material') caMateriel += line;
+                    if (it.type === 'material') { caMateriel += line; materialAmount += line; }
                     else caServices += line;
                 });
             } else {
                 caServices += (q.total_ht || q.total_ttc || 0);
             }
+            countedInvoices.push({ id: q.id, parentId: q.parent_id, materialAmount });
         });
+        const real = realizedNetAdjustment(countedInvoices, costByQuote);
         const urssaf = estimateUrssafCharges({ caServices, caMateriel, activityType: netActivityType, hasAcre: netHasAcre, status: netStatus }) || 0;
         const proMonthly = summarizeCharges(kpiCharges || []).annualTotal / 12;
         const tax = estimateIncomeTax({ caServices, caMateriel, activityType: netActivityType, method: netTaxMethod, tmi: netTmi });
-        return computeNetIncome({
-            caServices,
-            caMateriel,
-            materialMarginRate: netMarginRate,
-            urssafCharges: urssaf,
-            proChargesForPeriod: proMonthly,
-            incomeTax: tax,
-        });
-    }, [allQuotes, thisMonthStart, kpiCharges, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod, netTmi]);
+        return {
+            ...computeNetIncome({
+                caServices,
+                caMateriel,
+                materialMarginRate: netMarginRate,
+                caMaterielReal: real.caMaterielReal,
+                realMaterialCost: real.realMaterialCost,
+                urssafCharges: urssaf,
+                proChargesForPeriod: proMonthly,
+                incomeTax: tax,
+            }),
+            realCoveredCount: real.coveredCount,
+        };
+    }, [allQuotes, thisMonthStart, kpiCharges, costByQuote, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod, netTmi]);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
 
     const caThisMonth = allQuotes
@@ -593,6 +608,11 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{fmtEur(monthlyNet.margeChantier)}</p>
                 {netIsMicro && (
                     <p className="text-[11px] text-gray-400 mt-0.5">après URSSAF, charges &amp; impôt</p>
+                )}
+                {monthlyNet.realCoveredCount > 0 && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5" title="La marge matériel de ces chantiers est calculée avec les prix d'achat réels saisis dans « Matériel à commander », au lieu du taux forfaitaire.">
+                        coûts réels sur {monthlyNet.realCoveredCount} chantier{monthlyNet.realCoveredCount > 1 ? 's' : ''}
+                    </p>
                 )}
             </div>
         </button>

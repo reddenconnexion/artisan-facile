@@ -15,6 +15,7 @@ import {
     estimatedHoursFromItems, formatHours, laborProfitability,
     startOfWeek, weekDays, toDateString,
 } from '../utils/timeTracking';
+import { useInvalidateCache } from '../hooks/useDataCache';
 
 const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -99,6 +100,7 @@ const TimeTracking = () => {
     const [hourlyRate, setHourlyRate] = useState(0);
     const [weekStart, setWeekStart] = useState(() => startOfWeek());
     const [deletingId, setDeletingId] = useState(null);
+    const { invalidateTimeTracking } = useInvalidateCache();
 
     // Formulaire de saisie manuelle
     const [showForm, setShowForm] = useState(false);
@@ -214,6 +216,7 @@ const TimeTracking = () => {
             setFormHours('');
             setFormNote('');
             setShowForm(false);
+            invalidateTimeTracking();
             fetchAll();
         } catch (err) {
             console.error('Erreur ajout heures:', err);
@@ -229,6 +232,7 @@ const TimeTracking = () => {
             const { error } = await supabase.from('task_tracking').delete().eq('id', id);
             if (error) throw error;
             setEntries(prev => prev.filter(e => e.id !== id));
+            invalidateTimeTracking();
             fetchAll();
         } catch (err) {
             console.error('Erreur suppression pointage:', err);
