@@ -15,7 +15,7 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera, Navigation } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera, Navigation, CalendarRange } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -344,10 +344,20 @@ const Agenda = () => {
                     Agenda
                     <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />
                 </h1>
-                <Button onClick={openNewEventModal}>
-                    <Plus className="w-5 h-5" />
-                    Nouveau RDV
-                </Button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => navigate('/app/chantiers', { state: { view: 'planning' } })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/40 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                        title="Voir le planning des chantiers"
+                    >
+                        <CalendarRange className="w-4 h-4" />
+                        <span className="hidden sm:inline">Planning chantiers</span>
+                    </button>
+                    <Button onClick={openNewEventModal}>
+                        <Plus className="w-5 h-5" />
+                        Nouveau RDV
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 h-full">
