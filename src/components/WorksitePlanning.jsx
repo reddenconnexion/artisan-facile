@@ -26,7 +26,9 @@ const dayIndex = (dateStr, rangeStart) =>
 
 const WorksitePlanning = ({ worksites }) => {
     const navigate = useNavigate();
-    const [eventsByQuote, setEventsByQuote] = useState({});
+    // RDV bruts (rattachés à un devis et/ou à un client) : on décide du
+    // rattachement à un chantier plus bas, quand on connaît les chantiers.
+    const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     // Décalage en semaines par rapport à aujourd'hui (0 = semaine courante en 2e position)
     const [offset, setOffset] = useState(0);
@@ -48,18 +50,23 @@ const WorksitePlanning = ({ worksites }) => {
 
     useEffect(() => {
         let active = true;
+        // On récupère aussi client_id : un RDV programmé sans « Devis associé »
+        // (quote_id nul) doit quand même apparaître sur le chantier du client.
         supabase.from('events')
-            .select('quote_id, date')
-            .not('quote_id', 'is', null)
+            .select('quote_id, client_id, date')
             .then(({ data }) => {
                 if (!active) return;
-                const map = {};
+                const rows = [];
                 for (const e of data || []) {
                     if (!e.date) continue;
-                    const day = toDateString(new Date(e.date));
-                    (map[e.quote_id] = map[e.quote_id] || []).push(day);
+                    if (e.quote_id == null && e.client_id == null) continue; // non rattachable
+                    rows.push({
+                        quote_id: e.quote_id,
+                        client_id: e.client_id,
+                        day: toDateString(new Date(e.date)),
+                    });
                 }
-                setEventsByQuote(map);
+                setEvents(rows);
                 setLoading(false);
             });
         return () => { active = false; };
@@ -67,12 +74,42 @@ const WorksitePlanning = ({ worksites }) => {
 
     // Chantiers avec au moins un RDV → une barre ; les autres → « À planifier ».
     const { planned, unplanned } = useMemo(() => {
+        // Chantiers actifs (le planning regarde devant, on ignore « terminé »).
+        const activeWorksites = worksites.filter(w => w.work_stage !== 'completed');
+
+        // Combien de chantiers actifs par client ? Sert à rattacher sans risque
+        // un RDV « client seul » : on ne le fait que si le rattachement est
+        // univoque (un unique chantier actif pour ce client).
+        const activeCountByClient = {};
+        for (const w of activeWorksites) {
+            if (w.client_id != null) {
+                activeCountByClient[w.client_id] = (activeCountByClient[w.client_id] || 0) + 1;
+            }
+        }
+
+        // Dates par devis (rattachement explicite) et dates « client seul »
+        // (RDV sans devis associé), regroupées par client.
+        const datesByQuote = {};
+        const unattachedDatesByClient = {};
+        for (const e of events) {
+            if (e.quote_id != null) {
+                (datesByQuote[e.quote_id] = datesByQuote[e.quote_id] || []).push(e.day);
+            } else if (e.client_id != null) {
+                (unattachedDatesByClient[e.client_id] = unattachedDatesByClient[e.client_id] || []).push(e.day);
+            }
+        }
+
         const planned = [];
         const unplanned = [];
-        for (const w of worksites) {
-            if (w.work_stage === 'completed') continue; // le planning regarde devant
-            const dates = eventsByQuote[w.id];
-            if (dates && dates.length > 0) {
+        for (const w of activeWorksites) {
+            const dates = [...(datesByQuote[w.id] || [])];
+            // Rattachement de repli : RDV du client sans devis associé, mais
+            // uniquement si ce client n'a qu'un seul chantier actif (sinon on ne
+            // saurait pas auquel l'affecter).
+            if (w.client_id != null && activeCountByClient[w.client_id] === 1) {
+                dates.push(...(unattachedDatesByClient[w.client_id] || []));
+            }
+            if (dates.length > 0) {
                 const sorted = [...dates].sort();
                 planned.push({ worksite: w, from: sorted[0], to: sorted[sorted.length - 1], dates: sorted });
             } else {
@@ -82,7 +119,7 @@ const WorksitePlanning = ({ worksites }) => {
         // Les barres les plus proches en premier — l'œil lit de haut en bas
         planned.sort((a, b) => a.from.localeCompare(b.from));
         return { planned, unplanned };
-    }, [worksites, eventsByQuote]);
+    }, [worksites, events]);
 
     const label = (w) => w.clients?.name || w.title || `Devis #${w.id}`;
 
