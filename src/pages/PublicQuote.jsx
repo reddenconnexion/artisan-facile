@@ -38,6 +38,7 @@ const PORTAL_I18N = {
         notifiedOfAgreement: (name) => `${name} a été notifié(e) de votre accord.`,
         downloadSignedQuote: 'Télécharger le devis signé',
         contact: (name) => `Contacter ${name}`,
+        signHint: 'Signez directement ici, sans imprimer — en moins d\'une minute.',
     },
     en: {
         invalidLink: 'Invalid link',
@@ -57,6 +58,7 @@ const PORTAL_I18N = {
         notifiedOfAgreement: (name) => `${name} has been notified of your agreement.`,
         downloadSignedQuote: 'Download the signed quote',
         contact: (name) => `Contact ${name}`,
+        signHint: 'Sign directly here — no printing needed, in under a minute.',
     },
 };
 
@@ -469,6 +471,22 @@ const PublicQuote = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Bandeau discret « signez ici, sans imprimer » : lève le réflexe
+                imprimer→signer→renvoyer chez les clients qui ne réalisent pas
+                que la signature se fait en ligne. Cliquable pour ouvrir la
+                signature. Affiché uniquement sur un devis non signé. */}
+            {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                <button
+                    onClick={() => setShowSignatureModal(true)}
+                    className="w-full bg-blue-50 border-b border-blue-100 text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                    <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium">
+                        <PenTool className="w-4 h-4 shrink-0" />
+                        <span>{T.signHint}</span>
+                    </div>
+                </button>
+            )}
 
             {/* Options panel — visible only when there are optional items */}
             {hasOptions && (
