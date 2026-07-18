@@ -53,6 +53,47 @@ const readDismissedHelps = () => {
     try { return JSON.parse(localStorage.getItem(DISMISSED_HELPS_KEY)) || {}; } catch { return {}; }
 };
 
+// Construit la version HTML du corps d'un email de devis. Le lien de
+// signature (URL brute sur sa propre ligne dans le texte) est remplacé par
+// un bouton « Signer » bien visible : sans ça, le client ne distingue pas le
+// lien de signature d'un simple lien de consultation, et beaucoup renvoient
+// le devis signé par mail. Le reste du texte est échappé, les sauts de ligne
+// préservés et les autres URLs rendues cliquables. La signature (après le
+// marqueur RFC 3676 "-- ") est retirée : l'edge function y rajoute sa propre
+// signature HTML riche, sinon elle serait dupliquée.
+const buildQuoteEmailHtml = (bodyText, signUrl, signLabel) => {
+    const esc = (s) => s
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    const marker = '\n\n-- \n';
+    const sigIdx = bodyText.indexOf(marker);
+    const main = sigIdx >= 0 ? bodyText.slice(0, sigIdx) : bodyText;
+
+    // Bouton « bulletproof » (table + styles inline) pour un rendu fiable sur
+    // la majorité des clients mail (Gmail, Outlook, Apple Mail…).
+    const button = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td align="center" style="border-radius:12px;background-color:#2563eb;"><a href="${esc(signUrl)}" target="_blank" style="display:inline-block;padding:15px 34px;font-family:-apple-system,system-ui,'Segoe UI',sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">✍️ ${esc(signLabel)}</a></td></tr></table>`;
+
+    const urlRe = /(https?:\/\/[^\s<>"]+)/g;
+    const out = [];
+    let inserted = false;
+    for (const line of main.split('\n')) {
+        // La ligne qui ne contient que l'URL de signature devient le bouton.
+        if (signUrl && line.trim() === signUrl.trim()) {
+            if (!inserted) { out.push(button); inserted = true; }
+            continue;
+        }
+        const linked = esc(line).replace(urlRe, (u) => `<a href="${u}" style="color:#2563eb;">${u}</a>`);
+        out.push(linked);
+    }
+    // Filet de sécurité : si l'URL a été modifiée/supprimée dans l'aperçu, on
+    // ajoute quand même le bouton (avec l'URL d'origine) à la fin du corps.
+    let html = out.join('<br>');
+    if (!inserted) html += button;
+
+    return `<div style="font-family:-apple-system,system-ui,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#1f2937;">${html}</div>`;
+};
+
 const DevisForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -1399,7 +1440,9 @@ const DevisForm = () => {
                     })}\n\nVous trouverez ci-dessous le lien pour accéder à la facture.`,
                     introQuote: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter.`,
                     actionInvoice: isPaidInvoice ? 'Consulter et télécharger votre facture acquittée' : 'Consulter et télécharger votre facture',
-                    actionQuote: 'Consulter, télécharger et signer votre devis',
+                    actionQuote: 'Consulter et signer votre devis en ligne',
+                    signButtonLabel: 'Signer mon devis',
+                    signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
                     portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
                     closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
@@ -1422,7 +1465,9 @@ const DevisForm = () => {
                     })}\n\nYou will find the link to access the invoice below.`,
                     introQuote: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find my quote proposal for the project "${title}".\nYou will find the link to view it below.`,
                     actionInvoice: isPaidInvoice ? 'View and download your paid invoice' : 'View and download your invoice',
-                    actionQuote: 'View, download and sign your quote',
+                    actionQuote: 'View and sign your quote online',
+                    signButtonLabel: 'Sign my quote',
+                    signCaption: 'Signed directly online, no printing needed — in under a minute.',
                     reportLine: `The intervention report is also available from this link.`,
                     portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
                     closing: `Please do not hesitate to contact me with any questions.\n\nKind regards,`,
@@ -1455,7 +1500,12 @@ const DevisForm = () => {
                 : E.introQuote(greetingName, projectTitle);
 
             const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
-            const callToAction = `${actionText} :\n${publicUrl}`;
+            // Pour un devis, on ajoute la mention « sans impression » sous le lien
+            // afin que même les clients en texte brut comprennent que la signature
+            // se fait en ligne, sans imprimer. En HTML, le lien devient un bouton.
+            const callToAction = isInvoice
+                ? `${actionText} :\n${publicUrl}`
+                : `${actionText} :\n${publicUrl}\n${E.signCaption}`;
 
             // Client Portal Link Logic
             let portalUrl = null;
@@ -1531,7 +1581,11 @@ const DevisForm = () => {
                 email: selectedClient.email,
                 rawSubject: subject,
                 rawBody: body,
-                lang
+                lang,
+                // Signature en ligne : uniquement pour les devis (pas les factures).
+                // Sert à transformer le lien en bouton dans la version HTML du mail.
+                signUrl: isInvoice ? null : publicUrl,
+                signLabel: E.signButtonLabel,
             });
 
         } catch (error) {
@@ -1560,6 +1614,13 @@ const DevisForm = () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                // Devis : on envoie une version HTML où le lien de signature
+                // devient un bouton « Signer ». Le texte brut (avec l'URL) reste
+                // le fallback pour les clients mail sans HTML. Les factures gardent
+                // le rendu texte→HTML par défaut de l'edge function (pas de bouton).
+                const htmlBody = emailPreview.signUrl
+                    ? buildQuoteEmailHtml(body, emailPreview.signUrl, emailPreview.signLabel)
+                    : undefined;
                 const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
                     method: 'POST',
                     headers: {
@@ -1570,6 +1631,7 @@ const DevisForm = () => {
                         to: recipientEmail,
                         subject,
                         text: body,
+                        ...(htmlBody ? { html: htmlBody } : {}),
                         quote_id: id,
                         client_id: formData.client_id,
                     }),
