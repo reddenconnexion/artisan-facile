@@ -187,7 +187,6 @@ const Layout = () => {
     };
 
     const activiteChildren = [
-      ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
       { name: 'Heures & rentabilité', href: '/app/heures', icon: Timer },
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
@@ -207,6 +206,10 @@ const Layout = () => {
       { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
       { name: 'Chantiers', href: '/app/chantiers', icon: Kanban },
+      // L'agenda est le pendant du pilotage chantiers (le planning y puise ses
+      // RDV) : on le garde voisin, en premier niveau et visible pour tous les
+      // profils — planifier ses interventions est une action quotidienne.
+      ...(settings.enable_agenda ? [{ name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
       {
         name: 'Devis & Factures',
         icon: FileText,
@@ -223,7 +226,7 @@ const Layout = () => {
         children: showConfirme
           ? activiteChildren
           : activiteChildren.filter(c =>
-              ['/app/agenda', '/app/interventions', '/app/heures', '/app/procurement', '/app/supplier-comparator'].includes(c.href)
+              ['/app/interventions', '/app/heures', '/app/procurement', '/app/supplier-comparator'].includes(c.href)
             ),
       }] : []),
       ...(showInter ? [{ name: 'Outils', href: '/app/ressources', icon: Zap }] : []),
@@ -235,7 +238,7 @@ const Layout = () => {
   // historiques (Devis, Clients, Agenda si activé) pour ne rien dégrader.
   const mobileNavItems = React.useMemo(() => {
     const home = { id: 'home', name: 'Accueil', href: '/app', icon: LayoutDashboard };
-    const agendaEnabled = navigationGroups.some(g => g.children?.some(c => c.name === 'Agenda'));
+    const agendaEnabled = navigationGroups.some(g => g.name === 'Agenda' || g.children?.some(c => c.name === 'Agenda'));
     const fallback = [
       { id: 'devis', name: 'Devis', href: '/app/devis', icon: FileText },
       { id: 'clients', name: 'Clients', href: '/app/clients', icon: Users },

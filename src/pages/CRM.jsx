@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
@@ -17,13 +17,16 @@ import { fetchWorksites as fetchWorksitesData } from '../utils/worksites';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [updating, setUpdating] = useState(false);
     const [loading, setLoading] = useState(true);
     const [worksites, setWorksites] = useState([]);
     const [spentByQuote, setSpentByQuote] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
-    const [view, setView] = useState(() => localStorage.getItem('crm_view') || 'kanban');
+    // Une arrivée depuis l'agenda (« Planning chantiers ») ouvre directement la
+    // vue planning, sinon on reprend la dernière vue utilisée.
+    const [view, setView] = useState(() => location.state?.view || localStorage.getItem('crm_view') || 'kanban');
     const [zoomLevel, setZoomLevel] = useState(() => {
         const saved = localStorage.getItem('crm_zoom_level');
         return saved ? parseFloat(saved) : 1;
