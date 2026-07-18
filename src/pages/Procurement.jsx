@@ -267,17 +267,23 @@ const Procurement = () => {
     };
 
     const copyList = async () => {
-        const lines = filtered.map(i =>
-            `- ${i.quantity} ${i.unit || 'u'} × ${i.description}`
-            + (i.supplier ? `  [${i.supplier}]` : '')
-            + (i.site_label ? `  (${i.site_label})` : '')
-        );
-        if (!lines.length) {
+        if (!filtered.length) {
             toast.info('Aucun article à copier');
             return;
         }
+        // On reprend le regroupement de l'affichage : le chantier / devis
+        // apparaît une seule fois en tête de bloc plutôt que répété sur
+        // chaque ligne.
+        const blocks = groupedBySite.map(({ label, items: list }) => {
+            const lines = list.map(i =>
+                `- ${i.quantity} ${i.unit || 'u'} × ${i.description}`
+                + (i.supplier ? `  [${i.supplier}]` : '')
+            );
+            const header = label && label !== 'Sans chantier' ? `${label} :` : '';
+            return header ? [header, ...lines].join('\n') : lines.join('\n');
+        });
         try {
-            await navigator.clipboard.writeText(lines.join('\n'));
+            await navigator.clipboard.writeText(blocks.join('\n\n'));
             toast.success('Liste copiée dans le presse-papiers');
         } catch {
             toast.error('Copie impossible');
