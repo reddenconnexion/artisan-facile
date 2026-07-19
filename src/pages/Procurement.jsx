@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
     Check, CheckCircle, RotateCcw, Loader2, ExternalLink,
-    Truck, Mic, Filter, FileText,
+    Truck, Mic, Filter, FileText, Repeat, CheckSquare, Square, X,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,7 @@ import { useUserProfile, useProcurementItems } from '../hooks/useDataCache';
 import { Button } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 import { groupMaterialsMargin } from '../utils/realizedMargin';
+import ReplaceProcurementModal from '../components/ReplaceProcurementModal';
 
 const CATEGORY_META = {
     materiel: { label: 'Matériel', Icon: Package, iconClass: 'text-blue-500' },
@@ -45,6 +46,11 @@ const Procurement = () => {
     const [newQty, setNewQty] = useState(1);
     const [newCategory, setNewCategory] = useState('materiel');
     const [libraryItems, setLibraryItems] = useState([]);
+    // Mode « remplacer » : la clé du groupe en cours de sélection (null = aucun),
+    // les identifiants cochés, et l'ouverture de la modale de remplacement.
+    const [selectGroupKey, setSelectGroupKey] = useState(null);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [replaceOpen, setReplaceOpen] = useState(false);
 
     const { data: profile } = useUserProfile();
     const coefficient = parseFloat(profile?.default_margin_coefficient) || 0;
@@ -266,6 +272,89 @@ const Procurement = () => {
         toast.success('Ajouté');
     };
 
+    // ── Remplacement d'articles ─────────────────────────────────────────────
+    // Sélectionner plusieurs lignes détaillées d'un devis et les remplacer par
+    // un seul article (ex. les modules d'un tableau → un coffret précâblé).
+    const startSelect = (groupKey) => {
+        setSelectGroupKey(groupKey);
+        setSelectedIds([]);
+    };
+    const cancelSelect = () => {
+        setSelectGroupKey(null);
+        setSelectedIds([]);
+    };
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    // Remplace les lignes sélectionnées par un nouvel article. La valeur vendue
+    // cumulée des lignes remplacées est reportée sur le nouvel article afin que
+    // l'indicateur de marge matériel du devis reste cohérent ; le prix d'achat
+    // réel (celui du coffret) sera saisi ensuite au bureau.
+    const replaceSelected = async ({ description, quantity, category }) => {
+        const selected = items.filter(i => selectedIds.includes(i.id));
+        if (!user || selected.length === 0 || !description.trim()) return;
+
+        const base = selected[0];
+        const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+        const totalSale = selected.reduce((sum, i) => {
+            const q = num(i.quantity) || 1;
+            return sum + (i.sale_price != null && i.sale_price !== '' ? num(i.sale_price) * q : 0);
+        }, 0);
+        const qty = Number(quantity) || 1;
+
+        // Statut aligné sur les lignes remplacées (on remplace au sein d'un onglet).
+        const now = new Date().toISOString();
+        const status = base.status || 'pending';
+        const row = {
+            user_id: user.id,
+            client_id: base.client_id ?? null,
+            quote_id: base.quote_id ?? null,
+            site_label: base.site_label ?? null,
+            description: description.trim(),
+            quantity: qty,
+            unit: 'u',
+            category: category || 'materiel',
+            sale_price: totalSale > 0 ? Math.round((totalSale / qty) * 100) / 100 : null,
+            buying_price: null,
+            status,
+            ordered_at: status === 'ordered' ? now : null,
+            received_at: status === 'received' ? now : null,
+            source: 'manual',
+            notes: `Remplace ${selected.length} article${selected.length > 1 ? 's' : ''} détaillé${selected.length > 1 ? 's' : ''} du devis`,
+        };
+        const removeIds = selected.map(i => i.id);
+
+        const previous = queryClient.getQueryData(itemsKey) || [];
+        try {
+            const { data: inserted, error: insErr } = await supabase
+                .from('procurement_items')
+                .insert(row)
+                .select()
+                .single();
+            if (insErr) throw insErr;
+
+            const { error: delErr } = await supabase
+                .from('procurement_items')
+                .delete()
+                .in('id', removeIds);
+            if (delErr) throw delErr;
+
+            // Cache : on retire les lignes remplacées et on ajoute le nouvel article.
+            patchItems(prev => [inserted, ...prev.filter(i => !removeIds.includes(i.id))]);
+            toast.success(`${selected.length} article${selected.length > 1 ? 's' : ''} remplacé${selected.length > 1 ? 's' : ''} par « ${row.description} »`);
+            setReplaceOpen(false);
+            cancelSelect();
+        } catch (err) {
+            console.error('Erreur remplacement:', err);
+            restoreItems(previous);
+            // L'insertion a pu réussir avant l'échec de la suppression : on
+            // resynchronise depuis la base pour éviter tout état incohérent.
+            queryClient.invalidateQueries({ queryKey: ['procurementItems'] });
+            toast.error('Remplacement impossible');
+        }
+    };
+
     const copyList = async () => {
         if (!filtered.length) {
             toast.info('Aucun article à copier');
@@ -435,7 +524,9 @@ const Procurement = () => {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {groupedBySite.map(({ key, label, quoteId, items: list }) => (
+                    {groupedBySite.map(({ key, label, quoteId, items: list }) => {
+                    const inSelect = selectGroupKey === key;
+                    return (
                         <div key={key} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                             <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600 uppercase tracking-wide">
                                 {quoteId != null && (
@@ -452,6 +543,40 @@ const Procurement = () => {
                                 <span className="font-normal normal-case text-gray-400">
                                     · {list.length} article{list.length > 1 ? 's' : ''}
                                 </span>
+                                {/* Remplacer plusieurs lignes détaillées par un seul article
+                                    (ex. modules d'un tableau → coffret précâblé). */}
+                                {!inSelect && list.length > 1 && (
+                                    <button
+                                        onClick={() => startSelect(key)}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full normal-case tracking-normal font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                        title="Remplacer des articles par un autre"
+                                    >
+                                        <Repeat className="w-3.5 h-3.5" />
+                                        Remplacer
+                                    </button>
+                                )}
+                                {inSelect && (
+                                    <div className="inline-flex items-center gap-2 normal-case tracking-normal">
+                                        <span className="font-semibold text-blue-600">
+                                            {selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}
+                                        </span>
+                                        <button
+                                            onClick={() => setReplaceOpen(true)}
+                                            disabled={selectedIds.length === 0}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
+                                        >
+                                            <Repeat className="w-3.5 h-3.5" />
+                                            Remplacer par…
+                                        </button>
+                                        <button
+                                            onClick={cancelSelect}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full font-semibold text-gray-500 hover:bg-gray-100"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                            Annuler
+                                        </button>
+                                    </div>
+                                )}
                                 {/* Marge matériel du devis, recalculée en direct au fil de la
                                     saisie des prix d'achat (toutes les lignes du devis, quel
                                     que soit l'onglet). Le devis n'est pas modifié. */}
@@ -476,9 +601,20 @@ const Procurement = () => {
                                 {list.map(item => {
                                     const meta = CATEGORY_META[item.category] || CATEGORY_META.autre;
                                     const Icon = meta.Icon;
+                                    const isSelected = inSelect && selectedIds.includes(item.id);
                                     return (
-                                        <li key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
-                                            <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${meta.iconClass}`} />
+                                        <li
+                                            key={item.id}
+                                            className={`flex items-start gap-3 px-4 py-3 ${inSelect ? 'cursor-pointer' : ''} ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                                            onClick={inSelect ? () => toggleSelect(item.id) : undefined}
+                                        >
+                                            {inSelect ? (
+                                                isSelected
+                                                    ? <CheckSquare className="w-5 h-5 shrink-0 mt-0.5 text-blue-600" />
+                                                    : <Square className="w-5 h-5 shrink-0 mt-0.5 text-gray-300" />
+                                            ) : (
+                                                <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${meta.iconClass}`} />
+                                            )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
                                                     {item.description}
@@ -493,6 +629,7 @@ const Procurement = () => {
                                                     {item.source === 'voice' && <span className="ml-2 inline-flex items-center gap-0.5 text-blue-500"><Mic className="w-3 h-3" /> vocal</span>}
                                                 </p>
                                                 {/* Champs libres répertoriés pour le prochain devis */}
+                                                {!inSelect && (
                                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                                     <div className="relative">
                                                         <input
@@ -520,7 +657,9 @@ const Procurement = () => {
                                                         className="w-36 px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                     />
                                                 </div>
+                                                )}
                                             </div>
+                                            {!inSelect && (
                                             <div className="flex items-center gap-1">
                                                 {item.status === 'pending' && (
                                                     <button
@@ -566,14 +705,23 @@ const Procurement = () => {
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
+                                            )}
                                         </li>
                                     );
                                 })}
                             </ul>
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>
             )}
+
+            <ReplaceProcurementModal
+                open={replaceOpen}
+                onClose={() => setReplaceOpen(false)}
+                onConfirm={replaceSelected}
+                selectedItems={items.filter(i => selectedIds.includes(i.id))}
+            />
         </div>
     );
 };
