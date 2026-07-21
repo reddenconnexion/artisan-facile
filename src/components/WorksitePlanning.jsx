@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -12,6 +12,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKS_SHOWN = 5;
 const DAYS_SHOWN = WEEKS_SHOWN * 7;
 const DAY_WIDTH = 34; // px — assez pour toucher au doigt, assez dense pour 5 semaines
+// Largeur de la colonne des noms de chantier : réduite sur mobile pour laisser
+// de la place à la timeline (sur un écran de 375 px, 176 px en mangeaient la moitié).
+const LABEL_WIDTH_MOBILE = 120;
+const LABEL_WIDTH_DESKTOP = 176;
+
+// Vrai tant que le viewport est « mobile » (< 640 px, breakpoint sm de Tailwind).
+// On s'en sert pour dimensionner la colonne de gauche et centrer « aujourd'hui ».
+const useIsMobile = () => {
+    const query = '(max-width: 639px)';
+    const [isMobile, setIsMobile] = useState(
+        () => typeof window !== 'undefined' && window.matchMedia(query).matches
+    );
+    useEffect(() => {
+        const mq = window.matchMedia(query);
+        const onChange = (e) => setIsMobile(e.matches);
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    return isMobile;
+};
 
 const STAGE_COLORS = {
     pending_deposit: 'bg-red-400',
@@ -50,6 +70,10 @@ const WorksitePlanning = ({ worksites }) => {
     const [loading, setLoading] = useState(true);
     // Décalage en semaines par rapport à aujourd'hui (0 = semaine courante en 2e position)
     const [offset, setOffset] = useState(0);
+    const isMobile = useIsMobile();
+    const labelWidth = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP;
+    // Conteneur scrollable de la timeline — on le recentre sur « aujourd'hui ».
+    const scrollRef = useRef(null);
 
     const rangeStart = useMemo(() => {
         const start = startOfWeek(new Date());
@@ -65,6 +89,18 @@ const WorksitePlanning = ({ worksites }) => {
         }), [rangeStart]);
 
     const todayIdx = dayIndex(toDateString(new Date()), rangeStart);
+
+    // Au chargement (et quand on revient à « Aujourd'hui »), on centre la
+    // timeline sur la date du jour. Sans ça, sur mobile la vue reste calée à
+    // gauche sur la semaine passée et « aujourd'hui » démarre hors écran.
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el || loading) return;
+        if (todayIdx < 0 || todayIdx >= DAYS_SHOWN) return;
+        const todayCenter = labelWidth + todayIdx * DAY_WIDTH + DAY_WIDTH / 2;
+        const target = todayCenter - el.clientWidth / 2;
+        el.scrollLeft = Math.max(0, target);
+    }, [loading, offset, todayIdx, labelWidth]);
 
     useEffect(() => {
         let active = true;
@@ -198,11 +234,11 @@ const WorksitePlanning = ({ worksites }) => {
             </div>
 
             {/* Timeline */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-x-auto">
-                <div style={{ minWidth: 176 + DAYS_SHOWN * DAY_WIDTH }}>
+            <div ref={scrollRef} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-x-auto">
+                <div style={{ minWidth: labelWidth + DAYS_SHOWN * DAY_WIDTH }}>
                     {/* En-tête des jours */}
                     <div className="flex border-b border-gray-100 dark:border-gray-800">
-                        <div className="w-44 shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10" />
+                        <div className="shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10" style={{ width: labelWidth }} />
                         <div className="flex">
                             {days.map((d, i) => {
                                 const isToday = i === todayIdx;
@@ -244,7 +280,8 @@ const WorksitePlanning = ({ worksites }) => {
                                 <div key={w.id} className="flex items-center border-b border-gray-50 dark:border-gray-800/60 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                     <button
                                         onClick={() => navigate(`/app/devis/${w.id}`)}
-                                        className="w-44 shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10 text-left px-4 py-3 group"
+                                        className="shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10 text-left px-4 py-3 group"
+                                        style={{ width: labelWidth }}
                                     >
                                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
                                             {label(w)}
