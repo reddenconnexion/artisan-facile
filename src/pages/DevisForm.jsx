@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
+import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import { clientFacingItems, isPerUnit } from '../utils/clientView';
 import { extractQuoteFromPdfText, translateQuoteContent } from '../utils/aiService';
 import { useConfirm } from '../context/ConfirmContext';
@@ -146,9 +147,20 @@ const DevisForm = () => {
     // une vue d'ensemble claire, avec un bouton « Modifier » vers l'éditeur.
     const [pdfOverviewMode, setPdfOverviewMode] = useState(false);
     const [overviewPdfUrl, setOverviewPdfUrl] = useState(null);
+    // Aperçu rastérisé page par page : sur mobile (iOS/iPadOS, Android), une
+    // <iframe> n'affiche pas un PDF blob:, d'où un cadre vide qui obligeait à
+    // « ouvrir en plein écran ». On rend alors les pages en images, comme la
+    // page publique du devis.
+    const [overviewPageImages, setOverviewPageImages] = useState([]);
+    const [overviewImagesFailed, setOverviewImagesFailed] = useState(false);
     const [overviewLoading, setOverviewLoading] = useState(false);
     const [overviewError, setOverviewError] = useState(null);
     const overviewInitedRef = useRef(false);
+    const overviewRenderIdRef = useRef(0);
+    const overviewPageImagesRef = useRef([]);
+    // Appareil dont l'<iframe> ne rend pas un PDF blob: → on bascule sur les images.
+    const overviewUsesImages = typeof navigator !== 'undefined' &&
+        (isIosLikeDevice() || /Android/i.test(navigator.userAgent));
     const fileInputRef = useRef(null);
     // Guard to prevent useEffect re-run when user object reference changes (e.g. auth token refresh)
     // without the actual user.id or quote id changing.
@@ -2817,12 +2829,40 @@ Conditions de règlement : Paiement à réception de facture.`
                 has_material_deposit: formData.has_material_deposit,
                 amendment_details: formData.amendment_details || {},
             };
-            const url = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
-            if (!url) throw new Error("La génération du PDF n'a retourné aucune URL");
+            const blob = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'blob');
+            if (!blob) throw new Error("La génération du PDF n'a retourné aucun document");
+            const url = URL.createObjectURL(blob);
             setOverviewPdfUrl(prev => {
                 if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
                 return url;
             });
+
+            // Sur mobile, l'<iframe> ne rend pas le PDF blob: → on rastérise les
+            // pages en images (affichées au fur et à mesure). Un nouvel appel
+            // invalide le rendu précédent via overviewRenderIdRef.
+            if (overviewUsesImages) {
+                const renderId = ++overviewRenderIdRef.current;
+                const isStale = () => overviewRenderIdRef.current !== renderId;
+                let rendered = 0;
+                setOverviewImagesFailed(false);
+                setOverviewPageImages(prev => {
+                    prev.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
+                    return [];
+                });
+                renderPdfBlobToPageImages(blob, isStale, (pageUrl) => {
+                    if (isStale()) {
+                        if (pageUrl.startsWith('blob:')) URL.revokeObjectURL(pageUrl);
+                        return;
+                    }
+                    rendered++;
+                    setOverviewPageImages(prev => [...prev, pageUrl]);
+                }).catch(err => {
+                    console.error('Overview page rendering failed:', err);
+                    // Rastérisation en échec sans aucune page : on évite le spinner
+                    // infini et on montre le repli (télécharger / plein écran).
+                    if (!isStale() && rendered === 0) setOverviewImagesFailed(true);
+                });
+            }
         } catch (error) {
             console.error('Error generating overview PDF:', error);
             setOverviewError(error.message || 'unknown');
@@ -2857,6 +2897,13 @@ Conditions de règlement : Paiement à réception de facture.`
     useEffect(() => () => {
         if (overviewPdfUrl && overviewPdfUrl.startsWith('blob:')) URL.revokeObjectURL(overviewPdfUrl);
     }, [overviewPdfUrl]);
+
+    // Miroir des URLs d'images d'aperçu + libération au démontage (les rendus
+    // successifs révoquent déjà les précédents dans generateOverviewPdf).
+    useEffect(() => { overviewPageImagesRef.current = overviewPageImages; }, [overviewPageImages]);
+    useEffect(() => () => {
+        overviewPageImagesRef.current.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
+    }, []);
 
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
@@ -3112,6 +3159,9 @@ Conditions de règlement : Paiement à réception de facture.`
     // (mode externe), soit le PDF généré à la volée.
     if (isEditing && dataLoaded && pdfOverviewMode) {
         const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
+        // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
+        // pour un document externe dont on ne possède pas le blob à rastériser.
+        const showImagePreview = overviewUsesImages && !formData.is_external && overviewPdfUrl;
         const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'amendment' ? 'AVT' : 'DEV');
         const docRef = `${refPrefix} #${formData.quote_number || id}`;
         const statusMeta = {
@@ -3190,7 +3240,53 @@ Conditions de règlement : Paiement à réception de facture.`
 
                 {/* Visionneuse PDF */}
                 <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px]">
-                    {overviewSrc ? (
+                    {showImagePreview ? (
+                        overviewPageImages.length > 0 ? (
+                            // Aperçu image multi-pages (mobile) : l'<iframe> n'affiche
+                            // pas un PDF blob: sur iOS/Android.
+                            <div className="w-full h-full overflow-y-auto p-3 space-y-3" style={{ background: '#525659' }}>
+                                {overviewPageImages.map((src, i) => (
+                                    <img
+                                        key={i}
+                                        src={src}
+                                        alt={`Page ${i + 1}`}
+                                        className="w-full rounded-lg shadow bg-white"
+                                        loading={i === 0 ? 'eager' : 'lazy'}
+                                    />
+                                ))}
+                            </div>
+                        ) : overviewImagesFailed ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
+                                <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    Aperçu indisponible sur cet appareil
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleDownloadPDF(formData.status === 'accepted')}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Télécharger
+                                    </button>
+                                    <a
+                                        href={overviewSrc}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                        Plein écran
+                                    </a>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
+                                <Loader2 className="w-8 h-8 animate-spin" />
+                                <span className="text-sm">Préparation de l'aperçu…</span>
+                            </div>
+                        )
+                    ) : overviewSrc ? (
                         <iframe
                             src={overviewSrc}
                             title="Aperçu du document"
