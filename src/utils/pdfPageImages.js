@@ -24,10 +24,15 @@ export const isIosLikeDevice = () =>
  *
  * @param {Blob} pdfBlob PDF généré (jsPDF output 'blob')
  * @param {() => boolean} [isCancelled] Interrompt le rendu (démontage React) —
- *   dans ce cas les URLs déjà créées sont révoquées et [] est renvoyé.
+ *   dans ce cas, sans callback onPage, les URLs déjà créées sont révoquées et
+ *   [] est renvoyé.
+ * @param {(url: string, index: number) => void} [onPage] Appelé après chaque
+ *   page rendue, pour un affichage progressif (la page 1 apparaît sans attendre
+ *   la fin du devis). Quand fourni, l'appelant possède le cycle de vie des URLs
+ *   (aucune révocation automatique à l'annulation).
  * @returns {Promise<string[]>} blob URLs des pages, à révoquer par l'appelant.
  */
-export const renderPdfBlobToPageImages = async (pdfBlob, isCancelled = () => false) => {
+export const renderPdfBlobToPageImages = async (pdfBlob, isCancelled = () => false, onPage = null) => {
     const arrayBuffer = await pdfBlob.arrayBuffer();
     if (isCancelled()) return [];
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -45,10 +50,24 @@ export const renderPdfBlobToPageImages = async (pdfBlob, isCancelled = () => fal
         canvas.height = Math.floor(viewport.height);
         const ctx = canvas.getContext('2d');
         await page.render({ canvasContext: ctx, viewport }).promise;
-        const pageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-        if (pageBlob) urls.push(URL.createObjectURL(pageBlob));
+        // canvas.toBlob peut rappeler avec null (mémoire) et, sur certains
+        // navigateurs mobiles, tarder ; on borne l'attente puis on se rabat sur
+        // toDataURL pour ne jamais bloquer le rendu d'une page sur la suivante.
+        const pageBlob = await new Promise(resolve => {
+            let settled = false;
+            const done = (b) => { if (!settled) { settled = true; resolve(b); } };
+            const timer = setTimeout(() => done(null), 4000);
+            canvas.toBlob(b => { clearTimeout(timer); done(b); }, 'image/jpeg', 0.85);
+        });
+        const url = pageBlob
+            ? URL.createObjectURL(pageBlob)
+            : canvas.toDataURL('image/jpeg', 0.85);
+        urls.push(url);
+        // Toujours notifier (même si annulé entre-temps) pour que l'appelant
+        // enregistre l'URL et puisse la révoquer au nettoyage.
+        if (onPage) onPage(url, i - 1);
     }
-    if (isCancelled()) {
+    if (isCancelled() && !onPage) {
         urls.forEach(u => URL.revokeObjectURL(u));
         return [];
     }

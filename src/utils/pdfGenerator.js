@@ -47,8 +47,14 @@ const buildRoundedLogoDataUrl = async (url, sizePx = 256, radiusRatio = 0.18) =>
     const img = new Image();
     img.crossOrigin = 'anonymous';
     await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
+        // Garde-fou anti-blocage : sur mobile (réseau instable), un <img> dont
+        // le chargement stagne ne déclenche parfois ni onload ni onerror, ce qui
+        // ferait tourner indéfiniment le spinner de la page publique du devis.
+        // On borne l'attente et on bascule alors sur le repli (logo brut / sans
+        // logo) au lieu de figer toute la génération du PDF.
+        const timer = setTimeout(() => reject(new Error('logo load timeout')), 6000);
+        img.onload = () => { clearTimeout(timer); resolve(); };
+        img.onerror = () => { clearTimeout(timer); reject(new Error('logo load error')); };
         img.src = url;
     });
     const canvas = document.createElement('canvas');

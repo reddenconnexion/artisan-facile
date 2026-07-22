@@ -292,10 +292,11 @@ const PublicQuote = () => {
     useEffect(() => {
         if (!quote || selectedOptionals === null) return;
         let blobUrl = null;
-        let pageBlobUrls = [];
+        const pageBlobUrls = [];
         let cancelled = false;
         setPdfLoading(true);
         setPdfRenderError(false);
+        setPdfPageImages([]);
         const isInv = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
         const quoteForPdf = buildQuoteForPdf();
 
@@ -305,32 +306,37 @@ const PublicQuote = () => {
                 blobUrl = URL.createObjectURL(pdfBlob);
                 setPdfUrl(blobUrl);
 
-                // Render every page as an image so the mobile view (and any
-                // browser that won't render blob: PDFs in iframes — iOS Safari,
-                // some Android Chrome versions) can show the document inline.
+                // Le devis est prêt : on lève le spinner plein écran immédiatement,
+                // pour que la carte télécharger / signer soit accessible tout de
+                // suite. La rastérisation multi-pages (mobile + iOS, qui n'affichent
+                // pas un PDF blob: en iframe) se poursuit en arrière-plan et remplit
+                // l'aperçu page par page — l'utilisateur n'attend jamais qu'elle
+                // finisse (ni ne reste bloqué si elle traîne) pour voir le devis.
+                setPdfLoading(false);
+
                 try {
-                    const newPageUrls = await renderPdfBlobToPageImages(pdfBlob, () => cancelled);
-                    if (cancelled) return;
-                    pageBlobUrls = newPageUrls;
-                    setPdfPageImages(newPageUrls);
+                    await renderPdfBlobToPageImages(pdfBlob, () => cancelled, (url) => {
+                        pageBlobUrls.push(url);
+                        if (!cancelled) setPdfPageImages(prev => [...prev, url]);
+                    });
                 } catch (renderErr) {
                     console.error('PDF page rendering failed:', renderErr);
-                    if (!cancelled) {
-                        setPdfPageImages([]);
-                        setPdfRenderError(true);
-                    }
+                    // Repli « télécharger » seulement si aucune page n'a pu s'afficher.
+                    if (!cancelled && pageBlobUrls.length === 0) setPdfRenderError(true);
                 }
             })
             .catch(e => {
                 console.error('PDF generation error:', e);
-                if (!cancelled) setPdfRenderError(true);
-            })
-            .finally(() => { if (!cancelled) setPdfLoading(false); });
+                if (!cancelled) {
+                    setPdfRenderError(true);
+                    setPdfLoading(false);
+                }
+            });
 
         return () => {
             cancelled = true;
             if (blobUrl) URL.revokeObjectURL(blobUrl);
-            pageBlobUrls.forEach(u => URL.revokeObjectURL(u));
+            pageBlobUrls.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quote?.id, quote?.signature, quote?.status, selectedOptionals]);
