@@ -4,6 +4,9 @@ import {
     componentsCost,
     effectiveLineCost,
     supplyEntries,
+    supplierList,
+    buildSupplierListText,
+    formatQuantity,
     quoteMargin,
 } from './quoteInternalDetail';
 
@@ -145,6 +148,85 @@ describe('supplyEntries', () => {
         ]);
         expect(entries.map((e) => e.description)).toEqual(['Disjoncteur 16A']);
         expect(entries[0].context).toBe('Tableau électrique équipé');
+    });
+});
+
+describe('formatQuantity', () => {
+    it('affiche les entiers sans décimales', () => {
+        expect(formatQuantity(1)).toBe('1');
+        expect(formatQuantity('8')).toBe('8');
+    });
+
+    it('retire les zéros de fin et utilise la virgule française', () => {
+        expect(formatQuantity(2.5)).toBe('2,5');
+        expect(formatQuantity(2.0)).toBe('2');
+        expect(formatQuantity(1.25)).toBe('1,25');
+    });
+
+    it('renvoie une chaîne vide pour une valeur non numérique', () => {
+        expect(formatQuantity(undefined)).toBe('');
+        expect(formatQuantity('abc')).toBe('');
+    });
+});
+
+describe('supplierList', () => {
+    const items = [
+        { id: 10, type: 'section', description: 'Salle de bain' },
+        { id: 11, type: 'service', description: 'Forfait rénovation', quantity: 1,
+          components: [
+              { id: 1, description: 'Câble 3G2.5', quantity: 50, unit: 'ml', buying_price: 0.8 },
+              { id: 2, description: 'Disjoncteur 16A', quantity: 3, unit: 'u', buying_price: 12 },
+          ] },
+        { id: 12, type: 'material', description: 'Disjoncteur 16A', quantity: 5, unit: 'u', price: 18, buying_price: 12 },
+        { id: 13, type: 'service', description: 'Pose', quantity: 4, unit: 'h' },
+    ];
+
+    it('regroupe les désignations identiques et additionne les quantités', () => {
+        const list = supplierList(items);
+        const disj = list.find((e) => e.description === 'Disjoncteur 16A');
+        expect(disj.quantity).toBe(8); // 3 (interne) + 5 (ligne matériel)
+        expect(disj.unit).toBe('u');
+    });
+
+    it('ne contient aucun prix', () => {
+        const list = supplierList(items);
+        list.forEach((e) => {
+            expect(e).not.toHaveProperty('salePrice');
+            expect(e).not.toHaveProperty('buyingPrice');
+            expect(Object.keys(e).sort()).toEqual(['description', 'quantity', 'unit']);
+        });
+    });
+
+    it('ignore les lignes de main d\'œuvre et les sections', () => {
+        const descriptions = supplierList(items).map((e) => e.description);
+        expect(descriptions).not.toContain('Pose');
+        expect(descriptions).not.toContain('Salle de bain');
+        expect(descriptions).toContain('Câble 3G2.5');
+    });
+
+    it('tolère un devis vide ou invalide', () => {
+        expect(supplierList(undefined)).toEqual([]);
+        expect(supplierList([])).toEqual([]);
+    });
+});
+
+describe('buildSupplierListText', () => {
+    it('rend une ligne par fourniture, avec quantité et unité, sans prix', () => {
+        const text = buildSupplierListText(
+            [
+                { description: 'Câble 3G2.5', quantity: 50, unit: 'ml' },
+                { description: 'Disjoncteur 16A', quantity: 8, unit: 'u' },
+            ],
+            { title: 'Rénovation Dupont' }
+        );
+        expect(text).toBe(
+            'Liste de matériel — Rénovation Dupont\n\n- Câble 3G2.5 : 50 ml\n- Disjoncteur 16A : 8 u'
+        );
+    });
+
+    it('utilise un titre générique quand aucun titre n\'est fourni', () => {
+        const text = buildSupplierListText([{ description: 'Vis', quantity: 1, unit: 'u' }]);
+        expect(text.startsWith('Liste de matériel\n\n')).toBe(true);
     });
 });
 

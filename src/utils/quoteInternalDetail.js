@@ -85,6 +85,60 @@ export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
  *
  * @returns {Array<{key: string, description: string, quantity: number, unit: string, context: string|null, salePrice: number|null, buyingPrice: number|null}>}
  */
+/** Formate une quantité pour l'affichage : entier net, décimales sans zéros superflus. */
+export const formatQuantity = (value) => {
+    const n = parseFloat(value);
+    if (!Number.isFinite(n)) return '';
+    // Jusqu'à 2 décimales, virgule française, sans zéros de fin (1,00 → 1 ; 2,50 → 2,5).
+    return n.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
+};
+
+/**
+ * Liste de matériel destinée au FOURNISSEUR, à partir d'un devis.
+ *
+ * Reprend les fournitures de {@link supplyEntries} (lignes « Matériel » +
+ * fournitures du chiffrage interne) mais SANS AUCUN PRIX — ni de vente ni
+ * d'achat : on ne transmet au fournisseur que la désignation, la quantité et
+ * l'unité. Les lignes identiques (même désignation + même unité) sont
+ * regroupées et leurs quantités additionnées, pour une commande propre.
+ *
+ * @returns {Array<{description: string, quantity: number, unit: string}>}
+ */
+export const supplierList = (items) => {
+    const byKey = new Map();
+    supplyEntries(items).forEach((e) => {
+        const description = (e.description || '').trim();
+        if (!description) return;
+        const unit = e.unit || 'u';
+        const key = `${description.toLowerCase()}|${unit.toLowerCase()}`;
+        const qty = parseFloat(e.quantity) || 0;
+        const existing = byKey.get(key);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            byKey.set(key, { description, quantity: qty, unit });
+        }
+    });
+    return Array.from(byKey.values());
+};
+
+/**
+ * Rend la liste fournisseur sous forme de texte brut, prêt à copier/coller
+ * (e-mail, SMS, WhatsApp). Une désignation par ligne, quantité et unité, sans prix.
+ *
+ * @param {Array<{description: string, quantity: number, unit: string}>} entries
+ * @param {{ title?: string }} [opts]
+ */
+export const buildSupplierListText = (entries, opts = {}) => {
+    const lines = (Array.isArray(entries) ? entries : []).map(
+        (e) => `- ${e.description} : ${formatQuantity(e.quantity)} ${e.unit || 'u'}`.trimEnd()
+    );
+    const header = (opts.title || '').trim()
+        ? [`Liste de matériel — ${opts.title.trim()}`, '']
+        : ['Liste de matériel', ''];
+    return [...header, ...lines].join('\n');
+};
+
 export const supplyEntries = (items) => {
     const entries = [];
     (Array.isArray(items) ? items : []).forEach((item, idx) => {
