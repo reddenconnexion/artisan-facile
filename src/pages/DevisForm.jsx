@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -45,6 +45,7 @@ import DevisEmailModal from '../components/DevisEmailModal';
 import DevisAIModal from '../components/DevisAIModal';
 import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
+import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 
@@ -203,6 +204,8 @@ const DevisForm = () => {
     const [internalDetailItemId, setInternalDetailItemId] = useState(null);
     // Modale « Commander le matériel » (envoi des fournitures vers la liste d'achats)
     const [showSupplyModal, setShowSupplyModal] = useState(false);
+    // Modale « Liste fournisseur » (matériel sans prix, à transmettre au fournisseur)
+    const [showSupplierListModal, setShowSupplierListModal] = useState(false);
 
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
@@ -4854,6 +4857,18 @@ Conditions de règlement : Paiement à réception de facture.`
                             </button>
                         )}
 
+                        {supplyEntries(formData.items).length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setShowSupplierListModal(true)}
+                                className="flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                                title="Affiche le matériel du devis sans les prix facturés, à copier ou télécharger pour l'envoyer à votre fournisseur."
+                            >
+                                <Truck className="w-4 h-4" />
+                                Liste fournisseur
+                            </button>
+                        )}
+
                         <button
                             onClick={() => setShowAIModal(true)}
                             className="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm transition-all disabled:opacity-50 ml-auto"
@@ -4921,6 +4936,13 @@ Conditions de règlement : Paiement à réception de facture.`
                     quoteId={isEditing ? id : null}
                     quoteLabel={formData.title || (isEditing ? `Devis #${id}` : null)}
                     clientId={formData.client_id}
+                    items={formData.items}
+                />
+
+                <QuoteSupplierListModal
+                    open={showSupplierListModal}
+                    onClose={() => setShowSupplierListModal(false)}
+                    quoteLabel={formData.title || (isEditing ? `Devis #${id}` : null)}
                     items={formData.items}
                 />
 
