@@ -60,6 +60,31 @@ export const procurementCostByQuote = (rows) => {
 };
 
 /**
+ * Un document ne couvre-t-il qu'une PARTIE du chantier ?
+ *
+ * Les coûts réels (achats, pointages) s'accumulent sur le devis du chantier —
+ * le parent. Quand un document ne facture qu'une part de ce chantier, lui
+ * attribuer les coûts du parent revient à confronter un coût TOTAL à un CA
+ * PARTIEL : la marge réalisée obtenue est absurde (souvent très négative).
+ * Le repli sur le parent est donc réservé aux documents qui reprennent le
+ * périmètre complet (typiquement la facture unique d'un devis).
+ *
+ * Sont à périmètre partiel :
+ *   - les avenants (`type = 'amendment'`) : uniquement les travaux en plus ;
+ *   - les factures de situation (avancement), repérées comme ailleurs dans
+ *     l'app via `amendment_details.situation` ou un titre « situation ».
+ *
+ * @param {{type?:string, title?:string, amendment_details?:object}|null} doc
+ * @returns {boolean}
+ */
+export const isPartialScopeDoc = (doc) => {
+    if (!doc) return false;
+    if ((doc.type || '').toLowerCase() === 'amendment') return true;
+    if (doc.amendment_details?.situation) return true;
+    return /situation/i.test(doc.title || '');
+};
+
+/**
  * Heures réellement pointées par devis (table task_tracking : pointages
  * « J'arrive au chantier / Je repars » et saisies manuelles d'heures).
  *
@@ -167,6 +192,13 @@ export const groupMaterialsMargin = (rows) => {
  * parent de la facture) a des achats au prix renseigné, sa part matériel bascule
  * du forfait (taux de marge) vers la marge réelle : CA matériel − coût réel.
  *
+ * Les achats d'un chantier sont suivis sur UN seul devis (le parent), alors que
+ * son CA peut être réparti sur PLUSIEURS documents (avenants, factures de
+ * situation). Chacun d'eux retombe donc sur le même agrégat de coûts : celui-ci
+ * ne doit être compté QU'UNE FOIS, sans quoi le coût matière est multiplié par
+ * le nombre de documents et le revenu net sous-évalué. Le CA, lui, s'additionne
+ * normalement — il est bien propre à chaque document.
+ *
  * @param {Array<{id:number|string, parentId?:number|string|null, materialAmount:number}>} entries
  *        Factures comptées dans la période (id + part matériel HT).
  * @param {Map} costByQuote Résultat de procurementCostByQuote.
@@ -179,13 +211,23 @@ export const realizedNetAdjustment = (entries, costByQuote) => {
     if (!(costByQuote instanceof Map) || costByQuote.size === 0) {
         return { caMaterielReal, realMaterialCost, coveredCount };
     }
+    // Devis dont le coût réel a déjà été imputé sur la période (anti-doublon).
+    const countedSources = new Set();
     (Array.isArray(entries) ? entries : []).forEach((e) => {
         if (!e) return;
-        const agg = costByQuote.get(Number(e.id))
-            ?? (e.parentId != null ? costByQuote.get(Number(e.parentId)) : undefined);
+        // Source du coût : le devis lui-même, à défaut son parent.
+        const ownKey = Number(e.id);
+        const parentKey = e.parentId != null ? Number(e.parentId) : null;
+        const sourceKey = costByQuote.has(ownKey)
+            ? ownKey
+            : (parentKey != null && costByQuote.has(parentKey) ? parentKey : null);
+        if (sourceKey == null) return;
+        const agg = costByQuote.get(sourceKey);
         if (!agg || agg.pricedCount === 0) return;
         coveredCount += 1;
         caMaterielReal += num(e.materialAmount);
+        if (countedSources.has(sourceKey)) return;
+        countedSources.add(sourceKey);
         realMaterialCost += agg.cost;
     });
     return { caMaterielReal, realMaterialCost, coveredCount };

@@ -35,7 +35,7 @@ import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { realizedQuoteMargin } from '../utils/realizedMargin';
+import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -5122,10 +5122,14 @@ Conditions de règlement : Paiement à réception de facture.`
                                             heures réellement pointées sur le chantier.
                                             Purement informatif : le devis n'est jamais modifié. */}
                                         {subtotal > 0 && (() => {
+                                            // Avenants et factures de situation ne facturent qu'une
+                                            // part du chantier : leur attribuer les coûts complets du
+                                            // devis parent donnerait une marge réalisée absurde.
+                                            const canUseParent = !!formData.parent_quote_id && !isPartialScopeDoc(formData);
                                             const agg = procurementCosts.get(Number(id))
-                                                ?? (formData.parent_quote_id ? procurementCosts.get(Number(formData.parent_quote_id)) : undefined);
+                                                ?? (canUseParent ? procurementCosts.get(Number(formData.parent_quote_id)) : undefined);
                                             const spent = spentHoursMap.get(Number(id))
-                                                ?? (formData.parent_quote_id ? spentHoursMap.get(Number(formData.parent_quote_id)) : 0)
+                                                ?? (canUseParent ? spentHoursMap.get(Number(formData.parent_quote_id)) : 0)
                                                 ?? 0;
                                             const r = realizedQuoteMargin(formData.items, subtotal, laborRate, agg, spent);
                                             if (!r) return null;

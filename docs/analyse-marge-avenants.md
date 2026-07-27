@@ -1,9 +1,11 @@
 # Analyse — Calcul de la marge sur les avenants
 
 > Document d'analyse technique. Décrit **comment** la marge est calculée pour un
-> avenant aujourd'hui, **où** le comportement est fiable, et **où** il est faux.
-> Aucune modification de code n'est induite par ce document : il sert de base de
-> décision pour un éventuel correctif.
+> avenant, **où** le comportement était fiable, et **où** il était faux.
+>
+> **État : les deux défauts décrits en §3.2 et §3.3 ont été corrigés** (voir §7).
+> Les extraits de code des sections 3.2 et 3.3 documentent le comportement
+> **avant** correctif, conservés pour expliquer le raisonnement.
 
 ## 1. Rappel : deux marges bien distinctes
 
@@ -163,12 +165,12 @@ le même coût pour plusieurs CA partiels — casse le rapprochement.
 
 ## 5. Portée et gravité
 
-| Zone | Fichier | Nature | Gravité |
-|---|---|---|---|
-| Marge prévue avenant | `DevisForm.jsx:5083` | — | ✅ correct |
-| Marge réalisée avenant (fiche) | `DevisForm.jsx:5124` | Indicateur faux (repli parent) | ⚠️ cosmétique mais trompeur |
-| Marge réelle avenant (liste) | `DevisList.jsx:66` | Idem | ⚠️ cosmétique mais trompeur |
-| Résultat Net / Dashboard | `realizedMargin.js:182` + `netIncome.js:152` | Coût matière multi-compté | 🔴 fausse un **chiffre financier** |
+| Zone | Fichier | Nature | Gravité | État |
+|---|---|---|---|---|
+| Marge prévue avenant | `DevisForm.jsx:5083` | — | ✅ correct | inchangé |
+| Marge réalisée avenant (fiche) | `DevisForm.jsx:5124` | Indicateur faux (repli parent) | ⚠️ cosmétique mais trompeur | ✅ corrigé (§7.2) |
+| Marge réelle avenant (liste) | `DevisList.jsx:66` | Idem | ⚠️ cosmétique mais trompeur | ✅ corrigé (§7.2) |
+| Résultat Net / Dashboard | `realizedMargin.js:182` + `netIncome.js:152` | Coût matière multi-compté | 🔴 fausse un **chiffre financier** | ✅ corrigé (§7.1) |
 
 - Les points 3.2 sont **informatifs** (badges) : ils n'entrent pas dans un calcul
   comptable, mais ils affichent des marges négatives aberrantes et minent la
@@ -201,6 +203,81 @@ revoir l'UI (fiche, liste, compta) et la façon de regrouper les documents.
 
 **Recommandation :** Piste 1 pour rétablir la justesse des chiffres rapidement et
 sans risque, en gardant la Piste 2 comme évolution de fond.
+
+## 7. Correctif appliqué (Piste 1)
+
+### 7.1 Déduplication du coût parent — corrige §3.3
+
+`src/utils/realizedMargin.js` — `realizedNetAdjustment`
+
+Le coût réel d'un devis n'est désormais imputé **qu'une seule fois par période**,
+même si plusieurs documents (avenants, factures de situation) y retombent. Un
+`Set` mémorise les devis-source déjà comptés :
+
+```js
+const countedSources = new Set();
+...
+const sourceKey = costByQuote.has(ownKey)
+    ? ownKey
+    : (parentKey != null && costByQuote.has(parentKey) ? parentKey : null);
+...
+caMaterielReal += num(e.materialAmount); // CA : propre à chaque document
+if (countedSources.has(sourceKey)) return;
+countedSources.add(sourceKey);
+realMaterialCost += agg.cost;            // coût : une seule fois par chantier
+```
+
+Le CA continue de s'additionner document par document (il leur est bien propre) ;
+seul le **coût** est dédupliqué. Le cas « le parent est lui-même payé dans la
+période » est couvert par la même clé (`ownKey` prioritaire sur `parentKey`).
+
+### 7.2 Garde-fou sur le repli parent — corrige §3.2
+
+Nouveau prédicat partagé `isPartialScopeDoc(doc)` (`src/utils/realizedMargin.js`),
+vrai pour les documents qui ne facturent qu'une **part** du chantier :
+
+- avenants (`type = 'amendment'`) ;
+- factures de situation (`amendment_details.situation` ou titre « situation »,
+  même détection qu'ailleurs dans l'app).
+
+Appliqué aux deux points d'affichage :
+
+- `src/pages/DevisForm.jsx` (fiche devis)
+- `src/pages/DevisList.jsx` (`RealizedMarginBadge`)
+
+```js
+const canUseParent = devis.parent_id != null && !isPartialScopeDoc(devis);
+const agg = costByQuote.get(Number(devis.id))
+    ?? (canUseParent ? costByQuote.get(Number(devis.parent_id)) : undefined);
+```
+
+Conséquence : un avenant sans achats/pointages propres **n'affiche plus** de marge
+réalisée (au lieu d'un −550 % aberrant). Dès que du matériel lui est rattaché
+explicitement — envoi vers l'approvisionnement **depuis l'avenant** —, sa marge
+réalisée s'affiche normalement, sur son propre périmètre.
+
+Le repli parent reste actif pour le cas légitime *1 devis → 1 facture*, où la
+facture reprend le périmètre complet.
+
+### 7.3 Couverture de tests
+
+`src/utils/realizedMargin.test.js` — ajouts :
+
+- N enfants → 1 parent : CA additionné (150), coût compté une fois (100, et non 300) ;
+- parent payé + avenant sur la même période : coût non dupliqué ;
+- chantiers **distincts** : coûts bien additionnés (non-régression du cas normal) ;
+- `isPartialScopeDoc` : avenants, situations (contexte + titre), documents complets.
+
+Suite complète : **328 tests / 28 fichiers au vert**, aucune régression. Le lint
+ne remonte aucune nouvelle erreur (les erreurs restantes sur ces fichiers sont
+préexistantes).
+
+### 7.4 Ce qui n'est PAS traité
+
+La cause racine structurelle demeure (Piste 2) : coûts réels concentrés sur le
+parent, CA réparti sur les enfants. Le correctif empêche les chiffres faux, mais
+n'offre toujours pas de vision consolidée « marge du chantier » regroupant le
+devis initial et tous ses avenants/situations.
 
 ---
 

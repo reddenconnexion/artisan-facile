@@ -5,6 +5,7 @@ import {
     realizedQuoteMargin,
     groupMaterialsMargin,
     realizedNetAdjustment,
+    isPartialScopeDoc,
 } from './realizedMargin';
 
 // Lignes d'achat type : deux devis suivis + une saisie terrain sans devis.
@@ -155,5 +156,58 @@ describe('realizedNetAdjustment', () => {
     it('neutre sans données (aucun achat suivi)', () => {
         const a = realizedNetAdjustment([{ id: 1, materialAmount: 100 }], new Map());
         expect(a).toEqual({ caMaterielReal: 0, realMaterialCost: 0, coveredCount: 0 });
+    });
+
+    it('ne compte le coût du parent QU\'UNE FOIS pour plusieurs enfants (avenants, situations)', () => {
+        // 3 documents payés du même chantier (devis 9, coût réel 100) : deux
+        // situations + un avenant. Le CA s'additionne, le coût reste unique.
+        const entries = [
+            { id: 101, parentId: 9, materialAmount: 60 },
+            { id: 102, parentId: 9, materialAmount: 40 },
+            { id: 103, parentId: 9, materialAmount: 50 },
+        ];
+        const a = realizedNetAdjustment(entries, costByQuote);
+        expect(a.caMaterielReal).toBe(150);  // 60 + 40 + 50 : propre à chaque doc
+        expect(a.realMaterialCost).toBe(100); // et NON 300
+        expect(a.coveredCount).toBe(3);
+    });
+
+    it('ne compte pas deux fois le coût quand le parent est lui-même dans la période', () => {
+        const entries = [
+            { id: 9, parentId: null, materialAmount: 200 }, // le devis parent, payé
+            { id: 104, parentId: 9, materialAmount: 50 },   // un avenant du même chantier
+        ];
+        const a = realizedNetAdjustment(entries, costByQuote);
+        expect(a.caMaterielReal).toBe(250);
+        expect(a.realMaterialCost).toBe(100); // le coût du devis 9, une seule fois
+    });
+
+    it('additionne les coûts de chantiers DISTINCTS', () => {
+        const entries = [
+            { id: 7, parentId: null, materialAmount: 100 }, // coût réel 50
+            { id: 9, parentId: null, materialAmount: 200 }, // coût réel 100
+        ];
+        const a = realizedNetAdjustment(entries, costByQuote);
+        expect(a.realMaterialCost).toBe(150);
+        expect(a.coveredCount).toBe(2);
+    });
+});
+
+describe('isPartialScopeDoc', () => {
+    it('un avenant ne couvre qu\'une part du chantier', () => {
+        expect(isPartialScopeDoc({ type: 'amendment' })).toBe(true);
+        expect(isPartialScopeDoc({ type: 'AMENDMENT' })).toBe(true);
+    });
+
+    it('une facture de situation est partielle (contexte mémorisé ou titre)', () => {
+        expect(isPartialScopeDoc({ type: 'invoice', amendment_details: { situation: {} } })).toBe(true);
+        expect(isPartialScopeDoc({ type: 'invoice', title: 'Situation n°2' })).toBe(true);
+    });
+
+    it('un devis ou une facture ordinaire couvre le périmètre complet', () => {
+        expect(isPartialScopeDoc({ type: 'quote', title: 'Rénovation salle de bain' })).toBe(false);
+        expect(isPartialScopeDoc({ type: 'invoice', title: 'Facture finale' })).toBe(false);
+        expect(isPartialScopeDoc(null)).toBe(false);
+        expect(isPartialScopeDoc({})).toBe(false);
     });
 });
