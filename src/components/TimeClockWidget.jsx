@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Square, Loader2, Timer, ChevronDown } from 'lucide-react';
+import { Play, Square, Loader2, Timer, ChevronDown, CalendarClock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import {
     getRunningClock, startClock, stopClock,
     elapsedSeconds, secondsToHours, formatHours,
 } from '../utils/timeTracking';
+import { pickCurrentEvent, worksiteForEvent, eventLabel } from '../utils/currentAppointment';
 import { useInvalidateCache } from '../hooks/useDataCache';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -30,20 +31,67 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
     // Chantiers pointables : devis acceptés (non archivés, non factures).
     const [worksites, setWorksites] = useState([]);
     const [selectedId, setSelectedId] = useState('');
+    // Rendez-vous du moment : il donne le chantier pré-sélectionné.
+    const [currentEvent, setCurrentEvent] = useState(null);
+    const [rdvQuoteId, setRdvQuoteId] = useState(null);
+    // Dès que l'artisan choisit lui-même un chantier, on ne le contredit plus.
+    const userPicked = useRef(false);
 
     useEffect(() => {
         if (clock) return; // inutile de charger la liste pendant un pointage
-        supabase.from('quotes')
-            .select('id, title, client_name, work_stage')
-            .eq('status', 'accepted')
-            .neq('type', 'invoice')
-            .order('created_at', { ascending: false })
-            .limit(30)
-            .then(({ data }) => {
-                const list = (data || []).filter(q => q.work_stage !== 'completed');
-                setWorksites(list);
-                if (list.length > 0) setSelectedId(prev => prev || String(list[0].id));
-            });
+        let active = true;
+
+        (async () => {
+            const { data } = await supabase.from('quotes')
+                .select('id, title, client_name, client_id, work_stage')
+                .eq('status', 'accepted')
+                .neq('type', 'invoice')
+                .order('created_at', { ascending: false })
+                .limit(30);
+            if (!active) return;
+
+            let list = (data || []).filter(q => q.work_stage !== 'completed');
+            setWorksites(list);
+            if (list.length > 0) setSelectedId(prev => prev || String(list[0].id));
+
+            // ── Chantier du rendez-vous en cours ────────────────────────────
+            // Le jour est cadré côté serveur (même découpage UTC que la liste
+            // « Planifié aujourd'hui » du mode terrain) pour ne ramener que
+            // l'agenda du jour.
+            const day = new Date().toISOString().split('T')[0];
+            const { data: events } = await supabase.from('events')
+                .select('id, title, date, time, start_time, client_id, client_name, quote_id')
+                .gte('date', `${day}T00:00:00Z`)
+                .lte('date', `${day}T23:59:59Z`);
+            if (!active) return;
+
+            const event = pickCurrentEvent(events || []);
+            if (!event) return;
+
+            let target = worksiteForEvent(list, event);
+
+            // Le devis lié au RDV peut être hors des 30 derniers acceptés : on
+            // le charge quand même pour pouvoir le proposer.
+            if (!target && event.quote_id != null) {
+                const { data: linked } = await supabase.from('quotes')
+                    .select('id, title, client_name, client_id, work_stage')
+                    .eq('id', event.quote_id)
+                    .maybeSingle();
+                if (!active) return;
+                if (linked) {
+                    target = linked;
+                    list = [linked, ...list.filter(q => String(q.id) !== String(linked.id))];
+                    setWorksites(list);
+                }
+            }
+
+            if (!target) return;
+            setCurrentEvent(event);
+            setRdvQuoteId(String(target.id));
+            if (!userPicked.current) setSelectedId(String(target.id));
+        })();
+
+        return () => { active = false; };
     }, [clock]);
 
     // Tic du chrono (1 s) uniquement quand un pointage tourne.
@@ -145,7 +193,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
                 <div className="relative flex-1 min-w-0">
                     <select
                         value={selectedId}
-                        onChange={(e) => setSelectedId(e.target.value)}
+                        onChange={(e) => { userPicked.current = true; setSelectedId(e.target.value); }}
                         className="w-full appearance-none bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 pr-10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         aria-label="Chantier à pointer"
                     >
@@ -165,6 +213,13 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
                     J'arrive au chantier
                 </button>
             </div>
+            {/* Pourquoi ce chantier est déjà choisi : le RDV du moment. */}
+            {currentEvent && rdvQuoteId === selectedId && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 mt-2">
+                    <CalendarClock className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">Chantier du {eventLabel(currentEvent)}</span>
+                </p>
+            )}
             {!compact && worksites.length === 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                     Aucun devis accepté en cours — les heures seront pointées sans chantier.
