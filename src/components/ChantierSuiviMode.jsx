@@ -4,14 +4,14 @@ import { toast } from 'sonner';
 import {
     ArrowLeft, Search, X, Loader2, CheckSquare, Square, FileText, ExternalLink,
     Package, Wrench, Plus, Trash2, Eye, EyeOff, Phone, MapPin, ClipboardCheck,
-    CloudOff, Check, RotateCcw, AlertTriangle, StickyNote, ChevronDown,
+    CloudOff, Check, RotateCcw, AlertTriangle, StickyNote, ChevronDown, Archive,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchWorksites, WORKSITE_STAGE_MAP } from '../utils/worksites';
 import { formatQuantity } from '../utils/quoteInternalDetail';
 import {
     checklistSections, progressStats, isLineDone, toggleLine, toggleComponent,
-    setAll, lineMatches,
+    setAll, lineMatches, matchesStatus, matchesKind,
 } from '../utils/chantierProgress';
 import { loadProgress, loadProgressMap, saveProgress, emptyProgress } from '../utils/chantierProgressStore';
 
@@ -33,6 +33,18 @@ const FILTERS = [
     { id: 'done', label: 'Fait' },
     { id: 'options', label: 'Options' },
 ];
+
+// Second filtre, indépendant du premier : la nature de la ligne. « À faire » +
+// « Matériel » répond à « qu'est-ce qu'il me reste à poser ? », et les deux
+// puces se désactivent d'un second appui pour revenir à tout le devis.
+const KINDS = [
+    { id: 'material', label: 'Matériel', Icon: Package, activeClass: 'bg-blue-600 text-white border-blue-600' },
+    { id: 'service', label: 'Prestations', Icon: Wrench, activeClass: 'bg-gray-700 text-white border-gray-700' },
+];
+
+// Ordre d'affichage des chantiers : le travail en cours d'abord, puis ce qui
+// démarre bientôt, et les terminés en dernier quand on les affiche.
+const STAGE_ORDER = ['in_progress', 'material_order', 'planned', 'pending_deposit', 'completed'];
 
 // ─── Barre de progression ─────────────────────────────────────────────────────
 
@@ -60,6 +72,7 @@ const ChantierSuiviMode = ({ onBack }) => {
     const [worksites, setWorksites] = useState([]);
     const [progressMap, setProgressMap] = useState({});
     const [siteQuery, setSiteQuery] = useState('');
+    const [showFinished, setShowFinished] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -86,6 +99,7 @@ const ChantierSuiviMode = ({ onBack }) => {
     const [opening, setOpening] = useState(false);
     const [synced, setSynced] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [kind, setKind] = useState('all');
     const [lineQuery, setLineQuery] = useState('');
     const [showPrices, setShowPrices] = useState(() => localStorage.getItem('af-chantier-prices') !== 'off');
     const [showNotes, setShowNotes] = useState(false);
@@ -127,6 +141,7 @@ const ChantierSuiviMode = ({ onBack }) => {
         setOpening(true);
         setQuote(q);
         setFilter('all');
+        setKind('all');
         setLineQuery('');
         try {
             const { progress: loaded, synced: ok } = await loadProgress(q.id, user?.id);
@@ -162,27 +177,36 @@ const ChantierSuiviMode = ({ onBack }) => {
     const visibleSections = useMemo(() => sections
         .map((section) => ({
             ...section,
-            lines: section.lines.filter((line) => {
-                if (!lineMatches(line, lineQuery)) return false;
-                const done = isLineDone(line, progress.done);
-                if (filter === 'todo') return !done && !line.isOptional;
-                if (filter === 'done') return done;
-                if (filter === 'options') return line.isOptional;
-                return true;
-            }),
+            lines: section.lines.filter((line) =>
+                lineMatches(line, lineQuery)
+                && matchesStatus(line, filter, progress.done)
+                && matchesKind(line, kind)
+            ),
         }))
         .filter((section) => section.lines.length > 0),
-        [sections, filter, lineQuery, progress.done]);
+        [sections, filter, kind, lineQuery, progress.done]);
 
+    // Chaque famille de puces compte ce qui resterait visible si on la choisissait :
+    // les compteurs tiennent donc compte de l'autre filtre et de la recherche.
     const counts = useMemo(() => {
-        const lines = sections.flatMap((s) => s.lines);
+        const lines = sections.flatMap((s) => s.lines)
+            .filter((l) => lineMatches(l, lineQuery) && matchesKind(l, kind));
         return {
             all: lines.length,
-            todo: lines.filter((l) => !l.isOptional && !isLineDone(l, progress.done)).length,
-            done: lines.filter((l) => isLineDone(l, progress.done)).length,
+            todo: lines.filter((l) => matchesStatus(l, 'todo', progress.done)).length,
+            done: lines.filter((l) => matchesStatus(l, 'done', progress.done)).length,
             options: lines.filter((l) => l.isOptional).length,
         };
-    }, [sections, progress.done]);
+    }, [sections, kind, lineQuery, progress.done]);
+
+    const kindCounts = useMemo(() => {
+        const lines = sections.flatMap((s) => s.lines)
+            .filter((l) => lineMatches(l, lineQuery) && matchesStatus(l, filter, progress.done));
+        return {
+            material: lines.filter((l) => matchesKind(l, 'material')).length,
+            service: lines.filter((l) => matchesKind(l, 'service')).length,
+        };
+    }, [sections, filter, lineQuery, progress.done]);
 
     // ── Travaux hors devis ────────────────────────────────────────────────────
     const addExtra = () => {
@@ -226,7 +250,15 @@ const ChantierSuiviMode = ({ onBack }) => {
 
     if (!quote) {
         const q = siteQuery.trim().toLowerCase();
-        const filtered = worksites.filter((w) => !q
+        // Sur le chantier, seuls les chantiers non terminés ont un intérêt : les
+        // terminés (de loin les plus nombreux avec le temps) restent accessibles
+        // d'un appui, mais ne noient plus la liste du jour.
+        const running = worksites.filter((w) => w.work_stage !== 'completed');
+        const finishedCount = worksites.length - running.length;
+        const listed = (showFinished ? worksites : running)
+            .slice()
+            .sort((a, b) => STAGE_ORDER.indexOf(a.work_stage) - STAGE_ORDER.indexOf(b.work_stage));
+        const filtered = listed.filter((w) => !q
             || (w.clients?.name || w.client_name || '').toLowerCase().includes(q)
             || quoteLabel(w).toLowerCase().includes(q));
 
@@ -243,7 +275,9 @@ const ChantierSuiviMode = ({ onBack }) => {
                         </button>
                         <div className="min-w-0">
                             <p className="font-bold text-gray-900 dark:text-white text-base leading-tight">Suivi de chantier</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Le devis en poche, sans imprimer</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {showFinished ? 'Tous les chantiers' : 'Chantiers en cours'} · le devis en poche
+                            </p>
                         </div>
                     </div>
                     <div className="px-3 pb-3">
@@ -269,10 +303,12 @@ const ChantierSuiviMode = ({ onBack }) => {
                         <div className="text-center py-16">
                             <ClipboardCheck className="w-12 h-12 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
                             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                                {worksites.length === 0 ? 'Aucun chantier en cours' : 'Aucun chantier ne correspond'}
+                                {siteQuery.trim() ? 'Aucun chantier ne correspond' : 'Aucun chantier en cours'}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 px-8">
-                                Les chantiers apparaissent ici dès qu'un devis est accepté.
+                                {!siteQuery.trim() && finishedCount > 0
+                                    ? `${finishedCount} chantier${finishedCount > 1 ? 's' : ''} terminé${finishedCount > 1 ? 's' : ''} — affichez-les ci-dessous pour les retrouver.`
+                                    : 'Les chantiers apparaissent ici dès qu\'un devis est accepté.'}
                             </p>
                         </div>
                     ) : filtered.map((w) => {
@@ -308,6 +344,18 @@ const ChantierSuiviMode = ({ onBack }) => {
                             </button>
                         );
                     })}
+
+                    {!loading && finishedCount > 0 && (
+                        <button
+                            onClick={() => setShowFinished((v) => !v)}
+                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        >
+                            <Archive className="w-4 h-4" />
+                            {showFinished
+                                ? 'Masquer les chantiers terminés'
+                                : `Voir aussi les ${finishedCount} chantier${finishedCount > 1 ? 's' : ''} terminé${finishedCount > 1 ? 's' : ''}`}
+                        </button>
+                    )}
                 </div>
             </div>
         );
@@ -499,6 +547,19 @@ const ChantierSuiviMode = ({ onBack }) => {
                                     : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
                             >
                                 {f.label} ({counts[f.id]})
+                            </button>
+                        ))}
+                        <span className="shrink-0 w-px my-1 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+                        {KINDS.map((k) => (
+                            <button
+                                key={k.id}
+                                onClick={() => setKind((prev) => (prev === k.id ? 'all' : k.id))}
+                                aria-pressed={kind === k.id}
+                                className={`shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${kind === k.id
+                                    ? k.activeClass
+                                    : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
+                            >
+                                <k.Icon className="w-3 h-3" /> {k.label} ({kindCounts[k.id]})
                             </button>
                         ))}
                     </div>

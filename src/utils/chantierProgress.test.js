@@ -8,6 +8,8 @@ import {
     setAll,
     progressStats,
     lineMatches,
+    matchesStatus,
+    matchesKind,
     mergeDone,
     mergeExtras,
     DEFAULT_SECTION,
@@ -149,6 +151,47 @@ describe('progressStats', () => {
         const stats = progressStats([], {});
         expect(stats.ratio).toBe(0);
         expect(stats.amountRatio).toBe(0);
+    });
+});
+
+describe('filtres de la check-list', () => {
+    const sections = checklistSections(items);
+    const lines = flatLines(sections);
+    const prise = lines.find((l) => l.description === 'Prise 16A');       // matériel
+    const pose = lines.find((l) => l.description === 'Pose tableau');     // prestation
+    const garage = lines.find((l) => l.description === 'Éclairage garage'); // forfait détaillé
+    const option = lines.find((l) => l.isOptional);
+
+    it('« Tout » ne filtre rien', () => {
+        expect(lines.every((l) => matchesStatus(l, 'all', {}))).toBe(true);
+        expect(lines.every((l) => matchesKind(l, 'all'))).toBe(true);
+    });
+
+    it('« À faire » écarte le fait et les options', () => {
+        const done = toggleLine({}, prise);
+        expect(matchesStatus(prise, 'todo', done)).toBe(false);
+        expect(matchesStatus(pose, 'todo', done)).toBe(true);
+        expect(matchesStatus(option, 'todo', done)).toBe(false);
+    });
+
+    it('« Fait » et « Options » sélectionnent leur lot', () => {
+        const done = toggleLine({}, prise);
+        expect(matchesStatus(prise, 'done', done)).toBe(true);
+        expect(matchesStatus(pose, 'done', done)).toBe(false);
+        expect(matchesStatus(option, 'options', done)).toBe(true);
+        expect(matchesStatus(pose, 'options', done)).toBe(false);
+    });
+
+    it('sépare matériel et prestations', () => {
+        expect(matchesKind(prise, 'material')).toBe(true);
+        expect(matchesKind(prise, 'service')).toBe(false);
+        expect(matchesKind(pose, 'service')).toBe(true);
+        expect(matchesKind(pose, 'material')).toBe(false);
+    });
+
+    it('montre des deux côtés une ligne forfait qui contient des fournitures', () => {
+        expect(matchesKind(garage, 'material')).toBe(true);
+        expect(matchesKind(garage, 'service')).toBe(true);
     });
 });
 
