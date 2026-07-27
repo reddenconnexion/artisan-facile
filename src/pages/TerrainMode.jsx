@@ -7,9 +7,10 @@ import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
-    ShoppingCart, MapPin, User,
+    ShoppingCart, MapPin, User, ClipboardCheck,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
+import ChantierSuiviMode from '../components/ChantierSuiviMode';
 import ProcurementMode from '../components/ProcurementMode';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import TimeClockWidget from '../components/TimeClockWidget';
@@ -29,7 +30,7 @@ const TerrainMode = () => {
     const { user } = useAuth();
 
     // ── Mode selection ────────────────────────────────────────────────────────
-    const [mode, setMode] = useState(null); // null | 'depannage' | 'visite' | 'commande'
+    const [mode, setMode] = useState(null); // null | 'chantier' | 'depannage' | 'visite' | 'commande'
 
     // ── Champs du rapport ─────────────────────────────────────────────────────
     const [title, setTitle] = useState(defaultTitle);
@@ -362,6 +363,23 @@ const TerrainMode = () => {
                     )}
 
                     <button
+                        onClick={() => setMode('chantier')}
+                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-amber-400 hover:shadow-md active:scale-[0.98] transition-all group"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 group-hover:bg-amber-500 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
+                                <ClipboardCheck className="w-7 h-7 text-amber-600 group-hover:text-white transition-colors" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Suivi de chantier</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                                    Le devis en cours sous les yeux : ce qui est prévu, ce qui ne l'est pas, et les opérations à cocher au fur et à mesure. Plus besoin d'imprimer.
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
                         onClick={() => setMode('depannage')}
                         className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
                     >
@@ -424,6 +442,10 @@ const TerrainMode = () => {
                 )}
             </div>
         );
+    }
+
+    if (mode === 'chantier') {
+        return <ChantierSuiviMode onBack={() => setMode(null)} />;
     }
 
     if (mode === 'commande') {
