@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes, useUserProfile, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { realizedQuoteMargin } from '../utils/realizedMargin';
+import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
 import { formatHours } from '../utils/timeTracking';
 import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
@@ -64,10 +64,13 @@ const TransmissionBadge = ({ status }) => {
 // Purement informatif : le devis n'est pas modifié. N'apparaît que si au
 // moins un achat a son prix renseigné ou si du temps chiffrable est pointé.
 const RealizedMarginBadge = ({ devis, costByQuote, spentByQuote, laborRate }) => {
+    // Avenants et factures de situation ne facturent qu'une part du chantier :
+    // leur attribuer les coûts complets du parent donnerait une marge absurde.
+    const canUseParent = devis.parent_id != null && !isPartialScopeDoc(devis);
     const agg = costByQuote.get(Number(devis.id))
-        ?? (devis.parent_id != null ? costByQuote.get(Number(devis.parent_id)) : undefined);
+        ?? (canUseParent ? costByQuote.get(Number(devis.parent_id)) : undefined);
     const spent = spentByQuote.get(Number(devis.id))
-        ?? (devis.parent_id != null ? spentByQuote.get(Number(devis.parent_id)) : 0)
+        ?? (canUseParent ? spentByQuote.get(Number(devis.parent_id)) : 0)
         ?? 0;
     if (!agg && !spent) return null;
     const subtotal = parseFloat(devis.total_ht)
