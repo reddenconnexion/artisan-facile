@@ -184,6 +184,29 @@ export const progressStats = (sections, done = {}) => {
     };
 };
 
+/**
+ * La ligne passe-t-elle le filtre d'état de la check-list ?
+ * `all` (tout) | `todo` (reste à faire, hors options) | `done` | `options`.
+ */
+export const matchesStatus = (line, filter, done = {}) => {
+    if (filter === 'todo') return !isLineDone(line, done) && !line.isOptional;
+    if (filter === 'done') return isLineDone(line, done);
+    if (filter === 'options') return !!line.isOptional;
+    return true;
+};
+
+/**
+ * La ligne passe-t-elle le filtre de nature ? `all` | `material` | `service`.
+ *
+ * Une ligne forfait détaillée par un chiffrage interne contient des fournitures :
+ * elle ressort donc des deux côtés, ce qui est la vérité du devis.
+ */
+export const matchesKind = (line, kind) => {
+    if (kind === 'material') return line.type === 'material' || (line.components || []).length > 0;
+    if (kind === 'service') return line.type !== 'material';
+    return true;
+};
+
 /** Normalise un texte pour la recherche : minuscules, sans accents. */
 const normalize = (text) =>
     String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
