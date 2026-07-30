@@ -33,9 +33,9 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
     const emailSubject = `Votre avis compte pour ${companyName}`;
     const emailBody = [
         `Bonjour ${clientName},`,
-        `Merci pour votre confiance ! Je suis ravi que l'intervention soit désormais terminée.`,
-        `Un rapide avis Google m'aiderait beaucoup à développer mon activité${contextCity ? ` sur ${contextCity}` : ''}.\nCela ne prend que 30 secondes :\n${reviewUrl}`,
-        `Pour vous faire gagner du temps, voici un exemple que vous pouvez copier-coller (ou personnaliser) :\n"${suggestedReview}"`,
+        `Merci encore pour votre confiance, j'espère que le travail vous donne entière satisfaction.`,
+        `Si c'est le cas, un avis Google m'aiderait beaucoup à me faire connaître${contextCity ? ` sur ${contextCity}` : ''}. Cela ne prend que 30 secondes :\n${reviewUrl}`,
+        `Si vous manquez de temps ou d'inspiration, voici une base que vous pouvez reprendre et tourner à votre façon :\n"${suggestedReview}"`,
         `Encore merci, et n'hésitez pas à me contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile?.full_name || ''}`
     ].join('\n\n');
 
@@ -150,7 +150,7 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
                             <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 relative">
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Exemple d'avis optimisé ({variantIndex + 1}/{suggestions.length})
+                                        Exemple d'avis à personnaliser ({variantIndex + 1}/{suggestions.length})
                                     </h3>
                                     <div className="flex items-center gap-1">
                                         {suggestions.length > 1 && (
@@ -173,6 +173,10 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
                                 </div>
                                 <p className="text-gray-700 text-sm italic">
                                     "{suggestedReview}"
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-2">
+                                    Une base à faire réécrire avec ses mots : un avis reformulé par le client
+                                    inspire plus confiance qu'un texte recopié tel quel.
                                 </p>
                             </div>
 
