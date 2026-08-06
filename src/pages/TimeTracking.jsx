@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
-    ChevronLeft, ChevronRight, Download, Plus, Trash2, Loader2,
+    ChevronLeft, ChevronRight, Download, Plus, Pencil, Trash2, Loader2,
     TrendingUp, AlertTriangle, CheckCircle, HelpCircle, Hammer,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
@@ -12,8 +12,8 @@ import { DismissibleHelp } from '../components/ui';
 import TimeClockWidget from '../components/TimeClockWidget';
 import { exportToCSV } from '../utils/csvExport';
 import {
-    estimatedHoursFromItems, formatHours, laborProfitability,
-    startOfWeek, weekDays, toDateString,
+    estimatedHoursFromItems, formatHours, hoursToInput, laborProfitability,
+    parseHoursInput, startOfWeek, weekDays, toDateString,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
 
@@ -102,8 +102,9 @@ const TimeTracking = () => {
     const [deletingId, setDeletingId] = useState(null);
     const { invalidateTimeTracking } = useInvalidateCache();
 
-    // Formulaire de saisie manuelle
+    // Formulaire de saisie manuelle — sert aussi à modifier un pointage existant
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState(null);  // null = ajout
     const [formDate, setFormDate] = useState(() => toDateString(new Date()));
     const [formHours, setFormHours] = useState('');
     const [formQuoteId, setFormQuoteId] = useState('');
@@ -168,6 +169,13 @@ const TimeTracking = () => {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
+    // Le formulaire est sous la feuille d'heures : on l'amène sous les yeux
+    // quand on modifie un pointage saisi plus haut dans la semaine.
+    const formRef = useRef(null);
+    useEffect(() => {
+        if (showForm && editingId) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [showForm, editingId]);
+
     // Libellés de chantiers pour la feuille d'heures et le formulaire
     const quoteLabels = useMemo(() => {
         const map = {};
@@ -176,6 +184,16 @@ const TimeTracking = () => {
         }
         return map;
     }, [worksites]);
+
+    // Un pointage peut viser un chantier absent de la liste (devis terminé, au-delà
+    // des 50 derniers…) : on conserve son option pour ne pas la perdre en modifiant.
+    const quoteOptions = useMemo(() => {
+        const options = worksites.map(w => ({ id: String(w.quote.id), label: quoteLabels[w.quote.id] }));
+        if (formQuoteId && !options.some(o => o.id === formQuoteId)) {
+            options.unshift({ id: formQuoteId, label: quoteLabels[formQuoteId] || `Devis #${formQuoteId}` });
+        }
+        return options;
+    }, [worksites, quoteLabels, formQuoteId]);
 
     const entriesByDay = useMemo(() => {
         const map = Object.fromEntries(days.map(d => [d, []]));
@@ -195,32 +213,57 @@ const TimeTracking = () => {
         });
     };
 
-    const handleAddEntry = async (e) => {
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormHours('');
+        setFormNote('');
+    };
+
+    const openAddForm = () => {
+        setEditingId(null);
+        setFormDate(toDateString(new Date()));
+        setFormHours('');
+        setFormQuoteId('');
+        setFormNote('');
+        setShowForm(true);
+    };
+
+    const openEditForm = (entry) => {
+        setEditingId(entry.id);
+        setFormDate(entry.date);
+        setFormHours(hoursToInput(entry.hours_spent));
+        setFormQuoteId(entry.quote_id != null ? String(entry.quote_id) : '');
+        setFormNote(entry.notes || '');
+        setShowForm(true);
+    };
+
+    const handleSubmitEntry = async (e) => {
         e.preventDefault();
-        const hours = parseFloat(String(formHours).replace(',', '.'));
-        if (!Number.isFinite(hours) || hours <= 0) {
-            toast.error('Indiquez un nombre d\'heures valide.');
+        const hours = parseHoursInput(formHours);
+        if (hours === null) {
+            toast.error('Indiquez un nombre d\'heures valide (ex : 3,5 ou 3h30).');
             return;
         }
         setSubmitting(true);
         try {
-            const { error } = await supabase.from('task_tracking').insert({
-                user_id: user.id,
+            const payload = {
                 quote_id: formQuoteId ? Number(formQuoteId) : null,
-                hours_spent: Math.round(hours * 100) / 100,
+                hours_spent: hours,
                 date: formDate,
                 notes: formNote.trim() || null,
-            });
+            };
+            const { error } = editingId
+                ? await supabase.from('task_tracking').update(payload).eq('id', editingId)
+                : await supabase.from('task_tracking').insert({ ...payload, user_id: user.id });
             if (error) throw error;
-            toast.success('Heures ajoutées');
-            setFormHours('');
-            setFormNote('');
-            setShowForm(false);
+            toast.success(editingId ? 'Pointage modifié' : 'Heures ajoutées');
+            closeForm();
             invalidateTimeTracking();
             fetchAll();
         } catch (err) {
-            console.error('Erreur ajout heures:', err);
-            toast.error('Impossible d\'ajouter ces heures.');
+            console.error('Erreur enregistrement heures:', err);
+            toast.error(editingId ? 'Impossible de modifier ce pointage.' : 'Impossible d\'ajouter ces heures.');
         } finally {
             setSubmitting(false);
         }
@@ -232,6 +275,7 @@ const TimeTracking = () => {
             const { error } = await supabase.from('task_tracking').delete().eq('id', id);
             if (error) throw error;
             setEntries(prev => prev.filter(e => e.id !== id));
+            if (editingId === id) closeForm();
             invalidateTimeTracking();
             fetchAll();
         } catch (err) {
@@ -352,7 +396,12 @@ const TimeTracking = () => {
                                 {dayEntries.length > 0 && (
                                     <ul className="mt-2 space-y-1.5">
                                         {dayEntries.map(e => (
-                                            <li key={e.id} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                            <li
+                                                key={e.id}
+                                                className={`flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 rounded-lg ${
+                                                    editingId === e.id ? 'bg-blue-50 dark:bg-blue-900/30 -mx-2 px-2 py-1' : ''
+                                                }`}
+                                            >
                                                 <span className="font-medium tabular-nums w-14 flex-shrink-0">{formatHours(Number(e.hours_spent) || 0)}</span>
                                                 <span className="truncate flex-1">
                                                     {e.quote_id != null
@@ -360,6 +409,13 @@ const TimeTracking = () => {
                                                         : 'Sans chantier'}
                                                     {e.notes ? <span className="text-gray-400"> · {e.notes}</span> : null}
                                                 </span>
+                                                <button
+                                                    onClick={() => openEditForm(e)}
+                                                    className="p-1 text-gray-300 hover:text-blue-600 transition-colors flex-shrink-0"
+                                                    aria-label="Modifier ce pointage"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => handleDelete(e.id)}
                                                     disabled={deletingId === e.id}
@@ -383,9 +439,12 @@ const TimeTracking = () => {
                     </div>
                 </div>
 
-                {/* Saisie manuelle */}
+                {/* Saisie manuelle / modification d'un pointage */}
                 {showForm ? (
-                    <form onSubmit={handleAddEntry} className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <form ref={formRef} onSubmit={handleSubmitEntry} className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <p className="sm:col-span-2 lg:col-span-4 text-sm font-bold text-gray-900 dark:text-white">
+                            {editingId ? 'Modifier le pointage' : 'Ajouter des heures'}
+                        </p>
                         <div>
                             <label htmlFor="tt-date" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date</label>
                             <input
@@ -397,7 +456,7 @@ const TimeTracking = () => {
                         <div>
                             <label htmlFor="tt-hours" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Heures</label>
                             <input
-                                id="tt-hours" type="text" inputMode="decimal" required placeholder="Ex : 3,5"
+                                id="tt-hours" type="text" inputMode="decimal" required placeholder="Ex : 3,5 ou 3h30"
                                 value={formHours} onChange={(e) => setFormHours(e.target.value)}
                                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
                             />
@@ -410,8 +469,8 @@ const TimeTracking = () => {
                                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
                             >
                                 <option value="">Sans chantier</option>
-                                {worksites.map(w => (
-                                    <option key={w.quote.id} value={w.quote.id}>{quoteLabels[w.quote.id]}</option>
+                                {quoteOptions.map(o => (
+                                    <option key={o.id} value={o.id}>{o.label}</option>
                                 ))}
                             </select>
                         </div>
@@ -425,7 +484,7 @@ const TimeTracking = () => {
                         </div>
                         <div className="sm:col-span-2 lg:col-span-4 flex gap-2 justify-end">
                             <button
-                                type="button" onClick={() => setShowForm(false)}
+                                type="button" onClick={closeForm}
                                 className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
                                 Annuler
@@ -435,13 +494,13 @@ const TimeTracking = () => {
                                 className="flex items-center gap-2 bg-blue-600 text-white text-sm font-bold px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
                             >
                                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Ajouter
+                                {editingId ? 'Enregistrer' : 'Ajouter'}
                             </button>
                         </div>
                     </form>
                 ) : (
                     <button
-                        onClick={() => setShowForm(true)}
+                        onClick={openAddForm}
                         className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
                     >
                         <Plus className="w-4 h-4" /> Ajouter des heures manuellement

@@ -50,6 +50,42 @@ export const formatHours = (hours) => {
     return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 };
 
+/**
+ * Lit une saisie d'heures libre et la convertit en heures décimales.
+ * Accepte la décimale française ou anglaise ("3,5", "3.5") et la notation
+ * horaire de l'artisan ("3h30", "3h", "45min"). Retourne null si la saisie
+ * n'est pas exploitable ou vaut zéro.
+ */
+export const parseHoursInput = (raw) => {
+    const text = String(raw ?? '').trim().toLowerCase().replace(/\s/g, '');
+    if (!text) return null;
+
+    const round = (h) => (Number.isFinite(h) && h > 0 ? Math.round(h * 100) / 100 : null);
+
+    // "45min", "45mn", "45m"
+    const minutesOnly = text.match(/^(\d+(?:[.,]\d+)?)(?:min|mn|m)$/);
+    if (minutesOnly) return round(parseFloat(minutesOnly[1].replace(',', '.')) / 60);
+
+    // "3h30", "3h05", "3h", "3h30min"
+    const hoursMinutes = text.match(/^(\d+)h(\d{1,2})?(?:min|mn|m)?$/);
+    if (hoursMinutes) {
+        const minutes = hoursMinutes[2] ? parseInt(hoursMinutes[2], 10) : 0;
+        if (minutes > 59) return null;
+        return round(parseInt(hoursMinutes[1], 10) + minutes / 60);
+    }
+
+    // "3,5" / "3.5" / "3"
+    if (!/^\d+(?:[.,]\d+)?$/.test(text)) return null;
+    return round(parseFloat(text.replace(',', '.')));
+};
+
+/** Heures décimales vers une saisie éditable à la française : 3.5 → "3,5". */
+export const hoursToInput = (hours) => {
+    const value = Number(hours);
+    if (!Number.isFinite(value) || value <= 0) return '';
+    return String(Math.round(value * 100) / 100).replace('.', ',');
+};
+
 /** Durée écoulée (en secondes) depuis le démarrage d'un pointage. */
 export const elapsedSeconds = (startedAt, now = Date.now()) => {
     const started = new Date(startedAt).getTime();

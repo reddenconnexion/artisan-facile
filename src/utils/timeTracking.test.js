@@ -8,6 +8,8 @@ import {
     startClock,
     stopClock,
     laborProfitability,
+    parseHoursInput,
+    hoursToInput,
     startOfWeek,
     weekDays,
     toDateString,
@@ -144,6 +146,47 @@ describe('laborProfitability', () => {
 
     it('costs nothing when hourly rate is unknown', () => {
         expect(laborProfitability(10, 12, 0).overrunCost).toBe(0);
+    });
+});
+
+describe('parseHoursInput', () => {
+    it('reads decimal hours, French or English', () => {
+        expect(parseHoursInput('3,5')).toBe(3.5);
+        expect(parseHoursInput('3.5')).toBe(3.5);
+        expect(parseHoursInput(' 7 ')).toBe(7);
+        expect(parseHoursInput(2.25)).toBe(2.25);
+    });
+
+    it('reads the hours/minutes notation', () => {
+        expect(parseHoursInput('3h30')).toBe(3.5);
+        expect(parseHoursInput('3h')).toBe(3);
+        expect(parseHoursInput('3h05')).toBe(3.08);
+        expect(parseHoursInput('1 h 15')).toBe(1.25);
+        expect(parseHoursInput('45min')).toBe(0.75);
+        expect(parseHoursInput('30m')).toBe(0.5);
+    });
+
+    it('rejects what is not a duration', () => {
+        expect(parseHoursInput('')).toBeNull();
+        expect(parseHoursInput(null)).toBeNull();
+        expect(parseHoursInput('abc')).toBeNull();
+        expect(parseHoursInput('-2')).toBeNull();
+        expect(parseHoursInput('0')).toBeNull();
+        expect(parseHoursInput('3h75')).toBeNull();
+    });
+});
+
+describe('hoursToInput', () => {
+    it('formats decimal hours for the input field', () => {
+        expect(hoursToInput(3.5)).toBe('3,5');
+        expect(hoursToInput(7)).toBe('7');
+        expect(hoursToInput('2.25')).toBe('2,25');
+    });
+
+    it('returns an empty string when there is nothing to edit', () => {
+        expect(hoursToInput(0)).toBe('');
+        expect(hoursToInput(null)).toBe('');
+        expect(hoursToInput('abc')).toBe('');
     });
 });
 
