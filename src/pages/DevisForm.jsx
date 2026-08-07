@@ -2686,7 +2686,11 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleDownloadPDF = async (forceInvoice = false) => {
+    // `detailed: true` → copie interne : le PDF est rendu ligne à ligne quelle que
+    // soit la présentation choisie pour le client, et reste disponible une fois le
+    // devis verrouillé (accepté, facturé, payé). La présentation enregistrée n'est
+    // pas modifiée : l'exemplaire du client, lui, ne change jamais.
+    const handleDownloadPDF = async (forceInvoice = false, { detailed = false } = {}) => {
         try {
             const isInvoice = forceInvoice || formData.type === 'invoice';
             if (!formData.client_id) {
@@ -2727,12 +2731,17 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ttc: total,
                 include_tva: formData.include_tva,
                 has_material_deposit: formData.has_material_deposit,
-                amendment_details: formData.amendment_details || {}
+                amendment_details: formData.amendment_details || {},
+                ...(detailed ? { client_display_mode: 'detailed', internal_copy: true } : {})
             };
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
             await generateClientPDF(devisData, selectedClient, userProfile, isInvoice);
-            toast.success(isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès');
+            toast.success(
+                detailed
+                    ? 'Copie interne détaillée générée'
+                    : (isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès')
+            );
         } catch (error) {
             console.error('Error generating PDF:', error);
             toast.error('Erreur lors de la génération du PDF : ' + error.message);
@@ -3229,6 +3238,21 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Download className="w-4 h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Télécharger</span>
                         </button>
+                        {/* Devis présenté en groupé / poste global : l'aperçu ci-dessous
+                            est la version du client. Ce second bouton sort le même
+                            document ligne à ligne, pour l'artisan — disponible aussi
+                            après signature, sans toucher à la version transmise. */}
+                        {!formData.is_external && ['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && (
+                            <button
+                                type="button"
+                                onClick={() => handleDownloadPDF(false, { detailed: true })}
+                                className="flex items-center px-3 py-2 text-amber-700 dark:text-amber-300 bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                                title="Télécharger ma copie détaillée (ligne à ligne, pour vous — la version du client reste inchangée)"
+                            >
+                                <Lock className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Ma copie détaillée</span>
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={goToEditor}
@@ -3760,6 +3784,17 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <Download className="w-4 h-4 mr-3 text-gray-400" />
                                     Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
                                 </button>
+
+                                {['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && (
+                                    <button
+                                        onClick={() => { handleDownloadPDF(false, { detailed: true }); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                        title="Le même document ligne à ligne, pour vous. La présentation du client reste inchangée."
+                                    >
+                                        <Lock className="w-4 h-4 mr-3 text-amber-600" />
+                                        Ma copie détaillée
+                                    </button>
+                                )}
 
                                 {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                                     <>
@@ -4474,6 +4509,21 @@ Conditions de règlement : Paiement à réception de facture.`
                                         </span>
                                     ))}
                                 </>
+                            )}
+                            {/* Copie interne : le devis ligne à ligne, pour soi. Reste
+                                proposée une fois le devis verrouillé (accepté, facturé,
+                                payé) — c'est justement là qu'on en a besoin pour
+                                commander et suivre le chantier. */}
+                            {['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleDownloadPDF(false, { detailed: true })}
+                                    title="Télécharge le même document en version ligne à ligne, pour vous (commandes, chantier). La présentation du client n'est pas modifiée."
+                                    className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-full px-2.5 py-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Ma copie détaillée
+                                </button>
                             )}
                         </div>
                     )}

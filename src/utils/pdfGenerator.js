@@ -138,6 +138,7 @@ const PDF_I18N = {
         clientApproval: 'Bon pour accord — le client',
         readApproved: 'Date et mention « Lu et approuvé » :',
         pageOf: (i, n) => `page ${i}/${n}`,
+        internalCopy: 'Copie interne détaillée — document de travail, non contractuel',
         financialAdjustment: 'AJUSTEMENT FINANCIER',
         initialQuoteTTC: 'Devis Initial TTC', billedToDate: 'Facturé à ce jour (Situation)',
         includingDeposit: '(incluant acompte)', amendmentAmountTTC: 'Montant Avenant TTC',
@@ -226,6 +227,7 @@ const PDF_I18N = {
         clientApproval: 'Approved — the client',
         readApproved: 'Date and mention "Read and approved":',
         pageOf: (i, n) => `page ${i}/${n}`,
+        internalCopy: 'Detailed internal copy — working document, not contractual',
         financialAdjustment: 'FINANCIAL ADJUSTMENT',
         initialQuoteTTC: 'Initial Quote (incl. VAT)', billedToDate: 'Billed to date (Progress)',
         includingDeposit: '(including deposit)', amendmentAmountTTC: 'Amendment Amount (incl. VAT)',
@@ -299,6 +301,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const typeDocument = isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis);
     const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
+    // Copie interne : le même document rendu pour l'artisan seul (typiquement un
+    // devis en présentation groupée / poste global qu'il veut relire ou emmener
+    // sur le chantier ligne à ligne). L'appelant force `client_display_mode` à
+    // 'detailed' et pose ce drapeau ; ici il ne change que la signalétique —
+    // mention en pied de page et nom de fichier — pour qu'une copie de travail
+    // ne puisse pas être confondue avec l'exemplaire remis (et signé par) le client.
+    const isInternalCopy = devis.internal_copy === true;
 
     // Facture de situation : le contexte d'avancement (total du devis parent,
     // déjà facturé, n° de situation) est mémorisé sur la facture elle-même
@@ -1536,7 +1545,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         fitFontSize(footerLine, 182, 6.8, 5.5);
         doc.text(ellipsize(footerLine, 182), 105, 287.5, { align: 'center' });
         doc.setFontSize(6.8);
-        doc.text(`${L.footer(isAmendment ? L.avenant : typeDocument)} — ${L.pageOf(i, pageCount)}`, 105, 291, { align: 'center' });
+        if (isInternalCopy) {
+            // La mention remplace la ligne « généré par » : c'est l'information
+            // utile sur ce tirage, et elle reste lisible même imprimée en N&B.
+            doc.setTextColor(180, 83, 9);
+            const internalLine = `${L.internalCopy} — ${L.pageOf(i, pageCount)}`;
+            fitFontSize(internalLine, 182, 6.8, 5.5);
+            doc.text(ellipsize(internalLine, 182), 105, 291, { align: 'center' });
+        } else {
+            doc.text(`${L.footer(isAmendment ? L.avenant : typeDocument)} — ${L.pageOf(i, pageCount)}`, 105, 291, { align: 'center' });
+        }
     }
 
     // ---------------------------------------------------------
@@ -1589,7 +1607,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // 3. Return Logic
     // ---------------------------------------------------------
 
-    const fileName = isInvoice ? `facture_${devis.quote_number || devis.id}.pdf` : `devis_${devis.quote_number || devis.id || 'brouillon'}.pdf`;
+    const suffix = isInternalCopy ? '_detail_interne' : '';
+    const fileName = isInvoice
+        ? `facture_${devis.quote_number || devis.id}${suffix}.pdf`
+        : `devis_${devis.quote_number || devis.id || 'brouillon'}${suffix}.pdf`;
 
     if (returnType === 'blob') {
         return new Blob([finalPdfBytes], { type: 'application/pdf' });
