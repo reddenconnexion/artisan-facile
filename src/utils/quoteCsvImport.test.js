@@ -150,6 +150,66 @@ describe('parseQuoteCsv', () => {
         expect(items[1].type).toBe('material');
     });
 
+    it('reprend les colonnes Réserve et Notes dans les notes du devis', () => {
+        const csv = [
+            'Description;Prix;Réserve;Notes',
+            'Dépose tableau;150;Sous réserve d\'accès aux combles;Acompte 30 % à la commande',
+            'Pose tableau;350;;',
+        ].join('\n');
+        const { items, notes } = parseQuoteCsv(csv);
+        expect(items).toHaveLength(2);
+        expect(notes).toBe('Acompte 30 % à la commande\n\nRéserves :\n- Sous réserve d\'accès aux combles');
+    });
+
+    it('dédoublonne une réserve recopiée sur chaque ligne', () => {
+        const csv = [
+            'Description;Prix;Réserve',
+            'Pose;35;Sous réserve de la conformité de la terre',
+            'Câblage;42;Sous réserve de la conformité de la terre',
+            'Raccordement;60;sous réserve de la conformité de la terre',
+        ].join('\n');
+        const { notes } = parseQuoteCsv(csv);
+        expect(notes).toBe('Réserves :\n- Sous réserve de la conformité de la terre');
+    });
+
+    it('traite les lignes Type = réserve / note comme du texte, pas comme des prestations', () => {
+        const csv = [
+            'Description;Prix;Type',
+            'Pose tableau;350;Main d\'œuvre',
+            'Sous réserve de la section du câble d\'alimentation;;réserve',
+            'Devis valable 30 jours;;Note',
+        ].join('\n');
+        const { items, notes, skipped } = parseQuoteCsv(csv);
+        expect(items).toHaveLength(1);
+        expect(items[0].description).toBe('Pose tableau');
+        expect(skipped).toBe(0);
+        expect(notes).toBe('Devis valable 30 jours\n\nRéserves :\n- Sous réserve de la section du câble d\'alimentation');
+    });
+
+    it('lit un bloc de réserves posé sous le tableau, sans description', () => {
+        const csv = [
+            'Description;Prix;Réserve',
+            'Pose;35;',
+            ';;Sous réserve de la présence d\'amiante',
+        ].join('\n');
+        const { items, notes, skipped } = parseQuoteCsv(csv);
+        expect(items).toHaveLength(1);
+        expect(skipped).toBe(0);
+        expect(notes).toBe('Réserves :\n- Sous réserve de la présence d\'amiante');
+    });
+
+    it('garde « Note » au singulier en note interne privée de la ligne', () => {
+        const csv = 'Description;Prix;Note\nDisjoncteur 16A;12;réf DIS-16A-LEG\n';
+        const { items, notes } = parseQuoteCsv(csv);
+        expect(items[0].internal_note).toBe('réf DIS-16A-LEG');
+        expect(notes).toBe('');
+    });
+
+    it('renvoie des notes vides quand le CSV n\'en contient pas', () => {
+        const { notes } = parseQuoteCsv('Description;Prix\nPose;35\n');
+        expect(notes).toBe('');
+    });
+
     it('génère des ids uniques', () => {
         const csv = 'Description\nA\nB\nC\n';
         const { items } = parseQuoteCsv(csv);
