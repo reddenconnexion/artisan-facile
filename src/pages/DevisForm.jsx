@@ -737,7 +737,7 @@ const DevisForm = () => {
             try {
                 setImporting(true);
                 const text = await file.text();
-                const { items: csvItems, skipped, error: parseError } = parseQuoteCsv(text);
+                const { items: csvItems, notes: csvNotes, skipped, error: parseError } = parseQuoteCsv(text);
                 if (parseError) {
                     toast.error(parseError);
                     return;
@@ -746,12 +746,16 @@ const DevisForm = () => {
                     ...prev,
                     title: prev.title || file.name.replace(/\.csv$/i, '').replace(/[_-]+/g, ' ').trim(),
                     items: csvItems,
+                    // Réserves et notes du fichier : ajoutées aux notes déjà
+                    // saisies plutôt que de les écraser (même règle que l'import PDF).
+                    notes: csvNotes ? (prev.notes ? `${prev.notes}\n${csvNotes}` : csvNotes) : prev.notes,
                 }));
                 setShowImportZone(false);
                 const lineCount = csvItems.filter(i => i.type !== 'section').length;
                 toast.success(
                     `${lineCount} ligne${lineCount > 1 ? 's' : ''} importée${lineCount > 1 ? 's' : ''} depuis le CSV`
                     + `${skipped > 0 ? ` (${skipped} ignorée${skipped > 1 ? 's' : ''})` : ''}.`
+                    + `${csvNotes ? ' Réserves et notes reprises dans « Notes / Conditions ».' : ''}`
                 );
             } catch (error) {
                 console.error('Import CSV error:', error);
@@ -3980,7 +3984,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </span>
                                     {showCsvFormatHelp && (
                                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                            CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée)
+                                            CSV (export Excel) : colonnes <strong>Description</strong>, Quantité, Unité, Prix — et en option Type, Lot/Section, Prix d'achat, Option, Référence/Note interne (privée), Réserve et Notes/Conditions (repris dans les notes du devis)
                                         </p>
                                     )}
                                 </>

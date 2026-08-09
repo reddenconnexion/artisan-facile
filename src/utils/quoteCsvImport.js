@@ -13,6 +13,14 @@ import Papa from 'papaparse';
 // Sections : soit une colonne « Section » (ou Lot/Groupe/Catégorie) — un titre
 // de section est inséré à chaque changement de valeur — soit des lignes dont la
 // colonne Type vaut « section ».
+//
+// Réserves et notes : un devis ne se résume pas à son tableau de prix. Les
+// réserves techniques (« sous réserve de… ») et les notes/conditions du devis
+// sont reprises telles quelles au niveau du devis (champ « Notes / Conditions »,
+// imprimé sur le PDF) — soit via une colonne « Réserve(s) » / « Notes »
+// (« Conditions », « Observations »…), soit via des lignes dont la colonne Type
+// vaut « réserve » ou « note ». Ces lignes-là ne deviennent pas des
+// prestations : elles ne sont ni facturées ni comptées comme ignorées.
 
 export const HEADER_ALIASES = {
     description: ['description', 'désignation', 'designation', 'libellé', 'libelle', 'ouvrage', 'prestation', 'intitulé', 'intitule', 'nom'],
@@ -26,6 +34,13 @@ export const HEADER_ALIASES = {
     // Texte privé de la ligne (réf fournisseur, remarque) : rejoint le
     // chiffrage interne (item.internal_note) — jamais montré au client.
     internal_note: ['référence', 'reference', 'réf', 'ref', 'référence fournisseur', 'ref fournisseur', 'note interne', 'note', 'remarque', 'internal_note'],
+    // Réserve technique de la ligne : remontée au niveau du devis (visible client).
+    reserve: ['réserve', 'reserve', 'réserves', 'reserves', 'réserve technique'],
+    // Note/condition du devis (visible client). Attention : « Note » et
+    // « Remarque » au singulier restent la note interne privée de la ligne
+    // (ci-dessus) — le pluriel et les intitulés explicites désignent ici le
+    // texte du devis.
+    quote_note: ['notes', 'note client', 'notes client', 'commentaire', 'commentaires', 'observation', 'observations', 'condition', 'conditions', 'conditions particulières', 'note devis', 'notes devis'],
 };
 
 /**
@@ -61,6 +76,20 @@ export const parseCsvNumber = (value) => {
 
 const TRUTHY = /^(oui|o|x|1|true|vrai|yes|y)$/i;
 
+/**
+ * Lignes de texte du devis : `Type` = « réserve » ou « note »/« condition ».
+ * Renvoie 'reserve', 'note', ou null si la ligne est une vraie prestation.
+ * Ancré en début de valeur pour ne pas confondre « note interne » d'un
+ * intitulé de prestation qui contiendrait le mot.
+ */
+const quoteTextType = (raw) => {
+    const t = String(raw || '').toLowerCase().trim();
+    if (!t) return null;
+    if (/^r[ée]serves?\b/.test(t)) return 'reserve';
+    if (/^(notes?|remarques?|commentaires?|observations?|conditions?)\b/.test(t)) return 'note';
+    return null;
+};
+
 const normalizeType = (raw, description) => {
     const t = String(raw || '').toLowerCase();
     if (/section|titre/.test(t)) return 'section';
@@ -86,15 +115,17 @@ const resolveColumns = (fields) => {
  * Parse un CSV de devis en lignes prêtes pour le formulaire.
  *
  * @param {string} text Contenu brut du fichier CSV.
- * @returns {{ items: Array, skipped: number, error: string|null }}
+ * @returns {{ items: Array, notes: string, skipped: number, error: string|null }}
  *   `items` au format des lignes de devis ({description, quantity, unit,
- *   price, buying_price, type, is_optional}), `skipped` = lignes sans
- *   description ignorées, `error` = message bloquant (en-têtes introuvables…).
+ *   price, buying_price, type, is_optional}), `notes` = texte du devis
+ *   (notes/conditions puis bloc « Réserves : ») à reporter dans le champ
+ *   Notes / Conditions, `skipped` = lignes sans description ignorées,
+ *   `error` = message bloquant (en-têtes introuvables…).
  */
 export const parseQuoteCsv = (text) => {
     const clean = String(text || '').replace(/^\uFEFF/, '');
     if (!clean.trim()) {
-        return { items: [], skipped: 0, error: 'Le fichier CSV est vide.' };
+        return { items: [], notes: '', skipped: 0, error: 'Le fichier CSV est vide.' };
     }
 
     const result = Papa.parse(clean, {
@@ -110,6 +141,7 @@ export const parseQuoteCsv = (text) => {
     if (!cols.description) {
         return {
             items: [],
+            notes: '',
             skipped: 0,
             error: 'Colonne « Description » introuvable. La première ligne du CSV doit contenir des en-têtes (Description, Quantité, Unité, Prix…).',
         };
@@ -121,8 +153,38 @@ export const parseQuoteCsv = (text) => {
     const baseId = Date.now();
     const pushItem = (item) => items.push({ id: baseId + items.length, ...item });
 
+    // Textes du devis. Dédoublonnés (insensibles à la casse) : une colonne
+    // Réserve/Notes est souvent recopiée à l'identique sur chaque ligne du
+    // tableau — on ne veut pas le même paragraphe vingt fois.
+    const reserves = [];
+    const quoteNotes = [];
+    const seenText = new Set();
+    const collectText = (bucket, value) => {
+        const text = String(value ?? '').trim();
+        if (!text) return false;
+        const key = `${bucket === reserves ? 'r' : 'n'}:${text.toLowerCase()}`;
+        if (seenText.has(key)) return true;
+        seenText.add(key);
+        bucket.push(text);
+        return true;
+    };
+
     for (const row of result.data) {
         const description = String(row[cols.description] ?? '').trim();
+
+        // Colonnes Réserve / Notes : leur contenu appartient au devis, pas à la
+        // ligne. Lu même sur une ligne sans description (bloc de réserves
+        // ajouté sous le tableau).
+        let carriedText = false;
+        if (cols.reserve) carriedText = collectText(reserves, row[cols.reserve]) || carriedText;
+        if (cols.quote_note) carriedText = collectText(quoteNotes, row[cols.quote_note]) || carriedText;
+
+        // Lignes « Type = réserve / note » : du texte, jamais une prestation
+        const textType = quoteTextType(cols.type ? row[cols.type] : '');
+        if (textType && description) {
+            collectText(textType === 'reserve' ? reserves : quoteNotes, description);
+            continue;
+        }
 
         // Colonne Section/Lot : insérer un titre à chaque changement de valeur
         if (cols.section) {
@@ -134,8 +196,9 @@ export const parseQuoteCsv = (text) => {
         }
 
         if (!description) {
-            // Ligne sans description : ignorée (sauf si elle portait une section)
-            if (!cols.section || !String(row[cols.section] ?? '').trim()) skipped += 1;
+            // Ligne sans description : ignorée (sauf si elle portait une
+            // section, une réserve ou une note — elle a alors servi à quelque chose)
+            if (!carriedText && (!cols.section || !String(row[cols.section] ?? '').trim())) skipped += 1;
             continue;
         }
 
@@ -159,13 +222,21 @@ export const parseQuoteCsv = (text) => {
         });
     }
 
+    // Notes d'abord, réserves ensuite sous un titre : c'est l'ordre de lecture
+    // d'un devis papier, et le bloc reste identifiable si l'artisan le retouche.
+    const notesBlocks = [];
+    if (quoteNotes.length) notesBlocks.push(quoteNotes.join('\n'));
+    if (reserves.length) notesBlocks.push(['Réserves :', ...reserves.map((r) => `- ${r}`)].join('\n'));
+    const notes = notesBlocks.join('\n\n');
+
     if (items.filter((i) => i.type !== 'section').length === 0) {
         return {
             items: [],
+            notes: '',
             skipped,
             error: 'Aucune ligne exploitable : vérifiez que la colonne Description est remplie sous la ligne d\'en-têtes.',
         };
     }
 
-    return { items, skipped, error: null };
+    return { items, notes, skipped, error: null };
 };
