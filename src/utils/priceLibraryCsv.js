@@ -9,7 +9,7 @@ import { HEADER_ALIASES, parseCsvNumber } from './quoteCsvImport';
 const CATALOG_ALIASES = {
     description: HEADER_ALIASES.description,
     price: HEADER_ALIASES.price,
-    buying_price: [...HEADER_ALIASES.buying_price, 'pa', "prix d'achat ht", 'prix achat ht'],
+    buying_price: [...HEADER_ALIASES.buying_price, 'pa'],
     unit: HEADER_ALIASES.unit,
     category: ['catégorie', 'categorie', 'category', 'famille'],
     type: ['type', 'nature'],

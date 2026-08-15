@@ -210,6 +210,23 @@ describe('parseQuoteCsv', () => {
         expect(notes).toBe('');
     });
 
+    // Les en-têtes ci-dessous sont ceux de l'export « Détail des lignes » de
+    // DevisList.jsx : un fichier sorti d'Artisan Facile doit pouvoir y rentrer.
+    it('réimporte un export Artisan Facile sans rien perdre', () => {
+        const csv = [
+            'Référence;Type document;Statut;Date;Client;Objet;Type de ligne;Description;Quantité;Unité;Prix unitaire HT;Prix d\'achat HT;Total ligne HT;Notes',
+            'DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Main d\'œuvre;Dépose ancien tableau;1;forfait;150,00;0,00;150,00;"Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles"',
+            'DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Matériel;Tableau 3 rangées;1;u;280,50;180,00;280,50;"Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles"',
+        ].join('\n');
+        const { items, notes, error } = parseQuoteCsv(csv);
+        expect(error).toBeNull();
+        expect(items).toHaveLength(2);
+        expect(items[0]).toMatchObject({ description: 'Dépose ancien tableau', unit: 'forfait', price: 150, type: 'service' });
+        expect(items[1]).toMatchObject({ description: 'Tableau 3 rangées', price: 280.5, buying_price: 180, type: 'material' });
+        // Notes et réserves recopiées sur chaque ligne : une seule reprise
+        expect(notes).toBe('Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles');
+    });
+
     it('génère des ids uniques', () => {
         const csv = 'Description\nA\nB\nC\n';
         const { items } = parseQuoteCsv(csv);

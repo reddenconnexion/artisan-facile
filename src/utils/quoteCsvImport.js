@@ -26,9 +26,9 @@ export const HEADER_ALIASES = {
     description: ['description', 'désignation', 'designation', 'libellé', 'libelle', 'ouvrage', 'prestation', 'intitulé', 'intitule', 'nom'],
     quantity: ['quantité', 'quantite', 'qté', 'qte', 'qty', 'quantity'],
     unit: ['unité', 'unite', 'unit', 'u'],
-    price: ['prix unitaire', 'prix u. ht', 'prix u ht', 'pu ht', 'pu', 'prix u.', 'prix u', 'prix ht', 'prix', 'price', 'unit price', 'tarif'],
-    buying_price: ["prix d'achat", 'prix achat', 'achat u.', 'achat', 'buying_price', 'coût', 'cout', 'cost'],
-    type: ['type', 'nature'],
+    price: ['prix unitaire ht', 'prix unitaire', 'prix u. ht', 'prix u ht', 'pu ht', 'pu', 'prix u.', 'prix u', 'prix ht', 'prix', 'price', 'unit price', 'tarif'],
+    buying_price: ["prix d'achat ht", 'prix achat ht', "prix d'achat", 'prix achat', 'achat u.', 'achat', 'buying_price', 'coût', 'cout', 'cost'],
+    type: ['type', 'type de ligne', 'nature'],
     section: ['section', 'lot', 'groupe', 'catégorie', 'categorie', 'category'],
     optional: ['option', 'optionnel', 'optionnelle', 'optional'],
     // Texte privé de la ligne (réf fournisseur, remarque) : rejoint le
