@@ -225,6 +225,26 @@ describe('parseQuoteCsv', () => {
         expect(items[1]).toMatchObject({ description: 'Tableau 3 rangées', price: 280.5, buying_price: 180, type: 'material' });
         // Notes et réserves recopiées sur chaque ligne : une seule reprise
         expect(notes).toBe('Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles');
+        // « Référence » y est le n° du devis : ne tatoue pas la note interne
+        expect(items[0].internal_note).toBeUndefined();
+        expect(items[1].internal_note).toBeUndefined();
+    });
+
+    it('garde la réf fournisseur en note interne dans un fichier de chiffrage', () => {
+        // Mêmes en-têtes Référence, mais sans les colonnes de document :
+        // c'est un chiffrage préparé au tableur, pas un export Artisan Facile.
+        const csv = 'Description;Prix;Référence\nDisjoncteur 16A;12;123elec réf DIS-16A-LEG\n';
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0].internal_note).toBe('123elec réf DIS-16A-LEG');
+    });
+
+    it('bascule sur la note interne explicite quand la Référence est celle du document', () => {
+        const csv = [
+            'Référence;Type document;Description;Prix;Note interne',
+            'DEV #12;Devis;Pose tableau;350;peigne vertical fourni',
+        ].join('\n');
+        const { items } = parseQuoteCsv(csv);
+        expect(items[0].internal_note).toBe('peigne vertical fourni');
     });
 
     it('génère des ids uniques', () => {
