@@ -26,9 +26,9 @@ export const HEADER_ALIASES = {
     description: ['description', 'désignation', 'designation', 'libellé', 'libelle', 'ouvrage', 'prestation', 'intitulé', 'intitule', 'nom'],
     quantity: ['quantité', 'quantite', 'qté', 'qte', 'qty', 'quantity'],
     unit: ['unité', 'unite', 'unit', 'u'],
-    price: ['prix unitaire', 'prix u. ht', 'prix u ht', 'pu ht', 'pu', 'prix u.', 'prix u', 'prix ht', 'prix', 'price', 'unit price', 'tarif'],
-    buying_price: ["prix d'achat", 'prix achat', 'achat u.', 'achat', 'buying_price', 'coût', 'cout', 'cost'],
-    type: ['type', 'nature'],
+    price: ['prix unitaire ht', 'prix unitaire', 'prix u. ht', 'prix u ht', 'pu ht', 'pu', 'prix u.', 'prix u', 'prix ht', 'prix', 'price', 'unit price', 'tarif'],
+    buying_price: ["prix d'achat ht", 'prix achat ht', "prix d'achat", 'prix achat', 'achat u.', 'achat', 'buying_price', 'coût', 'cout', 'cost'],
+    type: ['type', 'type de ligne', 'nature'],
     section: ['section', 'lot', 'groupe', 'catégorie', 'categorie', 'category'],
     optional: ['option', 'optionnel', 'optionnelle', 'optional'],
     // Texte privé de la ligne (réf fournisseur, remarque) : rejoint le
@@ -100,12 +100,37 @@ const normalizeType = (raw, description) => {
     return 'service';
 };
 
+// En-têtes qui décrivent le document et non la ligne : ce sont ceux de
+// l'export « Détail des lignes » d'Artisan Facile, où chaque ligne recopie
+// l'identité de son devis.
+const DOCUMENT_HEADERS = ['type document', 'objet', 'statut'];
+
+/**
+ * « Référence » est ambigu. Dans un chiffrage préparé au tableur c'est la
+ * référence fournisseur d'une ligne (→ note interne privée). Dans un export
+ * Artisan Facile c'est le numéro du devis (« DEV #12 »), recopié sur chaque
+ * ligne : le reprendre en note interne tatouerait tout le chiffrage avec le
+ * numéro du document.
+ *
+ * On tranche au contexte plutôt qu'en renommant l'en-tête de l'export (qui
+ * casserait les tableurs déjà en place) ou en changeant le sens de
+ * « Référence » à l'import (qui casserait les fichiers fournisseurs) : la
+ * présence des autres colonnes de document signe un fichier sorti de chez
+ * nous, et « Référence » y est alors ignorée.
+ */
+const isDocumentExport = (normalized) =>
+    normalized.includes('type document')
+    || DOCUMENT_HEADERS.filter((h) => normalized.includes(h)).length >= 2;
+
+const DOCUMENT_REFERENCE_HEADERS = ['référence', 'reference'];
+
 /** Résout, pour chaque champ, le nom de colonne réellement présent dans le CSV. */
 const resolveColumns = (fields) => {
     const normalized = fields.map((f) => String(f || '').toLowerCase().trim());
+    const ignored = isDocumentExport(normalized) ? DOCUMENT_REFERENCE_HEADERS : [];
     const mapping = {};
     for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-        const idx = normalized.findIndex((h) => aliases.includes(h));
+        const idx = normalized.findIndex((h) => aliases.includes(h) && !ignored.includes(h));
         if (idx !== -1) mapping[field] = fields[idx];
     }
     return mapping;

@@ -122,6 +122,11 @@ const frNum = (v) => {
 // Aplatit toutes les lignes (items) de tous les devis fournis en une seule liste,
 // prête pour l'export CSV. Les lignes « section » (titres de regroupement) sont
 // ignorées : seules les lignes chiffrées alimentent le référentiel de prix.
+//
+// La colonne Notes porte les notes/conditions du devis — réserves comprises,
+// c'est là que l'application les range. Elle est recopiée sur chaque ligne du
+// devis (un CSV est un tableau, il n'a pas d'étage « document ») ; à la
+// réimportation, quoteCsvImport dédoublonne et n'en garde qu'un exemplaire.
 const buildLineItemRows = (devisList) =>
     devisList.flatMap((devis) => {
         const items = Array.isArray(devis.items) ? devis.items : [];
@@ -144,6 +149,7 @@ const buildLineItemRows = (devisList) =>
                     unit_price_ht: price,
                     buying_price_ht: item.buying_price,
                     line_total_ht: qty * price,
+                    notes: devis.notes || '',
                 };
             });
     });
@@ -584,6 +590,7 @@ const DevisList = () => {
                                                         { key: 'unit_price_ht', label: 'Prix unitaire HT', format: frNum },
                                                         { key: 'buying_price_ht', label: "Prix d'achat HT", format: frNum },
                                                         { key: 'line_total_ht', label: 'Total ligne HT', format: frNum },
+                                                        { key: 'notes', label: 'Notes' },
                                                     ],
                                                     'referentiel-lignes'
                                                 );
