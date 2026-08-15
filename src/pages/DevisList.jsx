@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, Mail, MailOpen } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
+import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes, useUserProfile, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
 import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
@@ -97,62 +98,6 @@ const RealizedMarginBadge = ({ devis, costByQuote, spentByQuote, laborRate }) =>
         </span>
     );
 };
-
-// Libellés FR des statuts pour l'export (alignés sur StatusBadge)
-const STATUS_LABELS = {
-    draft: 'Brouillon', sent: 'Envoyé', accepted: 'Accepté',
-    rejected: 'Refusé', refused: 'Refusé', billed: 'Facturé',
-    paid: 'Payé', postponed: 'Reporté',
-};
-
-const docTypeLabel = (devis) =>
-    devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis');
-
-const docReference = (devis) => {
-    const prefix = devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV');
-    return `${prefix} #${devis.quote_number || devis.id}`;
-};
-
-// Nombre au format FR (décimale = virgule) pour Excel/LibreOffice locale française.
-const frNum = (v) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : '';
-};
-
-// Aplatit toutes les lignes (items) de tous les devis fournis en une seule liste,
-// prête pour l'export CSV. Les lignes « section » (titres de regroupement) sont
-// ignorées : seules les lignes chiffrées alimentent le référentiel de prix.
-//
-// La colonne Notes porte les notes/conditions du devis — réserves comprises,
-// c'est là que l'application les range. Elle est recopiée sur chaque ligne du
-// devis (un CSV est un tableau, il n'a pas d'étage « document ») ; à la
-// réimportation, quoteCsvImport dédoublonne et n'en garde qu'un exemplaire.
-const buildLineItemRows = (devisList) =>
-    devisList.flatMap((devis) => {
-        const items = Array.isArray(devis.items) ? devis.items : [];
-        return items
-            .filter((item) => item && item.type !== 'section' && (item.description || item.price))
-            .map((item) => {
-                const qty = parseFloat(item.quantity) || 0;
-                const price = parseFloat(item.price) || 0;
-                return {
-                    reference: docReference(devis),
-                    doc_type: docTypeLabel(devis),
-                    status: STATUS_LABELS[devis.status] || devis.status || '',
-                    date: devis.date,
-                    client_name: devis.client_name || '',
-                    title: devis.title || '',
-                    line_type: item.type === 'material' ? 'Matériel' : "Main d'œuvre",
-                    description: (item.is_optional ? '(Option) ' : '') + (item.description || ''),
-                    quantity: item.quantity ?? '',
-                    unit: item.unit || '',
-                    unit_price_ht: price,
-                    buying_price_ht: item.buying_price,
-                    line_total_ht: qty * price,
-                    notes: devis.notes || '',
-                };
-            });
-    });
 
 const formatFollowUpDate = (dateStr) => {
     if (!dateStr) return null;
@@ -574,26 +519,7 @@ const DevisList = () => {
                                                     setShowMoreOptions(false);
                                                     return;
                                                 }
-                                                exportToCSV(
-                                                    rows,
-                                                    [
-                                                        { key: 'reference', label: 'Référence' },
-                                                        { key: 'doc_type', label: 'Type document' },
-                                                        { key: 'status', label: 'Statut' },
-                                                        { key: 'date', label: 'Date', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
-                                                        { key: 'client_name', label: 'Client' },
-                                                        { key: 'title', label: 'Objet' },
-                                                        { key: 'line_type', label: 'Type de ligne' },
-                                                        { key: 'description', label: 'Description' },
-                                                        { key: 'quantity', label: 'Quantité' },
-                                                        { key: 'unit', label: 'Unité' },
-                                                        { key: 'unit_price_ht', label: 'Prix unitaire HT', format: frNum },
-                                                        { key: 'buying_price_ht', label: "Prix d'achat HT", format: frNum },
-                                                        { key: 'line_total_ht', label: 'Total ligne HT', format: frNum },
-                                                        { key: 'notes', label: 'Notes' },
-                                                    ],
-                                                    'referentiel-lignes'
-                                                );
+                                                exportToCSV(rows, LINE_ITEM_COLUMNS, 'referentiel-lignes');
                                                 toast.success(`${rows.length} ligne${rows.length > 1 ? 's' : ''} exportée${rows.length > 1 ? 's' : ''}`);
                                                 setShowMoreOptions(false);
                                             }}
