@@ -213,21 +213,33 @@ describe('parseQuoteCsv', () => {
     // Les en-têtes ci-dessous sont ceux de l'export « Détail des lignes » de
     // DevisList.jsx : un fichier sorti d'Artisan Facile doit pouvoir y rentrer.
     it('réimporte un export Artisan Facile sans rien perdre', () => {
+        const NOTES = '"Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles"';
         const csv = [
-            'Référence;Type document;Statut;Date;Client;Objet;Type de ligne;Description;Quantité;Unité;Prix unitaire HT;Prix d\'achat HT;Total ligne HT;Notes',
-            'DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Main d\'œuvre;Dépose ancien tableau;1;forfait;150,00;0,00;150,00;"Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles"',
-            'DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Matériel;Tableau 3 rangées;1;u;280,50;180,00;280,50;"Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles"',
+            'Référence;Type document;Statut;Date;Client;Objet;Type de ligne;Description;Quantité;Unité;Prix unitaire HT;Prix d\'achat HT;Total ligne HT;Notes;Lot;Option',
+            `DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Main d'œuvre;Dépose ancien tableau;1;forfait;150,00;0,00;150,00;${NOTES};Tableau;`,
+            `DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Matériel;Tableau 3 rangées;1;u;280,50;180,00;280,50;${NOTES};Tableau;`,
+            `DEV-2026-001;Devis;Envoyé;09/08/2026;Dupont;Tableau;Matériel;Parafoudre;1;u;95,00;60,00;95,00;${NOTES};Extérieur;Oui`,
         ].join('\n');
         const { items, notes, error } = parseQuoteCsv(csv);
         expect(error).toBeNull();
-        expect(items).toHaveLength(2);
-        expect(items[0]).toMatchObject({ description: 'Dépose ancien tableau', unit: 'forfait', price: 150, type: 'service' });
-        expect(items[1]).toMatchObject({ description: 'Tableau 3 rangées', price: 280.5, buying_price: 180, type: 'material' });
+        // Les lots reviennent en lignes de section, à leur place dans l'ordre
+        expect(items.map((i) => [i.type, i.description])).toEqual([
+            ['section', 'Tableau'],
+            ['service', 'Dépose ancien tableau'],
+            ['material', 'Tableau 3 rangées'],
+            ['section', 'Extérieur'],
+            ['material', 'Parafoudre'],
+        ]);
+        expect(items[1]).toMatchObject({ unit: 'forfait', price: 150 });
+        expect(items[2]).toMatchObject({ price: 280.5, buying_price: 180 });
+        // L'option redevient une option, pas une ligne ferme
+        expect(items[4]).toMatchObject({ price: 95, buying_price: 60, is_optional: true });
+        expect(items[1].is_optional).toBeUndefined();
+        expect(items[2].is_optional).toBeUndefined();
         // Notes et réserves recopiées sur chaque ligne : une seule reprise
         expect(notes).toBe('Acompte 30 %\n\nRéserves :\n- Sous réserve d\'accès aux combles');
         // « Référence » y est le n° du devis : ne tatoue pas la note interne
-        expect(items[0].internal_note).toBeUndefined();
-        expect(items[1].internal_note).toBeUndefined();
+        expect(items.every((i) => i.internal_note === undefined)).toBe(true);
     });
 
     it('garde la réf fournisseur en note interne dans un fichier de chiffrage', () => {
