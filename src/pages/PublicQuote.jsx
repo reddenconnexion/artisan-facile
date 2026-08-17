@@ -262,7 +262,10 @@ const PublicQuote = () => {
 
         } catch (err) {
             console.error('Error saving signature:', err);
-            toast.error('Erreur lors de la signature');
+            // Afficher la vraie raison (lien expiré, devis déjà signé, code OTP
+            // invalide…) : un message générique laisse le client bloqué sans
+            // savoir quoi faire.
+            toast.error(err?.message ? `Signature impossible : ${err.message}` : 'Erreur lors de la signature');
         } finally {
             setSavingSignature(false);
         }

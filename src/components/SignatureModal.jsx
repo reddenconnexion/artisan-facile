@@ -3,6 +3,7 @@ import SignatureCanvas from './SignaturePad';
 import { X, Check, Trash2, Mail, KeyRound, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { isValidMention } from '../utils/signatureMention';
 
 /**
  * Signature modal en 3 étapes :
@@ -42,13 +43,18 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
         }
     }, []);
 
+    // `isOpen` fait partie des dépendances : sans OTP, `step` vaut déjà 'sign' au
+    // tout premier rendu, alors que la modale est encore fermée (`return null`,
+    // donc aucun conteneur à mesurer). Sans `isOpen`, l'effet ne se rejouait
+    // jamais à l'ouverture : canvasSize restait à 0, le pad n'était jamais monté
+    // et « Valider la signature » ne faisait rien du tout.
     useLayoutEffect(() => {
-        if (step !== 'sign') return;
+        if (!isOpen || step !== 'sign') return;
         measureCanvas();
         const ro = new ResizeObserver(measureCanvas);
         if (canvasContainerRef.current) ro.observe(canvasContainerRef.current);
         return () => ro.disconnect();
-    }, [step, measureCanvas]);
+    }, [isOpen, step, measureCanvas]);
 
     // Réinitialise et positionne la bonne étape à chaque ouverture
     useEffect(() => {
@@ -130,11 +136,18 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
     };
 
     const save = () => {
-        if (bonPourAccord.trim().toLowerCase() !== 'bon pour accord') {
+        // Comparaison tolérante : accents, majuscules, ponctuation finale
+        // (« Bon pour accord. ») et espaces multiples ne bloquent pas la signature.
+        if (!isValidMention(bonPourAccord)) {
             setBonPourAccordError('Veuillez écrire exactement "Bon pour accord" pour valider.');
             return;
         }
-        if (typeof sigCanvas.current?.isEmpty !== 'function') return;
+        // Le pad n'est pas monté : ne jamais sortir en silence, sinon le bouton
+        // « Valider » paraît mort et le client abandonne sans rien comprendre.
+        if (typeof sigCanvas.current?.isEmpty !== 'function') {
+            toast.error("La zone de signature n'a pas pu s'afficher. Rechargez la page et réessayez.");
+            return;
+        }
         if (sigCanvas.current.isEmpty()) {
             toast.error('Veuillez signer avant de valider.');
             return;
