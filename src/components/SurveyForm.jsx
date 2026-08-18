@@ -1,12 +1,12 @@
-import React from 'react';
-import { Plus, Minus, Trash2, Check, AlertTriangle } from 'lucide-react';
-import { createEmptyZone } from '../utils/surveyText';
+import React, { useState } from 'react';
+import { Plus, Minus, Trash2, Check, AlertTriangle, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { createEmptyZone, contexteValueText } from '../utils/surveyText';
 
 // Formulaire de trame de relevé (mode Visite technique). Composant 100 %
 // contrôlé : { template, survey, onChange } — aucune logique métier ici,
 // l'assemblage du texte vit dans src/utils/surveyText.js.
 // Pensé pour une saisie au pouce sur chantier : steppers larges, claviers
-// numériques natifs, cartes empilées.
+// numériques natifs, pastilles à taper plutôt que du texte à écrire.
 
 const sectionTitle = 'text-xs font-bold text-gray-500 uppercase tracking-wide';
 const inputClass = 'w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent';
@@ -47,12 +47,89 @@ const Stepper = ({ value, onChange }) => {
     );
 };
 
+// Une pastille = un tap. Sélection simple (re-tap = désélection) ou multiple.
+const Chips = ({ options, value, multi, onChange }) => {
+    const selected = multi ? (Array.isArray(value) ? value : []) : value;
+    const isOn = (opt) => (multi ? selected.includes(opt) : selected === opt);
+    const toggle = (opt) => {
+        if (!multi) return onChange(selected === opt ? '' : opt);
+        return onChange(selected.includes(opt) ? selected.filter((v) => v !== opt) : [...selected, opt]);
+    };
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {options.map((opt) => (
+                <button
+                    key={opt}
+                    type="button"
+                    onClick={() => toggle(opt)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                        isOn(opt)
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                    {opt}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+const ContextField = ({ field, value, onChange }) => (
+    <div>
+        <p className="text-xs font-medium text-gray-500 mb-1.5">
+            {field.label}
+            {field.unit && <span className="text-gray-400 font-normal"> ({field.unit})</span>}
+        </p>
+        {field.type === 'chips' ? (
+            <Chips options={field.options} value={value} multi={field.multi} onChange={onChange} />
+        ) : (
+            <input
+                type="text"
+                {...(field.type === 'number' ? { inputMode: 'decimal' } : {})}
+                value={value ?? ''}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={field.placeholder || ''}
+                className={inputClass}
+            />
+        )}
+    </div>
+);
+
+// Nomme la pièce ajoutée : « Chambre », puis « Chambre 2 », « Chambre 3 »…
+const nextZoneName = (zones, preset) => {
+    const taken = new Set(zones.map((z) => (z.name || '').trim().toLowerCase()));
+    if (!taken.has(preset.toLowerCase())) return preset;
+    let n = 2;
+    while (taken.has(`${preset} ${n}`.toLowerCase())) n += 1;
+    return `${preset} ${n}`;
+};
+
 const SurveyForm = ({ template, survey, onChange }) => {
+    const [openGroup, setOpenGroup] = useState(template.contextGroups?.[0]?.key || null);
+
     const updateZone = (zoneId, patch) => onChange({
         ...survey,
         zones: survey.zones.map((z) => (z.id === zoneId ? { ...z, ...patch } : z)),
     });
     const updateTableau = (patch) => onChange({ ...survey, tableau: { ...survey.tableau, ...patch } });
+    const updateContexte = (groupKey, fieldKey, value) => onChange({
+        ...survey,
+        contexte: {
+            ...survey.contexte,
+            [groupKey]: { ...(survey.contexte?.[groupKey] || {}), [fieldKey]: value },
+        },
+    });
+    const addZone = (name = '') => onChange({ ...survey, zones: [...survey.zones, { ...createEmptyZone(), name }] });
+    const duplicateZone = (zone) => onChange({
+        ...survey,
+        zones: [...survey.zones, {
+            ...createEmptyZone(),
+            name: nextZoneName(survey.zones, (zone.name || '').replace(/\s+\d+$/, '').trim()),
+            counters: { ...zone.counters },
+            fields: { ...zone.fields },
+        }],
+    });
     const toggleChecklist = (itemId, state) => {
         const current = survey.checklist[itemId];
         onChange({
@@ -61,11 +138,88 @@ const SurveyForm = ({ template, survey, onChange }) => {
         });
     };
 
+    const groupFilledCount = (group) => (group.fields || [])
+        .filter((f) => contexteValueText(survey.contexte?.[group.key]?.[f.key]) !== '').length;
+
     return (
         <div className="space-y-5">
+            {/* ── Demande du client ── */}
+            <div>
+                <p className={`${sectionTitle} mb-2`}>Ce que le client demande</p>
+                <textarea
+                    rows={3}
+                    value={survey.demande || ''}
+                    onChange={(e) => onChange({ ...survey, demande: e.target.value })}
+                    placeholder="Dans ses mots : « refaire l'électricité du rez-de-chaussée, ajouter des prises dans la cuisine… »"
+                    className={`${inputClass} resize-none`}
+                />
+            </div>
+
+            {/* ── Contexte du chantier ── */}
+            {(template.contextGroups || []).length > 0 && (
+                <div>
+                    <p className={`${sectionTitle} mb-2`}>Contexte du chantier</p>
+                    <div className="space-y-2">
+                        {template.contextGroups.map((group) => {
+                            const isOpen = openGroup === group.key;
+                            const filled = groupFilledCount(group);
+                            return (
+                                <div key={group.key} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenGroup(isOpen ? null : group.key)}
+                                        className="w-full flex items-center gap-2 px-3 py-3 text-left"
+                                    >
+                                        <span className="flex-1 text-sm font-semibold text-gray-800">{group.label}</span>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                            filled > 0 ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400'
+                                        }`}>
+                                            {filled}/{group.fields.length}
+                                        </span>
+                                        {isOpen
+                                            ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                            : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                                    </button>
+                                    {isOpen && (
+                                        <div className="px-3 pb-3 space-y-3 border-t border-gray-100 pt-3">
+                                            {group.fields.map((field) => (
+                                                <ContextField
+                                                    key={field.key}
+                                                    field={field}
+                                                    value={survey.contexte?.[group.key]?.[field.key]}
+                                                    onChange={(v) => updateContexte(group.key, field.key, v)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* ── Zones ── */}
             <div>
                 <p className={`${sectionTitle} mb-2`}>Relevé par pièce</p>
+
+                {/* Ajout en un tap */}
+                {(template.zonePresets || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                        {template.zonePresets.map((preset) => (
+                            <button
+                                key={preset}
+                                type="button"
+                                onClick={() => addZone(nextZoneName(survey.zones, preset))}
+                                className="flex items-center gap-1 px-3 py-2 bg-white border border-violet-200 rounded-xl text-xs font-semibold text-violet-700 hover:bg-violet-50 active:scale-95 transition-all"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {preset}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 <div className="space-y-3">
                     {survey.zones.map((zone, index) => (
                         <div key={zone.id} className="bg-white border border-gray-200 rounded-2xl p-3 space-y-3">
@@ -77,6 +231,15 @@ const SurveyForm = ({ template, survey, onChange }) => {
                                     placeholder={`Pièce ${index + 1} — cuisine, salon, SdB…`}
                                     className={`${inputClass} font-semibold`}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => duplicateZone(zone)}
+                                    className="w-11 h-11 flex items-center justify-center flex-shrink-0 text-gray-400 hover:text-violet-600 rounded-xl hover:bg-violet-50 transition-colors"
+                                    aria-label="Dupliquer la pièce"
+                                    title="Dupliquer (chambres identiques…)"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => onChange({ ...survey, zones: survey.zones.filter((z) => z.id !== zone.id) })}
@@ -111,7 +274,7 @@ const SurveyForm = ({ template, survey, onChange }) => {
                     ))}
                     <button
                         type="button"
-                        onClick={() => onChange({ ...survey, zones: [...survey.zones, createEmptyZone()] })}
+                        onClick={() => addZone()}
                         className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-violet-200 rounded-2xl text-sm font-semibold text-violet-600 hover:bg-violet-50 transition-colors active:scale-[0.98]"
                     >
                         <Plus className="w-4 h-4" />

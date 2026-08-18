@@ -11,6 +11,8 @@ export const createEmptyZone = () => ({
 });
 
 export const createEmptySurvey = () => ({
+    demande: '',   // ce que le client demande, dans ses mots
+    contexte: {},  // { [groupKey]: { [fieldKey]: string | string[] } }
     zones: [],
     tableau: {
         etat: '',
@@ -27,27 +29,64 @@ export const createEmptySurvey = () => ({
     notesLibres: '',
 });
 
-const zoneHasContent = (zone) =>
+/** Une pièce du relevé porte-t-elle une information saisie ? */
+export const hasZoneContent = (zone) =>
     Boolean(zone.name?.trim()) ||
     Object.values(zone.counters || {}).some((n) => Number(n) > 0) ||
     Object.values(zone.fields || {}).some((v) => String(v ?? '').trim() !== '');
 
-const tableauHasContent = (tableau) => {
+/** Le bloc « tableau électrique » porte-t-il une information saisie ? */
+export const hasTableauContent = (tableau) => {
     if (!tableau) return false;
     if (tableau.renovationComplete) return true;
     return ['etat', 'rangees', 'placesDispo', 'diffTypeA', 'diffTypeAC', 'disjoncteurs', 'observations']
         .some((k) => String(tableau[k] ?? '').trim() !== '');
 };
 
+/** Rend la valeur d'un champ de contexte : '' si vide, liste jointe si multi. */
+export const contexteValueText = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean).join(' + ');
+    return String(value ?? '').trim();
+};
+
+/** Lit un champ de contexte via sa clé plate `groupe.champ`. */
+export const getContexteValue = (survey, path) => {
+    const [groupKey, fieldKey] = String(path).split('.');
+    return survey?.contexte?.[groupKey]?.[fieldKey];
+};
+
+const contexteHasContent = (contexte) =>
+    Object.values(contexte || {}).some((group) =>
+        Object.values(group || {}).some((v) => contexteValueText(v) !== '')
+    );
+
 export const hasSurveyContent = (survey) => {
     if (!survey) return false;
     return (
-        (survey.zones || []).some(zoneHasContent) ||
-        tableauHasContent(survey.tableau) ||
+        String(survey.demande ?? '').trim() !== '' ||
+        contexteHasContent(survey.contexte) ||
+        (survey.zones || []).some(hasZoneContent) ||
+        hasTableauContent(survey.tableau) ||
         Object.values(survey.checklist || {}).some(Boolean) ||
         String(survey.nonConformites ?? '').trim() !== '' ||
         String(survey.notesLibres ?? '').trim() !== ''
     );
+};
+
+/**
+ * Totaux des compteurs, toutes zones confondues — la ligne que l'IA devis
+ * (et le fournisseur) lit en premier. Les compteurs à zéro sont omis.
+ * @returns {{key: string, label: string, total: number}[]}
+ */
+export const sumZoneCounters = (survey, template) => {
+    const zones = (survey?.zones || []).filter(hasZoneContent);
+    return (template?.zoneCounters || [])
+        .map(({ key, label }) => ({
+            key,
+            label,
+            total: zones.reduce((sum, z) => sum + (Number(z.counters?.[key]) || 0), 0),
+        }))
+        .filter(({ total }) => total > 0);
 };
 
 const zoneLine = (zone, index, template) => {
@@ -66,6 +105,18 @@ const zoneLine = (zone, index, template) => {
     }
 
     return `- ${name} : ${parts.join('. ')}`;
+};
+
+const contexteLines = (contexte, template) => {
+    const lines = [];
+    for (const group of template.contextGroups || []) {
+        const values = (group.fields || [])
+            .map((field) => ({ field, text: contexteValueText(contexte?.[group.key]?.[field.key]) }))
+            .filter(({ text }) => text !== '')
+            .map(({ field, text }) => `${field.label} : ${text}${field.unit ? ` ${field.unit}` : ''}`);
+        if (values.length) lines.push(`- ${group.label} — ${values.join(' ; ')}`);
+    }
+    return lines;
 };
 
 const tableauLines = (tableau, template) => {
@@ -95,21 +146,36 @@ const tableauLines = (tableau, template) => {
 };
 
 /**
- * Assemble l'état de la trame en texte structuré français, prêt à rejoindre
- * le message IA et la description du rapport de visite. Les sections et
- * zones vides sont omises ; retourne '' si la trame est entièrement vide.
+ * Découpe l'état de la trame en sections structurées `{ title, lines }`,
+ * dans l'ordre de lecture d'un devis. Les sections et zones vides sont
+ * omises. Base commune du texte envoyé à l'IA (`buildSurveyText`) et du
+ * compte rendu de visite (`buildPredevisReport`).
+ *
+ * `withZoneTotals: false` retire la ligne « TOTAL toutes zones » : le compte
+ * rendu lui consacre déjà une section dédiée.
  */
-export const buildSurveyText = (survey, template) => {
-    if (!survey || !template || !hasSurveyContent(survey)) return '';
+export const buildSurveySections = (survey, template, { withZoneTotals = true } = {}) => {
+    if (!survey || !template || !hasSurveyContent(survey)) return [];
     const sections = [];
 
-    const zones = (survey.zones || []).filter(zoneHasContent);
+    const demande = String(survey.demande ?? '').trim();
+    if (demande) sections.push({ title: 'DEMANDE DU CLIENT', lines: [demande] });
+
+    const ctx = contexteLines(survey.contexte, template);
+    if (ctx.length) sections.push({ title: 'CONTEXTE DU CHANTIER', lines: ctx });
+
+    const zones = (survey.zones || []).filter(hasZoneContent);
     if (zones.length) {
-        sections.push('RELEVÉ PAR ZONE :\n' + zones.map((z) => zoneLine(z, survey.zones.indexOf(z), template)).join('\n'));
+        const lines = zones.map((z) => zoneLine(z, survey.zones.indexOf(z), template));
+        const totals = sumZoneCounters(survey, template);
+        if (withZoneTotals && zones.length > 1 && totals.length) {
+            lines.push(`TOTAL toutes zones : ${totals.map(({ label, total }) => `${label} : ${total}`).join(' · ')}`);
+        }
+        sections.push({ title: 'RELEVÉ PAR ZONE', lines });
     }
 
-    if (template.hasTableau && tableauHasContent(survey.tableau)) {
-        sections.push('TABLEAU ÉLECTRIQUE :\n' + tableauLines(survey.tableau, template).join('\n'));
+    if (template.hasTableau && hasTableauContent(survey.tableau)) {
+        sections.push({ title: 'TABLEAU ÉLECTRIQUE', lines: tableauLines(survey.tableau, template) });
     }
 
     const verified = [];
@@ -125,15 +191,25 @@ export const buildSurveyText = (survey, template) => {
         if (verified.length) lines.push(`Vérifié : ${verified.join(' ; ')}.`);
         if (planned.length) lines.push(`À prévoir : ${planned.join(' ; ')}.`);
         if (nonConformites) lines.push(`Non-conformités relevées : ${nonConformites}`);
-        const title = (template.checklist || []).length ? 'CONFORMITÉ (NF C 15-100) :' : 'CONFORMITÉ :';
-        sections.push(title + '\n' + lines.join('\n'));
+        const title = (template.checklist || []).length ? 'CONFORMITÉ (NF C 15-100)' : 'CONFORMITÉ';
+        sections.push({ title, lines });
     }
 
     const notes = String(survey.notesLibres ?? '').trim();
-    if (notes) sections.push('NOTES :\n' + notes);
+    if (notes) sections.push({ title: 'NOTES', lines: [notes] });
 
-    return sections.join('\n\n');
+    return sections;
 };
+
+/**
+ * Assemble l'état de la trame en texte structuré français, prêt à rejoindre
+ * le message IA et la description du rapport de visite. Les sections et
+ * zones vides sont omises ; retourne '' si la trame est entièrement vide.
+ */
+export const buildSurveyText = (survey, template) =>
+    buildSurveySections(survey, template)
+        .map(({ title, lines }) => `${title} :\n${lines.join('\n')}`)
+        .join('\n\n');
 
 // Consigne système accompagnant le relevé structuré (remonte au prompt
 // serveur via `extras` — voir generateQuoteFromSiteVisit).

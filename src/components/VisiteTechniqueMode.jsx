@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,9 @@ import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
+import PredevisReportModal from './PredevisReportModal';
+import { surveyCompleteness } from '../utils/predevisReport';
+import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel } from '../utils/visitDraft';
 import {
     formatDuration,
     fmtEur,
@@ -22,8 +25,17 @@ import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
-    ClipboardList,
+    ClipboardList, ClipboardCheck, History,
 } from 'lucide-react';
+
+// Brouillon de visite exploitable retrouvé sur l'appareil, ou null.
+const readPendingDraft = () => {
+    const draft = loadVisitDraft();
+    return draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey)) ? draft : null;
+};
+
+// Numéro de rapport de visite : impur (horloge), donc hors du composant.
+const makeReportNumber = () => `VT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -60,7 +72,14 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // Trame de relevé structurée (optionnelle), adaptée au métier du profil
     const surveyTemplate = getSurveyTemplate(profile?.trade);
     const [survey, setSurvey] = useState(createEmptySurvey);
-    const [showSurvey, setShowSurvey] = useState(false);
+    const [showSurvey, setShowSurvey] = useState(true);
+
+    // Compte rendu de visite (sortie principale : à coller dans l'IA devis)
+    const [showReport, setShowReport] = useState(null); // Date d'ouverture du compte rendu
+    const [voiceTranscripts, setVoiceTranscripts] = useState([]);
+
+    // Brouillon repéré au démarrage (visite interrompue)
+    const [pendingDraft, setPendingDraft] = useState(readPendingDraft);
 
     const { isRecording, duration, startRecording, stopRecording, cancelRecording, isSupported } = useAudioRecorder();
     const galleryInputRef = useRef(null);
@@ -80,6 +99,38 @@ const VisiteTechniqueMode = ({ onBack }) => {
             photos.forEach(p => p.preview && URL.revokeObjectURL(p.preview));
         };
     }, []);
+
+    // ── Brouillon : une visite ne se perd pas ──────────────────────────────
+    // Appel entrant, mise en veille, onglet recyclé par le téléphone : le
+    // relevé saisi est relu au démarrage (voir readPendingDraft) et proposé
+    // à la reprise ; il est réécrit à chaque modification.
+    useEffect(() => {
+        if (step !== 'capture') return undefined;
+        const hasSomething = clientName.trim() || address.trim() || textNotes.trim() || hasSurveyContent(survey);
+        if (!hasSomething) return undefined;
+        const timer = setTimeout(
+            () => saveVisitDraft({ clientId, clientName, address, textNotes, survey }),
+            600
+        );
+        return () => clearTimeout(timer);
+    }, [step, clientId, clientName, address, textNotes, survey]);
+
+    const restoreDraft = () => {
+        const draft = pendingDraft;
+        if (!draft) return;
+        setClientId(draft.clientId ?? null);
+        setClientName(draft.clientName || '');
+        setAddress(draft.address || '');
+        setTextNotes(draft.textNotes || '');
+        if (draft.survey) setSurvey({ ...createEmptySurvey(), ...draft.survey });
+        setPendingDraft(null);
+        toast.success('Relevé repris');
+    };
+
+    const discardDraft = () => {
+        clearVisitDraft();
+        setPendingDraft(null);
+    };
 
     const filteredClients = clients.filter(c =>
         !clientName || c.name.toLowerCase().includes(clientName.toLowerCase())
@@ -132,7 +183,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
         try {
             const transcripts = [];
 
-            if (voiceNotes.length > 0) {
+            // Notes déjà transcrites depuis le compte rendu : on ne repasse
+            // pas une deuxième fois par le serveur.
+            if (voiceTranscripts.length > 0) {
+                transcripts.push(...voiceTranscripts);
+            } else if (voiceNotes.length > 0) {
                 setActivePhase('voice');
                 for (const note of voiceNotes) {
                     try {
@@ -188,7 +243,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
             // Save to intervention_reports
             if (user) {
                 try {
-                    const reportNumber = `VT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+                    const reportNumber = makeReportNumber();
                     const { data: saved } = await supabase.from('intervention_reports').insert({
                         user_id: user.id,
                         client_id: clientId || null,
@@ -226,6 +281,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const handleCreateDevis = (isPredevis = false) => {
         if (!result) return;
+        clearVisitDraft(); // la visite a produit un devis : le brouillon a fait son temps
         photos.forEach(p => URL.revokeObjectURL(p.preview));
         navigate('/app/devis/new', {
             state: {
@@ -243,6 +299,18 @@ const VisiteTechniqueMode = ({ onBack }) => {
     };
 
     // ── Derived ────────────────────────────────────────────────────────────
+
+    const completeness = surveyCompleteness(survey, surveyTemplate);
+
+    const reportMeta = useMemo(() => ({
+        clientName,
+        address,
+        date: showReport,
+        companyName: profile?.company_name,
+        artisanName: profile?.full_name,
+        photoCount: photos.length,
+        voiceTranscripts,
+    }), [clientName, address, showReport, profile?.company_name, profile?.full_name, photos.length, voiceTranscripts]);
 
     const totalHT = result?.items?.reduce(
         (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0
@@ -269,11 +337,24 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-base leading-tight">Visite technique</p>
                     <p className="text-xs text-gray-500 truncate">
-                        {step === 'capture' ? 'Relevé : client, notes et photos'
+                        {step === 'capture' ? 'Relevé prédevis — compte rendu prêt à envoyer'
                             : step === 'processing' ? 'Analyse IA en cours…'
                             : 'Résultat — créez le prédevis ou le devis'}
                     </p>
                 </div>
+                {/* Avancement du relevé */}
+                {step === 'capture' && completeness.total > 0 && (
+                    <span
+                        className={`flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full tabular-nums ${
+                            completeness.pct === 100
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                        }`}
+                        title="Points clés renseignés pour un chiffrage fiable"
+                    >
+                        {completeness.done}/{completeness.total}
+                    </span>
+                )}
                 {/* Step dots */}
                 <div className="flex gap-1.5 items-center flex-shrink-0">
                     {STEPS.map((s) => (
@@ -292,6 +373,33 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 {/* ══ CAPTURE ══════════════════════════════════════════════ */}
                 {step === 'capture' && (
                     <div className="p-4 space-y-5 pb-28">
+
+                        {pendingDraft && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl">
+                                <p className="text-sm font-semibold text-blue-900 flex items-center gap-1.5">
+                                    <History className="w-4 h-4 flex-shrink-0" />
+                                    Visite en cours retrouvée
+                                </p>
+                                <p className="text-xs text-blue-700 mt-0.5">
+                                    {[pendingDraft.clientName, draftAgeLabel(pendingDraft.savedAt)].filter(Boolean).join(' — ')}
+                                    {' '}· photos et notes vocales non conservées.
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                    <button
+                                        onClick={restoreDraft}
+                                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                                    >
+                                        Reprendre
+                                    </button>
+                                    <button
+                                        onClick={discardDraft}
+                                        className="px-3 py-2 border border-blue-200 text-blue-700 text-sm font-semibold rounded-xl hover:bg-blue-100 transition-colors"
+                                    >
+                                        Repartir de zéro
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="flex items-start gap-2 p-3 bg-red-50 text-red-700 rounded-xl text-sm">
@@ -364,7 +472,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 <span className="flex-1 text-left">
                                     Trame de relevé — {surveyTemplate.label}
                                     <span className="block text-xs text-violet-400 font-normal">
-                                        Comptez pièce par pièce, l'IA chiffre le reste (optionnel)
+                                        Contexte, pièce par pièce, tableau : la base du compte rendu
                                     </span>
                                 </span>
                                 {hasSurveyContent(survey) && (
@@ -713,24 +821,34 @@ const VisiteTechniqueMode = ({ onBack }) => {
             {/* Footer */}
             <div className="shrink-0 bg-white border-t border-gray-200 p-4">
                 {step === 'capture' && (
-                    <button
-                        onClick={handleAnalyze}
-                        disabled={!canAnalyze || isRecording}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                    >
-                        <Sparkles className="w-5 h-5" />
-                        Analyser avec l'IA
-                        {canAnalyze && (
-                            <span className="text-violet-200 text-sm font-normal">
-                                ({[
-                                    hasSurveyContent(survey) && 'trame',
-                                    voiceNotes.length > 0 && `${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''}`,
-                                    photos.length > 0 && `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
-                                    textNotes.trim() && 'notes texte',
-                                ].filter(Boolean).join(', ')})
-                            </span>
-                        )}
-                    </button>
+                    <div className="space-y-2">
+                        <button
+                            onClick={() => setShowReport(new Date())}
+                            disabled={!canAnalyze || isRecording}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                        >
+                            <ClipboardCheck className="w-5 h-5" />
+                            Compte rendu pour mon IA devis
+                            {canAnalyze && (
+                                <span className="text-violet-200 text-sm font-normal">
+                                    ({[
+                                        hasSurveyContent(survey) && 'trame',
+                                        voiceNotes.length > 0 && `${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''}`,
+                                        photos.length > 0 && `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
+                                        textNotes.trim() && 'notes texte',
+                                    ].filter(Boolean).join(', ')})
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleAnalyze}
+                            disabled={!canAnalyze || isRecording}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                        >
+                            <Sparkles className="w-5 h-5" />
+                            Chiffrer directement dans l'app
+                        </button>
+                    </div>
                 )}
                 {step === 'processing' && (
                     <div className="flex items-center justify-center gap-2 text-gray-500 text-sm py-1">
@@ -754,9 +872,26 @@ const VisiteTechniqueMode = ({ onBack }) => {
                             <FileText className="w-5 h-5" />
                             Créer un prédevis (estimatif)
                         </button>
+                        <button
+                            onClick={() => setShowReport(new Date())}
+                            className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold text-violet-600 hover:text-violet-700 py-1"
+                        >
+                            <ClipboardCheck className="w-4 h-4" />
+                            Compte rendu pour mon IA devis
+                        </button>
                     </div>
                 )}
             </div>
+
+            <PredevisReportModal
+                open={Boolean(showReport)}
+                onClose={() => setShowReport(null)}
+                survey={survey}
+                template={surveyTemplate}
+                meta={reportMeta}
+                voiceNotes={voiceNotes}
+                onTranscripts={setVoiceTranscripts}
+            />
         </div>
     );
 };

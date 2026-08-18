@@ -407,7 +407,7 @@ const TerrainMode = () => {
                             <div className="flex-1 min-w-0">
                                 <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Visite technique</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                    Relevé précis : notes vocales, photos, analyse IA → prédevis ou devis immédiat, attaché au client.
+                                    Relevé guidé pièce par pièce, notes vocales, photos → compte rendu complet à envoyer à votre IA devis, ou chiffrage immédiat.
                                 </p>
                             </div>
                         </div>
