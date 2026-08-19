@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Copy, Download, Check, Share2, FileText, AlertTriangle, Loader2, Mic, RotateCcw, Wand2 } from 'lucide-react';
+import { X, Copy, Download, Check, Share2, FileText, AlertTriangle, Loader2, Mic, RotateCcw, Wand2, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { structureVisitTranscript } from '../utils/aiService';
@@ -32,6 +32,10 @@ const PredevisReportModal = ({
     onTranscripts,
     clientName,
     address,
+    onPersist,
+    savedReportId,
+    saving,
+    onOpenSaved,
 }) => {
     const [copied, setCopied] = useState(false);
     const [edited, setEdited] = useState(null); // null = texte généré
@@ -56,6 +60,7 @@ const PredevisReportModal = ({
     const text = edited ?? generated;
 
     const handleCopy = async () => {
+        onPersist?.(text); // ce qui part chez l'IA devis est aussi ce qu'on archive
         try {
             await navigator.clipboard.writeText(text);
             setCopied(true);
@@ -67,6 +72,7 @@ const PredevisReportModal = ({
     };
 
     const handleShare = async () => {
+        onPersist?.(text);
         if (!navigator.share) return handleCopy();
         try {
             await navigator.share({ title: 'Compte rendu de visite prédevis', text });
@@ -76,6 +82,7 @@ const PredevisReportModal = ({
     };
 
     const handleDownload = () => {
+        onPersist?.(text);
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -268,6 +275,25 @@ const PredevisReportModal = ({
 
                 {/* Actions */}
                 <div className="px-5 py-4 border-t border-gray-100 space-y-2">
+                    <p className="flex items-center justify-center gap-1.5 text-xs text-gray-500">
+                        {saving ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enregistrement de la visite…</>
+                        ) : savedReportId ? (
+                            <>
+                                <Archive className="w-3.5 h-3.5 text-emerald-500" />
+                                Visite enregistrée avec ses photos
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenSaved?.(savedReportId)}
+                                    className="text-violet-600 underline font-semibold"
+                                >
+                                    Voir
+                                </button>
+                            </>
+                        ) : (
+                            <><Archive className="w-3.5 h-3.5" /> Visite non encore enregistrée</>
+                        )}
+                    </p>
                     <button
                         onClick={handleCopy}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors active:scale-[0.98]"
