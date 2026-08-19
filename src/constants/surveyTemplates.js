@@ -9,7 +9,8 @@ import { LEGACY_TRADE_KEY_MAP } from './trades';
 //                     [{key, label, fields: [{key, label, type, …}]}]
 //                     type = 'chips' (options, multi) | 'text' | 'number'
 // - zonePresets     : noms de pièces proposés en un tap
-// - zoneCounters    : compteurs par pièce [{key, label}] (steppers dans l'UI)
+// - zoneCounters    : compteurs par pièce [{key, label, short}] — steppers de
+//                     la trame et gros boutons du mode express (`short`)
 // - zoneExtraFields : champs texte par pièce [{key, label, placeholder}]
 // - hasTableau      : affiche le bloc « Tableau électrique »
 // - tableauEtats    : options d'état du tableau [{value, label}]
@@ -128,10 +129,10 @@ export const SURVEY_TEMPLATES = {
         ],
         zonePresets: ['Cuisine', 'Séjour', 'Chambre', 'Salle de bain', 'WC', 'Couloir', 'Entrée', 'Bureau', 'Buanderie', 'Garage', 'Combles', 'Extérieur'],
         zoneCounters: [
-            { key: 'prises', label: 'Prises 2P+T' },
-            { key: 'interrupteurs', label: 'Interrupteurs / va-et-vient' },
-            { key: 'pointsLumineux', label: 'Points lumineux (plafond / applique)' },
-            { key: 'spots', label: 'Spots LED' },
+            { key: 'prises', label: 'Prises 2P+T', short: 'Prise' },
+            { key: 'interrupteurs', label: 'Interrupteurs / va-et-vient', short: 'Inter' },
+            { key: 'pointsLumineux', label: 'Points lumineux (plafond / applique)', short: 'Lumière' },
+            { key: 'spots', label: 'Spots LED', short: 'Spot' },
         ],
         zoneExtraFields: [
             { key: 'circuitsDedies', label: 'Circuits dédiés', placeholder: 'Four, plaque, lave-linge…' },

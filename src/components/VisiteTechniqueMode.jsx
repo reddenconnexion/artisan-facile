@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +9,14 @@ import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
+import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import PredevisReportModal from './PredevisReportModal';
+import { useVisitRecorder } from '../hooks/useVisitRecorder';
+import {
+    createCapture, addZoneChange, addCount, addVoice, addPhoto, addFlag,
+    undoLast, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
+    buildTimelineLines,
+} from '../utils/visitCapture';
 import { surveyCompleteness } from '../utils/predevisReport';
 import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel } from '../utils/visitDraft';
 import {
@@ -25,14 +32,28 @@ import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
-    ClipboardList, ClipboardCheck, History,
+    ClipboardList, ClipboardCheck, History, Zap,
 } from 'lucide-react';
 
 // Brouillon de visite exploitable retrouvé sur l'appareil, ou null.
 const readPendingDraft = () => {
     const draft = loadVisitDraft();
-    return draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey)) ? draft : null;
+    const usable = draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey) || hasCaptureContent(draft.capture));
+    return usable ? draft : null;
 };
+
+// Photos prêtes à l'emploi : identifiant stable pour que le fil de visite
+// puisse les référencer (et les retirer en cas d'annulation).
+const buildPhotos = (files) => Array.from(files).map((file, i) => ({
+    id: `ph-${Date.now()}-${i}-${Math.round(Math.random() * 1e6)}`,
+    file,
+    preview: URL.createObjectURL(file),
+    mediaType: file.type || 'image/jpeg',
+}));
+
+// Horloge du fil de visite. Impure : appelée depuis les gestionnaires
+// d'événements, jamais pendant le rendu.
+const nowMs = () => Date.now();
 
 // Numéro de rapport de visite : impur (horloge), donc hors du composant.
 const makeReportNumber = () => `VT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
@@ -45,6 +66,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const { data: profile } = useUserProfile();
 
     const [step, setStep] = useState('capture'); // 'capture' | 'processing' | 'result'
+    const [mode, setMode] = useState('express'); // 'express' (visite en cours) | 'detail' (mise au propre)
+
+    // Fil de la visite : ce qui s'est passé, dans l'ordre, pièce par pièce.
+    const [capture, setCapture] = useState(createCapture);
 
     // Client
     const [clientId, setClientId] = useState(null);
@@ -76,7 +101,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // Compte rendu de visite (sortie principale : à coller dans l'IA devis)
     const [showReport, setShowReport] = useState(null); // Date d'ouverture du compte rendu
-    const [voiceTranscripts, setVoiceTranscripts] = useState([]);
+    const [voiceTranscripts, setVoiceTranscripts] = useState({}); // { [idNoteVocale]: texte }
 
     // Brouillon repéré au démarrage (visite interrompue)
     const [pendingDraft, setPendingDraft] = useState(readPendingDraft);
@@ -106,14 +131,15 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // à la reprise ; il est réécrit à chaque modification.
     useEffect(() => {
         if (step !== 'capture') return undefined;
-        const hasSomething = clientName.trim() || address.trim() || textNotes.trim() || hasSurveyContent(survey);
+        const hasSomething = clientName.trim() || address.trim() || textNotes.trim()
+            || hasSurveyContent(survey) || hasCaptureContent(capture);
         if (!hasSomething) return undefined;
         const timer = setTimeout(
-            () => saveVisitDraft({ clientId, clientName, address, textNotes, survey }),
+            () => saveVisitDraft({ clientId, clientName, address, textNotes, survey, capture }),
             600
         );
         return () => clearTimeout(timer);
-    }, [step, clientId, clientName, address, textNotes, survey]);
+    }, [step, clientId, clientName, address, textNotes, survey, capture]);
 
     const restoreDraft = () => {
         const draft = pendingDraft;
@@ -123,6 +149,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
         setAddress(draft.address || '');
         setTextNotes(draft.textNotes || '');
         if (draft.survey) setSurvey({ ...createEmptySurvey(), ...draft.survey });
+        // Le fil revient sans ses médias : l'audio et les photos ne survivent
+        // pas à la fermeture de l'onglet, le texte du déroulé si.
+        if (draft.capture) setCapture({ ...createCapture(), ...draft.capture });
         setPendingDraft(null);
         toast.success('Relevé repris');
     };
@@ -130,6 +159,88 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const discardDraft = () => {
         clearVisitDraft();
         setPendingDraft(null);
+    };
+
+    // ── Mode express : le micro tourne, les taps complètent ────────────────
+
+    // Pièce courante lue par l'enregistreur à l'ouverture de chaque segment,
+    // pour rattacher l'audio à la bonne pièce même s'il se ferme plus tard.
+    const captureZoneRef = useRef('');
+    useEffect(() => { captureZoneRef.current = capture.zone; }, [capture.zone]);
+
+    const handleSegment = useCallback(({ blob, mimeType, duration, index, startedAt, meta }) => {
+        const id = `seg-${startedAt}-${index}`;
+        const zone = meta?.zone || '';
+        setVoiceNotes(prev => [...prev, { id, blob, mimeType, duration, zone }]);
+        setCapture(c => addVoice(c, { mediaId: id, duration, at: startedAt, zone }));
+    }, []);
+
+    const getSegmentMeta = useCallback(() => ({ zone: captureZoneRef.current }), []);
+
+    const visitRecorder = useVisitRecorder({ onSegment: handleSegment, getSegmentMeta });
+
+    const startVisit = async () => {
+        const started = await visitRecorder.start();
+        if (started) toast.success('Visite enregistrée — prévenez le client.');
+    };
+
+    const stopVisit = () => {
+        visitRecorder.stop();
+        toast.success('Enregistrement terminé.');
+    };
+
+    // Une pièce doit exister pour porter un comptage : si rien n'a encore été
+    // désigné, on en ouvre une, renommable ensuite dans l'onglet « Détaillé ».
+    const currentZoneName = () => capture.zone || `Pièce ${(survey.zones?.length || 0) + 1}`;
+
+    const handleZoneChange = (name) => {
+        visitRecorder.rotateSegment(); // l'audio suivant appartient à la nouvelle pièce
+        setSurvey(s => ensureSurveyZone(s, name));
+        setCapture(c => addZoneChange(c, name, nowMs()));
+    };
+
+    const handleCount = (counterKey, delta) => {
+        const zone = currentZoneName();
+        setSurvey(s => bumpSurveyCounter(s, zone, counterKey, delta));
+        setCapture(c => {
+            const withZone = c.zone ? c : addZoneChange(c, zone, nowMs());
+            return addCount(withZone, { counterKey, delta, at: nowMs() });
+        });
+    };
+
+    const handleFlag = () => setCapture(c => addFlag(c, { at: nowMs() }));
+
+    const handleExpressPhotos = (files) => {
+        if (!files?.length) return;
+        // L'appareil photo peut confisquer le micro : on ferme proprement le
+        // segment en cours avant de lui passer la main.
+        visitRecorder.rotateSegment();
+        const added = buildPhotos(files);
+        const at = nowMs();
+        setPhotos(prev => [...prev, ...added]);
+        setCapture(c => added.reduce((acc, ph) => addPhoto(acc, { mediaId: ph.id, at }), c));
+    };
+
+    const handleUndo = () => {
+        const { capture: next, undone } = undoLast(capture);
+        if (!undone) return;
+        if (undone.type === 'count') {
+            setSurvey(s => bumpSurveyCounter(s, undone.zone, undone.counterKey, -undone.delta));
+        } else if (undone.type === 'photo') {
+            setPhotos(prev => {
+                const gone = prev.find(p => p.id === undone.mediaId);
+                if (gone?.preview) URL.revokeObjectURL(gone.preview);
+                return prev.filter(p => p.id !== undone.mediaId);
+            });
+        } else if (undone.type === 'voice') {
+            setVoiceNotes(prev => prev.filter(n => n.id !== undone.mediaId));
+        }
+        setCapture(next);
+    };
+
+    const handleFinishVisit = () => {
+        if (visitRecorder.isRecording) visitRecorder.stop();
+        setShowReport(new Date());
     };
 
     const filteredClients = clients.filter(c =>
@@ -157,12 +268,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const handlePhotosSelected = (files) => {
         if (!files?.length) return;
-        setPhotos(prev => [...prev, ...Array.from(files).map(file => ({
-            id: Date.now() + Math.random(),
-            file,
-            preview: URL.createObjectURL(file),
-            mediaType: file.type || 'image/jpeg',
-        }))]);
+        setPhotos(prev => [...prev, ...buildPhotos(files)]);
     };
 
     const handleDeletePhoto = (id) => {
@@ -175,7 +281,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // ── Analysis ───────────────────────────────────────────────────────────
 
-    const canAnalyze = voiceNotes.length > 0 || photos.length > 0 || textNotes.trim().length > 0 || hasSurveyContent(survey);
+    const canAnalyze = voiceNotes.length > 0 || photos.length > 0 || textNotes.trim().length > 0
+        || hasSurveyContent(survey) || hasCaptureContent(capture);
 
     const handleAnalyze = async () => {
         setStep('processing');
@@ -185,8 +292,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
             // Notes déjà transcrites depuis le compte rendu : on ne repasse
             // pas une deuxième fois par le serveur.
-            if (voiceTranscripts.length > 0) {
-                transcripts.push(...voiceTranscripts);
+            const alreadyTranscribed = voiceNotes
+                .map((n) => voiceTranscripts[n.id])
+                .filter((t) => String(t ?? '').trim() !== '');
+            if (alreadyTranscribed.length === voiceNotes.length && voiceNotes.length > 0) {
+                transcripts.push(...alreadyTranscribed);
             } else if (voiceNotes.length > 0) {
                 setActivePhase('voice');
                 for (const note of voiceNotes) {
@@ -302,15 +412,30 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const completeness = surveyCompleteness(survey, surveyTemplate);
 
-    const reportMeta = useMemo(() => ({
+    // Assemblé à chaque rendu : quelques concaténations sur des données de
+    // taille modeste, et une identité stable ne servirait qu'à mémoïser un
+    // texte de compte rendu déjà instantané à produire.
+    const reportMeta = {
         clientName,
         address,
         date: showReport,
         companyName: profile?.company_name,
         artisanName: profile?.full_name,
         photoCount: photos.length,
-        voiceTranscripts,
-    }), [clientName, address, showReport, profile?.company_name, profile?.full_name, photos.length, voiceTranscripts]);
+        voiceNotesCount: voiceNotes.length,
+        // Déroulé chronologique du mode express : il porte déjà les
+        // transcriptions, pièce par pièce, à l'heure où elles ont été dites.
+        timelineLines: hasCaptureContent(capture)
+            ? buildTimelineLines(capture, { template: surveyTemplate, transcripts: voiceTranscripts })
+            : [],
+        // Repli hors mode express : les transcriptions à plat, préfixées de leur pièce.
+        voiceTranscripts: voiceNotes
+            .map((n) => {
+                const text = String(voiceTranscripts[n.id] ?? '').trim();
+                return text ? `${n.zone ? `${n.zone} — ` : ''}${text}` : '';
+            })
+            .filter(Boolean),
+    };
 
     const totalHT = result?.items?.reduce(
         (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0
@@ -372,7 +497,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
                 {/* ══ CAPTURE ══════════════════════════════════════════════ */}
                 {step === 'capture' && (
-                    <div className="p-4 space-y-5 pb-28">
+                    <div className="p-4 pb-0 space-y-4">
 
                         {pendingDraft && (
                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl">
@@ -446,6 +571,42 @@ const VisiteTechniqueMode = ({ onBack }) => {
                             )}
                         </div>
 
+                        {/* Onglets : la visite d'abord, la mise au propre ensuite */}
+                        <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl">
+                            {[
+                                { key: 'express', Icon: Zap, label: 'Visite en cours' },
+                                { key: 'detail', Icon: ClipboardList, label: 'Mise au propre' },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.key}
+                                    type="button"
+                                    onClick={() => setMode(tab.key)}
+                                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                                        mode === tab.key ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500'
+                                    }`}
+                                >
+                                    <tab.Icon className="w-4 h-4" />
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {step === 'capture' && mode === 'express' && (
+                    <VisiteExpressMode
+                        template={surveyTemplate}
+                        survey={survey}
+                        capture={capture}
+                        onZoneChange={handleZoneChange}
+                        isRecording={visitRecorder.isRecording}
+                        elapsed={visitRecorder.elapsed}
+                        segmentCount={visitRecorder.segmentCount}
+                    />
+                )}
+
+                {step === 'capture' && mode === 'detail' && (
+                    <div className="p-4 space-y-5 pb-28">
                         {/* Address */}
                         <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
@@ -820,7 +981,24 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
             {/* Footer */}
             <div className="shrink-0 bg-white border-t border-gray-200 p-4">
-                {step === 'capture' && (
+                {step === 'capture' && mode === 'express' && (
+                    <ExpressActionPad
+                        template={surveyTemplate}
+                        survey={survey}
+                        capture={capture}
+                        isRecording={visitRecorder.isRecording}
+                        isSupported={visitRecorder.isSupported}
+                        hasCaptured={hasCaptureContent(capture)}
+                        onStart={startVisit}
+                        onStop={stopVisit}
+                        onCount={handleCount}
+                        onFlag={handleFlag}
+                        onUndo={handleUndo}
+                        onPhotos={handleExpressPhotos}
+                        onFinish={handleFinishVisit}
+                    />
+                )}
+                {step === 'capture' && mode === 'detail' && (
                     <div className="space-y-2">
                         <button
                             onClick={() => setShowReport(new Date())}
@@ -890,7 +1068,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 template={surveyTemplate}
                 meta={reportMeta}
                 voiceNotes={voiceNotes}
-                onTranscripts={setVoiceTranscripts}
+                transcripts={voiceTranscripts}
+                onTranscripts={(map) => setVoiceTranscripts(prev => ({ ...prev, ...map }))}
+                clientName={clientName}
+                address={address}
             />
         </div>
     );

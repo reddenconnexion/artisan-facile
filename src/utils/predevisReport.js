@@ -74,6 +74,8 @@ export const REPORT_AI_INSTRUCTION = [
  * @param {object}   args.template  - trame métier (voir surveyTemplates.js)
  * @param {object}   [args.meta]    - contexte de la visite :
  *   { clientName, address, date, companyName, artisanName,
+ *     summaryText: string — synthèse rédigée par l'IA (optionnelle),
+ *     timelineLines: string[] — déroulé chronologique (mode express),
  *     voiceTranscripts: string[], voiceNotesCount: number,
  *     photoCount: number, photoNotes: string[] }
  * @param {boolean}  [args.withAiInstruction=true] - ajoute la consigne finale
@@ -95,6 +97,14 @@ export const buildPredevisReport = ({ survey, template, meta = {}, withAiInstruc
     header.push(...headerLines.map(([label, value]) => `**${label} :** ${value}`));
     blocks.push(header.join('\n'));
 
+    // ── Synthèse mise au propre par l'IA (optionnelle) ─────────────────────
+    // Placée avant le détail : c'est la version lisible. Le brut reste
+    // dessous, c'est lui qui fait foi en cas de doute.
+    const summary = String(meta.summaryText ?? '').trim();
+    if (summary) {
+        blocks.push(['## SYNTHÈSE DE LA VISITE (mise au propre automatique — à relire)', summary].join('\n'));
+    }
+
     // ── Sections issues de la trame, récapitulatif à la suite du relevé ────
     let index = 0;
     const totals = sumZoneCounters(survey, template);
@@ -110,15 +120,26 @@ export const buildPredevisReport = ({ survey, template, meta = {}, withAiInstruc
         }
     }
 
+    // ── Déroulé de la visite (mode express) ────────────────────────────────
+    // Le fil chronologique porte déjà les notes vocales, pièce par pièce :
+    // quand il est là, la section « notes vocales » ferait doublon.
+    const timelineLines = (meta.timelineLines || []).filter((l) => String(l ?? '').trim() !== '');
+    if (timelineLines.length) {
+        index += 1;
+        blocks.push([numberedTitle(index, 'DÉROULÉ DE LA VISITE'), ...timelineLines].join('\n'));
+    }
+
     // ── Notes vocales transcrites ──────────────────────────────────────────
-    const transcripts = (meta.voiceTranscripts || []).map((t) => String(t ?? '').trim()).filter(Boolean);
+    const transcripts = timelineLines.length
+        ? []
+        : (meta.voiceTranscripts || []).map((t) => String(t ?? '').trim()).filter(Boolean);
     if (transcripts.length) {
         index += 1;
         blocks.push([
             numberedTitle(index, 'NOTES VOCALES (transcription)'),
             ...transcripts.map((t, i) => `${i + 1}. ${t}`),
         ].join('\n'));
-    } else if (meta.voiceNotesCount > 0) {
+    } else if (!timelineLines.length && meta.voiceNotesCount > 0) {
         index += 1;
         blocks.push([
             numberedTitle(index, 'NOTES VOCALES'),

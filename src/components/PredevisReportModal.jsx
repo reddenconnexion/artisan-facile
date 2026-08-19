@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Copy, Download, Check, Share2, FileText, AlertTriangle, Loader2, Mic, RotateCcw } from 'lucide-react';
+import { X, Copy, Download, Check, Share2, FileText, AlertTriangle, Loader2, Mic, RotateCcw, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
+import { structureVisitTranscript } from '../utils/aiService';
 import { blobToBase64 } from '../utils/mediaConverters';
 import { useModalA11y } from '../hooks/useModalA11y';
 import {
@@ -27,20 +28,25 @@ const PredevisReportModal = ({
     template,
     meta = {},
     voiceNotes = [],
+    transcripts = {},
     onTranscripts,
+    clientName,
+    address,
 }) => {
     const [copied, setCopied] = useState(false);
     const [edited, setEdited] = useState(null); // null = texte généré
-    const [transcribing, setTranscribing] = useState(false);
+    const [transcribing, setTranscribing] = useState(null); // { done, total }
+    const [summary, setSummary] = useState('');
+    const [summarizing, setSummarizing] = useState(false);
     const containerRef = useModalA11y(open, onClose);
 
     const generated = useMemo(
         () => buildPredevisReport({
             survey,
             template,
-            meta: { ...meta, voiceNotesCount: voiceNotes.length },
+            meta: { ...meta, voiceNotesCount: voiceNotes.length, summaryText: summary },
         }),
-        [survey, template, meta, voiceNotes.length]
+        [survey, template, meta, voiceNotes.length, summary]
     );
     const missing = useMemo(() => findMissingEssentials(survey, template), [survey, template]);
     const { done, total, pct } = useMemo(() => surveyCompleteness(survey, template), [survey, template]);
@@ -48,7 +54,6 @@ const PredevisReportModal = ({
     if (!open) return null;
 
     const text = edited ?? generated;
-    const hasTranscripts = (meta.voiceTranscripts || []).length > 0;
 
     const handleCopy = async () => {
         try {
@@ -81,30 +86,61 @@ const PredevisReportModal = ({
         toast.success('Compte rendu téléchargé');
     };
 
-    // Transcrit les notes vocales et les réinjecte dans le compte rendu.
+    // Transcrit les enregistrements non encore traités, un par un, en
+    // affichant la progression : une visite d'une heure fait une dizaine de
+    // segments et prend quelques minutes.
+    const pending = voiceNotes.filter((n) => String(transcripts[n.id] ?? '').trim() === '');
+
     const handleTranscribe = async () => {
-        setTranscribing(true);
-        const transcripts = [];
+        setTranscribing({ done: 0, total: pending.length });
+        const collected = {};
         let failed = 0;
-        for (const note of voiceNotes) {
+        for (const [i, note] of pending.entries()) {
+            setTranscribing({ done: i, total: pending.length });
             try {
+                // Whisper plafonne à 25 Mo par fichier : au-delà, l'appel
+                // échouerait sans rien dire d'utile.
+                if (note.blob.size > 20 * 1024 * 1024) { failed += 1; continue; }
                 const audioBase64 = await blobToBase64(note.blob);
                 const { data, error } = await supabase.functions.invoke('voice-transcribe', {
                     body: { audioBase64, mimeType: note.mimeType },
                 });
                 if (error || !data?.transcript) { failed += 1; continue; }
-                transcripts.push(data.transcript);
+                collected[note.id] = data.transcript;
             } catch {
                 failed += 1;
             }
         }
-        setTranscribing(false);
-        if (transcripts.length) {
+        setTranscribing(null);
+        const count = Object.keys(collected).length;
+        if (count) {
             setEdited(null); // repartir du texte régénéré avec les transcriptions
-            onTranscripts?.(transcripts);
-            toast.success(`${transcripts.length} note${transcripts.length > 1 ? 's' : ''} transcrite${transcripts.length > 1 ? 's' : ''}`);
+            onTranscripts?.(collected);
+            toast.success(`${count} enregistrement${count > 1 ? 's' : ''} transcrit${count > 1 ? 's' : ''}`);
         }
-        if (failed) toast.error(`${failed} note${failed > 1 ? 's' : ''} non transcrite${failed > 1 ? 's' : ''} (réseau ?)`);
+        if (failed) toast.error(`${failed} enregistrement${failed > 1 ? 's' : ''} non transcrit${failed > 1 ? 's' : ''} (réseau ou quota ?)`);
+    };
+
+    // Met la transcription brute au propre : une synthèse relisable, placée
+    // en tête du compte rendu. Le détail brut reste dessous.
+    const handleSummarize = async () => {
+        setSummarizing(true);
+        try {
+            const raw = buildPredevisReport({
+                survey,
+                template,
+                meta: { ...meta, voiceNotesCount: voiceNotes.length },
+                withAiInstruction: false,
+            });
+            const result = await structureVisitTranscript(raw, { clientName, address });
+            setSummary(result);
+            setEdited(null);
+            toast.success('Synthèse ajoutée en tête du compte rendu — relisez-la.');
+        } catch (err) {
+            toast.error(err.message || 'Mise au propre impossible pour le moment.');
+        } finally {
+            setSummarizing(false);
+        }
     };
 
     return createPortal(
@@ -177,17 +213,31 @@ const PredevisReportModal = ({
                         </div>
                     )}
 
-                    {/* Transcription des notes vocales */}
-                    {voiceNotes.length > 0 && !hasTranscripts && (
+                    {/* Transcription des enregistrements */}
+                    {pending.length > 0 && (
                         <button
                             type="button"
                             onClick={handleTranscribe}
-                            disabled={transcribing}
+                            disabled={Boolean(transcribing)}
                             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-50 border border-violet-200 text-violet-700 text-sm font-semibold rounded-xl hover:bg-violet-100 transition-colors disabled:opacity-60"
                         >
                             {transcribing
-                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Transcription en cours…</>
-                                : <><Mic className="w-4 h-4" /> Transcrire mes {voiceNotes.length} note{voiceNotes.length > 1 ? 's' : ''} vocale{voiceNotes.length > 1 ? 's' : ''}</>}
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Transcription {transcribing.done + 1}/{transcribing.total}…</>
+                                : <><Mic className="w-4 h-4" /> Transcrire {pending.length} enregistrement{pending.length > 1 ? 's' : ''}</>}
+                        </button>
+                    )}
+
+                    {/* Mise au propre par l'IA */}
+                    {!pending.length && voiceNotes.length > 0 && !summary && (
+                        <button
+                            type="button"
+                            onClick={handleSummarize}
+                            disabled={summarizing}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60"
+                        >
+                            {summarizing
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Mise au propre en cours…</>
+                                : <><Wand2 className="w-4 h-4" /> Mettre au propre (synthèse en tête)</>}
                         </button>
                     )}
 
