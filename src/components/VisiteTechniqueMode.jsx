@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
@@ -71,6 +72,7 @@ const makeReportNumber = (date) => visitReportNumber(date, Date.now().toString()
 const VisiteTechniqueMode = ({ onBack }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const confirm = useConfirm();
     const { data: profile } = useUserProfile();
 
     const [step, setStep] = useState('capture'); // 'capture' | 'processing' | 'result'
@@ -252,6 +254,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         const [added] = buildPhotos([file]);
         setPhotos(prev => [...prev, added]);
         setCapture(c => addPhoto(c, { mediaId: added.id, at: nowMs() }));
+        uploadPhotos([added]);
     };
 
     // Repli sur l'appareil photo du téléphone (caméra inaccessible dans la
@@ -263,6 +266,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         const at = nowMs();
         setPhotos(prev => [...prev, ...added]);
         setCapture(c => added.reduce((acc, ph) => addPhoto(acc, { mediaId: ph.id, at }), c));
+        uploadPhotos(added);
     };
 
     const handleUndo = () => {
@@ -293,12 +297,21 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const uploadedPhotosRef = useRef([]);
     const linkedPhotoPathsRef = useRef(new Set());
 
-    const uploadPendingPhotos = async () => {
-        const pending = photos.filter(p => !p.path);
-        if (!pending.length || !user) return uploadedPhotosRef.current;
+    /**
+     * Met les photos à l'abri dès la prise de vue, sans attendre le compte
+     * rendu : sur chantier on peut fermer l'application, perdre la page ou
+     * simplement passer à autre chose, et une photo restée en mémoire est
+     * une photo perdue. Chaque photo porte son état (en cours / enregistrée
+     * / échouée) pour que ce soit visible à l'écran.
+     */
+    const uploadPhotos = async (list) => {
+        const todo = list.filter(p => p && !p.path);
+        if (!todo.length || !user) return uploadedPhotosRef.current;
+        const ids = new Set(todo.map(p => p.id));
+        setPhotos(prev => prev.map(p => (ids.has(p.id) ? { ...p, uploading: true, failed: false } : p)));
         try {
             const files = await Promise.all(
-                pending.map(p => compressImageFile(p.file, { maxDim: 1600, quality: 0.8 }))
+                todo.map(p => compressImageFile(p.file, { maxDim: 1600, quality: 0.8 }))
             );
             await assertWithinQuota(files.reduce((sum, f) => sum + (f.size || 0), 0));
             for (let i = 0; i < files.length; i += 1) {
@@ -310,18 +323,36 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 const { data: { publicUrl } } = supabase.storage.from('project-photos').getPublicUrl(path);
                 uploadedPhotosRef.current = [
                     ...uploadedPhotosRef.current,
-                    { url: publicUrl, path, name: pending[i].file?.name || 'photo.jpg' },
+                    { url: publicUrl, path, name: todo[i].file?.name || 'photo.jpg' },
                 ];
-                const uploadedId = pending[i].id;
-                setPhotos(prev => prev.map(ph => (ph.id === uploadedId ? { ...ph, path } : ph)));
+                const uploadedId = todo[i].id;
+                setPhotos(prev => prev.map(ph => (ph.id === uploadedId ? { ...ph, path, uploading: false } : ph)));
             }
         } catch (err) {
-            // Stockage plein ou upload refusé : le compte rendu texte part
-            // quand même, c'est lui l'essentiel.
-            toast.error(err.message || 'Photos non enregistrées.');
+            // Réseau coupé, stockage plein : la photo reste en mémoire et
+            // sera réessayée au retour du réseau ou à l'ouverture du compte
+            // rendu. On le dit plutôt que de laisser croire que c'est fait.
+            setPhotos(prev => prev.map(p => (ids.has(p.id) && !p.path ? { ...p, uploading: false, failed: true } : p)));
+            toast.error(err.message || 'Photos pas encore enregistrées — nouvelle tentative plus tard.');
         }
         return uploadedPhotosRef.current;
     };
+
+    // Filet de sécurité avant d'écrire le rapport : on repasse sur ce qui n'est
+    // pas encore parti.
+    const uploadPendingPhotos = () => uploadPhotos(photos.filter(p => !p.path));
+
+    // Retour du réseau : on rattrape les photos restées en carafe.
+    const photosRef = useRef(photos);
+    useEffect(() => { photosRef.current = photos; }, [photos]);
+    useEffect(() => {
+        const retry = () => {
+            const stuck = photosRef.current.filter(p => !p.path);
+            if (stuck.length) uploadPhotos(stuck);
+        };
+        window.addEventListener('online', retry);
+        return () => window.removeEventListener('online', retry);
+    });
 
     const saveVisit = async (date, textOverride) => {
         if (!user) return;
@@ -412,7 +443,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const handlePhotosSelected = (files) => {
         if (!files?.length) return;
-        setPhotos(prev => [...prev, ...buildPhotos(files)]);
+        const added = buildPhotos(files);
+        setPhotos(prev => [...prev, ...added]);
+        uploadPhotos(added);
     };
 
     const handleDeletePhoto = (id) => {
@@ -559,7 +592,17 @@ const VisiteTechniqueMode = ({ onBack }) => {
         });
     };
 
-    const handleBack = () => {
+    const handleBack = async () => {
+        const unsaved = photos.filter(p => !p.path).length;
+        if (unsaved > 0) {
+            const ok = await confirm({
+                title: `${unsaved} photo${unsaved > 1 ? 's' : ''} pas encore enregistrée${unsaved > 1 ? 's' : ''}`,
+                message: "Elles seront perdues si vous quittez maintenant. Ouvrez le compte rendu pour les enregistrer.",
+                confirmLabel: 'Quitter quand même',
+                danger: true,
+            });
+            if (!ok) return;
+        }
         if (isRecording) cancelRecording();
         if (visitRecorder.isRecording) visitRecorder.stop();
         handleCloseCamera();
@@ -767,6 +810,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         micLabel={visitRecorder.inputLabel}
                         micInputs={visitRecorder.inputs}
                         onPickMic={handlePickMic}
+                        photos={photos}
+                        onRetryPhotos={() => uploadPhotos(photos.filter(p => !p.path))}
                     />
                 )}
 
