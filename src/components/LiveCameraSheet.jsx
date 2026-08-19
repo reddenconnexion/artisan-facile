@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Zap, ZapOff, Check, Loader2, AlertTriangle, MapPin } from 'lucide-react';
+import { X, Zap, ZapOff, Check, AlertTriangle, MapPin, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDuration } from '../utils/siteVisitConfig';
-import { videoConstraints, frameToJpegBlob, photoFileName } from '../utils/cameraCapture';
+import { frameToJpegBlob, photoFileName } from '../utils/cameraCapture';
 
 /**
  * Appareil photo intégré à la page.
@@ -13,11 +13,13 @@ import { videoConstraints, frameToJpegBlob, photoFileName } from '../utils/camer
  * chaque photo. Ici l'aperçu et le déclencheur vivent dans la page, sur un
  * flux vidéo séparé (`audio: false`) — l'enregistrement audio continue sans
  * la moindre coupure, et on peut enchaîner les photos en rafale.
+ *
+ * Le flux est ouvert par l'appelant, dans le gestionnaire de clic, et passé
+ * ici en `stream` : plusieurs navigateurs n'accordent la caméra que pendant
+ * un geste de l'utilisateur, un appel différé dans un effet se ferait refuser.
  */
-const LiveCameraSheet = ({ open, onClose, onCapture, zoneLabel, isRecording, elapsed }) => {
+const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, zoneLabel, isRecording, elapsed }) => {
     const videoRef = useRef(null);
-    const streamRef = useRef(null);
-    const [starting, setStarting] = useState(false);
     const [error, setError] = useState(null);
     const [flash, setFlash] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
@@ -25,37 +27,19 @@ const LiveCameraSheet = ({ open, onClose, onCapture, zoneLabel, isRecording, ela
     const [shots, setShots] = useState([]); // aperçus des photos de cette session
     const [busy, setBusy] = useState(false);
 
-    // Ouverture / fermeture du flux vidéo.
+    // Branchement de l'aperçu. `play()` est appelé explicitement : sur
+    // plusieurs navigateurs mobiles, un flux attaché après le montage ne
+    // démarre pas tout seul malgré `autoPlay`.
     useEffect(() => {
-        if (!open) return undefined;
-        let cancelled = false;
-        setStarting(true);
+        if (!open || !stream) return;
         setError(null);
-
-        navigator.mediaDevices.getUserMedia(videoConstraints('environment'))
-            .then((stream) => {
-                if (cancelled) {
-                    stream.getTracks().forEach((t) => t.stop());
-                    return;
-                }
-                streamRef.current = stream;
-                if (videoRef.current) videoRef.current.srcObject = stream;
-                const track = stream.getVideoTracks()[0];
-                setHasTorch(Boolean(track?.getCapabilities?.().torch));
-                setStarting(false);
-            })
-            .catch(() => {
-                if (cancelled) return;
-                setStarting(false);
-                setError("Accès à la caméra refusé. Vous pouvez utiliser l'appareil photo du téléphone, mais l'enregistrement sera mis en pause pendant ce temps.");
-            });
-
-        return () => {
-            cancelled = true;
-            streamRef.current?.getTracks().forEach((t) => t.stop());
-            streamRef.current = null;
-        };
-    }, [open]);
+        const video = videoRef.current;
+        if (video) {
+            video.srcObject = stream;
+            video.play().catch(() => setError("L'aperçu ne démarre pas sur ce navigateur."));
+        }
+        setHasTorch(Boolean(stream.getVideoTracks()[0]?.getCapabilities?.().torch));
+    }, [open, stream]);
 
     // Les aperçus ne servent que le temps de la session photo. On les libère
     // à la fermeture — et seulement là, sinon on révoquerait des vignettes
@@ -69,7 +53,7 @@ const LiveCameraSheet = ({ open, onClose, onCapture, zoneLabel, isRecording, ela
     if (!open) return null;
 
     const toggleTorch = async () => {
-        const track = streamRef.current?.getVideoTracks()[0];
+        const track = stream?.getVideoTracks()[0];
         if (!track) return;
         const next = !torchOn;
         try {
@@ -151,17 +135,23 @@ const LiveCameraSheet = ({ open, onClose, onCapture, zoneLabel, isRecording, ela
                     className="absolute inset-0 w-full h-full object-cover"
                 />
                 {flash && <div className="absolute inset-0 bg-white animate-pulse" />}
-                {starting && (
-                    <div className="absolute inset-0 flex items-center justify-center text-white gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Ouverture de la caméra…
-                    </div>
-                )}
                 {error && (
                     <div className="absolute inset-0 flex items-center justify-center p-6">
-                        <div className="flex items-start gap-2 p-4 bg-amber-50 text-amber-800 rounded-2xl text-sm">
-                            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                            <span>{error}</span>
+                        <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-sm space-y-3">
+                            <div className="flex items-start gap-2">
+                                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                                <span>{error}</span>
+                            </div>
+                            {onUseNativeCamera && (
+                                <button
+                                    type="button"
+                                    onClick={() => { onClose(); onUseNativeCamera(); }}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-amber-300 rounded-xl font-semibold"
+                                >
+                                    <Camera className="w-4 h-4" />
+                                    Utiliser l'appareil photo du téléphone
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -189,7 +179,7 @@ const LiveCameraSheet = ({ open, onClose, onCapture, zoneLabel, isRecording, ela
                 <button
                     type="button"
                     onClick={shoot}
-                    disabled={Boolean(error) || starting || busy}
+                    disabled={Boolean(error) || busy}
                     className="w-20 h-20 rounded-full bg-white border-4 border-white/40 active:scale-90 transition-transform disabled:opacity-40"
                     aria-label="Prendre une photo"
                 />

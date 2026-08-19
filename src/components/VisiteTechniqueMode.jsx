@@ -11,7 +11,7 @@ import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/s
 import SurveyForm from './SurveyForm';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
-import { isInPageCameraSupported } from '../utils/cameraCapture';
+import { isInPageCameraSupported, openCameraStream, cameraErrorMessage } from '../utils/cameraCapture';
 import { readAudioInput, rememberAudioInput } from '../utils/audioInput';
 import PredevisReportModal from './PredevisReportModal';
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
@@ -73,7 +73,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // Fil de la visite : ce qui s'est passé, dans l'ordre, pièce par pièce.
     const [capture, setCapture] = useState(createCapture);
-    const [cameraOpen, setCameraOpen] = useState(false);
+    const [cameraStream, setCameraStream] = useState(null);
+    const nativePhotoInputRef = useRef(null);
 
     // Client
     const [clientId, setClientId] = useState(null);
@@ -222,6 +223,24 @@ const VisiteTechniqueMode = ({ onBack }) => {
     };
 
     const handleFlag = () => setCapture(c => addFlag(c, { at: nowMs() }));
+
+    // Le flux caméra est ouvert ici, dans le geste de l'utilisateur : plusieurs
+    // navigateurs refusent la caméra à un appel différé (effet, promesse).
+    // En cas d'échec on bascule sur l'appareil photo du téléphone plutôt que
+    // de laisser l'artisan sans photo.
+    const handleOpenCamera = async () => {
+        try {
+            setCameraStream(await openCameraStream('environment'));
+        } catch (err) {
+            toast.error(cameraErrorMessage(err));
+            nativePhotoInputRef.current?.click();
+        }
+    };
+
+    const handleCloseCamera = () => {
+        cameraStream?.getTracks().forEach(t => t.stop());
+        setCameraStream(null);
+    };
 
     // Photos prises dans la page : l'enregistrement continue, rien à couper.
     const handleCameraCapture = (file) => {
@@ -424,6 +443,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const handleBack = () => {
         if (isRecording) cancelRecording();
+        if (visitRecorder.isRecording) visitRecorder.stop();
+        handleCloseCamera();
         photos.forEach(p => URL.revokeObjectURL(p.preview));
         onBack();
     };
@@ -1021,7 +1042,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         onFlag={handleFlag}
                         onUndo={handleUndo}
                         onPhotos={handleExpressPhotos}
-                        onOpenCamera={() => setCameraOpen(true)}
+                        onOpenCamera={handleOpenCamera}
                         cameraSupported={isInPageCameraSupported()}
                         onFinish={handleFinishVisit}
                     />
@@ -1090,12 +1111,26 @@ const VisiteTechniqueMode = ({ onBack }) => {
             </div>
 
             <LiveCameraSheet
-                open={cameraOpen}
-                onClose={() => setCameraOpen(false)}
+                open={Boolean(cameraStream)}
+                stream={cameraStream}
+                onClose={handleCloseCamera}
                 onCapture={handleCameraCapture}
+                onUseNativeCamera={() => nativePhotoInputRef.current?.click()}
                 zoneLabel={capture.zone}
                 isRecording={visitRecorder.isRecording}
                 elapsed={visitRecorder.elapsed}
+            />
+
+            {/* Repli : appareil photo du téléphone (il prend le micro, donc le
+                segment audio en cours est fermé proprement par handleExpressPhotos). */}
+            <input
+                ref={nativePhotoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={e => { handleExpressPhotos(e.target.files); e.target.value = ''; }}
             />
 
             <PredevisReportModal
