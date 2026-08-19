@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     Mic, Square, Camera, Flag, Undo2, Plus, MapPin, Check, Clock,
-    ClipboardCheck, Radio, AlertTriangle,
+    ClipboardCheck, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
@@ -47,6 +47,7 @@ const VisiteExpressMode = ({
     template, survey, capture, onZoneChange,
     isRecording, elapsed, segmentCount,
     level = 0, isSilent = false, micId = '', micLabel = '', micInputs = [], onPickMic,
+    photos = [], onRetryPhotos,
 }) => {
     const [customOpen, setCustomOpen] = useState(false);
     const [customName, setCustomName] = useState('');
@@ -69,6 +70,8 @@ const VisiteExpressMode = ({
     };
 
     const entries = [...(capture.entries || [])].reverse();
+    const pendingPhotos = photos.filter((p) => !p.path).length;
+    const failedPhotos = photos.filter((p) => p.failed && !p.path).length;
 
     return (
         <div className="p-3 space-y-3">
@@ -195,6 +198,55 @@ const VisiteExpressMode = ({
                     >
                         <Check className="w-4 h-4" />
                     </button>
+                </div>
+            )}
+
+            {/* Photos de la visite, avec leur état d'enregistrement */}
+            {photos.length > 0 && (
+                <div className="px-3 py-2.5 bg-white border border-gray-200 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Camera className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <p className="flex-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            {photos.length} photo{photos.length > 1 ? 's' : ''}
+                        </p>
+                        {pendingPhotos > 0 ? (
+                            <span className="text-xs font-semibold text-amber-600">
+                                {pendingPhotos} en attente
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                                <CloudUpload className="w-3.5 h-3.5" />
+                                enregistrées
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto">
+                        {photos.map((photo) => (
+                            <div key={photo.id} className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                                <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+                                {photo.uploading && (
+                                    <span className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                    </span>
+                                )}
+                                {photo.failed && !photo.path && (
+                                    <span className="absolute inset-0 bg-orange-500/70 flex items-center justify-center">
+                                        <AlertTriangle className="w-4 h-4 text-white" />
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    {failedPhotos > 0 && (
+                        <button
+                            type="button"
+                            onClick={onRetryPhotos}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-50 border border-orange-200 text-xs font-semibold text-orange-700"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Réessayer l'enregistrement de {failedPhotos} photo{failedPhotos > 1 ? 's' : ''}
+                        </button>
+                    )}
                 </div>
             )}
 
