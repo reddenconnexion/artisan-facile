@@ -10,6 +10,8 @@ import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
+import LiveCameraSheet from './LiveCameraSheet';
+import { isInPageCameraSupported } from '../utils/cameraCapture';
 import PredevisReportModal from './PredevisReportModal';
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
@@ -70,6 +72,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     // Fil de la visite : ce qui s'est passé, dans l'ordre, pièce par pièce.
     const [capture, setCapture] = useState(createCapture);
+    const [cameraOpen, setCameraOpen] = useState(false);
 
     // Client
     const [clientId, setClientId] = useState(null);
@@ -210,10 +213,17 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const handleFlag = () => setCapture(c => addFlag(c, { at: nowMs() }));
 
+    // Photos prises dans la page : l'enregistrement continue, rien à couper.
+    const handleCameraCapture = (file) => {
+        const [added] = buildPhotos([file]);
+        setPhotos(prev => [...prev, added]);
+        setCapture(c => addPhoto(c, { mediaId: added.id, at: nowMs() }));
+    };
+
+    // Repli sur l'appareil photo du téléphone (caméra inaccessible dans la
+    // page) : il prend le micro, on ferme donc proprement le segment en cours.
     const handleExpressPhotos = (files) => {
         if (!files?.length) return;
-        // L'appareil photo peut confisquer le micro : on ferme proprement le
-        // segment en cours avant de lui passer la main.
         visitRecorder.rotateSegment();
         const added = buildPhotos(files);
         const at = nowMs();
@@ -995,6 +1005,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         onFlag={handleFlag}
                         onUndo={handleUndo}
                         onPhotos={handleExpressPhotos}
+                        onOpenCamera={() => setCameraOpen(true)}
+                        cameraSupported={isInPageCameraSupported()}
                         onFinish={handleFinishVisit}
                     />
                 )}
@@ -1060,6 +1072,15 @@ const VisiteTechniqueMode = ({ onBack }) => {
                     </div>
                 )}
             </div>
+
+            <LiveCameraSheet
+                open={cameraOpen}
+                onClose={() => setCameraOpen(false)}
+                onCapture={handleCameraCapture}
+                zoneLabel={capture.zone}
+                isRecording={visitRecorder.isRecording}
+                elapsed={visitRecorder.elapsed}
+            />
 
             <PredevisReportModal
                 open={Boolean(showReport)}

@@ -164,7 +164,7 @@ const VisiteExpressMode = ({ template, survey, capture, onZoneChange, isRecordin
                     <p className="font-semibold text-gray-700">Comment ça marche</p>
                     <p>1. Démarrez la visite : le micro tourne jusqu'au bout.</p>
                     <p>2. Faites le tour en parlant normalement avec le client.</p>
-                    <p>3. Tapez la pièce quand vous changez, une photo quand ça vaut le coup.</p>
+                    <p>3. Tapez la pièce quand vous changez, une photo quand ça vaut le coup — l'enregistrement continue pendant que vous photographiez.</p>
                     <p>4. À la fin, tout est transcrit et rangé par pièce.</p>
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-2">
                         Prévenez le client que vous enregistrez pour préparer son devis.
@@ -209,6 +209,8 @@ export const ExpressActionPad = ({
     onFlag,
     onUndo,
     onPhotos,
+    onOpenCamera,
+    cameraSupported,
     onFinish,
 }) => {
     const photoInputRef = React.useRef(null);
@@ -264,7 +266,14 @@ export const ExpressActionPad = ({
             <div className="grid grid-cols-3 gap-1.5">
                 <button
                     type="button"
-                    onClick={() => { buzz(); photoInputRef.current?.click(); }}
+                    onClick={() => {
+                        buzz();
+                        // Appareil intégré : la page garde la main, donc le
+                        // micro aussi. Sans caméra accessible, on retombe sur
+                        // l'appareil photo du téléphone.
+                        if (cameraSupported) onOpenCamera();
+                        else photoInputRef.current?.click();
+                    }}
                     className="py-2.5 rounded-2xl bg-white border border-gray-200 text-gray-700 flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
                 >
                     <Camera className="w-5 h-5" />
