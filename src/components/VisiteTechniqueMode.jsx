@@ -7,7 +7,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
 import { blobToBase64, imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
-import { buildVisitRecord, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
+import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
 import { buildPredevisReport } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
@@ -21,7 +21,7 @@ import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
     createCapture, addZoneChange, addCount, addVoice, addPhoto, addFlag,
     undoLast, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
-    buildTimelineLines,
+    buildTimelineLines, photoZones,
 } from '../utils/visitCapture';
 import { surveyCompleteness } from '../utils/predevisReport';
 import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel } from '../utils/visitDraft';
@@ -291,6 +291,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const [visitReportId, setVisitReportId] = useState(null);
     const [visitSaving, setVisitSaving] = useState(false);
     const uploadedPhotosRef = useRef([]);
+    const linkedPhotoPathsRef = useRef(new Set());
 
     const uploadPendingPhotos = async () => {
         const pending = photos.filter(p => !p.path);
@@ -341,6 +342,25 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 date,
                 reportNumber: makeReportNumber(date),
             });
+
+            // Photos aussi dans la fiche client, quand la visite en a une :
+            // elles rejoignent son dossier photo en « avant travaux », sans
+            // second téléversement — la même image, une entrée de plus.
+            if (clientId) {
+                const fresh = uploaded.filter(p => !linkedPhotoPathsRef.current.has(p.path));
+                if (fresh.length) {
+                    const zonesByPhotoId = photoZones(capture);
+                    const zoneByPhotoPath = Object.fromEntries(
+                        photos.filter(p => p.path).map(p => [p.path, zonesByPhotoId[p.id] || ''])
+                    );
+                    const rows = buildClientPhotoRows({
+                        userId: user.id, clientId, photos: fresh, date, zoneByPhotoPath,
+                    });
+                    const { error: photoErr } = await supabase.from('project_photos').insert(rows);
+                    if (photoErr) console.error('Copie des photos dans la fiche client impossible :', photoErr);
+                    else fresh.forEach(p => linkedPhotoPathsRef.current.add(p.path));
+                }
+            }
 
             if (visitReportId) {
                 await supabase.from('intervention_reports').update(record).eq('id', visitReportId);

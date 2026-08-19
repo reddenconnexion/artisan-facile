@@ -77,3 +77,34 @@ export const buildVisitRecord = ({
     report_number: reportNumber,
     report_type: 'site_visit',
 });
+
+/**
+ * Copie des photos de la visite dans la fiche du client (`project_photos`),
+ * pour qu'elles apparaissent dans son dossier photo et pas seulement dans le
+ * rapport de visite.
+ *
+ * Catégorie « before » : une visite prédevis documente l'état avant travaux.
+ * Le fichier stocké est le même — on ajoute une entrée qui pointe dessus,
+ * sans le téléverser ni le facturer au quota une seconde fois.
+ *
+ * @param {object} args
+ * @param {string} args.userId
+ * @param {string|number} args.clientId - sans client, aucune ligne n'est produite
+ * @param {{url: string, path: string, name: string}[]} args.photos
+ * @param {Date} args.date
+ * @param {object} [args.zoneByPhotoPath] - { [path]: pièce } pour situer la photo
+ */
+export const buildClientPhotoRows = ({ userId, clientId, photos = [], date, zoneByPhotoPath = {} }) => {
+    if (!clientId || !userId) return [];
+    const when = date ? date.toLocaleDateString('fr-FR') : '';
+    return photos.filter((photo) => photo?.url).map((photo) => {
+        const zone = String(zoneByPhotoPath[photo.path] ?? '').trim();
+        return {
+            user_id: userId,
+            client_id: clientId,
+            photo_url: photo.url,
+            category: 'before',
+            description: [`Visite prédevis${when ? ` du ${when}` : ''}`, zone].filter(Boolean).join(' — '),
+        };
+    });
+};

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    buildClientPhotoRows,
     visitDateKey,
     visitTitle,
     visitReportNumber,
@@ -99,5 +100,44 @@ describe('buildVisitRecord', () => {
         const record = buildVisitRecord({ ...base, transcripts: { 'seg-1': 'texte' } });
         expect(JSON.stringify(record)).not.toContain('blob');
         expect(record).not.toHaveProperty('audio');
+    });
+});
+
+describe('buildClientPhotoRows', () => {
+    const photos = [
+        { url: 'https://…/a.jpg', path: 'visites/u/a.jpg', name: 'a.jpg' },
+        { url: 'https://…/b.jpg', path: 'visites/u/b.jpg', name: 'b.jpg' },
+    ];
+
+    it('copie les photos dans la fiche client, situées par pièce', () => {
+        const rows = buildClientPhotoRows({
+            userId: 'user-1',
+            clientId: 42,
+            photos,
+            date: DATE,
+            zoneByPhotoPath: { 'visites/u/a.jpg': 'Cuisine' },
+        });
+        expect(rows).toHaveLength(2);
+        expect(rows[0]).toEqual({
+            user_id: 'user-1',
+            client_id: 42,
+            photo_url: 'https://…/a.jpg',
+            category: 'before',
+            description: 'Visite prédevis du 19/08/2026 — Cuisine',
+        });
+        expect(rows[1].description).toBe('Visite prédevis du 19/08/2026');
+    });
+
+    it('ne produit rien sans client : la photo reste dans le rapport de visite', () => {
+        expect(buildClientPhotoRows({ userId: 'user-1', clientId: null, photos, date: DATE })).toEqual([]);
+        expect(buildClientPhotoRows({ userId: '', clientId: 42, photos, date: DATE })).toEqual([]);
+    });
+
+    it('ignore une photo dont le téléversement a échoué', () => {
+        const rows = buildClientPhotoRows({
+            userId: 'user-1', clientId: 42, date: DATE,
+            photos: [{ path: 'visites/u/c.jpg', name: 'c.jpg' }],
+        });
+        expect(rows).toEqual([]);
     });
 });

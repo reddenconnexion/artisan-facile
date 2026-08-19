@@ -165,5 +165,12 @@ export const buildTimelineLines = (capture, { template, transcripts = {} } = {})
     return lines;
 };
 
+/** Pièce dans laquelle chaque photo a été prise : { [mediaId]: pièce }. */
+export const photoZones = (capture) => Object.fromEntries(
+    (capture?.entries || [])
+        .filter((e) => e.type === 'photo' && e.mediaId)
+        .map((e) => [e.mediaId, e.zone || ''])
+);
+
 /** Les points signalés en un tap pendant la visite. */
 export const captureFlags = (capture) => (capture?.entries || []).filter((e) => e.type === 'flag');
