@@ -5,7 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
-import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
+import { blobToBase64, imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
+import { assertWithinQuota } from '../utils/storageQuota';
+import { buildVisitRecord, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
+import { buildPredevisReport } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
@@ -58,8 +61,10 @@ const buildPhotos = (files) => Array.from(files).map((file, i) => ({
 // d'événements, jamais pendant le rendu.
 const nowMs = () => Date.now();
 
-// Numéro de rapport de visite : impur (horloge), donc hors du composant.
-const makeReportNumber = () => `VT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+// Horloge et identifiants : impurs, donc hors du composant.
+const nowDate = () => new Date();
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const makeReportNumber = (date) => visitReportNumber(date, Date.now().toString().slice(-4));
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -277,9 +282,89 @@ const VisiteTechniqueMode = ({ onBack }) => {
         setCapture(next);
     };
 
+    // ── Archivage de la visite ─────────────────────────────────────────────
+    // Le compte rendu ne vivait que dans le presse-papier : trois semaines
+    // plus tard il ne restait rien. Chaque visite est donc enregistrée dans
+    // Interventions, photos comprises. L'audio, lui, n'est jamais conservé :
+    // il produit la transcription puis il est oublié.
+
+    const [visitReportId, setVisitReportId] = useState(null);
+    const [visitSaving, setVisitSaving] = useState(false);
+    const uploadedPhotosRef = useRef([]);
+
+    const uploadPendingPhotos = async () => {
+        const pending = photos.filter(p => !p.path);
+        if (!pending.length || !user) return uploadedPhotosRef.current;
+        try {
+            const files = await Promise.all(
+                pending.map(p => compressImageFile(p.file, { maxDim: 1600, quality: 0.8 }))
+            );
+            await assertWithinQuota(files.reduce((sum, f) => sum + (f.size || 0), 0));
+            for (let i = 0; i < files.length; i += 1) {
+                const path = visitPhotoPath(user.id, newId());
+                const { error } = await supabase.storage
+                    .from('project-photos')
+                    .upload(path, files[i], { contentType: 'image/jpeg' });
+                if (error) throw error;
+                const { data: { publicUrl } } = supabase.storage.from('project-photos').getPublicUrl(path);
+                uploadedPhotosRef.current = [
+                    ...uploadedPhotosRef.current,
+                    { url: publicUrl, path, name: pending[i].file?.name || 'photo.jpg' },
+                ];
+                const uploadedId = pending[i].id;
+                setPhotos(prev => prev.map(ph => (ph.id === uploadedId ? { ...ph, path } : ph)));
+            }
+        } catch (err) {
+            // Stockage plein ou upload refusé : le compte rendu texte part
+            // quand même, c'est lui l'essentiel.
+            toast.error(err.message || 'Photos non enregistrées.');
+        }
+        return uploadedPhotosRef.current;
+    };
+
+    const saveVisit = async (date, textOverride) => {
+        if (!user) return;
+        setVisitSaving(true);
+        try {
+            const uploaded = await uploadPendingPhotos();
+            const meta = { ...reportMeta, date, photoCount: photos.length };
+            const record = buildVisitRecord({
+                userId: user.id,
+                clientId,
+                clientName,
+                address,
+                reportText: textOverride ?? buildPredevisReport({ survey, template: surveyTemplate, meta }),
+                survey: hasSurveyContent(survey) ? survey : null,
+                timelineLines: meta.timelineLines,
+                transcripts: voiceTranscripts,
+                photos: uploaded,
+                date,
+                reportNumber: makeReportNumber(date),
+            });
+
+            if (visitReportId) {
+                await supabase.from('intervention_reports').update(record).eq('id', visitReportId);
+            } else {
+                const { data } = await supabase.from('intervention_reports')
+                    .insert(record).select('id').single();
+                if (data?.id) setVisitReportId(data.id);
+            }
+        } catch (err) {
+            console.error('Enregistrement de la visite impossible :', err);
+            toast.error("Visite non enregistrée — le compte rendu reste copiable.");
+        } finally {
+            setVisitSaving(false);
+        }
+    };
+
+    const openReport = (date = nowDate()) => {
+        setShowReport(date);
+        saveVisit(date);
+    };
+
     const handleFinishVisit = () => {
         if (visitRecorder.isRecording) visitRecorder.stop();
-        setShowReport(new Date());
+        openReport();
     };
 
     const filteredClients = clients.filter(c =>
@@ -389,11 +474,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
             setActivePhase('done');
             setResult(quoteResult);
 
-            // Save to intervention_reports
+            // Le chiffrage complète la visite déjà archivée (sinon il la crée).
             if (user) {
                 try {
-                    const reportNumber = makeReportNumber();
-                    const { data: saved } = await supabase.from('intervention_reports').insert({
+                    const reportNumber = makeReportNumber(nowDate());
+                    const quotePayload = {
                         user_id: user.id,
                         client_id: clientId || null,
                         client_name: clientName || null,
@@ -412,8 +497,21 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         date: new Date().toISOString().split('T')[0],
                         report_number: reportNumber,
                         report_type: 'site_visit',
-                    }).select('id').single();
-                    if (saved?.id) setSavedReportId(saved.id);
+                    };
+                    if (visitReportId) {
+                        await supabase.from('intervention_reports')
+                            .update({
+                                title: quotePayload.title,
+                                notes: quotePayload.notes,
+                                materials_used: quotePayload.materials_used,
+                            })
+                            .eq('id', visitReportId);
+                        setSavedReportId(visitReportId);
+                    } else {
+                        const { data: saved } = await supabase.from('intervention_reports')
+                            .insert(quotePayload).select('id').single();
+                        if (saved?.id) { setSavedReportId(saved.id); setVisitReportId(saved.id); }
+                    }
                 } catch (saveErr) {
                     console.error('Error saving site visit:', saveErr);
                 }
@@ -1050,7 +1148,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 {step === 'capture' && mode === 'detail' && (
                     <div className="space-y-2">
                         <button
-                            onClick={() => setShowReport(new Date())}
+                            onClick={() => openReport()}
                             disabled={!canAnalyze || isRecording}
                             className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                         >
@@ -1100,7 +1198,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                             Créer un prédevis (estimatif)
                         </button>
                         <button
-                            onClick={() => setShowReport(new Date())}
+                            onClick={() => openReport()}
                             className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold text-violet-600 hover:text-violet-700 py-1"
                         >
                             <ClipboardCheck className="w-4 h-4" />
@@ -1144,6 +1242,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 onTranscripts={(map) => setVoiceTranscripts(prev => ({ ...prev, ...map }))}
                 clientName={clientName}
                 address={address}
+                onPersist={(text) => saveVisit(showReport || nowDate(), text)}
+                savedReportId={visitReportId}
+                saving={visitSaving}
+                onOpenSaved={(id) => navigate(`/app/interventions/${id}`)}
             />
         </div>
     );
