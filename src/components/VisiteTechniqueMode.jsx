@@ -12,6 +12,7 @@ import SurveyForm from './SurveyForm';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
 import { isInPageCameraSupported } from '../utils/cameraCapture';
+import { readAudioInput, rememberAudioInput } from '../utils/audioInput';
 import PredevisReportModal from './PredevisReportModal';
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
@@ -180,7 +181,16 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const getSegmentMeta = useCallback(() => ({ zone: captureZoneRef.current }), []);
 
-    const visitRecorder = useVisitRecorder({ onSegment: handleSegment, getSegmentMeta });
+    // Micro retenu d'une visite à l'autre : un micro-cravate branché reste
+    // sélectionné, sans avoir à y penser au démarrage suivant.
+    const [micId, setMicId] = useState(readAudioInput);
+    const visitRecorder = useVisitRecorder({ onSegment: handleSegment, getSegmentMeta, deviceId: micId });
+
+    const handlePickMic = (id) => {
+        setMicId(id);
+        rememberAudioInput(id);
+        visitRecorder.switchInput(id); // sans effet hors enregistrement
+    };
 
     const startVisit = async () => {
         const started = await visitRecorder.start();
@@ -612,6 +622,12 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         isRecording={visitRecorder.isRecording}
                         elapsed={visitRecorder.elapsed}
                         segmentCount={visitRecorder.segmentCount}
+                        level={visitRecorder.level}
+                        isSilent={visitRecorder.isSilent}
+                        micId={micId}
+                        micLabel={visitRecorder.inputLabel}
+                        micInputs={visitRecorder.inputs}
+                        onPickMic={handlePickMic}
                     />
                 )}
 

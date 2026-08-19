@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     Mic, Square, Camera, Flag, Undo2, Plus, MapPin, Check, Clock,
-    ClipboardCheck, Radio,
+    ClipboardCheck, Radio, AlertTriangle,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
@@ -43,7 +43,11 @@ const ENTRY_STYLES = {
 const clock = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 /** Corps de l'écran express : état d'enregistrement, pièces, fil de la visite. */
-const VisiteExpressMode = ({ template, survey, capture, onZoneChange, isRecording, elapsed, segmentCount }) => {
+const VisiteExpressMode = ({
+    template, survey, capture, onZoneChange,
+    isRecording, elapsed, segmentCount,
+    level = 0, isSilent = false, micId = '', micLabel = '', micInputs = [], onPickMic,
+}) => {
     const [customOpen, setCustomOpen] = useState(false);
     const [customName, setCustomName] = useState('');
 
@@ -98,6 +102,42 @@ const VisiteExpressMode = ({ template, survey, capture, onZoneChange, isRecordin
                     )}
                 </div>
             )}
+
+            {/* Micro utilisé + preuve que ça capte */}
+            <div className="px-3 py-2 bg-white border border-gray-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <select
+                        value={micId}
+                        onChange={(e) => onPickMic?.(e.target.value)}
+                        className="flex-1 min-w-0 text-xs font-semibold text-gray-700 bg-transparent focus:outline-none"
+                        aria-label="Micro utilisé"
+                    >
+                        <option value="">
+                            {micLabel ? `Automatique — ${micLabel}` : 'Micro automatique (choix du téléphone)'}
+                        </option>
+                        {micInputs
+                            .filter((input) => input.deviceId)
+                            .map((input) => (
+                                <option key={input.deviceId} value={input.deviceId}>{input.label}</option>
+                            ))}
+                    </select>
+                </div>
+                {isRecording && (
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-[width] duration-100 ${isSilent ? 'bg-red-400' : 'bg-emerald-500'}`}
+                            style={{ width: `${Math.round(Math.min(1, level) * 100)}%` }}
+                        />
+                    </div>
+                )}
+                {isRecording && isSilent && (
+                    <p className="flex items-start gap-1.5 text-xs font-semibold text-red-600">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        Aucun son capté depuis 15 s — vérifiez le micro avant de continuer.
+                    </p>
+                )}
+            </div>
 
             {/* Pièce en cours */}
             <div className="flex items-center gap-2 px-3 py-2.5 bg-violet-600 text-white rounded-2xl">
