@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { videoConstraints, scaleToMax, photoFileName, isInPageCameraSupported } from './cameraCapture';
+import { videoConstraints, scaleToMax, photoFileName, isInPageCameraSupported, cameraErrorMessage } from './cameraCapture';
 
 describe('videoConstraints', () => {
     it('ne demande jamais le micro : il est déjà pris par l\'enregistrement', () => {
@@ -43,5 +43,21 @@ describe('photoFileName', () => {
 describe('isInPageCameraSupported', () => {
     it('suit la présence de getUserMedia', () => {
         expect(isInPageCameraSupported()).toBe(Boolean(navigator.mediaDevices?.getUserMedia));
+    });
+});
+
+describe('cameraErrorMessage', () => {
+    it('distingue le refus de permission', () => {
+        expect(cameraErrorMessage({ name: 'NotAllowedError' })).toContain('Autorisez-la');
+    });
+
+    it('distingue la caméra absente et la caméra déjà occupée', () => {
+        expect(cameraErrorMessage({ name: 'NotFoundError' })).toContain('Aucune caméra');
+        expect(cameraErrorMessage({ name: 'NotReadableError' })).toContain('déjà utilisée');
+    });
+
+    it('reprend le message du navigateur quand l\'erreur est inconnue', () => {
+        expect(cameraErrorMessage({ name: 'BizarreError', message: 'boom' })).toBe('Caméra indisponible (boom).');
+        expect(cameraErrorMessage()).toBe('Caméra indisponible sur cet appareil.');
     });
 });

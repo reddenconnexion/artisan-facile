@@ -61,6 +61,48 @@ export const frameToJpegBlob = (video, { maxDim = 2048, quality = 0.85 } = {}) =
         );
     });
 
+/**
+ * Message d'erreur explicite pour un refus de caméra. Savoir *pourquoi* la
+ * caméra ne s'ouvre pas change ce qu'il faut faire : réautoriser le site,
+ * fermer l'application photo, ou se rabattre sur l'appareil du téléphone.
+ */
+export const cameraErrorMessage = (error) => {
+    switch (error?.name) {
+        case 'NotAllowedError':
+        case 'SecurityError':
+            return "Caméra refusée pour ce site. Autorisez-la dans les réglages du navigateur (cadenas dans la barre d'adresse), puis réessayez.";
+        case 'NotFoundError':
+        case 'DevicesNotFoundError':
+            return 'Aucune caméra détectée sur cet appareil.';
+        case 'NotReadableError':
+        case 'TrackStartError':
+            return 'La caméra est déjà utilisée par une autre application. Fermez-la et réessayez.';
+        case 'OverconstrainedError':
+            return "Cette caméra n'accepte pas les réglages demandés.";
+        default:
+            return error?.message
+                ? `Caméra indisponible (${error.message}).`
+                : 'Caméra indisponible sur cet appareil.';
+    }
+};
+
+/**
+ * Ouvre le flux caméra. À appeler DANS le gestionnaire de clic : plusieurs
+ * navigateurs n'accordent la caméra que pendant un geste de l'utilisateur, et
+ * un appel différé dans un effet se ferait refuser.
+ *
+ * Deux tentatives : les réglages souhaités (caméra arrière, haute définition),
+ * puis, si l'appareil les rejette, la caméra telle qu'elle vient.
+ */
+export const openCameraStream = async (facingMode = 'environment') => {
+    try {
+        return await navigator.mediaDevices.getUserMedia(videoConstraints(facingMode));
+    } catch (error) {
+        if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') throw error;
+        return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    }
+};
+
 /** La caméra est-elle utilisable dans la page sur cet appareil ? */
 export const isInPageCameraSupported = () =>
     typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
