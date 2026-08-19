@@ -487,6 +487,59 @@ FORMAT JSON pur (sans markdown) :
 };
 
 /**
+ * Prompt de mise au propre d'une visite : transforme un enregistrement
+ * retranscrit (parole du client, remarques de l'artisan, bruit de chantier)
+ * en compte rendu lisible. Il ne chiffre rien et n'invente rien : le devis
+ * se fait ensuite, à partir d'un texte propre.
+ */
+const VISIT_SUMMARY_PROMPT = `Tu es l'assistant d'un artisan du bâtiment français. Tu reçois la transcription brute d'une visite de chantier : l'artisan et son client parlent en marchant, la transcription contient des hésitations, des passages hors sujet et des erreurs de reconnaissance vocale.
+
+Ta tâche : mettre ce matériau au propre, en français, sous forme de compte rendu de visite.
+
+RÈGLES ABSOLUES :
+- N'invente RIEN. Aucune quantité, aucune dimension, aucun prix qui ne soit dit dans la transcription.
+- Ne chiffre pas les travaux, ne propose pas de devis : ce n'est pas ton rôle ici.
+- Quand un passage est incompréhensible ou ambigu, écris-le tel quel entre crochets : [à confirmer : ...].
+- Garde le vocabulaire métier de l'artisan. Ne reformule pas en langage commercial.
+- Distingue ce que demande le client de ce que l'artisan a constaté.
+
+STRUCTURE DE TA RÉPONSE (texte simple, pas de JSON, pas de markdown lourd) :
+DEMANDE DU CLIENT :
+(ce qu'il veut, dans ses termes)
+
+PIÈCE PAR PIÈCE :
+(une ligne par pièce évoquée : ce qui existe, ce qui est demandé, ce qui a été constaté)
+
+CONTRAINTES ET POINTS D'ATTENTION :
+(accès, support, délais, budget évoqué, contraintes du client)
+
+POINTS À CONFIRMER :
+(tout ce qui reste flou et qu'il faudra vérifier avant de chiffrer)`;
+
+/**
+ * Met au propre la transcription d'une visite enregistrée.
+ *
+ * @param {string} rawNotes - transcription brute (segments concaténés) et,
+ *   éventuellement, le relevé tapé pendant la visite
+ * @param {object} [context] - { clientName, address, trade }
+ * @returns {Promise<string>} compte rendu en texte simple
+ */
+export const structureVisitTranscript = async (rawNotes, context = {}) => {
+    const text = String(rawNotes ?? '').trim();
+    if (!text) throw new Error('Rien à mettre au propre : la transcription est vide.');
+
+    const entete = [
+        context.clientName && `Client : ${context.clientName}`,
+        context.address && `Adresse : ${context.address}`,
+        context.trade && `Métier : ${context.trade}`,
+    ].filter(Boolean).join('\n');
+
+    const userMessage = [entete, 'TRANSCRIPTION BRUTE DE LA VISITE :', text].filter(Boolean).join('\n\n');
+    const rawResponse = await callAiProxy({ systemPrompt: VISIT_SUMMARY_PROMPT, userMessage });
+    return String(rawResponse ?? '').trim();
+};
+
+/**
  * Generates a quote from a site visit (voice notes + photos).
  * @param {string[]} voiceTranscripts - Transcriptions of voice notes
  * @param {string[]} photoAnalyses - Descriptions of photos from vision AI

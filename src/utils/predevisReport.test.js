@@ -99,6 +99,17 @@ describe('buildPredevisReport', () => {
         expect(text).not.toContain('TOTAL toutes zones');
     });
 
+    it('place la synthèse IA avant le détail, sans effacer le brut', () => {
+        const text = buildPredevisReport({
+            survey: fullSurvey(),
+            template: ELEC,
+            meta: { ...meta, summaryText: 'Le client veut refaire le rez-de-chaussée.' },
+        });
+        expect(text).toContain('## SYNTHÈSE DE LA VISITE (mise au propre automatique — à relire)');
+        expect(text.indexOf('SYNTHÈSE DE LA VISITE')).toBeLessThan(text.indexOf('## 1. DEMANDE DU CLIENT'));
+        expect(text).toContain('## 3. RELEVÉ PAR ZONE');
+    });
+
     it('liste les points à confirmer quand des essentiels manquent', () => {
         const survey = { ...fullSurvey(), demande: '' };
         const text = buildPredevisReport({ survey, template: ELEC, meta });
@@ -109,6 +120,21 @@ describe('buildPredevisReport', () => {
     it('omet la section « points à confirmer » quand la trame est complète', () => {
         const text = buildPredevisReport({ survey: fullSurvey(), template: ELEC, meta });
         expect(text).not.toContain('POINTS À CONFIRMER');
+    });
+
+    it('intègre le déroulé de la visite et laisse alors tomber la section notes vocales', () => {
+        const text = buildPredevisReport({
+            survey: fullSurvey(),
+            template: ELEC,
+            meta: {
+                ...meta,
+                voiceNotesCount: 2,
+                timelineLines: ['09:05 · Cuisine', '- Note vocale : « plaque à déplacer »', '- Comptage : Prises 2P+T +8'],
+            },
+        });
+        expect(text).toContain('DÉROULÉ DE LA VISITE');
+        expect(text).toContain('- Note vocale : « plaque à déplacer »');
+        expect(text).not.toContain('NOTES VOCALES');
     });
 
     it('signale les notes vocales non transcrites plutôt que de les taire', () => {

@@ -35,8 +35,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Rate limit : 10 transcriptions / heure / utilisateur
-    const rl = await enforceRateLimit('voice-transcribe', user.id, 10, 3600);
+    // Rate limit : 60 transcriptions / heure / utilisateur.
+    // Une visite prédevis enregistrée en continu est découpée en segments
+    // (un par pièce, 8 min maximum) : une visite d'une heure représente à
+    // elle seule une dizaine d'appels, là où l'ancienne limite de 10 était
+    // dimensionnée pour des mémos vocaux isolés.
+    const rl = await enforceRateLimit('voice-transcribe', user.id, 60, 3600);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     // Fetch user profile for plan, provider and API key
