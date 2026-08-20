@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Star, Sparkles, Loader2, Copy, Check, RefreshCw, MessageSquareQuote } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +36,14 @@ const ReviewReplyGenerator = () => {
     const [loading, setLoading] = useState(false);
     const [replies, setReplies] = useState([]);
     const [copiedIndex, setCopiedIndex] = useState(null);
+
+    // Propositions déjà générées pour CET avis : transmises à l'IA pour que
+    // « Régénérer » évite de reproduire les mêmes ouvertures. On repart de
+    // zéro dès que l'artisan traite un autre avis.
+    const previousRepliesRef = useRef([]);
+    useEffect(() => {
+        previousRepliesRef.current = [];
+    }, [reviewText]);
 
     // Charge le contexte entreprise utilisé pour le SEO local.
     useEffect(() => {
@@ -75,7 +83,9 @@ const ReviewReplyGenerator = () => {
                 tone,
                 business: business || {},
                 count,
+                previousReplies: previousRepliesRef.current,
             });
+            previousRepliesRef.current = [...previousRepliesRef.current, ...generated].slice(-12);
             setReplies(generated);
         } catch (error) {
             console.error('Review reply error:', error);
