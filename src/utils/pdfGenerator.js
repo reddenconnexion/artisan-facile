@@ -4,6 +4,7 @@ import { PDFDocument, PDFName, AFRelationship } from 'pdf-lib';
 import { generateFacturXXML } from './facturxGenerator';
 import { getTradeConfig } from '../constants/trades';
 import { pluralizeFrenchHead } from './frenchText';
+import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -647,12 +648,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
 
     const fmtMoney = (n) => `${(Number(n) || 0).toFixed(2)} €`;
-    // Montant d'une ligne : en présentation « poste global », le serveur a déjà
-    // fusionné les lignes et fourni un total (line_total), sans quantité ni prix
-    // unitaire. Sinon on calcule quantité × prix comme d'habitude.
-    const lineAmountOf = (item) => (item.line_total != null && item.line_total !== '')
-        ? (parseFloat(item.line_total) || 0)
-        : (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0);
+    // Montant d'une ligne (cf. materialDeposit.js : gère aussi les postes
+    // fusionnés line_total du mode « poste global »).
+    const lineAmountOf = quoteLineAmount;
     // Une ligne à 0 € est affichée "Offert" plutôt que "0.00 €" (geste commercial lisible)
     const unitPriceCell = (item) => (parseFloat(item.price) || 0) === 0 ? L.offered : fmtMoney(item.price);
     const lineTotalCell = (item) => lineAmountOf(item) === 0 ? L.offered : fmtMoney(lineAmountOf(item));
@@ -944,7 +942,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
         const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
         // lineAmountOf gère aussi les postes fusionnés (line_total) du mode global.
-        const sumHT = (items) => items.reduce((s, i) => s + lineAmountOf(i), 0);
+        // Les lignes optionnelles restent visibles dans le tableau mais sont hors
+        // chiffrage ferme : les sous-totaux les excluent pour que sous-total
+        // main d'œuvre + sous-total fournitures = TOTAL (qui les exclut déjà).
+        const sumHT = (items) => items.filter(i => !i.is_optional).reduce((s, i) => s + lineAmountOf(i), 0);
         const showSubtotals = laborItems.length > 0 && materials.length > 0;
 
         const totalsRows = [];
@@ -1061,18 +1062,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     }
 
     // ── Conditions de règlement (acompte matériel) : tableau acompte / solde ──
-    if (!isInvoice && materials.length > 0 && devis.has_material_deposit === true) {
-        const materialHT = materials.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-
-        // Calculate effective VAT rate (infer from totals to support manual adjustments or different rates)
-        let vatRate = 0.20; // Default
-        if (devis.total_ht > 0 && devis.total_tva >= 0) {
-            vatRate = devis.total_tva / devis.total_ht;
-        }
-
-        // Calculate VAT part for materials using effective rate
-        const materialTTC = devis.include_tva !== false ? materialHT * (1 + vatRate) : materialHT;
-        const balanceTTC = Math.max((Number(devis.total_ttc) || 0) - materialTTC, 0);
+    // Les fournitures optionnelles sont exclues de l'acompte (cf.
+    // materialDeposit.js) : tant qu'une option n'est pas retenue, elle ne fait
+    // pas partie du chiffrage ferme (même règle que le total et que l'acompte
+    // généré depuis le formulaire). Sans ce filtre, le solde (total ferme −
+    // acompte) ne correspond plus à la main d'œuvre.
+    const depositAmounts = (!isInvoice && devis.has_material_deposit === true)
+        ? materialDepositAmounts(devis)
+        : null;
+    if (depositAmounts) {
+        const { materialTTC, balanceTTC } = depositAmounts;
 
         const sentenceLines = doc.splitTextToSize(L.depositSentence, 182);
         const depositBlockH = 8 + 2 * 7 + sentenceLines.length * 3.6 + 6;
@@ -1115,7 +1114,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // ── Conditions de règlement (acompte en % du total) : tableau acompte / solde ──
     // Affiché pour les devis avec un acompte demandé, sauf si le tableau d'acompte
     // matériel ci-dessus est déjà rendu (pour éviter deux tableaux contradictoires).
-    const materialDepositShown = !isInvoice && materials.length > 0 && devis.has_material_deposit === true;
+    const materialDepositShown = depositAmounts != null;
     const depositPct = Number(devis.deposit_percentage) || 0;
     if (!isInvoice && !materialDepositShown && depositPct > 0) {
         const totalTTC = Number(devis.total_ttc) || 0;
