@@ -12,6 +12,7 @@ import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import { Input, Field } from '../components/ui';
+import { parseFrenchAddress } from '../utils/addressParser';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -426,6 +427,22 @@ const ClientForm = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // Collage intelligent dans le champ « Adresse » : une adresse complète
+    // collée depuis un SMS (« 13 rue X 33230 Ville ») est répartie entre rue,
+    // code postal et ville. Sans code postal détecté, le collage reste normal.
+    const handleAddressPaste = (e) => {
+        const parsed = parseFrenchAddress(e.clipboardData?.getData('text'));
+        if (!parsed) return;
+        e.preventDefault();
+        setFormData(prev => ({
+            ...prev,
+            address: parsed.address || prev.address,
+            postal_code: parsed.postal_code,
+            city: parsed.city || prev.city,
+        }));
+        toast.success('Adresse répartie : code postal et ville remplis automatiquement');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -790,9 +807,10 @@ const ClientForm = () => {
                             id="address"
                             name="address"
                             type="text"
-                            placeholder="N° et nom de rue"
+                            placeholder="N° et rue — ou collez l'adresse complète du SMS"
                             value={formData.address}
                             onChange={handleChange}
+                            onPaste={handleAddressPaste}
                         />
                         <div className="grid grid-cols-3 gap-2 mt-2">
                             <div>
