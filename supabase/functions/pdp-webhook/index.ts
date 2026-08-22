@@ -482,7 +482,7 @@ Deno.serve(async (req) => {
   // eslint-disable-next-line prefer-const
   let { data: quote, error: quoteError } = await supabaseAdmin
     .from('quotes')
-    .select('id, user_id, quote_number, transmission_status, transmission_service')
+    .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
     .eq('transmission_ref', pdpRef)
     .maybeSingle();
 
@@ -492,14 +492,14 @@ Deno.serve(async (req) => {
     // conformité), puis l'ancienne référence interne numérique (quote_number).
     let quoteByNumber = (await supabaseAdmin
       .from('quotes')
-      .select('id, user_id, quote_number, transmission_status, transmission_service')
+      .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
       .eq('invoice_number', pdpRef)
       .maybeSingle()).data;
 
     if (!quoteByNumber && /^\d+$/.test(pdpRef)) {
       quoteByNumber = (await supabaseAdmin
         .from('quotes')
-        .select('id, user_id, quote_number, transmission_status, transmission_service')
+        .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
         .eq('quote_number', pdpRef)
         .maybeSingle()).data;
     }
@@ -566,7 +566,9 @@ Deno.serve(async (req) => {
         await sendAcknowledgedEmail(
           email,
           name,
-          quote!.quote_number?.toString() ?? null,
+          // Numéro légal (FAC-AAAA-NNNN) en priorité — c'est lui qui figure sur
+          // la facture transmise ; repli sur la référence interne (anciens docs).
+          (quote!.invoice_number as string | null) ?? quote!.quote_number?.toString() ?? null,
           quote!.transmission_service,
           pdpRef,
         );
