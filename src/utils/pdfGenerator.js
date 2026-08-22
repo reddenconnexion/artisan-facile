@@ -572,70 +572,83 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             }
         }
 
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${L.fieldReport} :`, 14, currentY);
-        currentY += 6;
+        // Une section vide (aucun champ rempli) n'apporte rien au client :
+        // on ne l'imprime pas du tout, titre compris.
+        const hasValue = (v) => (typeof v === 'string' ? v.trim() !== '' : !!v);
+        const hasConstat = hasValue(details.constat_date)
+            || hasValue(details.constat_description)
+            || hasValue(details.constat_reason);
+        const hasSolution = hasValue(details.solution_description)
+            || hasValue(details.solution_technical_value);
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(50, 50, 50);
+        if (hasConstat) {
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${L.fieldReport} :`, 14, currentY);
+            currentY += 6;
 
-        if (details.constat_date) {
-            const introLines = doc.splitTextToSize(
-                L.discoveredOn(fmtDate(details.constat_date)),
-                182
-            );
-            doc.text(introLines, 14, currentY);
-            currentY += introLines.length * 5;
-        }
-        if (details.constat_description) {
-            const descLines = doc.splitTextToSize(details.constat_description, 182);
-            doc.text(descLines, 14, currentY);
-            currentY += (descLines.length * 5) + 2;
-        }
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(50, 50, 50);
 
-        if (details.constat_reason) {
-            const reasonLines = doc.splitTextToSize(
-                L.impossibility(details.constat_reason),
-                182
-            );
-            doc.text(reasonLines, 14, currentY);
-            currentY += (reasonLines.length * 5) + 5;
-        } else {
-            currentY += 5;
+            if (hasValue(details.constat_date)) {
+                const introLines = doc.splitTextToSize(
+                    L.discoveredOn(fmtDate(details.constat_date)),
+                    182
+                );
+                doc.text(introLines, 14, currentY);
+                currentY += introLines.length * 5;
+            }
+            if (hasValue(details.constat_description)) {
+                const descLines = doc.splitTextToSize(details.constat_description, 182);
+                doc.text(descLines, 14, currentY);
+                currentY += (descLines.length * 5) + 2;
+            }
+
+            if (hasValue(details.constat_reason)) {
+                const reasonLines = doc.splitTextToSize(
+                    L.impossibility(details.constat_reason),
+                    182
+                );
+                doc.text(reasonLines, 14, currentY);
+                currentY += (reasonLines.length * 5) + 5;
+            } else {
+                currentY += 5;
+            }
         }
 
         // 3. NOUVELLE SOLUTION
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${L.newSolution} :`, 14, currentY);
-        currentY += 6;
+        if (hasSolution) {
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${L.newSolution} :`, 14, currentY);
+            currentY += 6;
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(50, 50, 50);
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(50, 50, 50);
 
-        if (details.solution_description) {
-            const solLines = doc.splitTextToSize(`- ${details.solution_description}`, 182);
-            doc.text(solLines, 14, currentY);
-            currentY += (solLines.length * 5);
-        }
+            if (hasValue(details.solution_description)) {
+                const solLines = doc.splitTextToSize(`- ${details.solution_description}`, 182);
+                doc.text(solLines, 14, currentY);
+                currentY += (solLines.length * 5);
+            }
 
-        doc.text(L.additionalMaterial, 14, currentY);
-        currentY += 5;
+            doc.text(L.additionalMaterial, 14, currentY);
+            currentY += 5;
 
-        if (details.solution_technical_value) {
-            const valueLines = doc.splitTextToSize(
-                L.technicalAddedValue(details.solution_technical_value),
-                182
-            );
-            doc.text(valueLines, 14, currentY);
-            currentY += (valueLines.length * 5) + 3;
-        } else {
-            currentY += 3;
+            if (hasValue(details.solution_technical_value)) {
+                const valueLines = doc.splitTextToSize(
+                    L.technicalAddedValue(details.solution_technical_value),
+                    182
+                );
+                doc.text(valueLines, 14, currentY);
+                currentY += (valueLines.length * 5) + 3;
+            } else {
+                currentY += 3;
+            }
         }
 
         tableStartY = currentY;
