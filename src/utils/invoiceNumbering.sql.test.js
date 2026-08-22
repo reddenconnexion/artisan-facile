@@ -11,6 +11,7 @@ import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 
 const MIG = path.join(cwd(), 'supabase/migrations/20260822130000_invoice_numbering_compliance.sql');
+const MIG_CREDIT_NOTES = path.join(cwd(), 'supabase/migrations/20260822150000_add_credit_notes.sql');
 
 // La migration redéfinit aussi get_public_quote, dont les dépendances (tables
 // du portail, client_facing_items…) n'existent pas ici : plpgsql ne vérifie
@@ -27,6 +28,7 @@ CREATE TABLE quotes (
   status text DEFAULT 'draft',
   quote_number integer,
   is_external boolean DEFAULT false,
+  signature text,
   date date NOT NULL DEFAULT CURRENT_DATE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -62,6 +64,7 @@ beforeAll(async () => {
     );
 
     await db.exec(readFileSync(MIG, 'utf8'));
+    await db.exec(readFileSync(MIG_CREDIT_NOTES, 'utf8'));
 });
 
 afterAll(async () => {
@@ -152,7 +155,8 @@ describe('immuabilité d’une facture émise', () => {
     });
 
     it('refuse le retour en devis', async () => {
-        await expect(db.query(`UPDATE quotes SET type = 'quote' WHERE id = 10`)).rejects.toThrow(/redevenir un devis/);
+        // Message générique depuis la migration avoirs (facture OU avoir).
+        await expect(db.query(`UPDATE quotes SET type = 'quote' WHERE id = 10`)).rejects.toThrow(/ne peut plus changer/);
     });
 
     it('fige le numéro : une tentative de modification est ignorée', async () => {
@@ -166,6 +170,50 @@ describe('immuabilité d’une facture émise', () => {
     it('le numéro survit à un repassage du statut en brouillon', async () => {
         await db.query(`UPDATE quotes SET status = 'draft' WHERE id = 11`);
         expect(await invoiceNumberOf(11)).toBe('FAC-2026-0003');
+    });
+});
+
+describe('avoirs (credit_note)', () => {
+    it('série AV- dédiée, indépendante de la série des factures', async () => {
+        await db.query(
+            `INSERT INTO quotes (id, user_id, type, status, date) VALUES (20, $1, 'credit_note', 'billed', '2026-05-01')`,
+            [USER_A],
+        );
+        expect(await invoiceNumberOf(20)).toBe('AV-2026-0001');
+
+        // La série des factures continue sans être décalée par l'avoir.
+        await db.query(
+            `INSERT INTO quotes (id, user_id, type, status, date) VALUES (21, $1, 'invoice', 'billed', '2026-05-02')`,
+            [USER_A],
+        );
+        expect(await invoiceNumberOf(21)).toBe('FAC-2026-0005');
+    });
+
+    it('un avoir brouillon n’a pas de numéro, puis en reçoit un à l’émission', async () => {
+        await db.query(
+            `INSERT INTO quotes (id, user_id, type, status, date) VALUES (22, $1, 'credit_note', 'draft', '2026-05-03')`,
+            [USER_A],
+        );
+        expect(await invoiceNumberOf(22)).toBeNull();
+        await db.query(`UPDATE quotes SET status = 'sent' WHERE id = 22`);
+        expect(await invoiceNumberOf(22)).toBe('AV-2026-0002');
+    });
+
+    it('un avoir émis est immuable : ni suppression, ni changement de type', async () => {
+        await expect(db.query('DELETE FROM quotes WHERE id = 20')).rejects.toThrow(/interdit sa suppression/);
+        await expect(db.query(`UPDATE quotes SET type = 'invoice' WHERE id = 20`)).rejects.toThrow(/ne peut plus changer/);
+    });
+
+    it('un avoir ne peut pas être signé (même via la RPC publique)', async () => {
+        await expect(db.query(`UPDATE quotes SET signature = 'data:image/png;base64,xxx', status = 'accepted' WHERE id = 20`))
+            .rejects.toThrow(/ne peut pas être signé/);
+    });
+
+    it('le type credit_note est accepté par la contrainte, un type inconnu est rejeté', async () => {
+        await expect(db.query(
+            `INSERT INTO quotes (id, user_id, type, status, date) VALUES (23, $1, 'gift_card', 'draft', '2026-05-04')`,
+            [USER_A],
+        )).rejects.toThrow(/quotes_type_check/);
     });
 });
 

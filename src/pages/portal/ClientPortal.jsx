@@ -33,6 +33,7 @@ const StatusBadge = ({ quote, isSigned }) => {
     const isInvoice = quote.type === 'invoice';
     const isPaid    = quote.status === 'paid';
     const isAmend   = quote.type === 'amendment';
+    if (quote.type === 'credit_note') return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Avoir{isPaid ? ' remboursé' : ''}</span>;
     if (isPaid)     return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Facture acquittée</span>;
     if (isInvoice)  return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Facture</span>;
     if (isAmend)    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Avenant</span>;
@@ -536,12 +537,14 @@ const ClientPortal = () => {
                                     {sortedQuotes.map((quote) => {
                                         const isSigned  = quote.status === 'accepted' || signedQuoteIds.has(quote.id);
                                         const isInvoice = quote.type === 'invoice';
+                                        const isCreditNote = quote.type === 'credit_note';
                                         const isPaid    = quote.status === 'paid';
-                                        const canSign   = !isInvoice && !isPaid && !isSigned && quote.status !== 'rejected' && quote.status !== 'cancelled';
+                                        // Un avoir ne se signe pas : c'est un document émis, pas une proposition.
+                                        const canSign   = !isInvoice && !isCreditNote && !isPaid && !isSigned && quote.status !== 'rejected' && quote.status !== 'cancelled';
                                         const viewKey   = `q-${quote.id}`;
                                         const signedAt  = signedDates[quote.id] || quote.signed_at;
-                                        const docLabel  = quote.title || (isInvoice ? 'Facture' : 'Devis');
-                                        const docRef    = isInvoice && quote.invoice_number
+                                        const docLabel  = quote.title || (isCreditNote ? 'Avoir' : (isInvoice ? 'Facture' : 'Devis'));
+                                        const docRef    = (isInvoice || isCreditNote) && quote.invoice_number
                                             ? quote.invoice_number
                                             : (quote.quote_number ? `N°${quote.quote_number}` : `#${quote.id}`);
 

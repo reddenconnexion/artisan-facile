@@ -178,7 +178,8 @@ export const generateFacturXXML = (devis, client, userProfile) => {
     ? formatDate(devis.paid_at)
     : formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
 
-  const typeCode = '380'; // 380 = Commercial Invoice
+  // 380 = Commercial Invoice ; 381 = Credit Note (avoir)
+  const typeCode = devis.type === 'credit_note' ? '381' : '380';
   const currency = 'EUR';
 
   const includeTva = devis.include_tva !== false;

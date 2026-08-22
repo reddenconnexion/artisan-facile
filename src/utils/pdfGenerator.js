@@ -87,7 +87,8 @@ const buildRoundedLogoDataUrl = async (url, sizePx = 256, radiusRatio = 0.18) =>
 // sans dupliquer la logique de génération.
 const PDF_I18N = {
     fr: {
-        facture: 'FACTURE', devis: 'DEVIS', avenant: 'AVENANT',
+        facture: 'FACTURE', devis: 'DEVIS', avenant: 'AVENANT', avoir: 'AVOIR',
+        creditNoteRef: (ref, date) => `Sur facture ${ref}${date ? ` du ${date}` : ''}`,
         dateInvoice: 'Date de facturation', dateQuote: "Date d'émission",
         yourCompany: 'Votre Entreprise',
         phone: 'Tél', email: 'Email', web: 'Web', siret: 'SIRET',
@@ -177,7 +178,8 @@ const PDF_I18N = {
         dateLocale: 'fr-FR',
     },
     en: {
-        facture: 'INVOICE', devis: 'QUOTE', avenant: 'AMENDMENT',
+        facture: 'INVOICE', devis: 'QUOTE', avenant: 'AMENDMENT', avoir: 'CREDIT NOTE',
+        creditNoteRef: (ref, date) => `For invoice ${ref}${date ? ` dated ${date}` : ''}`,
         dateInvoice: 'Invoice date', dateQuote: 'Issue date',
         yourCompany: 'Your Company',
         phone: 'Tel', email: 'Email', web: 'Web', siret: 'SIRET',
@@ -301,7 +303,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         return t.replace(/\s+$/, '') + '…';
     };
 
-    const typeDocument = isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis);
+    // Avoir : détecté sur le document lui-même (les appelants passent souvent
+    // isInvoice = type === 'invoice', donc false pour un avoir).
+    const isCreditNote = devis.type === 'credit_note';
+    const typeDocument = isCreditNote ? L.avoir : (isInvoice ? L.facture : (devis.type === 'amendment' ? L.avenant : L.devis));
     const dateLabel = isInvoice ? L.dateInvoice : L.dateQuote;
     const isAmendment = devis.type === 'amendment';
     // Copie interne : le même document rendu pour l'artisan seul (typiquement un
@@ -344,7 +349,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const n = parseInt(m[1], 16);
         return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
     };
-    const accent = hexToRgb(userProfile.brand_color) || (isInvoice ? [46, 125, 50] : [37, 99, 235]);
+    const accent = hexToRgb(userProfile.brand_color) || (devis.type === 'credit_note' ? [185, 28, 28] : (isInvoice ? [46, 125, 50] : [37, 99, 235]));
     const accentTint = accent.map(c => Math.round(c * 0.10 + 255 * 0.90));
     const ink = [17, 24, 39];         // texte principal
     const subtle = [107, 114, 128];   // texte secondaire
@@ -435,10 +440,21 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Facture : uniquement le numéro légal (FAC-AAAA-NNNN, attribué à l'émission).
     // Tant qu'il n'est pas attribué (brouillon), le document est marqué PROVISOIRE
     // plutôt que d'afficher la référence interne comme un faux numéro de facture.
-    const docNumber = isInvoice
+    const docNumber = (isInvoice || isCreditNote)
         ? (devis.invoice_number || 'PROVISOIRE')
         : (devis.quote_number || devis.id || 'PROVISOIRE');
     doc.text(`N° ${docNumber}`, docRight, docY, { align: 'right' });
+    // Avoir : référence obligatoire à la facture rectifiée, juste sous le numéro.
+    if (isCreditNote && devis.amendment_details?.credit_note?.parent_invoice_number) {
+        const cn = devis.amendment_details.credit_note;
+        docY += 4.8;
+        doc.setFontSize(8.5);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(...subtle);
+        doc.text(L.creditNoteRef(cn.parent_invoice_number, cn.parent_invoice_date ? fmtDate(cn.parent_invoice_date) : ''), docRight, docY, { align: 'right' });
+        doc.setFontSize(9);
+        doc.setTextColor(...ink);
+    }
     docY += 4.8;
     doc.setFontSize(8.5);
     doc.setFont(undefined, 'normal');
@@ -1342,9 +1358,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         currentY += approvalH;
     }
 
-    // Informations de paiement (IBAN + Wero)
-    const hasIban = userProfile.iban && userProfile.iban.trim().length > 0;
-    const weroNumber = (userProfile.wero_phone && userProfile.wero_phone.trim().length > 0) ? userProfile.wero_phone : null;
+    // Informations de paiement (IBAN + Wero) — pas sur un avoir : c'est
+    // l'artisan qui doit (remboursement ou imputation), pas le client.
+    const hasIban = !isCreditNote && userProfile.iban && userProfile.iban.trim().length > 0;
+    const weroNumber = (!isCreditNote && userProfile.wero_phone && userProfile.wero_phone.trim().length > 0) ? userProfile.wero_phone : null;
 
     // Determine content start Y (after Notes/Approval block)
     let elementY = currentY + 6;
@@ -1639,9 +1656,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // ---------------------------------------------------------
 
     const suffix = isInternalCopy ? '_detail_interne' : '';
-    const fileName = isInvoice
-        ? `facture_${devis.invoice_number || devis.quote_number || devis.id}${suffix}.pdf`
-        : `devis_${devis.quote_number || devis.id || 'brouillon'}${suffix}.pdf`;
+    const fileName = isCreditNote
+        ? `avoir_${devis.invoice_number || devis.id}${suffix}.pdf`
+        : isInvoice
+            ? `facture_${devis.invoice_number || devis.quote_number || devis.id}${suffix}.pdf`
+            : `devis_${devis.quote_number || devis.id || 'brouillon'}${suffix}.pdf`;
 
     if (returnType === 'blob') {
         return new Blob([finalPdfBytes], { type: 'application/pdf' });
