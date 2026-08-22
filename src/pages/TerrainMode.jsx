@@ -117,12 +117,15 @@ const TerrainMode = () => {
             try {
                 const ext = file.name.split('.').pop() || 'jpg';
                 const path = `terrain/${user.id}/${Date.now()}.${ext}`;
+                // Bucket `project-photos` comme partout ailleurs : le bucket
+                // `intervention-photos` n'existe pas en production, chaque
+                // photo du mode dépannage partait en erreur d'upload.
                 const { error } = await supabase.storage
-                    .from('intervention-photos')
+                    .from('project-photos')
                     .upload(path, file, { upsert: true });
                 if (error) throw error;
                 const { data: { publicUrl } } = supabase.storage
-                    .from('intervention-photos')
+                    .from('project-photos')
                     .getPublicUrl(path);
                 setPhotos(prev => prev.map(p =>
                     p.tempId === tempId ? { ...p, url: publicUrl, uploading: false } : p

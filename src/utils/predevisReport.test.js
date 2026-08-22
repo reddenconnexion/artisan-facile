@@ -146,6 +146,21 @@ describe('buildPredevisReport', () => {
         expect(text).toContain('2 notes vocales enregistrées, non transcrites');
     });
 
+    it('intègre les notes texte tapées pendant la visite', () => {
+        const text = buildPredevisReport({
+            survey: fullSurvey(),
+            template: ELEC,
+            meta: { ...meta, textNotes: 'Tableau vétuste à remplacer, 8 circuits.' },
+        });
+        expect(text).toContain('NOTES TEXTE');
+        expect(text).toContain('Tableau vétuste à remplacer, 8 circuits.');
+    });
+
+    it('omet la section notes texte quand rien n\'a été tapé', () => {
+        const text = buildPredevisReport({ survey: fullSurvey(), template: ELEC, meta });
+        expect(text).not.toContain('NOTES TEXTE');
+    });
+
     it('reste lisible sur une trame vide et sans méta', () => {
         const text = buildPredevisReport({ survey: createEmptySurvey(), template: ELEC });
         expect(text).toContain('# COMPTE RENDU DE VISITE PRÉDEVIS');

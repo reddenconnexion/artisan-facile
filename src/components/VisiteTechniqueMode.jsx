@@ -620,6 +620,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const reportMeta = {
         clientName,
         address,
+        // Les notes tapées sur place partent aussi dans le compte rendu :
+        // elles n'alimentaient que le chiffrage direct, jamais l'archive.
+        textNotes,
         date: showReport,
         companyName: profile?.company_name,
         artisanName: profile?.full_name,

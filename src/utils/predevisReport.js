@@ -147,6 +147,13 @@ export const buildPredevisReport = ({ survey, template, meta = {}, withAiInstruc
         ].join('\n'));
     }
 
+    // ── Notes texte tapées pendant la visite ───────────────────────────────
+    const typedNotes = String(meta.textNotes ?? '').trim();
+    if (typedNotes) {
+        index += 1;
+        blocks.push([numberedTitle(index, 'NOTES TEXTE'), typedNotes].join('\n'));
+    }
+
     // ── Photos ─────────────────────────────────────────────────────────────
     const photoNotes = (meta.photoNotes || []).map((t) => String(t ?? '').trim()).filter(Boolean);
     if (meta.photoCount > 0 || photoNotes.length) {
