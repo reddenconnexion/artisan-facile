@@ -127,7 +127,9 @@ export default defineConfig({
       'X-Frame-Options': 'SAMEORIGIN',
       'X-XSS-Protection': '1; mode=block',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+      // camera/microphone=(self) : la visite technique enregistre le client
+      // et photographie depuis la page — aligné sur vercel.json (production).
+      'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=(self)',
       'Content-Security-Policy': [
         "default-src 'self'",
         // Scripts : self + wasm pour pdf.js
