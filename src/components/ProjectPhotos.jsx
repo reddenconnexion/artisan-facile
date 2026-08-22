@@ -4,7 +4,7 @@ import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRigh
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
-import { compressImageFile } from '../utils/mediaConverters';
+import { compressImageFile, IMAGE_COMPRESSION } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
@@ -546,10 +546,11 @@ const ProjectPhotos = ({ clientId }) => {
 
             // Redimensionne/compresse les très grosses images (captures DJI, images
             // de vidéo HD…) pour les faire passer sous la limite avant validation.
+            // Préréglage galerie client : compression légère, pour pouvoir zoomer
+            // et lire les étiquettes de tableaux ou les références du matériel.
             const prepared = await Promise.all(
                 list.map(f => compressImageFile(f, {
-                    maxDim: 1600,
-                    quality: 0.8,
+                    ...IMAGE_COMPRESSION.clientGallery,
                     maxSizeBytes: UPLOAD_PRESETS.image.maxSizeBytes,
                 }))
             );

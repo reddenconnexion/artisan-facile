@@ -10,6 +10,17 @@ export async function blobToBase64(blob) {
     });
 }
 
+// Préréglages de compression selon la destination de la photo.
+// - clientGallery : galerie du compte client — on garde assez de définition
+//   pour pouvoir zoomer et lire une étiquette de tableau ou une référence de
+//   matériel sur la photo enregistrée.
+// - standard : autres photos (rapports d'intervention, jalons, visites
+//   techniques) où le poids de stockage prime sur la lisibilité fine.
+export const IMAGE_COMPRESSION = {
+    clientGallery: { maxDim: 2560, quality: 0.9 },
+    standard: { maxDim: 1600, quality: 0.75 },
+};
+
 // Redimensionne (max `maxDim` px) et ré-encode une image en JPEG, en renvoyant
 // un nouveau File. Sert à faire passer les très grosses photos (ex. captures
 // DJI Mimo / images de vidéo HD) sous la limite d'upload et à uniformiser le

@@ -6,7 +6,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
-import { blobToBase64, imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
+import { blobToBase64, imageFileToBase64, compressImageFile, IMAGE_COMPRESSION } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
 import { buildPredevisReport } from '../utils/predevisReport';
@@ -311,7 +311,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         setPhotos(prev => prev.map(p => (ids.has(p.id) ? { ...p, uploading: true, failed: false } : p)));
         try {
             const files = await Promise.all(
-                todo.map(p => compressImageFile(p.file, { maxDim: 1600, quality: 0.8 }))
+                todo.map(p => compressImageFile(p.file, IMAGE_COMPRESSION.standard))
             );
             await assertWithinQuota(files.reduce((sum, f) => sum + (f.size || 0), 0));
             for (let i = 0; i < files.length; i += 1) {

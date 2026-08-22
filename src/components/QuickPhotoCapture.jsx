@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
-import { compressImageFile } from '../utils/mediaConverters';
+import { compressImageFile, IMAGE_COMPRESSION } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 
 /**
@@ -64,9 +64,11 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
 
         setUploading(true);
         try {
-            // Compression (max 1600 px, JPEG q0.8) avant le contrôle de quota.
+            // Compression légère (préréglage galerie client) avant le contrôle de
+            // quota : ces photos vont dans le compte client, où il faut pouvoir
+            // zoomer pour lire une étiquette de tableau ou une référence.
             const compressed = await Promise.all(
-                valid.map(f => compressImageFile(f, { maxDim: 1600, quality: 0.8 })),
+                valid.map(f => compressImageFile(f, IMAGE_COMPRESSION.clientGallery)),
             );
             const addBytes = compressed.reduce((sum, f) => sum + (f.size || 0), 0);
             try {

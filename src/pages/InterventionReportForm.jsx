@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Input, Field } from '../components/ui';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
-import { compressImageFile } from '../utils/mediaConverters';
+import { compressImageFile, IMAGE_COMPRESSION } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { clientGreetingName } from '../utils/clientGreeting';
 import { toast } from 'sonner';
@@ -313,10 +313,10 @@ const InterventionReportForm = () => {
 
         setUploadingPhotos(true);
         try {
-            // Compresse d'abord (max 1600 px, JPEG q0.8) pour ne pas stocker de
+            // Compresse d'abord (préréglage standard) pour ne pas stocker de
             // photos brutes de plusieurs Mo, puis vérifie le quota de stockage.
             const compressedFiles = await Promise.all(
-                valid.map(f => compressImageFile(f, { maxDim: 1600, quality: 0.8 })),
+                valid.map(f => compressImageFile(f, IMAGE_COMPRESSION.standard)),
             );
             const addBytes = compressedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
             try {
@@ -414,8 +414,8 @@ const InterventionReportForm = () => {
 
         try {
             // Upload de la photo (même bucket que les autres photos d'intervention),
-            // compressée au préalable (max 1600 px, JPEG q0.8).
-            const compressed = await compressImageFile(file, { maxDim: 1600, quality: 0.8 });
+            // compressée au préalable (préréglage standard).
+            const compressed = await compressImageFile(file, IMAGE_COMPRESSION.standard);
             await assertWithinQuota(compressed.size || 0);
             const path = `interventions/${user.id}/milestones/${crypto.randomUUID()}.jpg`;
             const { error: uploadError } = await supabase.storage
