@@ -366,7 +366,9 @@ const PublicQuote = () => {
 
     const { artisan } = quote;
     const isSigned = quote.status === 'accepted';
-    const isInvoiceView = quote.type === 'invoice' || (quote.title && quote.title.toLowerCase().includes('facture'));
+    // credit_note inclus : un avoir se consulte comme une facture (pas de
+    // signature, pas d'options), avec son propre libellé.
+    const isInvoiceView = quote.type === 'invoice' || quote.type === 'credit_note' || (quote.title && quote.title.toLowerCase().includes('facture'));
 
     const optionalItems = (quote.items || []).filter(i => i.is_optional && i.type !== 'section');
     const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView;
@@ -430,7 +432,7 @@ const PublicQuote = () => {
                                 {artisan.company_name || artisan.full_name}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
-                                {isInvoiceView ? T.invoice : isSigned ? T.acceptedQuote : T.quote} N° {(isInvoiceView && quote.invoice_number) || quote.quote_number || quote.id}
+                                {quote.type === 'credit_note' ? 'Avoir' : isInvoiceView ? T.invoice : isSigned ? T.acceptedQuote : T.quote} N° {(isInvoiceView && quote.invoice_number) || quote.quote_number || quote.id}
                             </div>
                         </div>
                     </div>

@@ -879,7 +879,9 @@ const DevisList = () => {
                                         <span className={`text-xs font-semibold px-2 py-1 rounded inline-block max-w-full truncate ${devis.type === 'invoice' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : (devis.type === 'amendment' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30')}`}>
                                             {devis.type === 'invoice'
                                                 ? (devis.invoice_number || `Facture #${devis.quote_number || devis.id}`)
-                                                : `${devis.type === 'amendment' ? 'Avenant' : 'Devis'} #${devis.quote_number || devis.id}`}
+                                                : devis.type === 'credit_note'
+                                                    ? (devis.invoice_number || `Avoir #${devis.quote_number || devis.id}`)
+                                                    : `${devis.type === 'amendment' ? 'Avenant' : 'Devis'} #${devis.quote_number || devis.id}`}
                                         </span>
                                         <h3 className="font-bold text-gray-900 dark:text-white mt-2 truncate">{devis.client_name || 'Client inconnu'}</h3>
                                         {devis.title && (

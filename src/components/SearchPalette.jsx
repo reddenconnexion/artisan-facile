@@ -156,10 +156,11 @@ const SearchPalette = ({ isOpen, onClose }) => {
             .slice(0, PER_CATEGORY)
             .map(qu => {
                 const isInvoice = qu.type === 'invoice';
-                const ref       = isInvoice && qu.invoice_number
+                const isCreditNote = qu.type === 'credit_note';
+                const ref       = (isInvoice || isCreditNote) && qu.invoice_number
                     ? qu.invoice_number
                     : (qu.quote_number ? `N°${qu.quote_number}` : `#${qu.id}`);
-                const label     = qu.title || (isInvoice ? 'Facture' : 'Devis');
+                const label     = qu.title || (isCreditNote ? 'Avoir' : (isInvoice ? 'Facture' : 'Devis'));
                 const dateStr   = qu.date ? new Date(qu.date).toLocaleDateString('fr-FR') : '';
                 return {
                     key:        `quote-${qu.id}`,

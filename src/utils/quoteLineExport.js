@@ -13,11 +13,15 @@ export const STATUS_LABELS = {
 };
 
 const docTypeLabel = (devis) =>
-    devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis');
+    devis.type === 'invoice' ? 'Facture'
+        : (devis.type === 'credit_note' ? 'Avoir'
+            : (devis.type === 'amendment' ? 'Avenant' : 'Devis'));
 
 const docReference = (devis) => {
-    if (devis.type === 'invoice' && devis.invoice_number) return devis.invoice_number;
-    const prefix = devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV');
+    if (['invoice', 'credit_note'].includes(devis.type) && devis.invoice_number) return devis.invoice_number;
+    const prefix = devis.type === 'invoice' ? 'FAC'
+        : (devis.type === 'credit_note' ? 'AVR'
+            : (devis.type === 'amendment' ? 'AVT' : 'DEV'));
     return `${prefix} #${devis.quote_number || devis.id}`;
 };
 

@@ -19,6 +19,7 @@ const PODIUM_STYLES = [
 const docLabel = (type) => {
     const t = (type || 'quote').toLowerCase();
     if (t === 'invoice') return 'FAC';
+    if (t === 'credit_note') return 'AVR';
     if (t === 'amendment') return 'AVT';
     return 'DEV';
 };
@@ -56,7 +57,7 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
                 id: q.id,
                 type,
                 quoteNumber: q.quote_number,
-                invoiceNumber: type === 'invoice' ? (q.invoice_number || null) : null,
+                invoiceNumber: ['invoice', 'credit_note'].includes(type) ? (q.invoice_number || null) : null,
                 title: q.title,
                 status: q.status,
                 date: d,

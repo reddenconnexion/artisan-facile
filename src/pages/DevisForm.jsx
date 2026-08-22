@@ -23,6 +23,7 @@ import MarginGauge from '../components/MarginGauge';
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
 import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
 import { parseQuoteCsv } from '../utils/quoteCsvImport';
+import { buildCreditNotePayload } from '../utils/creditNote';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -510,6 +511,13 @@ const DevisForm = () => {
 
     const [showSituationModal, setShowSituationModal] = useState(false);
     const [diffAddress, setDiffAddress] = useState(false);
+
+    // Avoir (facture rectificative) : document émis à montants négatifs,
+    // immuable comme une facture — la plupart des actions (conversion,
+    // acomptes, signature…) n'ont pas de sens pour lui.
+    const isCreditNote = formData.type === 'credit_note';
+    // Modal de création d'avoir depuis une facture émise
+    const [creditNoteModal, setCreditNoteModal] = useState(null); // null | { mode, amountTTC, reason, saving, existing }
 
     // Derived: client currently selected in the form (used in JSX and handlers)
     const selectedClient = clients.find(c => formData.client_id && c.id.toString() === formData.client_id.toString()) || null;
@@ -1454,9 +1462,10 @@ const DevisForm = () => {
                 fr: {
                     subjectPrefix: isInvoice
                         ? `${situationInfo ? 'Facture de situation' : 'Facture'}${isPaidInvoice ? ' acquittée' : ''}`
-                        : 'Devis',
+                        : (isCreditNote ? 'Avoir' : 'Devis'),
                     defaultProject: 'Votre projet',
                     defaultWorks: 'Travaux',
+                    introCreditNote: (name, title) => `Bonjour ${name},\n\nJe vous transmets un avoir${formData.amendment_details?.credit_note?.parent_invoice_number ? ` sur la facture ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} concernant le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
                     introInvoice: (name, title) => `Bonjour ${name},\n\nJe vous transmets votre facture pour le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
                     introInvoicePaid: (name, title) => `Bonjour ${name},\n\nVotre règlement${paidDate ? ` du ${paidDate}` : ''} a bien été reçu — je vous en remercie.\nJe vous transmets votre facture acquittée pour le projet "${title}", à conserver comme justificatif de paiement.\nVous trouverez ci-dessous le lien pour y accéder.`,
                     introSituation: (name, title) => `Bonjour ${name},\n\n${isPaidInvoice
@@ -1479,9 +1488,10 @@ const DevisForm = () => {
                 en: {
                     subjectPrefix: isInvoice
                         ? `${situationInfo ? 'Progress invoice' : 'Invoice'}${isPaidInvoice ? ' (paid)' : ''}`
-                        : 'Quote',
+                        : (isCreditNote ? 'Credit note' : 'Quote'),
                     defaultProject: 'Your project',
                     defaultWorks: 'Works',
+                    introCreditNote: (name, title) => `Hello ${name},\n\nPlease find attached a credit note${formData.amendment_details?.credit_note?.parent_invoice_number ? ` for invoice ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} regarding the project "${title}".\nYou will find the link to access it below.`,
                     introInvoice: (name, title) => `Hello ${name},\n\nPlease find attached your invoice for the project "${title}".\nYou will find the link to access it below.`,
                     introInvoicePaid: (name, title) => `Hello ${name},\n\nYour payment${paidDate ? ` of ${paidDate}` : ''} has been received — thank you.\nPlease find your paid invoice for the project "${title}", to keep as proof of payment.\nYou will find the link to access it below.`,
                     introSituation: (name, title) => `Hello ${name},\n\n${isPaidInvoice
@@ -1514,7 +1524,7 @@ const DevisForm = () => {
             // `formData.id` n'existe pas (l'id vient de l'URL) : depuis toujours
             // l'objet du mail omettait le numéro du document. On utilise l'id
             // de la route — l'envoi exige un document déjà enregistré (isEditing).
-            const docNo = formData.type === 'invoice' && formData.invoice_number
+            const docNo = ['invoice', 'credit_note'].includes(formData.type) && formData.invoice_number
                 ? formData.invoice_number
                 : (formData.quote_number || id);
             const subject = `${E.subjectPrefix}${id ? ` N°${docNo}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
@@ -1529,9 +1539,11 @@ const DevisForm = () => {
                     : (isPaidInvoice
                         ? E.introInvoicePaid(greetingName, projectTitle)
                         : E.introInvoice(greetingName, projectTitle)))
-                : E.introQuote(greetingName, projectTitle);
+                : (isCreditNote && E.introCreditNote
+                    ? E.introCreditNote(greetingName, projectTitle)
+                    : E.introQuote(greetingName, projectTitle));
 
-            const actionText = isInvoice ? E.actionInvoice : E.actionQuote;
+            const actionText = (isInvoice || isCreditNote) ? E.actionInvoice : E.actionQuote;
             // Pour un devis, on ajoute la mention « sans impression » sous le lien
             // afin que même les clients en texte brut comprennent que la signature
             // se fait en ligne, sans imprimer. En HTML, le lien devient un bouton.
@@ -1614,9 +1626,9 @@ const DevisForm = () => {
                 rawSubject: subject,
                 rawBody: body,
                 lang,
-                // Signature en ligne : uniquement pour les devis (pas les factures).
+                // Signature en ligne : uniquement pour les devis (ni factures ni avoirs).
                 // Sert à transformer le lien en bouton dans la version HTML du mail.
-                signUrl: isInvoice ? null : publicUrl,
+                signUrl: (isInvoice || isCreditNote) ? null : publicUrl,
                 signLabel: E.signButtonLabel,
             });
 
@@ -2042,7 +2054,7 @@ const DevisForm = () => {
             // statut brouillon) : on le remonte dans le formulaire et on prévient.
             if (savedRow?.invoice_number && savedRow.invoice_number !== formData.invoice_number) {
                 setFormData(prev => ({ ...prev, invoice_number: savedRow.invoice_number }));
-                toast.success(`Facture émise sous le numéro ${savedRow.invoice_number}`);
+                toast.success(`${formData.type === 'credit_note' ? 'Avoir émis' : 'Facture émise'} sous le numéro ${savedRow.invoice_number}`);
             }
 
             // Auto-create Project (Dossier Chantier) if Signed/Accepted
@@ -2980,6 +2992,66 @@ Conditions de règlement : Paiement à réception de facture.`
     };
     const facturerHelpRef = useModalA11y(showFacturerHelp, closeFacturerHelp);
 
+    // Ouvre la modal d'avoir en chargeant les avoirs déjà émis sur cette
+    // facture (plusieurs avoirs partiels sont légitimes ; un second avoir
+    // total est presque toujours une erreur — on prévient sans bloquer).
+    const openCreditNoteModal = async () => {
+        setShowActionsMenu(false);
+        let existing = [];
+        try {
+            const { data } = await supabase
+                .from('quotes')
+                .select('id, invoice_number, total_ttc, date')
+                .eq('parent_id', id)
+                .eq('type', 'credit_note');
+            existing = data || [];
+        } catch (e) {
+            console.error('Error loading existing credit notes:', e);
+        }
+        setCreditNoteModal({ mode: 'total', amountTTC: '', reason: '', saving: false, existing });
+    };
+
+    const handleCreateCreditNote = async () => {
+        if (!creditNoteModal || creditNoteModal.saving) return;
+        try {
+            const payload = buildCreditNotePayload(
+                { ...formData, id: parseInt(id, 10), total_ttc: total },
+                {
+                    mode: creditNoteModal.mode,
+                    amountTTC: parseFloat(String(creditNoteModal.amountTTC).replace(',', '.')),
+                    reason: creditNoteModal.reason,
+                },
+            );
+
+            setCreditNoteModal(prev => ({ ...prev, saving: true }));
+
+            const { data: created, error } = await supabase
+                .from('quotes')
+                .insert([{
+                    ...payload,
+                    user_id: user.id,
+                    client_id: formData.client_id,
+                    client_name: selectedClient?.name || formData.client_name || 'Client',
+                    intervention_address: formData.intervention_address,
+                    intervention_postal_code: formData.intervention_postal_code,
+                    intervention_city: formData.intervention_city,
+                }])
+                .select('id, invoice_number')
+                .single();
+
+            if (error) throw error;
+
+            toast.success(`Avoir ${created.invoice_number || ''} émis — pensez à l'envoyer au client`.replace('  ', ' '));
+            invalidateQuotes();
+            setCreditNoteModal(null);
+            navigate(`/app/devis/${created.id}`);
+        } catch (error) {
+            console.error('Error creating credit note:', error);
+            toast.error(error.message || "Erreur lors de la création de l'avoir");
+            setCreditNoteModal(prev => (prev ? { ...prev, saving: false } : prev));
+        }
+    };
+
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
             title: 'Convertir en facture',
@@ -3243,8 +3315,8 @@ Conditions de règlement : Paiement à réception de facture.`
         // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
         // pour un document externe dont on ne possède pas le blob à rastériser.
         const showImagePreview = overviewUsesImages && !formData.is_external && overviewPdfUrl;
-        const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'amendment' ? 'AVT' : 'DEV');
-        const docRef = formData.type === 'invoice' && formData.invoice_number
+        const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'credit_note' ? 'AVR' : (formData.type === 'amendment' ? 'AVT' : 'DEV'));
+        const docRef = ['invoice', 'credit_note'].includes(formData.type) && formData.invoice_number
             ? formData.invoice_number
             : `${refPrefix} #${formData.quote_number || id}`;
         const statusMeta = {
@@ -3646,6 +3718,11 @@ Conditions de règlement : Paiement à réception de facture.`
                         <AlertTriangle className="w-3.5 h-3.5" />
                         Avenant
                     </div>
+                ) : isCreditNote ? (
+                    <div className="flex items-center gap-1.5 mx-2 sm:mx-4 px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-sm font-semibold">
+                        <FileText className="w-3.5 h-3.5" />
+                        Avoir{formData.invoice_number ? ` ${formData.invoice_number}` : ''}
+                    </div>
                 ) : (
                     <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mx-2 sm:mx-4">
                         <button
@@ -3800,7 +3877,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <Send className="w-4 h-4 mr-3 text-blue-600" />
-                                    {formData.type === 'invoice' ? 'Envoyer la facture' : 'Envoyer le devis'}
+                                    {formData.type === 'invoice' ? 'Envoyer la facture' : (isCreditNote ? "Envoyer l'avoir" : 'Envoyer le devis')}
                                 </button>
 
                                 {/* Envoi en anglais (devis/facture + mail traduits) */}
@@ -3836,7 +3913,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 )}
 
-                                {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && (
+                                {id && !signature && formData.status !== 'accepted' && formData.type !== 'invoice' && !isCreditNote && (
                                     <button
                                         onClick={() => { setShowSignatureModal(true); setShowActionsMenu(false); }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -3928,6 +4005,20 @@ Conditions de règlement : Paiement à réception de facture.`
                                         >
                                             <Check className="w-4 h-4 mr-3 text-green-600" />
                                             Générer Facture de Clôture
+                                        </button>
+                                    </>
+                                )}
+
+                                {id && id !== 'new' && formData.type === 'invoice' && formData.invoice_number && (
+                                    <>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
+                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rectification</p>
+                                        <button
+                                            onClick={openCreditNoteModal}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        >
+                                            <FileText className="w-4 h-4 mr-3 text-red-500" />
+                                            Créer un avoir
                                         </button>
                                     </>
                                 )}
@@ -4228,7 +4319,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 disabled={isLocked}
                             />
                         </Field>
-                        {formData.type !== 'invoice' && (
+                        {formData.type !== 'invoice' && !isCreditNote && (
                             <Field label="Validité jusqu'au">
                                 <Input
                                     type="date"
@@ -4244,9 +4335,11 @@ Conditions de règlement : Paiement à réception de facture.`
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Statut</label>
                         {/* Pipeline visuel cliquable */}
                         {(() => {
-                            const pipeline = formData.type === 'invoice'
-                                ? [{ key: 'accepted', label: 'Émise' }, { key: 'billed', label: 'Facturée' }, { key: 'paid', label: 'Payée' }]
-                                : [{ key: 'draft', label: 'Brouillon' }, { key: 'sent', label: 'Envoyé' }, { key: 'accepted', label: 'Accepté' }, { key: 'billed', label: 'Facturé' }, { key: 'paid', label: 'Payé' }];
+                            const pipeline = isCreditNote
+                                ? [{ key: 'billed', label: 'Émis' }, { key: 'paid', label: 'Remboursé / imputé' }]
+                                : formData.type === 'invoice'
+                                    ? [{ key: 'accepted', label: 'Émise' }, { key: 'billed', label: 'Facturée' }, { key: 'paid', label: 'Payée' }]
+                                    : [{ key: 'draft', label: 'Brouillon' }, { key: 'sent', label: 'Envoyé' }, { key: 'accepted', label: 'Accepté' }, { key: 'billed', label: 'Facturé' }, { key: 'paid', label: 'Payé' }];
                             const currentIdx = pipeline.findIndex(s => s.key === formData.status);
                             return (
                                 <div className="flex items-center mb-2">
@@ -5606,6 +5699,103 @@ Conditions de règlement : Paiement à réception de facture.`
             }
             {/* Fenêtre explicative du bouton « Facturer » — affichée au premier
                 clic seulement, puis mémorisée (dismissedHelps) par navigateur. */}
+            {creditNoteModal && (
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={() => !creditNoteModal.saving && setCreditNoteModal(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="credit-note-title"
+                >
+                    <div
+                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h3 id="credit-note-title" className="font-bold text-gray-900 dark:text-white text-base mb-1">
+                            Créer un avoir sur la facture {formData.invoice_number}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+                            Une facture émise ne peut être ni modifiée ni supprimée : l'avoir est le
+                            document légal qui l'annule ou la corrige. Il sera émis immédiatement,
+                            avec un numéro AV-… définitif.
+                        </p>
+
+                        {creditNoteModal.existing.length > 0 && (
+                            <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                                Déjà émis sur cette facture :{' '}
+                                {creditNoteModal.existing.map(cn => `${cn.invoice_number || `#${cn.id}`} (${(Number(cn.total_ttc) || 0).toFixed(2)} €)`).join(', ')}
+                            </div>
+                        )}
+
+                        <div className="space-y-3 mb-5">
+                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'total' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                                <input
+                                    type="radio"
+                                    name="credit-note-mode"
+                                    className="mt-0.5"
+                                    checked={creditNoteModal.mode === 'total'}
+                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'total' }))}
+                                />
+                                <span className="text-sm">
+                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir total (annulation)</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-xs">Toutes les lignes de la facture reprises en négatif ({total.toFixed(2)} €).</span>
+                                </span>
+                            </label>
+                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'partial' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                                <input
+                                    type="radio"
+                                    name="credit-note-mode"
+                                    className="mt-0.5"
+                                    checked={creditNoteModal.mode === 'partial'}
+                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'partial' }))}
+                                />
+                                <span className="text-sm flex-1">
+                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir partiel</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-xs block mb-2">Une remise ou correction d'un montant donné.</span>
+                                    {creditNoteModal.mode === 'partial' && (
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder={`Montant TTC (max ${total.toFixed(2)} €)`}
+                                            value={creditNoteModal.amountTTC}
+                                            onChange={e => setCreditNoteModal(p => ({ ...p, amountTTC: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
+                                        />
+                                    )}
+                                </span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Motif (recommandé) : erreur de facturation, geste commercial…"
+                                value={creditNoteModal.reason}
+                                onChange={e => setCreditNoteModal(p => ({ ...p, reason: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setCreditNoteModal(null)}
+                                disabled={creditNoteModal.saving}
+                                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCreateCreditNote}
+                                disabled={creditNoteModal.saving || (creditNoteModal.mode === 'partial' && !(parseFloat(String(creditNoteModal.amountTTC).replace(',', '.')) > 0))}
+                                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {creditNoteModal.saving ? 'Émission…' : "Émettre l'avoir"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showFacturerHelp && (
                 <div
                     className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -5628,8 +5818,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                     À quoi sert « Facturer » ?
                                 </h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
-                                    Ce bouton transforme le devis en <strong>facture finale</strong> (même
-                                    numéro, mêmes lignes) et télécharge le PDF prêt à envoyer au client.
+                                    Ce bouton transforme le devis en <strong>facture finale</strong> (mêmes
+                                    lignes, numéro légal FAC-… attribué à l'émission) et télécharge le PDF
+                                    prêt à envoyer au client.
                                 </p>
                             </div>
                             <button

@@ -213,7 +213,7 @@ const Accounting = () => {
       detail.push({
         id: inv.id,
         parentId: inv.parent_id ?? null,
-        quoteNumber: inv.type === 'invoice' && inv.invoice_number ? inv.invoice_number : inv.quote_number,
+        quoteNumber: ['invoice', 'credit_note'].includes(inv.type) && inv.invoice_number ? inv.invoice_number : inv.quote_number,
         docType: inv.type || 'quote',
         client: inv.client_name || 'Client inconnu',
         title: inv.title || '',
