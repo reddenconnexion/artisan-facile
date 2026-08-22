@@ -12,6 +12,7 @@ import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import { Input, Field } from '../components/ui';
+import { parseClientBlock } from '../utils/addressParser';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -426,6 +427,27 @@ const ClientForm = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // Collage intelligent (champs « Nom » et « Adresse ») : un bloc complet
+    // collé depuis un SMS (« Jean Dupont 13 rue X 33230 Ville », sur une ou
+    // plusieurs lignes) est réparti entre nom, rue, code postal et ville.
+    // Sans code postal détecté, le collage reste normal. Le nom déjà saisi
+    // n'est jamais écrasé.
+    const handleAddressPaste = (e) => {
+        const parsed = parseClientBlock(e.clipboardData?.getData('text'));
+        if (!parsed) return;
+        e.preventDefault();
+        setFormData(prev => ({
+            ...prev,
+            name: prev.name || parsed.name || '',
+            address: parsed.address || prev.address,
+            postal_code: parsed.postal_code,
+            city: parsed.city || prev.city,
+        }));
+        toast.success(parsed.name
+            ? 'Nom et adresse répartis automatiquement'
+            : 'Adresse répartie : code postal et ville remplis automatiquement');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -659,6 +681,7 @@ const ClientForm = () => {
                             required
                             value={formData.name}
                             onChange={handleChange}
+                            onPaste={handleAddressPaste}
                         />
                     </div>
 
@@ -790,9 +813,10 @@ const ClientForm = () => {
                             id="address"
                             name="address"
                             type="text"
-                            placeholder="N° et nom de rue"
+                            placeholder="N° et rue — ou collez l'adresse complète du SMS"
                             value={formData.address}
                             onChange={handleChange}
+                            onPaste={handleAddressPaste}
                         />
                         <div className="grid grid-cols-3 gap-2 mt-2">
                             <div>
