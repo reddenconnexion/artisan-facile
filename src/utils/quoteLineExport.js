@@ -16,6 +16,7 @@ const docTypeLabel = (devis) =>
     devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis');
 
 const docReference = (devis) => {
+    if (devis.type === 'invoice' && devis.invoice_number) return devis.invoice_number;
     const prefix = devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV');
     return `${prefix} #${devis.quote_number || devis.id}`;
 };

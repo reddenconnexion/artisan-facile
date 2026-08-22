@@ -166,8 +166,9 @@ const buildLineItems = (items, includeTva) => {
  * @param {object} userProfile - Profil vendeur
  */
 export const generateFacturXXML = (devis, client, userProfile) => {
-  // --- Identifiant de facture : numéro séquentiel, pas l'UUID ---
-  const invoiceId = escapeXml(devis.quote_number || devis.id);
+  // --- Identifiant de facture : numéro légal (FAC-AAAA-NNNN), attribué à
+  // l'émission ; repli sur la référence interne pour les anciens documents. ---
+  const invoiceId = escapeXml(devis.invoice_number || devis.quote_number || devis.id);
 
   const issueDate = formatDate(devis.date);
   // Date d'échéance : valid_until ou paid_at ou 30j après émission

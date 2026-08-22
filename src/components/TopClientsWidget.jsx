@@ -56,6 +56,7 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
                 id: q.id,
                 type,
                 quoteNumber: q.quote_number,
+                invoiceNumber: type === 'invoice' ? (q.invoice_number || null) : null,
                 title: q.title,
                 status: q.status,
                 date: d,
@@ -121,7 +122,7 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
                                         {client.docs.map((doc) => (
                                             <li key={doc.id} className="flex items-center gap-2 text-xs">
                                                 <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                                                    {docLabel(doc.type)}{doc.quoteNumber ? ` #${doc.quoteNumber}` : ''}
+                                                    {doc.invoiceNumber || `${docLabel(doc.type)}${doc.quoteNumber ? ` #${doc.quoteNumber}` : ''}`}
                                                 </span>
                                                 <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300">
                                                     {doc.title || 'Sans titre'}

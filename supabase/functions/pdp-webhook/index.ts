@@ -479,19 +479,30 @@ Deno.serve(async (req) => {
   }
 
   // Retrouver la facture via transmission_ref
-  const { data: quote, error: quoteError } = await supabaseAdmin
+  // eslint-disable-next-line prefer-const
+  let { data: quote, error: quoteError } = await supabaseAdmin
     .from('quotes')
     .select('id, user_id, quote_number, transmission_status, transmission_service')
     .eq('transmission_ref', pdpRef)
     .maybeSingle();
 
   if (quoteError || !quote) {
-    // Tentative de fallback sur quote_number (certaines PDP renvoient notre numéro)
-    const { data: quoteByNumber } = await supabaseAdmin
+    // Tentative de fallback sur notre numéro (certaines PDP renvoient notre numéro) :
+    // d'abord le numéro légal de facture (invoice_number, transmis depuis la mise en
+    // conformité), puis l'ancienne référence interne numérique (quote_number).
+    let quoteByNumber = (await supabaseAdmin
       .from('quotes')
       .select('id, user_id, quote_number, transmission_status, transmission_service')
-      .eq('quote_number', pdpRef)
-      .maybeSingle();
+      .eq('invoice_number', pdpRef)
+      .maybeSingle()).data;
+
+    if (!quoteByNumber && /^\d+$/.test(pdpRef)) {
+      quoteByNumber = (await supabaseAdmin
+        .from('quotes')
+        .select('id, user_id, quote_number, transmission_status, transmission_service')
+        .eq('quote_number', pdpRef)
+        .maybeSingle()).data;
+    }
 
     if (!quoteByNumber) {
       console.error(`[pdp-webhook] Facture introuvable pour ref="${pdpRef}"`);
@@ -501,7 +512,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    Object.assign(quote ?? {}, quoteByNumber);
+    // (Object.assign sur `quote ?? {}` perdait le résultat quand quote était
+    // null — le fallback ne fonctionnait jamais.)
+    quote = quoteByNumber;
   }
 
   // Éviter les régressions de statut (acknowledged → sent n'a pas de sens)
