@@ -48,6 +48,7 @@ import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
+import { materialDepositAmounts } from '../utils/materialDeposit';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -5371,11 +5372,20 @@ Conditions de règlement : Paiement à réception de facture.`
                         }}
                         disabled={isLocked}
                     />
-                    {/* Auto-calculate Material Deposit Hint — ligne compacte, phrase complète en infobulle */}
-                    {formData.type !== 'invoice' && formData.items.some(i => i.type === 'material') && (() => {
-                        const mItems = formData.items.filter(i => i.type === 'material');
-                        const mHT = mItems.reduce((sum, i) => sum + ((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
-                        const mTTC = formData.include_tva ? mHT * 1.2 : mHT;
+                    {/* Auto-calculate Material Deposit Hint — ligne compacte, phrase complète en infobulle.
+                        Même calcul et mêmes conditions que le PDF (materialDeposit.js) : options
+                        exclues, case « acompte matériel » cochée — sinon le montant annoncé ici
+                        divergerait de la mention réellement imprimée. */}
+                    {formData.type !== 'invoice' && formData.has_material_deposit && (() => {
+                        const deposit = materialDepositAmounts({
+                            items: formData.items,
+                            include_tva: formData.include_tva,
+                            total_ht: subtotal,
+                            total_tva: tva,
+                            total_ttc: total,
+                        });
+                        if (!deposit) return null;
+                        const mTTC = deposit.materialTTC;
                         return (
                             <p
                                 className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1.5 cursor-help"
@@ -5386,9 +5396,12 @@ Conditions de règlement : Paiement à réception de facture.`
                             </p>
                         );
                     })()}
-                    {/* Aperçu acompte en % du total (devis sans acompte matériel actif) */}
+                    {/* Aperçu acompte en % du total (devis sans acompte matériel actif).
+                        Même règle d'exclusivité que le PDF : le bloc % ne s'affiche que si
+                        le tableau d'acompte matériel n'est pas rendu (fournitures FERMES +
+                        case cochée) — les options seules ne comptent pas. */}
                     {formData.type !== 'invoice' && (Number(formData.deposit_percentage) || 0) > 0 &&
-                        !(formData.items.some(i => i.type === 'material') && formData.has_material_deposit) && (() => {
+                        !(formData.has_material_deposit && materialDepositAmounts({ items: formData.items }) != null) && (() => {
                         const pct = Number(formData.deposit_percentage) || 0;
                         const dep = total * pct / 100;
                         const solde = Math.max(total - dep, 0);
