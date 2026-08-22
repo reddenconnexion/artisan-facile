@@ -12,7 +12,7 @@ import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import { Input, Field } from '../components/ui';
-import { parseFrenchAddress } from '../utils/addressParser';
+import { parseClientBlock } from '../utils/addressParser';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -427,20 +427,25 @@ const ClientForm = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Collage intelligent dans le champ « Adresse » : une adresse complète
-    // collée depuis un SMS (« 13 rue X 33230 Ville ») est répartie entre rue,
-    // code postal et ville. Sans code postal détecté, le collage reste normal.
+    // Collage intelligent (champs « Nom » et « Adresse ») : un bloc complet
+    // collé depuis un SMS (« Jean Dupont 13 rue X 33230 Ville », sur une ou
+    // plusieurs lignes) est réparti entre nom, rue, code postal et ville.
+    // Sans code postal détecté, le collage reste normal. Le nom déjà saisi
+    // n'est jamais écrasé.
     const handleAddressPaste = (e) => {
-        const parsed = parseFrenchAddress(e.clipboardData?.getData('text'));
+        const parsed = parseClientBlock(e.clipboardData?.getData('text'));
         if (!parsed) return;
         e.preventDefault();
         setFormData(prev => ({
             ...prev,
+            name: prev.name || parsed.name || '',
             address: parsed.address || prev.address,
             postal_code: parsed.postal_code,
             city: parsed.city || prev.city,
         }));
-        toast.success('Adresse répartie : code postal et ville remplis automatiquement');
+        toast.success(parsed.name
+            ? 'Nom et adresse répartis automatiquement'
+            : 'Adresse répartie : code postal et ville remplis automatiquement');
     };
 
     const handleSubmit = async (e) => {
@@ -676,6 +681,7 @@ const ClientForm = () => {
                             required
                             value={formData.name}
                             onChange={handleChange}
+                            onPaste={handleAddressPaste}
                         />
                     </div>
 

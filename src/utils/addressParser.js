@@ -38,3 +38,45 @@ export function parseFrenchAddress(text) {
 
     return { address, postal_code, city };
 }
+
+// Mots qui trahissent une voie : une ligne (ou un début de texte) qui en
+// contient ne peut pas être le nom du client.
+const STREET_WORDS = /\b(rue|avenue|av|impasse|chemin|route|rte|all[ée]e|place|pl|boulevard|bd|lotissement|lot|r[ée]sidence|lieu[- ]dit|quartier|hameau|square|cours|quai|voie|za|zi|zac|cit[ée])\b/i;
+
+// ── Bloc client complet collé d'un coup : nom + adresse ──
+//
+// Le SMS type contient « Jean Dupont 13 rue Robert Boulin 33230 Ville »
+// (une ligne) ou le nom sur sa propre ligne. Le nom est la partie qui précède
+// le début de la voie : soit la première ligne sans chiffre ni mot de voie,
+// soit (sur une ligne) le texte avant le numéro de rue.
+//
+// Retourne { name, address, postal_code, city } (name éventuellement vide)
+// si un code postal est trouvé, null sinon (collage normal).
+export function parseClientBlock(text) {
+    if (!text) return null;
+    const raw = String(text);
+    const stripTail = (s) => s.replace(/[\s,;:]+$/, '').trim();
+
+    let name = '';
+    let rest = raw;
+    const lines = raw.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+    if (lines.length >= 2 && !/\d/.test(lines[0]) && !STREET_WORDS.test(lines[0])) {
+        name = stripTail(lines[0]);
+        rest = lines.slice(1).join(' ');
+    }
+
+    let parsed = parseFrenchAddress(rest);
+    if (!parsed) return null;
+
+    // Une seule ligne : le nom est la partie avant le numéro de rue, si elle
+    // ne ressemble pas elle-même à une voie (« Résidence Les Pins 13… »).
+    if (!name && parsed.address) {
+        const m = parsed.address.match(/^([^\d]+?)\s+(\d.*)$/);
+        if (m && !STREET_WORDS.test(m[1])) {
+            name = stripTail(m[1]);
+            parsed = { ...parsed, address: m[2].trim() };
+        }
+    }
+
+    return { name, ...parsed };
+}

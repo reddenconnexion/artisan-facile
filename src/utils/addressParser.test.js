@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFrenchAddress } from './addressParser';
+import { parseFrenchAddress, parseClientBlock } from './addressParser';
 
 describe('parseFrenchAddress', () => {
     it('découpe une adresse complète sur une ligne', () => {
@@ -70,5 +70,54 @@ describe('parseFrenchAddress', () => {
             postal_code: '33500',
             city: 'Libourne',
         });
+    });
+});
+
+describe('parseClientBlock', () => {
+    it('extrait le nom avant le numéro de rue (une ligne)', () => {
+        expect(parseClientBlock('Jean Dupont 13 rue Robert Boulin 33230 Saint-Médard-de-Guizières')).toEqual({
+            name: 'Jean Dupont',
+            address: '13 rue Robert Boulin',
+            postal_code: '33230',
+            city: 'Saint-Médard-de-Guizières',
+        });
+    });
+
+    it('extrait le nom sur sa propre ligne (SMS multi-lignes)', () => {
+        expect(parseClientBlock('Mme Martin\n5 impasse des Lilas\n33660 Porchères')).toEqual({
+            name: 'Mme Martin',
+            address: '5 impasse des Lilas',
+            postal_code: '33660',
+            city: 'Porchères',
+        });
+    });
+
+    it("ne prend pas une voie pour un nom (adresse seule)", () => {
+        expect(parseClientBlock('13 rue Robert Boulin 33230 Coutras')).toEqual({
+            name: '',
+            address: '13 rue Robert Boulin',
+            postal_code: '33230',
+            city: 'Coutras',
+        });
+        expect(parseClientBlock('Résidence Les Pins 13 avenue de la Gare 33500 Libourne')).toEqual({
+            name: '',
+            address: 'Résidence Les Pins 13 avenue de la Gare',
+            postal_code: '33500',
+            city: 'Libourne',
+        });
+    });
+
+    it('nettoie la virgule après le nom', () => {
+        expect(parseClientBlock('Jean Dupont, 13 rue du Port 33230 Guîtres')).toEqual({
+            name: 'Jean Dupont',
+            address: '13 rue du Port',
+            postal_code: '33230',
+            city: 'Guîtres',
+        });
+    });
+
+    it('retourne null sans code postal (collage normal)', () => {
+        expect(parseClientBlock('Jean Dupont')).toBeNull();
+        expect(parseClientBlock(null)).toBeNull();
     });
 });
