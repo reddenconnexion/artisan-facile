@@ -80,6 +80,8 @@ describe('parseClientBlock', () => {
             address: '13 rue Robert Boulin',
             postal_code: '33230',
             city: 'Saint-Médard-de-Guizières',
+            phone: '',
+            email: '',
         });
     });
 
@@ -89,6 +91,8 @@ describe('parseClientBlock', () => {
             address: '5 impasse des Lilas',
             postal_code: '33660',
             city: 'Porchères',
+            phone: '',
+            email: '',
         });
     });
 
@@ -98,12 +102,16 @@ describe('parseClientBlock', () => {
             address: '13 rue Robert Boulin',
             postal_code: '33230',
             city: 'Coutras',
+            phone: '',
+            email: '',
         });
         expect(parseClientBlock('Résidence Les Pins 13 avenue de la Gare 33500 Libourne')).toEqual({
             name: '',
             address: 'Résidence Les Pins 13 avenue de la Gare',
             postal_code: '33500',
             city: 'Libourne',
+            phone: '',
+            email: '',
         });
     });
 
@@ -113,11 +121,74 @@ describe('parseClientBlock', () => {
             address: '13 rue du Port',
             postal_code: '33230',
             city: 'Guîtres',
+            phone: '',
+            email: '',
         });
     });
 
-    it('retourne null sans code postal (collage normal)', () => {
+    it('retourne null sans code postal ni téléphone ni email (collage normal)', () => {
         expect(parseClientBlock('Jean Dupont')).toBeNull();
         expect(parseClientBlock(null)).toBeNull();
+    });
+
+    it('extrait téléphone et email du bloc complet (une ligne)', () => {
+        expect(parseClientBlock('Jean Dupont 13 rue Robert Boulin 33230 Coutras 06 12 34 56 78 jean.dupont@mail.fr')).toEqual({
+            name: 'Jean Dupont',
+            address: '13 rue Robert Boulin',
+            postal_code: '33230',
+            city: 'Coutras',
+            phone: '06 12 34 56 78',
+            email: 'jean.dupont@mail.fr',
+        });
+    });
+
+    it('extrait téléphone et email sur plusieurs lignes', () => {
+        expect(parseClientBlock('Mme Martin\n5 impasse des Lilas\n33660 Porchères\n0612345678\nmartin@ex.com')).toEqual({
+            name: 'Mme Martin',
+            address: '5 impasse des Lilas',
+            postal_code: '33660',
+            city: 'Porchères',
+            phone: '0612345678',
+            email: 'martin@ex.com',
+        });
+    });
+
+    it('accepte nom + téléphone sans adresse', () => {
+        expect(parseClientBlock('Jean Dupont 06 12 34 56 78')).toEqual({
+            name: 'Jean Dupont',
+            address: '',
+            postal_code: '',
+            city: '',
+            phone: '06 12 34 56 78',
+            email: '',
+        });
+    });
+
+    it('ne confond pas un code postal commençant par 0 avec un téléphone', () => {
+        expect(parseClientBlock('13 rue des Oliviers 06130 Grasse 06 12 34 56 78')).toEqual({
+            name: '',
+            address: '13 rue des Oliviers',
+            postal_code: '06130',
+            city: 'Grasse',
+            phone: '06 12 34 56 78',
+            email: '',
+        });
+    });
+
+    it('gère le format +33', () => {
+        expect(parseClientBlock('Jean Dupont +33 6 12 34 56 78')).toEqual({
+            name: 'Jean Dupont',
+            address: '',
+            postal_code: '',
+            city: '',
+            phone: '+33 6 12 34 56 78',
+            email: '',
+        });
+    });
+
+    it('reste un collage normal si du texte inclassable subsiste', () => {
+        // Un téléphone est présent mais le reste ressemble à une voie sans
+        // code postal : découper perdrait de l'information.
+        expect(parseClientBlock('13 rue des Pins 06 12 34 56 78')).toBeNull();
     });
 });

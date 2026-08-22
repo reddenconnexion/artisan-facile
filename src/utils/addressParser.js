@@ -43,19 +43,37 @@ export function parseFrenchAddress(text) {
 // contient ne peut pas être le nom du client.
 const STREET_WORDS = /\b(rue|avenue|av|impasse|chemin|route|rte|all[ée]e|place|pl|boulevard|bd|lotissement|lot|r[ée]sidence|lieu[- ]dit|quartier|hameau|square|cours|quai|voie|za|zi|zac|cit[ée])\b/i;
 
-// ── Bloc client complet collé d'un coup : nom + adresse ──
+// Téléphone français : 0X ou +33 X puis 4 paires de chiffres, séparées ou
+// non (06 12 34 56 78, 0612345678, 06.12.34.56.78, +33 6 12 34 56 78).
+// Les gardes (?<!\d)/(?!\d) évitent de mordre dans un code postal ou un
+// numéro de rue voisin.
+const PHONE_RE = /(?<!\d)(?:\+33[\s.]?[1-9]|0[1-9])(?:[\s.-]?\d{2}){4}(?!\d)/;
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+
+// ── Bloc client complet collé d'un coup : nom + adresse + téléphone + email ──
 //
-// Le SMS type contient « Jean Dupont 13 rue Robert Boulin 33230 Ville »
-// (une ligne) ou le nom sur sa propre ligne. Le nom est la partie qui précède
-// le début de la voie : soit la première ligne sans chiffre ni mot de voie,
-// soit (sur une ligne) le texte avant le numéro de rue.
+// Le SMS type contient « Jean Dupont 13 rue Robert Boulin 33230 Ville
+// 06 12 34 56 78 jean@mail.fr » (une ligne) ou chaque info sur sa ligne.
+// Téléphone et email sont extraits en premier, où qu'ils soient ; le nom est
+// ensuite la partie qui précède le début de la voie : première ligne sans
+// chiffre ni mot de voie, ou texte avant le numéro de rue sur une ligne.
 //
-// Retourne { name, address, postal_code, city } (name éventuellement vide)
-// si un code postal est trouvé, null sinon (collage normal).
+// Retourne { name, address, postal_code, city, phone, email } (chaque champ
+// éventuellement vide) si le bloc contient au moins une adresse, un téléphone
+// ou un email exploitables ; null sinon (le collage doit rester normal, sans
+// perte de texte).
 export function parseClientBlock(text) {
     if (!text) return null;
-    const raw = String(text);
+    let raw = String(text);
     const stripTail = (s) => s.replace(/[\s,;:]+$/, '').trim();
+
+    const emailMatch = raw.match(EMAIL_RE);
+    const email = emailMatch ? emailMatch[0] : '';
+    if (emailMatch) raw = raw.replace(emailMatch[0], ' ');
+
+    const phoneMatch = raw.match(PHONE_RE);
+    const phone = phoneMatch ? phoneMatch[0].trim() : '';
+    if (phoneMatch) raw = raw.replace(phoneMatch[0], ' ');
 
     let name = '';
     let rest = raw;
@@ -66,11 +84,22 @@ export function parseClientBlock(text) {
     }
 
     let parsed = parseFrenchAddress(rest);
-    if (!parsed) return null;
-
-    // Une seule ligne : le nom est la partie avant le numéro de rue, si elle
-    // ne ressemble pas elle-même à une voie (« Résidence Les Pins 13… »).
-    if (!name && parsed.address) {
+    if (!parsed) {
+        // Pas d'adresse détectée : le collage reste utile si téléphone ou
+        // email ont été trouvés et que le reste du texte est vide ou fait un
+        // nom plausible. Sinon, collage normal — on ne perd jamais de texte.
+        if (!phone && !email) return null;
+        const remainder = stripTail(rest.replace(/[\n\r,;]+/g, ' ').replace(/\s+/g, ' ').trim());
+        if (!name) {
+            if (remainder && (/\d/.test(remainder) || STREET_WORDS.test(remainder))) return null;
+            name = remainder;
+        } else if (remainder) {
+            return null;
+        }
+        parsed = { address: '', postal_code: '', city: '' };
+    } else if (!name && parsed.address) {
+        // Une seule ligne : le nom est la partie avant le numéro de rue, si
+        // elle ne ressemble pas elle-même à une voie (« Résidence Les Pins 13… »).
         const m = parsed.address.match(/^([^\d]+?)\s+(\d.*)$/);
         if (m && !STREET_WORDS.test(m[1])) {
             name = stripTail(m[1]);
@@ -78,5 +107,5 @@ export function parseClientBlock(text) {
         }
     }
 
-    return { name, ...parsed };
+    return { name, ...parsed, phone, email };
 }

@@ -428,10 +428,10 @@ const ClientForm = () => {
     };
 
     // Collage intelligent (champs « Nom » et « Adresse ») : un bloc complet
-    // collé depuis un SMS (« Jean Dupont 13 rue X 33230 Ville », sur une ou
-    // plusieurs lignes) est réparti entre nom, rue, code postal et ville.
-    // Sans code postal détecté, le collage reste normal. Le nom déjà saisi
-    // n'est jamais écrasé.
+    // collé depuis un SMS (« Jean Dupont 13 rue X 33230 Ville 06 12 34 56 78
+    // jean@mail.fr », sur une ou plusieurs lignes) est réparti entre nom, rue,
+    // code postal, ville, téléphone et email. Sans rien d'exploitable détecté,
+    // le collage reste normal. Les champs déjà saisis ne sont jamais écrasés.
     const handleAddressPaste = (e) => {
         const parsed = parseClientBlock(e.clipboardData?.getData('text'));
         if (!parsed) return;
@@ -440,12 +440,12 @@ const ClientForm = () => {
             ...prev,
             name: prev.name || parsed.name || '',
             address: parsed.address || prev.address,
-            postal_code: parsed.postal_code,
+            postal_code: parsed.postal_code || prev.postal_code,
             city: parsed.city || prev.city,
+            phone: prev.phone || parsed.phone || '',
+            email: prev.email || parsed.email || '',
         }));
-        toast.success(parsed.name
-            ? 'Nom et adresse répartis automatiquement'
-            : 'Adresse répartie : code postal et ville remplis automatiquement');
+        toast.success('Coordonnées du client réparties automatiquement');
     };
 
     const handleSubmit = async (e) => {
