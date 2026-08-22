@@ -48,6 +48,7 @@ import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
 // (petite croix) une fois comprise — mémorisé par navigateur.
@@ -183,6 +184,7 @@ const DevisForm = () => {
     const [showMaterialDepositHelp, setShowMaterialDepositHelp] = useState(false);
     const [showSpecialStatuses, setShowSpecialStatuses] = useState(false);
     const [dismissedHelps, setDismissedHelps] = useState(readDismissedHelps);
+    const [showFacturerHelp, setShowFacturerHelp] = useState(false);
     const dismissHelp = (key) => {
         setDismissedHelps(prev => {
             const next = { ...prev, [key]: true };
@@ -2921,6 +2923,23 @@ Conditions de règlement : Paiement à réception de facture.`
         overviewPageImagesRef.current.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
     }, []);
 
+    // Premier clic sur « Facturer » : ouvre une fenêtre explicative (mémorisée
+    // via dismissedHelps, comme les aides « ? » du formulaire). Les clics
+    // suivants vont directement à la confirmation de conversion habituelle.
+    const handleFacturerClick = () => {
+        if (!dismissedHelps.facturer_button) {
+            setShowFacturerHelp(true);
+            return;
+        }
+        handleConvertToInvoice();
+    };
+
+    const closeFacturerHelp = () => {
+        dismissHelp('facturer_button');
+        setShowFacturerHelp(false);
+    };
+    const facturerHelpRef = useModalA11y(showFacturerHelp, closeFacturerHelp);
+
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
             title: 'Convertir en facture',
@@ -3674,7 +3693,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
                         <button
                             type="button"
-                            onClick={handleConvertToInvoice}
+                            onClick={handleFacturerClick}
                             className="flex items-center px-3 sm:px-4 py-2 text-emerald-700 dark:text-green-400 bg-emerald-50 dark:bg-green-900/20 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
                             title="Convertir ce devis en facture"
                         >
@@ -3805,7 +3824,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
                                         <button
-                                            onClick={() => { handleConvertToInvoice(); setShowActionsMenu(false); }}
+                                            onClick={() => { handleFacturerClick(); setShowActionsMenu(false); }}
                                             className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 dark:text-green-400 hover:bg-emerald-50"
                                         >
                                             <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
@@ -5516,6 +5535,76 @@ Conditions de règlement : Paiement à réception de facture.`
                     })()
                 )
             }
+            {/* Fenêtre explicative du bouton « Facturer » — affichée au premier
+                clic seulement, puis mémorisée (dismissedHelps) par navigateur. */}
+            {showFacturerHelp && (
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={closeFacturerHelp}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="facturer-help-title"
+                >
+                    <div
+                        ref={facturerHelpRef}
+                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="p-2.5 rounded-xl flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30">
+                                <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 id="facturer-help-title" className="font-bold text-gray-900 dark:text-white text-base leading-snug">
+                                    À quoi sert « Facturer » ?
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
+                                    Ce bouton transforme le devis en <strong>facture finale</strong> (même
+                                    numéro, mêmes lignes) et télécharge le PDF prêt à envoyer au client.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeFacturerHelp}
+                                className="p-1 -m-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0"
+                                aria-label="Fermer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-5 leading-relaxed">
+                            <li className="flex gap-2">
+                                <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                <span>À utiliser quand <strong>les travaux sont terminés</strong> et que vous voulez encaisser le solde.</span>
+                            </li>
+                            <li className="flex gap-2">
+                                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                                <span>Pour un <strong>acompte</strong> ou une facturation <strong>par tranches d'avancement</strong>, utilisez plutôt « Acompte matériel » ou « Facture de situation » dans le menu Actions : le devis reste ouvert.</span>
+                            </li>
+                        </ul>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                            Cette explication ne s'affichera plus.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                type="button"
+                                onClick={closeFacturerHelp}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            >
+                                Fermer
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { closeFacturerHelp(); handleConvertToInvoice(); }}
+                                className="px-4 py-2 text-sm font-bold rounded-lg transition-colors bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                            >
+                                Compris, convertir en facture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <SituationModal
                 isOpen={showSituationModal}
                 onClose={() => setShowSituationModal(false)}
