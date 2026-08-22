@@ -430,7 +430,7 @@ const PublicQuote = () => {
                                 {artisan.company_name || artisan.full_name}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
-                                {isInvoiceView ? T.invoice : isSigned ? T.acceptedQuote : T.quote} N° {quote.quote_number || quote.id}
+                                {isInvoiceView ? T.invoice : isSigned ? T.acceptedQuote : T.quote} N° {(isInvoiceView && quote.invoice_number) || quote.quote_number || quote.id}
                             </div>
                         </div>
                     </div>

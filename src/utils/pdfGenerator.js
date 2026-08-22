@@ -432,7 +432,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     docY += 6.5;
     doc.setFontSize(9);
     doc.setTextColor(...ink);
-    doc.text(`N° ${devis.quote_number || devis.id || 'PROVISOIRE'}`, docRight, docY, { align: 'right' });
+    // Facture : uniquement le numéro légal (FAC-AAAA-NNNN, attribué à l'émission).
+    // Tant qu'il n'est pas attribué (brouillon), le document est marqué PROVISOIRE
+    // plutôt que d'afficher la référence interne comme un faux numéro de facture.
+    const docNumber = isInvoice
+        ? (devis.invoice_number || 'PROVISOIRE')
+        : (devis.quote_number || devis.id || 'PROVISOIRE');
+    doc.text(`N° ${docNumber}`, docRight, docY, { align: 'right' });
     docY += 4.8;
     doc.setFontSize(8.5);
     doc.setFont(undefined, 'normal');
@@ -1392,7 +1398,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'italic');
             doc.setFontSize(8);
             doc.setTextColor(100, 100, 100);
-            doc.text(L.paymentReference(`${typeDocument} ${devis.quote_number || devis.id}`), 20, elementY + 28);
+            doc.text(L.paymentReference(`${typeDocument} ${docNumber}`), 20, elementY + 28);
         }
 
         elementY += boxHeight + 10;
@@ -1634,7 +1640,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
     const suffix = isInternalCopy ? '_detail_interne' : '';
     const fileName = isInvoice
-        ? `facture_${devis.quote_number || devis.id}${suffix}.pdf`
+        ? `facture_${devis.invoice_number || devis.quote_number || devis.id}${suffix}.pdf`
         : `devis_${devis.quote_number || devis.id || 'brouillon'}${suffix}.pdf`;
 
     if (returnType === 'blob') {

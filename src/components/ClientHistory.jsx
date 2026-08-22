@@ -225,7 +225,9 @@ const ClientHistory = ({ clientId }) => {
                                             {new Date(item.date).toLocaleDateString()}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                            {(item.type === 'invoice' || item.status === 'paid') ? 'Facture' : 'Devis'} #{item.quote_number || item.id}
+                                            {item.type === 'invoice' && item.invoice_number
+                                                ? item.invoice_number
+                                                : `${(item.type === 'invoice' || item.status === 'paid') ? 'Facture' : 'Devis'} #${item.quote_number || item.id}`}
                                         </td>
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                                             {item.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}

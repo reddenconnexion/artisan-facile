@@ -3,6 +3,7 @@ import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, 
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
+import { documentRef } from '../utils/documentNumber';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes, useUserProfile, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
 import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
@@ -346,7 +347,8 @@ const DevisList = () => {
             (devis.client_name && devis.client_name.toLowerCase().includes(q)) ||
             devis.id.toString().includes(q) ||
             (devis.title && devis.title.toLowerCase().includes(q)) ||
-            (devis.quote_number && devis.quote_number.toString().includes(q));
+            (devis.quote_number && devis.quote_number.toString().includes(q)) ||
+            (devis.invoice_number && devis.invoice_number.toLowerCase().includes(q));
 
         const matchesStatus = statusFilter === 'all' || isArchivedTab ||
             (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) :
@@ -771,7 +773,7 @@ const DevisList = () => {
                                             </td>
                                         )}
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
-                                            {devis.type === 'invoice' ? 'FAC' : (devis.type === 'amendment' ? 'AVT' : 'DEV')} #{devis.quote_number || devis.id}
+                                            {documentRef(devis)}
                                         </td>
                                         <td className="px-6 py-4 text-sm">
                                             <button
@@ -875,7 +877,9 @@ const DevisList = () => {
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="min-w-0 overflow-hidden">
                                         <span className={`text-xs font-semibold px-2 py-1 rounded inline-block max-w-full truncate ${devis.type === 'invoice' ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30' : (devis.type === 'amendment' ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30' : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30')}`}>
-                                            {devis.type === 'invoice' ? 'Facture' : (devis.type === 'amendment' ? 'Avenant' : 'Devis')} #{devis.quote_number || devis.id}
+                                            {devis.type === 'invoice'
+                                                ? (devis.invoice_number || `Facture #${devis.quote_number || devis.id}`)
+                                                : `${devis.type === 'amendment' ? 'Avenant' : 'Devis'} #${devis.quote_number || devis.id}`}
                                         </span>
                                         <h3 className="font-bold text-gray-900 dark:text-white mt-2 truncate">{devis.client_name || 'Client inconnu'}</h3>
                                         {devis.title && (

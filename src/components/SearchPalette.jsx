@@ -150,12 +150,15 @@ const SearchPalette = ({ isOpen, onClose }) => {
                 normalize(qu.title).includes(q) ||
                 normalize(qu.client_name).includes(q) ||
                 String(qu.quote_number || '').includes(q.replace(/\s/g, '')) ||
+                normalize(qu.invoice_number || '').includes(q.replace(/\s/g, '')) ||
                 String(qu.id).includes(q.replace(/\s/g, '')),
             )
             .slice(0, PER_CATEGORY)
             .map(qu => {
                 const isInvoice = qu.type === 'invoice';
-                const ref       = qu.quote_number ? `N°${qu.quote_number}` : `#${qu.id}`;
+                const ref       = isInvoice && qu.invoice_number
+                    ? qu.invoice_number
+                    : (qu.quote_number ? `N°${qu.quote_number}` : `#${qu.id}`);
                 const label     = qu.title || (isInvoice ? 'Facture' : 'Devis');
                 const dateStr   = qu.date ? new Date(qu.date).toLocaleDateString('fr-FR') : '';
                 return {

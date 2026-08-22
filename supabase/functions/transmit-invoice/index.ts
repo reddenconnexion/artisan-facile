@@ -126,7 +126,7 @@ async function transmitToB2BRouter(
     send_after_import: true,
     invoice: {
       type: 'IssuedInvoice',
-      number: String(quote.quote_number || quote.id),
+      number: String(quote.invoice_number || quote.quote_number || quote.id),
       date: formatDate(quote.date as string),
       due_date: dueDate,
       currency: 'EUR',
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     // --- Récupération de la facture complète ---
     const { data: quote, error: quoteError } = await supabaseAdmin
       .from('quotes')
-      .select('id, quote_number, type, user_id, client_id, transmission_status, date, valid_until, items, include_tva, total_ht, total_tva, total_ttc, title')
+      .select('id, quote_number, invoice_number, type, user_id, client_id, transmission_status, date, valid_until, items, include_tva, total_ht, total_tva, total_ttc, title')
       .eq('id', quote_id)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
       }
       result = await transmitToGenericPDP(
         pdf_base64,
-        String(quote.quote_number || quote.id),
+        String(quote.invoice_number || quote.quote_number || quote.id),
         profile?.siret ?? '',
         (client as Record<string, unknown> | null)?.siren as string ?? '',
         userPdpConfig,

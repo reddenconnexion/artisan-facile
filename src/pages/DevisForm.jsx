@@ -983,6 +983,7 @@ const DevisForm = () => {
                     report_pdf_url: data.report_pdf_url || null,
                     require_otp: data.require_otp === true,
                     quote_number: data.quote_number || null,
+                    invoice_number: data.invoice_number || null,
                     transmission_status: data.transmission_status ?? null,
                     transmission_ref: data.transmission_ref ?? null,
                     transmitted_at: data.transmitted_at ?? null,
@@ -1513,7 +1514,10 @@ const DevisForm = () => {
             // `formData.id` n'existe pas (l'id vient de l'URL) : depuis toujours
             // l'objet du mail omettait le numéro du document. On utilise l'id
             // de la route — l'envoi exige un document déjà enregistré (isEditing).
-            const subject = `${E.subjectPrefix}${id ? ` N°${formData.quote_number || id}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
+            const docNo = formData.type === 'invoice' && formData.invoice_number
+                ? formData.invoice_number
+                : (formData.quote_number || id);
+            const subject = `${E.subjectPrefix}${id ? ` N°${docNo}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
 
             const projectTitle = localizedTitle || E.defaultWorks;
             // « M. Cohignac Erwan » → « Bonjour M. Cohignac » (civilité + nom
@@ -1739,6 +1743,30 @@ const DevisForm = () => {
     // figé dans le storage. C'est la référence en cas de litige ou de modification.
     const archiveSentVersion = async () => {
         if (!id || id === 'new') return;
+
+        // L'envoi confirme le document : un brouillon passe en "envoyé" AVANT de
+        // figer le PDF. Pour une facture, c'est ce passage hors brouillon qui
+        // attribue le numéro légal (trigger set_invoice_number) — il doit donc
+        // exister avant la génération du PDF archivé et envoyé au client.
+        let sentInvoiceNumber = formData.invoice_number || null;
+        if (formData.status === 'draft') {
+            const { data: sentRow, error: statusError } = await supabase
+                .from('quotes')
+                .update({ status: 'sent', updated_at: new Date() })
+                .eq('id', id)
+                .select('invoice_number')
+                .single();
+            if (!statusError) {
+                sentInvoiceNumber = sentRow?.invoice_number || null;
+                setFormData(prev => ({ ...prev, status: 'sent', invoice_number: sentInvoiceNumber }));
+                setInitialStatus('sent');
+                setRevisionUnlocked(false);
+                if (sentInvoiceNumber && !formData.invoice_number) {
+                    toast.success(`Facture émise sous le numéro ${sentInvoiceNumber}`);
+                }
+            }
+        }
+
         const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
 
         const snapshot = {
@@ -1747,6 +1775,7 @@ const DevisForm = () => {
             client_id: formData.client_id,
             client_name: selectedClient?.name || 'Client',
             quote_number: formData.quote_number || null,
+            invoice_number: sentInvoiceNumber,
             title: formData.title,
             date: formData.date,
             valid_until: formData.valid_until || null,
@@ -1823,19 +1852,8 @@ const DevisForm = () => {
             }
         }
 
-        // L'envoi confirme le devis : un brouillon passe en "envoyé"
-        // (le trigger DB n'archive pas de doublon grâce à la déduplication).
-        if (formData.status === 'draft') {
-            const { error: statusError } = await supabase
-                .from('quotes')
-                .update({ status: 'sent', updated_at: new Date() })
-                .eq('id', id);
-            if (!statusError) {
-                setFormData(prev => ({ ...prev, status: 'sent' }));
-                setInitialStatus('sent');
-                setRevisionUnlocked(false);
-            }
-        }
+        // (Le passage brouillon → "envoyé" est fait en tête de fonction, avant
+        // la génération du PDF, pour que le numéro de facture y figure.)
     };
 
     // Ouvre le PDF d'une version archivée : le PDF figé s'il existe,
@@ -1993,6 +2011,7 @@ const DevisForm = () => {
 
             let error;
             let savedQuoteId = isEditing ? id : null;
+            let savedRow = null;
             if (isEditing) {
                 // For updates: exclude user_id, include updated_at
                 const { user_id, ...updateData } = quoteData;
@@ -2006,6 +2025,7 @@ const DevisForm = () => {
                     throw new Error("L'enregistrement a échoué (devis introuvable ou permissions insuffisantes).");
                 }
                 error = updateError;
+                savedRow = data?.[0] ?? null;
             } else {
                 const { data: insertData, error: insertError } = await supabase
                     .from('quotes')
@@ -2013,9 +2033,17 @@ const DevisForm = () => {
                     .select();
                 error = insertError;
                 savedQuoteId = insertData?.[0]?.id ?? null;
+                savedRow = insertData?.[0] ?? null;
             }
 
             if (error) throw error;
+
+            // Numéro légal attribué par la base à l'émission (facture sortie du
+            // statut brouillon) : on le remonte dans le formulaire et on prévient.
+            if (savedRow?.invoice_number && savedRow.invoice_number !== formData.invoice_number) {
+                setFormData(prev => ({ ...prev, invoice_number: savedRow.invoice_number }));
+                toast.success(`Facture émise sous le numéro ${savedRow.invoice_number}`);
+            }
 
             // Auto-create Project (Dossier Chantier) if Signed/Accepted
             if (['accepted', 'signed'].includes(quoteData.status) && quoteData.title && error === null) {
@@ -2674,6 +2702,13 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handleDelete = async () => {
+        // Une facture émise (numéro légal attribué) ne se supprime jamais : la
+        // continuité de la séquence est une obligation fiscale. La base bloque
+        // aussi (trigger protect_issued_invoices) — ceci évite l'appel inutile.
+        if (formData.invoice_number) {
+            toast.error(`La facture ${formData.invoice_number} a été émise : la réglementation interdit sa suppression. Créez un avoir pour l'annuler.`);
+            return;
+        }
         const okDel = await confirm({ title: 'Supprimer ce devis', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
         if (!okDel) return;
 
@@ -2697,7 +2732,10 @@ Conditions de règlement : Paiement à réception de facture.`
     // soit la présentation choisie pour le client, et reste disponible une fois le
     // devis verrouillé (accepté, facturé, payé). La présentation enregistrée n'est
     // pas modifiée : l'exemplaire du client, lui, ne change jamais.
-    const handleDownloadPDF = async (forceInvoice = false, { detailed = false } = {}) => {
+    // `overrides` : champs fraîchement renvoyés par la base (ex. invoice_number
+    // attribué à la conversion) pas encore visibles dans le formData de cette
+    // closure — fusionnés dans le snapshot pour que le PDF les reflète.
+    const handleDownloadPDF = async (forceInvoice = false, { detailed = false, overrides = null } = {}) => {
         try {
             const isInvoice = forceInvoice || formData.type === 'invoice';
             if (!formData.client_id) {
@@ -2739,7 +2777,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 include_tva: formData.include_tva,
                 has_material_deposit: formData.has_material_deposit,
                 amendment_details: formData.amendment_details || {},
-                ...(detailed ? { client_display_mode: 'detailed', internal_copy: true } : {})
+                ...(detailed ? { client_display_mode: 'detailed', internal_copy: true } : {}),
+                ...(overrides || {})
             };
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
@@ -2950,19 +2989,25 @@ Conditions de règlement : Paiement à réception de facture.`
         if (!okConv) return;
 
         try {
-            const { error } = await supabase
+            // Le trigger set_invoice_number attribue le numéro légal (FAC-AAAA-NNNN)
+            // au moment de l'émission : on le récupère pour l'afficher et le
+            // reporter sur le PDF généré dans la foulée.
+            const { data: converted, error } = await supabase
                 .from('quotes')
                 .update({ status: 'accepted', type: 'invoice' })
-                .eq('id', id);
+                .eq('id', id)
+                .select('invoice_number')
+                .single();
 
             if (error) throw error;
 
-            setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice' }));
+            const invoiceNumber = converted?.invoice_number || null;
+            setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice', invoice_number: invoiceNumber }));
             setInitialStatus('accepted');
-            toast.success('Devis converti en facture — pensez à l\'envoyer au client');
+            toast.success(`Devis converti en facture${invoiceNumber ? ` ${invoiceNumber}` : ''} — pensez à l'envoyer au client`);
             invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'accepted');
-            await handleDownloadPDF(true);
+            await handleDownloadPDF(true, { overrides: { type: 'invoice', status: 'accepted', invoice_number: invoiceNumber } });
         } catch (error) {
             toast.error('Erreur lors de la conversion');
             console.error('Error converting to invoice:', error);
@@ -3199,7 +3244,9 @@ Conditions de règlement : Paiement à réception de facture.`
         // pour un document externe dont on ne possède pas le blob à rastériser.
         const showImagePreview = overviewUsesImages && !formData.is_external && overviewPdfUrl;
         const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'amendment' ? 'AVT' : 'DEV');
-        const docRef = `${refPrefix} #${formData.quote_number || id}`;
+        const docRef = formData.type === 'invoice' && formData.invoice_number
+            ? formData.invoice_number
+            : `${refPrefix} #${formData.quote_number || id}`;
         const statusMeta = {
             draft: { label: 'Brouillon', cls: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
             sent: { label: 'Envoyé', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
@@ -3603,8 +3650,17 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mx-2 sm:mx-4">
                         <button
                             type="button"
-                            onClick={() => setFormData(p => ({ ...p, type: 'quote' }))}
-                            className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.type !== 'invoice'
+                            onClick={() => {
+                                // Facture émise = numéro légal attribué : le retour en
+                                // devis est interdit (la base le refuserait de toute façon).
+                                if (formData.invoice_number) {
+                                    toast.error(`La facture ${formData.invoice_number} a été émise et ne peut plus redevenir un devis. Créez un avoir pour l'annuler.`);
+                                    return;
+                                }
+                                setFormData(p => ({ ...p, type: 'quote' }));
+                            }}
+                            disabled={!!formData.invoice_number}
+                            className={`px-3 py-1 text-sm font-medium rounded-md transition-all ${formData.invoice_number ? 'opacity-50 cursor-not-allowed ' : ''}${formData.type !== 'invoice'
                                 ? 'bg-white dark:bg-gray-900 text-blue-600 shadow-sm'
                                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
                                 }`}
@@ -3876,7 +3932,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </>
                                 )}
 
-                                {id && id !== 'new' && (
+                                {id && id !== 'new' && !formData.invoice_number && (
                                     <>
                                         <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <button

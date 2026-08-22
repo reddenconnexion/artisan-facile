@@ -107,7 +107,7 @@ const PaymentSection = ({ quote, artisan }) => {
                         </a>
                     )}
                     <p className="text-[10px] text-gray-400 text-center">
-                        Référence : {quote.title || `Facture #${quote.quote_number || quote.id}`}
+                        Référence : {quote.title || quote.invoice_number || `Facture #${quote.quote_number || quote.id}`}
                     </p>
                 </div>
             )}
@@ -290,7 +290,7 @@ const ClientPortal = () => {
         try {
             const blobUrl = await generateDevisPDF(quote, data.client, data.artisan, quote.type === 'invoice', 'bloburl');
             const label = quote.type === 'invoice'
-                ? `Facture · ${quote.title || `#${quote.quote_number || quote.id}`}`
+                ? `Facture · ${quote.title || quote.invoice_number || `#${quote.quote_number || quote.id}`}`
                 : `Devis · ${quote.title || `#${quote.quote_number || quote.id}`}`;
             if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                 window.open(blobUrl, '_blank');
@@ -541,7 +541,9 @@ const ClientPortal = () => {
                                         const viewKey   = `q-${quote.id}`;
                                         const signedAt  = signedDates[quote.id] || quote.signed_at;
                                         const docLabel  = quote.title || (isInvoice ? 'Facture' : 'Devis');
-                                        const docRef    = quote.quote_number ? `N°${quote.quote_number}` : `#${quote.id}`;
+                                        const docRef    = isInvoice && quote.invoice_number
+                                            ? quote.invoice_number
+                                            : (quote.quote_number ? `N°${quote.quote_number}` : `#${quote.id}`);
 
                                         return (
                                             <div key={quote.id} className={`bg-white rounded-xl border transition-shadow
