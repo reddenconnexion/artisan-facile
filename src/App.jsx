@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-qu
 import { toast } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TestModeProvider } from './context/TestModeContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import Layout from './layouts/Layout';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
@@ -248,10 +249,14 @@ function App() {
               <Route path="/p/:token" element={<ClientPortal />} />
               <Route path="/q/:token" element={<PublicQuote />} />
 
-              {/* Mode terrain — page standalone sans sidebar, protégée */}
+              {/* Mode terrain — page standalone sans sidebar, protégée.
+                  Hors du Layout, donc il porte son propre ConfirmProvider
+                  (la visite technique s'en sert avant de quitter). */}
               <Route path="/terrain" element={
                 <ProtectedRoute>
-                  <TerrainMode />
+                  <ConfirmProvider>
+                    <TerrainMode />
+                  </ConfirmProvider>
                 </ProtectedRoute>
               } />
 
