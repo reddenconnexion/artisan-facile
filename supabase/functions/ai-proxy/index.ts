@@ -29,8 +29,10 @@ RÈGLES GÉNÉRALES:
 JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
 {"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
 
-const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:
-{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}`;
+const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, work_object, price_range et confidence:
+- "title" : nom court du projet (8 mots max), pas une phrase.
+- "work_object" : le périmètre en 2 à 4 phrases (400 caractères max) — ce qui est compris, ce qui ne l'est pas, et les constats relevés qui conditionnent le prix (longueurs, alimentation existante, accès). Aucune liste de postes, aucun montant.
+{"title":"...","work_object":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}`;
 
 function resolvePresetPrompt(preset: string, userOverride: string | null | undefined, extras: string): string {
   const customBase = (userOverride && userOverride.trim()) ? userOverride.trim() : QUOTE_PROMPT;

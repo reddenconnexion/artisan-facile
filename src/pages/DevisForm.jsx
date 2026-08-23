@@ -24,6 +24,7 @@ import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Moda
 import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
 import { parseQuoteCsv } from '../utils/quoteCsvImport';
 import { buildCreditNotePayload } from '../utils/creditNote';
+import { WORK_OBJECT_MAX_CHARS, workObjectLength } from '../utils/workObject';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
 import ClientSelector from '../components/ClientSelector';
@@ -476,6 +477,7 @@ const DevisForm = () => {
     const [formData, setFormData] = useState({
         client_id: '',
         title: '',
+        work_object: '',
         public_token: '',
         date: new Date().toISOString().split('T')[0],
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -516,6 +518,21 @@ const DevisForm = () => {
     // immuable comme une facture — la plupart des actions (conversion,
     // acomptes, signature…) n'ont pas de sens pour lui.
     const isCreditNote = formData.type === 'credit_note';
+    // Avenant : le périmètre est décrit par les blocs Constat / Nouvelle solution,
+    // l'objet des travaux ferait double emploi (et n'est pas rendu sur le PDF).
+    const isAmendmentDoc = formData.type === 'amendment';
+    // Objet des travaux : replié par défaut pour ne pas alourdir un devis court,
+    // proposé d'emblée dès que le devis s'organise en lots (2 sections ou plus)
+    // — c'est là que le client a besoin de savoir ce que les lots forment
+    // ensemble, surtout s'il doit justifier sa décision à un tiers.
+    const [workObjectOpen, setWorkObjectOpen] = useState(false);
+    const sectionCount = React.useMemo(
+        () => (formData.items || []).filter(i => i.type === 'section').length,
+        [formData.items]
+    );
+    const canHaveWorkObject = !isAmendmentDoc && !isCreditNote;
+    const showWorkObject = canHaveWorkObject
+        && (workObjectOpen || !!formData.work_object || sectionCount >= 2);
     // Modal de création d'avoir depuis une facture émise
     const [creditNoteModal, setCreditNoteModal] = useState(null); // null | { mode, amountTTC, reason, saving, existing }
 
@@ -610,7 +627,7 @@ const DevisForm = () => {
             fetchClients().then(async (loadedClients) => {
                 // Handle Navigation State (Client ID or Voice Data or Import File or Merge)
                 if (location.state) {
-                    const { client_id, voiceData, importFile, importMode, mergeIds, siteVisitItems, siteVisitTitle, fromReport } = location.state;
+                    const { client_id, voiceData, importFile, importMode, mergeIds, siteVisitItems, siteVisitTitle, siteVisitWorkObject, fromReport } = location.state;
 
                     // Pré-remplissage depuis un rapport d'intervention
                     if (fromReport) {
@@ -634,6 +651,9 @@ const DevisForm = () => {
                         setFormData(prev => ({
                             ...prev,
                             title: siteVisitTitle || prev.title,
+                            // Proposition issue de la visite : l'artisan la relit et la
+                            // corrige dans le formulaire avant l'envoi.
+                            work_object: prev.work_object || siteVisitWorkObject || '',
                             items: siteVisitItems.map((item, i) => ({
                                 id: now + i,
                                 description: item.description || '',
@@ -956,6 +976,7 @@ const DevisForm = () => {
                 setFormData({
                     client_id: data.client_id || '',
                     title: data.title || '',
+                    work_object: data.work_object || '',
                     public_token: data.public_token || '',
                     date: data.date,
                     valid_until: data.valid_until || '',
@@ -1369,11 +1390,14 @@ const DevisForm = () => {
                     const missing = sourceDescriptions.filter(d => !existing[d]);
                     const titleChanged = !contentEn || contentEn.sourceTitle !== (formData.title || '');
                     const notesChanged = !contentEn || contentEn.sourceNotes !== (formData.notes || '');
+                    const workObjectChanged = !contentEn
+                        || (contentEn.sourceWorkObject || '') !== (formData.work_object || '');
 
-                    if (missing.length > 0 || titleChanged || notesChanged) {
+                    if (missing.length > 0 || titleChanged || notesChanged || workObjectChanged) {
                         toast.loading('Traduction du devis en anglais…', { id: 'translate-toast' });
                         const result = await translateQuoteContent({
                             title: formData.title || '',
+                            workObject: formData.work_object || '',
                             notes: formData.notes || '',
                             descriptions: missing,
                         }, 'en');
@@ -1381,11 +1405,13 @@ const DevisForm = () => {
                         missing.forEach((src, i) => { lines[src] = result.descriptions[i] || src; });
                         contentEn = {
                             title: result.title || formData.title || '',
+                            work_object: result.workObject || '',
                             notes: result.notes || '',
                             lines,
                             // Mémorise les sources pour détecter une modification ultérieure.
                             sourceTitle: formData.title || '',
                             sourceNotes: formData.notes || '',
+                            sourceWorkObject: formData.work_object || '',
                         };
                         await supabase.from('quotes').update({ content_en: contentEn }).eq('id', id);
                         setFormData(prev => ({ ...prev, content_en: contentEn }));
@@ -1789,6 +1815,7 @@ const DevisForm = () => {
             quote_number: formData.quote_number || null,
             invoice_number: sentInvoiceNumber,
             title: formData.title,
+            work_object: formData.work_object || null,
             date: formData.date,
             valid_until: formData.valid_until || null,
             status: 'sent',
@@ -1980,6 +2007,7 @@ const DevisForm = () => {
                 client_id: formData.client_id,
                 client_name: selectedClient ? selectedClient.name : 'Client inconnu',
                 title: formData.title,
+                work_object: formData.work_object || null,
                 date: formData.date,
                 valid_until: formData.valid_until || null,
                 items: formData.items.map(i => ({
@@ -4296,7 +4324,11 @@ Conditions de règlement : Paiement à réception de facture.`
                             />
                         </div>
 
-                        <Field className="mb-1" label="Titre / Objet du devis">
+                        <Field
+                            className="mb-1"
+                            label="Titre du devis"
+                            hint="Nom court du projet : il sert aussi de nom de dossier et d'intitulé dans les emails au client."
+                        >
                             <Input
                                 type="text"
                                 className="disabled:bg-gray-100 disabled:text-gray-500"
@@ -4306,6 +4338,44 @@ Conditions de règlement : Paiement à réception de facture.`
                                 disabled={isLocked}
                             />
                         </Field>
+
+                        {showWorkObject && (
+                            <Field
+                                className="mb-1 mt-3"
+                                label="Objet des travaux (facultatif)"
+                                hint={workObjectLength(formData.work_object) <= WORK_OBJECT_MAX_CHARS
+                                    ? `Le périmètre en quelques phrases : ce qui est compris, ce qui ne l'est pas, les constats qui fixent le prix. ${workObjectLength(formData.work_object)}/${WORK_OBJECT_MAX_CHARS} caractères.`
+                                    : undefined}
+                                error={workObjectLength(formData.work_object) > WORK_OBJECT_MAX_CHARS
+                                    ? `${workObjectLength(formData.work_object)}/${WORK_OBJECT_MAX_CHARS} caractères : le texte sera tronqué sur le devis pour ne pas repousser le tableau des prestations.`
+                                    : undefined}
+                            >
+                                <Input
+                                    as="textarea"
+                                    rows={3}
+                                    className="disabled:bg-gray-100 disabled:text-gray-500"
+                                    placeholder="Ex : Fourniture et pose d'un interphone vidéo au portail piéton, avec report d'appel sur deux moniteurs. Comprend la liaison enterrée et le circuit d'alimentation dédié. Cheminement entre les deux postes constaté inférieur à 30 m."
+                                    value={formData.work_object}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, work_object: e.target.value });
+                                        // Déplie le champ au fil de la saisie pour tout afficher.
+                                        autoGrow(e.target);
+                                    }}
+                                    onFocus={(e) => autoGrow(e.target)}
+                                    disabled={isLocked}
+                                />
+                            </Field>
+                        )}
+
+                        {canHaveWorkObject && !showWorkObject && !isLocked && (
+                            <button
+                                type="button"
+                                onClick={() => setWorkObjectOpen(true)}
+                                className="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                                + Décrire l'objet des travaux
+                            </button>
+                        )}
 
 
                     </div>

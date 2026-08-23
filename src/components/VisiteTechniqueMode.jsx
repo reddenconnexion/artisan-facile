@@ -587,6 +587,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
             state: {
                 siteVisitItems: result.items,
                 siteVisitTitle: isPredevis ? `ESTIMATIF - ${result.title}` : result.title,
+                siteVisitWorkObject: result.work_object || '',
                 ...(clientId ? { client_id: clientId } : {}),
             }
         });

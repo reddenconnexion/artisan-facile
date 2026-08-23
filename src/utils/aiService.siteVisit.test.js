@@ -58,6 +58,20 @@ describe('generateQuoteFromSiteVisit', () => {
         expect(result.confidence).toBe('high');
     });
 
+    it("remonte l'objet des travaux proposé, vide s'il est absent", async () => {
+        invokeMock.mockResolvedValueOnce(okResponse(JSON.stringify({
+            title: 'Interphone vidéo',
+            work_object: "  Fourniture et pose d'un interphone vidéo au portail piéton.  ",
+            items: [],
+        })));
+        const withObject = await generateQuoteFromSiteVisit([], [], {});
+        expect(withObject.work_object).toBe("Fourniture et pose d'un interphone vidéo au portail piéton.");
+
+        invokeMock.mockResolvedValueOnce(okResponse(JSON.stringify({ title: 'T', items: [] })));
+        const without = await generateQuoteFromSiteVisit([], [], {});
+        expect(without.work_object).toBe('');
+    });
+
     it('uses the quote-site-visit preset and forwards the hourly rate', async () => {
         invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
 
