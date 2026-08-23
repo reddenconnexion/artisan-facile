@@ -177,6 +177,7 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
             state: {
                 siteVisitItems: result.items,
                 siteVisitTitle: result.title,
+                siteVisitWorkObject: result.work_object || '',
                 ...(clientId ? { client_id: clientId } : {}),
             }
         });

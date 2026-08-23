@@ -5,6 +5,7 @@ import { generateFacturXXML } from './facturxGenerator';
 import { getTradeConfig } from '../constants/trades';
 import { pluralizeFrenchHead } from './frenchText';
 import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
+import { capWorkObject } from './workObject';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -340,6 +341,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const tr = (lang !== 'fr' && devis.content_en) ? devis.content_en : null;
     const trTitle = tr?.title || devis.title;
     const trNotes = (tr && typeof tr.notes === 'string' && tr.notes.trim()) ? tr.notes : devis.notes;
+    const trWorkObject = (tr && typeof tr.work_object === 'string' && tr.work_object.trim())
+        ? tr.work_object
+        : devis.work_object;
     const trLine = (desc) => (tr?.lines && tr.lines[desc]) ? tr.lines[desc] : desc;
 
     // ── Charte graphique : couleur d'accent (profil) + palette neutre ──
@@ -549,6 +553,20 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const titleLines = doc.splitTextToSize(`${L.object} : ${trTitle}`, 182);
         doc.text(titleLines, 14, tableStartY);
         tableStartY += titleLines.length * 5.2 + 4;
+    }
+
+    // Objet des travaux : le paragraphe de périmètre, sous le titre qui lui sert
+    // d'intitulé. Facultatif — sans lui, le rendu est exactement celui d'avant.
+    // Exclu des avenants : le bloc Constat / Nouvelle solution ci-dessous y joue
+    // déjà ce rôle, les deux feraient double emploi.
+    const workObject = isAmendment ? '' : capWorkObject(trWorkObject);
+    if (workObject) {
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(...subtle);
+        const objectLines = doc.splitTextToSize(workObject, 182);
+        doc.text(objectLines, 14, tableStartY);
+        tableStartY += objectLines.length * 4.4 + 4;
     }
 
     // Rattachement au devis initial : indispensable pour que le client situe

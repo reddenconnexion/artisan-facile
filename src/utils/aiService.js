@@ -269,18 +269,19 @@ export const extractSupplierInvoiceFromText = async (pdfText) => {
  * of the SAME length and order, so the caller can re-map each translation onto
  * its item by index (robust to duplicate descriptions).
  *
- * @param {object} content - { title, notes, descriptions: string[] }
+ * @param {object} content - { title, workObject, notes, descriptions: string[] }
  * @param {string} targetLang - 'en' (extendable later)
- * @returns {Promise<{title:string, notes:string, descriptions:string[]}>}
+ * @returns {Promise<{title:string, workObject:string, notes:string, descriptions:string[]}>}
  */
 export const translateQuoteContent = async (content, targetLang = 'en') => {
     const descriptions = Array.isArray(content?.descriptions) ? content.descriptions : [];
     const title = typeof content?.title === 'string' ? content.title : '';
+    const workObject = typeof content?.workObject === 'string' ? content.workObject : '';
     const notes = typeof content?.notes === 'string' ? content.notes : '';
 
     // Nothing to translate → return as-is without spending an AI call.
-    if (!title.trim() && !notes.trim() && descriptions.every(d => !String(d || '').trim())) {
-        return { title, notes, descriptions };
+    if (!title.trim() && !workObject.trim() && !notes.trim() && descriptions.every(d => !String(d || '').trim())) {
+        return { title, workObject, notes, descriptions };
     }
 
     const langName = targetLang === 'en' ? 'anglais' : targetLang;
@@ -295,9 +296,9 @@ RÈGLES STRICTES :
 - Réponds en JSON STRICT, sans markdown, sans texte autour.
 
 FORMAT DE RÉPONSE :
-{"title":"...","notes":"...","descriptions":["...","..."]}`;
+{"title":"...","work_object":"...","notes":"...","descriptions":["...","..."]}`;
 
-    const userMessage = `Traduis le contenu de ce devis vers ${langName}.\n\nDONNÉES (JSON) :\n${JSON.stringify({ title, notes, descriptions })}`;
+    const userMessage = `Traduis le contenu de ce devis vers ${langName}.\n\nDONNÉES (JSON) :\n${JSON.stringify({ title, work_object: workObject, notes, descriptions })}`;
 
     const rawResponse = await callAiProxy({ systemPrompt, userMessage });
     const parsed = extractJsonObject(rawResponse);
@@ -312,6 +313,9 @@ FORMAT DE RÉPONSE :
 
     return {
         title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : title,
+        workObject: typeof parsed.work_object === 'string' && parsed.work_object.trim()
+            ? parsed.work_object.trim()
+            : workObject,
         notes: typeof parsed.notes === 'string' ? parsed.notes : notes,
         descriptions: descriptionsOut,
     };
@@ -546,7 +550,7 @@ export const structureVisitTranscript = async (rawNotes, context = {}) => {
  * @param {object} context - Optional context (hourlyRate, instructions,
  *   surveyText: relevé structuré issu de la trame de visite — traité comme
  *   source prioritaire pour les quantités)
- * @returns {Promise<object>} { title, items, suggestions, estimated_duration, price_range, confidence }
+ * @returns {Promise<object>} { title, work_object, items, suggestions, estimated_duration, price_range, confidence }
  */
 export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
     const parts = [];
@@ -572,7 +576,9 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     if (context.surveyText) extras += `\n${SURVEY_AI_INSTRUCTION}`;
 
     const userMessage = `VISITE CHANTIER:\n\n${combined}`;
-    const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, price_range et confidence:\n{"title":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
+    // Miroir de SITE_VISIT_EXTRAS (supabase/functions/ai-proxy) pour le chemin
+    // « prompt personnalisé », qui ne passe pas par le preset serveur.
+    const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, work_object, price_range et confidence:\n- "title" : nom court du projet (8 mots max), pas une phrase.\n- "work_object" : le périmètre en 2 à 4 phrases (400 caractères max) — ce qui est compris, ce qui ne l\'est pas, et les constats relevés qui conditionnent le prix (longueurs, alimentation existante, accès). Aucune liste de postes, aucun montant.\n{"title":"...","work_object":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
     const rawResponse = context.customSystemPrompt
         ? await callAiProxy({ systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
         : await callAiProxy({ preset: 'quote-site-visit', extras, userMessage });
@@ -596,6 +602,9 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
 
     return {
         title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : 'Devis visite chantier',
+        // Objet des travaux proposé — facultatif, l'artisan le relit et le corrige
+        // dans le devis. Plafonné au rendu, pas ici.
+        work_object: typeof parsed.work_object === 'string' ? parsed.work_object.trim() : '',
         items,
         suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter((s) => typeof s === 'string') : [],
         estimated_duration: typeof parsed.estimated_duration === 'string' ? parsed.estimated_duration : null,
