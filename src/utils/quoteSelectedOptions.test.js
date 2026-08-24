@@ -92,7 +92,9 @@ describe('quoteWithSelectedOptions', () => {
         const q = quoteWithSelectedOptions(quote223(), new Set(['m2']));
 
         expect(q.items.find(i => i.id === 'm2').is_optional).toBeUndefined();
+        expect(q.items.find(i => i.id === 'm2').option_accepted).toBe(true);
         expect(q.items.find(i => i.id === 'm3').is_optional).toBe(true);
+        expect(q.items.find(i => i.id === 'm3').option_accepted).toBeUndefined();
         expect(q.items.find(i => i.id === '2').is_optional).toBe(true);
         expect(materialSubtotal(q.items)).toBeCloseTo(1481.91, 2); // 1356,91 + 125
         expect(q.total_ht).toBeCloseTo(2306.91, 2);                // 2181,91 + 125
