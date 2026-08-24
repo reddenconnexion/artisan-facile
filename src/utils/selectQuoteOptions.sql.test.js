@@ -6,8 +6,9 @@
 //   1. une option NON retenue reste dans le devis, marquée option_declined et
 //      toujours is_optional : elle garde la trace de ce qui a été proposé sans
 //      jamais entrer dans le total ;
-//   2. une option RETENUE est conservée ET son flag is_optional est retiré
-//      (elle devient une ligne ferme comptée dans le total) ;
+//   2. une option RETENUE est conservée, son flag is_optional est retiré (elle
+//      devient une ligne ferme comptée dans le total) et elle est marquée
+//      option_accepted, pour que le devis dise que le client l'a choisie ;
 //   3. les totaux (total_ht/tva/ttc) sont recalculés sur les lignes conservées,
 //      pour qu'une option retenue soit immédiatement comptée dans le total stocké ;
 //   4. un devis externe (is_external) ne voit pas ses totaux recalculés ;
@@ -22,7 +23,7 @@ import { PGlite } from '@electric-sql/pglite';
 const ROOT = cwd();
 const MIG = path.join(
   ROOT,
-  'supabase/migrations/20260824190000_select_quote_options_keep_declined.sql'
+  'supabase/migrations/20260824200000_select_quote_options_mark_accepted.sql'
 );
 
 let db;
@@ -89,6 +90,7 @@ describe('select_quote_options', () => {
     const q = await getQuote();
     const opt1 = q.items.find((i) => i.id === 'opt1');
     expect(opt1.is_optional).toBeUndefined(); // devient ferme
+    expect(opt1.option_accepted).toBe(true); // ... et se lit comme une option choisie
     expect(opt1.option_declined).toBeUndefined();
   });
 

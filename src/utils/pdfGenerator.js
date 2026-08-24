@@ -122,6 +122,7 @@ const PDF_I18N = {
         colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
         colUnitPriceShort: 'PU HT',
         optionPrefix: '(Option)',
+        optionAcceptedPrefix: '(Option retenue)',
         optionDeclinedPrefix: '(Option non retenue)',
         tableLaborHeader: "Main d'œuvre", tableMaterialHeader: 'Fournitures et matériel',
         siteLabel: 'Chantier',
@@ -214,6 +215,7 @@ const PDF_I18N = {
         colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price', colTotal: 'Total (excl. VAT)',
         colUnitPriceShort: 'Unit Price',
         optionPrefix: '(Optional)',
+        optionAcceptedPrefix: '(Optional — accepted)',
         optionDeclinedPrefix: '(Optional — not taken)',
         tableLaborHeader: 'Labour & services', tableMaterialHeader: 'Materials & supplies',
         siteLabel: 'Work site',
@@ -766,13 +768,20 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
         const bothGroups = services.length > 0 && materials.length > 0;
 
-        // Une option écartée par le client reste imprimée — trace de ce qui a
-        // été proposé — mais son libellé le dit, pour qu'on ne la confonde ni
-        // avec une ligne due, ni avec une option encore ouverte.
-        const optionLabelOf = (item) =>
-            item.option_declined ? L.optionDeclinedPrefix : L.optionPrefix;
-        const itemLabel = (item) =>
-            item.is_optional ? `${optionLabelOf(item)} ${trLine(item.description || '')}` : trLine(item.description || '');
+        // Les trois états d'une option se lisent sur le document : proposée sans
+        // réponse (hors total), retenue par le client (ligne ferme, comptée
+        // partout), écartée (conservée comme trace de l'offre, hors total).
+        // Sans le libellé « retenue », une option acceptée redevenait une ligne
+        // ordinaire : on ne savait plus si le client l'avait choisie.
+        const optionPrefixOf = (item) => {
+            if (item.option_accepted) return L.optionAcceptedPrefix;
+            if (item.option_declined) return L.optionDeclinedPrefix;
+            return L.optionPrefix;
+        };
+        const itemLabel = (item) => {
+            const desc = trLine(item.description || '');
+            return (item.is_optional || item.option_accepted) ? `${optionPrefixOf(item)} ${desc}` : desc;
+        };
         const itemRow = (item) => [
             itemLabel(item),
             item.quantity,
@@ -791,7 +800,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const groupedMaterialLabel = (item) => {
             let desc = trLine(item.description || '');
             if ((parseFloat(item.quantity) || 0) > 1) desc = pluralizeFrenchHead(desc);
-            return item.is_optional ? `${optionLabelOf(item)} ${desc}` : desc;
+            return (item.is_optional || item.option_accepted) ? `${optionPrefixOf(item)} ${desc}` : desc;
         };
         const groupedMaterialRow = (item) => [groupedMaterialLabel(item), lineTotalCell(item)];
         // Présentation « poste global » : le libellé du poste + son total. Les

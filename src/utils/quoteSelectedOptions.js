@@ -3,10 +3,12 @@
 // Le portail laisse le client cocher les lignes optionnelles (is_optional)
 // avant de signer. Deux règles, une par état de l'option :
 //
-//   • Option RETENUE → ligne ferme : le flag is_optional est retiré, comme le
-//     fait la RPC `select_quote_options` (migration 20260713120000) au moment
-//     de la signature. Elle entre alors dans le total ET dans les sous-totaux
-//     et l'acompte matériel, qui filtrent is_optional.
+//   • Option RETENUE → ligne ferme : le flag is_optional est retiré et la ligne
+//     est marquée `option_accepted`, comme le fait la RPC `select_quote_options`
+//     au moment de la signature. Elle entre alors dans le total ET dans les
+//     sous-totaux et l'acompte matériel, qui filtrent is_optional ; le marquage
+//     ne sert qu'au libellé « (Option retenue) » du PDF, pour qu'une option
+//     acceptée ne se lise pas comme une ligne qui aurait toujours été due.
 //   • Option NON retenue → conservée telle quelle, marquée « (Option) » dans
 //     les tableaux et hors total : le client garde sous les yeux tout ce que
 //     l'artisan lui propose, exactement comme sur le PDF envoyé par e-mail. La
@@ -80,8 +82,9 @@ export function quoteWithSelectedOptions(quote, selectedIds) {
     const items = (quote.items || []).map(item => {
         if (!item.is_optional || !isSelected(item, selectedIds)) return item;
         // Option retenue → ligne ferme : comptée dans le total ET dans les
-        // sous-totaux / l'acompte matériel, qui filtrent is_optional.
-        const firm = { ...item };
+        // sous-totaux / l'acompte matériel, qui filtrent is_optional. Le
+        // marquage garde lisible qu'elle vient d'une option.
+        const firm = { ...item, option_accepted: true };
         delete firm.is_optional;
         return firm;
     });
