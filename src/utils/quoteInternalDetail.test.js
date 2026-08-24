@@ -105,6 +105,14 @@ describe('supplyEntries', () => {
         expect(entries.map((e) => e.key)).toEqual(['comp:11:1', 'comp:11:2', 'line:12']);
     });
 
+    it('exclut une ligne optionnelle : une option non retenue ne se commande pas', () => {
+        const entries = supplyEntries([
+            { id: 1, type: 'material', description: 'Disjoncteur 16 A', quantity: 8, unit: 'u' },
+            { id: 2, type: 'material', description: 'Piquet supplémentaire', quantity: 1, unit: 'u', is_optional: true },
+        ]);
+        expect(entries.map((e) => e.description)).toEqual(['Disjoncteur 16 A']);
+    });
+
     it('tolère un devis vide ou invalide', () => {
         expect(supplyEntries(undefined)).toEqual([]);
         expect(supplyEntries([])).toEqual([]);
@@ -243,6 +251,18 @@ describe('quoteMargin', () => {
         expect(r.laborCost).toBe(0);
         expect(r.hasLabor).toBe(false);
         expect(r.margin).toBeCloseTo(0.8, 5); // (1000 - 200) / 1000
+    });
+
+    it('ignore les lignes optionnelles : leur coût ne pèse pas sur le chiffrage ferme', () => {
+        // Une option écartée reste au devis (trace de l'offre) ; son matériel
+        // n'est ni acheté ni vendu, il ne doit pas entrer dans la marge.
+        const withOption = [
+            ...items,
+            { type: 'material', description: 'Piquet supplémentaire', quantity: 1, price: 125, buying_price: 90, is_optional: true },
+        ];
+        const r = quoteMargin(withOption, 1000, 0);
+        expect(r.materialCost).toBe(200);
+        expect(r.margin).toBeCloseTo(0.8, 5);
     });
 
     it('avec coût horaire : déduit aussi la main d\'œuvre (marge nette)', () => {

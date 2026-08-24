@@ -36,6 +36,14 @@ describe('estimatedHoursFromItems', () => {
         ])).toBe(2 * HOURS_PER_DAY);
     });
 
+    it('ignore une ligne optionnelle : une option non retenue n\'est pas du temps prévu', () => {
+        const items = [
+            { description: 'Pose', unit: 'h', quantity: 4 },
+            { description: 'Tranchée (option)', unit: 'h', quantity: 2, is_optional: true },
+        ];
+        expect(estimatedHoursFromItems(items)).toBe(4);
+    });
+
     it('ignores non-time units, sections and bad quantities', () => {
         expect(estimatedHoursFromItems([
             { description: 'Carrelage', unit: 'm²', quantity: 12 },

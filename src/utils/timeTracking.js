@@ -30,7 +30,9 @@ export const isLaborLine = (item) => {
 export const estimatedHoursFromItems = (items) => {
     if (!Array.isArray(items)) return 0;
     return items.reduce((acc, item) => {
-        if (!isLaborLine(item)) return acc;
+        // Une option n'est pas du temps prévu tant qu'elle n'est pas retenue
+        // (retenue, elle perd son flag et compte comme n'importe quelle ligne).
+        if (!isLaborLine(item) || item.is_optional) return acc;
         const unit = String(item.unit || '').trim().toLowerCase();
         const qty = parseFloat(item.quantity);
         if (!Number.isFinite(qty) || qty <= 0) return acc;

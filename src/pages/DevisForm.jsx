@@ -2623,18 +2623,24 @@ Conditions de règlement : Paiement à réception de facture.`
             }
 
             // 2. Prepare items: Copy original items
-            let finalItems = formData.items.map(item => ({
-                ...item,
-                id: Date.now() + Math.random(),
-                quantity: parseFloat(item.quantity) || 0,
-                price: parseFloat(item.price) || 0,
-                buying_price: parseFloat(item.buying_price) || 0
-            }));
+            // Les lignes optionnelles sont écartées : une option retenue par le
+            // client a perdu son flag à la signature, celles qui le portent
+            // encore n'ont pas été retenues (elles restent au devis comme trace
+            // de l'offre) et ne sont donc pas dues.
+            let finalItems = formData.items
+                .filter(item => !item.is_optional)
+                .map(item => ({
+                    ...item,
+                    id: Date.now() + Math.random(),
+                    quantity: parseFloat(item.quantity) || 0,
+                    price: parseFloat(item.price) || 0,
+                    buying_price: parseFloat(item.buying_price) || 0
+                }));
 
             // 2b. Append items from signed amendments (extra work agreed after the initial quote)
             const amendmentItems = amendments.flatMap(amd => {
                 const label = amd.quote_number ? `Avenant n°${amd.quote_number}` : (amd.title || 'Avenant');
-                const items = Array.isArray(amd.items) ? amd.items : [];
+                const items = (Array.isArray(amd.items) ? amd.items : []).filter(i => !i.is_optional);
                 return items.map(item => ({
                     ...item,
                     id: Date.now() + Math.random(),
