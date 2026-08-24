@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { lineAmount } from '../utils/clientView';
-import { quoteWithSelectedOptions } from '../utils/quoteSelectedOptions';
+import { initialOptionSelection, quoteWithSelectedOptions } from '../utils/quoteSelectedOptions';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -254,24 +254,12 @@ const PublicQuote = () => {
         }
     };
 
-    // Initialize selectedOptionals when quote loads.
-    //  - Ungrouped options: pre-checked (independent checkboxes).
-    //  - Grouped options (mutually exclusive): only the first item of each
-    //    group is pre-checked, regardless of whether the group is "required".
+    // Sélection initiale des options à l'ouverture du lien : le client voit
+    // d'abord le prix ferme du devis, rien n'est retenu à sa place (règle et
+    // exception des groupes obligatoires dans quoteSelectedOptions.js).
     useEffect(() => {
         if (!quote || selectedOptionals !== null) return;
-        const optItems = (quote.items || []).filter(i => i.is_optional);
-        const ids = new Set();
-        const seenGroups = new Set();
-        for (const it of optItems) {
-            if (!it.option_group) {
-                ids.add(String(it.id));
-            } else if (!seenGroups.has(it.option_group)) {
-                ids.add(String(it.id));
-                seenGroups.add(it.option_group);
-            }
-        }
-        setSelectedOptionals(ids);
+        setSelectedOptionals(initialOptionSelection(quote.items));
     }, [quote]);
 
     // Generate PDF client-side — depends on quote and optional item selection
@@ -564,7 +552,7 @@ const PublicQuote = () => {
 
                                 {/* Ungrouped options: independent checkboxes */}
                                 {ungroupedOptions.map(item => {
-                                    const checked = selectedOptionals?.has(String(item.id)) ?? true;
+                                    const checked = selectedOptionals?.has(String(item.id)) ?? false;
                                     const ht = itemTotal(item);
                                     const ttc = includeTva ? ht * (1 + tvaRate) : ht;
                                     return (

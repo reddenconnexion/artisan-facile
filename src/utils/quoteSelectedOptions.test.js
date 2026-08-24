@@ -12,7 +12,7 @@
 //   Σ main d'œuvre ferme + Σ fournitures fermes = total_ht.
 
 import { describe, expect, it } from 'vitest';
-import { quoteWithSelectedOptions } from './quoteSelectedOptions';
+import { initialOptionSelection, quoteWithSelectedOptions } from './quoteSelectedOptions';
 import { materialDepositAmounts } from './materialDeposit';
 
 // Reprise du calcul des sous-totaux du générateur de PDF (pdfGenerator.js) :
@@ -80,11 +80,12 @@ describe('quoteWithSelectedOptions', () => {
         expect(balanceTTC).toBeCloseTo(925, 2);
     });
 
-    it('sélection non initialisée : toutes les options sont retenues et fermes', () => {
+    it('sélection non initialisée : aucune option retenue, on retombe sur le devis ferme', () => {
         const q = quoteWithSelectedOptions(quote223(), null);
 
         expect(q.items.some(i => i.is_optional)).toBe(false);
-        expect(q.total_ht).toBeCloseTo(2536.91, 2);
+        expect(q.items.find(i => i.id === 'm2')).toBeUndefined();
+        expect(q.total_ht).toBeCloseTo(2181.91, 2);
     });
 
     it('option écartée : sa ligne disparaît du devis et du total', () => {
@@ -111,5 +112,40 @@ describe('quoteWithSelectedOptions', () => {
 
     it('devis absent : rien à imprimer', () => {
         expect(quoteWithSelectedOptions(null, new Set())).toBeNull();
+    });
+});
+
+describe('initialOptionSelection', () => {
+    it("aucune option libre n'est retenue à l'ouverture : le client voit le prix ferme", () => {
+        const quote = quote223();
+        const selected = initialOptionSelection(quote.items);
+
+        expect(selected.size).toBe(0);
+        expect(quoteWithSelectedOptions(quote, selected).total_ht).toBeCloseTo(2181.91, 2);
+    });
+
+    it('groupe à choix non obligatoire : « aucune de ces options » par défaut', () => {
+        const items = [
+            { id: 'a', type: 'material', description: 'Gamme standard', quantity: 1, price: 200, is_optional: true, option_group: 'Appareillage' },
+            { id: 'b', type: 'material', description: 'Gamme haut de gamme', quantity: 1, price: 400, is_optional: true, option_group: 'Appareillage' },
+        ];
+
+        expect(initialOptionSelection(items).size).toBe(0);
+    });
+
+    it("groupe à choix obligatoire : la première option sert de défaut (pas de « aucune »)", () => {
+        const items = [
+            { id: 'a', type: 'material', description: 'Gamme standard', quantity: 1, price: 200, is_optional: true, option_group: 'Appareillage', option_group_required: true },
+            { id: 'b', type: 'material', description: 'Gamme haut de gamme', quantity: 1, price: 400, is_optional: true, option_group: 'Appareillage' },
+            { id: 'c', type: 'service', description: 'Option libre', quantity: 1, price: 90, is_optional: true },
+        ];
+        const selected = initialOptionSelection(items);
+
+        expect([...selected]).toEqual(['a']);
+    });
+
+    it('devis sans option : sélection vide', () => {
+        expect(initialOptionSelection([{ id: '1', type: 'service', quantity: 1, price: 50 }]).size).toBe(0);
+        expect(initialOptionSelection(undefined).size).toBe(0);
     });
 });

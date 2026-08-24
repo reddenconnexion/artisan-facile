@@ -20,9 +20,45 @@
 // postes fusionnés du mode « poste global », qui portent un line_total).
 import { quoteLineAmount } from './materialDeposit';
 
-/** Une option est retenue si son id est coché ; sélection non initialisée = tout retenu. */
+/**
+ * Une option est retenue si son id est coché. Sélection pas encore initialisée
+ * (null) : aucune option retenue — c'est le devis ferme de l'artisan, celui dont
+ * les totaux sont stockés en base, et le défaut du portail depuis que les
+ * options s'ouvrent décochées.
+ */
 const isSelected = (item, selectedIds) =>
-    selectedIds ? selectedIds.has(String(item.id)) : true;
+    selectedIds ? selectedIds.has(String(item.id)) : false;
+
+/**
+ * Sélection d'options à l'ouverture du lien client : le devis s'affiche d'abord
+ * au PRIX FERME de l'artisan, celui dont les totaux sont stockés en base.
+ *
+ *  - Options libres (cases à cocher) : décochées — le client ajoute ce qu'il
+ *    veut. Pré-cocher afficherait le montant maximum et lui ferait payer une
+ *    option qu'il n'a pas demandée s'il signe sans ouvrir le panneau.
+ *  - Groupe à choix multiple non obligatoire : aucune retenue (le groupe offre
+ *    « Aucune de ces options »).
+ *  - Groupe à choix OBLIGATOIRE : la première option sert de défaut, le groupe
+ *    n'ayant pas de « aucune » et attendant une réponse.
+ *
+ * @param {Array} items Les lignes du devis.
+ * @returns {Set<string>} Les ids des options retenues au départ.
+ */
+export function initialOptionSelection(items) {
+    const optItems = (items || []).filter(i => i.is_optional);
+    const requiredGroups = new Set(
+        optItems.filter(i => i.option_group && i.option_group_required)
+            .map(i => i.option_group)
+    );
+    const ids = new Set();
+    const seenGroups = new Set();
+    for (const it of optItems) {
+        if (!it.option_group || seenGroups.has(it.option_group)) continue;
+        seenGroups.add(it.option_group);
+        if (requiredGroups.has(it.option_group)) ids.add(String(it.id));
+    }
+    return ids;
+}
 
 /**
  * Applique la sélection d'options du client à un devis, comme le fera la
@@ -30,7 +66,7 @@ const isSelected = (item, selectedIds) =>
  * rendues fermes, totaux recalculés.
  *
  * @param {object} quote        Le devis tel que renvoyé par get_public_quote.
- * @param {Set<string>|null} selectedIds Ids des options retenues (null = toutes).
+ * @param {Set<string>|null} selectedIds Ids des options retenues (null = aucune).
  * @returns {object|null} Le devis à passer au générateur de PDF.
  */
 export function quoteWithSelectedOptions(quote, selectedIds) {
