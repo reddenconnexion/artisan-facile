@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { lineAmount } from '../utils/clientView';
+import { quoteWithSelectedOptions } from '../utils/quoteSelectedOptions';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -142,31 +143,13 @@ const PublicQuote = () => {
         }
     };
 
-    // Builds a quote object with optional items filtered out and totals
-    // recomputed from the remaining items. The PDF generator reads
-    // total_ht/total_tva/total_ttc directly, so simply filtering items isn't
-    // enough — we have to recompute the totals or the footer keeps showing
-    // the original sum (which made the PDF appear "not updated" when toggling
-    // options).
-    const buildQuoteForPdf = () => {
-        if (!quote) return null;
-        const includeTva = quote.include_tva !== false;
-        const tvaRate = 0.20;
-        const filteredItems = (quote.items || []).filter(
-            item => !item.is_optional || (selectedOptionals?.has(String(item.id)) ?? true)
-        );
-        const ht = filteredItems
-            .filter(i => i.type !== 'section')
-            .reduce((s, i) => s + lineAmount(i), 0);
-        const tva = includeTva ? ht * tvaRate : 0;
-        return {
-            ...quote,
-            items: filteredItems,
-            total_ht: ht,
-            total_tva: tva,
-            total_ttc: ht + tva,
-        };
-    };
+    // Devis à imprimer = devis tel qu'il sera signé : options non retenues
+    // supprimées, options retenues rendues fermes, totaux recalculés — la règle
+    // appliquée par la RPC `select_quote_options` à la signature (cf.
+    // quoteSelectedOptions.js). Le générateur de PDF lit total_ht/tva/ttc
+    // directement : filtrer les lignes sans recalculer laisserait le pied de
+    // page sur la somme d'origine (PDF « pas à jour » au clic sur une option).
+    const buildQuoteForPdf = () => quoteWithSelectedOptions(quote, selectedOptionals);
 
     const handleDownload = () => {
         if (!quote) return;
