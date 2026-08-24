@@ -3,7 +3,9 @@
 // Cette RPC est appelée depuis le portail client, avant signature, pour confirmer
 // les lignes optionnelles retenues. On charge la vraie définition SQL dans un
 // PostgreSQL en mémoire (PGlite) et on vérifie les invariants :
-//   1. une option NON retenue est supprimée du devis ;
+//   1. une option NON retenue reste dans le devis, marquée option_declined et
+//      toujours is_optional : elle garde la trace de ce qui a été proposé sans
+//      jamais entrer dans le total ;
 //   2. une option RETENUE est conservée ET son flag is_optional est retiré
 //      (elle devient une ligne ferme comptée dans le total) ;
 //   3. les totaux (total_ht/tva/ttc) sont recalculés sur les lignes conservées,
@@ -20,7 +22,7 @@ import { PGlite } from '@electric-sql/pglite';
 const ROOT = cwd();
 const MIG = path.join(
   ROOT,
-  'supabase/migrations/20260713120000_select_quote_options_clear_optional_flag.sql'
+  'supabase/migrations/20260824190000_select_quote_options_keep_declined.sql'
 );
 
 let db;
@@ -85,12 +87,21 @@ describe('select_quote_options', () => {
     expect(rows[0].ok).toBe(true);
 
     const q = await getQuote();
-    const ids = q.items.map((i) => i.id);
-    expect(ids).toContain('opt1'); // retenue → conservée
-    expect(ids).not.toContain('opt2'); // non retenue → supprimée
-
     const opt1 = q.items.find((i) => i.id === 'opt1');
     expect(opt1.is_optional).toBeUndefined(); // devient ferme
+    expect(opt1.option_declined).toBeUndefined();
+  });
+
+  it('garde la trace d’une option écartée, marquée et hors chiffrage', async () => {
+    await insertQuote();
+    await selectOptions(['opt1']);
+
+    const q = await getQuote();
+    const opt2 = q.items.find((i) => i.id === 'opt2');
+    expect(opt2).toBeDefined(); // trace de ce qui a été proposé
+    expect(opt2.option_declined).toBe(true);
+    expect(opt2.is_optional).toBe(true); // reste exclue de tout total
+    expect(q.items).toHaveLength(4); // aucune ligne perdue
   });
 
   it('recalcule le total ferme en incluant l’option retenue', async () => {
@@ -106,7 +117,8 @@ describe('select_quote_options', () => {
     await selectOptions([]); // aucune option → 100 + 20 = 120
     const q = await getQuote();
     expect(Number(q.total_ht)).toBe(120);
-    expect(q.items.every((i) => !i.is_optional)).toBe(true);
+    // Les deux options restent au devis, marquées écartées.
+    expect(q.items.filter((i) => i.option_declined)).toHaveLength(2);
   });
 
   it('applique la TVA quand include_tva est vrai', async () => {
@@ -124,8 +136,9 @@ describe('select_quote_options', () => {
     const q = await getQuote();
     // Totaux saisis à la main : inchangés ...
     expect(Number(q.total_ht)).toBe(200);
-    // ... mais les lignes sont bien filtrées.
-    expect(q.items.map((i) => i.id)).not.toContain('opt2');
+    // ... mais les lignes portent bien l'état des options.
+    expect(q.items.find((i) => i.id === 'opt1').is_optional).toBeUndefined();
+    expect(q.items.find((i) => i.id === 'opt2').option_declined).toBe(true);
   });
 
   it('refuse un devis déjà accepté', async () => {

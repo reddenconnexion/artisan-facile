@@ -122,6 +122,7 @@ const PDF_I18N = {
         colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
         colUnitPriceShort: 'PU HT',
         optionPrefix: '(Option)',
+        optionDeclinedPrefix: '(Option non retenue)',
         tableLaborHeader: "Main d'œuvre", tableMaterialHeader: 'Fournitures et matériel',
         siteLabel: 'Chantier',
         sameAsClientAddress: "Identique à l'adresse client",
@@ -213,6 +214,7 @@ const PDF_I18N = {
         colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price', colTotal: 'Total (excl. VAT)',
         colUnitPriceShort: 'Unit Price',
         optionPrefix: '(Optional)',
+        optionDeclinedPrefix: '(Optional — not taken)',
         tableLaborHeader: 'Labour & services', tableMaterialHeader: 'Materials & supplies',
         siteLabel: 'Work site',
         sameAsClientAddress: 'Same as client address',
@@ -764,8 +766,13 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
         const bothGroups = services.length > 0 && materials.length > 0;
 
+        // Une option écartée par le client reste imprimée — trace de ce qui a
+        // été proposé — mais son libellé le dit, pour qu'on ne la confonde ni
+        // avec une ligne due, ni avec une option encore ouverte.
+        const optionLabelOf = (item) =>
+            item.option_declined ? L.optionDeclinedPrefix : L.optionPrefix;
         const itemLabel = (item) =>
-            item.is_optional ? `${L.optionPrefix} ${trLine(item.description || '')}` : trLine(item.description || '');
+            item.is_optional ? `${optionLabelOf(item)} ${trLine(item.description || '')}` : trLine(item.description || '');
         const itemRow = (item) => [
             itemLabel(item),
             item.quantity,
@@ -784,7 +791,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const groupedMaterialLabel = (item) => {
             let desc = trLine(item.description || '');
             if ((parseFloat(item.quantity) || 0) > 1) desc = pluralizeFrenchHead(desc);
-            return item.is_optional ? `${L.optionPrefix} ${desc}` : desc;
+            return item.is_optional ? `${optionLabelOf(item)} ${desc}` : desc;
         };
         const groupedMaterialRow = (item) => [groupedMaterialLabel(item), lineTotalCell(item)];
         // Présentation « poste global » : le libellé du poste + son total. Les

@@ -61,7 +61,10 @@ export const effectiveLineCost = (item) => {
  *            cost:number, margin:number, hasLabor:boolean }}
  */
 export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
-    const list = (Array.isArray(items) ? items : []).filter((i) => i && i.type !== 'section');
+    // Les options (retenues ou écartées) ne font pas partie du chiffrage ferme :
+    // le sous-total vendu les exclut déjà, leur coût ne doit pas s'y ajouter.
+    const list = (Array.isArray(items) ? items : [])
+        .filter((i) => i && i.type !== 'section' && !i.is_optional);
     const materialCost = list.reduce((sum, i) => sum + (isLaborLine(i) ? 0 : effectiveLineCost(i)), 0);
     const laborHours = estimatedHoursFromItems(list);
     const rate = parseFloat(laborCostRate) || 0;
@@ -142,7 +145,9 @@ export const buildSupplierListText = (entries, opts = {}) => {
 export const supplyEntries = (items) => {
     const entries = [];
     (Array.isArray(items) ? items : []).forEach((item, idx) => {
-        if (!item || item.type === 'section') return;
+        // Une option non retenue par le client ne s'achète pas : elle ne doit
+        // jamais atterrir dans une liste de matériel ni chez le fournisseur.
+        if (!item || item.type === 'section' || item.is_optional) return;
         const lineId = item.id ?? idx;
         const components = lineComponents(item);
         // Une ligne Matériel détaillée par un chiffrage interne n'est pas
