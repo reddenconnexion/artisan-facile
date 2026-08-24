@@ -51,13 +51,14 @@ const quote223 = () => ({
 });
 
 describe('quoteWithSelectedOptions', () => {
-    it('aucune option retenue : le devis ferme est inchangé (825 + 1356,91 = 2181,91)', () => {
+    it('aucune option retenue : devis ferme (825 + 1356,91 = 2181,91), options toujours affichées', () => {
         const q = quoteWithSelectedOptions(quote223(), new Set());
 
         expect(laborSubtotal(q.items)).toBeCloseTo(825, 2);
         expect(materialSubtotal(q.items)).toBeCloseTo(1356.91, 2);
         expect(q.total_ht).toBeCloseTo(2181.91, 2);
-        expect(q.items.some(i => i.is_optional)).toBe(false);
+        // Les quatre options restent proposées au client, hors total.
+        expect(q.items.filter(i => i.is_optional)).toHaveLength(4);
     });
 
     it('options pré-cochées : elles deviennent fermes, sous-totaux et total retombent juste (devis 223)', () => {
@@ -83,17 +84,19 @@ describe('quoteWithSelectedOptions', () => {
     it('sélection non initialisée : aucune option retenue, on retombe sur le devis ferme', () => {
         const q = quoteWithSelectedOptions(quote223(), null);
 
-        expect(q.items.some(i => i.is_optional)).toBe(false);
-        expect(q.items.find(i => i.id === 'm2')).toBeUndefined();
+        expect(q.items.filter(i => i.is_optional)).toHaveLength(4);
         expect(q.total_ht).toBeCloseTo(2181.91, 2);
     });
 
-    it('option écartée : sa ligne disparaît du devis et du total', () => {
+    it('une seule option retenue : elle devient ferme, les autres restent des options hors total', () => {
         const q = quoteWithSelectedOptions(quote223(), new Set(['m2']));
 
-        expect(q.items.find(i => i.id === 'm3')).toBeUndefined();
-        expect(q.items.find(i => i.id === '2')).toBeUndefined();
-        expect(q.total_ht).toBeCloseTo(2306.91, 2); // 2181,91 + 125
+        expect(q.items.find(i => i.id === 'm2').is_optional).toBeUndefined();
+        expect(q.items.find(i => i.id === 'm3').is_optional).toBe(true);
+        expect(q.items.find(i => i.id === '2').is_optional).toBe(true);
+        expect(materialSubtotal(q.items)).toBeCloseTo(1481.91, 2); // 1356,91 + 125
+        expect(q.total_ht).toBeCloseTo(2306.91, 2);                // 2181,91 + 125
+        expect(laborSubtotal(q.items) + materialSubtotal(q.items)).toBeCloseTo(q.total_ht, 2);
     });
 
     it('TVA appliquée quand le devis y est soumis', () => {
@@ -104,10 +107,10 @@ describe('quoteWithSelectedOptions', () => {
     });
 
     it('devis externe : les totaux saisis à la main ne sont pas recalculés', () => {
-        const q = quoteWithSelectedOptions({ ...quote223(), is_external: true }, new Set());
+        const q = quoteWithSelectedOptions({ ...quote223(), is_external: true }, new Set(['m2']));
 
         expect(q.total_ht).toBeCloseTo(2181.91, 2);
-        expect(q.items.some(i => i.is_optional)).toBe(false);
+        expect(q.items.find(i => i.id === 'm2').is_optional).toBeUndefined();
     });
 
     it('devis absent : rien à imprimer', () => {
