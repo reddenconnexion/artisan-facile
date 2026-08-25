@@ -259,6 +259,79 @@ describe('parseQuoteCsv', () => {
         expect(items[0].internal_note).toBe('peigne vertical fourni');
     });
 
+    it('signale les en-têtes reconnus (headerless = false)', () => {
+        const { headerless } = parseQuoteCsv('Description;Prix\nPose;35\n');
+        expect(headerless).toBe(false);
+    });
+
+    it('lit une sélection de cellules collée depuis Excel, sans en-têtes', () => {
+        // Ce que le presse-papiers d'Excel dépose : des colonnes séparées par des tabulations
+        const pasted = [
+            "Dépose ancien tableau\t1\tforfait\t150",
+            'Tableau 3 rangées\t1\tu\t280,50',
+            'Tirage de câbles\t45\tml\t4,20',
+        ].join('\n');
+        const { items, headerless, error } = parseQuoteCsv(pasted);
+        expect(error).toBeNull();
+        expect(headerless).toBe(true);
+        expect(items).toHaveLength(3);
+        expect(items[0]).toMatchObject({ description: 'Dépose ancien tableau', quantity: 1, unit: 'forfait', price: 150 });
+        expect(items[2]).toMatchObject({ description: 'Tirage de câbles', quantity: 45, unit: 'ml', price: 4.2 });
+    });
+
+    it('sans en-têtes, une seule colonne de chiffres est le prix', () => {
+        const { items } = parseQuoteCsv('Pose applique;45\nRemplacement interrupteur;28\n');
+        expect(items[0]).toMatchObject({ description: 'Pose applique', quantity: 1, price: 45 });
+        expect(items[1]).toMatchObject({ description: 'Remplacement interrupteur', price: 28 });
+    });
+
+    it('sans en-têtes, écarte la colonne Total (Qté × PU) au lieu d\'en faire un prix d\'achat', () => {
+        const pasted = [
+            'Prise 2P+T;4;18,50;74',
+            'Interrupteur va-et-vient;2;12,00;24',
+        ].join('\n');
+        const { items } = parseQuoteCsv(pasted);
+        expect(items[0]).toMatchObject({ quantity: 4, price: 18.5, buying_price: 0 });
+        expect(items[1]).toMatchObject({ quantity: 2, price: 12, buying_price: 0 });
+    });
+
+    it('retire une ligne d\'en-têtes non reconnue au lieu de l\'importer', () => {
+        const csv = 'Poste;Nb;PU\nPose luminaire;3;40\nDépose;1;60\n';
+        const { items, headerless } = parseQuoteCsv(csv);
+        expect(headerless).toBe(true);
+        expect(items.map((i) => i.description)).toEqual(['Pose luminaire', 'Dépose']);
+        expect(items[0]).toMatchObject({ quantity: 3, price: 40 });
+    });
+
+    it('sans en-têtes, ignore une colonne de numérotation en tête de tableau', () => {
+        const pasted = '1;Pose prise;4;18,50\n2;Pose interrupteur;2;12\n';
+        const { items } = parseQuoteCsv(pasted);
+        expect(items[0]).toMatchObject({ description: 'Pose prise', quantity: 4, price: 18.5 });
+        expect(items[1]).toMatchObject({ description: 'Pose interrupteur', quantity: 2, price: 12 });
+    });
+
+    it('sans en-têtes, reconnaît une colonne Type (Matériel / Main d\'œuvre)', () => {
+        const pasted = [
+            'Disjoncteur 16A;Matériel;4;12',
+            'Pose et raccordement;Main d\'œuvre;2;45',
+        ].join('\n');
+        const { items } = parseQuoteCsv(pasted);
+        expect(items[0]).toMatchObject({ description: 'Disjoncteur 16A', type: 'material', quantity: 4, price: 12 });
+        expect(items[1]).toMatchObject({ type: 'service', quantity: 2, price: 45 });
+    });
+
+    it('sans en-têtes, accepte une simple liste de désignations', () => {
+        const { items, error } = parseQuoteCsv('Pose de 3 prises\nRaccordement tableau\n');
+        expect(error).toBeNull();
+        expect(items.map((i) => i.description)).toEqual(['Pose de 3 prises', 'Raccordement tableau']);
+        expect(items[0]).toMatchObject({ quantity: 1, unit: 'u', price: 0 });
+    });
+
+    it('refuse un tableau de chiffres sans aucune désignation', () => {
+        const { error } = parseQuoteCsv('12;1\n18;2\n');
+        expect(error).toMatch(/Description/);
+    });
+
     it('génère des ids uniques', () => {
         const csv = 'Description\nA\nB\nC\n';
         const { items } = parseQuoteCsv(csv);
