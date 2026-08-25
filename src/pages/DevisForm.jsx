@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -48,6 +48,7 @@ import DevisAIModal from '../components/DevisAIModal';
 import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
+import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 import { materialDepositAmounts } from '../utils/materialDeposit';
@@ -211,6 +212,10 @@ const DevisForm = () => {
     const [showSupplyModal, setShowSupplyModal] = useState(false);
     // Modale « Liste fournisseur » (matériel sans prix, à transmettre au fournisseur)
     const [showSupplierListModal, setShowSupplierListModal] = useState(false);
+    // Modale « Coller un tableau » : import CSV sans fichier (copie de cellules
+    // Excel, CSV reçu par mail) — voir QuoteCsvPasteModal.
+    const [showCsvPasteModal, setShowCsvPasteModal] = useState(false);
+    const [pastedCsvText, setPastedCsvText] = useState('');
 
     // Client Presence State
     const [isClientOnline, setIsClientOnline] = useState(false);
@@ -753,6 +758,68 @@ const DevisForm = () => {
         }
     }, [user, id]);
 
+    // ── Coller un tableau (import CSV sans fichier) ───────────────────────────
+    // Le même parseur que l'import de fichier, alimenté par le presse-papiers :
+    // l'artisan copie ses cellules dans Excel et colle, sans avoir à exporter
+    // puis retrouver un .csv sur son ordinateur.
+
+    /** Ligne vide du formulaire (celle posée par défaut) : rien à préserver. */
+    const isBlankItem = (item) => !String(item?.description || '').trim()
+        && !Number(item?.price) && !Number(item?.buying_price);
+
+    const openCsvPasteModal = (initialText = '') => {
+        setPastedCsvText(initialText);
+        setShowCsvPasteModal(true);
+    };
+
+    const applyPastedCsv = ({ items, notes, skipped, headerless, mode }) => {
+        const base = Date.now();
+        const imported = items.map((item, i) => ({ ...item, id: base + i }));
+        setFormData(prev => {
+            const kept = mode === 'append' ? prev.items.filter(item => !isBlankItem(item)) : [];
+            return {
+                ...prev,
+                items: [...kept, ...imported],
+                // Réserves et notes du tableau : ajoutées aux notes déjà saisies
+                // plutôt que de les écraser (même règle que l'import de fichier).
+                notes: notes ? (prev.notes ? `${prev.notes}\n${notes}` : notes) : prev.notes,
+            };
+        });
+        setShowCsvPasteModal(false);
+        setPastedCsvText('');
+        setShowImportZone(false);
+
+        const lineCount = imported.filter(item => item.type !== 'section').length;
+        const plural = lineCount > 1 ? 's' : '';
+        toast.success(
+            `${lineCount} ligne${plural} ${mode === 'append' ? `ajoutée${plural}` : `importée${plural}`} depuis le tableau collé.`
+            + `${skipped > 0 ? ` (${skipped} ignorée${skipped > 1 ? 's' : ''})` : ''}`
+            + `${notes ? ' Réserves et notes reprises dans « Notes / Conditions ».' : ''}`
+        );
+        if (headerless) {
+            toast.message('Colonnes devinées faute d\'en-têtes — vérifiez quantités et prix.');
+        }
+    };
+
+    // Ctrl/⌘+V sur un devis neuf : un tableau copié depuis un tableur ouvre
+    // directement l'aperçu d'import — le chemin le plus court entre Excel et le
+    // devis. Les collages dans un champ de saisie sont laissés tranquilles, et
+    // un simple mot copié n'ouvre rien.
+    useEffect(() => {
+        if (isEditing || showCsvPasteModal) return;
+        const onPaste = (e) => {
+            const target = e.target;
+            if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+            const text = e.clipboardData?.getData('text/plain') || '';
+            const looksTabular = /[;\t]/.test(text) || text.trim().split(/\r?\n/).filter(Boolean).length >= 2;
+            if (!text.trim() || !looksTabular) return;
+            e.preventDefault();
+            openCsvPasteModal(text);
+        };
+        window.addEventListener('paste', onPaste);
+        return () => window.removeEventListener('paste', onPaste);
+    }, [isEditing, showCsvPasteModal]);
+
     // Reusable function to process imported file
     const processImportedFile = async (file, mode = 'archive') => {
         if (!file) return;
@@ -768,7 +835,7 @@ const DevisForm = () => {
             try {
                 setImporting(true);
                 const text = await file.text();
-                const { items: csvItems, notes: csvNotes, skipped, error: parseError } = parseQuoteCsv(text);
+                const { items: csvItems, notes: csvNotes, skipped, headerless, error: parseError } = parseQuoteCsv(text);
                 if (parseError) {
                     toast.error(parseError);
                     return;
@@ -788,6 +855,10 @@ const DevisForm = () => {
                     + `${skipped > 0 ? ` (${skipped} ignorée${skipped > 1 ? 's' : ''})` : ''}.`
                     + `${csvNotes ? ' Réserves et notes reprises dans « Notes / Conditions ».' : ''}`
                 );
+                if (headerless) {
+                    // Colonnes lues d'après leur ordre : à contrôler avant d'envoyer le devis.
+                    toast.message('Colonnes devinées faute d\'en-têtes — vérifiez quantités et prix.');
+                }
             } catch (error) {
                 console.error('Import CSV error:', error);
                 toast.error("Erreur lors de l'import CSV : " + error.message);
@@ -4092,6 +4163,18 @@ Conditions de règlement : Paiement à réception de facture.`
                                     Importer (PDF / Word / CSV)
                                 </button>
 
+                                {/* Devis signé/facturé : ses lignes ne bougent plus (même règle
+                                    que la saisie manuelle) */}
+                                {!isLocked && (
+                                    <button
+                                        onClick={() => { openCsvPasteModal(); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                        <ClipboardPaste className="w-4 h-4 mr-3 text-blue-600" />
+                                        Coller un tableau (Excel / CSV)
+                                    </button>
+                                )}
+
                                 <button
                                     onClick={() => { document.getElementById('external-pdf-input')?.click(); setShowActionsMenu(false); }}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -4157,7 +4240,14 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {importing ? 'Traitement en cours…' : 'Importer un devis existant (PDF, Word ou CSV)'}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                Déposez le fichier ici, ou <span className="text-blue-600 underline">parcourez</span>
+                                Déposez le fichier ici, <span className="text-blue-600 underline">parcourez</span>, ou{' '}
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); openCsvPasteModal(); }}
+                                    className="text-blue-600 underline"
+                                >
+                                    collez un tableau
+                                </button>
                             </p>
                             {!dismissedHelps.csv_format && (
                                 <>
@@ -5144,6 +5234,17 @@ Conditions de règlement : Paiement à réception de facture.`
                             Section
                         </button>
 
+                        <button
+                            type="button"
+                            onClick={() => openCsvPasteModal()}
+                            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors disabled:opacity-50"
+                            disabled={isLocked}
+                            title="Collez directement vos cellules copiées depuis Excel ou un CSV — aucun fichier à enregistrer sur l'ordinateur."
+                        >
+                            <ClipboardPaste className="w-4 h-4" />
+                            Coller un tableau
+                        </button>
+
                         {supplyEntries(formData.items).length > 0 && (
                             <button
                                 type="button"
@@ -5244,6 +5345,15 @@ Conditions de règlement : Paiement à réception de facture.`
                     quoteLabel={formData.title || (isEditing ? `Devis #${id}` : null)}
                     items={formData.items}
                 />
+
+                {showCsvPasteModal && (
+                    <QuoteCsvPasteModal
+                        onClose={() => { setShowCsvPasteModal(false); setPastedCsvText(''); }}
+                        onImport={applyPastedCsv}
+                        hasExistingItems={formData.items.some(item => !isBlankItem(item))}
+                        initialText={pastedCsvText}
+                    />
+                )}
 
                 {/* Payment Schedule (Invoices) */}
                 {formData.type === 'invoice' && !formData.is_external && (

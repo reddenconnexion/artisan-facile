@@ -1,14 +1,18 @@
 import Papa from 'papaparse';
 
-// Import des lignes d'un devis depuis un fichier CSV (export Excel/LibreOffice,
-// chiffrage préparé dans un tableur, export d'un autre logiciel…).
+// Import des lignes d'un devis depuis un CSV — fichier (export Excel/LibreOffice,
+// chiffrage préparé dans un tableur, export d'un autre logiciel…) ou tableau
+// collé directement dans le formulaire, sans passer par un fichier.
 //
 // Format attendu : une ligne d'en-têtes puis une ligne par prestation. Seule la
 // colonne « Description » est obligatoire ; tout le reste a une valeur par
 // défaut. Les intitulés d'en-têtes courants (FR/EN) sont reconnus, le
 // séparateur (";" prioritaire, puis tabulation, puis ",") est déduit de la
 // ligne d'en-têtes, les champs entre guillemets sont respectés et les nombres
-// au format français ("1 234,56 €") sont compris.
+// au format français ("1 234,56 €") sont compris. Sans ligne d'en-têtes
+// reconnue — le cas d'une sélection de cellules copiée depuis Excel — les
+// colonnes sont devinées d'après leur contenu et leur ordre (voir
+// parseWithoutHeaders).
 //
 // Sections : soit une colonne « Section » (ou Lot/Groupe/Catégorie) — un titre
 // de section est inséré à chaque changement de valeur — soit des lignes dont la
@@ -136,40 +140,204 @@ const resolveColumns = (fields) => {
     return mapping;
 };
 
+/** Une cellule qui se lit comme un nombre : « 12 », « 18,50 € », « 1 234 ». */
+const isNumericCell = (value) => {
+    const s = String(value ?? '').trim();
+    return s !== '' && parseCsvNumber(s) !== null;
+};
+
+/** Nom de colonne synthétique employé quand le tableau n'a pas d'en-têtes. */
+const positionalKey = (index) => `col${index}`;
+
+const filledValues = (rows, c) => rows.map((r) => r[c]).filter((v) => v !== '');
+
+/** Colonne de chiffres : la majorité de ses cellules remplies sont des nombres. */
+const isNumericColumn = (rows, c) => {
+    const values = filledValues(rows, c);
+    return values.length > 0 && values.filter(isNumericCell).length * 2 >= values.length;
+};
+
+/** Colonne « Type » : vocabulaire métier (Matériel, Fourniture, Main d'œuvre…). */
+const looksLikeTypeColumn = (rows, c) => {
+    const values = filledValues(rows, c);
+    if (!values.length) return false;
+    const hits = values.filter(
+        (v) => /^(mat[ée]riel|fournitures?|main[\s'’-]*d|[œo]euvre|presta|service|section|titre)/i.test(v)
+            || /^mo\.?$/i.test(v)
+    );
+    return hits.length * 2 >= values.length;
+};
+
+/** Colonne « Unité » : des valeurs courtes (u, ml, m², forfait, h, ens…). */
+const looksLikeUnitColumn = (rows, c) => {
+    const values = filledValues(rows, c);
+    return values.length > 0 && values.every((v) => v.length <= 10);
+};
+
+/**
+ * Colonne de numérotation en tête de tableau (« 1, 2, 3… ») : des entiers qui
+ * se suivent, en première colonne. Sans ce garde-fou elle passerait pour la
+ * quantité et décalerait tout le reste d'un cran.
+ */
+const isRowNumberColumn = (rows, c) => {
+    if (c !== 0 || rows.length < 2) return false;
+    const values = filledValues(rows, c);
+    if (values.length !== rows.length) return false;
+    const numbers = values.map((v) => parseCsvNumber(v));
+    return numbers[0] === 1 && numbers.every((n, i) => Number.isInteger(n) && (i === 0 || n === numbers[i - 1] + 1));
+};
+
+/**
+ * Colonne « Total » : ses valeurs valent Qté × PU sur la majorité des lignes.
+ * On l'écarte — c'est un calcul, pas une donnée à réimporter ; la reprendre
+ * comme prix d'achat fausserait la marge du devis.
+ */
+const isProductColumn = (rows, target, a, b) => {
+    let checked = 0;
+    let matches = 0;
+    for (const row of rows) {
+        const v = parseCsvNumber(row[target]);
+        const x = parseCsvNumber(row[a]);
+        const y = parseCsvNumber(row[b]);
+        if (v === null || x === null || y === null) continue;
+        checked += 1;
+        if (Math.abs(v - x * y) <= 0.011) matches += 1; // tolérance : arrondi au centime
+    }
+    return checked > 0 && matches * 2 >= checked;
+};
+
+/**
+ * Tableau sans ligne d'en-têtes reconnue : le cas d'une sélection de cellules
+ * copiée depuis Excel, ou d'un fichier aux intitulés maison (« Poste ; Nb ; PU »).
+ * Les colonnes sont alors devinées d'après leur contenu et leur ordre :
+ *
+ *  - Description : la première colonne de texte — une colonne de numérotation
+ *    « 1, 2, 3 » posée devant est donc ignorée ;
+ *  - colonnes de chiffres, dans l'ordre : une seule → Prix (une désignation
+ *    suivie d'un seul nombre, c'est un prix) ; deux → Quantité puis Prix ;
+ *    trois ou plus → Quantité, Prix, Prix d'achat ;
+ *  - colonne de texte courte → Unité, vocabulaire métier → Type ;
+ *  - première ligne retirée si elle se lit comme un en-tête (du texte là où
+ *    les lignes suivantes portent des nombres).
+ *
+ * Renvoie null si aucune colonne ne ressemble à une Description : mieux vaut
+ * le message d'erreur sur les en-têtes que des lignes inventées.
+ *
+ * @returns {{rows: Array<Object>, cols: Object}|null}
+ */
+const parseWithoutHeaders = (text, delimiter) => {
+    const parsed = Papa.parse(text, { header: false, delimiter, skipEmptyLines: 'greedy' });
+    const grid = (parsed.data || [])
+        .map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '').trim()) : []))
+        .filter((row) => row.some((cell) => cell !== ''));
+    if (!grid.length) return null;
+
+    const width = Math.max(...grid.map((row) => row.length));
+    const padded = grid.map((row) => Array.from({ length: width }, (_, i) => row[i] ?? ''));
+
+    let rows = padded;
+    if (padded.length >= 2) {
+        const rest = padded.slice(1);
+        const headerLike = padded[0].some(
+            (cell, c) => cell !== '' && !isNumericCell(cell) && isNumericColumn(rest, c)
+        );
+        if (headerLike) rows = rest;
+    }
+    if (!rows.length) return null;
+
+    const numericCols = [];
+    const textCols = [];
+    for (let c = 0; c < width; c += 1) {
+        if (!filledValues(rows, c).length) continue; // colonne vide : ignorée
+        if (!isNumericColumn(rows, c)) { textCols.push(c); continue; }
+        if (isRowNumberColumn(rows, c)) continue; // numérotation : ni quantité ni prix
+        numericCols.push(c);
+    }
+
+    const descriptionCol = textCols.shift();
+    if (descriptionCol === undefined) return null;
+
+    // Colonne Total : cherchée en partant de la droite, une seule écartée —
+    // quand toutes les quantités valent 1, Total et PU sont interchangeables
+    // et on ne veut pas perdre le prix.
+    const numbers = [...numericCols];
+    for (let i = numbers.length - 1; i >= 2; i -= 1) {
+        const others = numbers.filter((_, j) => j !== i);
+        const product = others.some((a, ai) =>
+            others.slice(ai + 1).some((b) => isProductColumn(rows, numbers[i], a, b))
+        );
+        if (product) {
+            numbers.splice(i, 1);
+            break;
+        }
+    }
+
+    const cols = { description: positionalKey(descriptionCol) };
+    if (numbers.length === 1) {
+        cols.price = positionalKey(numbers[0]);
+    } else if (numbers.length >= 2) {
+        cols.quantity = positionalKey(numbers[0]);
+        cols.price = positionalKey(numbers[1]);
+        if (numbers.length >= 3) cols.buying_price = positionalKey(numbers[2]);
+    }
+    for (const c of textCols) {
+        if (!cols.type && looksLikeTypeColumn(rows, c)) cols.type = positionalKey(c);
+        else if (!cols.unit && looksLikeUnitColumn(rows, c)) cols.unit = positionalKey(c);
+    }
+
+    const objectRows = rows.map((row) =>
+        Object.fromEntries(row.map((cell, c) => [positionalKey(c), cell]))
+    );
+    return { rows: objectRows, cols };
+};
+
 /**
  * Parse un CSV de devis en lignes prêtes pour le formulaire.
  *
- * @param {string} text Contenu brut du fichier CSV.
- * @returns {{ items: Array, notes: string, skipped: number, error: string|null }}
+ * @param {string} text Contenu brut du CSV (fichier lu ou tableau collé).
+ * @returns {{ items: Array, notes: string, skipped: number, headerless: boolean, error: string|null }}
  *   `items` au format des lignes de devis ({description, quantity, unit,
  *   price, buying_price, type, is_optional}), `notes` = texte du devis
  *   (notes/conditions puis bloc « Réserves : ») à reporter dans le champ
  *   Notes / Conditions, `skipped` = lignes sans description ignorées,
- *   `error` = message bloquant (en-têtes introuvables…).
+ *   `error` = message bloquant (en-têtes introuvables…), `headerless` = les
+ *   colonnes ont été devinées faute d'en-têtes reconnus (à signaler avant
+ *   de valider l'import).
  */
 export const parseQuoteCsv = (text) => {
     const clean = String(text || '').replace(/^\uFEFF/, '');
     if (!clean.trim()) {
-        return { items: [], notes: '', skipped: 0, error: 'Le fichier CSV est vide.' };
+        return { items: [], notes: '', skipped: 0, headerless: false, error: 'Rien à importer : le contenu est vide.' };
     }
 
+    const delimiter = detectDelimiter(clean);
     const result = Papa.parse(clean, {
         header: true,
-        delimiter: detectDelimiter(clean),
+        delimiter,
         skipEmptyLines: 'greedy',
         transformHeader: (h) => String(h || '').trim(),
     });
 
     const fields = result.meta?.fields || [];
-    const cols = resolveColumns(fields);
+    let cols = resolveColumns(fields);
+    let rows = result.data;
+    let headerless = false;
 
     if (!cols.description) {
-        return {
-            items: [],
-            notes: '',
-            skipped: 0,
-            error: 'Colonne « Description » introuvable. La première ligne du CSV doit contenir des en-têtes (Description, Quantité, Unité, Prix…).',
-        };
+        // Pas d'en-têtes reconnus : on tente la lecture par position, qui rend
+        // exploitable une simple sélection de cellules copiée depuis Excel.
+        const positional = parseWithoutHeaders(clean, delimiter);
+        if (!positional) {
+            return {
+                items: [],
+                notes: '',
+                skipped: 0,
+                headerless: false,
+                error: 'Colonne « Description » introuvable. Ajoutez une ligne d\'en-têtes (Description, Quantité, Unité, Prix…) ou commencez chaque ligne par sa désignation.',
+            };
+        }
+        ({ rows, cols } = positional);
+        headerless = true;
     }
 
     const items = [];
@@ -194,7 +362,7 @@ export const parseQuoteCsv = (text) => {
         return true;
     };
 
-    for (const row of result.data) {
+    for (const row of rows) {
         const description = String(row[cols.description] ?? '').trim();
 
         // Colonnes Réserve / Notes : leur contenu appartient au devis, pas à la
@@ -259,9 +427,10 @@ export const parseQuoteCsv = (text) => {
             items: [],
             notes: '',
             skipped,
+            headerless,
             error: 'Aucune ligne exploitable : vérifiez que la colonne Description est remplie sous la ligne d\'en-têtes.',
         };
     }
 
-    return { items, notes, skipped, error: null };
+    return { items, notes, skipped, headerless, error: null };
 };
