@@ -14,6 +14,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { usePwaUpdate } from '../context/PwaUpdateContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { coefficientFromCatalog } from '../utils/priceLibraryCsv';
+import { checkSiret, normalizeSiret } from '../utils/siret';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -328,8 +329,19 @@ const Profile = () => {
         }
     };
 
+    // Le SIRET part tel quel en pied de devis et dans le XML Factur-X : une
+    // saisie fausse ne se découvre qu'une fois le document chez le client. On
+    // refuse donc de l'enregistrer — un champ laissé vide reste possible, c'est
+    // le bandeau « profil incomplet » qui s'en charge.
+    const siretCheck = checkSiret(formData.siret);
+
     const updateProfile = async (e) => {
         e.preventDefault();
+        if (siretCheck.level === 'error') {
+            toast.error(siretCheck.message);
+            document.querySelector('input[name="siret"]')?.focus();
+            return;
+        }
         try {
             setLoading(true);
             const { error } = await supabase
@@ -345,7 +357,9 @@ const Profile = () => {
                     city: formData.city,
                     postal_code: formData.postal_code,
 
-                    siret: formData.siret,
+                    // Chiffres seuls : des espaces seraient rejetés dans le
+                    // XML Factur-X (schemeID 0009).
+                    siret: normalizeSiret(formData.siret),
                     insurance_company: formData.insurance_company,
                     insurance_contract_number: formData.insurance_contract_number,
                     insurance_company_address: formData.insurance_company_address,
@@ -385,9 +399,8 @@ const Profile = () => {
             invalidateProfile();
             toast.success('Profil mis à jour avec succès');
 
-            // Si le SIRET est renseigné, enregistrer le SIREN dans l'annuaire DGFIP via B2BRouter
-            const siret = (formData.siret || '').replace(/\s/g, '');
-            if (siret.length >= 9 && b2bReceiverStatus !== 'registered') {
+            // SIRET complet et valide : enregistrer le SIREN dans l'annuaire DGFIP via B2BRouter
+            if (siretCheck.level === 'ok' && b2bReceiverStatus !== 'registered') {
                 registerB2BReceiver();
             }
         } catch (error) {
@@ -813,12 +826,41 @@ const Profile = () => {
                                     value={formData.siret}
                                     onChange={handleChange}
                                     placeholder="14 chiffres"
-                                    className={`block w-full px-3 py-2 border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 ${!formData.siret ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'}`}
+                                    inputMode="numeric"
+                                    autoComplete="off"
+                                    aria-invalid={siretCheck.level === 'error'}
+                                    aria-describedby="siret-help"
+                                    className={`block w-full px-3 py-2 border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-blue-500 focus:border-blue-500 ${
+                                        siretCheck.level === 'error'
+                                            ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
+                                            : !formData.siret
+                                                ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                                                : 'border-gray-300 dark:border-gray-600'
+                                    }`}
                                 />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
-                                    <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">autoentrepreneur.urssaf.fr</a>
-                                </p>
+                                {/* Le numéro finit imprimé sur un document légal : on nomme
+                                    l'erreur (SIREN saisi à la place du SIRET, chiffre manquant,
+                                    clé fausse) plutôt que de dire « invalide ». */}
+                                <div id="siret-help" aria-live="polite">
+                                    {siretCheck.level === 'error' && (
+                                        <p className="mt-1 flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+                                            <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                            <span>{siretCheck.message}</span>
+                                        </p>
+                                    )}
+                                    {siretCheck.level === 'ok' && (
+                                        <p className="mt-1 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                                            <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                            <span>{siretCheck.message}</span>
+                                        </p>
+                                    )}
+                                    {siretCheck.level !== 'ok' && (
+                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            14 chiffres — trouvez-le sur votre Kbis ou sur{' '}
+                                            <a href="https://autoentrepreneur.urssaf.fr" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">autoentrepreneur.urssaf.fr</a>
+                                        </p>
+                                    )}
+                                </div>
                                 {/* Statut enregistrement annuaire DGFIP */}
                                 {b2bReceiverStatus === 'loading' && (
                                     <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-600">
@@ -842,7 +884,7 @@ const Profile = () => {
                                         <button type="button" onClick={registerB2BReceiver} className="text-red-600 underline hover:text-red-800">Réessayer</button>
                                     </div>
                                 )}
-                                {!b2bReceiverStatus && formData.siret?.length >= 9 && (
+                                {!b2bReceiverStatus && siretCheck.level === 'ok' && (
                                     <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg px-2.5 py-1.5">
                                         <Radio className="w-3.5 h-3.5 shrink-0" />
                                         <span>Sauvegardez le profil pour vous enregistrer dans l'annuaire DGFIP</span>
