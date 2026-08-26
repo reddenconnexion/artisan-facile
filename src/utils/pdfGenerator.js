@@ -6,6 +6,7 @@ import { getTradeConfig } from '../constants/trades';
 import { pluralizeFrenchHead } from './frenchText';
 import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
 import { capWorkObject } from './workObject';
+import { isVatFranchise, vatFranchiseTotal } from './vatFranchise';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -132,7 +133,6 @@ const PDF_I18N = {
         subtotalMaterial: 'Sous-total fournitures et matériel',
         vatShort: 'TVA',
         vatNotApplicableShort: 'Non applicable — art. 293 B du CGI',
-        totalHTFinal: 'TOTAL HT',
         paymentConditions: 'Conditions de règlement',
         depositOnOrder: 'Acompte à la commande (100 % des fournitures)',
         balanceOnCompletion: "Solde à la fin des travaux (main d'œuvre)",
@@ -225,7 +225,6 @@ const PDF_I18N = {
         subtotalMaterial: 'Materials subtotal',
         vatShort: 'VAT',
         vatNotApplicableShort: 'Not applicable — art. 293 B of the French Tax Code',
-        totalHTFinal: 'TOTAL (excl. VAT)',
         paymentConditions: 'Payment terms',
         depositOnOrder: 'Deposit on order (100% of materials)',
         balanceOnCompletion: 'Balance on completion of works (labour)',
@@ -1030,11 +1029,25 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         totalsRows.push(devis.include_tva !== false
             ? [L.vat('20%'), fmtMoney(devis.total_tva)]
             : [L.vatShort, L.vatNotApplicableShort]);
-        const grandLabel = devis.include_tva !== false ? L.totalTTC : L.totalHTFinal;
+        // En franchise de TVA, le total « HT » est la somme réellement due :
+        // on le nomme donc pour ce qu'il est, et la phrase sous le bloc évite
+        // au client de se demander s'il faut encore ajouter 20 %.
+        const franchise = isVatFranchise(devis)
+            ? vatFranchiseTotal({ isInvoice, isCreditNote, lang })
+            : null;
+        const grandLabel = franchise ? franchise.label : L.totalTTC;
         const grandValue = fmtMoney(devis.total_ttc);
 
         const totX = 106, totRight = 196, rowH = 7;
-        const blockH = (totalsRows.length + 1) * rowH + 3;
+        let franchiseNoteLines = [];
+        if (franchise) {
+            // La découpe dépend de la police courante : on fixe celle du rendu
+            // avant de mesurer, sinon la note déborde de la colonne des totaux.
+            doc.setFontSize(7.2);
+            doc.setFont(undefined, 'italic');
+            franchiseNoteLines = doc.splitTextToSize(franchise.note, totRight - totX - 2);
+        }
+        const blockH = (totalsRows.length + 1) * rowH + 3 + franchiseNoteLines.length * 3.4;
 
         let finalY = currentTableY > tableStartY ? currentTableY : 150;
         if (finalY + blockH > 282) {
@@ -1069,7 +1082,19 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFontSize(11.5);
         doc.text(grandValue, totRight - 2, rowY + 3.5, { align: 'right' });
 
-        currentTableY = rowY + rowH + 4;
+        let noteY = rowY + rowH + 3.5;
+        if (franchiseNoteLines.length > 0) {
+            doc.setFontSize(7.2);
+            doc.setFont(undefined, 'italic');
+            doc.setTextColor(...subtle);
+            franchiseNoteLines.forEach((line) => {
+                doc.text(line, totRight - 2, noteY, { align: 'right' });
+                noteY += 3.4;
+            });
+            noteY += 1;
+        }
+
+        currentTableY = Math.max(rowY + rowH + 4, noteY);
     }
 
     // Position for Notes
