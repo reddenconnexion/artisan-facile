@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { lineAmount } from '../utils/clientView';
+import { vatFranchiseTotal } from '../utils/vatFranchise';
 import { initialOptionSelection, quoteWithSelectedOptions } from '../utils/quoteSelectedOptions';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
@@ -370,6 +371,10 @@ const PublicQuote = () => {
         .reduce((s, i) => s + itemTotal(i), 0);
     const totalHT = mandatoryHT + selectedOptionsHT;
     const totalTTC = includeTva ? totalHT * (1 + tvaRate) : totalHT;
+    // En franchise de TVA (art. 293 B du CGI), il n'y a pas de HT à opposer au
+    // TTC : le montant affiché est celui que le client règlera. Suffixer « HT »
+    // ferait croire qu'il reste 20 % à ajouter — on l'omet et on l'écrit.
+    const amountSuffix = includeTva ? ' TTC' : '';
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -521,7 +526,7 @@ const PublicQuote = () => {
                                                             </div>
                                                             <div className="text-right shrink-0">
                                                                 <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-400'}`}>
-                                                                    +{ttc.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}
+                                                                    +{ttc.toFixed(2)} €{amountSuffix}
                                                                 </p>
                                                             </div>
                                                         </label>
@@ -575,7 +580,7 @@ const PublicQuote = () => {
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-400'}`}>
-                                                    +{ttc.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}
+                                                    +{ttc.toFixed(2)} €{amountSuffix}
                                                 </p>
                                             </div>
                                         </label>
@@ -584,8 +589,11 @@ const PublicQuote = () => {
 
                                 <div className="flex items-center justify-between pt-2 border-t border-purple-100 text-sm">
                                     <span className="text-gray-500">{T.totalWithOptions}</span>
-                                    <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{includeTva ? ' TTC' : ' HT'}</span>
+                                    <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{amountSuffix}</span>
                                 </div>
+                                {!includeTva && (
+                                    <p className="text-xs text-gray-500 italic">{vatFranchiseTotal({ lang }).note}</p>
+                                )}
                                 <p className="text-xs text-gray-400">{T.pdfAutoUpdate}</p>
                             </div>
                         )}
