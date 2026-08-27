@@ -818,6 +818,8 @@ FORMAT JSON ATTENDU :
  * @param {string} [params.tone='chaleureux'] - 'chaleureux' | 'professionnel' | 'concis'.
  * @param {object} [params.business] - Contexte entreprise { companyName, city, area, trade, signature }.
  * @param {number} [params.count=3] - Nombre de variantes distinctes à générer (1 à 4).
+ * @param {string[]} [params.previousReplies] - Propositions déjà affichées pour CET avis (« Régénérer » doit s'en écarter).
+ * @param {string[]} [params.chosenReplies] - Réponses déjà copiées/publiées par l'artisan sur d'autres avis : elles ne doivent JAMAIS ressortir.
  * @returns {Promise<{replies: string[]}>}
  */
 export const generateReviewReply = async ({
@@ -830,6 +832,7 @@ export const generateReviewReply = async ({
     business = {},
     count = 3,
     previousReplies = [],
+    chosenReplies = [],
 } = {}) => {
     if (!reviewText || !reviewText.trim()) {
         throw new Error("Collez d'abord l'avis du client à traiter.");
@@ -848,8 +851,9 @@ export const generateReviewReply = async ({
     const isNeutral = safeRating === 3;
 
     // Une seule phrase d'ambiance ne différencie pas les tons : chaque ton
-    // impose sa propre longueur cible et des marqueurs de style concrets
-    // (registre, interdits), sinon les trois réglages produisent le même texte.
+    // impose sa propre longueur cible, des marqueurs de style concrets et des
+    // EXEMPLES de registre (jamais à recopier), sinon les trois réglages
+    // produisent le même texte, long et impersonnel.
     const TONE_PROFILES = {
         chaleureux: {
             length: '3 à 4 phrases',
@@ -858,26 +862,42 @@ export const generateReviewReply = async ({
 - Registre parlé et généreux, comme un artisan qui répond de vive voix à un client qu'il apprécie.
 - Glisse une touche personnelle liée au chantier ou au contact avec le client.
 - Une exclamation est la bienvenue (une seule), l'enthousiasme doit rester sincère.
-- Pas de politesse figée ni de formule administrative : des mots simples et vrais.`,
+- Pas de politesse figée ni de formule administrative : des mots simples et vrais.
+EXEMPLES DE REGISTRE CHALEUREUX (ne les recopie JAMAIS, ils montrent seulement le ton et la longueur attendus) :
+- « Ah, ce chantier restera un bon souvenir ! On aura bien œuvré sur cette rénovation, mais quand je vois le résultat, ça valait chaque heure passée. Prenez-en soin. »
+- « Ça, c'est le genre de message qui donne la pêche pour attaquer la semaine. Le courant est bien passé sur ce chantier, dans tous les sens du terme. Au plaisir de se recroiser. »`,
         },
         professionnel: {
             length: '2 à 3 phrases',
             lengthHints: ['Fais court : 2 phrases.', 'Vise 3 phrases.'],
-            guide: `TON PROFESSIONNEL (courtois, posé, appliqué) :
-- Registre soigné, vouvoiement impeccable, aucune exclamation.
-- Phrases construites et sobres : on doit sentir l'artisan sérieux et organisé.
-- Reste factuel : le compliment se traite avec mesure, sans lyrisme.`,
+            guide: `TON PROFESSIONNEL (courtois et posé, mais écrit par un humain — PAS par un service client) :
+- Vouvoiement soigné, sans exclamation, MAIS des phrases qui parlent du chantier réel : l'essentiel de la réponse doit porter sur les travaux ou le client, pas sur des politesses.
+- Écris « je » (l'artisan répond lui-même), jamais un « nous » d'entreprise anonyme, sauf si une équipe est mentionnée dans l'avis.
+- INTERDIT, car c'est ce qui fait « robot » : les tournures de service après-vente (« nous restons à votre disposition », « nous mettons tout en œuvre », « votre satisfaction est... »), la voix passive administrative, et toute phrase qui pourrait se coller sous n'importe quel avis sans rien changer.
+- Varie la construction des phrases : une réponse professionnelle n'est pas trois phrases bâties sur le même moule.
+EXEMPLES DE REGISTRE PROFESSIONNEL (ne les recopie JAMAIS, ils montrent seulement le ton et la longueur attendus) :
+- « Un dépannage réussi tient souvent au bon diagnostic, et le vôtre m'a demandé de chercher un peu. Je suis content que l'installation soit repartie durablement. Merci d'avoir pris le temps de le signaler ici. »
+- « Ce type de rénovation demande de la méthode, et vos disponibilités ont facilité l'organisation du chantier. Bon usage de votre nouvelle installation. »`,
         },
         concis: {
-            length: '1 à 2 phrases courtes',
-            lengthHints: ['1 phrase suffit.', 'Fais court : 2 phrases maximum.'],
-            guide: `TON CONCIS (la brièveté est la consigne n°1) :
-- 1 à 2 phrases courtes, JAMAIS plus. Pas de subordonnées à rallonge.
-- Va droit au but : pas de formule d'introduction, pas de conclusion convenue.
-- Chaque mot doit servir : si un mot peut être supprimé, supprime-le.`,
+            length: '1 à 2 phrases courtes, 25 mots maximum au total',
+            lengthHints: ['Une seule phrase courte suffit.', 'Deux phrases courtes maximum.'],
+            guide: `TON CONCIS (la brièveté est la consigne n°1 : 25 mots MAXIMUM au total) :
+- 1 à 2 phrases courtes, JAMAIS plus, comme un artisan qui répond du tac au tac depuis son téléphone.
+- Va droit au but : pas de formule d'introduction, pas de conclusion convenue, pas de subordonnées à rallonge.
+- Naturel avant tout : la réponse doit pouvoir se dire à l'oral, telle quelle.
+EXEMPLES DE REGISTRE CONCIS (ne les recopie JAMAIS, ils montrent seulement le ton et la longueur attendus) :
+- « Merci ! Content que tout fonctionne comme prévu. »
+- « Ravi que le résultat vous plaise. Bonne continuation ! »
+- « Merci pour ce mot, ça fait plaisir. À bientôt peut-être. »`,
         },
     };
     const toneProfile = TONE_PROFILES[tone] || TONE_PROFILES.chaleureux;
+    // Un avis négatif mérite une vraie réponse, même en ton concis : la limite
+    // de 25 mots sauterait l'empathie et l'invitation à échanger hors ligne.
+    const lengthRule = isNegative && tone === 'concis'
+        ? '2 à 3 phrases sobres (un avis négatif mérite une vraie réponse, même courte)'
+        : toneProfile.length;
 
     const localContextLines = [
         companyName && `- Nom de l'entreprise : ${companyName}`,
@@ -934,6 +954,10 @@ export const generateReviewReply = async ({
                 : 'Ouvre par un accueil simple suivi d\'une réaction personnelle.',
             "Ouvre en exprimant le plaisir ou la fierté d'avoir mené ce projet à bien.",
             'Ouvre par un remerciement, mais tourné de façon originale et personnelle.',
+            "Ouvre par une courte phrase sur le chantier lui-même (ce qui a été fait, une difficulté surmontée).",
+            "Ouvre en reprenant un mot exact employé par le client dans son avis.",
+            'Ouvre sur le résultat concret dont le client profite maintenant.',
+            "Ouvre en évoquant ce qu'un avis pareil représente pour un artisan local, sans lyrisme.",
         ];
 
     const angles = isNegative
@@ -946,13 +970,27 @@ export const generateReviewReply = async ({
             'Mets l\'accent sur le soin apporté au travail et la satisfaction du résultat.',
             'Mets l\'accent sur le côté humain et la qualité de l\'échange.',
             "Rebondis surtout sur le point précis que le client a souligné.",
+            "Souligne un aspect du métier bien fait (propreté, délais, explications) que l'avis confirme.",
+            "Évoque la suite (bon usage de l'installation, porte ouverte pour un prochain projet) sans démarchage.",
+        ];
+
+    const closings = isNegative
+        ? [
+            'Termine en proposant un échange téléphonique pour trouver une solution.',
+            'Termine en réaffirmant ton engagement à faire mieux, sans te justifier.',
+        ]
+        : [
+            'Termine par une invitation simple à refaire appel à toi, formulée avec tes mots.',
+            "Termine par un mot pour l'installation ou le résultat (bon usage, longue vie au matériel).",
+            'Termine sèchement, sans phrase de conclusion : la dernière phrase utile suffit.',
+            city ? `Termine sur une note locale (le plaisir de travailler à ${city} et alentours).` : 'Termine par un souhait simple adressé au client.',
         ];
 
     // La longueur cible vient du ton choisi : c'est elle qui rend « concis »
     // réellement plus court que « chaleureux ». Un avis négatif ne se traite
     // toutefois jamais en une seule phrase, même en ton concis.
     const lengthHints = isNegative
-        ? toneProfile.lengthHints.filter((h) => !h.startsWith('1 phrase'))
+        ? toneProfile.lengthHints.filter((h) => !h.startsWith('Une seule phrase'))
         : toneProfile.lengthHints;
 
     // On mélange les listes pour suggérer un point de départ différent à chaque
@@ -960,16 +998,17 @@ export const generateReviewReply = async ({
     const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
     const shuffledOpenings = shuffle(openings);
     const shuffledAngles = shuffle(angles);
+    const shuffledClosings = shuffle(closings);
     const shuffledLengths = shuffle(lengthHints);
 
     // Formules qui reviennent en boucle dans les réponses générées : les nommer
     // explicitement pèse bien plus qu'un simple « varie le vocabulaire ».
-    const BANNED_PHRASES = `« Merci beaucoup pour votre avis », « Merci pour votre retour », « Merci pour votre confiance », « Un grand merci », « Nous sommes ravis », « C'est avec grand plaisir », « N'hésitez pas à refaire appel à nous », « Au plaisir de vous revoir », « Toute l'équipe vous remercie », « Cela nous va droit au cœur », « Votre satisfaction est notre priorité »`;
+    const BANNED_PHRASES = `« Merci beaucoup pour votre avis », « Merci pour votre retour », « Merci pour votre confiance », « Un grand merci », « Nous sommes ravis », « C'est avec grand plaisir », « N'hésitez pas à refaire appel à nous », « Au plaisir de vous revoir », « Toute l'équipe vous remercie », « Cela nous va droit au cœur », « Votre satisfaction est notre priorité », « Nous restons à votre disposition », « Nous mettons tout en œuvre », « Ravi d'avoir pu vous accompagner », « Merci pour ces gentils mots », « Ce fut un plaisir »`;
 
     // Plan imposé par variante : « répartissez ces pistes » laissait le modèle
     // libre de toutes les ignorer ; une consigne nominative par variante est suivie.
     const variantPlans = Array.from({ length: variantCount }, (_, i) =>
-        `  · Variante ${i + 1} : ${shuffledOpenings[i % shuffledOpenings.length]} ${shuffledAngles[i % shuffledAngles.length]} ${shuffledLengths[i % shuffledLengths.length]}`
+        `  · Variante ${i + 1} : ${shuffledOpenings[i % shuffledOpenings.length]} ${shuffledAngles[i % shuffledAngles.length]} ${shuffledClosings[i % shuffledClosings.length]} ${shuffledLengths[i % shuffledLengths.length]}`
     ).join('\n');
 
     const varietyRules = variantCount > 1
@@ -983,20 +1022,35 @@ ${variantPlans}
         : `CONSIGNES DE VARIÉTÉ (impératif, pour éviter les réponses qui se ressemblent) :
 - ${shuffledOpenings[0]}
 - ${shuffledAngles[0]}
+- ${shuffledClosings[0]}
 - ${pick(lengthHints)}
 - N'ouvre pas par un remerciement convenu : varie la structure et le vocabulaire.
 - BANNIS ces formules toutes faites et clichés : ${BANNED_PHRASES}.`;
+
+    const openingOf = (r, words = 8) => String(r || '').trim().split(/\s+/).slice(0, words).join(' ');
 
     // Ouvertures des propositions déjà montrées à l'artisan pour cet avis :
     // les rappeler au modèle est ce qui fait que « Régénérer » repart vraiment
     // ailleurs au lieu de retomber sur les mêmes débuts de phrase.
     const previousOpenings = (Array.isArray(previousReplies) ? previousReplies : [])
-        .map((r) => String(r || '').trim().split(/\s+/).slice(0, 8).join(' '))
+        .map((r) => openingOf(r))
         .filter(Boolean)
         .slice(-12);
-    const antiRepeatRules = previousOpenings.length
-        ? `\n\nOUVERTURES DÉJÀ PROPOSÉES PRÉCÉDEMMENT (interdiction de commencer par l'une d'elles ou par une tournure proche) :\n${previousOpenings.map((o) => `- « ${o}… »`).join('\n')}`
-        : '';
+    // Réponses que l'artisan a réellement copiées/publiées, sur cet avis ou sur
+    // d'autres : un client qui parcourt la fiche ne doit jamais lire deux fois
+    // la même réponse, donc ces tournures sont définitivement grillées.
+    const chosenOpenings = (Array.isArray(chosenReplies) ? chosenReplies : [])
+        .map((r) => openingOf(r, 10))
+        .filter(Boolean)
+        .slice(-20);
+    const antiRepeatRules = [
+        chosenOpenings.length
+            ? `\n\nRÉPONSES DÉJÀ PUBLIÉES PAR L'ARTISAN SOUS D'AUTRES AVIS (interdiction ABSOLUE de les reproduire ou de t'en rapprocher — ni l'ouverture, ni la structure, ni les tournures ; un client qui lit plusieurs avis ne doit jamais voir deux réponses semblables) :\n${chosenOpenings.map((o) => `- « ${o}… »`).join('\n')}`
+            : '',
+        previousOpenings.length
+            ? `\n\nOUVERTURES DÉJÀ PROPOSÉES PRÉCÉDEMMENT (interdiction de commencer par l'une d'elles ou par une tournure proche) :\n${previousOpenings.map((o) => `- « ${o}… »`).join('\n')}`
+            : '',
+    ].join('');
 
     const systemPrompt = `Tu es l'artisan propriétaire de l'entreprise et tu rédiges TA réponse publique à un avis client (avis Google / fiche établissement). Tu réponds à la première personne ("je", "nous").
 
@@ -1011,7 +1065,9 @@ ${toneProfile.guide}
 
 RÈGLES GÉNÉRALES DE STYLE :
 - Réponds en français.
-- Longueur : ${toneProfile.length} par réponse — cette limite fait partie du ton choisi, respecte-la strictement.
+- Longueur : ${lengthRule} par réponse — cette limite fait partie du ton choisi, respecte-la strictement.
+- Écris comme un artisan qui répond lui-même, pas comme un service communication : mots concrets du chantier, zéro langue de bois.
+- Relis mentalement chaque réponse à voix haute : si une phrase ne se dirait pas à l'oral, reformule-la.
 - ${customerName ? `Adresse-toi au client par son prénom (${customerName}) au fil de la réponse.` : "Si tu ne connais pas le prénom, n'en invente aucun."}
 - Pas d'emojis. Pas de markdown. Texte brut uniquement.
 - Ne mets pas de mentions entre crochets ni de champs à remplir : chaque réponse doit être directement publiable.
@@ -1058,7 +1114,28 @@ Rédige ${variantCount > 1 ? `${variantCount} variantes distinctes` : 'la répon
     if (replies.length === 0) {
         throw new Error("L'IA n'a pas généré de réponse. Veuillez réessayer.");
     }
-    return { replies };
+
+    // Filet de sécurité : même si le modèle ignore les consignes anti-répétition,
+    // aucune proposition identique (ou ouvrant pareil) à une réponse déjà montrée
+    // ou déjà publiée ne doit ressortir. Comparaison insensible à la casse, aux
+    // accents et à la ponctuation.
+    const normalize = (s) => String(s || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const prefixOf = (s) => normalize(s).split(' ').slice(0, 6).join(' ');
+    const history = [...(Array.isArray(chosenReplies) ? chosenReplies : []), ...(Array.isArray(previousReplies) ? previousReplies : [])];
+    const bannedFull = new Set(history.map(normalize).filter(Boolean));
+    const bannedPrefixes = new Set(history.map(prefixOf).filter((p) => p.split(' ').length >= 4));
+    const fresh = replies.filter((r) => !bannedFull.has(normalize(r)) && !bannedPrefixes.has(prefixOf(r)));
+
+    if (fresh.length === 0) {
+        throw new Error('Les nouvelles propositions ressemblaient trop aux réponses déjà utilisées. Relancez la génération.');
+    }
+    return { replies: fresh };
 };
 
 

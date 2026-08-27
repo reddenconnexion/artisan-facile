@@ -14,6 +14,20 @@ const TONES = [
 
 const VARIANT_COUNTS = [2, 3];
 
+// Réponses que l'artisan a réellement choisies (copiées) : mémorisées par
+// utilisateur pour que l'IA ne les reproduise plus jamais, quel que soit
+// l'avis traité. On garde les plus récentes pour borner la taille du prompt.
+const CHOSEN_STORAGE_LIMIT = 30;
+const chosenStorageKey = (userId) => `review_reply_chosen_v1:${userId || 'anonyme'}`;
+const loadChosenReplies = (userId) => {
+    try {
+        const raw = JSON.parse(localStorage.getItem(chosenStorageKey(userId)));
+        return Array.isArray(raw) ? raw.filter((r) => typeof r === 'string' && r.trim()) : [];
+    } catch {
+        return [];
+    }
+};
+
 /**
  * Outil de réponse aux avis clients optimisé pour le référencement local.
  * L'artisan colle l'avis reçu, choisit la note, le ton et le nombre de
@@ -44,6 +58,13 @@ const ReviewReplyGenerator = () => {
     useEffect(() => {
         previousRepliesRef.current = [];
     }, [reviewText]);
+
+    // Réponses copiées par le passé (tous avis confondus) : bannies de toutes
+    // les générations futures.
+    const chosenRepliesRef = useRef([]);
+    useEffect(() => {
+        if (user) chosenRepliesRef.current = loadChosenReplies(user.id);
+    }, [user]);
 
     // Charge le contexte entreprise utilisé pour le SEO local.
     useEffect(() => {
@@ -84,6 +105,7 @@ const ReviewReplyGenerator = () => {
                 business: business || {},
                 count,
                 previousReplies: previousRepliesRef.current,
+                chosenReplies: chosenRepliesRef.current,
             });
             previousRepliesRef.current = [...previousRepliesRef.current, ...generated].slice(-12);
             setReplies(generated);
@@ -99,7 +121,17 @@ const ReviewReplyGenerator = () => {
         try {
             await navigator.clipboard.writeText(text);
             setCopiedIndex(index);
-            toast.success('Réponse copiée !');
+            // Copier = choisir : cette réponse ne doit plus jamais être proposée,
+            // ni pour cet avis ni pour les suivants.
+            const next = [...chosenRepliesRef.current.filter((r) => r !== text), text]
+                .slice(-CHOSEN_STORAGE_LIMIT);
+            chosenRepliesRef.current = next;
+            try {
+                localStorage.setItem(chosenStorageKey(user?.id), JSON.stringify(next));
+            } catch {
+                // Stockage indisponible : la mémoire de session suffit.
+            }
+            toast.success('Réponse copiée ! Elle ne sera plus proposée à l\'avenir.');
             setTimeout(() => setCopiedIndex((c) => (c === index ? null : c)), 2000);
         } catch {
             toast.error('Copie impossible sur cet appareil.');
