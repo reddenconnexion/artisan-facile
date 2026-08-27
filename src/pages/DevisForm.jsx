@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { supabase } from '../utils/supabase';
@@ -141,6 +141,8 @@ const DevisForm = () => {
     const [priceLibrary, setPriceLibrary] = useState([]);
     const [showReviewMenu, setShowReviewMenu] = useState(false);
     const [showActionsMenu, setShowActionsMenu] = useState(false);
+    // Menu « Documents » de l'aperçu PDF (mêmes entrées que le menu « … » de l'éditeur)
+    const [showOverviewDocsMenu, setShowOverviewDocsMenu] = useState(false);
     const [importing, setImporting] = useState(false);
     const [showImportZone, setShowImportZone] = useState(false);
     const [competitorImport, setCompetitorImport] = useState(null);   // { filename, importedAt } quand on est en contre-proposition
@@ -3415,6 +3417,274 @@ Conditions de règlement : Paiement à réception de facture.`
     // Présente le document tel que le client le voit, avec accès direct à
     // l'éditeur via « Modifier ». Le PDF affiché est soit le document importé
     // (mode externe), soit le PDF généré à la volée.
+    // ── Documents liés : entrées de menu et modales partagées ────────────────
+    // Ouvrir un devis depuis la liste mène à l'aperçu PDF ; devoir passer par
+    // « Modifier » pour générer un acompte ou une facture de clôture n'avait pas
+    // lieu d'être. Les mêmes entrées servent donc au menu « … » de l'éditeur et
+    // au menu de l'aperçu — une seule source de vérité pour leurs conditions
+    // d'affichage, et les modales qu'elles ouvrent sont rendues dans les deux vues.
+    const canConvertToInvoice = id && id !== 'new' && formData.type === 'quote'
+        && !['billed', 'paid', 'cancelled'].includes(formData.status);
+    // Acompte, situation, clôture, avenant : réservés au document racine — une
+    // facture enfant ne retrouverait pas les acomptes à déduire.
+    const canCreateLinkedDocs = !!id && ['accepted', 'sent', 'billed'].includes(formData.status)
+        && !formData.parent_id;
+    const canCreateCreditNote = id && id !== 'new' && formData.type === 'invoice' && !!formData.invoice_number;
+    const hasDocumentActions = canConvertToInvoice || canCreateLinkedDocs || canCreateCreditNote;
+
+    const renderDocumentActions = (closeMenu = () => {}) => (
+        <>
+            {canConvertToInvoice && (
+                <>
+                    <div className="border-t border-gray-100 dark:border-gray-800 my-1 first:hidden"></div>
+                    <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
+                    <button
+                        onClick={() => { handleFacturerClick(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 dark:text-green-400 hover:bg-emerald-50"
+                    >
+                        <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
+                        Convertir en facture
+                    </button>
+                </>
+            )}
+
+            {canCreateLinkedDocs && (
+                <>
+                    <div className="border-t border-gray-100 dark:border-gray-800 my-1 first:hidden"></div>
+                    <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>
+                    <button
+                        onClick={() => { handleCreateAvenant(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                        <FileText className="w-4 h-4 mr-3 text-indigo-600" />
+                        Créer un avenant
+                    </button>
+                    <button
+                        onClick={() => { handleCreateDeposit(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-blue-50/50"
+                    >
+                        <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
+                        Générer Facture d'Acompte
+                    </button>
+                    <button
+                        onClick={() => { handleCreateMaterialDeposit(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-orange-50/50"
+                    >
+                        <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
+                        Générer Acompte Matériel
+                    </button>
+                    <button
+                        onClick={() => { handleCreateSituation(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-purple-50/50"
+                    >
+                        <Layers className="w-4 h-4 mr-3 text-purple-600" />
+                        Créer Situation de Travaux
+                    </button>
+                    <button
+                        onClick={() => { handleCreateClosingInvoice(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-green-50/50"
+                    >
+                        <Check className="w-4 h-4 mr-3 text-green-600" />
+                        Générer Facture de Clôture
+                    </button>
+                </>
+            )}
+
+            {canCreateCreditNote && (
+                <>
+                    <div className="border-t border-gray-100 dark:border-gray-800 my-1 first:hidden"></div>
+                    <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rectification</p>
+                    <button
+                        onClick={() => { openCreditNoteModal(); closeMenu(); }}
+                        className="flex items-center w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                        <FileText className="w-4 h-4 mr-3 text-red-500" />
+                        Créer un avoir
+                    </button>
+                </>
+            )}
+        </>
+    );
+
+    const renderDocumentActionModals = () => (
+        <>
+            {/* Fenêtre explicative du bouton « Facturer » — affichée au premier
+                clic seulement, puis mémorisée (dismissedHelps) par navigateur. */}
+            {creditNoteModal && (
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={() => !creditNoteModal.saving && setCreditNoteModal(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="credit-note-title"
+                >
+                    <div
+                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h3 id="credit-note-title" className="font-bold text-gray-900 dark:text-white text-base mb-1">
+                            Créer un avoir sur la facture {formData.invoice_number}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+                            Une facture émise ne peut être ni modifiée ni supprimée : l'avoir est le
+                            document légal qui l'annule ou la corrige. Il sera émis immédiatement,
+                            avec un numéro AV-… définitif.
+                        </p>
+
+                        {creditNoteModal.existing.length > 0 && (
+                            <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                                Déjà émis sur cette facture :{' '}
+                                {creditNoteModal.existing.map(cn => `${cn.invoice_number || `#${cn.id}`} (${(Number(cn.total_ttc) || 0).toFixed(2)} €)`).join(', ')}
+                            </div>
+                        )}
+
+                        <div className="space-y-3 mb-5">
+                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'total' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                                <input
+                                    type="radio"
+                                    name="credit-note-mode"
+                                    className="mt-0.5"
+                                    checked={creditNoteModal.mode === 'total'}
+                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'total' }))}
+                                />
+                                <span className="text-sm">
+                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir total (annulation)</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-xs">Toutes les lignes de la facture reprises en négatif ({total.toFixed(2)} €).</span>
+                                </span>
+                            </label>
+                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'partial' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                                <input
+                                    type="radio"
+                                    name="credit-note-mode"
+                                    className="mt-0.5"
+                                    checked={creditNoteModal.mode === 'partial'}
+                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'partial' }))}
+                                />
+                                <span className="text-sm flex-1">
+                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir partiel</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-xs block mb-2">Une remise ou correction d'un montant donné.</span>
+                                    {creditNoteModal.mode === 'partial' && (
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder={`Montant TTC (max ${total.toFixed(2)} €)`}
+                                            value={creditNoteModal.amountTTC}
+                                            onChange={e => setCreditNoteModal(p => ({ ...p, amountTTC: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
+                                        />
+                                    )}
+                                </span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Motif (recommandé) : erreur de facturation, geste commercial…"
+                                value={creditNoteModal.reason}
+                                onChange={e => setCreditNoteModal(p => ({ ...p, reason: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setCreditNoteModal(null)}
+                                disabled={creditNoteModal.saving}
+                                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCreateCreditNote}
+                                disabled={creditNoteModal.saving || (creditNoteModal.mode === 'partial' && !(parseFloat(String(creditNoteModal.amountTTC).replace(',', '.')) > 0))}
+                                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {creditNoteModal.saving ? 'Émission…' : "Émettre l'avoir"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showFacturerHelp && (
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={closeFacturerHelp}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="facturer-help-title"
+                >
+                    <div
+                        ref={facturerHelpRef}
+                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="p-2.5 rounded-xl flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30">
+                                <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 id="facturer-help-title" className="font-bold text-gray-900 dark:text-white text-base leading-snug">
+                                    À quoi sert « Facturer » ?
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
+                                    Ce bouton transforme le devis en <strong>facture finale</strong> (mêmes
+                                    lignes, numéro légal FAC-… attribué à l'émission) et télécharge le PDF
+                                    prêt à envoyer au client.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeFacturerHelp}
+                                className="p-1 -m-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0"
+                                aria-label="Fermer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-5 leading-relaxed">
+                            <li className="flex gap-2">
+                                <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                <span>À utiliser quand <strong>les travaux sont terminés</strong> et que vous voulez encaisser le solde.</span>
+                            </li>
+                            <li className="flex gap-2">
+                                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                                <span>Pour un <strong>acompte</strong> ou une facturation <strong>par tranches d'avancement</strong>, utilisez plutôt « Acompte matériel » ou « Facture de situation » dans le menu Actions : le devis reste ouvert.</span>
+                            </li>
+                        </ul>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                            Cette explication ne s'affichera plus.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                type="button"
+                                onClick={closeFacturerHelp}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            >
+                                Fermer
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { closeFacturerHelp(); handleConvertToInvoice(); }}
+                                className="px-4 py-2 text-sm font-bold rounded-lg transition-colors bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                            >
+                                Compris, convertir en facture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <SituationModal
+                isOpen={showSituationModal}
+                onClose={() => setShowSituationModal(false)}
+                quote={{ ...formData, id: id }}
+                onSave={handleSaveSituation}
+            />
+        </>
+    );
+
     if (isEditing && dataLoaded && pdfOverviewMode) {
         const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
         // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
@@ -3500,6 +3770,42 @@ Conditions de règlement : Paiement à réception de facture.`
                                 <Lock className="w-4 h-4 sm:mr-2" />
                                 <span className="hidden sm:inline">Ma copie détaillée</span>
                             </button>
+                        )}
+                        {/* Documents liés (acompte, situation, facture de clôture, avenant,
+                            avoir) : accessibles depuis l'aperçu, sans passer par l'éditeur —
+                            c'est en lisant le document qu'on décide de le facturer. */}
+                        {hasDocumentActions && (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOverviewDocsMenu(prev => !prev)}
+                                    aria-haspopup="menu"
+                                    aria-expanded={showOverviewDocsMenu}
+                                    className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    title="Créer un document lié : acompte, situation de travaux, facture de clôture, avenant…"
+                                >
+                                    <FilePlus className="w-4 h-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Documents</span>
+                                    <ChevronDown className={`w-3.5 h-3.5 ml-1 opacity-70 transition-transform ${showOverviewDocsMenu ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showOverviewDocsMenu && (
+                                    <>
+                                        {/* Voile transparent : un clic à côté referme le menu */}
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setShowOverviewDocsMenu(false)}
+                                            aria-hidden="true"
+                                        />
+                                        <div
+                                            role="menu"
+                                            className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 z-50 py-1 text-left"
+                                        >
+                                            {renderDocumentActions(() => setShowOverviewDocsMenu(false))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         )}
                         <button
                             type="button"
@@ -3622,6 +3928,8 @@ Conditions de règlement : Paiement à réception de facture.`
                         </a>
                     </div>
                 )}
+
+                {renderDocumentActionModals()}
             </div>
         );
     }
@@ -3929,7 +4237,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <span className="hidden sm:inline">Envoyer</span>
                     </button>
 
-                    {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
+                    {canConvertToInvoice && (
                         <button
                             type="button"
                             onClick={handleFacturerClick}
@@ -4058,75 +4366,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </button>
                                 )}
 
-                                {id && id !== 'new' && formData.type === 'quote' && !['billed', 'paid', 'cancelled'].includes(formData.status) && (
-                                    <>
-                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
-                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
-                                        <button
-                                            onClick={() => { handleFacturerClick(); setShowActionsMenu(false); }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 dark:text-green-400 hover:bg-emerald-50"
-                                        >
-                                            <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
-                                            Convertir en facture
-                                        </button>
-                                    </>
-                                )}
-
-                                {id && (formData.status === 'accepted' || formData.status === 'sent' || formData.status === 'billed') && !formData.parent_id && (
-                                    <>
-                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
-                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Documents liés</p>
-                                        <button
-                                            onClick={() => { handleCreateAvenant(); setShowActionsMenu(false); }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                        >
-                                            <FileText className="w-4 h-4 mr-3 text-indigo-600" />
-                                            Créer un avenant
-                                        </button>
-                                        <button
-                                            onClick={handleCreateDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-blue-50/50"
-                                        >
-                                            <FileCheck className="w-4 h-4 mr-3 text-blue-600" />
-                                            Générer Facture d'Acompte
-                                        </button>
-                                        <button
-                                            onClick={handleCreateMaterialDeposit}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-orange-50/50"
-                                        >
-                                            <FileCheck className="w-4 h-4 mr-3 text-orange-600" />
-                                            Générer Acompte Matériel
-                                        </button>
-                                        <button
-                                            onClick={handleCreateSituation}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-purple-50/50"
-                                        >
-                                            <Layers className="w-4 h-4 mr-3 text-purple-600" />
-                                            Créer Situation de Travaux
-                                        </button>
-                                        <button
-                                            onClick={handleCreateClosingInvoice}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 bg-green-50/50"
-                                        >
-                                            <Check className="w-4 h-4 mr-3 text-green-600" />
-                                            Générer Facture de Clôture
-                                        </button>
-                                    </>
-                                )}
-
-                                {id && id !== 'new' && formData.type === 'invoice' && formData.invoice_number && (
-                                    <>
-                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
-                                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rectification</p>
-                                        <button
-                                            onClick={openCreditNoteModal}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                            <FileText className="w-4 h-4 mr-3 text-red-500" />
-                                            Créer un avoir
-                                        </button>
-                                    </>
-                                )}
+                                {renderDocumentActions(() => setShowActionsMenu(false))}
 
                                 {id && id !== 'new' && !formData.invoice_number && (
                                     <>
@@ -5883,180 +6123,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     })()
                 )
             }
-            {/* Fenêtre explicative du bouton « Facturer » — affichée au premier
-                clic seulement, puis mémorisée (dismissedHelps) par navigateur. */}
-            {creditNoteModal && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-                    onClick={() => !creditNoteModal.saving && setCreditNoteModal(null)}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="credit-note-title"
-                >
-                    <div
-                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <h3 id="credit-note-title" className="font-bold text-gray-900 dark:text-white text-base mb-1">
-                            Créer un avoir sur la facture {formData.invoice_number}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
-                            Une facture émise ne peut être ni modifiée ni supprimée : l'avoir est le
-                            document légal qui l'annule ou la corrige. Il sera émis immédiatement,
-                            avec un numéro AV-… définitif.
-                        </p>
-
-                        {creditNoteModal.existing.length > 0 && (
-                            <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
-                                Déjà émis sur cette facture :{' '}
-                                {creditNoteModal.existing.map(cn => `${cn.invoice_number || `#${cn.id}`} (${(Number(cn.total_ttc) || 0).toFixed(2)} €)`).join(', ')}
-                            </div>
-                        )}
-
-                        <div className="space-y-3 mb-5">
-                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'total' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                                <input
-                                    type="radio"
-                                    name="credit-note-mode"
-                                    className="mt-0.5"
-                                    checked={creditNoteModal.mode === 'total'}
-                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'total' }))}
-                                />
-                                <span className="text-sm">
-                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir total (annulation)</span>
-                                    <span className="text-gray-500 dark:text-gray-400 text-xs">Toutes les lignes de la facture reprises en négatif ({total.toFixed(2)} €).</span>
-                                </span>
-                            </label>
-                            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${creditNoteModal.mode === 'partial' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
-                                <input
-                                    type="radio"
-                                    name="credit-note-mode"
-                                    className="mt-0.5"
-                                    checked={creditNoteModal.mode === 'partial'}
-                                    onChange={() => setCreditNoteModal(p => ({ ...p, mode: 'partial' }))}
-                                />
-                                <span className="text-sm flex-1">
-                                    <span className="font-semibold text-gray-900 dark:text-white block">Avoir partiel</span>
-                                    <span className="text-gray-500 dark:text-gray-400 text-xs block mb-2">Une remise ou correction d'un montant donné.</span>
-                                    {creditNoteModal.mode === 'partial' && (
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            placeholder={`Montant TTC (max ${total.toFixed(2)} €)`}
-                                            value={creditNoteModal.amountTTC}
-                                            onChange={e => setCreditNoteModal(p => ({ ...p, amountTTC: e.target.value }))}
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
-                                        />
-                                    )}
-                                </span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="Motif (recommandé) : erreur de facturation, geste commercial…"
-                                value={creditNoteModal.reason}
-                                onChange={e => setCreditNoteModal(p => ({ ...p, reason: e.target.value }))}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900"
-                            />
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setCreditNoteModal(null)}
-                                disabled={creditNoteModal.saving}
-                                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCreateCreditNote}
-                                disabled={creditNoteModal.saving || (creditNoteModal.mode === 'partial' && !(parseFloat(String(creditNoteModal.amountTTC).replace(',', '.')) > 0))}
-                                className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
-                            >
-                                {creditNoteModal.saving ? 'Émission…' : "Émettre l'avoir"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showFacturerHelp && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-                    onClick={closeFacturerHelp}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="facturer-help-title"
-                >
-                    <div
-                        ref={facturerHelpRef}
-                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-start gap-4 mb-4">
-                            <div className="p-2.5 rounded-xl flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30">
-                                <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 id="facturer-help-title" className="font-bold text-gray-900 dark:text-white text-base leading-snug">
-                                    À quoi sert « Facturer » ?
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
-                                    Ce bouton transforme le devis en <strong>facture finale</strong> (mêmes
-                                    lignes, numéro légal FAC-… attribué à l'émission) et télécharge le PDF
-                                    prêt à envoyer au client.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeFacturerHelp}
-                                className="p-1 -m-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0"
-                                aria-label="Fermer"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-5 leading-relaxed">
-                            <li className="flex gap-2">
-                                <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                <span>À utiliser quand <strong>les travaux sont terminés</strong> et que vous voulez encaisser le solde.</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                                <span>Pour un <strong>acompte</strong> ou une facturation <strong>par tranches d'avancement</strong>, utilisez plutôt « Acompte matériel » ou « Facture de situation » dans le menu Actions : le devis reste ouvert.</span>
-                            </li>
-                        </ul>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                            Cette explication ne s'affichera plus.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                type="button"
-                                onClick={closeFacturerHelp}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                Fermer
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { closeFacturerHelp(); handleConvertToInvoice(); }}
-                                className="px-4 py-2 text-sm font-bold rounded-lg transition-colors bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                            >
-                                Compris, convertir en facture
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <SituationModal
-                isOpen={showSituationModal}
-                onClose={() => setShowSituationModal(false)}
-                quote={{ ...formData, id: id }}
-                onSave={handleSaveSituation}
-            />
+            {renderDocumentActionModals()}
 
             {/* Modale d'offre d'essai IA (2ème devis) */}
             <AITrialOfferModal
