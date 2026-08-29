@@ -3805,6 +3805,9 @@ Conditions de règlement : Paiement à réception de facture.`
             billed: { label: 'Facturé', cls: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
             paid: { label: 'Payé', cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' },
             postponed: { label: 'Reporté', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+            // Sans cette entrée, une facture annulée n'affichait aucun badge :
+            // rien ne la distinguait d'une facture encore due.
+            cancelled: { label: 'Annulée', cls: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 line-through' },
         }[formData.status] || null;
 
         const goToEditor = () => setPdfOverviewMode(false);

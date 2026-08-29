@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar } from 'lucide-react';
+import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle } from 'lucide-react';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -11,6 +11,9 @@ const StatusBadge = ({ status }) => {
         rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle, label: 'Refusé' },
         billed: { bg: 'bg-purple-100', text: 'text-purple-700', icon: CheckCircle, label: 'Facturé' },
         paid: { bg: 'bg-teal-100', text: 'text-teal-700', icon: CheckCircle, label: 'Payé' },
+        // Cf. DevisList : sans cette entrée, une facture annulée se lisait
+        // « Brouillon » par repli sur draft.
+        cancelled: { bg: 'bg-gray-100', text: 'text-gray-500', icon: XCircle, label: 'Annulée' },
     };
     const style = styles[status] || styles.draft;
     const Icon = style.icon;
