@@ -30,6 +30,11 @@ const StatusBadge = ({ status }) => {
         billed: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', icon: CheckCircle, label: 'Facturé' },
         paid: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', icon: CheckCircle, label: 'Payé' },
         postponed: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Clock, label: 'Reporté' },
+        // Une facture annulée par un avoir garde son numéro légal et ne peut
+        // pas être supprimée : elle doit se lire comme annulée. Sans cette
+        // entrée, le repli sur `draft` l'affichait « Brouillon », au risque
+        // qu'on la prenne pour un document jetable.
+        cancelled: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-500 dark:text-gray-400', icon: XCircle, label: 'Annulée' },
     };
     const style = styles[status] || styles.draft;
     const Icon = style.icon;
