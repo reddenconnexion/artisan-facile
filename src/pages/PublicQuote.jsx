@@ -27,9 +27,12 @@ const PORTAL_I18N = {
         invoice: 'Facture', acceptedQuote: 'Devis accepté', quote: 'Devis',
         report: 'Rapport', download: 'Télécharger', sign: 'Signer',
         signedOn: (d) => `Signé le ${d}`, signedShort: 'Signé', paid: 'Acquittée',
-        customizeQuote: (n) => `⚙️ Personnalisez votre devis (${n} option${n > 1 ? 's' : ''})`,
+        optionsTitle: (n) => `${n} prestation${n > 1 ? 's' : ''} en option — à retenir ou non`,
+        optionsIntro: "Le devis ci-dessous est au prix ferme : aucune option n'y est comptée. Cochez celles que vous retenez, le total et l'acompte se recalculent. Ce que vous laissez décoché ne vous sera pas facturé.",
         choiceRequired: '(choix nécessaire)', noneOfThese: 'Aucune de ces options',
-        totalWithOptions: 'Total avec vos options',
+        firmTotal: 'Devis ferme',
+        selectedOptionsTotal: (n) => `+ ${n} option${n > 1 ? 's' : ''} retenue${n > 1 ? 's' : ''}`,
+        totalWithOptions: 'Total',
         pdfAutoUpdate: 'Le PDF se met à jour automatiquement selon votre sélection.',
         generatingDoc: 'Génération du document...',
         signQuote: 'Signer le devis', downloadPdf: 'Télécharger le PDF',
@@ -47,9 +50,12 @@ const PORTAL_I18N = {
         invoice: 'Invoice', acceptedQuote: 'Accepted quote', quote: 'Quote',
         report: 'Report', download: 'Download', sign: 'Sign',
         signedOn: (d) => `Signed on ${d}`, signedShort: 'Signed', paid: 'Paid',
-        customizeQuote: (n) => `⚙️ Customise your quote (${n} option${n > 1 ? 's' : ''})`,
+        optionsTitle: (n) => `${n} optional item${n > 1 ? 's' : ''} — to take or leave`,
+        optionsIntro: 'The quote below is at the firm price: no option is counted in it. Tick the ones you want and the total and deposit are recalculated. Anything left unticked will not be invoiced.',
         choiceRequired: '(choice required)', noneOfThese: 'None of these options',
-        totalWithOptions: 'Total with your options',
+        firmTotal: 'Firm quote',
+        selectedOptionsTotal: (n) => `+ ${n} option${n > 1 ? 's' : ''} taken`,
+        totalWithOptions: 'Total',
         pdfAutoUpdate: 'The PDF updates automatically based on your selection.',
         generatingDoc: 'Generating document...',
         signQuote: 'Sign the quote', downloadPdf: 'Download the PDF',
@@ -366,11 +372,17 @@ const PublicQuote = () => {
     const mandatoryHT = (quote.items || [])
         .filter(i => !i.is_optional && i.type !== 'section')
         .reduce((s, i) => s + itemTotal(i), 0);
-    const selectedOptionsHT = optionalItems
-        .filter(i => selectedOptionals?.has(String(i.id)))
-        .reduce((s, i) => s + itemTotal(i), 0);
+    const selectedOptions = optionalItems.filter(i => selectedOptionals?.has(String(i.id)));
+    const selectedCount = selectedOptions.length;
+    const selectedOptionsHT = selectedOptions.reduce((s, i) => s + itemTotal(i), 0);
     const totalHT = mandatoryHT + selectedOptionsHT;
-    const totalTTC = includeTva ? totalHT * (1 + tvaRate) : totalHT;
+    // Les trois montants du récapitulatif viennent de la même addition que le
+    // total : le client doit pouvoir vérifier « ferme + options = total » sans
+    // jamais tomber sur un écart.
+    const withVat = (ht) => (includeTva ? ht * (1 + tvaRate) : ht);
+    const firmTTC = withVat(mandatoryHT);
+    const selectedOptionsTTC = withVat(selectedOptionsHT);
+    const totalTTC = withVat(totalHT);
     // En franchise de TVA (art. 293 B du CGI), il n'y a pas de HT à opposer au
     // TTC : le montant affiché est celui que le client règlera. Suffixer « HT »
     // ferait croire qu'il reste 20 % à ajouter — on l'omet et on l'écrit.
@@ -483,12 +495,19 @@ const PublicQuote = () => {
                             className="w-full flex items-center justify-between py-3 text-sm font-semibold text-purple-700"
                             onClick={() => setOptionsExpanded(v => !v)}
                         >
-                            <span>{T.customizeQuote(optionalItems.length)}</span>
+                            <span>{T.optionsTitle(optionalItems.length)}</span>
                             {optionsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
 
                         {optionsExpanded && (
                             <div className="pb-4 space-y-3">
+                                {/* Ce que les cases à cocher font n'allait pas de soi : des
+                                    clients ont écrit pour demander un devis « mis à jour avec
+                                    les options » sans voir qu'ils pouvaient les retenir ici.
+                                    La phrase dit donc les trois choses qu'ils ignoraient — le
+                                    devis affiché est le prix ferme, cocher recalcule, ne pas
+                                    cocher n'engage à rien. */}
+                                <p className="text-sm text-gray-600 leading-snug">{T.optionsIntro}</p>
                                 {/* Grouped options: mutually exclusive radio groups */}
                                 {Object.entries(optionGroups).map(([groupName, groupItems]) => {
                                     const required = groupItems.some(i => i.option_group_required);
@@ -574,7 +593,12 @@ const PublicQuote = () => {
                                                 className="mt-0.5 w-4 h-4 accent-purple-600 shrink-0"
                                             />
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-sm font-medium ${checked ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                                                {/* Non cochée ne veut pas dire refusée : le client
+                                                    n'a simplement pas encore décidé. La barrer le
+                                                    lui présentait comme écartée d'avance — et le
+                                                    devis PDF réserve le texte barré aux options
+                                                    réellement écartées à la signature. */}
+                                                <p className={`text-sm font-medium ${checked ? 'text-gray-900' : 'text-gray-600'}`}>
                                                     {item.description}
                                                 </p>
                                             </div>
@@ -587,9 +611,25 @@ const PublicQuote = () => {
                                     );
                                 })}
 
-                                <div className="flex items-center justify-between pt-2 border-t border-purple-100 text-sm">
-                                    <span className="text-gray-500">{T.totalWithOptions}</span>
-                                    <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{amountSuffix}</span>
+                                {/* Le total est décomposé plutôt qu'affiché seul : « prix ferme
+                                    + options retenues = total » se vérifie d'un coup d'œil. Un
+                                    total unique laissait le client refaire l'addition sans
+                                    retrouver l'écart, et écrire pour demander d'où il venait. */}
+                                <div className="pt-2 border-t border-purple-100 space-y-1 text-sm">
+                                    <div className="flex items-center justify-between text-gray-500">
+                                        <span>{T.firmTotal}</span>
+                                        <span>{firmTTC.toFixed(2)} €{amountSuffix}</span>
+                                    </div>
+                                    {selectedCount > 0 && (
+                                        <div className="flex items-center justify-between text-purple-700">
+                                            <span>{T.selectedOptionsTotal(selectedCount)}</span>
+                                            <span>+{selectedOptionsTTC.toFixed(2)} €{amountSuffix}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between pt-1">
+                                        <span className="text-gray-500">{T.totalWithOptions}</span>
+                                        <span className="font-bold text-gray-900 text-base">{totalTTC.toFixed(2)} €{amountSuffix}</span>
+                                    </div>
                                 </div>
                                 {!includeTva && (
                                     <p className="text-xs text-gray-500 italic">{vatFranchiseTotal({ lang }).note}</p>
