@@ -601,8 +601,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     if (isAmendment) {
         // --- AVENANT SECTIONS ---
         // 1. Reference
+        // Le client doit reconnaître le devis cité : c'est son NUMÉRO qu'il a
+        // reçu, pas l'identifiant interne de la base. Un avenant au devis n° 223
+        // annonçait « Devis initial N° 271 », un numéro qui ne correspond à
+        // aucun document entre ses mains. On retombe sur l'id si le numéro
+        // manque (devis anciens, antérieurs à la numérotation par artisan).
         const parentRef = devis.parent_quote_data
-            ? L.initialQuoteRef(devis.parent_quote_data.id, fmtDate(devis.parent_quote_data.date))
+            ? L.initialQuoteRef(
+                devis.parent_quote_data.quote_number || devis.parent_quote_data.id,
+                fmtDate(devis.parent_quote_data.date),
+            )
             : L.initialQuoteRefUnknown;
 
         let currentY = tableStartY;
@@ -688,8 +696,16 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 currentY += (solLines.length * 5);
             }
 
-            doc.text(L.additionalMaterial, 14, currentY);
-            currentY += 5;
+            // Ce libellé annonce les fournitures de l'avenant : il n'a de sens
+            // que s'il y en a. Il s'imprimait systématiquement, y compris sur un
+            // avenant de pure main d'œuvre, où il annonçait un poste inexistant.
+            // (Les lignes sont relues ici : `materials` n'est constitué que plus
+            // bas, au moment des tableaux.)
+            const hasMaterialLines = (devis.items || []).some(i => i.type === 'material');
+            if (hasMaterialLines) {
+                doc.text(L.additionalMaterial, 14, currentY);
+                currentY += 5;
+            }
 
             if (hasValue(details.solution_technical_value)) {
                 const valueLines = doc.splitTextToSize(
