@@ -51,7 +51,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare } from '../utils/materialDeposit';
+import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC } from '../utils/materialDeposit';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -2348,7 +2348,36 @@ const DevisForm = () => {
     };
 
     const handleCreateDeposit = async () => {
-        const percentageStr = window.prompt("Quel pourcentage d'acompte souhaitez-vous ? (ex: 30)", "30");
+        // L'assiette du pourcentage est le CHANTIER, pas le seul devis initial :
+        // un avenant signé engage le client sur des travaux supplémentaires, et
+        // la facture de clôture les facture déjà. Sans eux dans l'assiette,
+        // « 30 % du chantier » n'en couvrait plus 30 % dès qu'un avenant était
+        // signé, et l'écart se reportait entièrement sur le solde final.
+        // (Règle et statuts retenus dans materialDeposit.js — mêmes que ceux de
+        // la clôture. L'action n'étant proposée que sur le document racine, les
+        // avenants cherchés ici sont bien les enfants du devis courant.)
+        const { data: linkedDocs, error: linkedError } = await supabase
+            .from('quotes')
+            .select('id, type, status, total_ttc')
+            .eq('parent_id', parseInt(id, 10))
+            .neq('status', 'cancelled');
+
+        if (linkedError) {
+            console.error('Error fetching linked amendments:', linkedError);
+            toast.error("Impossible de vérifier les avenants liés à ce devis.");
+            return;
+        }
+
+        const amendmentsTTC = amendmentsTotalTTC(linkedDocs);
+        const projectTotal = total + amendmentsTTC;
+        // L'assiette est annoncée : l'artisan doit savoir sur quoi porte le
+        // pourcentage qu'il saisit, surtout quand elle dépasse le montant du
+        // devis qu'il a sous les yeux.
+        const baseLabel = amendmentsTTC !== 0
+            ? `Base : ${projectTotal.toFixed(2)} € TTC (devis ${total.toFixed(2)} € + avenants signés ${amendmentsTTC.toFixed(2)} €).`
+            : `Base : ${projectTotal.toFixed(2)} € TTC.`;
+
+        const percentageStr = window.prompt(`${baseLabel}\n\nQuel pourcentage d'acompte souhaitez-vous ? (ex: 30)`, "30");
         if (!percentageStr) return;
 
         const percentage = parseFloat(percentageStr);
@@ -2359,14 +2388,16 @@ const DevisForm = () => {
 
         try {
             setLoading(true);
-            const depositAmount = (total * percentage) / 100;
+            const depositAmount = (projectTotal * percentage) / 100;
 
             // Ask user if this deposit is for materials (to exclude from Net Result)
             const isForMaterial = await confirm({ title: "Type d'acompte", message: "Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nOui → comptabilisé comme Matériel (exclu du Résultat Net)\nNon → comptabilisé comme Service (Marge 100%)", confirmLabel: 'Oui (Matériel)', cancelLabel: 'Non (Service)' });
 
             const depositItem = {
                 id: Date.now(),
-                description: `Acompte de ${percentage}% sur devis n°${id} - ${formData.title} `,
+                // Le client reconnaît son devis à son NUMÉRO, pas à l'identifiant
+                // interne de la base.
+                description: `Acompte de ${percentage}% sur devis n°${formData.quote_number || id} - ${formData.title}${amendmentsTTC !== 0 ? ' (avenants signés inclus)' : ''} `,
                 quantity: 1,
                 unit: 'forfait',
                 price: depositAmount,
@@ -2400,9 +2431,11 @@ const DevisForm = () => {
                 notes: `Facture d'acompte générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
-• Montant total du devis : ${total.toFixed(2)} € TTC
+• Montant total du devis : ${total.toFixed(2)} € TTC${amendmentsTTC !== 0 ? `
+• Avenants signés : ${amendmentsTTC.toFixed(2)} € TTC
+• Total du chantier : ${projectTotal.toFixed(2)} € TTC` : ''}
 • Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
-• Reste à payer sur devis : ${(total - depositAmount).toFixed(2)} € TTC
+• Reste à payer sur le chantier : ${(projectTotal - depositAmount).toFixed(2)} € TTC
 
 Conditions de règlement : Paiement à réception de facture.`
             };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare } from './materialDeposit';
+import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC } from './materialDeposit';
 
 // Cas réel (devis n° 226) : main d'œuvre 580 € + fournitures fermes 1118,35 €
 // + une option non retenue à 190 €, sans TVA (art. 293 B du CGI).
@@ -163,5 +163,38 @@ describe('depositAmendmentShare', () => {
     it('renvoie une part nulle sans avenant', () => {
         expect(depositAmendmentShare([{ type: 'material', quantity: 1, price: 100 }]))
             .toEqual({ totalHT: 0, labels: [] });
+    });
+});
+
+describe('amendmentsTotalTTC', () => {
+    const amendment = (total_ttc, status = 'accepted') => ({ type: 'amendment', status, total_ttc });
+
+    // Le cas du devis 223 : 2 181,91 € de devis + un avenant signé de 230 €,
+    // soit une assiette de 2 411,91 € pour l'acompte en pourcentage.
+    it('somme les totaux TTC des avenants signés', () => {
+        expect(amendmentsTotalTTC([amendment(230)])).toBe(230);
+        expect(amendmentsTotalTTC([amendment(230), amendment(120, 'paid')])).toBe(350);
+    });
+
+    it("ignore un avenant non signé : il n'engage pas encore le client", () => {
+        expect(amendmentsTotalTTC([amendment(230, 'draft'), amendment(90, 'sent')])).toBe(0);
+    });
+
+    it('ignore les factures liées, déjà déduites par ailleurs', () => {
+        expect(amendmentsTotalTTC([{ type: 'invoice', status: 'billed', total_ttc: 1356.91 }])).toBe(0);
+    });
+
+    // Un avenant de moins-value réduit le chantier : l'assiette doit suivre.
+    it("prend en compte un avenant négatif", () => {
+        expect(amendmentsTotalTTC([amendment(230), amendment(-80)])).toBe(150);
+    });
+
+    it('accepte une liste vide ou absente', () => {
+        expect(amendmentsTotalTTC([])).toBe(0);
+        expect(amendmentsTotalTTC(null)).toBe(0);
+    });
+
+    it('traite un total manquant ou illisible comme nul', () => {
+        expect(amendmentsTotalTTC([amendment(null), amendment(undefined), amendment(230)])).toBe(230);
     });
 });
