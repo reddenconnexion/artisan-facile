@@ -49,6 +49,10 @@ export function materialDepositAmounts(devis) {
 // Un avenant non signé n'entre pas dans le calcul : rien n'y est encore dû.
 const SIGNED_AMENDMENT_STATUSES = ['accepted', 'billed', 'paid'];
 
+/** Les avenants d'un devis que le client a acceptés — les seuls qui l'engagent. */
+const signedAmendments = (linkedDocs) => (linkedDocs || [])
+    .filter(doc => doc.type === 'amendment' && SIGNED_AMENDMENT_STATUSES.includes(doc.status));
+
 /**
  * Lignes de fourniture fermes couvertes par l'acompte : celles du devis, plus
  * celles de ses avenants signés, chacune étiquetée de l'avenant dont elle vient.
@@ -62,8 +66,7 @@ export function depositMaterialItems(quoteItems, linkedDocs) {
 
     const own = (quoteItems || []).filter(isFirmMaterial);
 
-    const fromAmendments = (linkedDocs || [])
-        .filter(doc => doc.type === 'amendment' && SIGNED_AMENDMENT_STATUSES.includes(doc.status))
+    const fromAmendments = signedAmendments(linkedDocs)
         .flatMap(amd => {
             const label = amd.quote_number ? `Avenant n°${amd.quote_number}` : (amd.title || 'Avenant');
             return (Array.isArray(amd.items) ? amd.items : [])
@@ -87,4 +90,24 @@ export function depositAmendmentShare(items) {
         totalHT: fromAmendments.reduce((sum, i) => sum + quoteLineAmount(i), 0),
         labels: [...new Set(fromAmendments.map(i => i.amendmentLabel))],
     };
+}
+
+/**
+ * Montant TTC des avenants signés d'un devis, à ajouter à son total pour
+ * obtenir celui du CHANTIER.
+ *
+ * L'acompte en pourcentage se calculait sur le seul devis initial : après
+ * signature d'un avenant, « 30 % du chantier » n'en couvrait plus 30 %. La
+ * facture de clôture, elle, facture déjà l'ensemble — le pourcentage doit donc
+ * porter sur la même assiette, sinon le solde final s'écarte d'autant.
+ *
+ * Un avenant de moins-value porte un total négatif et réduit l'assiette, ce qui
+ * est le comportement voulu.
+ *
+ * @param {Array} linkedDocs Les documents enfants du devis.
+ * @returns {number} La somme des totaux TTC des avenants signés (0 s'il n'y en a pas).
+ */
+export function amendmentsTotalTTC(linkedDocs) {
+    return signedAmendments(linkedDocs)
+        .reduce((sum, amd) => sum + (parseFloat(amd.total_ttc) || 0), 0);
 }

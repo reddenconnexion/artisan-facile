@@ -109,3 +109,48 @@ export function buildCreditNotePayload(invoice, { mode, amountTTC = 0, reason = 
         ].filter(Boolean).join('\n'),
     };
 }
+
+// ── Acomptes nets des avoirs qui les annulent ──
+//
+// La facture de clôture déduit les acomptes déjà facturés, qu'elle retrouve
+// comme enfants du devis. Un avoir, lui, s'accroche à la FACTURE qu'il annule,
+// pas au devis : il restait donc invisible à la clôture, qui continuait de
+// déduire un acompte annulé — et créditait le client d'un montant qu'il n'avait
+// jamais réglé.
+//
+// Deux cas, une seule règle : on retranche de chaque acompte les avoirs qui le
+// visent. Un avoir total le ramène à zéro et il disparaît des déductions ; un
+// avoir partiel n'en déduit que le reliquat.
+//
+// (Un avoir « total » marque en outre sa facture `cancelled`, ce qui l'exclut
+// déjà en amont ; ce filet couvre les avoirs partiels et les factures annulées
+// avant que ce marquage n'existe.)
+
+/**
+ * Acomptes ramenés à leur montant réellement dû, avoirs déduits.
+ *
+ * @param {Array} deposits Les factures d'acompte rattachées au devis.
+ * @param {Array} creditNotes Les avoirs, rattachés à ces factures par parent_id.
+ * @returns {Array} Les acomptes encore à déduire, avec `netHT` (montant restant)
+ *                  et `creditedHT` (montant annulé). Ceux entièrement annulés
+ *                  sont écartés.
+ */
+export function depositsNetOfCreditNotes(deposits, creditNotes) {
+    const creditedByInvoice = new Map();
+    for (const note of creditNotes || []) {
+        if (note.parent_id == null) continue;
+        const credited = Math.abs(parseFloat(note.total_ht) || 0);
+        creditedByInvoice.set(note.parent_id, (creditedByInvoice.get(note.parent_id) || 0) + credited);
+    }
+
+    return (deposits || [])
+        .map(deposit => {
+            const creditedHT = creditedByInvoice.get(deposit.id) || 0;
+            const grossHT = Math.abs(parseFloat(deposit.total_ht) || 0);
+            // Un avoir ne peut pas rendre l'acompte négatif : au-delà du montant
+            // facturé, l'excédent ne se déduit pas de la clôture.
+            return { ...deposit, creditedHT, netHT: Math.max(grossHT - creditedHT, 0) };
+        })
+        // Le demi-centime écarte les résidus d'arrondi d'un avoir total.
+        .filter(deposit => deposit.netHT > 0.005);
+}
