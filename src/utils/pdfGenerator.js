@@ -5,6 +5,7 @@ import { generateFacturXXML } from './facturxGenerator';
 import { getTradeConfig } from '../constants/trades';
 import { pluralizeFrenchHead } from './frenchText';
 import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
+import { splitQuoteOptionLines } from './quoteOptionLines';
 import { capWorkObject } from './workObject';
 import { isVatFranchise, vatFranchiseTotal } from './vatFranchise';
 
@@ -122,9 +123,13 @@ const PDF_I18N = {
         technicalAddedValue: (v) => `- Plus-value technique : ${v}`,
         colDescription: 'Désignation', colQty: 'Qté', colUnitPrice: 'PU HT', colTotal: 'Total HT',
         colUnitPriceShort: 'PU HT',
-        optionPrefix: '(Option)',
         optionAcceptedPrefix: '(Option retenue)',
-        optionDeclinedPrefix: '(Option non retenue)',
+        optionsBlockTitle: 'Options proposées — non comprises dans le total',
+        optionsBlockTitleSigned: 'Options proposées — non retenues',
+        optionsBlockNote: "Ces prestations ne sont pas dues. Elles ne sont pas comptées dans le total ci-dessus et ne seront facturées que si vous les retenez expressément — en les cochant sur votre devis en ligne, ou en me le demandant par écrit.",
+        optionsBlockNoteSigned: "Ces prestations avaient été proposées et n'ont pas été retenues. Elles ne sont pas comprises dans le total et n'ont pas été facturées.",
+        colOptionAmount: 'Montant si retenue',
+        colOptionAmountSigned: 'Montant proposé',
         tableLaborHeader: "Main d'œuvre", tableMaterialHeader: 'Fournitures et matériel',
         siteLabel: 'Chantier',
         sameAsClientAddress: "Identique à l'adresse client",
@@ -214,9 +219,13 @@ const PDF_I18N = {
         technicalAddedValue: (v) => `- Technical added value: ${v}`,
         colDescription: 'Description', colQty: 'Qty', colUnitPrice: 'Unit Price', colTotal: 'Total (excl. VAT)',
         colUnitPriceShort: 'Unit Price',
-        optionPrefix: '(Optional)',
         optionAcceptedPrefix: '(Optional — accepted)',
-        optionDeclinedPrefix: '(Optional — not taken)',
+        optionsBlockTitle: 'Optional extras — not included in the total',
+        optionsBlockTitleSigned: 'Optional extras — not taken',
+        optionsBlockNote: 'These items are not due. They are excluded from the total above and will only be invoiced if you expressly accept them — by ticking them on your online quote, or by asking me in writing.',
+        optionsBlockNoteSigned: 'These items were offered and were not taken. They are not included in the total and have not been invoiced.',
+        colOptionAmount: 'Amount if accepted',
+        colOptionAmountSigned: 'Amount offered',
         tableLaborHeader: 'Labour & services', tableMaterialHeader: 'Materials & supplies',
         siteLabel: 'Work site',
         sameAsClientAddress: 'Same as client address',
@@ -701,7 +710,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Tableau des prestations
     // ---------------------------------------------------------
 
-    const allItems = devis.items || [];
+    // Les tableaux A / B ne portent que le chiffrage ferme ; les options
+    // proposées sortent dans leur propre bloc, après les totaux (cf.
+    // quoteOptionLines.js). Une colonne de montants du tableau est ainsi
+    // toujours entièrement due, et sous-total main d'œuvre + sous-total
+    // fournitures retombe sur le TOTAL sans écart à expliquer.
+    const { firmItems: allItems, offeredOptions } = splitQuoteOptionLines(devis.items);
     const materials = allItems.filter(i => i.type === 'material');
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
 
@@ -767,19 +781,15 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const services = allItems.filter(i => i.type === 'service' || !i.type);
         const bothGroups = services.length > 0 && materials.length > 0;
 
-        // Les trois états d'une option se lisent sur le document : proposée sans
-        // réponse (hors total), retenue par le client (ligne ferme, comptée
-        // partout), écartée (conservée comme trace de l'offre, hors total).
-        // Sans le libellé « retenue », une option acceptée redevenait une ligne
-        // ordinaire : on ne savait plus si le client l'avait choisie.
-        const optionPrefixOf = (item) => {
-            if (item.option_accepted) return L.optionAcceptedPrefix;
-            if (item.option_declined) return L.optionDeclinedPrefix;
-            return L.optionPrefix;
-        };
+        // Seules les options RETENUES parviennent jusqu'ici : elles sont dues,
+        // donc comptées partout. Le libellé « (Option retenue) » garde lisible
+        // qu'elles viennent d'un choix du client — sans lui, une option
+        // acceptée redevenait une ligne ordinaire dont on ne savait plus si le
+        // client l'avait demandée. Les options proposées et les options
+        // écartées sont, elles, dans le bloc « Options » après les totaux.
         const itemLabel = (item) => {
             const desc = trLine(item.description || '');
-            return (item.is_optional || item.option_accepted) ? `${optionPrefixOf(item)} ${desc}` : desc;
+            return item.option_accepted ? `${L.optionAcceptedPrefix} ${desc}` : desc;
         };
         const itemRow = (item) => [
             itemLabel(item),
@@ -799,7 +809,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const groupedMaterialLabel = (item) => {
             let desc = trLine(item.description || '');
             if ((parseFloat(item.quantity) || 0) > 1) desc = pluralizeFrenchHead(desc);
-            return (item.is_optional || item.option_accepted) ? `${optionPrefixOf(item)} ${desc}` : desc;
+            return item.option_accepted ? `${L.optionAcceptedPrefix} ${desc}` : desc;
         };
         const groupedMaterialRow = (item) => [groupedMaterialLabel(item), lineTotalCell(item)];
         // Présentation « poste global » : le libellé du poste + son total. Les
@@ -1012,10 +1022,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         // ── Bloc totaux (à droite) : sous-totaux, TVA, total en accent ──
         const laborItems = allItems.filter(i => i.type === 'service' || !i.type);
         // lineAmountOf gère aussi les postes fusionnés (line_total) du mode global.
-        // Les lignes optionnelles restent visibles dans le tableau mais sont hors
-        // chiffrage ferme : les sous-totaux les excluent pour que sous-total
-        // main d'œuvre + sous-total fournitures = TOTAL (qui les exclut déjà).
-        const sumHT = (items) => items.filter(i => !i.is_optional).reduce((s, i) => s + lineAmountOf(i), 0);
+        // allItems ne contient déjà plus que des lignes fermes : sous-total main
+        // d'œuvre + sous-total fournitures = TOTAL, et chaque sous-total est bien
+        // la somme de la colonne du tableau au-dessus.
+        const sumHT = (items) => items.reduce((s, i) => s + lineAmountOf(i), 0);
         const showSubtotals = laborItems.length > 0 && materials.length > 0;
 
         const totalsRows = [];
@@ -1095,6 +1105,129 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         }
 
         currentTableY = Math.max(rowY + rowH + 4, noteY);
+    }
+
+    // ── Options proposées, hors total ──
+    //
+    // Placé APRÈS le total, jamais avant : le client lit d'abord ce qu'il doit,
+    // puis ce qu'on lui propose en plus. Le bloc porte son propre en-tête, une
+    // colonne « Montant si retenue » qui nomme la condition, et une phrase qui
+    // dit en toutes lettres que rien de tout cela n'est dû — c'est exactement ce
+    // qu'un préfixe « (Option) » perdu au milieu d'une colonne de montants ne
+    // disait pas.
+    //
+    // Une option écartée à la signature (option_declined) est barrée : le devis
+    // signé garde la trace de ce qui avait été proposé, sans laisser croire une
+    // seconde qu'il a été facturé.
+    if (offeredOptions.length > 0) {
+        // rowMeta suit optionRows ligne pour ligne : l'option correspondante,
+        // ou null pour un sous-titre de section. didDrawCell retrouve ainsi son
+        // option par simple index, sans avoir à recompter les lignes.
+        // Une option est soit retenue — elle a rejoint les tableaux comme ligne
+        // ferme —, soit écartée : ce bloc est donc homogène, tout entier au
+        // présent avant signature et tout entier au passé après. D'où un titre,
+        // un intitulé de colonne et une phrase qui suivent cet état, plutôt
+        // qu'une mention « Non retenue » répétée sur chaque ligne, qui doublait
+        // le texte barré et le poussait à la ligne.
+        const optionsDeclined = offeredOptions.some(i => i.option_declined);
+
+        const optionRows = [];
+        const rowMeta = [];
+        let emittedSection = null;
+        for (const item of offeredOptions) {
+            const sectionName = item.option_section ? trLine(item.option_section).trim() : null;
+            if (sectionName && sectionName !== emittedSection) {
+                optionRows.push([{
+                    content: sectionName,
+                    colSpan: 2,
+                    styles: { fontStyle: 'bold', fillColor: [245, 245, 245], textColor: tableDark, halign: 'left', fontSize: 9 }
+                }]);
+                rowMeta.push(null);
+                emittedSection = sectionName;
+            }
+            optionRows.push([trLine(item.description || ''), lineTotalCell(item)]);
+            rowMeta.push(item);
+        }
+
+        const optionNote = optionsDeclined ? L.optionsBlockNoteSigned : L.optionsBlockNote;
+
+        doc.setFontSize(7.6);
+        doc.setFont(undefined, 'italic');
+        const optionNoteLines = doc.splitTextToSize(optionNote, 182);
+
+        // Un bloc coupé par un saut de page perdrait sa phrase d'avertissement :
+        // on estime sa hauteur (bandeau + libellés + lignes + note) pour le
+        // pousser entier sur la page suivante s'il ne tient pas.
+        const optionsBlockH = 18 + optionRows.length * 8 + optionNoteLines.length * 3.4 + 6;
+        let optionsY = currentTableY + 6;
+        if (optionsY + optionsBlockH > 280) {
+            doc.addPage();
+            optionsY = 20;
+        }
+
+        autoTable(doc, {
+            startY: optionsY,
+            head: sectionHead(
+                optionsDeclined ? L.optionsBlockTitleSigned : L.optionsBlockTitle,
+                tableDark,
+                [L.colDescription, optionsDeclined ? L.colOptionAmountSigned : L.colOptionAmount],
+            ),
+            body: optionRows,
+            ...baseTableStyle,
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 34, halign: 'right' },
+            },
+            headStyles: headStylesFor(tableDark),
+            // Une option n'est pas due : son montant reste lisible — le client
+            // en a besoin pour décider — mais en gris, jamais dans le noir des
+            // lignes à payer.
+            didParseCell: (data) => {
+                styleOfferedCell(data);
+                if (data.section === 'body' && rowMeta[data.row.index]) {
+                    data.cell.styles.textColor = subtle;
+                }
+            },
+            didDrawCell: (data) => {
+                if (data.section !== 'body' || data.column.index !== 0) return;
+                if (!rowMeta[data.row.index]?.option_declined) return;
+                const lines = data.cell.text || [];
+                if (lines.length === 0) return;
+
+                // Le trait suit la ligne de base d'autoTable : celle-ci descend
+                // du haut du texte de fontSize × (2 − 1,15), puis d'une hauteur
+                // de ligne par ligne supplémentaire (cf. autoTableText). On
+                // remonte ensuite d'un tiers de corps pour barrer le texte à
+                // mi-hauteur plutôt qu'à ses pieds.
+                const fontSize = data.cell.styles.fontSize / doc.internal.scaleFactor;
+                const lineHeight = fontSize * (doc.getLineHeightFactor?.() ?? 1.15);
+                const textPos = data.cell.getTextPos();
+                let baseline = textPos.y + fontSize * 0.85;
+                if (data.cell.styles.valign === 'middle') baseline -= (lines.length / 2) * lineHeight;
+                else if (data.cell.styles.valign === 'bottom') baseline -= lines.length * lineHeight;
+
+                // Chaque ligne est barrée sur sa largeur réelle : un trait tiré
+                // sur toute la cellule traverserait aussi le vide à droite.
+                doc.setFontSize(data.cell.styles.fontSize);
+                doc.setDrawColor(...subtle);
+                doc.setLineWidth(0.3);
+                const left = data.cell.x + data.cell.padding('left');
+                lines.forEach((text, i) => {
+                    const y = baseline + i * lineHeight - fontSize / 3;
+                    doc.line(left, y, left + doc.getTextWidth(text), y);
+                });
+            },
+        });
+
+        let optionNoteY = doc.lastAutoTable.finalY + 4;
+        doc.setFontSize(7.6);
+        doc.setFont(undefined, 'italic');
+        doc.setTextColor(...subtle);
+        optionNoteLines.forEach((line) => {
+            doc.text(line, 14, optionNoteY);
+            optionNoteY += 3.4;
+        });
+        currentTableY = optionNoteY + 2;
     }
 
     // Position for Notes

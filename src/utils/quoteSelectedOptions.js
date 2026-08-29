@@ -9,11 +9,13 @@
 //     sous-totaux et l'acompte matériel, qui filtrent is_optional ; le marquage
 //     ne sert qu'au libellé « (Option retenue) » du PDF, pour qu'une option
 //     acceptée ne se lise pas comme une ligne qui aurait toujours été due.
-//   • Option NON retenue → conservée telle quelle, marquée « (Option) » dans
-//     les tableaux et hors total : le client garde sous les yeux tout ce que
-//     l'artisan lui propose, exactement comme sur le PDF envoyé par e-mail. La
-//     signature, elle, retire ces lignes du devis (règle de la RPC) — leur
-//     montant n'a jamais été dû, le total signé est inchangé.
+//   • Option NON retenue → conservée telle quelle : le PDF la sort des tableaux
+//     pour la porter dans son bloc « Options proposées », après le total (cf.
+//     quoteOptionLines.js). Le client garde sous les yeux tout ce que l'artisan
+//     lui propose, exactement comme sur le PDF envoyé par e-mail, sans qu'un
+//     montant non dû ne se glisse dans une colonne de montants dus. La
+//     signature, elle, marque ces lignes comme écartées (règle de la RPC) —
+//     leur montant n'a jamais été dû, le total signé est inchangé.
 //
 // Sans le retrait du flag sur les options retenues, l'aperçu était incohérent :
 // le total les comptait alors que les sous-totaux les excluaient. Sous-total
