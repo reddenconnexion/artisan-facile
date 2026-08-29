@@ -23,7 +23,7 @@ import MarginGauge from '../components/MarginGauge';
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
 import { extractTextFromPDF, extractTextFromDocx, parseQuoteItems, extractQuoteMetadata } from '../utils/documentParser';
 import { parseQuoteCsv } from '../utils/quoteCsvImport';
-import { buildCreditNotePayload } from '../utils/creditNote';
+import { buildCreditNotePayload, depositsNetOfCreditNotes } from '../utils/creditNote';
 import { WORK_OBJECT_MAX_CHARS, workObjectLength } from '../utils/workObject';
 import { getTradeConfig } from '../constants/trades';
 import MaterialsCalculator from '../components/MaterialsCalculator';
@@ -2753,8 +2753,27 @@ Conditions de règlement : Paiement à réception de facture.`
                 signedAmendmentStatuses.includes(inv.status)
             );
 
-            if (deposits.length === 0) {
-                toast.info("Aucun acompte trouvé. La facture de clôture reprendra le devis intégralement.");
+            // Les avoirs s'accrochent à la FACTURE qu'ils annulent, pas au devis :
+            // ils ne figurent donc pas parmi les enfants récupérés ci-dessus et
+            // demandent leur propre requête. Sans eux, un acompte annulé restait
+            // déduit de la clôture.
+            let creditNotes = [];
+            if (deposits.length > 0) {
+                const { data: notes, error: notesError } = await supabase
+                    .from('quotes')
+                    .select('id, parent_id, total_ht, invoice_number')
+                    .eq('type', 'credit_note')
+                    .in('parent_id', deposits.map(inv => inv.id))
+                    .neq('status', 'cancelled');
+
+                if (notesError) throw notesError;
+                creditNotes = notes || [];
+            }
+
+            const netDeposits = depositsNetOfCreditNotes(deposits, creditNotes);
+
+            if (netDeposits.length === 0) {
+                toast.info("Aucun acompte à déduire. La facture de clôture reprendra le devis intégralement.");
             }
 
             // 2. Prepare items: Copy original items
@@ -2789,12 +2808,14 @@ Conditions de règlement : Paiement à réception de facture.`
 
             // 3. Add deduction lines for each deposit/advance already paid
             let totalDeducted = 0;
-            const deductionItems = deposits.map(inv => {
-                const amountHT = parseFloat(inv.total_ht) || 0;
-                // Le récap doit refléter le montant RÉELLEMENT déduit, qui est
-                // toujours une valeur absolue (ligne de déduction = -Math.abs(...)).
-                // Sans le Math.abs ici, un acompte négatif (ex. avenant moins-value
-                // converti en facture) faussait le total récapitulatif de la note.
+            const deductionItems = netDeposits.map(inv => {
+                // netHT : le montant encore dû sur cet acompte, avoirs déduits
+                // (cf. depositsNetOfCreditNotes). Le récap reflète le montant
+                // RÉELLEMENT déduit, toujours en valeur absolue — la ligne de
+                // déduction est -Math.abs(...). Sans ce Math.abs, un acompte
+                // négatif (avenant moins-value converti en facture) faussait le
+                // total récapitulatif de la note.
+                const amountHT = inv.netHT;
                 totalDeducted += Math.abs(amountHT);
                 // Inherit the type from the deposit's items so the deduction offsets
                 // the right category (material vs service) in accounting and net income.
@@ -2825,8 +2846,10 @@ Conditions de règlement : Paiement à réception de facture.`
                 ? (clients.find(c => c.id.toString() === formData.client_id?.toString())?.name || 'Client')
                 : 'Client';
 
-            const deductionSummary = deposits.length > 0
-                ? `\n\nDéductions appliquées (${deposits.length} acompte${deposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
+            const creditedCount = deposits.length - netDeposits.length;
+            const deductionSummary = netDeposits.length > 0
+                ? `\n\nDéductions appliquées (${netDeposits.length} acompte${netDeposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
+                  + (creditedCount > 0 ? `\n${creditedCount} acompte${creditedCount > 1 ? 's' : ''} annulé${creditedCount > 1 ? 's' : ''} par avoir, non déduit${creditedCount > 1 ? 's' : ''}.` : '')
                 : '';
             const amendmentSummary = amendments.length > 0
                 ? `\n${amendments.length} avenant${amendments.length > 1 ? 's' : ''} signé${amendments.length > 1 ? 's' : ''} intégré${amendments.length > 1 ? 's' : ''} : ${amendments.map(a => a.quote_number ? `n°${a.quote_number}` : (a.title || 'sans titre')).join(', ')}`
@@ -3209,6 +3232,23 @@ Conditions de règlement : Paiement à réception de facture.`
                 .single();
 
             if (error) throw error;
+
+            // Un avoir TOTAL annule la facture : elle doit cesser d'être comptée.
+            // Sans ce marquage, la facture de clôture continuait de déduire un
+            // acompte annulé (elle ne retient que les enfants du devis, et un
+            // avoir s'accroche à la facture, pas au devis) — le client était
+            // crédité d'un montant qu'il n'avait jamais réglé. Le numéro reste
+            // figé par le trigger : la séquence légale garde sa trace.
+            if (creditNoteModal.mode === 'total') {
+                const { error: cancelError } = await supabase
+                    .from('quotes')
+                    .update({ status: 'cancelled' })
+                    .eq('id', parseInt(id, 10));
+                if (cancelError) {
+                    console.error('Error cancelling credited invoice:', cancelError);
+                    toast.warning(`Avoir ${created.invoice_number || ''} émis, mais la facture n'a pas pu être marquée annulée — faites-le à la main pour qu'elle ne soit plus déduite.`);
+                }
+            }
 
             toast.success(`Avoir ${created.invoice_number || ''} émis — pensez à l'envoyer au client`.replace('  ', ' '));
             invalidateQuotes();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCreditNotePayload } from './creditNote';
+import { buildCreditNotePayload, depositsNetOfCreditNotes } from './creditNote';
 
 const invoice = {
     id: 42,
@@ -76,5 +76,73 @@ describe('buildCreditNotePayload — garde-fous', () => {
 
     it('refuse une facture non émise (sans numéro légal)', () => {
         expect(() => buildCreditNotePayload({ ...invoice, invoice_number: null }, { mode: 'total' })).toThrow(/pas encore été émise/);
+    });
+});
+
+describe('depositsNetOfCreditNotes', () => {
+    const deposit = (id, total_ht) => ({ id, total_ht, title: `Acompte ${id}` });
+    const creditNote = (parent_id, total_ht) => ({ parent_id, total_ht });
+
+    it('laisse intact un acompte sans avoir', () => {
+        const nets = depositsNetOfCreditNotes([deposit(286, 1356.91)], []);
+        expect(nets).toHaveLength(1);
+        expect(nets[0].netHT).toBe(1356.91);
+        expect(nets[0].creditedHT).toBe(0);
+    });
+
+    // Le cas du devis 223 : FAC-2026-0119 annulée par AV-2026-0001. Sans cette
+    // règle, la clôture déduisait encore 1 356,91 € jamais réglés.
+    it('écarte un acompte entièrement annulé par un avoir', () => {
+        const nets = depositsNetOfCreditNotes(
+            [deposit(286, 1356.91), deposit(288, 1486.91)],
+            [creditNote(286, -1356.91)],
+        );
+        expect(nets.map(d => d.id)).toEqual([288]);
+    });
+
+    it("ne déduit que le reliquat après un avoir partiel", () => {
+        const nets = depositsNetOfCreditNotes([deposit(286, 1000)], [creditNote(286, -300)]);
+        expect(nets[0].netHT).toBe(700);
+        expect(nets[0].creditedHT).toBe(300);
+    });
+
+    it('cumule plusieurs avoirs sur une même facture', () => {
+        const nets = depositsNetOfCreditNotes(
+            [deposit(286, 1000)],
+            [creditNote(286, -300), creditNote(286, -200)],
+        );
+        expect(nets[0].netHT).toBe(500);
+    });
+
+    it("n'applique un avoir qu'à la facture qu'il vise", () => {
+        const nets = depositsNetOfCreditNotes(
+            [deposit(286, 1000), deposit(288, 500)],
+            [creditNote(286, -1000)],
+        );
+        expect(nets.map(d => [d.id, d.netHT])).toEqual([[288, 500]]);
+    });
+
+    // Un avoir supérieur au montant facturé ne doit pas se retourner en crédit.
+    it('ne rend jamais un acompte négatif', () => {
+        const nets = depositsNetOfCreditNotes([deposit(286, 500)], [creditNote(286, -800)]);
+        expect(nets).toEqual([]);
+    });
+
+    it('ignore un avoir sans facture de rattachement', () => {
+        const nets = depositsNetOfCreditNotes([deposit(286, 1000)], [creditNote(null, -1000)]);
+        expect(nets[0].netHT).toBe(1000);
+    });
+
+    it('accepte des listes vides ou absentes', () => {
+        expect(depositsNetOfCreditNotes([], [])).toEqual([]);
+        expect(depositsNetOfCreditNotes(null, null)).toEqual([]);
+        expect(depositsNetOfCreditNotes([deposit(286, 100)], null)[0].netHT).toBe(100);
+    });
+
+    it('ne modifie pas les acomptes reçus', () => {
+        const source = deposit(286, 1000);
+        const nets = depositsNetOfCreditNotes([source], [creditNote(286, -300)]);
+        expect(nets[0]).not.toBe(source);
+        expect(source).not.toHaveProperty('netHT');
     });
 });
