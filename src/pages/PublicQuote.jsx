@@ -33,6 +33,8 @@ const PORTAL_I18N = {
         firmTotal: 'Devis ferme',
         selectedOptionsTotal: (n) => `+ ${n} option${n > 1 ? 's' : ''} retenue${n > 1 ? 's' : ''}`,
         totalWithOptions: 'Total',
+        optionsSaveFailed: "vos options n'ont pas pu être enregistrées. Rien n'a été signé — rechargez la page et réessayez, ou prévenez-moi.",
+        optionsQuoteLocked: 'ce devis a déjà été accepté et ne peut plus être modifié.',
         pdfAutoUpdate: 'Le PDF se met à jour automatiquement selon votre sélection.',
         generatingDoc: 'Génération du document...',
         signQuote: 'Signer le devis', downloadPdf: 'Télécharger le PDF',
@@ -56,6 +58,8 @@ const PORTAL_I18N = {
         firmTotal: 'Firm quote',
         selectedOptionsTotal: (n) => `+ ${n} option${n > 1 ? 's' : ''} taken`,
         totalWithOptions: 'Total',
+        optionsSaveFailed: 'your options could not be saved. Nothing has been signed — reload the page and try again, or let me know.',
+        optionsQuoteLocked: 'this quote has already been accepted and can no longer be changed.',
         pdfAutoUpdate: 'The PDF updates automatically based on your selection.',
         generatingDoc: 'Generating document...',
         signQuote: 'Sign the quote', downloadPdf: 'Download the PDF',
@@ -198,13 +202,30 @@ const PublicQuote = () => {
         try {
             setSavingSignature(true);
 
-            // Confirm optional item selection in DB before signing
+            // Enregistrement des options retenues AVANT la signature — et rien
+            // ne doit continuer si cet enregistrement échoue.
+            //
+            // Le retour de la RPC n'était pas vérifié. Quand elle a commencé à
+            // répondre 404 (son paramètre était déclaré TEXT face à une colonne
+            // public_token uuid), l'échec est passé inaperçu et le devis a été
+            // signé au prix ferme, comme si le client n'avait rien coché. Le
+            // devis n° 223 a été signé ainsi à 2 181,91 € alors que la cliente
+            // avait retenu 230 € d'options et réglé l'acompte correspondant.
+            //
+            // Signer engage les deux parties : mieux vaut refuser la signature
+            // et le dire que graver un montant qui n'est pas celui que le client
+            // a validé à l'écran.
             const hasOptionals = (quote?.items || []).some(i => i.is_optional);
             if (hasOptionals && selectedOptionals !== null) {
-                await supabase.rpc('select_quote_options', {
+                const { data: optionsSaved, error: optionsError } = await supabase.rpc('select_quote_options', {
                     p_token: token,
                     p_selected_ids: [...selectedOptionals],
                 });
+                if (optionsError) throw new Error(T.optionsSaveFailed);
+                // La RPC renvoie false si le devis n'est plus modifiable
+                // (déjà accepté ou payé) : le signer à nouveau n'aurait aucun
+                // sens, et le total affiché ne serait pas celui qui est stocké.
+                if (optionsSaved === false) throw new Error(T.optionsQuoteLocked);
             }
 
             const { data, error } = await supabase

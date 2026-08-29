@@ -23,18 +23,26 @@ import { PGlite } from '@electric-sql/pglite';
 const ROOT = cwd();
 const MIG = path.join(
   ROOT,
-  'supabase/migrations/20260824200000_select_quote_options_mark_accepted.sql'
+  'supabase/migrations/20260829140000_select_quote_options_uuid_token.sql'
 );
 
 let db;
 
 beforeAll(async () => {
   db = await PGlite.create();
-  // Table minimale reprenant les colonnes lues/écrites par la RPC.
+  // Table minimale reprenant les colonnes lues/écrites par la RPC, AVEC LEURS
+  // TYPES DE PRODUCTION. Ce détail n'en est pas un : tant que cette fixture
+  // déclarait `id UUID` et `public_token TEXT`, ces tests passaient au vert sur
+  // une fonction qui ne pouvait pas s'exécuter en production, où `id` est un
+  // bigint et `public_token` un uuid. La comparaison `public_token = p_token`
+  // y levait `operator does not exist: uuid = text` (42883), que PostgREST
+  // renvoie en 404 — la sélection d'options du client n'a jamais été
+  // enregistrée. Toute divergence de type entre cette table et la vraie rend
+  // ces tests incapables de voir la panne qu'ils sont censés couvrir.
   await db.exec(`
     CREATE TABLE quotes (
-      id           UUID PRIMARY KEY,
-      public_token TEXT,
+      id           BIGINT PRIMARY KEY,
+      public_token UUID,
       status       TEXT,
       is_external  BOOLEAN,
       include_tva  BOOLEAN,
@@ -44,6 +52,16 @@ beforeAll(async () => {
       total_ttc    NUMERIC
     );
   `);
+  // PGlite n'a pas les rôles de Supabase : on les crée pour que la migration
+  // s'applique telle quelle, GRANT compris. Charger une version amputée du
+  // fichier reviendrait à tester autre chose que ce qui part en production.
+  await db.exec(`
+    DO $$ BEGIN
+      CREATE ROLE anon;
+      CREATE ROLE authenticated;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+  `);
   await db.exec(readFileSync(MIG, 'utf8'));
 });
 
@@ -51,7 +69,8 @@ afterAll(async () => {
   await db?.close();
 });
 
-const ID = '11111111-1111-1111-1111-111111111111';
+const ID = 271;
+const TOKEN = '4d39e842-372b-4784-846d-fbfdd29f6172';
 
 // Deux lignes fermes + deux options ; total ferme de base = 100 + 20 = 120.
 const baseItems = () => [
@@ -64,13 +83,13 @@ const baseItems = () => [
 const insertQuote = async ({ include_tva = false, is_external = false, status = 'sent' } = {}) => {
   await db.query(
     `INSERT INTO quotes (id, public_token, status, is_external, include_tva, items, total_ht, total_tva, total_ttc)
-     VALUES ($1, 'tok', $2, $3, $4, $5::jsonb, 200, 0, 200)`,
-    [ID, status, is_external, include_tva, JSON.stringify(baseItems())]
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, 200, 0, 200)`,
+    [ID, TOKEN, status, is_external, include_tva, JSON.stringify(baseItems())]
   );
 };
 
 const selectOptions = (selectedIds) =>
-  db.query('SELECT select_quote_options($1, $2) AS ok', ['tok', selectedIds]);
+  db.query('SELECT select_quote_options($1, $2) AS ok', [TOKEN, selectedIds]);
 
 const getQuote = async () => {
   const res = await db.query('SELECT * FROM quotes WHERE id = $1', [ID]);
@@ -141,6 +160,31 @@ describe('select_quote_options', () => {
     // ... mais les lignes portent bien l'état des options.
     expect(q.items.find((i) => i.id === 'opt1').is_optional).toBeUndefined();
     expect(q.items.find((i) => i.id === 'opt2').option_declined).toBe(true);
+  });
+
+  // Le test de régression du 404 : la fonction doit accepter le jeton tel que le
+  // portail l'envoie — la chaîne d'URL convertie en UUID, comme pour
+  // get_public_quote et sign_public_quote. Déclarer p_token en TEXT faisait
+  // échouer la comparaison avec la colonne uuid et rendait la RPC inappelable.
+  it('accepte le jeton public au type de la colonne (uuid)', async () => {
+    await insertQuote();
+    const { rows } = await db.query('SELECT select_quote_options($1::uuid, $2) AS ok', [
+      TOKEN,
+      ['opt1'],
+    ]);
+    expect(rows[0].ok).toBe(true);
+  });
+
+  it('ignore un jeton inconnu sans rien modifier', async () => {
+    await insertQuote();
+    const { rows } = await selectOptions.call(null, ['opt1']);
+    expect(rows[0].ok).toBe(true);
+
+    const { rows: autres } = await db.query('SELECT select_quote_options($1, $2) AS ok', [
+      '00000000-0000-0000-0000-000000000000',
+      ['opt1'],
+    ]);
+    expect(autres[0].ok).toBe(false);
   });
 
   it('refuse un devis déjà accepté', async () => {
