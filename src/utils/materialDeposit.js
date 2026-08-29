@@ -35,3 +35,56 @@ export function materialDepositAmounts(devis) {
     const balanceTTC = Math.max((Number(devis.total_ttc) || 0) - materialTTC, 0);
     return { materialTTC, balanceTTC };
 }
+
+// ── Fournitures couvertes par l'acompte matériel ──
+//
+// L'acompte matériel provisionne ce que l'artisan doit acheter avant
+// d'intervenir. Le chantier ne se limite pas au devis initial : un avenant
+// SIGNÉ engage le client sur des fournitures supplémentaires, que l'artisan
+// avance de la même façon. La facture de clôture reprend déjà les lignes de ces
+// avenants ; sans la même règle ici, l'acompte restait calculé sur le seul
+// devis et laissait ces fournitures à la charge de l'artisan jusqu'à la fin du
+// chantier (devis n° 223 : 130 € de fournitures d'avenant hors acompte).
+//
+// Un avenant non signé n'entre pas dans le calcul : rien n'y est encore dû.
+const SIGNED_AMENDMENT_STATUSES = ['accepted', 'billed', 'paid'];
+
+/**
+ * Lignes de fourniture fermes couvertes par l'acompte : celles du devis, plus
+ * celles de ses avenants signés, chacune étiquetée de l'avenant dont elle vient.
+ *
+ * @param {Array} quoteItems Les lignes du devis racine.
+ * @param {Array} linkedDocs Ses documents enfants (avenants et factures liées).
+ * @returns {Array} Les lignes retenues ; celles d'un avenant portent `amendmentLabel`.
+ */
+export function depositMaterialItems(quoteItems, linkedDocs) {
+    const isFirmMaterial = (i) => i.type === 'material' && !i.is_optional;
+
+    const own = (quoteItems || []).filter(isFirmMaterial);
+
+    const fromAmendments = (linkedDocs || [])
+        .filter(doc => doc.type === 'amendment' && SIGNED_AMENDMENT_STATUSES.includes(doc.status))
+        .flatMap(amd => {
+            const label = amd.quote_number ? `Avenant n°${amd.quote_number}` : (amd.title || 'Avenant');
+            return (Array.isArray(amd.items) ? amd.items : [])
+                .filter(isFirmMaterial)
+                .map(item => ({ ...item, amendmentLabel: label }));
+        });
+
+    return [...own, ...fromAmendments];
+}
+
+/**
+ * Part de l'acompte provenant d'avenants signés : montant HT et libellés des
+ * avenants concernés, pour l'annoncer à l'artisan et sur la facture.
+ *
+ * @param {Array} items Le retour de `depositMaterialItems`.
+ * @returns {{totalHT: number, labels: string[]}}
+ */
+export function depositAmendmentShare(items) {
+    const fromAmendments = (items || []).filter(i => i.amendmentLabel);
+    return {
+        totalHT: fromAmendments.reduce((sum, i) => sum + quoteLineAmount(i), 0),
+        labels: [...new Set(fromAmendments.map(i => i.amendmentLabel))],
+    };
+}
