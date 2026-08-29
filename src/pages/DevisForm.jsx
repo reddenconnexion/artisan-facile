@@ -51,7 +51,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts } from '../utils/materialDeposit';
+import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare } from '../utils/materialDeposit';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -2432,7 +2432,24 @@ Conditions de règlement : Paiement à réception de facture.`
         // On exclut les fournitures optionnelles (is_optional) : tant qu'une option
         // n'est pas retenue par le client, elle ne fait pas partie du chiffrage ferme
         // et ne doit donc pas gonfler l'acompte matériel.
-        const materialItems = formData.items.filter(i => i.type === 'material' && !i.is_optional);
+        // Les fournitures des AVENANTS SIGNÉS entrent dans l'acompte au même
+        // titre que celles du devis (règle et justification dans
+        // materialDeposit.js). L'action n'étant proposée que sur le document
+        // racine — canCreateLinkedDocs exclut les documents ayant un parent —
+        // les avenants cherchés ici sont bien les enfants du devis courant.
+        const { data: linkedDocs, error: linkedError } = await supabase
+            .from('quotes')
+            .select('id, title, type, status, items, quote_number')
+            .eq('parent_id', parseInt(id, 10))
+            .neq('status', 'cancelled');
+
+        if (linkedError) {
+            console.error('Error fetching linked amendments:', linkedError);
+            toast.error("Impossible de vérifier les avenants liés à ce devis.");
+            return;
+        }
+
+        const materialItems = depositMaterialItems(formData.items, linkedDocs);
 
         if (materialItems.length === 0) {
             toast.error("Aucun article de type 'Matériel' trouvé dans ce devis.");
@@ -2448,7 +2465,15 @@ Conditions de règlement : Paiement à réception de facture.`
 
         const materialTotalTTC = formData.include_tva ? materialTotalHT * 1.2 : materialTotalHT;
 
-        const okMat = await confirm({ title: 'Acompte matériel', message: `Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)} € TTC) ?`, confirmLabel: 'Générer' });
+        // Le détail des avenants pris en compte est annoncé : l'artisan doit
+        // voir d'où vient le montant avant de créer la facture, surtout quand il
+        // dépasse les fournitures du devis qu'il a sous les yeux.
+        const { totalHT: amendmentTotalHT, labels: amendmentLabels } = depositAmendmentShare(materialItems);
+        const amendmentNote = amendmentTotalHT > 0
+            ? `\n\nDont ${amendmentTotalHT.toFixed(2)} € HT de fournitures issues de ${amendmentLabels.join(', ')} (signé${amendmentLabels.length > 1 ? 's' : ''}).`
+            : '';
+
+        const okMat = await confirm({ title: 'Acompte matériel', message: `Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)} € TTC) ?${amendmentNote}`, confirmLabel: 'Générer' });
         if (!okMat) return;
 
         try {
@@ -2457,7 +2482,10 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const depositItem = {
                 id: Date.now(),
-                description: `Acompte Matériel (100%) sur devis n°${id} - ${formData.title}`,
+                // Le client reconnaît son devis à son NUMÉRO, pas à
+                // l'identifiant interne de la base : `id` affichait ici un
+                // numéro absent de tous les documents qu'il a reçus.
+                description: `Acompte Matériel (100%) sur devis n°${formData.quote_number || id} - ${formData.title}${amendmentTotalHT > 0 ? ` (avenants inclus : ${amendmentLabels.join(', ')})` : ''}`,
                 quantity: 1,
                 unit: 'forfait',
                 price: 0, // Will be set below
@@ -2491,7 +2519,8 @@ Conditions de règlement : Paiement à réception de facture.`
                 notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
-• Montant total du devis : ${total.toFixed(2)} € TTC
+• Montant total du devis : ${total.toFixed(2)} € TTC${amendmentTotalHT > 0 ? `
+• Fournitures d'avenants signés incluses : ${amendmentTotalHT.toFixed(2)} € HT (${amendmentLabels.join(', ')})` : ''}
 • Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
 • Reste à payer sur devis : ${(total - depositAmount).toFixed(2)} € TTC
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
+import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare } from './materialDeposit';
 
 // Cas réel (devis n° 226) : main d'œuvre 580 € + fournitures fermes 1118,35 €
 // + une option non retenue à 190 €, sans TVA (art. 293 B du CGI).
@@ -76,5 +76,92 @@ describe('quoteLineAmount', () => {
     });
     it('calcule quantité × prix sinon', () => {
         expect(quoteLineAmount({ quantity: 3, price: 10 })).toBe(30);
+    });
+});
+
+describe('depositMaterialItems', () => {
+    const material = (description, price, extra = {}) => ({
+        type: 'material', description, quantity: 1, price, ...extra,
+    });
+    const labour = (description, price) => ({ type: 'service', description, quantity: 1, price });
+
+    it("retient les fournitures fermes du devis et écarte main d'œuvre et options", () => {
+        const items = depositMaterialItems(
+            [material('Coffret', 136), labour('Pose', 200), material('Piquet', 125, { is_optional: true })],
+            [],
+        );
+        expect(items.map(i => i.description)).toEqual(['Coffret']);
+    });
+
+    // Un avenant signé engage le client : ses fournitures sont à acheter comme
+    // les autres, et la facture de clôture les reprend déjà.
+    it('ajoute les fournitures des avenants signés, étiquetées', () => {
+        const items = depositMaterialItems(
+            [material('Coffret', 136)],
+            [{ type: 'amendment', status: 'accepted', quote_number: 236, items: [material('Terre hangar', 80)] }],
+        );
+        expect(items.map(i => [i.description, i.amendmentLabel])).toEqual([
+            ['Coffret', undefined],
+            ['Terre hangar', 'Avenant n°236'],
+        ]);
+    });
+
+    it("ignore un avenant non signé : rien n'y est dû", () => {
+        const items = depositMaterialItems(
+            [material('Coffret', 136)],
+            [{ type: 'amendment', status: 'draft', quote_number: 236, items: [material('Terre hangar', 80)] }],
+        );
+        expect(items).toHaveLength(1);
+    });
+
+    it("ignore les factures liées, qui ne sont pas des fournitures à provisionner", () => {
+        const items = depositMaterialItems(
+            [material('Coffret', 136)],
+            [{ type: 'invoice', status: 'billed', items: [material('Acompte', 500)] }],
+        );
+        expect(items).toHaveLength(1);
+    });
+
+    it('écarte aussi les options non retenues portées par un avenant', () => {
+        const items = depositMaterialItems(
+            [],
+            [{ type: 'amendment', status: 'paid', quote_number: 12, items: [material('Option', 90, { is_optional: true })] }],
+        );
+        expect(items).toEqual([]);
+    });
+
+    it('retombe sur le titre quand l’avenant n’a pas encore de numéro', () => {
+        const items = depositMaterialItems(
+            [],
+            [{ type: 'amendment', status: 'accepted', title: 'Avenant tranchée', items: [material('Câble', 40)] }],
+        );
+        expect(items[0].amendmentLabel).toBe('Avenant tranchée');
+    });
+
+    it('accepte un devis sans document lié', () => {
+        expect(depositMaterialItems([material('Coffret', 136)], null)).toHaveLength(1);
+        expect(depositMaterialItems(null, null)).toEqual([]);
+    });
+});
+
+describe('depositAmendmentShare', () => {
+    const fromAmendment = (price, label) => ({
+        type: 'material', quantity: 1, price, amendmentLabel: label,
+    });
+
+    // Le cas du devis 223 : 80 € + 50 € de fournitures portées par l'avenant.
+    it("somme la part venant des avenants et liste-les sans doublon", () => {
+        const share = depositAmendmentShare([
+            { type: 'material', quantity: 1, price: 1356.91 },
+            fromAmendment(80, 'Avenant n°236'),
+            fromAmendment(50, 'Avenant n°236'),
+        ]);
+        expect(share.totalHT).toBe(130);
+        expect(share.labels).toEqual(['Avenant n°236']);
+    });
+
+    it('renvoie une part nulle sans avenant', () => {
+        expect(depositAmendmentShare([{ type: 'material', quantity: 1, price: 100 }]))
+            .toEqual({ totalHT: 0, labels: [] });
     });
 });
