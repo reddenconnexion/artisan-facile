@@ -97,6 +97,17 @@ const PORTAL_I18N = {
     },
 };
 
+// credit_note inclus : un avoir se consulte comme une facture (pas de
+// signature, pas d'options), avec son propre libellé.
+const invoiceLike = (q) => q.type === 'invoice' || q.type === 'credit_note'
+    || (q.title && q.title.toLowerCase().includes('facture'));
+
+// Document dont la signature est fermée côté serveur : ni facture ni avoir
+// (qui ne se signent pas), ni devis déjà accepté (qui a son propre affichage).
+// Miroir de quote_signature_block_reason — cf. utils/quoteSignability.js.
+const signatureClosedFor = (q) => !!q && !invoiceLike(q)
+    && q.status !== 'accepted' && isSignatureBlocked(q.status);
+
 const PublicQuote = () => {
     const { token } = useParams();
     // Langue du portail/PDF, lue depuis l'URL (?lang=en), fr par défaut.
@@ -190,6 +201,13 @@ const PublicQuote = () => {
 
     const handleDownload = () => {
         if (!quote) return;
+        // Un document fermé ne se distribue plus depuis le lien public : le PDF
+        // téléchargé s'imprime et se signe à la main, hors de portée de tout
+        // contrôle serveur. Il reste consultable à l'écran, filigrané.
+        if (signatureClosedFor(quote)) {
+            toast.error(T.signatureClosedTitle);
+            return;
+        }
         // Only fall back to the originally-imported PDF for "external" quotes
         // where items aren't the source of truth. For normal quotes we always
         // regenerate to reflect the artisan's edits and the client's option
@@ -391,15 +409,12 @@ const PublicQuote = () => {
 
     const { artisan } = quote;
     const isSigned = quote.status === 'accepted';
-    // credit_note inclus : un avoir se consulte comme une facture (pas de
-    // signature, pas d'options), avec son propre libellé.
-    const isInvoiceView = quote.type === 'invoice' || quote.type === 'credit_note' || (quote.title && quote.title.toLowerCase().includes('facture'));
+    const isInvoiceView = invoiceLike(quote);
     // Signature fermée côté serveur (cf. quote_signature_block_reason dans
     // 20260901120000_suspend_quote_signature.sql). Le bouton « Signer » restait
     // affiché sur un devis annulé : le client signait, et ne récoltait qu'un
-    // message d'erreur technique. On le dit avant, en clair. Une facture ou un
-    // avoir ne se signant pas, l'avertissement n'y a pas lieu d'être.
-    const signatureClosed = (!isInvoiceView && !isSigned && isSignatureBlocked(quote.status))
+    // message d'erreur technique. On le dit avant, en clair.
+    const signatureClosed = signatureClosedFor(quote)
         ? (T.signatureClosed[String(quote.status).toLowerCase()] || T.signatureClosedGeneric)
         : null;
 
@@ -493,13 +508,15 @@ const PublicQuote = () => {
                                 {T.report}
                             </a>
                         )}
-                        <button
-                            onClick={handleDownload}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium rounded-lg transition-colors"
-                        >
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">{T.download}</span>
-                        </button>
+                        {!signatureClosed && (
+                            <button
+                                onClick={handleDownload}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium rounded-lg transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">{T.download}</span>
+                            </button>
+                        )}
                         {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                             <button
                                 onClick={() => setShowSignatureModal(true)}
@@ -777,13 +794,15 @@ const PublicQuote = () => {
                                                 {T.signQuote}
                                             </button>
                                         )}
-                                        <button
-                                            onClick={handleDownload}
-                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-colors"
-                                        >
-                                            <Download className="w-5 h-5" />
-                                            {T.downloadPdf}
-                                        </button>
+                                        {!signatureClosed && (
+                                            <button
+                                                onClick={handleDownload}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium rounded-xl shadow-sm transition-colors"
+                                            >
+                                                <Download className="w-5 h-5" />
+                                                {T.downloadPdf}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -801,18 +820,22 @@ const PublicQuote = () => {
                                                 {isInvoiceView ? T.yourInvoice : T.yourQuote}
                                             </h2>
                                             <p className="text-sm text-gray-500 mt-1">
-                                                {pdfRenderError
-                                                    ? T.previewUnavailable
-                                                    : T.preparingPreview}
+                                                {signatureClosed
+                                                    ? signatureClosed
+                                                    : (pdfRenderError
+                                                        ? T.previewUnavailable
+                                                        : T.preparingPreview)}
                                             </p>
                                         </div>
-                                        <button
-                                            onClick={handleDownload}
-                                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
-                                        >
-                                            <Download className="w-5 h-5" />
-                                            {T.downloadPdf}
-                                        </button>
+                                        {!signatureClosed && (
+                                            <button
+                                                onClick={handleDownload}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
+                                            >
+                                                <Download className="w-5 h-5" />
+                                                {T.downloadPdf}
+                                            </button>
+                                        )}
                                         {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                                             <button
                                                 onClick={() => setShowSignatureModal(true)}
