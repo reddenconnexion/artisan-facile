@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
+import { isSignatureBlocked } from '../utils/quoteSignability';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -1461,6 +1462,63 @@ const DevisForm = () => {
         }
     };
 
+    // ── Prévenir le client du retrait ────────────────────────────────────────
+    //
+    // Suspendre le lien et changer le statut sont des mesures internes : le
+    // client, lui, ne voit rien tant qu'il ne rouvre pas le lien. Or un devis
+    // est une offre — la retirer suppose que le client en soit informé avant
+    // qu'il l'accepte, et rien n'empêche qu'il ait déjà imprimé le PDF pour le
+    // signer à la main. Ce mail est donc la seule action qui compte vraiment,
+    // et il laisse une trace datée dans l'historique du client.
+    const isDocumentClosed = formData.token_revoked === true || isSignatureBlocked(formData.status);
+
+    const handleNotifyWithdrawal = () => {
+        if (!isEditing) {
+            toast.error("Enregistrez d'abord le document");
+            return;
+        }
+        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+        if (!selectedClient) {
+            toast.error("Sélectionnez d'abord un client");
+            return;
+        }
+
+        const docLabel = formData.type === 'amendment' ? "l'avenant" : 'le devis';
+        const docNo = formData.quote_number || id;
+        const projectTitle = formData.title || 'vos travaux';
+        const greetingName = clientGreetingName(selectedClient.name, 'fr');
+        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre artisan';
+
+        const signatureBlock = [
+            companyName,
+            userProfile?.full_name || '',
+            userProfile?.phone || '',
+            userProfile?.professional_email || userProfile?.email || '',
+        ].filter(Boolean).join('\n');
+
+        const subject = `Retrait ${docLabel === "l'avenant" ? "de l'avenant" : 'du devis'} N°${docNo} - ${projectTitle} - ${companyName}`;
+        const body = [
+            `Bonjour ${greetingName},`,
+            `Je vous informe que ${docLabel} n°${docNo} « ${projectTitle} » que je vous ai transmis est retiré : il ne peut plus être signé et n'engage plus aucune des deux parties. Le lien de signature en ligne a été désactivé.`,
+            `Si vous en avez déjà téléchargé ou imprimé un exemplaire, merci de ne pas y donner suite.`,
+            `Je reste à votre disposition pour en établir une nouvelle version si vous souhaitez poursuivre ce projet.`,
+            `Bien cordialement,`,
+            '-- \n' + signatureBlock,
+        ].join('\n\n');
+
+        setEmailPreview({
+            email: selectedClient.email,
+            rawSubject: subject,
+            rawBody: body,
+            lang: 'fr',
+            // Ni lien ni bouton de signature : ce mail retire l'offre.
+            signUrl: null,
+            // Distingue ce mail d'un envoi de document : pas d'archivage de
+            // version, pas de passage en « envoyé », pas de date de relance.
+            kind: 'withdrawal',
+        });
+    };
+
     const handleSendQuoteEmail = async (lang = 'fr') => {
         if (!isEditing) {
             toast.error("Veuillez d'abord enregistrer le devis pour l'envoyer");
@@ -1809,6 +1867,11 @@ const DevisForm = () => {
     const handleConfirmSendEmail = async (subject, body, overrideEmail) => {
         if (!emailPreview) return;
 
+        // Un mail de retrait n'est pas un envoi de document : il ne doit ni
+        // archiver une version transmise, ni repasser le devis en « envoyé »,
+        // ni compter comme une relance.
+        const isWithdrawal = emailPreview.kind === 'withdrawal';
+
         // L'adresse saisie dans la modale prime sur l'email enregistré du client
         // (ex : devis adressé à un tuteur/mandataire au nom du client protégé).
         const recipientEmail = (overrideEmail ?? emailPreview.email)?.trim() || '';
@@ -1872,7 +1935,9 @@ const DevisForm = () => {
                 client_id: formData.client_id,
                 type: 'email',
                 date: new Date(),
-                details: `Envoi document par email`
+                details: isWithdrawal
+                    ? `Retrait du document notifié au client par email`
+                    : `Envoi document par email`
             }]).then(({ error }) => {
                 if (error) console.error('Error logging email interaction:', error);
                 else toast.success('Interaction enregistrée dans l\'historique client');
@@ -1880,7 +1945,7 @@ const DevisForm = () => {
         }
 
         // Update quote last_followup_at
-        if (id && id !== 'new') {
+        if (id && id !== 'new' && !isWithdrawal) {
             supabase.from('quotes')
                 .update({ last_followup_at: new Date().toISOString() })
                 .eq('id', id)
@@ -1897,7 +1962,9 @@ const DevisForm = () => {
 
         // Archive la version transmise (instantané + PDF figé) et passe le devis
         // en "envoyé" : c'est cette archive qui fait foi en cas de modification ultérieure.
-        archiveSentVersion().catch(err => console.error('Sent version archive failed:', err));
+        if (!isWithdrawal) {
+            archiveSentVersion().catch(err => console.error('Sent version archive failed:', err));
+        }
 
         // After send: nudge user to enable push notifications if not yet subscribed
         if (isPushSupported && !isPushSubscribed) {
@@ -3869,15 +3936,28 @@ Conditions de règlement : Paiement à réception de facture.`
                     Le lien envoyé au client ne s’ouvre plus et ne peut pas être signé.
                     Le document reste modifiable ; rouvrez la signature quand il est prêt.
                 </p>
-                <button
-                    type="button"
-                    onClick={handleToggleSignatureSuspension}
-                    disabled={togglingSuspension}
-                    className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-60 rounded-lg transition-colors"
-                >
-                    <Unlock className="w-4 h-4" />
-                    {togglingSuspension ? 'Réouverture…' : 'Rouvrir la signature'}
-                </button>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleToggleSignatureSuspension}
+                        disabled={togglingSuspension}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-60 rounded-lg transition-colors"
+                    >
+                        <Unlock className="w-4 h-4" />
+                        {togglingSuspension ? 'Réouverture…' : 'Rouvrir la signature'}
+                    </button>
+                    {/* Le client ne voit rien tant qu'il ne rouvre pas le lien —
+                        et il a peut-être déjà imprimé le PDF. Le prévenir est la
+                        seule action qui vaut hors de l'application. */}
+                    <button
+                        type="button"
+                        onClick={handleNotifyWithdrawal}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-orange-800 dark:text-orange-300 bg-white dark:bg-gray-900 border border-orange-300 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                    >
+                        <Mail className="w-4 h-4" />
+                        Prévenir le client
+                    </button>
+                </div>
             </div>
         </div>
     ) : null;
@@ -4566,6 +4646,16 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 Suspendre la signature
                                             </>
                                         )}
+                                    </button>
+                                )}
+
+                                {id && id !== 'new' && isDocumentClosed && formData.type !== 'invoice' && !isCreditNote && (
+                                    <button
+                                        onClick={() => { handleNotifyWithdrawal(); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                        <Mail className="w-4 h-4 mr-3 text-orange-600" />
+                                        Prévenir le client du retrait
                                     </button>
                                 )}
 
