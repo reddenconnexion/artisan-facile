@@ -9,6 +9,7 @@ import {
 import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
 import SignatureModal from '../../components/SignatureModal';
 import { toast } from 'sonner';
+import { canSignInPortal, isSignatureBlocked } from '../../utils/quoteSignability';
 
 /* ─── Inline PDF Viewer ─── */
 const PdfViewerModal = ({ url, title, onClose }) => {
@@ -38,7 +39,8 @@ const StatusBadge = ({ quote, isSigned }) => {
     if (isInvoice)  return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Facture</span>;
     if (isAmend)    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Avenant</span>;
     if (isSigned)   return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Devis signé ✓</span>;
-    if (quote.status === 'rejected') return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Refusé</span>;
+    if (['rejected', 'refused'].includes(quote.status)) return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Refusé</span>;
+    if (quote.status === 'cancelled') return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Annulé</span>;
     return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Devis</span>;
 };
 
@@ -377,8 +379,8 @@ const ClientPortal = () => {
     const { client, artisan, quotes, photos, reports = [] } = data;
 
     const sortedQuotes = [...quotes].sort((a, b) => {
-        const aUrgent = !['accepted','paid','rejected','cancelled'].includes(a.status) && a.type !== 'invoice';
-        const bUrgent = !['accepted','paid','rejected','cancelled'].includes(b.status) && b.type !== 'invoice';
+        const aUrgent = !['accepted','paid'].includes(a.status) && !isSignatureBlocked(a.status) && a.type !== 'invoice';
+        const bUrgent = !['accepted','paid'].includes(b.status) && !isSignatureBlocked(b.status) && b.type !== 'invoice';
         if (aUrgent && !bUrgent) return -1;
         if (!aUrgent && bUrgent) return 1;
         return new Date(b.date) - new Date(a.date);
@@ -392,10 +394,9 @@ const ClientPortal = () => {
     };
     const CATEGORY_LABELS = { before: 'Avant travaux', during: 'En cours', after: 'Après travaux', other: 'Photos' };
 
-    const pendingSignature = sortedQuotes.filter(q => {
-        const isSigned = q.status === 'accepted' || signedQuoteIds.has(q.id);
-        return !isSigned && q.type !== 'invoice' && q.status !== 'rejected' && q.status !== 'cancelled';
-    });
+    const pendingSignature = sortedQuotes.filter(q =>
+        canSignInPortal(q, q.status === 'accepted' || signedQuoteIds.has(q.id))
+    );
 
     const pendingInvoices = sortedQuotes.filter(q => q.type === 'invoice' && q.status !== 'paid').length;
 
@@ -539,8 +540,10 @@ const ClientPortal = () => {
                                         const isInvoice = quote.type === 'invoice';
                                         const isCreditNote = quote.type === 'credit_note';
                                         const isPaid    = quote.status === 'paid';
-                                        // Un avoir ne se signe pas : c'est un document émis, pas une proposition.
-                                        const canSign   = !isInvoice && !isCreditNote && !isPaid && !isSigned && quote.status !== 'rejected' && quote.status !== 'cancelled';
+                                        // Ni avoir, ni facture, ni avenant (le serveur les refuse),
+                                        // ni document fermé par l'artisan : le bouton ne promet que
+                                        // ce que sign_quote_via_portal accepte réellement.
+                                        const canSign   = canSignInPortal(quote, isSigned);
                                         const viewKey   = `q-${quote.id}`;
                                         const signedAt  = signedDates[quote.id] || quote.signed_at;
                                         const docLabel  = quote.title || (isCreditNote ? 'Avoir' : (isInvoice ? 'Facture' : 'Devis'));

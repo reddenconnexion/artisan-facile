@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
+import { isSignatureBlocked } from '../utils/quoteSignability';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -486,6 +487,9 @@ const DevisForm = () => {
         title: '',
         work_object: '',
         public_token: '',
+        // Lien public suspendu : le client peut avoir reçu le lien et ne doit
+        // plus pouvoir signer tant que l'artisan ne le rouvre pas.
+        token_revoked: false,
         date: new Date().toISOString().split('T')[0],
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         items: [
@@ -1051,6 +1055,7 @@ const DevisForm = () => {
                     title: data.title || '',
                     work_object: data.work_object || '',
                     public_token: data.public_token || '',
+                    token_revoked: data.token_revoked === true,
                     date: data.date,
                     valid_until: data.valid_until || '',
                     items: (data.items || []).map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
@@ -1402,6 +1407,118 @@ const DevisForm = () => {
 
 
 
+    // ── Suspension de la signature ───────────────────────────────────────────
+    // Un devis ou un avenant déjà envoyé peut devoir être repris : chantier
+    // reporté, erreur de chiffrage, client qui négocie encore. Tant que le lien
+    // est actif, il reste signable et engage les deux parties. `token_revoked`
+    // ferme le lien sans toucher au statut du document : la page publique ne
+    // s'ouvre plus (get_public_quote l'exclut) et la signature est refusée côté
+    // serveur (sign_public_quote), y compris pour un lien déjà dans la boîte
+    // mail du client. Un clic suffit à rouvrir.
+    const [togglingSuspension, setTogglingSuspension] = useState(false);
+
+    // Lit l'état réel du lien en base avant toute action qui le rouvrirait.
+    // Se fier au seul formData rouvrirait silencieusement un lien suspendu
+    // depuis un autre appareil ou un autre onglet.
+    const fetchLinkSuspended = async () => {
+        const { data, error } = await supabase
+            .from('quotes')
+            .select('token_revoked')
+            .eq('id', id)
+            .single();
+        if (error) return formData.token_revoked === true;
+        const suspended = data?.token_revoked === true;
+        if (suspended !== (formData.token_revoked === true)) {
+            setFormData(prev => ({ ...prev, token_revoked: suspended }));
+        }
+        return suspended;
+    };
+
+    const suspensionBlockMessage = 'Signature suspendue — rouvrez-la d’abord (menu « … » → Rouvrir la signature).';
+
+    const handleToggleSignatureSuspension = async () => {
+        if (!id || id === 'new') return;
+        const suspend = !formData.token_revoked;
+        setTogglingSuspension(true);
+        try {
+            // Rouvrir prolonge la validité : un lien suspendu plusieurs semaines
+            // serait sinon rouvert déjà expiré.
+            const payload = suspend
+                ? { token_revoked: true }
+                : { token_revoked: false, token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+            const { error } = await supabase.from('quotes').update(payload).eq('id', id);
+            if (error) throw error;
+            setFormData(prev => ({ ...prev, token_revoked: suspend }));
+            toast.success(suspend
+                ? 'Signature suspendue — le lien envoyé au client ne s’ouvre plus.'
+                : 'Signature rouverte — le lien redevient valable 30 jours.');
+        } catch (err) {
+            console.error('Error toggling signature suspension:', err);
+            toast.error(suspend
+                ? "La signature n'a pas pu être suspendue — réessayez."
+                : "La signature n'a pas pu être rouverte — réessayez.");
+        } finally {
+            setTogglingSuspension(false);
+        }
+    };
+
+    // ── Prévenir le client du retrait ────────────────────────────────────────
+    //
+    // Suspendre le lien et changer le statut sont des mesures internes : le
+    // client, lui, ne voit rien tant qu'il ne rouvre pas le lien. Or un devis
+    // est une offre — la retirer suppose que le client en soit informé avant
+    // qu'il l'accepte, et rien n'empêche qu'il ait déjà imprimé le PDF pour le
+    // signer à la main. Ce mail est donc la seule action qui compte vraiment,
+    // et il laisse une trace datée dans l'historique du client.
+    const isDocumentClosed = formData.token_revoked === true || isSignatureBlocked(formData.status);
+
+    const handleNotifyWithdrawal = () => {
+        if (!isEditing) {
+            toast.error("Enregistrez d'abord le document");
+            return;
+        }
+        const selectedClient = clients.find(c => c.id?.toString() === formData.client_id?.toString());
+        if (!selectedClient) {
+            toast.error("Sélectionnez d'abord un client");
+            return;
+        }
+
+        const docLabel = formData.type === 'amendment' ? "l'avenant" : 'le devis';
+        const docNo = formData.quote_number || id;
+        const projectTitle = formData.title || 'vos travaux';
+        const greetingName = clientGreetingName(selectedClient.name, 'fr');
+        const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre artisan';
+
+        const signatureBlock = [
+            companyName,
+            userProfile?.full_name || '',
+            userProfile?.phone || '',
+            userProfile?.professional_email || userProfile?.email || '',
+        ].filter(Boolean).join('\n');
+
+        const subject = `Retrait ${docLabel === "l'avenant" ? "de l'avenant" : 'du devis'} N°${docNo} - ${projectTitle} - ${companyName}`;
+        const body = [
+            `Bonjour ${greetingName},`,
+            `Je vous informe que ${docLabel} n°${docNo} « ${projectTitle} » que je vous ai transmis est retiré : il ne peut plus être signé et n'engage plus aucune des deux parties. Le lien de signature en ligne a été désactivé.`,
+            `Si vous en avez déjà téléchargé ou imprimé un exemplaire, merci de ne pas y donner suite.`,
+            `Je reste à votre disposition pour en établir une nouvelle version si vous souhaitez poursuivre ce projet.`,
+            `Bien cordialement,`,
+            '-- \n' + signatureBlock,
+        ].join('\n\n');
+
+        setEmailPreview({
+            email: selectedClient.email,
+            rawSubject: subject,
+            rawBody: body,
+            lang: 'fr',
+            // Ni lien ni bouton de signature : ce mail retire l'offre.
+            signUrl: null,
+            // Distingue ce mail d'un envoi de document : pas d'archivage de
+            // version, pas de passage en « envoyé », pas de date de relance.
+            kind: 'withdrawal',
+        });
+    };
+
     const handleSendQuoteEmail = async (lang = 'fr') => {
         if (!isEditing) {
             toast.error("Veuillez d'abord enregistrer le devis pour l'envoyer");
@@ -1410,6 +1527,15 @@ const DevisForm = () => {
 
         if (!formData.client_id) {
             toast.error('Veuillez d\'abord sélectionner un client');
+            return;
+        }
+
+        // L'envoi remet le lien en service (token_revoked: false, cf. plus bas) :
+        // sur un document dont la signature a été suspendue, ce serait la
+        // rouvrir sans le dire. On s'arrête et on renvoie l'artisan vers
+        // l'action explicite.
+        if (await fetchLinkSuspended()) {
+            toast.error(suspensionBlockMessage);
             return;
         }
 
@@ -1741,6 +1867,11 @@ const DevisForm = () => {
     const handleConfirmSendEmail = async (subject, body, overrideEmail) => {
         if (!emailPreview) return;
 
+        // Un mail de retrait n'est pas un envoi de document : il ne doit ni
+        // archiver une version transmise, ni repasser le devis en « envoyé »,
+        // ni compter comme une relance.
+        const isWithdrawal = emailPreview.kind === 'withdrawal';
+
         // L'adresse saisie dans la modale prime sur l'email enregistré du client
         // (ex : devis adressé à un tuteur/mandataire au nom du client protégé).
         const recipientEmail = (overrideEmail ?? emailPreview.email)?.trim() || '';
@@ -1804,7 +1935,9 @@ const DevisForm = () => {
                 client_id: formData.client_id,
                 type: 'email',
                 date: new Date(),
-                details: `Envoi document par email`
+                details: isWithdrawal
+                    ? `Retrait du document notifié au client par email`
+                    : `Envoi document par email`
             }]).then(({ error }) => {
                 if (error) console.error('Error logging email interaction:', error);
                 else toast.success('Interaction enregistrée dans l\'historique client');
@@ -1812,7 +1945,7 @@ const DevisForm = () => {
         }
 
         // Update quote last_followup_at
-        if (id && id !== 'new') {
+        if (id && id !== 'new' && !isWithdrawal) {
             supabase.from('quotes')
                 .update({ last_followup_at: new Date().toISOString() })
                 .eq('id', id)
@@ -1829,7 +1962,9 @@ const DevisForm = () => {
 
         // Archive la version transmise (instantané + PDF figé) et passe le devis
         // en "envoyé" : c'est cette archive qui fait foi en cas de modification ultérieure.
-        archiveSentVersion().catch(err => console.error('Sent version archive failed:', err));
+        if (!isWithdrawal) {
+            archiveSentVersion().catch(err => console.error('Sent version archive failed:', err));
+        }
 
         // After send: nudge user to enable push notifications if not yet subscribed
         if (isPushSupported && !isPushSubscribed) {
@@ -3787,6 +3922,46 @@ Conditions de règlement : Paiement à réception de facture.`
         </>
     );
 
+    // Bandeau « signature suspendue » — rendu à l'identique dans l'éditeur et
+    // dans l'aperçu : depuis l'aperçu aussi, l'artisan doit voir que son client
+    // ne peut plus signer, et pouvoir rouvrir sans passer par l'éditeur.
+    const suspendedSignatureBanner = formData.token_revoked ? (
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <div className="p-1 bg-orange-100 dark:bg-orange-900/40 rounded-full text-orange-600 shrink-0">
+                <Lock className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+                <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-300">Signature suspendue</h4>
+                <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                    Le lien envoyé au client ne s’ouvre plus et ne peut pas être signé.
+                    Le document reste modifiable ; rouvrez la signature quand il est prêt.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleToggleSignatureSuspension}
+                        disabled={togglingSuspension}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-60 rounded-lg transition-colors"
+                    >
+                        <Unlock className="w-4 h-4" />
+                        {togglingSuspension ? 'Réouverture…' : 'Rouvrir la signature'}
+                    </button>
+                    {/* Le client ne voit rien tant qu'il ne rouvre pas le lien —
+                        et il a peut-être déjà imprimé le PDF. Le prévenir est la
+                        seule action qui vaut hors de l'application. */}
+                    <button
+                        type="button"
+                        onClick={handleNotifyWithdrawal}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-orange-800 dark:text-orange-300 bg-white dark:bg-gray-900 border border-orange-300 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition-colors"
+                    >
+                        <Mail className="w-4 h-4" />
+                        Prévenir le client
+                    </button>
+                </div>
+            </div>
+        </div>
+    ) : null;
+
     if (isEditing && dataLoaded && pdfOverviewMode) {
         const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
         // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
@@ -3830,6 +4005,14 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {statusMeta && (
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusMeta.cls}`}>
                                         {statusMeta.label}
+                                    </span>
+                                )}
+                                {/* Un document « Envoyé » dont le lien est fermé se lit
+                                    autrement : le client ne peut plus rien signer. */}
+                                {formData.token_revoked && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                                        <Lock className="w-3 h-3" />
+                                        Signature suspendue
                                     </span>
                                 )}
                             </div>
@@ -3923,6 +4106,8 @@ Conditions de règlement : Paiement à réception de facture.`
                         </button>
                     </div>
                 </div>
+
+                {suspendedSignatureBanner}
 
                 {/* Visionneuse PDF */}
                 <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px]">
@@ -4079,6 +4264,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     </button>
                 </div>
             )}
+
+            {suspendedSignatureBanner}
 
             {isLocked && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
@@ -4410,9 +4597,16 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {id && formData.public_token && (
                                     <button
                                         onClick={async () => {
+                                            setShowActionsMenu(false);
+                                            // Copier prolonge la validité du lien : sur un document
+                                            // suspendu, ce serait rouvrir la signature à l'insu de
+                                            // l'artisan qui vient de la fermer.
+                                            if (await fetchLinkSuspended()) {
+                                                toast.error(suspensionBlockMessage);
+                                                return;
+                                            }
                                             const url = `${window.location.origin}/q/${formData.public_token}`;
                                             navigator.clipboard.writeText(url);
-                                            setShowActionsMenu(false);
                                             const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
                                             const { error: refreshError } = await supabase
                                                 .from('quotes')
@@ -4428,6 +4622,40 @@ Conditions de règlement : Paiement à réception de facture.`
                                     >
                                         <Link className="w-4 h-4 mr-3 text-gray-400" />
                                         Copier le lien public
+                                    </button>
+                                )}
+
+                                {/* Suspendre / rouvrir la signature — seuls les documents qui
+                                    se signent sont concernés (ni facture, ni avoir), et une
+                                    fois signé il n'y a plus rien à fermer. */}
+                                {id && id !== 'new' && formData.public_token && !signature
+                                    && formData.status !== 'accepted' && formData.type !== 'invoice' && !isCreditNote && (
+                                    <button
+                                        onClick={() => { handleToggleSignatureSuspension(); setShowActionsMenu(false); }}
+                                        disabled={togglingSuspension}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                                    >
+                                        {formData.token_revoked ? (
+                                            <>
+                                                <Unlock className="w-4 h-4 mr-3 text-green-600" />
+                                                Rouvrir la signature
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Lock className="w-4 h-4 mr-3 text-amber-600" />
+                                                Suspendre la signature
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+
+                                {id && id !== 'new' && isDocumentClosed && formData.type !== 'invoice' && !isCreditNote && (
+                                    <button
+                                        onClick={() => { handleNotifyWithdrawal(); setShowActionsMenu(false); }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                        <Mail className="w-4 h-4 mr-3 text-orange-600" />
+                                        Prévenir le client du retrait
                                     </button>
                                 )}
 
