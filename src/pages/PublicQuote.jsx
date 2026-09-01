@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileCheck, Download, Loader2, Phone, PenTool, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { lineAmount } from '../utils/clientView';
 import { vatFranchiseTotal } from '../utils/vatFranchise';
 import { initialOptionSelection, quoteWithSelectedOptions } from '../utils/quoteSelectedOptions';
+import { isSignatureBlocked } from '../utils/quoteSignability';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
@@ -46,6 +47,17 @@ const PORTAL_I18N = {
         downloadSignedQuote: 'Télécharger le devis signé',
         contact: (name) => `Contacter ${name}`,
         signHint: 'Signez directement ici, sans imprimer — en moins d\'une minute.',
+        linkInactive: "Ce lien n'est plus actif. Il a peut-être expiré, ou l'artisan a suspendu la signature. Contactez-le pour en recevoir un nouveau.",
+        signatureClosedTitle: 'Signature indisponible',
+        signatureClosed: {
+            cancelled: "Ce document a été annulé par l'artisan : il ne peut plus être signé.",
+            refused: "Ce document a été marqué comme refusé : il ne peut plus être signé.",
+            rejected: "Ce document a été marqué comme refusé : il ne peut plus être signé.",
+            postponed: "La signature de ce document a été suspendue par l'artisan.",
+            billed: 'Ce document a déjà été facturé : il ne peut plus être signé.',
+        },
+        signatureClosedGeneric: "Ce document ne peut plus être signé.",
+        signatureClosedHelp: (name) => `Contactez ${name} pour le reprendre ou en recevoir une nouvelle version.`,
     },
     en: {
         invalidLink: 'Invalid link',
@@ -71,6 +83,17 @@ const PORTAL_I18N = {
         downloadSignedQuote: 'Download the signed quote',
         contact: (name) => `Contact ${name}`,
         signHint: 'Sign directly here — no printing needed, in under a minute.',
+        linkInactive: 'This link is no longer active. It may have expired, or signing may have been paused. Contact your tradesperson for a new one.',
+        signatureClosedTitle: 'Signing unavailable',
+        signatureClosed: {
+            cancelled: 'This document has been cancelled: it can no longer be signed.',
+            refused: 'This document has been marked as declined: it can no longer be signed.',
+            rejected: 'This document has been marked as declined: it can no longer be signed.',
+            postponed: 'Signing of this document has been paused.',
+            billed: 'This document has already been invoiced: it can no longer be signed.',
+        },
+        signatureClosedGeneric: 'This document can no longer be signed.',
+        signatureClosedHelp: (name) => `Contact ${name} to reopen it or receive a new version.`,
     },
 };
 
@@ -133,7 +156,10 @@ const PublicQuote = () => {
                 .rpc('get_public_quote', { lookup_token: token });
 
             if (error) throw error;
-            if (!data) throw new Error('Devis introuvable ou lien expiré');
+            // Le lien peut être expiré, révoqué (signature suspendue par
+            // l'artisan) ou inconnu : le serveur ne dit pas lequel, et le client
+            // n'a pas à le savoir. Ce qu'il lui faut, c'est quoi faire ensuite.
+            if (!data) throw new Error(T.linkInactive);
 
             setQuote(data);
         } catch (err) {
@@ -368,9 +394,17 @@ const PublicQuote = () => {
     // credit_note inclus : un avoir se consulte comme une facture (pas de
     // signature, pas d'options), avec son propre libellé.
     const isInvoiceView = quote.type === 'invoice' || quote.type === 'credit_note' || (quote.title && quote.title.toLowerCase().includes('facture'));
+    // Signature fermée côté serveur (cf. quote_signature_block_reason dans
+    // 20260901120000_suspend_quote_signature.sql). Le bouton « Signer » restait
+    // affiché sur un devis annulé : le client signait, et ne récoltait qu'un
+    // message d'erreur technique. On le dit avant, en clair. Une facture ou un
+    // avoir ne se signant pas, l'avertissement n'y a pas lieu d'être.
+    const signatureClosed = (!isInvoiceView && !isSigned && isSignatureBlocked(quote.status))
+        ? (T.signatureClosed[String(quote.status).toLowerCase()] || T.signatureClosedGeneric)
+        : null;
 
     const optionalItems = (quote.items || []).filter(i => i.is_optional && i.type !== 'section');
-    const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView;
+    const hasOptions = optionalItems.length > 0 && !isSigned && !isInvoiceView && !signatureClosed;
 
     // Split optional items into mutually-exclusive groups (rendered as radios)
     // and standalone options (rendered as independent checkboxes). Insertion
@@ -466,7 +500,7 @@ const PublicQuote = () => {
                             <Download className="w-4 h-4" />
                             <span className="hidden sm:inline">{T.download}</span>
                         </button>
-                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                        {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                             <button
                                 onClick={() => setShowSignatureModal(true)}
                                 className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold rounded-lg shadow-sm transition-colors"
@@ -474,6 +508,12 @@ const PublicQuote = () => {
                                 <PenTool className="w-4 h-4" />
                                 {T.sign}
                             </button>
+                        )}
+                        {signatureClosed && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-800 text-sm font-bold rounded-lg border border-orange-200">
+                                <Lock className="w-4 h-4" />
+                                <span className="hidden sm:inline">{T.signatureClosedTitle}</span>
+                            </div>
                         )}
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-bold rounded-lg border border-green-200">
@@ -492,11 +532,38 @@ const PublicQuote = () => {
                 </div>
             </div>
 
+            {/* Signature fermée : le client doit comprendre l'état du document
+                dès l'ouverture, et savoir quoi faire — pas découvrir le refus
+                après avoir tracé sa signature. */}
+            {signatureClosed && (
+                <div className="bg-orange-50 border-b border-orange-200">
+                    <div className="max-w-4xl mx-auto px-4 py-3 flex items-start gap-3">
+                        <Lock className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-orange-800">{T.signatureClosedTitle}</p>
+                            <p className="text-sm text-orange-700 mt-0.5">
+                                {signatureClosed}{' '}
+                                {T.signatureClosedHelp(artisan.company_name || artisan.full_name)}
+                            </p>
+                        </div>
+                        {artisan.phone && (
+                            <a
+                                href={`tel:${artisan.phone}`}
+                                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white text-orange-700 border border-orange-300 hover:bg-orange-100 text-sm font-semibold rounded-lg transition-colors"
+                            >
+                                <Phone className="w-4 h-4" />
+                                <span className="hidden sm:inline">{T.contact(artisan.company_name || artisan.full_name)}</span>
+                            </a>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Bandeau discret « signez ici, sans imprimer » : lève le réflexe
                 imprimer→signer→renvoyer chez les clients qui ne réalisent pas
                 que la signature se fait en ligne. Cliquable pour ouvrir la
                 signature. Affiché uniquement sur un devis non signé. */}
-            {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+            {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                 <button
                     onClick={() => setShowSignatureModal(true)}
                     className="w-full bg-blue-50 border-b border-blue-100 text-blue-700 hover:bg-blue-100 transition-colors"
@@ -701,7 +768,7 @@ const PublicQuote = () => {
                                         />
                                     ))}
                                     <div className="pt-2 pb-6 space-y-2">
-                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                        {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                                             <button
                                                 onClick={() => setShowSignatureModal(true)}
                                                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-bold rounded-xl shadow transition-colors"
@@ -746,7 +813,7 @@ const PublicQuote = () => {
                                             <Download className="w-5 h-5" />
                                             {T.downloadPdf}
                                         </button>
-                                        {!isSigned && !isInvoiceView && quote.status !== 'paid' && (
+                                        {!isSigned && !isInvoiceView && !signatureClosed && quote.status !== 'paid' && (
                                             <button
                                                 onClick={() => setShowSignatureModal(true)}
                                                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 font-bold rounded-xl shadow-sm transition-colors"
