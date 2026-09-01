@@ -32,3 +32,26 @@ export const canSignInPortal = (quote, isSigned = false) => {
     if (isSignatureBlocked(quote.status)) return false;
     return true;
 };
+
+/**
+ * Mention à porter en filigrane sur le PDF d'un document fermé, ou null.
+ *
+ * Le PDF part hors de l'application : imprimé, il peut être signé à la main
+ * quoi qu'en dise le serveur. La mention est la seule chose qui suit le
+ * document, d'où ce cas de plus que `isSignatureBlocked` — un lien suspendu
+ * (`token_revoked`) laisse le statut intact mais ferme bien la signature.
+ *
+ * `billed`/`paid` n'en font pas partie : une facture porte déjà son propre
+ * marquage (« ACQUITTÉE ») et n'a jamais attendu de signature.
+ */
+export const closedWatermarkKind = (doc) => {
+    if (!doc) return null;
+    const byStatus = {
+        cancelled: 'cancelled',
+        refused: 'refused',
+        rejected: 'refused',
+        postponed: 'postponed',
+    };
+    return byStatus[String(doc.status || '').toLowerCase()]
+        || (doc.token_revoked === true ? 'suspended' : null);
+};

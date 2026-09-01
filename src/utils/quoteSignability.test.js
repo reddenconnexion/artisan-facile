@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isSignatureBlocked, canSignInPortal, SIGNATURE_BLOCKING_STATUSES } from './quoteSignability';
+import {
+    isSignatureBlocked,
+    canSignInPortal,
+    closedWatermarkKind,
+    SIGNATURE_BLOCKING_STATUSES,
+} from './quoteSignability';
 
 describe('isSignatureBlocked', () => {
     it('ferme la signature sur les statuts de fermeture', () => {
@@ -46,5 +51,34 @@ describe('canSignInPortal', () => {
         expect(canSignInPortal(quote({ type: 'amendment' }))).toBe(false);
         expect(canSignInPortal(quote({ type: 'invoice' }))).toBe(false);
         expect(canSignInPortal(quote({ type: 'credit_note' }))).toBe(false);
+    });
+});
+
+describe('closedWatermarkKind', () => {
+    it('marque un document annulé, refusé ou reporté', () => {
+        expect(closedWatermarkKind({ status: 'cancelled' })).toBe('cancelled');
+        expect(closedWatermarkKind({ status: 'refused' })).toBe('refused');
+        expect(closedWatermarkKind({ status: 'rejected' })).toBe('refused');
+        expect(closedWatermarkKind({ status: 'postponed' })).toBe('postponed');
+    });
+
+    // Le cas que le statut seul ne dit pas : le lien est fermé, le devis reste
+    // « envoyé ». Sans ce marquage, le PDF d'un devis suspendu s'imprimait
+    // comme un devis valide.
+    it('marque un devis dont le lien est suspendu, sans toucher au statut', () => {
+        expect(closedWatermarkKind({ status: 'sent', token_revoked: true })).toBe('suspended');
+    });
+
+    it('ne marque pas un document en cours', () => {
+        expect(closedWatermarkKind({ status: 'sent' })).toBeNull();
+        expect(closedWatermarkKind({ status: 'draft', token_revoked: false })).toBeNull();
+        expect(closedWatermarkKind(null)).toBeNull();
+    });
+
+    // Une facture porte déjà « ACQUITTÉE » et n'attend aucune signature :
+    // un second filigrane n'aurait rien à dire.
+    it('ne marque pas une facture réglée ou facturée', () => {
+        expect(closedWatermarkKind({ status: 'paid' })).toBeNull();
+        expect(closedWatermarkKind({ status: 'billed' })).toBeNull();
     });
 });

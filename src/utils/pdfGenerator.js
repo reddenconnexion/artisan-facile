@@ -8,6 +8,7 @@ import { materialDepositAmounts, quoteLineAmount } from './materialDeposit';
 import { splitQuoteOptionLines } from './quoteOptionLines';
 import { capWorkObject } from './workObject';
 import { isVatFranchise, vatFranchiseTotal } from './vatFranchise';
+import { closedWatermarkKind } from './quoteSignability';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -97,6 +98,12 @@ const PDF_I18N = {
         phone: 'Tél', email: 'Email', web: 'Web', siret: 'SIRET',
         amendmentTitle: 'AVENANT - MODIFICATION TECHNIQUE',
         paid: 'ACQUITTÉE',
+        // Filigranes « document fermé » : un devis annulé, refusé, reporté ou
+        // dont la signature a été suspendue doit se lire comme tel sur le
+        // papier — c'est la seule mention qui suit un PDF téléchargé.
+        wmCancelled: 'ANNULÉ', wmRefused: 'REFUSÉ', wmPostponed: 'REPORTÉ', wmSuspended: 'SUSPENDU',
+        wmStateOn: (d) => `État au ${d}`,
+        wmNotSignable: 'ne peut plus être signé',
         validUntil: "Valable jusqu'au",
         category: 'Catégorie',
         catService: 'Prestation de services', catGoods: 'Livraison de biens', catMixed: 'Mixte',
@@ -193,6 +200,9 @@ const PDF_I18N = {
         phone: 'Tel', email: 'Email', web: 'Web', siret: 'SIRET',
         amendmentTitle: 'AMENDMENT - TECHNICAL MODIFICATION',
         paid: 'PAID',
+        wmCancelled: 'CANCELLED', wmRefused: 'DECLINED', wmPostponed: 'POSTPONED', wmSuspended: 'PAUSED',
+        wmStateOn: (d) => `Status as of ${d}`,
+        wmNotSignable: 'can no longer be signed',
         validUntil: 'Valid until',
         category: 'Category',
         catService: 'Provision of services', catGoods: 'Supply of goods', catMixed: 'Mixed',
@@ -1775,6 +1785,52 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                 angle: 45,
                 renderingMode: 'fill'
             });
+            doc.restoreGraphicsState();
+        }
+    }
+
+    // ── Filigrane « document fermé » sur toutes les pages ────────────────────
+    //
+    // Un devis annulé, refusé, reporté, ou dont la signature a été suspendue,
+    // se téléchargeait exactement comme un devis valide : rien sur le papier ne
+    // disait qu'il n'engageait plus personne. Un client de bonne foi pouvait
+    // l'imprimer et le signer à la main, hors de portée de tout contrôle
+    // serveur. L'application ne peut pas empêcher ce geste ; elle peut au moins
+    // faire partir la mention avec le document.
+    //
+    // La date affichée est celle du tirage, pas celle de la fermeture (l'app ne
+    // l'enregistre pas) : « État au … » se lit sans ambiguïté et reste vrai.
+    const closedKind = ({
+        cancelled: 'wmCancelled',
+        refused:   'wmRefused',
+        postponed: 'wmPostponed',
+        suspended: 'wmSuspended',
+    })[closedWatermarkKind(devis)];
+
+    if (closedKind) {
+        const totalPages = doc.internal.getNumberOfPages();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const stateLine = [
+            L.wmStateOn(fmtDate(new Date().toISOString())),
+            // Une facture ou un avoir ne se signe pas : la mention n'a de sens
+            // que sur un document qui, lui, attendait une signature.
+            isInvoice || isCreditNote ? null : L.wmNotSignable,
+        ].filter(Boolean).join(' — ');
+
+        for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            doc.saveGraphicsState();
+            doc.setGState(new doc.GState({ opacity: 0.15 }));
+            doc.setTextColor(220, 38, 38);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(46);
+            doc.text(L[closedKind], pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+            // Seconde ligne décalée perpendiculairement au texte (angle 45°),
+            // pour qu'elle se lise juste sous le filigrane et non en travers.
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            doc.text(stateLine, pageWidth / 2 + 10, pageHeight / 2 + 10, { align: 'center', angle: 45 });
             doc.restoreGraphicsState();
         }
     }
