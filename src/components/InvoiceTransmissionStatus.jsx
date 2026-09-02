@@ -54,7 +54,8 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess, onSt
   const { transmit, sync, loading, syncing, status: hookStatus, reference, error } = useInvoiceTransmission();
   const [showDetail, setShowDetail] = useState(false);
 
-  // Priorité : état local (après une action) → état DB (initial)
+  // Priorité : état local (après une action) → état DB (initial). Une remise à
+  // zéro par la resynchronisation est répercutée sur `devis` par le parent.
   const currentStatus = hookStatus ?? devis?.transmission_status ?? null;
   const currentRef = reference ?? devis?.transmission_ref ?? null;
   const currentError = error ?? devis?.transmission_error ?? null;
@@ -119,6 +120,11 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess, onSt
             <p className="text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{currentError}</p>
           )}
         </div>
+      )}
+
+      {/* Message de la plateforme sans statut à afficher (ex. dépôt jamais abouti, statut remis à zéro) */}
+      {!statusCfg && currentError && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{currentError}</p>
       )}
 
       {/* Document non éligible : on explique pourquoi au lieu de laisser un bouton qui échouera */}

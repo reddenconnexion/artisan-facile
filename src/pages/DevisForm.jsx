@@ -5989,10 +5989,10 @@ Conditions de règlement : Paiement à réception de facture.`
                             devis={{ ...formData, id }}
                             client={selectedClient}
                             userProfile={userProfile}
-                            onStatusChange={({ status, reference, error }) => setFormData(prev => ({
+                            onStatusChange={({ status, reference, error, reset }) => setFormData(prev => ({
                                 ...prev,
-                                transmission_status: status ?? prev.transmission_status,
-                                transmission_ref: reference ?? prev.transmission_ref,
+                                transmission_status: reset ? null : (status ?? prev.transmission_status),
+                                transmission_ref: reset ? null : (reference ?? prev.transmission_ref),
                                 transmission_error: error ?? null,
                             }))}
                         />
