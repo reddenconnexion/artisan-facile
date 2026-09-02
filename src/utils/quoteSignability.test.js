@@ -3,6 +3,7 @@ import {
     isSignatureBlocked,
     canSignInPortal,
     closedWatermarkKind,
+    isSignatureSuspended,
     SIGNATURE_BLOCKING_STATUSES,
 } from './quoteSignability';
 
@@ -62,11 +63,36 @@ describe('closedWatermarkKind', () => {
         expect(closedWatermarkKind({ status: 'postponed' })).toBe('postponed');
     });
 
-    // Le cas que le statut seul ne dit pas : le lien est fermé, le devis reste
-    // « envoyé ». Sans ce marquage, le PDF d'un devis suspendu s'imprimait
-    // comme un devis valide.
-    it('marque un devis dont le lien est suspendu, sans toucher au statut', () => {
-        expect(closedWatermarkKind({ status: 'sent', token_revoked: true })).toBe('suspended');
+    // Le cas que le statut seul ne dit pas : la signature est fermée, le devis
+    // reste « envoyé ». Sans ce marquage, le PDF s'imprimait comme un devis
+    // valide.
+    it('marque un devis dont la signature a été suspendue', () => {
+        expect(closedWatermarkKind({ status: 'sent', signature_suspended_at: '2026-09-01T10:00:00Z' }))
+            .toBe('suspended');
+    });
+
+    // Le bug de production : `cleanup_expired_tokens` révoque chaque nuit les
+    // liens expirés depuis plus de 7 jours — 126 documents sur 253, dont 33
+    // devis signés. Marquer ce ménage « SUSPENDU » imprimait un mensonge sur
+    // le PDF de devis signés depuis des mois.
+    it('ne marque pas un lien révoqué par le ménage des liens expirés', () => {
+        expect(closedWatermarkKind({ status: 'sent', token_revoked: true })).toBeNull();
+        expect(closedWatermarkKind({ status: 'accepted', signed_at: '2026-07-06', token_revoked: true }))
+            .toBeNull();
+    });
+
+    // Même suspendu à la main, un devis déjà signé n'a plus rien en attente :
+    // son exemplaire ne doit pas dire le contraire.
+    it('ne marque pas « suspendu » un devis déjà signé', () => {
+        expect(closedWatermarkKind({
+            status: 'accepted', signed_at: '2026-07-06', signature_suspended_at: '2026-09-01T10:00:00Z',
+        })).toBeNull();
+    });
+
+    // Le statut, lui, continue de parler : un devis signé puis annulé garde
+    // son « ANNULÉ », qui dit quelque chose de vrai.
+    it('marque un devis signé puis annulé', () => {
+        expect(closedWatermarkKind({ status: 'cancelled', signed_at: '2026-07-06' })).toBe('cancelled');
     });
 
     it('ne marque pas un document en cours', () => {
@@ -80,5 +106,14 @@ describe('closedWatermarkKind', () => {
     it('ne marque pas une facture réglée ou facturée', () => {
         expect(closedWatermarkKind({ status: 'paid' })).toBeNull();
         expect(closedWatermarkKind({ status: 'billed' })).toBeNull();
+    });
+});
+
+describe('isSignatureSuspended', () => {
+    it("ne reconnaît que la suspension décidée par l'artisan", () => {
+        expect(isSignatureSuspended({ signature_suspended_at: '2026-09-01T10:00:00Z' })).toBe(true);
+        expect(isSignatureSuspended({ token_revoked: true })).toBe(false);
+        expect(isSignatureSuspended({})).toBe(false);
+        expect(isSignatureSuspended(null)).toBe(false);
     });
 });

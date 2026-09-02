@@ -22,10 +22,10 @@ import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 
 const ROOT = cwd();
-const MIG = path.join(
-  ROOT,
-  'supabase/migrations/20260901120000_suspend_quote_signature.sql'
-);
+const MIGRATIONS = [
+  'supabase/migrations/20260901120000_suspend_quote_signature.sql',
+  'supabase/migrations/20260901180000_distinguish_suspension_from_expiry.sql',
+].map((rel) => path.join(ROOT, rel));
 
 let db;
 
@@ -82,8 +82,11 @@ beforeAll(async () => {
     EXCEPTION WHEN duplicate_object THEN NULL;
     END $$;
   `);
-  // La migration telle qu'elle part en production, GRANT compris.
-  await db.exec(readFileSync(MIG, 'utf8'));
+  // Les migrations telles qu'elles partent en production, dans l'ordre et
+  // GRANT compris — la seconde corrige la première.
+  for (const file of MIGRATIONS) {
+    await db.exec(readFileSync(file, 'utf8'));
+  }
 });
 
 afterAll(async () => {
@@ -95,13 +98,13 @@ const baseItems = () => [
   { id: 'opt1', type: 'material', quantity: 1, price: 50, is_optional: true },
 ];
 
-const insertQuote = async ({ status = 'sent', revoked = false, type = 'quote' } = {}) => {
+const insertQuote = async ({ status = 'sent', revoked = false, suspendedAt = null, type = 'quote' } = {}) => {
   await db.query(
     `INSERT INTO quotes
-       (id, client_id, public_token, token_revoked, status, type, is_external, include_tva,
-        items, total_ht, total_tva, total_ttc)
-     VALUES ($1, $2, $3, $4, $5, $6, false, false, $7::jsonb, 100, 0, 100)`,
-    [ID, CLIENT_ID, TOKEN, revoked, status, type, JSON.stringify(baseItems())]
+       (id, client_id, public_token, token_revoked, signature_suspended_at, status, type,
+        is_external, include_tva, items, total_ht, total_tva, total_ttc)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, false, false, $8::jsonb, 100, 0, 100)`,
+    [ID, CLIENT_ID, TOKEN, revoked, suspendedAt, status, type, JSON.stringify(baseItems())]
   );
 };
 
@@ -164,26 +167,43 @@ describe('sign_public_quote — statuts de fermeture', () => {
   });
 });
 
-describe('sign_public_quote — lien suspendu', () => {
-  it('refuse la signature quand le lien est suspendu', async () => {
-    await insertQuote({ status: 'sent', revoked: true });
+const SUSPENDED_AT = '2026-09-01T10:00:00Z';
+
+describe('sign_public_quote — lien fermé', () => {
+  it('refuse la signature quand la signature a été suspendue', async () => {
+    await insertQuote({ status: 'sent', revoked: true, suspendedAt: SUSPENDED_AT });
     const res = await sign();
     expect(res.success).toBe(false);
-    expect(res.error).toContain('suspendue');
+    expect(res.error).toContain("suspendue par l'artisan");
     expect((await getQuote()).signature).toBeNull();
   });
 
-  it('rétablit la signature dès la réactivation du lien', async () => {
+  // `cleanup_expired_tokens` révoque chaque nuit les liens expirés depuis plus
+  // de 7 jours : ce n'est pas une décision de l'artisan, et le dire au client
+  // l'envoyait réclamer une explication qui n'existait pas.
+  it('parle d’expiration, pas de suspension, sur un lien révoqué par le ménage', async () => {
     await insertQuote({ status: 'sent', revoked: true });
+    const res = await sign();
+    expect(res.success).toBe(false);
+    expect(res.error).not.toContain('suspendue');
+    expect(res.error).toContain('plus valable');
+    expect((await getQuote()).signature).toBeNull();
+  });
+
+  it('rétablit la signature dès la réouverture', async () => {
+    await insertQuote({ status: 'sent', revoked: true, suspendedAt: SUSPENDED_AT });
     expect((await sign()).success).toBe(false);
 
-    await db.query('UPDATE quotes SET token_revoked = FALSE WHERE id = $1', [ID]);
+    await db.query(
+      'UPDATE quotes SET token_revoked = FALSE, signature_suspended_at = NULL WHERE id = $1',
+      [ID]
+    );
     expect((await sign()).success).toBe(true);
     expect((await getQuote()).status).toBe('accepted');
   });
 
   it('laisse le statut du devis intact pendant la suspension', async () => {
-    await insertQuote({ status: 'sent', revoked: true });
+    await insertQuote({ status: 'sent', revoked: true, suspendedAt: SUSPENDED_AT });
     await sign();
     expect((await getQuote()).status).toBe('sent');
   });
@@ -206,11 +226,19 @@ describe('sign_quote_via_portal', () => {
     expect((await getQuote()).signature).toBeNull();
   });
 
-  it('refuse un devis dont le lien est suspendu', async () => {
-    await insertQuote({ status: 'sent', revoked: true });
+  it('refuse un devis dont la signature est suspendue', async () => {
+    await insertQuote({ status: 'sent', revoked: true, suspendedAt: SUSPENDED_AT });
     const res = await signViaPortal();
     expect(res.success).toBe(false);
     expect(res.error).toContain('suspendue');
+  });
+
+  // Le portail ne passe pas par le lien public : un lien expiré nettoyé la
+  // nuit n'a aucune raison d'y bloquer la signature.
+  it('laisse signer malgré un lien public révoqué par le ménage', async () => {
+    await insertQuote({ status: 'sent', revoked: true });
+    const res = await signViaPortal();
+    expect(res.success).toBe(true);
   });
 
   it('signe un devis ouvert', async () => {

@@ -34,12 +34,28 @@ export const canSignInPortal = (quote, isSigned = false) => {
 };
 
 /**
+ * La signature de ce document a-t-elle été suspendue PAR L'ARTISAN ?
+ *
+ * `token_revoked` ne suffit pas à le dire : une tâche nocturne
+ * (`cleanup_expired_tokens`) révoque tout lien expiré depuis plus de 7 jours,
+ * ce qui n'est pas une décision mais du ménage. La moitié des documents en
+ * porte le drapeau, devis signés compris. Seule `signature_suspended_at`,
+ * écrite par l'action explicite de l'artisan, marque une vraie suspension.
+ */
+export const isSignatureSuspended = (doc) => !!doc && !!doc.signature_suspended_at;
+
+/**
  * Mention à porter en filigrane sur le PDF d'un document fermé, ou null.
  *
  * Le PDF part hors de l'application : imprimé, il peut être signé à la main
  * quoi qu'en dise le serveur. La mention est la seule chose qui suit le
- * document, d'où ce cas de plus que `isSignatureBlocked` — un lien suspendu
- * (`token_revoked`) laisse le statut intact mais ferme bien la signature.
+ * document, d'où ce cas de plus que `isSignatureBlocked` — une signature
+ * suspendue laisse le statut intact mais ferme bien le document.
+ *
+ * Un document déjà signé n'est jamais marqué « suspendu » : la signature a eu
+ * lieu, plus rien n'est en attente, et son exemplaire ne doit pas laisser
+ * croire le contraire. Un devis signé PUIS annulé, lui, garde son « ANNULÉ » —
+ * c'est le statut qui parle, et il dit quelque chose de vrai.
  *
  * `billed`/`paid` n'en font pas partie : une facture porte déjà son propre
  * marquage (« ACQUITTÉE ») et n'a jamais attendu de signature.
@@ -52,6 +68,8 @@ export const closedWatermarkKind = (doc) => {
         rejected: 'refused',
         postponed: 'postponed',
     };
-    return byStatus[String(doc.status || '').toLowerCase()]
-        || (doc.token_revoked === true ? 'suspended' : null);
+    const byStatusKind = byStatus[String(doc.status || '').toLowerCase()];
+    if (byStatusKind) return byStatusKind;
+    if (doc.signed_at || doc.status === 'accepted') return null;
+    return isSignatureSuspended(doc) ? 'suspended' : null;
 };
