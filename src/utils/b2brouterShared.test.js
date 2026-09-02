@@ -7,6 +7,8 @@ import {
     buildIssuedDocumentBody,
     getB2BRouterConfig,
     receivedInvoicePdfPath,
+    platformTotalMismatch,
+    vatTaxAttributes,
 } from '../../supabase/functions/_shared/b2brouter.ts';
 
 describe('extractInvoiceId', () => {
@@ -83,13 +85,13 @@ describe('buildIssuedDocumentBody', () => {
             ],
         };
         const body = buildIssuedDocumentBody(quote, client, profile);
-        expect(body.send_after_import).toBe(true);
+        expect(body.send_after_import).toBe(false);
         expect(body.invoice).toMatchObject({
             type: 'IssuedInvoice', number: 'FAC-2026-0062', date: '2026-04-26', currency: 'EUR', payment_method: 58, iban: 'FR7612345',
             contact: { cin_scheme: '0002', cin_value: '925082885', email: 'c@x.fr' },
         });
         expect(body.invoice.invoice_lines_attributes).toHaveLength(1);
-        expect(body.invoice.invoice_lines_attributes[0]).toMatchObject({ quantity: 2, price: 45, taxes_attributes: [{ category: 'E', percent: 0 }] });
+        expect(body.invoice.invoice_lines_attributes[0]).toMatchObject({ quantity: 2, price: 45, taxes_attributes: [{ category: 'E', percent: 0, comment: 'TVA non applicable, art. 293 B du CGI' }] });
         expect(body.invoice.extra_info).toMatch(/293 B/);
     });
 
@@ -117,5 +119,27 @@ describe('buildIssuedDocumentBody', () => {
 describe('receivedInvoicePdfPath', () => {
     it('range le PDF dans le dossier de l\'artisan (la policy de lecture s\'appuie dessus)', () => {
         expect(receivedInvoicePdfPath('user-1', 'row-9')).toBe('user-1/row-9.pdf');
+    });
+});
+
+describe('vatTaxAttributes', () => {
+    it('porte le motif d\'exonération en franchise, et rien de plus au taux normal', () => {
+        expect(vatTaxAttributes(0, false)).toEqual({ name: 'TVA', category: 'E', percent: 0, comment: 'TVA non applicable, art. 293 B du CGI' });
+        expect(vatTaxAttributes(20, true)).toEqual({ name: 'TVA', category: 'S', percent: 20 });
+        expect(vatTaxAttributes(10, true)).toEqual({ name: 'TVA', category: 'AA', percent: 10 });
+    });
+});
+
+describe('platformTotalMismatch', () => {
+    it("détecte la TVA ajoutée par la plateforme (le cas d'avril : 972 € pour 810 €)", () => {
+        expect(platformTotalMismatch(810, { total: 972.0 })).toEqual({ mismatch: true, expected: 810, platform: 972 });
+    });
+    it('accepte un total identique à l\'arrondi près, et compare les avoirs en valeur absolue', () => {
+        expect(platformTotalMismatch('1486.91', { total: 1486.9 }).mismatch).toBe(false);
+        expect(platformTotalMismatch(-120, { total: 120 }).mismatch).toBe(false);
+    });
+    it("ne bloque pas quand la plateforme n'expose pas de total", () => {
+        expect(platformTotalMismatch(810, { id: 1 }).mismatch).toBe(false);
+        expect(platformTotalMismatch(810, null).mismatch).toBe(false);
     });
 });

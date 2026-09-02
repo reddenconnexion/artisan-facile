@@ -211,6 +211,21 @@ export const vatCategory = (rate: number, includeTva: boolean): string => {
   return 'AA'; // 5.5 %, 10 %
 };
 
+export const VAT_EXEMPTION_REASON = 'TVA non applicable, art. 293 B du CGI';
+
+/**
+ * Taxe d'une ligne pour B2BRouter. En franchise (art. 293 B), la catégorie
+ * est E (exonéré) à 0 % avec le motif : sans cela, le compte B2BRouter a
+ * appliqué sa TVA par défaut (20 %) au document d'avril — 972 € au lieu
+ * de 810 €.
+ */
+export function vatTaxAttributes(rate: number, includeTva: boolean): Record<string, unknown> {
+  const category = vatCategory(rate, includeTva);
+  const tax: Record<string, unknown> = { name: 'TVA', category, percent: includeTva ? rate : 0 };
+  if (category === 'E') tax.comment = VAT_EXEMPTION_REASON;
+  return tax;
+}
+
 export const isoDate = (d: unknown): string => {
   if (typeof d !== 'string' || !d) return new Date().toISOString().slice(0, 10);
   const parsed = new Date(d);
@@ -258,7 +273,7 @@ export function buildIssuedDocumentBody(
           quantity: sign(Number(item.quantity) || 1),
           unit: 1,
           price: sign(Number(item.price) || 0),
-          taxes_attributes: [{ name: 'TVA', category: vatCategory(rate, includeTva), percent: rate }],
+          taxes_attributes: [vatTaxAttributes(rate, includeTva)],
         };
       })
     : [{
@@ -266,7 +281,7 @@ export function buildIssuedDocumentBody(
         quantity: 1,
         unit: 1,
         price: sign(Number(quote.total_ht) || 0),
-        taxes_attributes: [{ name: 'TVA', category: includeTva ? 'S' : 'E', percent: includeTva ? 20 : 0 }],
+        taxes_attributes: [vatTaxAttributes(includeTva ? 20 : 0, includeTva)],
       }];
 
   const contact: Record<string, unknown> = {
@@ -303,7 +318,30 @@ export function buildIssuedDocumentBody(
   if (quote.vat_on_debits && includeTva) notes.push("Option pour le paiement de la TVA d'après les débits");
   if (notes.length) invoice.extra_info = notes.join(' — ');
 
-  return { send_after_import: true, invoice };
+  // Pas d'envoi automatique : le total recalculé par la plateforme est
+  // d'abord contrôlé (cf. platformTotalMismatch), puis le document est envoyé
+  // explicitement. Un document à TVA erronée ne doit jamais partir.
+  return { send_after_import: false, invoice };
+}
+
+/**
+ * Compare le total TTC attendu au total recalculé par B2BRouter. Un écart
+ * signale une TVA ajoutée ou retirée par la plateforme (configuration des
+ * taxes du compte) : le document ne doit pas être envoyé en l'état.
+ */
+export function platformTotalMismatch(
+  expectedTtc: unknown,
+  platformInvoice: Record<string, unknown> | null,
+  tolerance = 0.05,
+): { mismatch: boolean; expected: number | null; platform: number | null } {
+  const expected = Number(expectedTtc);
+  const platform = platformInvoice ? Number(platformInvoice.total) : NaN;
+  if (!Number.isFinite(expected) || !Number.isFinite(platform)) {
+    return { mismatch: false, expected: Number.isFinite(expected) ? Math.abs(expected) : null, platform: Number.isFinite(platform) ? platform : null };
+  }
+  const exp = Math.abs(expected);
+  const plat = Math.abs(platform);
+  return { mismatch: Math.abs(exp - plat) > tolerance, expected: exp, platform: plat };
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +376,16 @@ export function describeApiError(result: ApiResult): string {
 
 export function createIssuedDocument(cfg: B2BRouterConfig, body: Record<string, unknown>): Promise<ApiResult> {
   return callJson(cfg, 'POST', `/accounts/${cfg.accountId}/invoices`, body);
+}
+
+/** Envoie un document créé sans `send_after_import`. */
+export function sendInvoice(cfg: B2BRouterConfig, id: string): Promise<ApiResult> {
+  return callJson(cfg, 'POST', `/invoices/${encodeURIComponent(id)}/send`);
+}
+
+/** Supprime un document (utilisé quand la plateforme a recalculé un total erroné). */
+export function deleteInvoice(cfg: B2BRouterConfig, id: string): Promise<ApiResult> {
+  return callJson(cfg, 'DELETE', `/invoices/${encodeURIComponent(id)}`);
 }
 
 export async function fetchInvoice(cfg: B2BRouterConfig, id: string): Promise<Record<string, unknown> | null> {
