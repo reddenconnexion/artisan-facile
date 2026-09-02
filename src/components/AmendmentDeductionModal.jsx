@@ -75,17 +75,17 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
     });
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div
                 ref={containerRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="amendment-deduction-title"
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] flex flex-col"
             >
-                <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start gap-4">
+                <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start gap-4">
                     <div>
-                        <h2 id="amendment-deduction-title" className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <h2 id="amendment-deduction-title" className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             <MinusCircle className="w-5 h-5 text-red-500" />
                             Déduire des prestations non réalisées
                         </h2>
@@ -104,40 +104,35 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto px-4 py-3 sm:p-6">
                     {lines.length === 0 ? (
                         <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
                             Le devis initial ne contient aucune ligne ferme à déduire.
                         </p>
                     ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
-                                    <th className="py-3 pl-2 w-10">
-                                        <input
-                                            type="checkbox"
-                                            checked={allSelected}
-                                            onChange={toggleAll}
-                                            disabled={available.length === 0}
-                                            aria-label="Tout sélectionner"
-                                            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                        />
-                                    </th>
-                                    <th className="py-3">Prestation du devis initial</th>
-                                    <th className="py-3 text-right whitespace-nowrap">Montant HT</th>
-                                    <th className="py-3 text-right w-32 whitespace-nowrap">Qté à déduire</th>
-                                    <th className="py-3 text-right w-32 whitespace-nowrap">Déduction HT</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        <div>
+                            {/* Liste responsive : sur mobile, la désignation prend toute la
+                                largeur et la quantité passe dessous ; en tableau sur écran large. */}
+                            <div className="flex items-center gap-3 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={toggleAll}
+                                    disabled={available.length === 0}
+                                    aria-label="Tout sélectionner"
+                                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                />
+                                <span className="flex-1 min-w-0">Prestation du devis initial</span>
+                                <span className="hidden sm:block w-28 text-right">Qté à déduire</span>
+                                <span className="hidden sm:block w-28 text-right">Déduction HT</span>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {groups.map((group, gi) => (
                                     <React.Fragment key={`${group.section}-${gi}`}>
                                         {group.section && (
-                                            <tr className="bg-blue-50/60 dark:bg-blue-900/10">
-                                                <td colSpan={5} className="py-1.5 pl-2 text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
-                                                    {group.section}
-                                                </td>
-                                            </tr>
+                                            <div className="py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide bg-blue-50/60 dark:bg-blue-900/10 -mx-4 px-4 sm:-mx-6 sm:px-6">
+                                                {group.section}
+                                            </div>
                                         )}
                                         {group.lines.map((line) => {
                                             const isSelected = Object.prototype.hasOwnProperty.call(selected, line.id);
@@ -146,59 +141,68 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
                                             const deductionHT = isSelected && Number.isFinite(q) ? -q * line.price : 0;
                                             const overflow = isSelected && Number.isFinite(q) && q > line.remainingQuantity + 0.0001;
                                             return (
-                                                <tr
+                                                <div
                                                     key={line.id}
-                                                    className={`transition-colors ${exhausted ? 'opacity-50' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${isSelected ? 'bg-red-50/40 dark:bg-red-900/10' : ''}`}
+                                                    className={`flex items-start gap-3 py-3 transition-colors ${exhausted ? 'opacity-50' : ''} ${isSelected ? 'bg-red-50/40 dark:bg-red-900/10 -mx-4 px-4 sm:-mx-6 sm:px-6' : ''}`}
                                                 >
-                                                    <td className="py-3 pl-2 align-top">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            disabled={exhausted}
-                                                            onChange={() => toggle(line)}
-                                                            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                                        />
-                                                    </td>
-                                                    <td className="py-3 text-sm text-gray-900 dark:text-gray-100">
-                                                        <div className="font-medium">{line.description || <span className="italic text-gray-400">Sans désignation</span>}</div>
-                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {line.type === 'material' ? 'Matériel' : "Main d'œuvre"} · Qté {line.quantity} {line.unit} · PU {fmt(line.price)}
-                                                            {line.deductedQuantity > 0 && (
-                                                                <span className="ml-2 text-red-600 dark:text-red-400 font-medium">
-                                                                    {exhausted ? 'Entièrement déduite' : `${line.deductedQuantity} déjà déduite${line.deductedQuantity > 1 ? 's' : ''}`}
-                                                                </span>
-                                                            )}
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        disabled={exhausted}
+                                                        onChange={() => toggle(line)}
+                                                        aria-label={`Déduire ${line.description || 'la ligne'}`}
+                                                        className="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500 flex-shrink-0"
+                                                    />
+                                                    <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
+                                                        {/* Désignation : toute la largeur disponible, retour à la ligne autorisé */}
+                                                        <div className="flex-1 min-w-0" onClick={() => { if (!exhausted) toggle(line); }}>
+                                                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words whitespace-pre-line">
+                                                                {line.description || <span className="italic text-gray-400">Sans désignation</span>}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                {line.type === 'material' ? 'Matériel' : "Main d'œuvre"} · {line.quantity} {line.unit} × {fmt(line.price)} = <span className="font-medium text-gray-700 dark:text-gray-300">{fmt(line.amountHT)} HT</span>
+                                                                {line.deductedQuantity > 0 && (
+                                                                    <span className="ml-2 text-red-600 dark:text-red-400 font-medium">
+                                                                        {exhausted ? 'Entièrement déduite' : `${line.deductedQuantity} déjà déduite${line.deductedQuantity > 1 ? 's' : ''}`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </td>
-                                                    <td className="py-3 text-sm text-right text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
-                                                        {fmt(line.amountHT)}
-                                                    </td>
-                                                    <td className="py-3 text-right align-top">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={line.remainingQuantity}
-                                                            step="0.01"
-                                                            value={isSelected ? selected[line.id] : ''}
-                                                            disabled={!isSelected}
-                                                            onChange={(e) => setQuantity(line, e.target.value)}
-                                                            aria-label={`Quantité à déduire pour ${line.description || 'la ligne'}`}
-                                                            className={`w-24 px-2 py-1.5 text-right text-sm rounded-md border bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800/50 disabled:text-gray-400 ${overflow ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500'}`}
-                                                        />
-                                                        {overflow && (
-                                                            <div className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">max {line.remainingQuantity}</div>
+                                                        {/* Quantité + montant : sous la désignation sur mobile, en colonnes sur écran large */}
+                                                        {isSelected && (
+                                                            <div className="flex items-center justify-between gap-3 sm:justify-end sm:flex-shrink-0">
+                                                                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                                    <span className="sm:hidden">Qté à déduire</span>
+                                                                    <span className="relative">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max={line.remainingQuantity}
+                                                                            step="0.01"
+                                                                            inputMode="decimal"
+                                                                            value={selected[line.id]}
+                                                                            onChange={(e) => setQuantity(line, e.target.value)}
+                                                                            aria-label={`Quantité à déduire pour ${line.description || 'la ligne'}`}
+                                                                            className={`w-24 sm:w-28 px-2 py-1.5 text-right text-sm rounded-md border bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${overflow ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500 focus:border-blue-500'}`}
+                                                                        />
+                                                                        {overflow && (
+                                                                            <span className="absolute left-0 -bottom-4 text-[11px] text-red-600 dark:text-red-400 whitespace-nowrap">max {line.remainingQuantity}</span>
+                                                                        )}
+                                                                    </span>
+                                                                </label>
+                                                                <span className="w-28 text-right text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                                                                    {fmt(deductionHT)}
+                                                                </span>
+                                                            </div>
                                                         )}
-                                                    </td>
-                                                    <td className={`py-3 text-sm text-right font-medium whitespace-nowrap align-top ${isSelected ? 'text-red-600 dark:text-red-400' : 'text-gray-300 dark:text-gray-600'}`}>
-                                                        {isSelected ? fmt(deductionHT) : '—'}
-                                                    </td>
-                                                </tr>
+                                                    </div>
+                                                </div>
                                             );
                                         })}
                                     </React.Fragment>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
                     )}
                 </div>
 
