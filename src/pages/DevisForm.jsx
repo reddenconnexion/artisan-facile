@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileTex
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
+import { publicLinkExpiry, publicLinkValidityLabel } from '../constants/publicLink';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -1464,7 +1465,7 @@ const DevisForm = () => {
                 : {
                     token_revoked: false,
                     signature_suspended_at: null,
-                    token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    token_expires_at: publicLinkExpiry(),
                 };
             const { error } = await supabase.from('quotes').update(payload).eq('id', id);
             if (error) throw error;
@@ -1475,7 +1476,7 @@ const DevisForm = () => {
             }));
             toast.success(suspend
                 ? 'Signature suspendue — le lien envoyé au client ne s’ouvre plus.'
-                : 'Signature rouverte — le lien redevient valable 30 jours.');
+                : `Signature rouverte — le lien redevient valable ${publicLinkValidityLabel()}.`);
         } catch (err) {
             console.error('Error toggling signature suspension:', err);
             toast.error(suspend
@@ -1573,7 +1574,7 @@ const DevisForm = () => {
             // Ensure public_token exists and refresh its validity (un-revoke + extend expiry)
             // so re-sharing an old quote always produces a working link.
             let token = formData.public_token;
-            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            const newExpiry = publicLinkExpiry();
             if (!token) {
                 token = crypto.randomUUID();
             }
@@ -4045,7 +4046,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 {linkExpired && (
                                     <span
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                                        title="Le lien public a expiré : renvoyez le document ou recopiez le lien pour lui rendre 30 jours de validité."
+                                        title={`Le lien public a expiré : renvoyez le document ou recopiez le lien pour lui rendre ${publicLinkValidityLabel()} de validité.`}
                                     >
                                         <Clock className="w-3 h-3" />
                                         Lien expiré
@@ -4643,7 +4644,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             }
                                             const url = `${window.location.origin}/q/${formData.public_token}`;
                                             navigator.clipboard.writeText(url);
-                                            const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                                            const newExpiry = publicLinkExpiry();
                                             const { error: refreshError } = await supabase
                                                 .from('quotes')
                                                 .update({ token_revoked: false, token_expires_at: newExpiry })
