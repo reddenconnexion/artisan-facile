@@ -340,13 +340,57 @@ export async function fetchInvoice(cfg: B2BRouterConfig, id: string): Promise<Re
   return r.ok ? unwrapInvoice(r.data) : null;
 }
 
-/** Retrouve un document émis par son numéro (notre numéro légal FAC-/AV-). */
-export async function findIssuedInvoiceByNumber(cfg: B2BRouterConfig, number: string): Promise<Record<string, unknown> | null> {
-  const r = await callJson(cfg, 'GET', `/accounts/${cfg.accountId}/invoices?number=${encodeURIComponent(number)}`);
+/** Liste paginée des documents du compte : `{ invoices: [...], meta: { total_count, offset, limit } }`. */
+export async function listAccountInvoices(
+  cfg: B2BRouterConfig,
+  params: Record<string, string | number> = {},
+): Promise<{ invoices: Record<string, unknown>[]; totalCount: number | null } | null> {
+  const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
+  const r = await callJson(cfg, 'GET', `/accounts/${cfg.accountId}/invoices${qs ? `?${qs}` : ''}`);
   if (!r.ok) return null;
-  const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.invoices) ? r.data.invoices : []);
-  const match = (list as unknown[]).map(unwrapInvoice).find((inv) => inv && String(inv.number) === number);
-  return match ?? null;
+  const raw = Array.isArray(r.data) ? r.data : (Array.isArray(r.data.invoices) ? r.data.invoices : []);
+  const invoices = (raw as unknown[]).map(unwrapInvoice).filter((inv): inv is Record<string, unknown> => !!inv);
+  const meta = isRecord(r.data.meta) ? r.data.meta : null;
+  const totalCount = meta && typeof meta.total_count === 'number' ? meta.total_count : null;
+  return { invoices, totalCount };
+}
+
+export interface FindByNumberResult {
+  invoice: Record<string, unknown> | null;
+  /** Nombre de documents présents sur le compte (null si inconnu). */
+  accountTotal: number | null;
+}
+
+/**
+ * Retrouve un document émis par son numéro (notre numéro légal FAC-/AV-).
+ *
+ * On interroge d'abord avec le filtre `number` ; s'il ne renvoie rien, on
+ * parcourt les premières pages du compte et on compare nous-mêmes — le filtre
+ * n'est pas garanti par la documentation, et le parcours dit au passage si le
+ * compte contient quoi que ce soit (diagnostic d'un dépôt jamais effectué).
+ */
+export async function findIssuedInvoiceByNumber(cfg: B2BRouterConfig, number: string): Promise<FindByNumberResult> {
+  const byNumber = (inv: Record<string, unknown>) => String(inv.number) === number;
+
+  const filtered = await listAccountInvoices(cfg, { number });
+  const direct = filtered?.invoices.find(byNumber);
+  if (direct) return { invoice: direct, accountTotal: filtered?.totalCount ?? null };
+
+  const pageSize = 100;
+  let offset = 0;
+  let accountTotal: number | null = null;
+  for (let page = 0; page < 5; page++) {
+    const chunk = await listAccountInvoices(cfg, { limit: pageSize, offset });
+    if (!chunk) break;
+    accountTotal = chunk.totalCount ?? accountTotal;
+    const hit = chunk.invoices.find(byNumber);
+    if (hit) return { invoice: hit, accountTotal };
+    if (chunk.invoices.length < pageSize) break;
+    offset += pageSize;
+    if (accountTotal != null && offset >= accountTotal) break;
+  }
+  console.log(`[B2BRouter] document ${number} absent du compte (${accountTotal ?? '?'} document(s) au total)`);
+  return { invoice: null, accountTotal };
 }
 
 /**

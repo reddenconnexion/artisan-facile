@@ -48,7 +48,9 @@ const callTransmitFunction = async (body) => {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload?.error || `Erreur HTTP ${response.status}`);
+    const err = new Error(payload?.error || `Erreur HTTP ${response.status}`);
+    err.payload = payload;
+    throw err;
   }
   return payload;
 };
@@ -114,7 +116,14 @@ export const useInvoiceTransmission = () => {
     } catch (err) {
       const message = err.message || 'Erreur lors de la resynchronisation';
       setError(message);
-      return { ok: false, status: null, reference: null, error: message };
+      // Document introuvable côté plateforme : le serveur a effacé le faux
+      // statut « déposée », on reflète cette remise à zéro localement.
+      const reset = err.payload?.reset === true;
+      if (reset) {
+        setStatus(null);
+        setReference(null);
+      }
+      return { ok: false, status: null, reference: null, error: message, reset };
     } finally {
       setSyncing(false);
     }

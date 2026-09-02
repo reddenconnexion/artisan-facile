@@ -83,32 +83,52 @@ async function transmitToB2BRouter(
   let reference = extractInvoiceId(result.data);
   if (!reference) {
     console.warn(`[transmit-invoice] réponse B2BRouter sans id : ${result.raw.slice(0, 200)}`);
-    const found = await findIssuedInvoiceByNumber(cfg, String((body.invoice as Record<string, unknown>).number));
+    const { invoice: found } = await findIssuedInvoiceByNumber(cfg, String((body.invoice as Record<string, unknown>).number));
     reference = found ? extractInvoiceId({ invoice: found }) : null;
   }
   return { success: true, reference };
 }
 
-/** Relit l'état du document chez B2BRouter (par référence, sinon par numéro). */
+interface SyncResult {
+  reference: string | null;
+  rawState: string | null;
+  status: string | null;
+  error?: string;
+}
+
+/**
+ * Relit l'état du document chez B2BRouter (par référence, sinon par numéro).
+ * Quand le document est introuvable, `accountTotal` dit si le compte contient
+ * d'autres documents (dépôt jamais effectué) ou rien du tout (compte vide ou
+ * mauvais compte).
+ */
 async function syncFromB2BRouter(
   cfg: B2BRouterConfig,
   quote: Record<string, unknown>,
-): Promise<{ reference: string | null; rawState: string | null; status: string | null; error?: string } | null> {
+): Promise<{ found: SyncResult | null; accountTotal: number | null }> {
   let inv: Record<string, unknown> | null = null;
+  let accountTotal: number | null = null;
   const ref = quote.transmission_ref;
   if (isUsableReference(ref)) inv = await fetchInvoice(cfg, ref);
-  if (!inv && quote.invoice_number) inv = await findIssuedInvoiceByNumber(cfg, String(quote.invoice_number));
-  if (!inv) return null;
+  if (!inv && quote.invoice_number) {
+    const lookup = await findIssuedInvoiceByNumber(cfg, String(quote.invoice_number));
+    inv = lookup.invoice;
+    accountTotal = lookup.accountTotal;
+  }
+  if (!inv) return { found: null, accountTotal };
 
   const rawState = typeof inv.state === 'string' ? inv.state : null;
   const error = [inv.state_reason, inv.error, inv.errors, inv.message]
     .map((v) => (typeof v === 'string' ? v : (v && typeof v === 'object' ? JSON.stringify(v) : '')))
     .find((v) => v) || undefined;
   return {
-    reference: extractInvoiceId({ invoice: inv }),
-    rawState,
-    status: normalizeTransmissionStatus(rawState),
-    error,
+    found: {
+      reference: extractInvoiceId({ invoice: inv }),
+      rawState,
+      status: normalizeTransmissionStatus(rawState),
+      error,
+    },
+    accountTotal,
   };
 }
 
@@ -215,9 +235,22 @@ Deno.serve(async (req) => {
     // ── Resynchronisation du statut ───────────────────────────────────────
     if (isSync) {
       if (!cfg) return json({ error: 'La resynchronisation n\'est disponible qu\'avec B2BRouter.' }, 422);
-      const synced = await syncFromB2BRouter(cfg, quote as Record<string, unknown>);
+      const { found: synced, accountTotal } = await syncFromB2BRouter(cfg, quote as Record<string, unknown>);
       if (!synced) {
-        return json({ error: `${DOC_LABEL[quote.type]} ${quote.invoice_number ?? ''} introuvable chez B2BRouter : elle n'a probablement jamais été déposée.` }, 404);
+        const label = `${DOC_LABEL[quote.type] === 'avoir' ? "L'avoir" : 'La facture'} ${quote.invoice_number ?? ''}`.trim();
+        const why = accountTotal === 0
+          ? "le compte B2BRouter ne contient aucun document : le dépôt n'a jamais abouti."
+          : accountTotal != null
+            ? `elle ne figure pas parmi les ${accountTotal} document(s) du compte B2BRouter : le dépôt n'a jamais abouti.`
+            : "elle est introuvable chez B2BRouter : le dépôt n'a probablement jamais abouti.";
+        // Un « déposée » qui ne correspond à rien côté plateforme est trompeur :
+        // on le retire pour que le document redevienne transmissible.
+        await supabaseAdmin.from('quotes').update({
+          transmission_status: null,
+          transmission_ref: null,
+          transmission_error: null,
+        }).eq('id', quote_id);
+        return json({ error: `${label} : ${why} Son statut de transmission a été remis à zéro.`, status: null, reset: true }, 404);
       }
       const update: Record<string, unknown> = {
         transmission_service: 'b2brouter',
