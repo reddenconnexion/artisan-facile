@@ -5498,7 +5498,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         </div>
                     )}
                     {/* Column headers — desktop only */}
-                    <div className="hidden sm:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
+                    <div className="hidden lg:flex gap-4 items-end mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none">
                         <div className="flex-1 pl-1">Désignation</div>
                         <div className="w-20 text-right">Qté</div>
                         <div
@@ -5555,7 +5555,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </div>
                                 </div>
                             ) : (
-                            <div key={item.id} className={`flex flex-col sm:flex-row gap-4 items-start border-b pb-4 last:border-0 ${item.is_optional ? 'border-purple-100 border-l-2 border-l-purple-300 pl-2 -ml-2' : 'border-gray-100 dark:border-gray-800'}`}>
+                            <div key={item.id} className={`flex flex-col lg:flex-row gap-4 items-start border-b pb-4 last:border-0 ${item.is_optional ? 'border-purple-100 border-l-2 border-l-purple-300 pl-2 -ml-2' : 'border-gray-100 dark:border-gray-800'}`}>
                                 <div className="flex-1 w-full space-y-2">
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <select
@@ -5695,7 +5695,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
+                                <div className="flex gap-2 w-full lg:w-auto">
                                     <div className="w-20 relative">
                                         <input
                                             type="number"
