@@ -111,8 +111,13 @@ export function isUsableReference(ref: unknown): ref is string {
 // ---------------------------------------------------------------------------
 
 export const STATUS_MAP: Record<string, string> = {
+  // Créé chez B2BRouter mais pas encore envoyé (brouillon côté plateforme) :
+  // c'est l'état du document d'avril, resté en `new` faute de destinataire
+  // routable. L'afficher « déposée » serait faux.
+  NEW: 'pending',
+  DRAFT: 'pending',
+
   // Reçu / en traitement
-  NEW: 'sent',
   RECEIVED: 'sent',
   DEPOSITED: 'sent',
   PROCESSING: 'sent',

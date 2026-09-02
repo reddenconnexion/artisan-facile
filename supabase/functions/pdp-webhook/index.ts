@@ -538,7 +538,7 @@ Deno.serve(async (req) => {
   }
 
   // Éviter les régressions de statut (acknowledged → sent n'a pas de sens)
-  const STATUS_RANK: Record<string, number> = { sent: 1, acknowledged: 2, rejected: 2 };
+  const STATUS_RANK: Record<string, number> = { pending: 0, sent: 1, acknowledged: 2, rejected: 2 };
   const currentRank = STATUS_RANK[quote!.transmission_status ?? ''] ?? 0;
   const newRank = STATUS_RANK[newStatus] ?? 0;
 

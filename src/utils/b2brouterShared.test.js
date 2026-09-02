@@ -46,7 +46,8 @@ describe('isUsableReference', () => {
 describe('normalizeTransmissionStatus', () => {
     it('ramène les états B2BRouter à nos trois statuts', () => {
         expect(normalizeTransmissionStatus('sent')).toBe('sent');
-        expect(normalizeTransmissionStatus('new')).toBe('sent');
+        expect(normalizeTransmissionStatus('new')).toBe('pending');
+        expect(normalizeTransmissionStatus('draft')).toBe('pending');
         expect(normalizeTransmissionStatus('delivered')).toBe('acknowledged');
         expect(normalizeTransmissionStatus('registered')).toBe('acknowledged');
         expect(normalizeTransmissionStatus('accepted')).toBe('acknowledged');
