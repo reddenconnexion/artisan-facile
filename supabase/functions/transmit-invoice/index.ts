@@ -1,8 +1,14 @@
 /**
  * Edge Function : transmit-invoice
  *
- * Transmet une facture vers une Plateforme Agréée (PA).
- * Supporte deux modes selon les variables d'environnement configurées :
+ * Transmet une facture ou un avoir vers une Plateforme Agréée (PA), ou
+ * resynchronise le statut d'un document déjà transmis.
+ *
+ * Body :
+ *   { quote_id, pdf_base64? }            → transmission (facture ou avoir émis)
+ *   { quote_id, action: 'sync' }         → relit l'état chez B2BRouter et met à jour le statut
+ *
+ * Modes selon les variables d'environnement :
  *
  *   Mode B2BRouter (recommandé) :
  *     B2BROUTER_API_KEY    : clé API B2BRouter (App → Developers → API key)
@@ -13,15 +19,36 @@
  *     PDP_API_URL  : URL de base de la PDP
  *     PDP_API_KEY  : Bearer token
  *     PDP_SERVICE_NAME : nom de la PDP
+ *
+ * Règle d'éligibilité (identique à src/utils/einvoiceEligibility.js) : document
+ * émis (numéro légal), client professionnel identifié par un SIREN. Une vente
+ * à un particulier n'est pas transmise (e-reporting).
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+import {
+  getB2BRouterConfig,
+  getEInvoiceEligibility,
+  buildIssuedDocumentBody,
+  createIssuedDocument,
+  extractInvoiceId,
+  describeApiError,
+  fetchInvoice,
+  findIssuedInvoiceByNumber,
+  normalizeTransmissionStatus,
+  isUsableReference,
+  type B2BRouterConfig,
+} from '../_shared/b2brouter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+const DOC_LABEL: Record<string, string> = { invoice: 'facture', credit_note: 'avoir' };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,7 +56,7 @@ const corsHeaders = {
 
 interface TransmitResult {
   success: boolean;
-  reference?: string;
+  reference?: string | null;
   error?: string;
 }
 
@@ -37,151 +64,51 @@ interface TransmitResult {
 // Adaptateur B2BRouter
 // ---------------------------------------------------------------------------
 
-const vatCategory = (rate: number, includeTva: boolean): string => {
-  if (!includeTva) return 'E';
-  if (rate === 0) return 'Z';
-  if (rate === 20) return 'S';
-  return 'AA'; // 5.5%, 10%
-};
-
-const formatDate = (d: string | null | undefined): string => {
-  if (!d) return new Date().toISOString().slice(0, 10);
-  return new Date(d).toISOString().slice(0, 10);
-};
-
 async function transmitToB2BRouter(
+  cfg: B2BRouterConfig,
   quote: Record<string, unknown>,
   client: Record<string, unknown> | null,
   profile: Record<string, unknown> | null,
+  parentInvoiceNumber: string | null,
 ): Promise<TransmitResult> {
-  const apiKey = Deno.env.get('B2BROUTER_API_KEY');
-  const accountId = Deno.env.get('B2BROUTER_ACCOUNT_ID');
-  const sandbox = Deno.env.get('B2BROUTER_SANDBOX') === 'true';
+  const body = buildIssuedDocumentBody(quote, client, profile, { parentInvoiceNumber });
+  const result = await createIssuedDocument(cfg, body);
 
-  if (!apiKey || !accountId) {
-    return { success: false, error: 'B2BRouter non configuré : renseignez B2BROUTER_API_KEY et B2BROUTER_ACCOUNT_ID dans les secrets Supabase.' };
+  if (!result.ok) {
+    return { success: false, error: describeApiError(result) };
   }
 
-  const base = sandbox
-    ? 'https://api-staging.b2brouter.net'
-    : 'https://api.b2brouter.net';
-
-  const includeTva = quote.include_tva !== false;
-  const items = Array.isArray(quote.items) ? quote.items : [];
-
-  // Date d'échéance : valid_until ou +30 jours
-  const dueDate = quote.valid_until
-    ? formatDate(quote.valid_until as string)
-    : formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
-
-  // Lignes de facturation
-  const invoiceLines = items.length > 0
-    ? items.map((item: Record<string, unknown>, i: number) => {
-        const rate = item.tva_rate != null ? Number(item.tva_rate) : (includeTva ? 20 : 0);
-        return {
-          description: (item.description as string) || `Ligne ${i + 1}`,
-          quantity: Number(item.quantity) || 1,
-          unit: 1,
-          price: Number(item.price) || 0,
-          taxes_attributes: [{
-            name: 'TVA',
-            category: vatCategory(rate, includeTva),
-            percent: rate,
-          }],
-        };
-      })
-    : [{
-        // Ligne synthétique si pas de détail (ne devrait pas arriver en prod)
-        description: (quote.title as string) || 'Prestation',
-        quantity: 1,
-        unit: 1,
-        price: Number(quote.total_ht) || 0,
-        taxes_attributes: [{
-          name: 'TVA',
-          category: includeTva ? 'S' : 'E',
-          percent: includeTva ? 20 : 0,
-        }],
-      }];
-
-  // Acheteur : on utilise SIREN (0002) si dispo, sinon pas d'identifiant fiscal
-  const contact: Record<string, unknown> = {
-    name: (client?.name as string) || 'Client',
-    address: (client?.address as string) || '',
-    postalcode: (client?.postal_code as string) || '',
-    city: (client?.city as string) || '',
-    country: 'fr',
-  };
-  if (client?.siren) {
-    contact.cin_scheme = '0002'; // SIREN 9 chiffres
-    contact.cin_value = client.siren as string;
+  // L'identifiant B2BRouter sert au rapprochement des webhooks de statut.
+  // Sans lui, on retombe sur notre numéro légal (les webhooks le portent).
+  let reference = extractInvoiceId(result.data);
+  if (!reference) {
+    console.warn(`[transmit-invoice] réponse B2BRouter sans id : ${result.raw.slice(0, 200)}`);
+    const found = await findIssuedInvoiceByNumber(cfg, String((body.invoice as Record<string, unknown>).number));
+    reference = found ? extractInvoiceId({ invoice: found }) : null;
   }
-  if (client?.tva_intracom) {
-    contact.tin_value = client.tva_intracom as string;
-  }
-  if (client?.email) {
-    contact.email = client.email as string;
-  }
+  return { success: true, reference };
+}
 
-  const body = {
-    send_after_import: true,
-    invoice: {
-      type: 'IssuedInvoice',
-      number: String(quote.invoice_number || quote.quote_number || quote.id),
-      date: formatDate(quote.date as string),
-      due_date: dueDate,
-      currency: 'EUR',
-      ...(profile?.iban ? { payment_method: 58, iban: profile.iban } : {}),
-      contact,
-      invoice_lines_attributes: invoiceLines,
-    },
-  };
+/** Relit l'état du document chez B2BRouter (par référence, sinon par numéro). */
+async function syncFromB2BRouter(
+  cfg: B2BRouterConfig,
+  quote: Record<string, unknown>,
+): Promise<{ reference: string | null; rawState: string | null; status: string | null; error?: string } | null> {
+  let inv: Record<string, unknown> | null = null;
+  const ref = quote.transmission_ref;
+  if (isUsableReference(ref)) inv = await fetchInvoice(cfg, ref);
+  if (!inv && quote.invoice_number) inv = await findIssuedInvoiceByNumber(cfg, String(quote.invoice_number));
+  if (!inv) return null;
 
-  // Vérification que le chemin invoices existe sur ce compte
-  const listRes = await fetch(`${base}/accounts/${accountId}/invoices`, {
-    headers: {
-      'X-B2B-API-Key': apiKey,
-      'Authorization': `Bearer ${apiKey}`,
-      'X-B2B-API-Version': '2026-03-02',
-      'Accept': 'application/json',
-    },
-  });
-  const listText = await listRes.text();
-  console.log(`[B2BRouter] GET /accounts/${accountId}/invoices → ${listRes.status} | ${listText.slice(0, 300)}`);
-
-  const url = `${base}/accounts/${accountId}/invoices`;
-  console.log(`[B2BRouter] POST ${url} | key_len=${apiKey.length} | key_prefix=${apiKey.slice(0, 6)}...`);
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'X-B2B-API-Key': apiKey,
-      'Authorization': `Bearer ${apiKey}`,
-      'X-B2B-API-Version': '2026-03-02',
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const rawText = await res.text();
-  const resHeaders = Object.fromEntries(res.headers.entries());
-  console.log(`[B2BRouter] response ${res.status} | headers=${JSON.stringify(resHeaders)} | body=${rawText.slice(0, 500)}`);
-  let data: Record<string, unknown>;
-  try { data = JSON.parse(rawText); } catch { data = { message: rawText || res.statusText }; }
-
-  if (!res.ok) {
-    const detail = typeof data === 'object'
-      ? (data?.message || data?.error || data?.errors || JSON.stringify(data))
-      : String(data);
-    return {
-      success: false,
-      error: `B2BRouter HTTP ${res.status} — ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`,
-    };
-  }
-
+  const rawState = typeof inv.state === 'string' ? inv.state : null;
+  const error = [inv.state_reason, inv.error, inv.errors, inv.message]
+    .map((v) => (typeof v === 'string' ? v : (v && typeof v === 'object' ? JSON.stringify(v) : '')))
+    .find((v) => v) || undefined;
   return {
-    success: true,
-    reference: String(data.id), // ID numérique B2BRouter → utilisé pour suivi webhook
+    reference: extractInvoiceId({ invoice: inv }),
+    rawState,
+    status: normalizeTransmissionStatus(rawState),
+    error,
   };
 }
 
@@ -191,7 +118,7 @@ async function transmitToB2BRouter(
 
 async function transmitToGenericPDP(
   pdfBase64: string,
-  quoteNumber: string,
+  documentNumber: string,
   sellerSiret: string,
   buyerSiren: string,
   userPdpConfig?: { pdp_url?: string; pdp_key?: string; pdp_service?: string } | null,
@@ -205,8 +132,8 @@ async function transmitToGenericPDP(
 
   const pdfBytes = Uint8Array.from(atob(pdfBase64.replace(/^data:[^;]+;base64,/, '')), (c) => c.charCodeAt(0));
   const formData = new FormData();
-  formData.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), `facture_${quoteNumber}.pdf`);
-  formData.append('metadata', JSON.stringify({ invoiceNumber: quoteNumber, sellerSiret, buyerSiren, currency: 'EUR', format: 'FACTURX_EN16931' }));
+  formData.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), `facture_${documentNumber}.pdf`);
+  formData.append('metadata', JSON.stringify({ invoiceNumber: documentNumber, sellerSiret, buyerSiren, currency: 'EUR', format: 'FACTURX_EN16931' }));
 
   const response = await fetch(`${pdpUrl}/invoices`, {
     method: 'POST',
@@ -220,7 +147,8 @@ async function transmitToGenericPDP(
     return { success: false, error: `HTTP ${response.status} — ${body?.message || body?.error || 'Erreur PDP'}` };
   }
 
-  return { success: true, reference: body?.id || body?.reference || body?.invoiceId || null };
+  const ref = body?.id ?? body?.reference ?? body?.invoiceId ?? null;
+  return { success: true, reference: ref != null ? String(ref) : null };
 }
 
 // ---------------------------------------------------------------------------
@@ -232,9 +160,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    if (!authHeader) return json({ error: 'Non autorisé' }, 401);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -242,12 +168,16 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    if (authError || !user) return json({ error: 'Non autorisé' }, 401);
 
-    // Rate limit : 10 transmissions e-facture / heure / utilisateur
-    const rl = await enforceRateLimit('transmit-invoice', user.id, 10, 3600);
+    const { quote_id, pdf_base64, action } = await req.json().catch(() => ({}));
+    if (!quote_id) return json({ error: 'Paramètre manquant : quote_id' }, 400);
+    const isSync = action === 'sync';
+
+    // Rate limit : 10 transmissions / heure, 30 resynchronisations / heure
+    const rl = isSync
+      ? await enforceRateLimit('transmit-invoice-sync', user.id, 30, 3600)
+      : await enforceRateLimit('transmit-invoice', user.id, 10, 3600);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     const supabaseAdmin = createClient(
@@ -255,29 +185,63 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { quote_id, pdf_base64 } = await req.json();
-    if (!quote_id) {
-      return new Response(JSON.stringify({ error: 'Paramètre manquant : quote_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // --- Récupération de la facture complète ---
+    // --- Document complet ---
     const { data: quote, error: quoteError } = await supabaseAdmin
       .from('quotes')
-      .select('id, quote_number, invoice_number, type, user_id, client_id, transmission_status, date, valid_until, items, include_tva, total_ht, total_tva, total_ttc, title')
+      .select('id, quote_number, invoice_number, type, is_external, parent_id, user_id, client_id, transmission_status, transmission_ref, date, valid_until, items, include_tva, vat_on_debits, total_ht, total_tva, total_ttc, title')
       .eq('id', quote_id)
       .eq('user_id', user.id)
       .maybeSingle();
 
     if (quoteError) {
       console.error('[transmit-invoice] Erreur DB:', JSON.stringify(quoteError));
-      return new Response(JSON.stringify({ error: `Erreur base de données : ${quoteError.message}` }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: `Erreur base de données : ${quoteError.message}` }, 500);
     }
     if (!quote) {
-      console.error(`[transmit-invoice] Facture introuvable : quote_id=${quote_id} user_id=${user.id}`);
-      return new Response(JSON.stringify({ error: 'Facture introuvable' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.error(`[transmit-invoice] Document introuvable : quote_id=${quote_id} user_id=${user.id}`);
+      return json({ error: 'Document introuvable' }, 404);
     }
-    if (quote.type !== 'invoice') {
-      return new Response(JSON.stringify({ error: 'Seules les factures peuvent être transmises' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!DOC_LABEL[quote.type]) {
+      return json({ error: 'Seules les factures et les avoirs peuvent être transmis' }, 400);
+    }
+
+    const cfg = getB2BRouterConfig();
+
+    // --- Client ---
+    const { data: client } = quote.client_id
+      ? await supabaseAdmin.from('clients').select('name, type, siren, tva_intracom, address, postal_code, city, email').eq('id', quote.client_id).single()
+      : { data: null };
+
+    // ── Resynchronisation du statut ───────────────────────────────────────
+    if (isSync) {
+      if (!cfg) return json({ error: 'La resynchronisation n\'est disponible qu\'avec B2BRouter.' }, 422);
+      const synced = await syncFromB2BRouter(cfg, quote as Record<string, unknown>);
+      if (!synced) {
+        return json({ error: `${DOC_LABEL[quote.type]} ${quote.invoice_number ?? ''} introuvable chez B2BRouter : elle n'a probablement jamais été déposée.` }, 404);
+      }
+      const update: Record<string, unknown> = {
+        transmission_service: 'b2brouter',
+        ...(synced.reference ? { transmission_ref: synced.reference } : {}),
+      };
+      if (synced.status) {
+        update.transmission_status = synced.status;
+        update.transmission_error = synced.status === 'rejected' ? (synced.error ?? `Rejetée (état B2BRouter : ${synced.rawState})`) : null;
+      }
+      await supabaseAdmin.from('quotes').update(update).eq('id', quote_id);
+      console.log(`[transmit-invoice] sync quote=${quote_id} ref=${synced.reference ?? '-'} state=${synced.rawState} → ${synced.status ?? 'inchangé'}`);
+      return json({
+        success: true,
+        reference: synced.reference,
+        status: synced.status ?? quote.transmission_status,
+        raw_state: synced.rawState,
+        error: update.transmission_error ?? null,
+      });
+    }
+
+    // ── Transmission ──────────────────────────────────────────────────────
+    const eligibility = getEInvoiceEligibility(quote as Record<string, unknown>, client as Record<string, unknown> | null);
+    if (!eligibility.eligible) {
+      return json({ error: eligibility.message, reason: eligibility.reason }, 400);
     }
 
     // --- Profil vendeur ---
@@ -287,36 +251,40 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    // --- Client ---
-    const { data: client } = quote.client_id
-      ? await supabaseAdmin.from('clients').select('name, siren, tva_intracom, address, postal_code, city, email').eq('id', quote.client_id).single()
-      : { data: null };
+    // --- Facture rectifiée (pour un avoir) ---
+    let parentInvoiceNumber: string | null = null;
+    if (quote.type === 'credit_note' && quote.parent_id) {
+      const { data: parent } = await supabaseAdmin.from('quotes').select('invoice_number').eq('id', quote.parent_id).maybeSingle();
+      parentInvoiceNumber = parent?.invoice_number ?? null;
+    }
 
     // --- Marquer "sending" ---
     await supabaseAdmin.from('quotes').update({ transmission_status: 'sending' }).eq('id', quote_id);
 
     // --- Choisir l'adaptateur ---
-    const useB2BRouter = !!Deno.env.get('B2BROUTER_API_KEY');
     const userPdpConfig = (profile as Record<string, unknown> | null)?.pdp_config as { pdp_url?: string; pdp_key?: string; pdp_service?: string } | null;
-    const pdpServiceName = useB2BRouter
+    const pdpServiceName = cfg
       ? 'b2brouter'
       : (userPdpConfig?.pdp_service || Deno.env.get('PDP_SERVICE_NAME') || 'pdp');
 
     let result: TransmitResult;
 
-    if (useB2BRouter) {
+    if (cfg) {
       result = await transmitToB2BRouter(
+        cfg,
         quote as Record<string, unknown>,
         client as Record<string, unknown> | null,
         profile as Record<string, unknown> | null,
+        parentInvoiceNumber,
       );
     } else {
       if (!pdf_base64) {
-        return new Response(JSON.stringify({ error: 'pdf_base64 requis en mode PDP générique' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        await supabaseAdmin.from('quotes').update({ transmission_status: quote.transmission_status ?? null }).eq('id', quote_id);
+        return json({ error: 'pdf_base64 requis en mode PDP générique' }, 400);
       }
       result = await transmitToGenericPDP(
         pdf_base64,
-        String(quote.invoice_number || quote.quote_number || quote.id),
+        String(quote.invoice_number),
         profile?.siret ?? '',
         (client as Record<string, unknown> | null)?.siren as string ?? '',
         userPdpConfig,
@@ -330,16 +298,14 @@ Deno.serve(async (req) => {
 
     await supabaseAdmin.from('quotes').update(updatePayload).eq('id', quote_id);
 
-    console.log(`[transmit-invoice] quote=${quote_id} mode=${useB2BRouter ? 'b2brouter' : 'generic'} status=${updatePayload.transmission_status} ref=${result.reference ?? '-'}`);
+    console.log(`[transmit-invoice] quote=${quote_id} type=${quote.type} mode=${cfg ? 'b2brouter' : 'generic'} status=${updatePayload.transmission_status} ref=${result.reference ?? '-'}`);
 
-    if (!result.success) {
-      return new Response(JSON.stringify({ error: result.error }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    if (!result.success) return json({ error: result.error }, 422);
 
-    return new Response(JSON.stringify({ success: true, reference: result.reference, status: 'sent' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return json({ success: true, reference: result.reference ?? null, status: 'sent' });
 
   } catch (err) {
     console.error('[transmit-invoice] Erreur inattendue:', err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Erreur serveur' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return json({ error: err instanceof Error ? err.message : 'Erreur serveur' }, 500);
   }
 });

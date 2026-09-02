@@ -26,3 +26,8 @@ verify_jwt = false
 # par l'admin avec son JWT — authentification gérée dans la fonction)
 [functions.weekly-feedback-report]
 verify_jwt = false
+
+# Actions de l'artisan sur une facture fournisseur reçue : accepter / refuser
+# (statut renvoyé au fournisseur via B2BRouter) ou récupérer le PDF (JWT requis)
+[functions.received-invoice-action]
+verify_jwt = true

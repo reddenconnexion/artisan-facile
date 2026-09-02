@@ -1,19 +1,25 @@
 /**
  * Composant : InvoiceTransmissionStatus
  *
- * Affiche le statut de transmission e-facture et un bouton pour
- * transmettre la facture à la PDP/PPF configurée.
+ * Affiche le statut de transmission e-facture d'une facture ou d'un avoir,
+ * le bouton de transmission vers la Plateforme Agréée, et un bouton de
+ * resynchronisation du statut pour un document déjà transmis.
+ *
+ * Le bouton n'apparaît que si le document est éligible (émis, client
+ * professionnel avec SIREN) ; sinon la raison est affichée à la place.
  *
  * Props :
- *   - devis        : objet facture (doit avoir id, type === 'invoice', quote_number)
- *   - client       : objet client
+ *   - devis        : objet facture ou avoir (id, type, invoice_number, transmission_*)
+ *   - client       : objet client (type, siren)
  *   - userProfile  : profil de l'artisan
  *   - onSuccess    : callback appelé après une transmission réussie (optionnel)
+ *   - onStatusChange : callback({ status, reference, error }) après transmission ou resynchronisation (optionnel)
  */
 
 import React, { useState } from 'react';
-import { Send, CheckCircle, XCircle, Clock, Loader2, Info } from 'lucide-react';
+import { Send, CheckCircle, XCircle, Clock, Loader2, Info, RefreshCw, Ban } from 'lucide-react';
 import { useInvoiceTransmission } from '../hooks/useInvoiceTransmission';
+import { getEInvoiceEligibility } from '../utils/einvoiceEligibility';
 
 // Libellés et couleurs par statut DB
 const STATUS_CONFIG = {
@@ -28,24 +34,24 @@ const STATUS_CONFIG = {
     icon: <Loader2 className="w-4 h-4 animate-spin" />,
   },
   sent: {
-    label: 'Transmise à la PDP/PPF',
+    label: 'Déposée sur la plateforme',
     color: 'text-green-600 bg-green-50 border-green-200',
     icon: <CheckCircle className="w-4 h-4" />,
   },
   acknowledged: {
-    label: 'Accusée de réception',
+    label: 'Remise au client',
     color: 'text-green-700 bg-green-100 border-green-300',
     icon: <CheckCircle className="w-4 h-4" />,
   },
   rejected: {
-    label: 'Rejetée par la PDP/PPF',
+    label: 'Rejetée par la plateforme',
     color: 'text-red-600 bg-red-50 border-red-200',
     icon: <XCircle className="w-4 h-4" />,
   },
 };
 
-const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) => {
-  const { transmit, loading, status: hookStatus, reference, error } = useInvoiceTransmission();
+const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess, onStatusChange }) => {
+  const { transmit, sync, loading, syncing, status: hookStatus, reference, error } = useInvoiceTransmission();
   const [showDetail, setShowDetail] = useState(false);
 
   // Priorité : état local (après une action) → état DB (initial)
@@ -56,15 +62,25 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
     ? devis.transmission_service.replace('_', ' ').toUpperCase()
     : 'PDP/PPF';
 
-  const isInvoice = devis?.type === 'invoice';
-  if (!isInvoice) return null;
+  const isTransmissible = devis?.type === 'invoice' || devis?.type === 'credit_note';
+  if (!isTransmissible) return null;
 
-  const canTransmit = !loading && currentStatus !== 'acknowledged';
+  const docLabel = devis.type === 'credit_note' ? "l'avoir" : 'la facture';
+  const eligibility = getEInvoiceEligibility(devis, client);
+  const busy = loading || syncing;
   const alreadySent = currentStatus === 'sent' || currentStatus === 'acknowledged';
+  const canTransmit = eligibility.eligible && !busy && currentStatus !== 'acknowledged';
+  const canSync = !busy && ['sent', 'acknowledged', 'rejected'].includes(currentStatus);
 
   const handleTransmit = async () => {
-    await transmit({ devis, client, userProfile });
-    if (hookStatus === 'sent' && onSuccess) onSuccess();
+    const result = await transmit({ devis, client, userProfile });
+    onStatusChange?.(result);
+    if (result.ok && onSuccess) onSuccess();
+  };
+
+  const handleSync = async () => {
+    const result = await sync({ devis });
+    onStatusChange?.(result);
   };
 
   const statusCfg = currentStatus ? STATUS_CONFIG[currentStatus] : null;
@@ -80,6 +96,7 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
           <span>{statusCfg.label}</span>
           {(currentRef || currentError) && (
             <button
+              type="button"
               onClick={() => setShowDetail(!showDetail)}
               className="ml-1 opacity-60 hover:opacity-100"
               title="Voir le détail"
@@ -104,30 +121,56 @@ const InvoiceTransmissionStatus = ({ devis, client, userProfile, onSuccess }) =>
         </div>
       )}
 
-      {/* Bouton de transmission */}
-      <button
-        type="button"
-        onClick={handleTransmit}
-        disabled={!canTransmit}
-        className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-all
-          ${alreadySent
-            ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-            : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed'
-          }`}
-      >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : alreadySent ? (
-          <CheckCircle className="w-4 h-4" />
-        ) : (
-          <Send className="w-4 h-4" />
+      {/* Document non éligible : on explique pourquoi au lieu de laisser un bouton qui échouera */}
+      {!eligibility.eligible && !alreadySent && (
+        <p className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <Ban className="w-3.5 h-3.5 shrink-0 mt-px text-gray-400" />
+          <span>{eligibility.message}</span>
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        {/* Bouton de transmission */}
+        {(eligibility.eligible || alreadySent) && (
+          <button
+            type="button"
+            onClick={handleTransmit}
+            disabled={!canTransmit}
+            className={`flex items-center justify-center gap-2 flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all
+              ${alreadySent
+                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : alreadySent ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            {loading
+              ? 'Transmission en cours…'
+              : alreadySent
+              ? 'Retransmettre'
+              : `Transmettre ${docLabel}`}
+          </button>
         )}
-        {loading
-          ? 'Transmission en cours…'
-          : alreadySent
-          ? 'Retransmettre à la PDP/PPF'
-          : 'Transmettre à la PDP/PPF'}
-      </button>
+
+        {/* Resynchronisation du statut auprès de la plateforme */}
+        {canSync && (
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={busy}
+            title="Relire le statut auprès de la plateforme"
+            className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Vérification…' : 'Actualiser le statut'}
+          </button>
+        )}
+      </div>
 
       {/* Avertissement si PDP non configurée */}
       {currentStatus === 'rejected' && currentError?.includes('non configurée') && (
