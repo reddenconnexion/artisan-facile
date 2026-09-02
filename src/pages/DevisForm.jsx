@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus, MinusCircle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
@@ -33,6 +33,7 @@ import ClientSelector from '../components/ClientSelector';
 import { getCoordinates, calculateDistance, getZoneFee } from '../utils/geoService';
 import PaymentSchedule from '../components/PaymentSchedule';
 import AmendmentFields from '../components/AmendmentFields'; // New Component
+import AmendmentDeductionModal from '../components/AmendmentDeductionModal';
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { Input, Field, SegmentedControl } from '../components/ui';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
@@ -527,6 +528,8 @@ const DevisForm = () => {
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
+    // Avenant : modal de déduction des prestations du devis initial non réalisées
+    const [showDeductionModal, setShowDeductionModal] = useState(false);
     const [diffAddress, setDiffAddress] = useState(false);
 
     // Avoir (facture rectificative) : document émis à montants négatifs,
@@ -1304,6 +1307,13 @@ const DevisForm = () => {
             ...prev,
             items: prev.items.filter(item => item.id !== id)
         }));
+    };
+
+    // Avenant : ajoute en négatif les prestations du devis initial qui ne
+    // seront pas réalisées (lignes construites par buildDeductionItems).
+    const handleAddDeductionItems = ({ items: deductionItems, totalHT, count }) => {
+        setFormData(prev => ({ ...prev, items: [...prev.items, ...deductionItems] }));
+        toast.success(`${count} prestation${count > 1 ? 's' : ''} déduite${count > 1 ? 's' : ''} du devis initial (${totalHT.toFixed(2)} € HT).`);
     };
 
     const moveItem = (index, direction) => {
@@ -3944,6 +3954,16 @@ Conditions de règlement : Paiement à réception de facture.`
                 quote={{ ...formData, id: id }}
                 onSave={handleSaveSituation}
             />
+
+            {formData.type === 'amendment' && (
+                <AmendmentDeductionModal
+                    isOpen={showDeductionModal}
+                    onClose={() => setShowDeductionModal(false)}
+                    parentQuote={formData.parent_quote_data}
+                    existingItems={formData.items}
+                    onAdd={handleAddDeductionItems}
+                />
+            )}
         </>
     );
 
@@ -5388,6 +5408,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </p>
                                 <ul className="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-300/90 text-[13px] leading-relaxed">
                                     <li>Saisissez uniquement les lignes <strong>ajoutées ou retirées</strong> (le delta, en +/−). Le nouveau total du projet se calcule automatiquement.</li>
+                                    <li>Pour retirer des prestations du devis initial <strong>non réalisées</strong>, utilisez le bouton « Déduire du devis initial » sous les lignes : elles sont reprises en négatif, sans ressaisie.</li>
                                     <li>Faites‑le <strong>signer par le client</strong> (bouton « Envoyer ») : il passera en « Accepté ».</li>
                                     <li>Il sera <strong>facturé via la « Facture de Clôture »</strong> du devis initial (menu Actions du devis) — inutile, et déconseillé, de le convertir en facture.</li>
                                 </ul>
@@ -5843,6 +5864,23 @@ Conditions de règlement : Paiement à réception de facture.`
                             <Layers className="w-4 h-4" />
                             Section
                         </button>
+
+                        {/* Avenant : reprendre en négatif des prestations du devis initial
+                            non réalisées, sans les ressaisir à la main. */}
+                        {formData.type === 'amendment' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowDeductionModal(true)}
+                                className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg border border-red-100 dark:border-red-900/40 transition-colors disabled:opacity-50"
+                                disabled={isLocked || !formData.parent_quote_data?.items?.length}
+                                title={formData.parent_quote_data?.items?.length
+                                    ? "Sélectionnez les prestations du devis initial qui ne seront pas réalisées : elles sont reprises en négatif sur l'avenant."
+                                    : "Le devis initial n'est pas chargé ou ne contient aucune ligne."}
+                            >
+                                <MinusCircle className="w-4 h-4" />
+                                Déduire du devis initial
+                            </button>
+                        )}
 
                         <button
                             type="button"
