@@ -84,9 +84,11 @@ export const useInvoiceTransmission = () => {
       const body = await callTransmitFunction({ quote_id: devis.id, pdf_base64: pdfBase64 });
 
       const ref = body.reference ?? null;
-      setStatus('sent');
+      const nextStatus = body.status ?? 'sent';
+      setStatus(nextStatus);
       setReference(ref);
-      return { ok: true, status: 'sent', reference: ref, error: null };
+      if (body.warning) setError(body.warning);
+      return { ok: true, status: nextStatus, reference: ref, error: body.warning ?? null };
     } catch (err) {
       const message = err.message || 'Erreur lors de la transmission';
       setError(message);

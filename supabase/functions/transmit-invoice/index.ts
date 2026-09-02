@@ -33,8 +33,12 @@ import {
   buildIssuedDocumentBody,
   createIssuedDocument,
   extractInvoiceId,
+  unwrapInvoice,
   describeApiError,
   fetchInvoice,
+  sendInvoice,
+  deleteInvoice,
+  platformTotalMismatch,
   findIssuedInvoiceByNumber,
   normalizeTransmissionStatus,
   isUsableReference,
@@ -58,6 +62,10 @@ interface TransmitResult {
   success: boolean;
   reference?: string | null;
   error?: string;
+  /** 'sent' (envoyé) ou 'pending' (créé chez B2BRouter, envoi à finaliser). */
+  status?: 'sent' | 'pending';
+  /** Avertissement non bloquant, affiché à l'artisan. */
+  warning?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,13 +88,43 @@ async function transmitToB2BRouter(
 
   // L'identifiant B2BRouter sert au rapprochement des webhooks de statut.
   // Sans lui, on retombe sur notre numéro légal (les webhooks le portent).
+  let created = unwrapInvoice(result.data);
   let reference = extractInvoiceId(result.data);
   if (!reference) {
     console.warn(`[transmit-invoice] réponse B2BRouter sans id : ${result.raw.slice(0, 200)}`);
     const { invoice: found } = await findIssuedInvoiceByNumber(cfg, String((body.invoice as Record<string, unknown>).number));
+    created = found;
     reference = found ? extractInvoiceId({ invoice: found }) : null;
   }
-  return { success: true, reference };
+  if (!reference) {
+    return { success: false, error: "B2BRouter n'a pas renvoyé d'identifiant pour le document créé : envoi annulé." };
+  }
+
+  // Contrôle du total recalculé par la plateforme avant tout envoi. En
+  // avril, le compte a ajouté 20 % de TVA à une facture en franchise.
+  const platformDoc = (created && created.total != null) ? created : await fetchInvoice(cfg, reference);
+  const check = platformTotalMismatch(quote.total_ttc, platformDoc);
+  if (check.mismatch) {
+    const del = await deleteInvoice(cfg, reference);
+    const deleted = del.ok ? 'Le document a été supprimé de B2BRouter.' : `Le document ${reference} reste chez B2BRouter : supprimez-le depuis leur interface.`;
+    return {
+      success: false,
+      error: `B2BRouter a recalculé un total de ${check.platform?.toFixed(2)} € au lieu de ${check.expected?.toFixed(2)} € : la plateforme a ajouté ou retiré de la TVA. Vérifiez la configuration des taxes de votre compte B2BRouter (une taxe TVA à 0 %, catégorie E « exonéré », doit exister et servir par défaut). ${deleted}`,
+    };
+  }
+
+  // Envoi explicite du document contrôlé.
+  const sent = await sendInvoice(cfg, reference);
+  if (!sent.ok) {
+    console.warn(`[transmit-invoice] envoi B2BRouter refusé pour ${reference} : ${describeApiError(sent)}`);
+    return {
+      success: true,
+      reference,
+      status: 'pending',
+      warning: `Document créé chez B2BRouter (réf. ${reference}) mais l'envoi automatique a échoué — ${describeApiError(sent)}. Envoyez-le depuis l'interface B2BRouter ou réessayez.`,
+    };
+  }
+  return { success: true, reference, status: 'sent' };
 }
 
 interface SyncResult {
@@ -325,9 +363,10 @@ Deno.serve(async (req) => {
     }
 
     // --- Mise à jour statut ---
+    const finalStatus = result.success ? (result.status ?? 'sent') : 'rejected';
     const updatePayload = result.success
-      ? { transmission_status: 'sent', transmission_service: pdpServiceName, transmission_ref: result.reference ?? null, transmitted_at: new Date().toISOString(), transmission_error: null }
-      : { transmission_status: 'rejected', transmission_service: pdpServiceName, transmission_error: result.error ?? 'Erreur inconnue', transmitted_at: new Date().toISOString() };
+      ? { transmission_status: finalStatus, transmission_service: pdpServiceName, transmission_ref: result.reference ?? null, transmitted_at: new Date().toISOString(), transmission_error: result.warning ?? null }
+      : { transmission_status: 'rejected', transmission_service: pdpServiceName, transmission_ref: null, transmission_error: result.error ?? 'Erreur inconnue', transmitted_at: new Date().toISOString() };
 
     await supabaseAdmin.from('quotes').update(updatePayload).eq('id', quote_id);
 
@@ -335,7 +374,7 @@ Deno.serve(async (req) => {
 
     if (!result.success) return json({ error: result.error }, 422);
 
-    return json({ success: true, reference: result.reference ?? null, status: 'sent' });
+    return json({ success: true, reference: result.reference ?? null, status: finalStatus, warning: result.warning ?? null });
 
   } catch (err) {
     console.error('[transmit-invoice] Erreur inattendue:', err);
