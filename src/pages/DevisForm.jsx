@@ -5975,20 +5975,26 @@ Conditions de règlement : Paiement à réception de facture.`
                     </div>
                 )}
 
-                {/* Transmission e-facture (PDP/PPF) — factures sauvegardées uniquement */}
-                {formData.type === 'invoice' && id && (
+                {/* Transmission e-facture — factures et avoirs sauvegardés, hors documents importés */}
+                {['invoice', 'credit_note'].includes(formData.type) && id && !formData.is_external && (
                     <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
                         <h4 className="text-sm font-semibold text-indigo-800 mb-1">
-                            Transmission e-facture (PDP/PPF)
+                            Facture électronique (Plateforme Agréée)
                         </h4>
                         <p className="text-xs text-indigo-600 mb-3">
-                            Obligatoire pour les factures B2B à partir de sept. 2026.
-                            Le PDF Factur-X EN 16931 sera transmis à votre plateforme configurée.
+                            Entre professionnels uniquement. Obligatoire pour les micro-entreprises et PME
+                            à partir de septembre 2027 (les grandes entreprises depuis septembre 2026).
                         </p>
                         <InvoiceTransmissionStatus
                             devis={{ ...formData, id }}
                             client={selectedClient}
                             userProfile={userProfile}
+                            onStatusChange={({ status, reference, error }) => setFormData(prev => ({
+                                ...prev,
+                                transmission_status: status ?? prev.transmission_status,
+                                transmission_ref: reference ?? prev.transmission_ref,
+                                transmission_error: error ?? null,
+                            }))}
                         />
                     </div>
                 )}

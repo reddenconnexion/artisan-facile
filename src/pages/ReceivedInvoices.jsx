@@ -1,21 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown, Info, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DismissibleHelp } from '../components/ui';
 
+const RECEIVED_INVOICES_BUCKET = 'received-invoices';
+
 const STATUS_CONFIG = {
-  new:          { label: 'Nouvelle',        color: 'bg-blue-100 text-blue-700 border-blue-200',   icon: Clock },
+  new:          { label: 'À traiter',       color: 'bg-blue-100 text-blue-700 border-blue-200',   icon: Clock },
   processing:   { label: 'En traitement',   color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Loader2 },
-  acknowledged: { label: 'Intégrée',        color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
-  rejected:     { label: 'Rejetée',         color: 'bg-red-100 text-red-700 border-red-200',      icon: AlertCircle },
+  acknowledged: { label: 'Acceptée',        color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
+  rejected:     { label: 'Refusée',         color: 'bg-red-100 text-red-700 border-red-200',      icon: AlertCircle },
 };
 
 const fmt = (v) => v ?? '—';
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+const fmtDateTime = (d) => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const fmtAmount = (v, currency = 'EUR') =>
   v != null ? `${Number(v).toFixed(2)} ${currency}` : '—';
+
+/** Appelle l'Edge Function received-invoice-action (accept | refuse | fetch_pdf). */
+const callReceivedInvoiceAction = async (id, action, extra = {}) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Session expirée, veuillez vous reconnecter');
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const res = await fetch(`${supabaseUrl}/functions/v1/received-invoice-action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ id, action, ...extra }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || `Erreur HTTP ${res.status}`);
+  return body;
+};
+
+/** Ouvre le PDF conservé dans le bucket privé via une URL signée (1 h). */
+const openStoredPdf = async (pdfPath) => {
+  const { data, error } = await supabase.storage.from(RECEIVED_INVOICES_BUCKET).createSignedUrl(pdfPath, 3600);
+  if (error || !data?.signedUrl) throw new Error(error?.message || 'Lien PDF indisponible');
+  window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+};
 
 const DetailRow = ({ label, value }) => (
   <div className="flex justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
@@ -24,23 +50,123 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
-  if (!inv) return null;
-  const [actioning, setActioning] = useState(null); // 'acknowledged' | 'rejected'
-  const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
-  const Icon = cfg.icon;
+/** Bouton d'accès au PDF : conservé chez nous (URL signée), externe, ou à récupérer. */
+const PdfAccess = ({ inv, onPdfFetched, compact = false }) => {
+  const [busy, setBusy] = useState(false);
 
-  const handleStatusChange = async (newStatus) => {
-    setActioning(newStatus);
-    const { error } = await supabase
-      .from('received_invoices')
-      .update({ status: newStatus })
-      .eq('id', inv.id);
-    setActioning(null);
-    if (!error) onStatusChange(inv.id, newStatus);
+  const handleOpen = async (e) => {
+    e?.stopPropagation();
+    setBusy(true);
+    try {
+      await openStoredPdf(inv.pdf_path);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
+  const handleFetch = async (e) => {
+    e?.stopPropagation();
+    setBusy(true);
+    try {
+      const body = await callReceivedInvoiceAction(inv.id, 'fetch_pdf');
+      onPdfFetched(inv.id, body.pdf_path);
+      toast.success('PDF récupéré');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (compact) {
+    if (inv.pdf_path) {
+      return (
+        <button type="button" onClick={handleOpen} disabled={busy} title="Ouvrir la facture"
+          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex disabled:opacity-50">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+        </button>
+      );
+    }
+    if (inv.pdf_url) {
+      return (
+        <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex"
+          title="Télécharger la facture">
+          <Download className="w-4 h-4" />
+        </a>
+      );
+    }
+    return null;
+  }
+
+  if (inv.pdf_path) {
+    return (
+      <button type="button" onClick={handleOpen} disabled={busy}
+        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors">
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+        Ouvrir le PDF
+      </button>
+    );
+  }
+  if (inv.pdf_url) {
+    return (
+      <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors">
+        <ExternalLink className="w-4 h-4" />
+        Ouvrir le PDF
+      </a>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500 dark:text-gray-400">
+        <FileText className="w-4 h-4 shrink-0" />
+        PDF non encore récupéré
+      </div>
+      {inv.b2brouter_id && (
+        <button type="button" onClick={handleFetch} disabled={busy}
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-50 text-sm font-semibold rounded-xl transition-colors">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          Récupérer le PDF depuis la plateforme
+        </button>
+      )}
+    </div>
+  );
+};
+
+const InvoiceDrawer = ({ inv, onClose, onStatusChange, onPdfFetched }) => {
+  const [actioning, setActioning] = useState(null); // 'accept' | 'refuse'
+  const [showRefuse, setShowRefuse] = useState(false);
+  const [refusalReason, setRefusalReason] = useState('');
+
+  if (!inv) return null;
+  const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.new;
+  const Icon = cfg.icon;
   const canAct = !['acknowledged', 'rejected'].includes(inv.status);
+  const linkedToPlatform = !!inv.b2brouter_id;
+
+  const runAction = async (action) => {
+    setActioning(action);
+    try {
+      const body = await callReceivedInvoiceAction(inv.id, action, action === 'refuse' ? { reason: refusalReason.trim() } : {});
+      onStatusChange(inv.id, {
+        status: body.status,
+        refusal_reason: action === 'refuse' ? refusalReason.trim() : null,
+        lifecycle_sent_at: body.lifecycle_sent_at ?? null,
+        lifecycle_error: null,
+      });
+      toast.success(body.local
+        ? `Facture marquée ${action === 'accept' ? 'acceptée' : 'refusée'} (repère local : facture non rattachée à la plateforme)`
+        : `Statut « ${action === 'accept' ? 'acceptée' : 'refusée'} » transmis au fournisseur`);
+      setShowRefuse(false);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setActioning(null);
+    }
+  };
 
   return (
     <>
@@ -78,22 +204,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {/* PDF */}
-          {inv.pdf_url ? (
-            <a
-              href={inv.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Ouvrir le PDF
-            </a>
-          ) : (
-            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500 dark:text-gray-400">
-              <FileText className="w-4 h-4 shrink-0" />
-              Aucun PDF joint à cette facture
-            </div>
-          )}
+          <PdfAccess inv={inv} onPdfFetched={onPdfFetched} />
 
           {/* Détails */}
           <div>
@@ -134,6 +245,20 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
             </div>
           )}
 
+          {/* Cycle de vie */}
+          {(inv.lifecycle_sent_at || inv.refusal_reason || inv.lifecycle_error) && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Suivi transmis au fournisseur</p>
+              <div>
+                {inv.lifecycle_sent_at && <DetailRow label="Statut transmis le" value={fmtDateTime(inv.lifecycle_sent_at)} />}
+                {inv.refusal_reason && <DetailRow label="Motif de refus" value={inv.refusal_reason} />}
+              </div>
+              {inv.lifecycle_error && (
+                <p className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{inv.lifecycle_error}</p>
+              )}
+            </div>
+          )}
+
           {/* ID B2BRouter */}
           {inv.b2brouter_id && (
             <div>
@@ -146,29 +271,64 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
         {/* Actions */}
         {canAct && (
           <div className="p-5 border-t border-gray-200 dark:border-gray-700 space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Suivi de traitement</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleStatusChange('acknowledged')}
-                disabled={!!actioning}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
-              >
-                {actioning === 'acknowledged' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
-                Marquer intégrée
-              </button>
-              <button
-                onClick={() => handleStatusChange('rejected')}
-                disabled={!!actioning}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-red-600 border border-red-200 dark:border-red-800 text-sm font-semibold rounded-xl transition-colors"
-              >
-                {actioning === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
-                Marquer rejetée
-              </button>
-            </div>
-            <DismissibleHelp storageKey="received_invoices_status_note">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Réponse au fournisseur</p>
+            {!showRefuse ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => runAction('accept')}
+                  disabled={!!actioning}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+                >
+                  {actioning === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                  Accepter
+                </button>
+                <button
+                  onClick={() => setShowRefuse(true)}
+                  disabled={!!actioning}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-red-600 border border-red-200 dark:border-red-800 text-sm font-semibold rounded-xl transition-colors"
+                >
+                  <ThumbsDown className="w-4 h-4" />
+                  Refuser
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="refusal-reason" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Motif du refus <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="refusal-reason"
+                  value={refusalReason}
+                  onChange={e => setRefusalReason(e.target.value)}
+                  rows={3}
+                  placeholder="Ex. : montant différent du devis accepté, prestation non réalisée, doublon…"
+                  className="w-full text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => runAction('refuse')}
+                    disabled={!!actioning || refusalReason.trim().length < 3}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+                  >
+                    {actioning === 'refuse' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    Envoyer le refus
+                  </button>
+                  <button
+                    onClick={() => { setShowRefuse(false); setRefusalReason(''); }}
+                    disabled={!!actioning}
+                    className="px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+            <DismissibleHelp storageKey="received_invoices_lifecycle_note">
               <p className="flex items-start gap-1.5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed pr-8">
                 <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-                Repère personnel pour suivre vos factures. Ce statut n'est pas transmis à votre fournisseur et n'affecte pas votre comptabilité.
+                {linkedToPlatform
+                  ? "Votre réponse est transmise au fournisseur par la plateforme : c'est le statut de cycle de vie exigé par la réforme. Un refus doit être motivé."
+                  : "Facture non rattachée à la plateforme : la réponse ne sert que de repère personnel, elle n'est pas transmise au fournisseur."}
               </p>
             </DismissibleHelp>
           </div>
@@ -181,30 +341,35 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange }) => {
 const ReceivedInvoices = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
-  const handleStatusChange = (id, newStatus) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv));
-    setSelected(prev => prev?.id === id ? { ...prev, status: newStatus } : prev);
+  const queryKey = ['receivedInvoices', user?.id];
+  const { data: invoices = [], isLoading, isFetching, error, refetch } = useQuery({
+    queryKey,
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('received_invoices')
+        .select('*')
+        .order('received_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  });
+  const loading = isLoading || isFetching;
+
+  const selected = invoices.find(inv => inv.id === selectedId) ?? null;
+
+  const patchInvoice = (id, patch) => {
+    queryClient.setQueryData(queryKey, (prev = []) => prev.map(inv => inv.id === id ? { ...inv, ...patch } : inv));
+  };
+
+  const handleStatusChange = (id, patch) => {
+    patchInvoice(id, patch);
     queryClient.invalidateQueries({ queryKey: ['newReceivedInvoices', user?.id] });
   };
 
-  const fetchInvoices = async () => {
-    setLoading(true);
-    setError(null);
-    const { data, error } = await supabase
-      .from('received_invoices')
-      .select('*')
-      .order('received_at', { ascending: false });
-    if (error) setError(error.message);
-    else setInvoices(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { if (user) fetchInvoices(); }, [user]);
+  const handlePdfFetched = (id, pdfPath) => patchInvoice(id, { pdf_path: pdfPath });
 
   return (
     <div className="space-y-6">
@@ -214,7 +379,7 @@ const ReceivedInvoices = () => {
           Factures reçues
         </h2>
         <button
-          onClick={fetchInvoices}
+          onClick={() => refetch()}
           disabled={loading}
           className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
         >
@@ -226,10 +391,10 @@ const ReceivedInvoices = () => {
       {/* Bandeau informatif */}
       <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-300 space-y-1">
         <p>
-          <strong>Obligation de réception (sept. 2026)</strong> — Les factures que vos fournisseurs vous transmettent via leur Plateforme Agréée apparaissent ici automatiquement.
+          <strong>Réception obligatoire depuis le 1er septembre 2026</strong> — Les factures que vos fournisseurs vous adressent via leur Plateforme Agréée arrivent ici automatiquement, avec leur PDF.
         </p>
         <p className="text-indigo-700/80 dark:text-indigo-300/70">
-          Les statuts <em>Intégrée</em> et <em>Rejetée</em> sont des repères personnels pour suivre votre traitement : ils ne sont pas transmis à vos fournisseurs.
+          Répondez <em>Acceptée</em> ou <em>Refusée</em> (avec motif) : ce statut est renvoyé au fournisseur par la plateforme.
         </p>
       </div>
 
@@ -239,7 +404,7 @@ const ReceivedInvoices = () => {
         </div>
       ) : error ? (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-400">
-          Erreur de chargement : {error}
+          Erreur de chargement : {error.message}
         </div>
       ) : invoices.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
@@ -272,7 +437,7 @@ const ReceivedInvoices = () => {
                   return (
                     <tr
                       key={inv.id}
-                      onClick={() => setSelected(inv)}
+                      onClick={() => setSelectedId(inv.id)}
                       className="hover:bg-indigo-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(inv.received_at)}</td>
@@ -292,14 +457,7 @@ const ReceivedInvoices = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        {inv.pdf_url && (
-                          <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex"
-                            title="Télécharger la facture"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
-                        )}
+                        <PdfAccess inv={inv} onPdfFetched={handlePdfFetched} compact />
                       </td>
                     </tr>
                   );
@@ -316,7 +474,7 @@ const ReceivedInvoices = () => {
               return (
                 <div
                   key={inv.id}
-                  onClick={() => setSelected(inv)}
+                  onClick={() => setSelectedId(inv.id)}
                   className="p-4 space-y-2 active:bg-gray-50 dark:active:bg-gray-800 cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -346,7 +504,14 @@ const ReceivedInvoices = () => {
         </div>
       )}
 
-      <InvoiceDrawer inv={selected} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />
+      {/* key : le formulaire de refus repart à zéro quand on change de facture */}
+      <InvoiceDrawer
+        key={selectedId ?? 'none'}
+        inv={selected}
+        onClose={() => setSelectedId(null)}
+        onStatusChange={handleStatusChange}
+        onPdfFetched={handlePdfFetched}
+      />
     </div>
   );
 };

@@ -29,51 +29,20 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
+import {
+  getB2BRouterConfig,
+  normalizeTransmissionStatus,
+  storeReceivedInvoicePdf,
+  isUsableReference,
+} from '../_shared/b2brouter.ts';
 
 // ---------------------------------------------------------------------------
 // Normalisation des statuts PDP → statut interne
 // ---------------------------------------------------------------------------
 
-/**
- * Chaque PDP utilise ses propres codes de statut.
- * Ce tableau centralise tous les alias connus vers nos 4 valeurs internes :
- *   sent | acknowledged | rejected | (inchangé)
- */
-const STATUS_MAP: Record<string, string> = {
-  // Statuts "reçu / en traitement"
-  RECEIVED: 'sent',
-  DEPOSITED: 'sent',
-  PROCESSING: 'sent',
-  EN_COURS: 'sent',
-  RECU: 'sent',
-  SENT: 'sent',        // B2BRouter : envoyé à la PA destinataire
-
-  // Statuts "accusé de réception / validé"
-  ACKNOWLEDGED: 'acknowledged',
-  VALIDATED: 'acknowledged',
-  ACCEPTED: 'acknowledged',
-  INTEGRE: 'acknowledged',
-  VALIDE: 'acknowledged',
-  TRAITE: 'acknowledged',
-  CHORUS_INTEGRE: 'acknowledged',
-  DELIVERED: 'acknowledged',    // B2BRouter : livré au destinataire
-  REGISTERED: 'acknowledged',   // B2BRouter : enregistré côté acheteur
-  APPROVED: 'acknowledged',
-
-  // Statuts "rejeté / erreur"
-  REJECTED: 'rejected',
-  REFUSED: 'rejected',
-  ERROR: 'rejected',
-  INVALID: 'rejected',
-  REJETE: 'rejected',
-  REFUSE: 'rejected',
-  ERREUR: 'rejected',
-};
-
-const normalizeStatus = (raw: string): string | null => {
-  if (!raw) return null;
-  return STATUS_MAP[raw.toUpperCase().replace(/[-\s]/g, '_')] ?? null;
-};
+// Le mapping des états (STATUS_MAP) vit dans _shared/b2brouter.ts, partagé avec
+// transmit-invoice (resynchronisation) pour que les deux chemins s'accordent.
+const normalizeStatus = (raw: unknown): string | null => normalizeTransmissionStatus(raw);
 
 // ---------------------------------------------------------------------------
 // Vérification signature HMAC-SHA256
@@ -356,6 +325,17 @@ async function handleReceivedInvoice(
     raw_payload: rawPayload,
   };
 
+  // Une relivraison du webhook ne doit pas écraser la réponse déjà donnée par
+  // l'artisan (acceptée / refusée) : le statut n'est posé qu'à la création.
+  if (b2brouterId) {
+    const { data: existing } = await supabaseAdmin
+      .from('received_invoices')
+      .select('id, status')
+      .eq('b2brouter_id', b2brouterId)
+      .maybeSingle();
+    if (existing) delete (record as Record<string, unknown>).status;
+  }
+
   const { data: inserted, error } = await supabaseAdmin
     .from('received_invoices')
     .upsert(record, { onConflict: 'b2brouter_id' })
@@ -368,6 +348,18 @@ async function handleReceivedInvoice(
   }
 
   console.log(`[pdp-webhook] ReceivedInvoice #${b2brouterId} stockée pour user=${userId}`);
+
+  // Conserver le PDF chez nous : sans lui, la facture n'est pas consultable
+  // dans l'app. Non bloquant — le bouton « Récupérer le PDF » permet de réessayer.
+  const cfg = getB2BRouterConfig();
+  if (cfg && inserted?.id && b2brouterId) {
+    try {
+      const path = await storeReceivedInvoicePdf(supabaseAdmin, cfg, { id: inserted.id, user_id: userId, b2brouter_id: b2brouterId });
+      console.log(`[pdp-webhook] PDF facture reçue #${b2brouterId} : ${path ?? 'non récupéré'}`);
+    } catch (pdfErr) {
+      console.error('[pdp-webhook] Erreur stockage PDF facture reçue:', pdfErr);
+    }
+  }
 
   // Notifier l'artisan (push + ntfy) — non bloquant
   try {
@@ -439,6 +431,7 @@ Deno.serve(async (req) => {
   // Extraire les champs (support multi-format PA/PDP)
   // B2BRouter utilise "state" ; les autres PA utilisent "status" / "statut"
   const rawStatus =
+    (invoiceData.state as string) ||
     (payload.state as string) ||
     (payload.status as string) ||
     (payload.statut as string) ||
@@ -447,6 +440,7 @@ Deno.serve(async (req) => {
 
   // Référence PA : B2BRouter = payload.id ; autres PDP = depositId / invoiceReference / …
   const pdpRef =
+    (invoiceData.id != null ? String(invoiceData.id) : null) ||
     (payload.id != null ? String(payload.id) : null) ||
     (payload.depositId as string) ||
     (payload.invoiceReference as string) ||
@@ -454,7 +448,16 @@ Deno.serve(async (req) => {
     (payload.reference as string) ||
     null;
 
+  // Notre numéro légal, porté par B2BRouter dans invoice.number : sert de
+  // repli quand la référence plateforme n'a pas été enregistrée à l'émission.
+  const documentNumber =
+    (typeof invoiceData.number === 'string' && invoiceData.number) ||
+    (typeof payload.number === 'string' && payload.number) ||
+    (typeof payload.invoiceNumber === 'string' && payload.invoiceNumber) ||
+    null;
+
   const rejectionReason =
+    (invoiceData.state_reason as string) ||
     (payload.rejectionReason as string) ||
     (payload.motifRejet as string) ||
     (payload.message as string) ||
@@ -482,7 +485,7 @@ Deno.serve(async (req) => {
   // eslint-disable-next-line prefer-const
   let { data: quote, error: quoteError } = await supabaseAdmin
     .from('quotes')
-    .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
+    .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service, transmission_ref')
     .eq('transmission_ref', pdpRef)
     .maybeSingle();
 
@@ -492,14 +495,23 @@ Deno.serve(async (req) => {
     // conformité), puis l'ancienne référence interne numérique (quote_number).
     let quoteByNumber = (await supabaseAdmin
       .from('quotes')
-      .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
+      .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service, transmission_ref')
       .eq('invoice_number', pdpRef)
       .maybeSingle()).data;
+
+    if (!quoteByNumber && documentNumber) {
+      quoteByNumber = (await supabaseAdmin
+        .from('quotes')
+        .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service, transmission_ref')
+        .eq('invoice_number', documentNumber)
+        .not('transmission_status', 'is', null)
+        .maybeSingle()).data;
+    }
 
     if (!quoteByNumber && /^\d+$/.test(pdpRef)) {
       quoteByNumber = (await supabaseAdmin
         .from('quotes')
-        .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service')
+        .select('id, user_id, quote_number, invoice_number, transmission_status, transmission_service, transmission_ref')
         .eq('quote_number', pdpRef)
         .maybeSingle()).data;
     }
@@ -515,6 +527,14 @@ Deno.serve(async (req) => {
     // (Object.assign sur `quote ?? {}` perdait le résultat quand quote était
     // null — le fallback ne fonctionnait jamais.)
     quote = quoteByNumber;
+
+    // La référence plateforme manquait (ou valait « undefined ») : on la fixe
+    // maintenant pour que les prochains statuts se rattachent directement.
+    const currentRef = (quoteByNumber as Record<string, unknown>).transmission_ref;
+    if (!isUsableReference(currentRef) && pdpRef !== quoteByNumber.invoice_number) {
+      await supabaseAdmin.from('quotes').update({ transmission_ref: pdpRef }).eq('id', quoteByNumber.id);
+      console.log(`[pdp-webhook] transmission_ref rétablie pour ${quoteByNumber.invoice_number} → ${pdpRef}`);
+    }
   }
 
   // Éviter les régressions de statut (acknowledged → sent n'a pas de sens)
