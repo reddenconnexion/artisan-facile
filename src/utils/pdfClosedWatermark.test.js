@@ -46,10 +46,21 @@ describe('filigrane des documents fermés', () => {
         expect(await pdfText(baseQuote({ status: 'refused' }))).toContain('REFUS');
     });
 
-    // Le cas que le statut seul ne dit pas : lien fermé, devis toujours « envoyé ».
+    // Le cas que le statut seul ne dit pas : signature fermée, devis toujours
+    // « envoyé ».
     it('marque un devis dont la signature est suspendue', async () => {
-        const text = await pdfText(baseQuote({ status: 'sent', token_revoked: true }));
+        const text = await pdfText(baseQuote({ status: 'sent', signature_suspended_at: '2026-09-01T10:00:00Z' }));
         expect(text).toContain('SUSPEND');
+    });
+
+    // Un lien révoqué par le ménage nocturne des liens expirés n'est pas une
+    // suspension : le PDF de ces devis — signés pour un tiers d'entre eux —
+    // ne doit rien porter.
+    it("ne marque pas un devis signé dont le lien a simplement expiré", async () => {
+        const text = await pdfText(baseQuote({
+            status: 'accepted', signed_at: '2026-07-06T10:00:00Z', token_revoked: true,
+        }));
+        expect(text).not.toContain('SUSPEND');
     });
 
     it('marque aussi un avenant', async () => {

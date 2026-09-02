@@ -4,7 +4,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
-import { isSignatureBlocked } from '../utils/quoteSignability';
+import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -488,8 +488,11 @@ const DevisForm = () => {
         work_object: '',
         public_token: '',
         // Lien public suspendu : le client peut avoir reçu le lien et ne doit
-        // plus pouvoir signer tant que l'artisan ne le rouvre pas.
+        // plus pouvoir signer tant que l'artisan ne le rouvre pas. C'est
+        // `signature_suspended_at` qui l'atteste — `token_revoked` est aussi
+        // levé par le ménage nocturne des liens expirés.
         token_revoked: false,
+        signature_suspended_at: null,
         date: new Date().toISOString().split('T')[0],
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         items: [
@@ -1056,6 +1059,7 @@ const DevisForm = () => {
                     work_object: data.work_object || '',
                     public_token: data.public_token || '',
                     token_revoked: data.token_revoked === true,
+                    signature_suspended_at: data.signature_suspended_at || null,
                     date: data.date,
                     valid_until: data.valid_until || '',
                     items: (data.items || []).map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
@@ -1415,21 +1419,31 @@ const DevisForm = () => {
     // s'ouvre plus (get_public_quote l'exclut) et la signature est refusée côté
     // serveur (sign_public_quote), y compris pour un lien déjà dans la boîte
     // mail du client. Un clic suffit à rouvrir.
+    //
+    // Mais `token_revoked` seul ne dit pas QUI l'a levé : le ménage nocturne
+    // (`cleanup_expired_tokens`) le pose sur tout lien expiré depuis plus de
+    // 7 jours. S'y fier annonçait « Signature suspendue » sur la moitié du
+    // portefeuille, devis signés compris. C'est `signature_suspended_at`, écrite
+    // ici et nulle part ailleurs, qui atteste une décision de l'artisan.
     const [togglingSuspension, setTogglingSuspension] = useState(false);
+    const signatureSuspended = isSignatureSuspended(formData);
+    // Lien fermé par le ménage, sans décision : l'artisan doit pouvoir le
+    // comprendre au lieu de croire à une suspension qu'il n'a pas faite.
+    const linkExpired = !signatureSuspended && formData.token_revoked === true;
 
     // Lit l'état réel du lien en base avant toute action qui le rouvrirait.
-    // Se fier au seul formData rouvrirait silencieusement un lien suspendu
-    // depuis un autre appareil ou un autre onglet.
+    // Se fier au seul formData rouvrirait silencieusement une signature
+    // suspendue depuis un autre appareil ou un autre onglet.
     const fetchLinkSuspended = async () => {
         const { data, error } = await supabase
             .from('quotes')
-            .select('token_revoked')
+            .select('signature_suspended_at')
             .eq('id', id)
             .single();
-        if (error) return formData.token_revoked === true;
-        const suspended = data?.token_revoked === true;
-        if (suspended !== (formData.token_revoked === true)) {
-            setFormData(prev => ({ ...prev, token_revoked: suspended }));
+        if (error) return signatureSuspended;
+        const suspended = !!data?.signature_suspended_at;
+        if (suspended !== signatureSuspended) {
+            setFormData(prev => ({ ...prev, signature_suspended_at: data?.signature_suspended_at || null }));
         }
         return suspended;
     };
@@ -1438,17 +1452,27 @@ const DevisForm = () => {
 
     const handleToggleSignatureSuspension = async () => {
         if (!id || id === 'new') return;
-        const suspend = !formData.token_revoked;
+        const suspend = !signatureSuspended;
         setTogglingSuspension(true);
         try {
             // Rouvrir prolonge la validité : un lien suspendu plusieurs semaines
-            // serait sinon rouvert déjà expiré.
+            // serait sinon rouvert déjà expiré. Rouvrir efface aussi la date de
+            // suspension : elle ne vaut que tant qu'elle est vraie.
+            const suspendedAt = new Date().toISOString();
             const payload = suspend
-                ? { token_revoked: true }
-                : { token_revoked: false, token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+                ? { token_revoked: true, signature_suspended_at: suspendedAt }
+                : {
+                    token_revoked: false,
+                    signature_suspended_at: null,
+                    token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                };
             const { error } = await supabase.from('quotes').update(payload).eq('id', id);
             if (error) throw error;
-            setFormData(prev => ({ ...prev, token_revoked: suspend }));
+            setFormData(prev => ({
+                ...prev,
+                token_revoked: suspend,
+                signature_suspended_at: suspend ? suspendedAt : null,
+            }));
             toast.success(suspend
                 ? 'Signature suspendue — le lien envoyé au client ne s’ouvre plus.'
                 : 'Signature rouverte — le lien redevient valable 30 jours.');
@@ -1470,7 +1494,7 @@ const DevisForm = () => {
     // qu'il l'accepte, et rien n'empêche qu'il ait déjà imprimé le PDF pour le
     // signer à la main. Ce mail est donc la seule action qui compte vraiment,
     // et il laisse une trace datée dans l'historique du client.
-    const isDocumentClosed = formData.token_revoked === true || isSignatureBlocked(formData.status);
+    const isDocumentClosed = signatureSuspended || isSignatureBlocked(formData.status);
 
     const handleNotifyWithdrawal = () => {
         if (!isEditing) {
@@ -3925,7 +3949,7 @@ Conditions de règlement : Paiement à réception de facture.`
     // Bandeau « signature suspendue » — rendu à l'identique dans l'éditeur et
     // dans l'aperçu : depuis l'aperçu aussi, l'artisan doit voir que son client
     // ne peut plus signer, et pouvoir rouvrir sans passer par l'éditeur.
-    const suspendedSignatureBanner = formData.token_revoked ? (
+    const suspendedSignatureBanner = signatureSuspended ? (
         <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6 flex items-start gap-3">
             <div className="p-1 bg-orange-100 dark:bg-orange-900/40 rounded-full text-orange-600 shrink-0">
                 <Lock className="w-4 h-4" />
@@ -4008,11 +4032,23 @@ Conditions de règlement : Paiement à réception de facture.`
                                     </span>
                                 )}
                                 {/* Un document « Envoyé » dont le lien est fermé se lit
-                                    autrement : le client ne peut plus rien signer. */}
-                                {formData.token_revoked && (
+                                    autrement : le client ne peut plus rien signer.
+                                    Une suspension décidée et un lien simplement périmé
+                                    ne se disent pas pareil — les confondre faisait
+                                    passer le ménage nocturne pour une décision. */}
+                                {signatureSuspended && (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
                                         <Lock className="w-3 h-3" />
                                         Signature suspendue
+                                    </span>
+                                )}
+                                {linkExpired && (
+                                    <span
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                                        title="Le lien public a expiré : renvoyez le document ou recopiez le lien pour lui rendre 30 jours de validité."
+                                    >
+                                        <Clock className="w-3 h-3" />
+                                        Lien expiré
                                     </span>
                                 )}
                             </div>
@@ -4635,7 +4671,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         disabled={togglingSuspension}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                                     >
-                                        {formData.token_revoked ? (
+                                        {signatureSuspended ? (
                                             <>
                                                 <Unlock className="w-4 h-4 mr-3 text-green-600" />
                                                 Rouvrir la signature
