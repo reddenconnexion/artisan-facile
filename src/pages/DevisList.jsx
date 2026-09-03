@@ -5,9 +5,7 @@ import { exportToCSV } from '../utils/csvExport';
 import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
 import { documentRef } from '../utils/documentNumber';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuotes, useUserProfile, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
-import { formatHours } from '../utils/timeTracking';
+import { useQuotes } from '../hooks/useDataCache';
 import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -66,45 +64,6 @@ const TransmissionBadge = ({ status }) => {
     );
 };
 
-// Marge réalisée d'après le terrain : prix d'achat réels saisis dans
-// « Matériel à commander » et heures réellement pointées sur le chantier.
-// Purement informatif : le devis n'est pas modifié. N'apparaît que si au
-// moins un achat a son prix renseigné ou si du temps chiffrable est pointé.
-const RealizedMarginBadge = ({ devis, costByQuote, spentByQuote, laborRate }) => {
-    // Avenants et factures de situation ne facturent qu'une part du chantier :
-    // leur attribuer les coûts complets du parent donnerait une marge absurde.
-    const canUseParent = devis.parent_id != null && !isPartialScopeDoc(devis);
-    const agg = costByQuote.get(Number(devis.id))
-        ?? (canUseParent ? costByQuote.get(Number(devis.parent_id)) : undefined);
-    const spent = spentByQuote.get(Number(devis.id))
-        ?? (canUseParent ? spentByQuote.get(Number(devis.parent_id)) : 0)
-        ?? 0;
-    if (!agg && !spent) return null;
-    const subtotal = parseFloat(devis.total_ht)
-        || (Array.isArray(devis.items)
-            ? devis.items.reduce((s, i) => s + (parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0), 0)
-            : 0);
-    const r = realizedQuoteMargin(devis.items, subtotal, laborRate, agg, spent);
-    if (!r) return null;
-    const pct = Math.round(r.margin * 100);
-    const color = r.margin >= 0.35 ? 'text-green-600 dark:text-green-400'
-        : r.margin >= 0.20 ? 'text-orange-500 dark:text-orange-400'
-        : 'text-red-500 dark:text-red-400';
-    const deltaPts = Math.round(r.delta * 100);
-    const sources = [
-        r.materialIsReal ? `achats (${r.pricedCount}/${r.totalCount} au prix renseigné)` : null,
-        r.laborIsReal ? `${formatHours(r.spentHours)} pointées${r.estimatedHours > 0 ? ` / ${formatHours(r.estimatedHours)} facturées` : ''}` : null,
-    ].filter(Boolean).join(' · ');
-    const tip = `Marge réalisée d'après le terrain : ${sources}. `
-        + `Marge prévue au devis : ${Math.round(r.plannedMargin * 100)} %.`;
-    return (
-        <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${color}`} title={tip}>
-            <TrendingUp className="w-3 h-3" />
-            Marge réelle {pct} %{deltaPts !== 0 ? ` (${deltaPts > 0 ? '+' : ''}${deltaPts} pt${Math.abs(deltaPts) > 1 ? 's' : ''})` : ''}
-        </span>
-    );
-};
-
 const formatFollowUpDate = (dateStr) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
@@ -132,66 +91,45 @@ const formatRelativeTime = (dateStr) => {
 };
 
 // Badge "vu / non vu" pour les devis envoyés
-const ViewStatusBadge = ({ devis }) => {
-    // Pertinent uniquement pour les devis envoyés (pas factures ni brouillons)
-    if (devis.status !== 'sent') return null;
-    if (devis.type === 'invoice') return null;
+// Un seul signal d'engagement par document : le client a-t-il ouvert le
+// devis (lien public), ou au moins le mail ? Affiché uniquement quand
+// l'information compte, c'est-à-dire sur un devis envoyé en attente de réponse.
+const EngagementBadge = ({ devis, stats, onOpenHistory }) => {
+    if (devis.status !== 'sent' || devis.type === 'invoice') return null;
+    const openCount = Number(stats?.open_count) || 0;
 
-    if (!devis.last_viewed_at) {
+    if (devis.last_viewed_at) {
         return (
             <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500"
-                title="Le client n'a pas encore ouvert ce devis"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
+                title={`Devis ouvert par le client le ${new Date(devis.last_viewed_at).toLocaleString('fr-FR')}`}
             >
-                <EyeOff className="w-3 h-3" />
-                Non lu
+                <Eye className="w-3 h-3" />
+                Vu {formatRelativeTime(devis.last_viewed_at)}
             </span>
         );
     }
-
+    if (openCount > 0) {
+        return (
+            <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenHistory?.(stats); }}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                title="Mail ouvert, devis pas encore consulté — cliquer pour l'historique"
+            >
+                <MailOpen className="w-3 h-3" />
+                Mail ouvert{openCount > 1 ? ` ${openCount} fois` : ''}
+            </button>
+        );
+    }
     return (
         <span
-            className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
-            title={`Ouvert le ${new Date(devis.last_viewed_at).toLocaleString('fr-FR')}`}
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500"
+            title="Le client n'a pas encore ouvert ce devis"
         >
-            <Eye className="w-3 h-3" />
-            Vu {formatRelativeTime(devis.last_viewed_at)}
+            <EyeOff className="w-3 h-3" />
+            Non lu
         </span>
-    );
-};
-
-// Badge "mail ouvert X fois" pour les devis/factures envoyés via SMTP direct
-const MailOpenedBadge = ({ stats, onOpenHistory }) => {
-    if (!stats) return null;
-    const openCount = Number(stats.open_count) || 0;
-
-    if (openCount === 0) {
-        return (
-            <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500"
-                title="Mail envoyé — pas encore ouvert par le client"
-            >
-                <Mail className="w-3 h-3" />
-                Mail non ouvert
-            </span>
-        );
-    }
-
-    const lastOpened = stats.last_opened_at ? new Date(stats.last_opened_at) : null;
-    const label = openCount === 1
-        ? `Ouvert ${lastOpened ? formatRelativeTime(stats.last_opened_at) : ''}`
-        : `Ouvert ${openCount} fois`;
-
-    return (
-        <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onOpenHistory?.(stats); }}
-            className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-            title={lastOpened ? `Dernière ouverture le ${lastOpened.toLocaleString('fr-FR')} — cliquer pour l'historique` : 'Voir l\'historique'}
-        >
-            <MailOpen className="w-3 h-3" />
-            {label}
-        </button>
     );
 };
 
@@ -233,12 +171,6 @@ const DevisList = () => {
     const queryClient = useQueryClient();
     // Utilisation du cache React Query
     const { data: devisList = [], isLoading: loading } = useQuotes();
-    // Marge réalisée : coûts d'achat réels + heures pointées par devis,
-    // et coût horaire de revient du profil.
-    const costByQuote = useProcurementCostByQuote();
-    const spentByQuote = useSpentHoursByQuote();
-    const { data: marginProfile } = useUserProfile();
-    const laborRate = parseFloat(marginProfile?.labor_cost_rate) || 0;
     const { data: emailStats } = useEmailSendStats();
     const { isTestMode, testClient } = useTestMode();
     const [openHistoryModal, setOpenHistoryModal] = useState(null);
@@ -649,7 +581,7 @@ const DevisList = () => {
                                 {pagedDevis.map((devis) => (
                                     <tr
                                         key={devis.id}
-                                        className={`group hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : isExpired(devis) ? 'bg-red-50/40 dark:bg-red-900/10' : isExpiringSoon(devis) ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}`}
+                                        className={`group hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${mergeMode && selectedIds.has(devis.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                                         onClick={mergeMode ? (e) => toggleSelect(e, devis.id) : () => navigate(`/app/devis/${devis.id}`)}
                                     >
                                         {mergeMode && (
@@ -698,12 +630,11 @@ const DevisList = () => {
                                             <div className="flex flex-col gap-1">
                                                 <StatusBadge status={devis.status} />
                                                 {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
-                                                <ViewStatusBadge devis={devis} />
-                                                <MailOpenedBadge
+                                                <EngagementBadge
+                                                    devis={devis}
                                                     stats={emailStats?.byQuote.get(devis.id)}
                                                     onOpenHistory={handleShowHistory}
                                                 />
-                                                <RealizedMarginBadge devis={devis} costByQuote={costByQuote} spentByQuote={spentByQuote} laborRate={laborRate} />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
@@ -793,12 +724,11 @@ const DevisList = () => {
                                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                         <StatusBadge status={devis.status} />
                                         {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
-                                        <ViewStatusBadge devis={devis} />
-                                        <MailOpenedBadge
+                                        <EngagementBadge
+                                            devis={devis}
                                             stats={emailStats?.byQuote.get(devis.id)}
                                             onOpenHistory={handleShowHistory}
                                         />
-                                        <RealizedMarginBadge devis={devis} costByQuote={costByQuote} spentByQuote={spentByQuote} laborRate={laborRate} />
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
                                         </span>
