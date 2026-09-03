@@ -56,7 +56,6 @@ import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '.
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../utils/materialDeposit';
 import DepositNextStepCard from '../components/DepositNextStepCard';
-import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
 // (petite croix) une fois comprise — mémorisé par navigateur.
@@ -194,7 +193,6 @@ const DevisForm = () => {
     const [showMaterialDepositHelp, setShowMaterialDepositHelp] = useState(false);
     const [showSpecialStatuses, setShowSpecialStatuses] = useState(false);
     const [dismissedHelps, setDismissedHelps] = useState(readDismissedHelps);
-    const [showFacturerHelp, setShowFacturerHelp] = useState(false);
     const dismissHelp = (key) => {
         setDismissedHelps(prev => {
             const next = { ...prev, [key]: true };
@@ -244,6 +242,8 @@ const DevisForm = () => {
     // --- Chronométrage et essai IA ---
     // Heure de début de création (ref pour ne pas déclencher de re-render)
     const creationStartRef = useRef(Date.now());
+    // Langue d'un envoi demandé avant le premier enregistrement (repris après).
+    const pendingSendRef = useRef(null);
     // Indique si l'IA a généré des lignes pendant cette session
     const [usedAiInSession, setUsedAiInSession] = useState(false);
     // Nombre de devis existants au moment de l'ouverture du formulaire (null = pas encore chargé)
@@ -1560,13 +1560,16 @@ const DevisForm = () => {
     };
 
     const handleSendQuoteEmail = async (lang = 'fr') => {
-        if (!isEditing) {
-            toast.error("Veuillez d'abord enregistrer le devis pour l'envoyer");
+        if (!formData.client_id) {
+            toast.error('Veuillez d\'abord sélectionner un client');
             return;
         }
 
-        if (!formData.client_id) {
-            toast.error('Veuillez d\'abord sélectionner un client');
+        // Devis jamais enregistré : on l'enregistre (ce qui le bascule sur son
+        // URL d'édition) et l'envoi reprend une fois les données rechargées.
+        if (!isEditing) {
+            pendingSendRef.current = lang;
+            await handleSubmit({ preventDefault: () => {} });
             return;
         }
 
@@ -1693,7 +1696,6 @@ const DevisForm = () => {
             // Simplified: Just send Public Link.
 
             toast.dismiss('upload-toast');
-            toast.success("Lien sécurisé généré !");
 
             const isDeposit = (formData.title || '').toLowerCase().includes('acompte');
             const showReviewRequest = isInvoice && !isDeposit && userProfile?.google_review_url;
@@ -1980,7 +1982,6 @@ const DevisForm = () => {
                     : `Envoi document par email`
             }]).then(({ error }) => {
                 if (error) console.error('Error logging email interaction:', error);
-                else toast.success('Interaction enregistrée dans l\'historique client');
             });
         }
 
@@ -1991,10 +1992,7 @@ const DevisForm = () => {
                 .eq('id', id)
                 .then(({ error }) => {
                     if (error) console.error('Error updating follow-up date:', error);
-                    else {
-                        setFormData(prev => ({ ...prev, last_followup_at: new Date().toISOString() }));
-                        toast.success('Date de relance mise à jour');
-                    }
+                    else setFormData(prev => ({ ...prev, last_followup_at: new Date().toISOString() }));
                 });
         }
 
@@ -2515,6 +2513,7 @@ const DevisForm = () => {
                 navigate(`/app/devis/${savedQuoteId}`, { replace: true });
             }
         } catch (error) {
+            pendingSendRef.current = null;
             console.error('Error saving quote:', error);
             toast.error('Erreur lors de la sauvegarde : ' + (error.message || error.details || error.hint || 'Erreur inconnue'));
         } finally {
@@ -3379,6 +3378,16 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     }, [isEditing, dataLoaded, formData.status]);
 
+    // Envoi demandé sur un devis pas encore enregistré : reprend une fois le
+    // devis rechargé depuis la base sous son URL d'édition (updated_at posé).
+    useEffect(() => {
+        if (!isEditing || !dataLoaded || !formData.updated_at || !pendingSendRef.current) return;
+        const lang = pendingSendRef.current;
+        pendingSendRef.current = null;
+        handleSendQuoteEmail(lang);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isEditing, dataLoaded, formData.updated_at]);
+
     // Génère le PDF dès qu'on entre en vue aperçu (une fois les données prêtes).
     useEffect(() => {
         if (!pdfOverviewMode) return;
@@ -3401,22 +3410,6 @@ Conditions de règlement : Paiement à réception de facture.`
         overviewPageImagesRef.current.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
     }, []);
 
-    // Premier clic sur « Facturer » : ouvre une fenêtre explicative (mémorisée
-    // via dismissedHelps, comme les aides « ? » du formulaire). Les clics
-    // suivants vont directement à la confirmation de conversion habituelle.
-    const handleFacturerClick = () => {
-        if (!dismissedHelps.facturer_button) {
-            setShowFacturerHelp(true);
-            return;
-        }
-        handleConvertToInvoice();
-    };
-
-    const closeFacturerHelp = () => {
-        dismissHelp('facturer_button');
-        setShowFacturerHelp(false);
-    };
-    const facturerHelpRef = useModalA11y(showFacturerHelp, closeFacturerHelp);
 
     // Ouvre la modal d'avoir en chargeant les avoirs déjà émis sur cette
     // facture (plusieurs avoirs partiels sont légitimes ; un second avoir
@@ -3497,8 +3490,8 @@ Conditions de règlement : Paiement à réception de facture.`
 
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
-            title: 'Convertir en facture',
-            message: 'Ce devis sera transformé en facture (statut : Accepté). Vous pourrez ensuite la télécharger et l\'envoyer au client.',
+            title: 'Facturer ce devis',
+            message: 'Le devis devient une facture finale : mêmes lignes, numéro légal attribué, PDF prêt à envoyer. À utiliser quand les travaux sont terminés. Pour un acompte ou une facturation par avancement, passez plutôt par « Acompte matériel » ou « Situation de travaux » dans le menu ⋮.',
             confirmLabel: 'Convertir en facture',
         });
         if (!okConv) return;
@@ -3775,7 +3768,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     <div className="border-t border-gray-100 dark:border-gray-800 my-1 first:hidden"></div>
                     <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Facturation</p>
                     <button
-                        onClick={() => { handleFacturerClick(); closeMenu(); }}
+                        onClick={() => { handleConvertToInvoice(); closeMenu(); }}
                         className="flex items-center w-full px-4 py-2 text-sm text-emerald-700 dark:text-green-400 hover:bg-emerald-50"
                     >
                         <FileCheck className="w-4 h-4 mr-3 text-emerald-600" />
@@ -3937,75 +3930,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                 className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
                                 {creditNoteModal.saving ? 'Émission…' : "Émettre l'avoir"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showFacturerHelp && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-                    onClick={closeFacturerHelp}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="facturer-help-title"
-                >
-                    <div
-                        ref={facturerHelpRef}
-                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-start gap-4 mb-4">
-                            <div className="p-2.5 rounded-xl flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30">
-                                <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 id="facturer-help-title" className="font-bold text-gray-900 dark:text-white text-base leading-snug">
-                                    À quoi sert « Facturer » ?
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
-                                    Ce bouton transforme le devis en <strong>facture finale</strong> (mêmes
-                                    lignes, numéro légal FAC-… attribué à l'émission) et télécharge le PDF
-                                    prêt à envoyer au client.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeFacturerHelp}
-                                className="p-1 -m-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex-shrink-0"
-                                aria-label="Fermer"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-5 leading-relaxed">
-                            <li className="flex gap-2">
-                                <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                <span>À utiliser quand <strong>les travaux sont terminés</strong> et que vous voulez encaisser le solde.</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                                <span>Pour un <strong>acompte</strong> ou une facturation <strong>par tranches d'avancement</strong>, utilisez plutôt « Acompte matériel » ou « Facture de situation » dans le menu Actions : le devis reste ouvert.</span>
-                            </li>
-                        </ul>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                            Cette explication ne s'affichera plus.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                type="button"
-                                onClick={closeFacturerHelp}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                Fermer
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { closeFacturerHelp(); handleConvertToInvoice(); }}
-                                className="px-4 py-2 text-sm font-bold rounded-lg transition-colors bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                            >
-                                Compris, convertir en facture
                             </button>
                         </div>
                     </div>
@@ -4660,8 +4584,9 @@ Conditions de règlement : Paiement à réception de facture.`
                     <button
                         type="button"
                         onClick={() => handleSendQuoteEmail('fr')}
-                        className="flex items-center px-3 sm:px-4 py-2 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg hover:bg-blue-100"
-                        title="Envoyer par email"
+                        disabled={loading}
+                        className="flex items-center px-3 sm:px-4 py-2 text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50 shadow-sm font-medium"
+                        title="Envoyer par email (enregistre le devis si besoin)"
                     >
                         <Send className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">Envoyer</span>
@@ -4670,7 +4595,7 @@ Conditions de règlement : Paiement à réception de facture.`
                     {canConvertToInvoice && (
                         <button
                             type="button"
-                            onClick={handleFacturerClick}
+                            onClick={handleConvertToInvoice}
                             className="flex items-center px-3 sm:px-4 py-2 text-emerald-700 dark:text-green-400 bg-emerald-50 dark:bg-green-900/20 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
                             title="Convertir ce devis en facture"
                         >
@@ -4694,7 +4619,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex items-center px-3 sm:px-4 py-2 text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50 shadow-sm"
+                        className="flex items-center px-3 sm:px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                        title="Enregistrer sans envoyer"
                     >
                         <Save className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">{loading ? '...' : 'Enregistrer'}</span>
@@ -6655,20 +6581,21 @@ Conditions de règlement : Paiement à réception de facture.`
             {(!isLocked || formData.status === 'sent') && (
                 <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-3 safe-area-bottom">
                     <button
-                        type="button"
-                        onClick={() => handleSendQuoteEmail('fr')}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-2xl font-semibold text-sm active:bg-blue-100"
-                    >
-                        <Send className="w-4 h-4" />
-                        Envoyer
-                    </button>
-                    <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-white bg-ios rounded-2xl font-semibold text-sm disabled:opacity-50 active:bg-blue-700"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-2xl font-semibold text-sm disabled:opacity-50 active:bg-gray-100"
                     >
                         <Save className="w-4 h-4" />
                         {loading ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSendQuoteEmail('fr')}
+                        disabled={loading}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-white bg-ios rounded-2xl font-semibold text-sm disabled:opacity-50 active:bg-blue-700"
+                    >
+                        <Send className="w-4 h-4" />
+                        Envoyer
                     </button>
                 </div>
             )}

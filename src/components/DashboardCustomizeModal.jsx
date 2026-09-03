@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Settings2, X, RotateCcw, Loader2, Check, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { DASHBOARD_WIDGETS, useDashboardSettings } from '../hooks/useDashboardSettings';
-import { useAuth } from '../context/AuthContext';
-import { clearAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import { toast } from 'sonner';
 
 const WIDGET_BY_ID = Object.fromEntries(DASHBOARD_WIDGETS.map(w => [w.id, w]));
@@ -16,15 +14,13 @@ const WIDGET_BY_ID = Object.fromEntries(DASHBOARD_WIDGETS.map(w => [w.id, w]));
  */
 const DashboardCustomizeModal = ({ open, onClose }) => {
     const { isVisible, toggle, order, moveWidget, reorderWidget, reset, save, saving } = useDashboardSettings();
-    const { user } = useAuth();
     const [draggingId, setDraggingId] = useState(null);
 
     if (!open) return null;
 
-    // Réinitialise visibilité, ordre manuel ET ordre adaptatif (recalculé au prochain montage).
+    // Réinitialise visibilité et ordre.
     const handleReset = () => {
         reset();
-        clearAdaptiveOrder('dashboard', user?.id);
     };
 
     const visibleCount = DASHBOARD_WIDGETS.filter(w => isVisible(w.id)).length;

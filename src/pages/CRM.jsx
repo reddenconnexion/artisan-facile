@@ -13,7 +13,7 @@ import {
 import SegmentedControl from '../components/ui/SegmentedControl';
 import WorksitePlanning from '../components/WorksitePlanning';
 import { estimatedHoursFromItems, formatHours, laborProfitability } from '../utils/timeTracking';
-import { fetchWorksites as fetchWorksitesData } from '../utils/worksites';
+import { fetchWorksites as fetchWorksitesData, WORKSITE_STAGE_MAP } from '../utils/worksites';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -37,38 +37,38 @@ const WorksitePilot = () => {
     const columns = [
         {
             id: 'pending_deposit',
-            title: 'Attente Acompte',
+            title: WORKSITE_STAGE_MAP.pending_deposit.title,
             color: 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/40',
             icon: FileText,
             description: 'Devis signé, attente paiement acompte matériel'
         },
         {
             id: 'material_order',
-            title: 'Commande Matériel',
+            title: WORKSITE_STAGE_MAP.material_order.title,
             color: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/40',
             icon: CheckCircle,
             description: 'Acompte reçu, matériel à commander/recevoir'
         },
         {
             id: 'planned',
-            title: 'À Planifier',
+            title: WORKSITE_STAGE_MAP.planned.title,
             color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/40',
             icon: Calendar,
             description: 'Matériel OK, en attente de dates'
         },
         {
             id: 'in_progress',
-            title: 'En Cours',
+            title: WORKSITE_STAGE_MAP.in_progress.title,
             color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/40',
             icon: Hammer,
             description: 'Chantiers démarrés'
         },
         {
             id: 'completed',
-            title: 'Terminé',
+            title: WORKSITE_STAGE_MAP.completed.title,
             color: 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-900/40',
             icon: CheckCircle,
-            description: 'Travaux finis, à facturer/archiver'
+            description: 'Travaux finis, à facturer (disparaît une fois payé)'
         }
     ];
 

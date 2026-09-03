@@ -72,7 +72,10 @@ export async function fetchWorksites() {
 
     const worksites = (data || [])
         .filter(q => q.type === 'quote' && !q.title?.toLowerCase().includes('acompte'))
-        .map(q => ({ ...q, work_stage: deriveStage(q, depositsMap) }));
+        .map(q => ({ ...q, work_stage: deriveStage(q, depositsMap) }))
+        // Un chantier terminé ET payé n'a plus rien à piloter : il sort du
+        // kanban au lieu de s'accumuler indéfiniment dans « Terminé ».
+        .filter(q => !(q.work_stage === 'completed' && q.status === 'paid'));
 
     return { worksites, spentByQuote };
 }

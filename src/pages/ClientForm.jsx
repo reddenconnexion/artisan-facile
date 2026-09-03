@@ -289,7 +289,7 @@ const ClientForm = () => {
         city: '',
         notes: '',
         status: 'lead',
-        type: 'professional',
+        type: 'individual',
         siren: '',
         tva_intracom: '',
         portal_token: null,
@@ -633,56 +633,40 @@ const ClientForm = () => {
                     )}
                 <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 space-y-6">
                     <div>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Type de client
-                                </label>
-                                <select
-                                    id="type"
-                                    name="type"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
-                                    value={formData.type}
-                                    onChange={handleChange}
-                                >
-                                    <option value="professional">Professionnel / Entreprise</option>
-                                    <option value="individual">Particulier</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Statut
-                                </label>
-                                <select
-                                    id="status"
-                                    name="status"
-                                    className="block w-full px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
-                                    value={formData.status}
-                                    onChange={handleChange}
-                                >
-                                    <option value="lead">Demande / A Contacter</option>
-                                    <option value="contacted">Visite / Devis à faire</option>
-                                    <option value="proposal">Devis Envoyé</option>
-                                    <option value="signed">Signé / En Cours</option>
-                                    <option value="lost">Perdu / Sans suite</option>
-                                </select>
-                            </div>
-                        </div>
-
                         <div className="flex justify-between items-center mb-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Nom complet / Entreprise *
                             </label>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+                                Collez le SMS du client : nom, adresse et téléphone se répartissent seuls
+                            </span>
                         </div>
                         <Input
                             type="text"
                             id="name"
                             name="name"
                             required
+                            autoFocus={!isEditing}
+                            placeholder="Ex : Jean Martin — ou collez le message du client"
                             value={formData.name}
                             onChange={handleChange}
                             onPaste={handleAddressPaste}
                         />
+                        <div className="mt-3">
+                            <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Type de client
+                            </label>
+                            <select
+                                id="type"
+                                name="type"
+                                className="block w-full sm:w-64 px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-ios focus:border-ios"
+                                value={formData.type}
+                                onChange={handleChange}
+                            >
+                                <option value="individual">Particulier</option>
+                                <option value="professional">Professionnel / Entreprise</option>
+                            </select>
+                        </div>
                     </div>
 
                     {formData.type === 'professional' && (

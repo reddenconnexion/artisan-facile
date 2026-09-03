@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, LayoutGrid, List, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ const Clients = () => {
     const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
     const [activeMenu, setActiveMenu] = useState(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-    const [viewMode, setViewMode] = useState(() => localStorage.getItem('clients_view_mode') || 'grid');
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
 
     // Quote stats per client
@@ -38,11 +37,6 @@ const Clients = () => {
         }
         return acc;
     }, {});
-
-    const toggleViewMode = (mode) => {
-        setViewMode(mode);
-        localStorage.setItem('clients_view_mode', mode);
-    };
 
     const handleSort = (key) => {
         setSortConfig(current => ({
@@ -100,137 +94,9 @@ const Clients = () => {
         return <div className="flex justify-center items-center h-64">Chargement...</div>;
     }
 
-    const ClientCard = ({ client }) => {
-        const count = quoteCountByClient[client.id] || 0;
-        const lastQuote = lastQuoteByClient[client.id];
-        const isConfirmingDelete = deleteConfirmId === client.id;
-
-        return (
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 hover:shadow-md transition-shadow relative">
-                {/* Inline delete confirmation overlay */}
-                {isConfirmingDelete && (
-                    <div className="absolute inset-0 bg-white/95 dark:bg-gray-900/95 rounded-2xl z-20 flex flex-col items-center justify-center p-6 text-center">
-                        <AlertTriangle className="w-10 h-10 text-red-500 mb-3" />
-                        <p className="font-semibold text-gray-900 dark:text-white mb-1">Supprimer ce client ?</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Cette action est irréversible.</p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={() => handleDeleteClient(client.id)}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                            >
-                                Supprimer
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex justify-between items-start">
-                    <div className="flex items-center space-x-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold shrink-0">
-                            {client.name.charAt(0)}
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-1">{client.name}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
-                        </div>
-                    </div>
-                    <div className="relative">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenu(activeMenu === client.id ? null : client.id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                            <MoreVertical className="w-5 h-5" />
-                        </button>
-                        {activeMenu === client.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-800 dark:border-gray-700 z-10 py-1">
-                                <button
-                                    onClick={() => {
-                                        navigate(`/app/clients/${client.id}`);
-                                        setActiveMenu(null);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-700"
-                                >
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Modifier / Voir
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setDeleteConfirmId(client.id);
-                                        setActiveMenu(null);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Supprimer
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                    {client.email && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
-                            <Mail className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
-                            <span className="text-sm truncate">{client.email}</span>
-                        </div>
-                    )}
-                    {client.phone && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
-                            <Phone className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
-                            <span className="text-sm">{client.phone}</span>
-                        </div>
-                    )}
-                    {client.address && (
-                        <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
-                            <MapPin className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500 shrink-0" />
-                            <span className="text-sm line-clamp-1">{client.address}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Quote activity */}
-                <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <FileText className="w-3.5 h-3.5 shrink-0" />
-                    {count === 0 ? (
-                        <span>Aucun devis</span>
-                    ) : (
-                        <span>
-                            {count} devis{count > 1 ? '' : ''}
-                            {lastQuote && <> · Dernier le {new Date(lastQuote.created_at).toLocaleDateString()}</>}
-                        </span>
-                    )}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end space-x-3">
-                    <button
-                        onClick={() => navigate(`/app/clients/${client.id}`)}
-                        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                    >
-                        Voir fiche
-                    </button>
-                    <button
-                        onClick={() => navigate('/app/devis/new', { state: { client_id: client.id } })}
-                        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                    >
-                        Créer devis
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     const ClientListItem = ({ client }) => {
         const count = quoteCountByClient[client.id] || 0;
+        const lastQuote = lastQuoteByClient[client.id];
         const isConfirmingDelete = deleteConfirmId === client.id;
 
         return (
@@ -267,7 +133,11 @@ const Clients = () => {
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{client.name}</h3>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <p className="text-xs text-gray-500 dark:text-gray-400 hidden md:block">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
-                                    {count > 0 && <span className="hidden md:inline text-xs text-gray-400">· {count} devis</span>}
+                                    {count > 0 && (
+                                        <span className="hidden md:inline text-xs text-gray-400">
+                                            · {count} devis{lastQuote ? ` · dernier le ${new Date(lastQuote.created_at).toLocaleDateString()}` : ''}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -360,7 +230,7 @@ const Clients = () => {
                                     { key: 'address', label: 'Adresse' },
                                     { key: 'city', label: 'Ville' },
                                     { key: 'postal_code', label: 'Code postal' },
-                                    { key: 'siret', label: 'SIRET' },
+                                    { key: 'siren', label: 'SIREN' },
                                     { key: 'created_at', label: 'Créé le' },
                                 ],
                                 'clients'
@@ -410,39 +280,16 @@ const Clients = () => {
                         <span className="text-sm mr-2 hidden sm:inline">Date</span>
                         <ArrowUpDown className="w-4 h-4" />
                     </button>
-                    <div className="h-full w-px bg-gray-300 mx-1"></div>
-                    <button
-                        onClick={() => toggleViewMode('grid')}
-                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        title="Vue grille"
-                    >
-                        <LayoutGrid className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => toggleViewMode('list')}
-                        className={`p-2 rounded-lg border transition-colors ${viewMode === 'list' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        title="Vue liste"
-                    >
-                        <List className="w-5 h-5" />
-                    </button>
                 </div>
             </div>
 
-            {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
                     {visibleClients.map((client) => (
-                        <ClientCard key={client.id} client={client} />
+                        <ClientListItem key={client.id} client={client} />
                     ))}
                 </div>
-            ) : (
-                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {visibleClients.map((client) => (
-                            <ClientListItem key={client.id} client={client} />
-                        ))}
-                    </div>
-                </div>
-            )}
+            </div>
 
             {hasMore && (
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">

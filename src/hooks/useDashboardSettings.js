@@ -6,22 +6,27 @@ import { toastError } from '../utils/supabaseErrorHandler';
 /**
  * Définition des widgets du tableau de bord.
  * Pour ajouter un nouveau widget : étendre cette constante + l'ajouter dans Dashboard.jsx.
+ *
+ * Par défaut, seuls les quatre widgets « actionnables » sont affichés
+ * (indicateurs, à traiter, relances du jour, chantiers) : un tableau de bord
+ * court se lit d'un coup d'œil sur téléphone. Le reste s'active depuis
+ * « Personnaliser ».
  */
 export const DASHBOARD_WIDGETS = [
     { id: 'kpi_strip',        label: 'Indicateurs clés',           description: 'CA du mois, devis en cours, prochain RDV', defaultVisible: true,  alwaysOn: true  },
     { id: 'daily_relances',   label: 'Suggestions de relance du jour', description: 'Relances à valider, modifier ou reporter chaque jour', defaultVisible: true,  alwaysOn: false },
     { id: 'worksites',        label: 'Chantiers (kanban)',         description: 'Mini-kanban de vos chantiers, déplaçables par étape', defaultVisible: true,  alwaysOn: false },
-    { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: true,  alwaysOn: false },
-    { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: true,  alwaysOn: false },
+    { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: false, alwaysOn: false },
+    { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: false, alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
-    { id: 'financial_health',    label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',              defaultVisible: true,  alwaysOn: false },
-    { id: 'cash_flow_forecast', label: 'Trésorerie prévisionnelle', description: 'Projection à 90 jours des encaissements attendus',  defaultVisible: true,  alwaysOn: false },
-    { id: 'recent_documents',  label: 'Derniers documents',         description: '5 devis/factures les plus récents',                defaultVisible: true,  alwaysOn: false },
-    { id: 'top_clients',      label: 'Top clients',                description: 'Vos meilleurs clients par chiffre d\'affaires', defaultVisible: true,  alwaysOn: false },
-    { id: 'voice_memos',      label: 'Mémos vocaux récents',       description: 'Vos derniers enregistrements vocaux',     defaultVisible: true,  alwaysOn: false },
-    { id: 'advanced_stats',   label: 'Statistiques détaillées',    description: 'Graphiques CA, résultat net, conversion', defaultVisible: true,  alwaysOn: false },
-    { id: 'recent_activity',  label: 'Activité récente',           description: 'Journal des dernières actions',           defaultVisible: true,  alwaysOn: false },
-    { id: 'storage_usage',    label: 'Espace de stockage',         description: 'Usage du stockage et alerte de quota (photos)', defaultVisible: true,  alwaysOn: false },
+    { id: 'financial_health',    label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',              defaultVisible: false, alwaysOn: false },
+    { id: 'cash_flow_forecast', label: 'Trésorerie prévisionnelle', description: 'Projection à 90 jours des encaissements attendus',  defaultVisible: false, alwaysOn: false },
+    { id: 'recent_documents',  label: 'Derniers documents',         description: '5 devis/factures les plus récents',                defaultVisible: false, alwaysOn: false },
+    { id: 'top_clients',      label: 'Top clients',                description: 'Vos meilleurs clients par chiffre d\'affaires', defaultVisible: false, alwaysOn: false },
+    { id: 'voice_memos',      label: 'Mémos vocaux récents',       description: 'Vos derniers enregistrements vocaux',     defaultVisible: false, alwaysOn: false },
+    { id: 'advanced_stats',   label: 'Statistiques détaillées',    description: 'Graphiques CA, résultat net, conversion', defaultVisible: false, alwaysOn: false },
+    { id: 'recent_activity',  label: 'Activité récente',           description: 'Journal des dernières actions',           defaultVisible: false, alwaysOn: false },
+    { id: 'storage_usage',    label: 'Espace de stockage',         description: 'Usage du stockage et alerte de quota (photos)', defaultVisible: false, alwaysOn: false },
 ];
 
 const STORAGE_KEY = 'dashboard_widgets';

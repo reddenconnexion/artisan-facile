@@ -29,8 +29,7 @@ function readScores(userId) {
 
 /**
  * Lecture NON réactive des scores d'usage décroissants { id: score } pour un
- * utilisateur. Utilisée par l'ordre adaptatif figé (useAdaptiveOrder), qui ne
- * doit pas se rafraîchir en direct — d'où l'absence d'abonnement au store.
+ * utilisateur (lecture ponctuelle, sans abonnement au store).
  */
 export function getUsageScores(userId, now = Date.now()) {
     return scoreMap(readScores(userId), now);

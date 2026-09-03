@@ -249,9 +249,9 @@ const Outils = () => {
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <Zap className="w-8 h-8 text-yellow-500" />
-                        Outils
+                        Plan électrique
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Outils métier intégrés.</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Dessinez le schéma d'une installation et joignez-le à vos devis.</p>
                 </div>
                 <button
                     onClick={openCopyModal}
