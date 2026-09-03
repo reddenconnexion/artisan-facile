@@ -17,14 +17,9 @@ const ActivitySettings = () => {
         skill_level: 'debutant',
         enable_price_library: true,
         enable_maintenance: false,
-        enable_deposits: true,
-        enable_situations: false,
-        enable_signature: true,
         enable_rentals: false,
-        enable_crm: true,
         enable_agenda: true,
         enable_calculator: true,
-        enable_accounting: true,
         enable_inventory: true,
         enable_intervention_reports: true,
         enable_portfolio: false,
@@ -62,9 +57,6 @@ const ActivitySettings = () => {
                 const jobType = user.user_metadata?.job_type;
                 if (['plombier', 'chauffagiste', 'electricien'].includes(jobType)) {
                     setSettings(prev => ({ ...prev, enable_maintenance: true }));
-                }
-                if (['macon', 'gros_oeuvre', 'peintre'].includes(jobType)) {
-                    setSettings(prev => ({ ...prev, enable_situations: true }));
                 }
             }
         } catch (error) {
@@ -126,40 +118,16 @@ const ActivitySettings = () => {
             icon: Wrench
         },
         {
-            key: 'enable_deposits',
-            label: 'Factures d\'Acompte',
-            description: 'Générez des factures partielles pour valider le démarrage des travaux.',
-            icon: FileText
-        },
-        {
-            key: 'enable_situations',
-            label: 'Factures de Situation',
-            description: 'Facturez à l\'avancement du chantier (ex: 30%, 60%...).',
-            icon: List
-        },
-        {
             key: 'enable_recurring',
             label: 'Factures Récurrentes',
             description: 'Modèles de facturation automatique pour contrats de maintenance, abonnements, entretiens périodiques.',
             icon: Repeat
         },
         {
-            key: 'enable_signature',
-            label: 'Signature Électronique',
-            description: 'Faites signer vos devis directement sur tablette ou mobile.',
-            icon: Pen
-        },
-        {
             key: 'enable_rentals',
             label: 'Suivi Location Matériel',
             description: 'Gérez les locations d\'équipements (échafaudages, mini-pelles...).',
             icon: Shield
-        },
-        {
-            key: 'enable_crm',
-            label: 'Suivi de Chantiers (Kanban)',
-            description: 'Gérez l\'avancement de vos chantiers en colonnes : acompte reçu, commande matériel, en cours, terminé.',
-            icon: Kanban
         },
         {
             key: 'enable_portfolio',
@@ -186,12 +154,6 @@ const ActivitySettings = () => {
             icon: Calculator
         },
         {
-            key: 'enable_accounting',
-            label: 'Comptabilité & Charges',
-            description: 'Suivi du CA et calcul automatique des charges sociales (URSSAF).',
-            icon: Calculator
-        },
-        {
             key: 'enable_intervention_reports',
             label: 'Rapports d\'intervention',
             description: 'Créez des rapports de dépannage avec signature client et export PDF.',
@@ -204,19 +166,19 @@ const ActivitySettings = () => {
             id: 'debutant',
             emoji: '🌱',
             label: 'Débutant',
-            description: 'Devis et clients uniquement — l\'essentiel pour démarrer',
+            description: 'Tableau de bord, clients, chantiers, agenda, devis & factures, outils',
         },
         {
             id: 'intermediaire',
             emoji: '⚡',
             label: 'Intermédiaire',
-            description: 'Ajoute l\'agenda, les chantiers et la comptabilité',
+            description: 'Ajoute « Mon activité » : rapports, heures, achats',
         },
         {
             id: 'confirme',
             emoji: '🚀',
             label: 'Confirmé',
-            description: 'Tous les modules activés selon vos préférences ci-dessous',
+            description: 'Ajoute stock, maintenance, marketing, portfolio selon vos choix ci-dessous',
         },
     ];
 

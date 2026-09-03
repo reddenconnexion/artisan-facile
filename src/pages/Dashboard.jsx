@@ -26,7 +26,7 @@ const useCountUp = (target, duration = 900) => {
 
     return val;
 };
-import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Car, MapPin, Target, Pencil, X, Wallet } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Target, Pencil, X, Wallet } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow, startOfWeek, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, isSameYear, startOfYear, endOfYear, endOfWeek, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -45,7 +45,6 @@ import DailyRelanceSuggestions from '../components/DailyRelanceSuggestions';
 import WorksitesKanban from '../components/WorksitesKanban';
 import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
-import WelcomeCard from '../components/WelcomeCard';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
@@ -53,35 +52,18 @@ import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
-import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
 import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
 
-// Ordre par défaut des widgets (à froid / repli). « kpi_strip » est épinglé.
-// « clients_memos » regroupe top_clients + voice_memos (grille 2 colonnes
-// indivisible). L'ordre effectif est ensuite adapté à l'usage, voir plus bas.
+// Ordre des widgets. « kpi_strip » est épinglé en tête. « clients_memos »
+// regroupe top_clients + voice_memos (grille 2 colonnes indivisible).
+// L'ordre est fixe : l'artisan retrouve chaque bloc au même endroit d'une
+// session à l'autre (un ordre manuel enregistré dans « Personnaliser » prévaut).
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions', 'actionable',
+    'kpi_strip', 'actionable', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
-
-// Score d'un widget = frecency d'une destination représentative de son domaine.
-// Un widget n'étant pas « visité » comme une route, on infère sa pertinence.
-const WIDGET_SCORE = {
-    daily_relances:     (s) => (s['devis'] || 0) + 1, // priorité haute : action quotidienne
-    worksites:          (s) => s['chantiers'] || 0,
-    expiring_quotes:    (s) => s['devis'] || 0,
-    actionable:         (s) => s['devis'] || 0,
-    recent_documents:   (s) => s['devis'] || 0,
-    financial_health:   (s) => s['accounting'] || 0,
-    cash_flow_forecast: (s) => s['accounting'] || 0,
-    advanced_stats:     (s) => s['accounting'] || 0,
-    clients_memos:      (s) => Math.max(s['clients'] || 0, s['voice-memos'] || 0),
-    quick_actions:      (s) => (s['devis-new'] || 0) + (s['client-new'] || 0) + (s['intervention-new'] || 0),
-    recent_activity:    () => 0,
-};
-const widgetScoreFn = (id, scores) => (WIDGET_SCORE[id] ? WIDGET_SCORE[id](scores) : 0);
 
 // --- Recent Voice Memos Widget ---
 const MEMO_STATUS_ICON = {
@@ -554,34 +536,6 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                     sub={nextRdvSub !== 'Pas de rendez-vous prévu' ? nextRdvSub : undefined}
                     onClick={() => navigate('/app/agenda')}
                 />
-                {nextEvent?.address && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                        {/* Waze */}
-                        <a
-                            href={`https://waze.com/ul?q=${encodeURIComponent(nextEvent.address)}&navigate=yes`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            title={`Naviguer vers ${nextEvent.address} avec Waze`}
-                            aria-label="Naviguer avec Waze"
-                            className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
-                        >
-                            <Car className="w-4 h-4" />
-                        </a>
-                        {/* Google Maps */}
-                        <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextEvent.address)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            title={`Naviguer vers ${nextEvent.address} avec Google Maps`}
-                            aria-label="Naviguer avec Google Maps"
-                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center"
-                        >
-                            <MapPin className="w-4 h-4" />
-                        </a>
-                    </div>
-                )}
             </div>
         </div>
 
@@ -1017,17 +971,13 @@ const Dashboard = () => {
     const { isVisible } = useDashboardSettings();
     const { isTestMode, testClient } = useTestMode();
 
-    // Ordre des widgets adapté à l'usage, figé pendant la session (recalcul
-    // périodique). « kpi_strip » reste en tête.
-    const adaptiveOrder = useAdaptiveOrder('dashboard', DASHBOARD_WIDGET_IDS, widgetScoreFn, { pinnedIds: ['kpi_strip'] });
-
-    // Un ordre manuel enregistré (personnalisation) prévaut sur l'ordre adaptatif.
-    // L'ordre est stocké au niveau des réglages (top_clients / voice_memos
-    // distincts) ; on le projette sur les unités de rendu où « clients_memos »
-    // regroupe les deux.
+    // Un ordre manuel enregistré (personnalisation) prévaut sur l'ordre par
+    // défaut. L'ordre est stocké au niveau des réglages (top_clients /
+    // voice_memos distincts) ; on le projette sur les unités de rendu où
+    // « clients_memos » regroupe les deux.
     const rawOrder = user?.user_metadata?.dashboard_widget_order;
     const orderedWidgetIds = useMemo(() => {
-        if (!Array.isArray(rawOrder) || rawOrder.length === 0) return adaptiveOrder;
+        if (!Array.isArray(rawOrder) || rawOrder.length === 0) return DASHBOARD_WIDGET_IDS;
         const units = [];
         for (const id of reconcileWidgetOrder(rawOrder)) {
             const unit = (id === 'top_clients' || id === 'voice_memos') ? 'clients_memos' : id;
@@ -1037,7 +987,7 @@ const Dashboard = () => {
         for (const id of DASHBOARD_WIDGET_IDS) if (!units.includes(id)) units.push(id);
         // « kpi_strip » toujours en tête.
         return ['kpi_strip', ...units.filter(id => id !== 'kpi_strip')];
-    }, [rawOrder, adaptiveOrder]);
+    }, [rawOrder]);
 
     const toggleStats = () => {
         setStatsExpanded(prev => {
@@ -1341,15 +1291,12 @@ const Dashboard = () => {
 
             <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
 
-            <WelcomeCard />
-
             {/* Checklist d'onboarding — affichée tant que les étapes essentielles
                 ne sont pas validées (ou jusqu'à dismiss explicite) */}
             <OnboardingChecklist />
 
-            {/* Widgets adaptatifs — ordre piloté par l'usage (orderedWidgetIds),
-                figé pendant la session. Fragment = aucun nœud DOM ajouté, donc
-                l'espacement space-y-6 reste correct. */}
+            {/* Widgets — ordre fixe (orderedWidgetIds). Fragment = aucun nœud
+                DOM ajouté, donc l'espacement space-y-6 reste correct. */}
             {orderedWidgetIds.map((id) => {
                 const node = widgetRenderers[id]?.();
                 return node ? <React.Fragment key={id}>{node}</React.Fragment> : null;

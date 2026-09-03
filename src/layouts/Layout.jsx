@@ -20,9 +20,7 @@ import { useSignatureNotifications } from '../hooks/useSignatureNotifications';
 import { useAchievements } from '../hooks/useAchievements';
 import { usePendingCounts, useUserProfile, useNewReceivedInvoicesCount, useUnreadPortalMessagesCount, useNewFeedbackCount } from '../hooks/useDataCache';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { useTrackUsage, useFrequentShortcuts } from '../hooks/useUsageTracking';
-import { useAdaptiveOrder } from '../hooks/useAdaptiveOrder';
-import { SHORTCUT_CATALOG } from '../constants/shortcuts';
+import { useTrackUsage } from '../hooks/useUsageTracking';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import NotificationCenter from '../components/NotificationCenter';
 import FeedbackModal from '../components/FeedbackModal';
@@ -36,7 +34,7 @@ const Layout = () => {
   const { user, signOut } = useAuth(); // Added user here
   const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
-  useAchievements({ notify: true }); // toasts discrets au déblocage des jalons
+  useAchievements({ notify: false }); // jalons visibles dans le profil, sans interrompre le travail
   const newReceivedCount = useNewReceivedInvoicesCount();
   const unreadPortalMessages = useUnreadPortalMessagesCount();
   const newFeedbackCount = useNewFeedbackCount();
@@ -87,11 +85,8 @@ const Layout = () => {
   // Écouter les signatures de devis en temps réel
   useSignatureNotifications();
 
-  // Apprentissage de l'usage pour adapter les raccourcis du tableau de bord
+  // Apprentissage de l'usage pour le widget « Actions rapides » du tableau de bord
   useTrackUsage();
-  // Destinations les plus utilisées pour la barre de navigation mobile (sans
-  // les écrans de création, réservés au bouton flottant contextuel).
-  const mobileFrequent = useFrequentShortcuts(3, { fillDefaults: false, excludeActions: true });
 
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
@@ -175,8 +170,6 @@ const Layout = () => {
     // Smart defaults equivalent to ActivitySettings.jsx to avoid flickering empty nav
     const settings = {
       enable_agenda: userSettings.enable_agenda ?? true,
-      enable_crm: userSettings.enable_crm ?? true,
-      enable_price_library: userSettings.enable_price_library ?? true,
       enable_inventory: userSettings.enable_inventory ?? true,
       enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
       enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType),
@@ -229,88 +222,23 @@ const Layout = () => {
               ['/app/interventions', '/app/heures', '/app/procurement', '/app/supplier-comparator'].includes(c.href)
             ),
       }] : []),
-      ...(showInter ? [{ name: 'Outils', href: '/app/ressources', icon: Zap }] : []),
+      // Les outils métier (bibliothèque de prix, étiquettes de tableau, mémos
+      // vocaux…) servent dès le premier jour : visibles quel que soit le niveau.
+      { name: 'Outils', href: '/app/ressources', icon: Zap },
     ];
   }, [user]);
 
-  // Barre de navigation mobile adaptative : Accueil + 3 destinations les plus
-  // utilisées + Menu. À froid (aucun usage appris), on retombe sur les valeurs
-  // historiques (Devis, Clients, Agenda si activé) pour ne rien dégrader.
+  // Barre de navigation mobile : Accueil + Devis + Clients + Agenda (si activé)
+  // + Menu. L'ordre est fixe pour que chaque onglet reste à sa place.
   const mobileNavItems = React.useMemo(() => {
-    const home = { id: 'home', name: 'Accueil', href: '/app', icon: LayoutDashboard };
     const agendaEnabled = navigationGroups.some(g => g.name === 'Agenda' || g.children?.some(c => c.name === 'Agenda'));
-    const fallback = [
+    return [
+      { id: 'home', name: 'Accueil', href: '/app', icon: LayoutDashboard },
       { id: 'devis', name: 'Devis', href: '/app/devis', icon: FileText },
       { id: 'clients', name: 'Clients', href: '/app/clients', icon: Users },
       ...(agendaEnabled ? [{ id: 'agenda', name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
     ];
-    const picks = [];
-    for (const s of mobileFrequent) {
-      if (picks.length >= 3) break;
-      picks.push({ id: s.id, name: s.short || s.label, href: s.path, icon: s.icon });
-    }
-    for (const f of fallback) {
-      if (picks.length >= 3) break;
-      if (!picks.some(p => p.id === f.id)) picks.push(f);
-    }
-    return [home, ...picks];
-  }, [mobileFrequent, navigationGroups]);
-
-  // --- Réordonnancement adaptatif de la barre latérale ---
-  // L'id catalogue d'une destination se déduit de son chemin (ex. /app/devis →
-  // 'devis'). « Tableau de bord » (/app) et « Outils » (/app/ressources) n'ont
-  // pas d'id : score 0 (le 1er est épinglé, le 2nd coule en bas).
-  const idForHref = useCallback(
-    (href) => SHORTCUT_CATALOG.find(s => s.path === href)?.id,
-    []
-  );
-  const navNodeId = useCallback((node) => `nav:${node.name}`, []);
-
-  // Enfants des deux seuls groupes à enfants (appels de hooks en nombre fixe).
-  const findGroup = (name) => navigationGroups.find(g => g.name === name);
-  const devisGroup = findGroup('Devis & Factures');
-  const activiteGroup = findGroup('Mon activité');
-  const devisChildIds = (devisGroup?.children || []).map(c => idForHref(c.href) || c.name);
-  const activiteChildIds = (activiteGroup?.children || []).map(c => idForHref(c.href) || c.name);
-  const childScoreFn = useCallback((id, scores) => scores[id] || 0, []);
-
-  const orderedDevisChildIds = useAdaptiveOrder('nav_devis', devisChildIds, childScoreFn);
-  const orderedActiviteChildIds = useAdaptiveOrder('nav_activite', activiteChildIds, childScoreFn);
-
-  // Ordre des entrées de premier niveau (« Tableau de bord » épinglé).
-  const topNodeById = React.useMemo(
-    () => new Map(navigationGroups.map(n => [navNodeId(n), n])),
-    [navigationGroups, navNodeId]
-  );
-  const topScoreFn = useCallback((id, scores) => {
-    const node = topNodeById.get(id);
-    if (!node) return 0;
-    if (node.children) return node.children.reduce((sum, c) => sum + (scores[idForHref(c.href)] || 0), 0);
-    return scores[idForHref(node.href)] || 0;
-  }, [topNodeById, idForHref]);
-
-  const topIds = navigationGroups.map(navNodeId);
-  const orderedTopIds = useAdaptiveOrder('nav', topIds, topScoreFn, { pinnedIds: ['nav:Tableau de bord'] });
-
-  // Reconstruit les groupes dans l'ordre adaptatif, enfants réordonnés.
-  const orderedNavigationGroups = React.useMemo(() => {
-    const reorderChildren = (children, orderedIds) => {
-      if (!children) return children;
-      const byId = new Map(children.map(c => [idForHref(c.href) || c.name, c]));
-      const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean);
-      // Sécurité : compléter avec d'éventuels enfants non couverts.
-      for (const c of children) if (!reordered.includes(c)) reordered.push(c);
-      return reordered;
-    };
-    return orderedTopIds
-      .map(id => topNodeById.get(id))
-      .filter(Boolean)
-      .map(node => {
-        if (node === devisGroup) return { ...node, children: reorderChildren(node.children, orderedDevisChildIds) };
-        if (node === activiteGroup) return { ...node, children: reorderChildren(node.children, orderedActiviteChildIds) };
-        return node;
-      });
-  }, [orderedTopIds, topNodeById, devisGroup, activiteGroup, orderedDevisChildIds, orderedActiviteChildIds, idForHref]);
+  }, [navigationGroups]);
 
   React.useEffect(() => {
     if (transcript) {
@@ -622,7 +550,7 @@ const Layout = () => {
 
           {/* Liste de navigation */}
           <nav className="flex-1 px-3 space-y-0.5 mt-1 overflow-y-auto">
-            {orderedNavigationGroups.map((group) => {
+            {navigationGroups.map((group) => {
               const hasChildren = !!group.children;
 
               if (!hasChildren) {
