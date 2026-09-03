@@ -54,7 +54,8 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC, materialDepositInvoices, materialDepositComplement } from '../utils/materialDeposit';
+import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../utils/materialDeposit';
+import DepositNextStepCard from '../components/DepositNextStepCard';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -232,6 +233,10 @@ const DevisForm = () => {
     // Versions archivées (table quote_versions) — chaque version envoyée au client
     // est conservée ; un devis envoyé ne peut plus être modifié silencieusement.
     const [quoteVersions, setQuoteVersions] = useState([]);
+    // « Prochaine étape » de facturation (acompte matériel restant), calculée
+    // depuis le devis racine du chantier — affichée sur l'avenant signé et sur
+    // le devis quand un avenant a laissé du matériel non couvert.
+    const [depositNextStep, setDepositNextStep] = useState(null);
     const [versionPdfLoading, setVersionPdfLoading] = useState(null);
     // L'artisan a explicitement déverrouillé un devis envoyé pour créer une nouvelle version
     const [revisionUnlocked, setRevisionUnlocked] = useState(false);
@@ -2630,45 +2635,30 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleCreateMaterialDeposit = async () => {
-        // Calculate total amount for items with type 'material'.
-        // On exclut les fournitures optionnelles (is_optional) : tant qu'une option
-        // n'est pas retenue par le client, elle ne fait pas partie du chiffrage ferme
-        // et ne doit donc pas gonfler l'acompte matériel.
-        // Les fournitures des AVENANTS SIGNÉS entrent dans l'acompte au même
-        // titre que celles du devis (règle et justification dans
-        // materialDeposit.js). L'action n'étant proposée que sur le document
-        // racine — canCreateLinkedDocs exclut les documents ayant un parent —
-        // les avenants cherchés ici sont bien les enfants du devis courant.
+    // Devis racine du chantier : le document courant s'il n'a pas de parent,
+    // sinon son parent (avenant, acompte…). L'acompte matériel se raisonne
+    // toujours à l'échelle du chantier, quel que soit l'écran d'où on part.
+    const materialDepositRootId = () => (formData.parent_id ? parseInt(formData.parent_id, 10) : parseInt(id, 10));
+
+    // Charge tout ce qu'il faut pour raisonner sur l'acompte matériel : le
+    // devis racine, ses documents liés (avenants, acomptes…) et les avoirs
+    // rattachés aux acomptes déjà émis.
+    const loadMaterialDepositStatus = async (rootId) => {
+        const { data: root, error: rootError } = await supabase
+            .from('quotes')
+            .select('id, quote_number, title, client_id, client_name, include_tva, items, total_ttc, has_material_deposit, status')
+            .eq('id', rootId)
+            .single();
+        if (rootError || !root) throw rootError || new Error('Devis racine introuvable');
+
         const { data: linkedDocs, error: linkedError } = await supabase
             .from('quotes')
             .select('id, title, type, status, items, quote_number, invoice_number, total_ht, total_ttc')
-            .eq('parent_id', parseInt(id, 10))
+            .eq('parent_id', rootId)
             .neq('status', 'cancelled');
+        if (linkedError) throw linkedError;
 
-        if (linkedError) {
-            console.error('Error fetching linked amendments:', linkedError);
-            toast.error("Impossible de vérifier les avenants liés à ce devis.");
-            return;
-        }
-
-        const materialItems = depositMaterialItems(formData.items, linkedDocs);
-
-        if (materialItems.length === 0) {
-            toast.error("Aucun article de type 'Matériel' trouvé dans ce devis.");
-            return;
-        }
-
-        const materialTotalHT = materialItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
-
-        if (materialTotalHT <= 0) {
-            toast.error("Le montant total du matériel est de 0€.");
-            return;
-        }
-
-        // Acomptes matériel déjà émis sur ce devis (nets des avoirs qui les
-        // annulent) : on ne facture que le complément — typiquement les
-        // fournitures d'un avenant signé après l'acompte initial.
+        // Les avoirs s'accrochent à la facture qu'ils annulent, pas au devis.
         const previousDeposits = materialDepositInvoices(linkedDocs);
         let creditNotes = [];
         if (previousDeposits.length > 0) {
@@ -2678,41 +2668,58 @@ Conditions de règlement : Paiement à réception de facture.`
                 .eq('type', 'credit_note')
                 .in('parent_id', previousDeposits.map(inv => inv.id))
                 .neq('status', 'cancelled');
-            if (notesError) {
-                console.error('Error fetching credit notes:', notesError);
-                toast.error("Impossible de vérifier les avoirs liés aux acomptes.");
-                return;
-            }
+            if (notesError) throw notesError;
             creditNotes = notes || [];
         }
-        const { alreadyIssuedHT, remainingHT, previous } = materialDepositComplement(materialTotalHT, linkedDocs, creditNotes);
-        const previousLabels = previous.map(d => d.invoice_number || `n°${d.id}`);
-        const isComplement = alreadyIssuedHT > 0;
+        return { root, linkedDocs: linkedDocs || [], status: materialDepositStatus(root, linkedDocs || [], creditNotes) };
+    };
 
+    // Acompte matériel : 100 % des fournitures fermes du chantier (devis +
+    // avenants signés, options exclues — cf. materialDeposit.js), moins ce qui
+    // a déjà été facturé en acompte. Utilisable depuis le devis racine (menu
+    // Actions) comme depuis un avenant signé (carte « prochaine étape »).
+    const handleCreateMaterialDeposit = async () => {
+        let loaded;
+        try {
+            loaded = await loadMaterialDepositStatus(materialDepositRootId());
+        } catch (error) {
+            console.error('Error loading material deposit status:', error);
+            toast.error("Impossible de vérifier les acomptes de ce chantier.");
+            return;
+        }
+        const { root, linkedDocs, status } = loaded;
+        const { materialTotalHT, alreadyIssuedHT, remainingHT, previous, amendmentShare, isComplement } = status;
+        const previousLabels = previous.map(d => d.invoice_number || `n°${d.id}`);
+        const { totalHT: amendmentTotalHT, labels: amendmentLabels } = amendmentShare;
+        const rootRef = root.quote_number || root.id;
+
+        if (materialTotalHT <= 0) {
+            toast.error("Aucune fourniture à facturer sur ce chantier.");
+            return;
+        }
         if (remainingHT <= 0.005) {
-            toast.info(`Le matériel (${materialTotalHT.toFixed(2)} € HT) est déjà entièrement couvert par ${previousLabels.join(', ')}.`);
+            toast.info(`Le matériel est déjà entièrement couvert par ${previousLabels.join(', ')}. Le solde sera facturé à la clôture.`);
             return;
         }
 
-        const toTTC = (ht) => (formData.include_tva ? ht * 1.2 : ht);
+        const toTTC = (ht) => (root.include_tva ? ht * 1.2 : ht);
         const materialTotalTTC = toTTC(materialTotalHT);
         const depositAmount = toTTC(remainingHT);
+        const rootTotalTTC = parseFloat(root.total_ttc) || 0;
 
-        // Le détail des avenants pris en compte est annoncé : l'artisan doit
-        // voir d'où vient le montant avant de créer la facture, surtout quand il
-        // dépasse les fournitures du devis qu'il a sous les yeux.
-        const { totalHT: amendmentTotalHT, labels: amendmentLabels } = depositAmendmentShare(materialItems);
-        const amendmentNote = amendmentTotalHT > 0
-            ? `\n\nDont ${amendmentTotalHT.toFixed(2)} € HT de fournitures issues de ${amendmentLabels.join(', ')} (signé${amendmentLabels.length > 1 ? 's' : ''}).`
+        // Une seule question, en clair : combien, pour quoi, et ce qui n'est
+        // pas refacturé. Le détail chiffré complet reste dans les notes de la
+        // facture créée.
+        const what = amendmentTotalHT > 0
+            ? `les fournitures ${amendmentLabels.length > 1 ? 'des' : "de l'"}${amendmentLabels.join(', ')}`
+            : `100 % des fournitures du devis n°${rootRef}`;
+        const notAgain = isComplement
+            ? `\n\nLe matériel déjà réglé (${toTTC(alreadyIssuedHT).toFixed(2)} € TTC, ${previousLabels.join(', ')}) n'est pas refacturé.`
             : '';
-        const complementNote = isComplement
-            ? `\n\nMatériel total : ${materialTotalTTC.toFixed(2)} € TTC, dont ${toTTC(alreadyIssuedHT).toFixed(2)} € déjà facturé (${previousLabels.join(', ')}). Cet acompte ne porte que sur le complément.`
-            : '';
-
         const okMat = await confirm({
             title: isComplement ? 'Acompte matériel complémentaire' : 'Acompte matériel',
-            message: `Générer un acompte ${isComplement ? 'complémentaire ' : ''}pour le matériel (${depositAmount.toFixed(2)} € TTC) ?${amendmentNote}${complementNote}`,
-            confirmLabel: 'Générer'
+            message: `Facturer au client un acompte matériel de ${depositAmount.toFixed(2)} € TTC pour ${what} ?${notAgain}`,
+            confirmLabel: 'Créer la facture'
         });
         if (!okMat) return;
 
@@ -2722,48 +2729,40 @@ Conditions de règlement : Paiement à réception de facture.`
             const depositItem = {
                 id: Date.now(),
                 // Le client reconnaît son devis à son NUMÉRO, pas à
-                // l'identifiant interne de la base : `id` affichait ici un
-                // numéro absent de tous les documents qu'il a reçus.
-                description: `Acompte Matériel ${isComplement ? 'complémentaire' : '(100%)'} sur devis n°${formData.quote_number || id} - ${formData.title}${amendmentTotalHT > 0 ? ` (avenants inclus : ${amendmentLabels.join(', ')})` : ''}`,
+                // l'identifiant interne de la base.
+                description: `Acompte Matériel ${isComplement ? 'complémentaire' : '(100%)'} sur devis n°${rootRef} - ${root.title}${amendmentTotalHT > 0 ? ` (avenants inclus : ${amendmentLabels.join(', ')})` : ''}`,
                 quantity: 1,
                 unit: 'forfait',
-                price: 0, // Will be set below
+                price: root.include_tva ? depositAmount / 1.2 : depositAmount,
                 buying_price: 0,
                 type: 'material'
             };
-
-            if (formData.include_tva) {
-                depositItem.price = depositAmount / 1.2;
-            } else {
-                depositItem.price = depositAmount;
-            }
-
             const depositHT = depositItem.price;
-            const depositTVA = formData.include_tva ? (depositAmount - depositHT) : 0;
+            const depositTVA = root.include_tva ? (depositAmount - depositHT) : 0;
 
             const depositData = {
                 user_id: user.id,
-                client_id: formData.client_id,
-                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: `Facture Acompte Matériel${isComplement ? ' complémentaire' : ''} - ${formData.title}`,
+                client_id: root.client_id,
+                client_name: clients.find(c => c.id.toString() === String(root.client_id))?.name || root.client_name || 'Client',
+                title: `Facture Acompte Matériel${isComplement ? ' complémentaire' : ''} - ${root.title}`,
                 date: new Date().toISOString().split('T')[0],
                 status: 'billed',
                 type: 'invoice',
                 items: [depositItem],
-                parent_id: parseInt(id, 10),
-                include_tva: formData.include_tva,
+                parent_id: root.id,
+                include_tva: root.include_tva,
                 total_ht: depositHT,
                 total_tva: depositTVA,
                 total_ttc: depositAmount,
                 notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString("fr-FR")}
 
 RÉCAPITULATIF :
-• Montant total du devis : ${total.toFixed(2)} € TTC${amendmentTotalHT > 0 ? `
+• Montant total du devis : ${rootTotalTTC.toFixed(2)} € TTC${amendmentTotalHT > 0 ? `
 • Fournitures d'avenants signés incluses : ${amendmentTotalHT.toFixed(2)} € HT (${amendmentLabels.join(', ')})` : ''}
 • Matériel total : ${materialTotalTTC.toFixed(2)} € TTC${isComplement ? `
 • Acompte matériel déjà facturé : ${toTTC(alreadyIssuedHT).toFixed(2)} € TTC (${previousLabels.join(', ')})` : ''}
 • Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
-• Reste à payer sur devis : ${(total + amendmentsTotalTTC(linkedDocs) - toTTC(alreadyIssuedHT) - depositAmount).toFixed(2)} € TTC
+• Reste à payer sur devis : ${(rootTotalTTC + amendmentsTotalTTC(linkedDocs) - toTTC(alreadyIssuedHT) - depositAmount).toFixed(2)} € TTC
 
 Conditions de règlement : Paiement à réception de facture.`
             };
@@ -2787,6 +2786,33 @@ Conditions de règlement : Paiement à réception de facture.`
             setLoading(false);
         }
     };
+
+    // « Prochaine étape » : après la signature d'un avenant, dire à l'artisan
+    // ce qu'il reste à facturer et le lui proposer en un clic, ici même — sans
+    // avoir à retrouver le devis parent ni son menu Actions. Sur le devis
+    // racine, la carte n'apparaît que si un avenant signé a laissé du matériel
+    // non couvert : le premier acompte reste dans le menu, et on ne relance
+    // pas l'artisan quand tout est réglé.
+    useEffect(() => {
+        let cancelled = false;
+        setDepositNextStep(null);
+        if (!id || id === 'new') return undefined;
+        const signed = ['accepted', 'billed', 'paid'].includes(formData.status);
+        const onSignedAmendment = formData.type === 'amendment' && signed && !!formData.parent_id;
+        const onRootQuote = formData.type === 'quote' && !formData.parent_id && ['accepted', 'billed'].includes(formData.status);
+        if (!onSignedAmendment && !onRootQuote) return undefined;
+        (async () => {
+            try {
+                const { root, status } = await loadMaterialDepositStatus(materialDepositRootId());
+                if (cancelled || root.has_material_deposit !== true) return;
+                if (onRootQuote && !(status.isComplement && status.remainingHT > 0.005)) return;
+                setDepositNextStep({ root, variant: onSignedAmendment ? 'amendment' : 'root', ...status });
+            } catch (error) {
+                console.error('Error computing deposit next step:', error);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [id, formData.type, formData.status, formData.parent_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCreateSituation = () => {
         setShowSituationModal(true);
@@ -4404,6 +4430,23 @@ Conditions de règlement : Paiement à réception de facture.`
                     )}
                 </div>
             )}
+
+            {depositNextStep && (() => {
+                const toTTC = (ht) => (depositNextStep.root.include_tva ? ht * 1.2 : ht);
+                return (
+                    <DepositNextStepCard
+                        variant={depositNextStep.variant}
+                        rootId={depositNextStep.root.id}
+                        rootRef={depositNextStep.root.quote_number || depositNextStep.root.id}
+                        amountTTC={toTTC(depositNextStep.remainingHT)}
+                        alreadyIssuedTTC={toTTC(depositNextStep.alreadyIssuedHT)}
+                        previousLabels={depositNextStep.previous.map(d => d.invoice_number || `n°${d.id}`)}
+                        amendmentLabels={depositNextStep.amendmentShare.labels}
+                        onGenerate={handleCreateMaterialDeposit}
+                        loading={loading}
+                    />
+                );
+            })()}
 
             {/* Historique des versions archivées — la trace de ce qui a été envoyé au client */}
             {isEditing && quoteVersions.length > 0 && (
