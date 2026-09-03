@@ -50,7 +50,6 @@ import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
-import ExpiringQuotesWidget from '../components/ExpiringQuotesWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
 import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
@@ -60,7 +59,7 @@ import { supabase } from '../utils/supabase';
 // L'ordre est fixe : l'artisan retrouve chaque bloc au même endroit d'une
 // session à l'autre (un ordre manuel enregistré dans « Personnaliser » prévaut).
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'actionable', 'daily_relances', 'worksites', 'expiring_quotes', 'quick_actions',
+    'kpi_strip', 'actionable', 'daily_relances', 'worksites', 'quick_actions',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
@@ -523,7 +522,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 label="Devis à relancer"
                 sub={toRelanceCount > 0 ? 'Sans réponse depuis 7j' : 'Tout est à jour ✓'}
                 urgent={toRelanceCount > 0}
-                onClick={() => navigate('/app/devis')}
+                onClick={() => navigate('/app/devis', { state: { filter: 'followups' } })}
             />
             <div className="relative flex">
                 <KpiCard
@@ -1057,9 +1056,6 @@ const Dashboard = () => {
             : null,
         daily_relances: () => isVisible('daily_relances') ? <DailyRelanceSuggestions /> : null,
         worksites: () => isVisible('worksites') ? <WorksitesKanban /> : null,
-        expiring_quotes: () => isVisible('expiring_quotes')
-            ? <ExpiringQuotesWidget allQuotes={allQuotes} navigate={navigate} />
-            : null,
         quick_actions: () => isVisible('quick_actions') ? <QuickActions /> : null,
         actionable: () => isVisible('actionable') ? <ActionableDashboard user={user} /> : null,
         financial_health: () => isVisible('financial_health') ? <FinancialHealthCard quotes={allQuotes} /> : null,

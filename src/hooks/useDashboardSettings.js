@@ -16,7 +16,6 @@ export const DASHBOARD_WIDGETS = [
     { id: 'kpi_strip',        label: 'Indicateurs clés',           description: 'CA du mois, devis en cours, prochain RDV', defaultVisible: true,  alwaysOn: true  },
     { id: 'daily_relances',   label: 'Suggestions de relance du jour', description: 'Relances à valider, modifier ou reporter chaque jour', defaultVisible: true,  alwaysOn: false },
     { id: 'worksites',        label: 'Chantiers (kanban)',         description: 'Mini-kanban de vos chantiers, déplaçables par étape', defaultVisible: true,  alwaysOn: false },
-    { id: 'expiring_quotes',  label: 'Devis qui expirent',         description: 'Alerte quand des devis arrivent à échéance', defaultVisible: false, alwaysOn: false },
     { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: false, alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
     { id: 'financial_health',    label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',              defaultVisible: false, alwaysOn: false },
