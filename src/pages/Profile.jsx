@@ -6,6 +6,7 @@ import { Save, Building, MapPin, Phone, FileText, Layers, Bell, Settings, Mail, 
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui';
+import SegmentedControl from '../components/ui/SegmentedControl';
 import AchievementsCard from '../components/AchievementsCard';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { TRADE_CONFIG } from '../constants/trades';
@@ -129,7 +130,16 @@ const Profile = () => {
     const [calcDiscount, setCalcDiscount] = useState('');
     // API key : jamais stockée côté client — on ne retient que le booléen "configurée"
     const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(true);
+    // Onglet des réglages : « entreprise » (ce qui figure sur les documents),
+    // « envoi » (notifications, email, facture électronique), « application ».
+    const [settingsTab, setSettingsTab] = useState(() => {
+        try { return localStorage.getItem('settings_tab') || 'entreprise'; } catch { return 'entreprise'; }
+    });
+    const changeTab = (id) => {
+        setSettingsTab(id);
+        try { localStorage.setItem('settings_tab', id); } catch { /* stockage indisponible */ }
+    };
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
 
@@ -749,7 +759,11 @@ const Profile = () => {
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="ios-title">Réglages</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Ces informations apparaîtront sur vos devis et factures.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                        {settingsTab === 'entreprise' && 'Ces informations apparaîtront sur vos devis et factures.'}
+                        {settingsTab === 'envoi' && 'Comment vos documents partent et comment vous êtes prévenu.'}
+                        {settingsTab === 'application' && 'Préférences, options avancées et compte.'}
+                    </p>
                 </div>
                 <div className="flex flex-col gap-2 w-full md:w-auto">
                     <a
@@ -771,6 +785,18 @@ const Profile = () => {
                 </div>
             </div>
 
+            <SegmentedControl
+                className="mb-6"
+                value={settingsTab}
+                onChange={changeTab}
+                options={[
+                    { id: 'entreprise', label: 'Mon entreprise', icon: Building },
+                    { id: 'envoi', label: 'Envoi & documents', icon: Send },
+                    { id: 'application', label: 'Application', icon: Settings },
+                ]}
+            />
+
+            {settingsTab === 'entreprise' && (<>
             <form onSubmit={updateProfile} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 {!loading && (!formData.company_name || !formData.siret) && (
                     <div className="px-8 pt-6">
@@ -1199,9 +1225,15 @@ const Profile = () => {
                     </Button>
                 </div>
             </form >
+            </>)}
 
+
+            {settingsTab === 'application' && (<>
             {/* Jalons de maîtrise (gamification discrète) */}
             <AchievementsCard />
+
+            {settingsTab === 'envoi' && (<>
+            </>)}
 
             {/* Notifications Push */}
             <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800/40 overflow-hidden">
@@ -1618,6 +1650,9 @@ const Profile = () => {
                 </div>
             </div>
 
+            {settingsTab === 'application' && (<>
+            </>)}
+
             {/* Préférences de l'application */}
             <PreferencesSection />
 
@@ -1910,6 +1945,9 @@ const Profile = () => {
             </div>
             )}
 
+            {settingsTab === 'envoi' && (<>
+            </>)}
+
             {/* Plateforme Agréée (e-facture) */}
             <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-8">
@@ -1989,6 +2027,9 @@ const Profile = () => {
                     </div>
                 </div>
             </div>
+
+            {settingsTab === 'application' && (<>
+            </>)}
 
             {/* Zone de Danger / Maintenance */}
             <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -2100,6 +2141,8 @@ const Profile = () => {
                     </div>
                 </div>
             </div>
+            </>)}
+
         </div>
     );
 };

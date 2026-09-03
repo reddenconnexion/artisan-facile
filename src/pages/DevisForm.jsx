@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus, MinusCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, MoreHorizontal, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus, MinusCircle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
@@ -105,6 +105,24 @@ const buildQuoteEmailHtml = (bodyText, signUrl, signLabel) => {
     return `<div style="font-family:-apple-system,system-ui,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#1f2937;">${html}</div>`;
 };
 
+// Entrée du menu « ⋯ » d'une ligne de devis.
+const LineMenuItem = ({ icon, label, onClick, disabled = false, active = false }) => {
+    const Icon = icon;
+    return (
+    <button
+        type="button"
+        role="menuitem"
+        disabled={disabled}
+        onClick={onClick}
+        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-transparent ${active ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-200'}`}
+    >
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="flex-1">{label}</span>
+        {active && <Check className="w-4 h-4 shrink-0" />}
+    </button>
+    );
+};
+
 const DevisForm = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -177,6 +195,14 @@ const DevisForm = () => {
     // without the actual user.id or quote id changing.
     const initKeyRef = useRef(null);
     const [showCalculator, setShowCalculator] = useState(false);
+    // Menu « ⋯ » d'une ligne du devis (monter, descendre, option, calculatrice…)
+    const [lineMenuId, setLineMenuId] = useState(null);
+    useEffect(() => {
+        if (!lineMenuId) return;
+        const close = () => setLineMenuId(null);
+        document.addEventListener('click', close);
+        return () => document.removeEventListener('click', close);
+    }, [lineMenuId]);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
     // Quand le modal s'ouvre automatiquement après l'envoi/paiement, on renvoie
@@ -5713,17 +5739,6 @@ Conditions de règlement : Paiement à réception de facture.`
                                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                                             disabled={isLocked}
                                         />
-                                        {userProfile?.enable_calculator !== false && (
-                                            <button
-                                                type="button"
-                                                onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); }}
-                                                className="absolute -top-3 -right-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full p-1 shadow-sm hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400"
-                                                title="Calculatrice Matériaux"
-                                                disabled={isLocked}
-                                            >
-                                                <Calculator className="w-3 h-3" />
-                                            </button>
-                                        )}
                                     </div>
                                     <div className="w-28">
                                         <input
@@ -5739,77 +5754,77 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <div className="w-28 py-2 text-right font-medium text-gray-900 dark:text-white">
                                         {((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)} €
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    {/* Indicateurs discrets : option, chiffrage interne renseigné */}
+                                    {item.is_optional && (
+                                        <span className="self-center text-[10px] px-1.5 py-0.5 rounded border font-semibold bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800" title="Ligne optionnelle (le client choisit)">
+                                            OPT
+                                        </span>
+                                    )}
+                                    {(lineComponents(item).length > 0 || (item.internal_note || '').trim()) && (
                                         <button
                                             type="button"
-                                            onClick={() => moveItem(index, 'up')}
-                                            disabled={index === 0 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:hover:bg-transparent"
-                                            title="Monter"
+                                            onClick={() => setInternalDetailItemId(prev => prev === item.id ? null : item.id)}
+                                            className={`relative self-center flex items-center justify-center px-1.5 py-1 rounded border transition-colors ${
+                                                internalDetailItemId === item.id
+                                                    ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700'
+                                                    : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                                            }`}
+                                            title="Chiffrage interne : fournitures et note privées de cette ligne (jamais visibles par le client)"
                                         >
-                                            <ArrowUp className="w-4 h-4" />
+                                            <Lock className="w-3.5 h-3.5" />
+                                            {lineComponents(item).length > 0 && (
+                                                <span className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                                    {lineComponents(item).length}
+                                                </span>
+                                            )}
                                         </button>
+                                    )}
+                                    {/* Menu « ⋯ » : tout ce qui n'est pas quotidien (déplacer,
+                                        option, affichage, calculatrice, chiffrage interne). */}
+                                    <div className="relative self-center">
                                         <button
                                             type="button"
-                                            onClick={() => moveItem(index, 'down')}
-                                            disabled={index === formData.items.length - 1 || isLocked}
-                                            className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-30 disabled:hover:bg-transparent"
-                                            title="Descendre"
+                                            onClick={(e) => { e.stopPropagation(); setLineMenuId(prev => prev === item.id ? null : item.id); }}
+                                            className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                                            title="Plus d'options pour cette ligne"
+                                            aria-haspopup="menu"
+                                            aria-expanded={lineMenuId === item.id}
                                         >
-                                            <ArrowDown className="w-4 h-4" />
+                                            <MoreHorizontal className="w-5 h-5" />
                                         </button>
+                                        {lineMenuId === item.id && (
+                                            <div
+                                                className="absolute right-0 top-full mt-1 z-30 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1"
+                                                role="menu"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <LineMenuItem icon={ArrowUp} label="Monter" disabled={index === 0 || isLocked}
+                                                    onClick={() => { moveItem(index, 'up'); setLineMenuId(null); }} />
+                                                <LineMenuItem icon={ArrowDown} label="Descendre" disabled={index === formData.items.length - 1 || isLocked}
+                                                    onClick={() => { moveItem(index, 'down'); setLineMenuId(null); }} />
+                                                <LineMenuItem icon={Star} label="Ligne optionnelle (au choix du client)" disabled={isLocked} active={!!item.is_optional}
+                                                    onClick={() => { updateItem(item.id, 'is_optional', !item.is_optional); setLineMenuId(null); }} />
+                                                {formData.client_display_mode === 'poste_global' && item.type === 'material' && (
+                                                    <LineMenuItem icon={Eye} label="Afficher à l'unité (quantité visible)" disabled={isLocked}
+                                                        active={isPerUnit(item, sectionTitleByIndex[index])}
+                                                        onClick={() => { updateItem(item.id, 'display_per_unit', !isPerUnit(item, sectionTitleByIndex[index])); setLineMenuId(null); }} />
+                                                )}
+                                                {userProfile?.enable_calculator !== false && (
+                                                    <LineMenuItem icon={Calculator} label="Calculatrice matériaux" disabled={isLocked}
+                                                        onClick={() => { setActiveCalculatorItem(item.id); setShowCalculator(true); setLineMenuId(null); }} />
+                                                )}
+                                                <LineMenuItem icon={Lock} label="Chiffrage interne (privé)" active={internalDetailItemId === item.id}
+                                                    onClick={() => { setInternalDetailItemId(prev => prev === item.id ? null : item.id); setLineMenuId(null); }} />
+                                            </div>
+                                        )}
                                     </div>
                                     <button
                                         onClick={() => removeItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
+                                        className="self-center p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
                                         disabled={isLocked}
+                                        title="Supprimer la ligne"
                                     >
                                         <Trash2 className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateItem(item.id, 'is_optional', !item.is_optional)}
-                                        disabled={isLocked}
-                                        className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
-                                        title={item.is_optional ? 'Option — cliquer pour rendre obligatoire' : 'Rendre cette ligne optionnelle'}
-                                    >
-                                        OPT
-                                    </button>
-                                    {/* Présentation « poste global » : cette ligne matériel est-elle
-                                        affichée à l'unité (quantité visible) ou fondue dans le poste ?
-                                        Pré-cochée pour les unités u/pièce/point HORS section technique
-                                        (tableau…), surchargeable. */}
-                                    {formData.client_display_mode === 'poste_global' && item.type === 'material' && (
-                                        <button
-                                            type="button"
-                                            onClick={() => updateItem(item.id, 'display_per_unit', !isPerUnit(item, sectionTitleByIndex[index]))}
-                                            disabled={isLocked}
-                                            className={`text-[10px] px-1.5 py-1 rounded border font-semibold transition-colors ${item.is_optional ? 'opacity-40' : ''} ${isPerUnit(item, sectionTitleByIndex[index]) ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'}`}
-                                            title={isPerUnit(item, sectionTitleByIndex[index])
-                                                ? "Affiché à l'unité (quantité visible côté client) — cliquer pour fondre dans le poste global"
-                                                : "Fondu dans le poste global — cliquer pour afficher à l'unité (quantité visible)"}
-                                        >
-                                            /U
-                                        </button>
-                                    )}
-                                    {/* Chiffrage interne : reste consultable même quand le devis
-                                        est verrouillé (revue avec le client), en lecture seule. */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setInternalDetailItemId(prev => prev === item.id ? null : item.id)}
-                                        className={`relative flex items-center justify-center px-1.5 py-1 rounded border transition-colors ${
-                                            internalDetailItemId === item.id || lineComponents(item).length > 0 || (item.internal_note || '').trim()
-                                                ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
-                                                : 'text-gray-300 border-gray-200 dark:border-gray-700 hover:text-gray-500 hover:border-gray-300'
-                                        }`}
-                                        title="Chiffrage interne : fournitures et note privées de cette ligne (jamais visibles par le client)"
-                                    >
-                                        <Lock className="w-3.5 h-3.5" />
-                                        {lineComponents(item).length > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-                                                {lineComponents(item).length}
-                                            </span>
-                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -5828,7 +5843,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <button
                                         type="button"
                                         onClick={() => insertItemAfter(index)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity mx-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 bg-white dark:bg-gray-900 border border-blue-200 hover:border-blue-400 rounded px-2 py-0.5 shadow-sm"
+                                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity mx-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 bg-white dark:bg-gray-900 border border-blue-200 hover:border-blue-400 rounded px-2 py-0.5 shadow-sm"
                                         title="Insérer une ligne ici"
                                     >
                                         <Plus className="w-3 h-3" /> Insérer ici
