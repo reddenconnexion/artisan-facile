@@ -6,7 +6,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
-import { blobToBase64, imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
+import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
+import { transcribeBlob } from '../utils/transcribeAudio';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
 import { buildPredevisReport } from '../utils/predevisReport';
@@ -15,6 +16,7 @@ import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/s
 import SurveyForm from './SurveyForm';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
+import PhotoLightbox from './PhotoLightbox';
 import { isInPageCameraSupported, openCameraStream, cameraErrorMessage } from '../utils/cameraCapture';
 import { readAudioInput, rememberAudioInput } from '../utils/audioInput';
 import PredevisReportModal from './PredevisReportModal';
@@ -25,7 +27,7 @@ import {
     buildTimelineLines, photoZones,
 } from '../utils/visitCapture';
 import { surveyCompleteness } from '../utils/predevisReport';
-import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel } from '../utils/visitDraft';
+import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos } from '../utils/visitDraft';
 import {
     formatDuration,
     fmtEur,
@@ -45,7 +47,8 @@ import {
 // Brouillon de visite exploitable retrouvé sur l'appareil, ou null.
 const readPendingDraft = () => {
     const draft = loadVisitDraft();
-    const usable = draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey) || hasCaptureContent(draft.capture));
+    const usable = draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey) || hasCaptureContent(draft.capture)
+        || draft.photos?.length || Object.keys(draft.transcripts || {}).length);
     return usable ? draft : null;
 };
 
@@ -57,6 +60,16 @@ const buildPhotos = (files) => Array.from(files).map((file, i) => ({
     preview: URL.createObjectURL(file),
     mediaType: file.type || 'image/jpeg',
 }));
+
+// Photo reprise d'un brouillon : le fichier local n'existe plus, on la
+// recharge depuis le stockage quand l'analyse en a besoin.
+const photoAsFile = async (photo) => {
+    if (photo.file) return photo.file;
+    const blob = await (await fetch(photo.url)).blob();
+    return new File([blob], photo.name || 'photo.jpg', { type: blob.type || 'image/jpeg' });
+};
+
+const omitKey = (obj, key) => Object.fromEntries(Object.entries(obj).filter(([k]) => k !== String(key)));
 
 // Horloge du fil de visite. Impure : appelée depuis les gestionnaires
 // d'événements, jamais pendant le rendu.
@@ -114,6 +127,13 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // Compte rendu de visite (sortie principale : à coller dans l'IA devis)
     const [showReport, setShowReport] = useState(null); // Date d'ouverture du compte rendu
     const [voiceTranscripts, setVoiceTranscripts] = useState({}); // { [idNoteVocale]: texte }
+    // Avancement de la transcription de chaque note : { [id]: { state, error, retryable } }
+    const [voiceStatus, setVoiceStatus] = useState({});
+    // Photo ouverte en grand (index dans `photos`) ; null = visionneuse fermée
+    const [photoViewer, setPhotoViewer] = useState(null);
+    // Rapport d'intervention qui archive cette visite, créé au premier compte rendu
+    const [visitReportId, setVisitReportId] = useState(null);
+    const visitDateRef = useRef(null);
 
     // Brouillon repéré au démarrage (visite interrompue)
     const [pendingDraft, setPendingDraft] = useState(readPendingDraft);
@@ -144,14 +164,21 @@ const VisiteTechniqueMode = ({ onBack }) => {
     useEffect(() => {
         if (step !== 'capture') return undefined;
         const hasSomething = clientName.trim() || address.trim() || textNotes.trim()
-            || hasSurveyContent(survey) || hasCaptureContent(capture);
+            || hasSurveyContent(survey) || hasCaptureContent(capture) || photos.some(p => p.path);
         if (!hasSomething) return undefined;
         const timer = setTimeout(
-            () => saveVisitDraft({ clientId, clientName, address, textNotes, survey, capture }),
+            () => saveVisitDraft({
+                clientId, clientName, address, textNotes, survey, capture,
+                // Ce qui a déjà été mis à l'abri survit à une reprise : les
+                // photos envoyées, les notes transcrites et le rapport archivé.
+                photos: draftPhotos(photos),
+                transcripts: voiceTranscripts,
+                visitReportId,
+            }),
             600
         );
         return () => clearTimeout(timer);
-    }, [step, clientId, clientName, address, textNotes, survey, capture]);
+    }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceTranscripts, visitReportId]);
 
     const restoreDraft = () => {
         const draft = pendingDraft;
@@ -164,14 +191,96 @@ const VisiteTechniqueMode = ({ onBack }) => {
         // Le fil revient sans ses médias : l'audio et les photos ne survivent
         // pas à la fermeture de l'onglet, le texte du déroulé si.
         if (draft.capture) setCapture({ ...createCapture(), ...draft.capture });
+        // Photos déjà enregistrées et notes déjà transcrites : on les
+        // retrouve ; seuls les fichiers audio sont perdus.
+        const restoredPhotos = restoreDraftPhotos(draft.photos);
+        if (restoredPhotos.length) {
+            setPhotos(restoredPhotos);
+            uploadedPhotosRef.current = restoredPhotos.map(p => ({ url: p.url, path: p.path, name: p.name || 'photo.jpg' }));
+        }
+        if (draft.transcripts && typeof draft.transcripts === 'object') setVoiceTranscripts(draft.transcripts);
+        if (draft.visitReportId) setVisitReportId(draft.visitReportId);
         setPendingDraft(null);
-        toast.success('Relevé repris');
+        toast.success(restoredPhotos.length
+            ? `Relevé repris — ${restoredPhotos.length} photo${restoredPhotos.length > 1 ? 's' : ''} retrouvée${restoredPhotos.length > 1 ? 's' : ''}`
+            : 'Relevé repris');
     };
 
     const discardDraft = () => {
         clearVisitDraft();
         setPendingDraft(null);
     };
+
+    // ── Transcription au fil de la visite ──────────────────────────────────
+    // Chaque segment part en transcription dès qu'il se ferme, pendant que
+    // le micro continue. Tout transcrire d'un bloc à la fin obligeait à
+    // garder l'écran allumé plusieurs minutes : dès que le téléphone se
+    // verrouillait, les appels restants étaient perdus. Un seul appel à la
+    // fois, dans l'ordre ; les échecs réessayables repartent au retour du
+    // réseau ou d'un tap sur « Réessayer ».
+
+    const voiceNotesRef = useRef(voiceNotes);
+    useEffect(() => { voiceNotesRef.current = voiceNotes; }, [voiceNotes]);
+    const voiceStatusRef = useRef(voiceStatus);
+    useEffect(() => { voiceStatusRef.current = voiceStatus; }, [voiceStatus]);
+    const transcribeQueueRef = useRef([]);
+    const transcribingRef = useRef(false);
+
+    const runTranscriptionQueue = useCallback(async () => {
+        if (transcribingRef.current) return;
+        transcribingRef.current = true;
+        try {
+            while (transcribeQueueRef.current.length) {
+                const note = transcribeQueueRef.current.shift();
+                // Note supprimée entre-temps : rien à transcrire.
+                if (!voiceNotesRef.current.some(n => n.id === note.id)) continue;
+                setVoiceStatus(s => ({ ...s, [note.id]: { state: 'transcribing' } }));
+                try {
+                    const { transcript } = await transcribeBlob(note.blob, note.mimeType);
+                    setVoiceTranscripts(prev => ({ ...prev, [note.id]: transcript }));
+                    setVoiceStatus(s => ({ ...s, [note.id]: { state: 'done' } }));
+                } catch (err) {
+                    console.warn('Transcription en échec :', err);
+                    setVoiceStatus(s => ({
+                        ...s,
+                        [note.id]: { state: 'failed', error: err.message, retryable: err.retryable !== false },
+                    }));
+                }
+            }
+        } finally {
+            transcribingRef.current = false;
+        }
+    }, []);
+
+    const enqueueTranscription = useCallback((notes) => {
+        const fresh = notes.filter(n => n?.blob && !transcribeQueueRef.current.some(q => q.id === n.id));
+        if (!fresh.length) return;
+        transcribeQueueRef.current.push(...fresh);
+        setVoiceStatus(s => fresh.reduce((acc, n) => ({ ...acc, [n.id]: { state: 'pending' } }), { ...s }));
+        runTranscriptionQueue();
+    }, [runTranscriptionQueue]);
+
+    /** Relance les notes en échec (bouton « Réessayer »). */
+    const retryFailedTranscriptions = useCallback(() => {
+        const failed = voiceNotesRef.current.filter(n => voiceStatusRef.current[n.id]?.state === 'failed');
+        if (failed.length) enqueueTranscription(failed);
+    }, [enqueueTranscription]);
+
+    // Retour du réseau : on rattrape ce qui a échoué pour cause de coupure.
+    useEffect(() => {
+        const retry = () => {
+            const failed = voiceNotesRef.current.filter(n => {
+                const st = voiceStatusRef.current[n.id];
+                return st?.state === 'failed' && st.retryable;
+            });
+            if (failed.length) enqueueTranscription(failed);
+        };
+        window.addEventListener('online', retry);
+        return () => window.removeEventListener('online', retry);
+    }, [enqueueTranscription]);
+
+    const transcribingCount = Object.values(voiceStatus)
+        .filter(st => st.state === 'pending' || st.state === 'transcribing').length;
 
     // ── Mode express : le micro tourne, les taps complètent ────────────────
 
@@ -183,9 +292,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const handleSegment = useCallback(({ blob, mimeType, duration, index, startedAt, meta }) => {
         const id = `seg-${startedAt}-${index}`;
         const zone = meta?.zone || '';
-        setVoiceNotes(prev => [...prev, { id, blob, mimeType, duration, zone }]);
+        const note = { id, blob, mimeType, duration, zone };
+        setVoiceNotes(prev => [...prev, note]);
         setCapture(c => addVoice(c, { mediaId: id, duration, at: startedAt, zone }));
-    }, []);
+        enqueueTranscription([note]);
+    }, [enqueueTranscription]);
 
     const getSegmentMeta = useCallback(() => ({ zone: captureZoneRef.current }), []);
 
@@ -275,13 +386,12 @@ const VisiteTechniqueMode = ({ onBack }) => {
         if (undone.type === 'count') {
             setSurvey(s => bumpSurveyCounter(s, undone.zone, undone.counterKey, -undone.delta));
         } else if (undone.type === 'photo') {
-            setPhotos(prev => {
-                const gone = prev.find(p => p.id === undone.mediaId);
-                if (gone?.preview) URL.revokeObjectURL(gone.preview);
-                return prev.filter(p => p.id !== undone.mediaId);
-            });
+            const gone = photos.find(p => p.id === undone.mediaId);
+            if (gone?.preview?.startsWith('blob:')) URL.revokeObjectURL(gone.preview);
+            setPhotos(prev => prev.filter(p => p.id !== undone.mediaId));
+            if (gone?.path) forgetStoredPhoto(gone);
         } else if (undone.type === 'voice') {
-            setVoiceNotes(prev => prev.filter(n => n.id !== undone.mediaId));
+            handleDeleteVoice(undone.mediaId);
         }
         setCapture(next);
     };
@@ -292,7 +402,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // Interventions, photos comprises. L'audio, lui, n'est jamais conservé :
     // il produit la transcription puis il est oublié.
 
-    const [visitReportId, setVisitReportId] = useState(null);
     const [visitSaving, setVisitSaving] = useState(false);
     const uploadedPhotosRef = useRef([]);
     const linkedPhotoPathsRef = useRef(new Set());
@@ -354,8 +463,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
         return () => window.removeEventListener('online', retry);
     });
 
-    const saveVisit = async (date, textOverride) => {
+    const saveVisit = async (date, textOverride, { silent = false } = {}) => {
         if (!user) return;
+        visitDateRef.current = visitDateRef.current || date;
+        const signature = visitSignature();
         setVisitSaving(true);
         try {
             const uploaded = await uploadPendingPhotos();
@@ -394,17 +505,59 @@ const VisiteTechniqueMode = ({ onBack }) => {
             }
 
             if (visitReportId) {
-                await supabase.from('intervention_reports').update(record).eq('id', visitReportId);
+                const { error } = await supabase.from('intervention_reports').update(record).eq('id', visitReportId);
+                if (error) throw error;
             } else {
-                const { data } = await supabase.from('intervention_reports')
+                const { data, error } = await supabase.from('intervention_reports')
                     .insert(record).select('id').single();
+                if (error) throw error;
                 if (data?.id) setVisitReportId(data.id);
             }
+            lastSavedSignatureRef.current = signature;
         } catch (err) {
             console.error('Enregistrement de la visite impossible :', err);
-            toast.error("Visite non enregistrée — le compte rendu reste copiable.");
+            if (!silent) toast.error("Visite non enregistrée — le compte rendu reste copiable.");
         } finally {
             setVisitSaving(false);
+        }
+    };
+
+    // Le compte rendu archivé suit la visite : chaque transcription reçue,
+    // chaque photo enregistrée ou retirée après l'ouverture du compte rendu y
+    // est reportée. Avant, il n'était écrit qu'à l'ouverture et au « Copier » :
+    // une visite transcrite après coup restait archivée « non transcrite »,
+    // et les photos prises ensuite n'y figuraient pas.
+    const visitSignature = () => JSON.stringify({
+        transcripts: voiceTranscripts,
+        photos: photos.filter(p => p.path).map(p => p.path),
+        entries: (capture.entries || []).length,
+        survey,
+        textNotes,
+        clientId,
+        clientName,
+        address,
+    });
+    const lastSavedSignatureRef = useRef(null);
+    const saveVisitRef = useRef(saveVisit);
+    useEffect(() => { saveVisitRef.current = saveVisit; });
+    const currentSignature = visitSignature();
+    useEffect(() => {
+        if (!visitReportId || !user) return undefined;
+        if (currentSignature === lastSavedSignatureRef.current) return undefined;
+        const timer = setTimeout(() => {
+            saveVisitRef.current(visitDateRef.current || nowDate(), undefined, { silent: true });
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, [visitReportId, user, currentSignature]);
+
+    /** Retire une photo déjà envoyée : du stockage, de l'archive et de la fiche client. */
+    const forgetStoredPhoto = async (photo) => {
+        uploadedPhotosRef.current = uploadedPhotosRef.current.filter(p => p.path !== photo.path);
+        linkedPhotoPathsRef.current.delete(photo.path);
+        const { error } = await supabase.storage.from('project-photos').remove([photo.path]);
+        if (error) console.error('Suppression du fichier impossible :', error);
+        if (photo.url && user) {
+            await supabase.from('project_photos').delete().eq('photo_url', photo.url).eq('user_id', user.id);
         }
     };
 
@@ -427,17 +580,18 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const handleStopRecording = async () => {
         const res = await stopRecording();
         if (res?.blob) {
-            setVoiceNotes(prev => [...prev, {
-                id: Date.now(),
-                blob: res.blob,
-                mimeType: res.mimeType,
-                duration: res.duration,
-            }]);
+            const note = { id: `note-${Date.now()}`, blob: res.blob, mimeType: res.mimeType, duration: res.duration };
+            setVoiceNotes(prev => [...prev, note]);
+            enqueueTranscription([note]);
             toast.success(`Note vocale ajoutée (${formatDuration(res.duration)})`);
         }
     };
 
-    const handleDeleteVoice = (id) => setVoiceNotes(prev => prev.filter(n => n.id !== id));
+    const handleDeleteVoice = (id) => {
+        setVoiceNotes(prev => prev.filter(n => n.id !== id));
+        setVoiceTranscripts(prev => omitKey(prev, id));
+        setVoiceStatus(prev => omitKey(prev, id));
+    };
 
     // ── Photos ─────────────────────────────────────────────────────────────
 
@@ -448,12 +602,22 @@ const VisiteTechniqueMode = ({ onBack }) => {
         uploadPhotos(added);
     };
 
-    const handleDeletePhoto = (id) => {
-        setPhotos(prev => {
-            const p = prev.find(x => x.id === id);
-            if (p) URL.revokeObjectURL(p.preview);
-            return prev.filter(x => x.id !== id);
+    const handleDeletePhoto = async (id) => {
+        const photo = photos.find(x => x.id === id);
+        if (!photo) return false;
+        const ok = await confirm({
+            title: 'Supprimer cette photo ?',
+            message: 'Elle sera retirée de la visite et du stockage.',
+            confirmLabel: 'Supprimer',
+            danger: true,
         });
+        if (!ok) return false;
+        if (photo.preview?.startsWith('blob:')) URL.revokeObjectURL(photo.preview);
+        setPhotos(prev => prev.filter(x => x.id !== id));
+        // Le fil de visite ne doit plus compter cette photo.
+        setCapture(c => ({ ...c, entries: (c.entries || []).filter(e => !(e.type === 'photo' && e.mediaId === id)) }));
+        if (photo.path) await forgetStoredPhoto(photo);
+        return true;
     };
 
     // ── Analysis ───────────────────────────────────────────────────────────
@@ -476,18 +640,20 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 transcripts.push(...alreadyTranscribed);
             } else if (voiceNotes.length > 0) {
                 setActivePhase('voice');
+                const collected = {};
                 for (const note of voiceNotes) {
+                    const known = voiceTranscripts[note.id];
+                    if (known !== undefined) { if (String(known).trim()) transcripts.push(known); continue; }
+                    if (!note.blob) continue; // note reprise d'un brouillon : l'audio n'existe plus
                     try {
-                        const audioBase64 = await blobToBase64(note.blob);
-                        const { data, error: fnErr } = await supabase.functions.invoke('voice-transcribe', {
-                            body: { audioBase64, mimeType: note.mimeType }
-                        });
-                        if (fnErr) { console.warn('Transcription skipped:', fnErr.message); continue; }
-                        if (data?.transcript) transcripts.push(data.transcript);
+                        const { transcript } = await transcribeBlob(note.blob, note.mimeType);
+                        collected[note.id] = transcript;
+                        if (transcript) transcripts.push(transcript);
                     } catch (noteErr) {
-                        console.warn('Transcription error, skipping note:', noteErr);
+                        console.warn('Transcription en échec, note ignorée :', noteErr.message);
                     }
                 }
+                if (Object.keys(collected).length) setVoiceTranscripts(prev => ({ ...prev, ...collected }));
             }
 
             if (textNotes.trim()) transcripts.push(textNotes.trim());
@@ -497,7 +663,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 setActivePhase('photos');
                 for (const photo of photos) {
                     try {
-                        const imageBase64 = await imageFileToBase64(photo.file);
+                        const imageBase64 = await imageFileToBase64(await photoAsFile(photo));
                         const { data, error: fnErr } = await supabase.functions.invoke('plan-vision', {
                             body: {
                                 imageBase64,
@@ -643,6 +809,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
             .filter(Boolean),
     };
 
+    const photoZonesById = photoZones(capture);
+
     const totalHT = result?.items?.reduce(
         (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0
     ) || 0;
@@ -713,7 +881,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 </p>
                                 <p className="text-xs text-blue-700 mt-0.5">
                                     {[pendingDraft.clientName, draftAgeLabel(pendingDraft.savedAt)].filter(Boolean).join(' — ')}
-                                    {' '}· photos et notes vocales non conservées.
+                                    {' '}· photos enregistrées et transcriptions retrouvées, audio non conservé.
                                 </p>
                                 <div className="flex gap-2 mt-2">
                                     <button
@@ -816,6 +984,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         onPickMic={handlePickMic}
                         photos={photos}
                         onRetryPhotos={() => uploadPhotos(photos.filter(p => !p.path))}
+                        onOpenPhoto={setPhotoViewer}
+                        voiceNotes={voiceNotes}
+                        transcripts={voiceTranscripts}
+                        voiceStatus={voiceStatus}
+                        onRetryTranscriptions={retryFailedTranscriptions}
                     />
                 )}
 
@@ -1015,7 +1188,14 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 <div className="mt-2 grid grid-cols-3 gap-2">
                                     {photos.map(photo => (
                                         <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                                            <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setPhotoViewer(photos.indexOf(photo))}
+                                                className="w-full h-full"
+                                                aria-label="Agrandir la photo"
+                                            >
+                                                <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+                                            </button>
                                             <button
                                                 onClick={() => handleDeletePhoto(photo.id)}
                                                 className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-colors"
@@ -1300,6 +1480,17 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 onChange={e => { handleExpressPhotos(e.target.files); e.target.value = ''; }}
             />
 
+            <PhotoLightbox
+                photos={photos.map(p => ({
+                    src: p.preview || p.url,
+                    name: p.name || p.file?.name || '',
+                    caption: photoZonesById[p.id] || '',
+                }))}
+                index={photoViewer}
+                onIndexChange={setPhotoViewer}
+                onDelete={(_, i) => handleDeletePhoto(photos[i]?.id)}
+            />
+
             <PredevisReportModal
                 open={Boolean(showReport)}
                 onClose={() => setShowReport(null)}
@@ -1308,6 +1499,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 meta={reportMeta}
                 voiceNotes={voiceNotes}
                 transcripts={voiceTranscripts}
+                transcribingCount={transcribingCount}
                 onTranscripts={(map) => setVoiceTranscripts(prev => ({ ...prev, ...map }))}
                 clientName={clientName}
                 address={address}

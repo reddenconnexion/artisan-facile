@@ -159,6 +159,12 @@ export const useVisitRecorder = ({ segmentMs = 8 * 60 * 1000, deviceId = '', onS
     const beginSegment = useCallback(() => {
         const stream = streamRef.current;
         if (!stream) return;
+        // Jamais deux enregistreurs sur le même flux. Entre `stop()` et son
+        // `onstop` (asynchrone), un retour au premier plan pouvait ouvrir un
+        // segment, puis `onstop` en ouvrir un second : le premier tournait
+        // alors sans référence, sans limite de durée, et sa fermeture ne
+        // survenait qu'à la fin de la visite.
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') return;
         const mimeType = pickMimeType();
         // 32 kbit/s : largement suffisant pour de la parole, et surtout
         // 8 minutes d'enregistrement ≈ 2 Mo, ce qui passe sans problème dans

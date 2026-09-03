@@ -17,6 +17,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useClients, useQuotes, useInterventionReport, useInvalidateCache, useUserProfile } from '../hooks/useDataCache';
 import SignatureModal from '../components/SignatureModal';
+import PhotoLightbox from '../components/PhotoLightbox';
+import { useConfirm } from '../context/ConfirmContext';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
@@ -36,6 +38,9 @@ const InterventionReportForm = () => {
     const { data: allQuotes = [] } = useQuotes();
     const { data: userProfile } = useUserProfile();
     const { invalidateInterventionReports, invalidateInterventionReport } = useInvalidateCache();
+    const confirm = useConfirm();
+    // Photo ouverte en grand (index dans formData.photos) ; null = fermée
+    const [photoViewer, setPhotoViewer] = useState(null);
 
     const [clientSearch, setClientSearch] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -349,14 +354,36 @@ const InterventionReportForm = () => {
         }
     };
 
+    // Suppression d'une photo : fichier, formulaire et — pour un rapport déjà
+    // enregistré — la ligne en base tout de suite, sans attendre « Enregistrer »,
+    // sinon le rapport garderait la référence d'un fichier qui n'existe plus.
     const removePhoto = async (photo) => {
+        const ok = await confirm({
+            title: 'Supprimer cette photo ?',
+            message: 'Elle sera retirée du rapport et du stockage. Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            danger: true,
+        });
+        if (!ok) return false;
         try {
             if (photo.path) {
                 await supabase.storage.from('project-photos').remove([photo.path]);
             }
-            setFormData(prev => ({ ...prev, photos: prev.photos.filter(p => p.url !== photo.url) }));
-        } catch (err) {
+            const remaining = (formData.photos || []).filter(p => p.url !== photo.url);
+            setFormData(prev => ({ ...prev, photos: (prev.photos || []).filter(p => p.url !== photo.url) }));
+            if (isEditing) {
+                const { error } = await supabase
+                    .from('intervention_reports')
+                    .update({ photos: remaining })
+                    .eq('id', id);
+                if (error) throw error;
+                invalidateInterventionReport(id);
+            }
+            toast.success('Photo supprimée');
+            return true;
+        } catch {
             toast.error('Erreur lors de la suppression');
+            return false;
         }
     };
 
@@ -527,8 +554,12 @@ const InterventionReportForm = () => {
                 updated_at: new Date().toISOString(),
             };
 
-            // Ajouter photos seulement si la colonne existe (migration appliquée)
-            const photosPayload = formData.photos?.length ? { photos: formData.photos } : {};
+            // Ajouter photos seulement si la colonne existe (migration appliquée).
+            // En édition on envoie toujours la liste, même vide : une photo
+            // supprimée doit aussi disparaître du rapport enregistré.
+            const photosPayload = isEditing
+                ? { photos: formData.photos || [] }
+                : (formData.photos?.length ? { photos: formData.photos } : {});
 
             if (isEditing) {
                 const { error } = await supabase
@@ -1502,15 +1533,25 @@ const InterventionReportForm = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {(formData.photos || []).map((photo, idx) => (
                             <div key={photo.url} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center" style={{ minHeight: '100px', aspectRatio: '4/3' }}>
-                                <img
-                                    src={photo.url}
-                                    alt={photo.name || `Photo ${idx + 1}`}
-                                    className="w-full h-full object-contain"
-                                />
+                                {/* Un tap ouvre la photo en grand : zoom, copie, partage, suppression. */}
                                 <button
+                                    type="button"
+                                    onClick={() => setPhotoViewer(idx)}
+                                    className="w-full h-full"
+                                    aria-label={`Agrandir la photo ${idx + 1}`}
+                                >
+                                    <img
+                                        src={photo.url}
+                                        alt={photo.name || `Photo ${idx + 1}`}
+                                        className="w-full h-full object-contain"
+                                    />
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => removePhoto(photo)}
-                                    className="absolute top-1.5 right-1.5 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-full transition-colors shadow-md"
                                     title="Supprimer"
+                                    aria-label="Supprimer la photo"
                                 >
                                     <X className="w-3 h-3" />
                                 </button>
@@ -1752,6 +1793,13 @@ const InterventionReportForm = () => {
             </div>
 
             {/* Signature Modal */}
+            <PhotoLightbox
+                photos={(formData.photos || []).map((p, i) => ({ src: p.url, name: p.name || `photo-${i + 1}.jpg` }))}
+                index={photoViewer}
+                onIndexChange={setPhotoViewer}
+                onDelete={(_, i) => removePhoto((formData.photos || [])[i])}
+            />
+
             <SignatureModal
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}

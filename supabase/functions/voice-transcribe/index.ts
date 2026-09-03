@@ -6,34 +6,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+// Les fournisseurs attendent un type MIME nu : « audio/webm;codecs=opus »
+// (ce que produit MediaRecorder) devient « audio/webm ».
+const bareMimeType = (mimeType: string) => mimeType.split(';')[0].trim().toLowerCase() || 'audio/webm';
+
+// Corps d'erreur d'un fournisseur : JSON si possible, sinon le texte brut,
+// pour ne jamais masquer la vraie cause derrière une erreur de parsing.
+const readErrorMessage = async (response: Response, fallback: string) => {
+  const raw = await response.text().catch(() => '');
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.error?.message || parsed?.error || fallback;
+  } catch {
+    return raw ? `${fallback} — ${raw.slice(0, 200)}` : fallback;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const startedAt = Date.now();
+  let memoId: string | undefined;
+  // deno-lint-ignore no-explicit-any
+  let supabase: any = null;
+  let userId = '';
+
+  const markMemo = async (patch: Record<string, unknown>) => {
+    if (!memoId || !supabase) return;
+    await supabase.from('voice_memos').update(patch).eq('id', memoId).eq('user_id', userId);
+  };
+
   try {
     // Authentication
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!authHeader) return json({ error: 'Non autorisé' }, 401);
 
-    const supabase = createClient(
+    supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+    userId = user.id;
 
     // Rate limit : 60 transcriptions / heure / utilisateur.
     // Une visite prédevis enregistrée en continu est découpée en segments
@@ -50,12 +74,7 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'Profil introuvable' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (profileError || !profile) return json({ error: 'Profil introuvable' }, 404);
 
     // Determine provider and API key
     const userPlan = profile.plan || 'free';
@@ -76,37 +95,32 @@ Deno.serve(async (req) => {
 
     if (!apiKey) {
       const providerLabel = aiProvider === 'gemini' ? 'Gemini' : 'OpenAI';
-      return new Response(
-        JSON.stringify({
-          error: isPrivileged
-            ? 'Service de transcription temporairement indisponible.'
-            : `Clé API ${providerLabel} non configurée. Ajoutez-la dans votre profil pour utiliser la transcription vocale.`
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({
+        error: isPrivileged
+          ? 'Service de transcription temporairement indisponible.'
+          : `Clé API ${providerLabel} non configurée. Ajoutez-la dans votre profil pour utiliser la transcription vocale.`
+      }, 400);
     }
 
-    const body = await req.json();
-    const { audioBase64, mimeType, memoId } = body;
-
-    if (!audioBase64) {
-      return new Response(
-        JSON.stringify({ error: 'Audio manquant' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: 'Enregistrement illisible (corps de requête invalide ou trop volumineux).' }, 400);
     }
+    const { audioBase64, mimeType } = body;
+    memoId = body.memoId;
+
+    if (!audioBase64) return json({ error: 'Audio manquant' }, 400);
 
     // Update memo status to transcribing
-    if (memoId) {
-      await supabase
-        .from('voice_memos')
-        .update({ status: 'transcribing' })
-        .eq('id', memoId)
-        .eq('user_id', user.id);
-    }
+    await markMemo({ status: 'transcribing' });
 
-    const audioMimeType = mimeType || 'audio/webm';
+    const audioMimeType = bareMimeType(String(mimeType || 'audio/webm'));
+    const audioBytes = Math.round(audioBase64.length * 3 / 4);
+    const logPrefix = `[voice-transcribe] user=${user.id.slice(0, 8)} provider=${aiProvider} mime=${audioMimeType} bytes=${audioBytes}`;
     let transcript = '';
+    let emptyReason = '';
 
     if (aiProvider === 'gemini') {
       // Gemini audio transcription via inlineData
@@ -125,34 +139,41 @@ Deno.serve(async (req) => {
                   }
                 },
                 {
-                  text: 'Transcris cet enregistrement audio en français. Retourne uniquement la transcription, sans commentaires ni formatage.'
+                  text: "Transcris cet enregistrement audio en français, mot pour mot. Retourne uniquement la transcription, sans commentaires ni formatage. Si l'enregistrement ne contient aucune parole audible, retourne une chaîne vide."
                 }
               ]
-            }]
+            }],
+            generationConfig: { temperature: 0 },
           })
         }
       );
 
       if (!geminiResponse.ok) {
-        const errData = await geminiResponse.json();
-        const errMsg = errData?.error?.message || `Erreur Gemini (${geminiResponse.status})`;
-
-        if (memoId) {
-          await supabase
-            .from('voice_memos')
-            .update({ status: 'error' })
-            .eq('id', memoId)
-            .eq('user_id', user.id);
-        }
-
-        return new Response(
-          JSON.stringify({ error: errMsg }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const errMsg = await readErrorMessage(geminiResponse, `Erreur Gemini (${geminiResponse.status})`);
+        console.error(`${logPrefix} gemini status=${geminiResponse.status} error=${errMsg}`);
+        await markMemo({ status: 'error' });
+        return json({ error: errMsg }, 502);
       }
 
       const geminiData = await geminiResponse.json();
-      transcript = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      const candidate = geminiData.candidates?.[0];
+      // Le texte peut être réparti sur plusieurs parties : on les assemble
+      // toutes au lieu de ne lire que la première.
+      transcript = (candidate?.content?.parts || [])
+        .map((p: { text?: string }) => p?.text || '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const finishReason = candidate?.finishReason;
+      const blockReason = geminiData.promptFeedback?.blockReason;
+      if (!transcript) {
+        emptyReason = blockReason
+          ? `Gemini a refusé l'enregistrement (${blockReason}).`
+          : finishReason && finishReason !== 'STOP'
+            ? `Gemini n'a pas terminé la transcription (${finishReason}).`
+            : '';
+        console.warn(`${logPrefix} gemini empty finish=${finishReason ?? '-'} block=${blockReason ?? '-'}`);
+      }
 
     } else {
       // OpenAI Whisper transcription
@@ -176,35 +197,27 @@ Deno.serve(async (req) => {
       });
 
       if (!whisperResponse.ok) {
-        const errData = await whisperResponse.json();
-        const errMsg = errData?.error?.message || `Erreur Whisper (${whisperResponse.status})`;
-
-        if (memoId) {
-          await supabase
-            .from('voice_memos')
-            .update({ status: 'error' })
-            .eq('id', memoId)
-            .eq('user_id', user.id);
-        }
-
-        return new Response(
-          JSON.stringify({ error: errMsg }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const errMsg = await readErrorMessage(whisperResponse, `Erreur Whisper (${whisperResponse.status})`);
+        console.error(`${logPrefix} whisper status=${whisperResponse.status} error=${errMsg}`);
+        await markMemo({ status: 'error' });
+        return json({ error: errMsg }, 502);
       }
 
       const whisperData = await whisperResponse.json();
       transcript = whisperData.text?.trim() || '';
     }
 
-    // Update memo with transcript and status
-    if (memoId) {
-      await supabase
-        .from('voice_memos')
-        .update({ transcript, status: 'processing' })
-        .eq('id', memoId)
-        .eq('user_id', user.id);
+    // Un fournisseur qui n'a pas pu traiter l'audio est une erreur : le
+    // client doit pouvoir réessayer au lieu de croire à un silence.
+    if (!transcript && emptyReason) {
+      await markMemo({ status: 'error' });
+      return json({ error: emptyReason }, 502);
     }
+
+    console.log(`${logPrefix} ok chars=${transcript.length} ms=${Date.now() - startedAt}`);
+
+    // Update memo with transcript and status
+    await markMemo({ transcript, status: 'processing' });
 
     // Increment usage tracking
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -213,15 +226,13 @@ Deno.serve(async (req) => {
       p_month: currentMonth
     }).maybeSingle();
 
-    return new Response(
-      JSON.stringify({ transcript, memoId }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // `empty: true` distingue un enregistrement sans parole audible d'un
+    // échec : le client le range comme transcrit, sans le réessayer.
+    return json({ transcript, memoId, empty: transcript === '' });
 
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error(`[voice-transcribe] failure ms=${Date.now() - startedAt}`, error);
+    await markMemo({ status: 'error' }).catch(() => {});
+    return json({ error: (error as Error)?.message || 'Erreur interne' }, 500);
   }
 });

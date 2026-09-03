@@ -2,9 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Copy, Download, Check, Share2, FileText, AlertTriangle, Loader2, Mic, RotateCcw, Wand2, Archive } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../utils/supabase';
 import { structureVisitTranscript } from '../utils/aiService';
-import { blobToBase64 } from '../utils/mediaConverters';
+import { transcribeBlob } from '../utils/transcribeAudio';
 import { useModalA11y } from '../hooks/useModalA11y';
 import {
     buildPredevisReport,
@@ -29,6 +28,7 @@ const PredevisReportModal = ({
     meta = {},
     voiceNotes = [],
     transcripts = {},
+    transcribingCount = 0,
     onTranscripts,
     clientName,
     address,
@@ -93,29 +93,25 @@ const PredevisReportModal = ({
         toast.success('Compte rendu téléchargé');
     };
 
-    // Transcrit les enregistrements non encore traités, un par un, en
-    // affichant la progression : une visite d'une heure fait une dizaine de
-    // segments et prend quelques minutes.
-    const pending = voiceNotes.filter((n) => String(transcripts[n.id] ?? '').trim() === '');
+    // Les enregistrements partent en transcription pendant la visite ; ici on
+    // rattrape ceux qui n'y sont pas passés (échec, ancienne visite). Une clé
+    // présente avec un texte vide est une note transcrite mais muette : elle
+    // n'est pas à refaire. Une note sans audio (reprise d'un brouillon) non plus.
+    const pending = voiceNotes.filter((n) => transcripts[n.id] === undefined && n.blob);
+    const stillRunning = Math.min(transcribingCount, pending.length);
+    const leftover = pending.length - stillRunning;
 
     const handleTranscribe = async () => {
         setTranscribing({ done: 0, total: pending.length });
         const collected = {};
-        let failed = 0;
+        const failures = [];
         for (const [i, note] of pending.entries()) {
             setTranscribing({ done: i, total: pending.length });
             try {
-                // Whisper plafonne à 25 Mo par fichier : au-delà, l'appel
-                // échouerait sans rien dire d'utile.
-                if (note.blob.size > 20 * 1024 * 1024) { failed += 1; continue; }
-                const audioBase64 = await blobToBase64(note.blob);
-                const { data, error } = await supabase.functions.invoke('voice-transcribe', {
-                    body: { audioBase64, mimeType: note.mimeType },
-                });
-                if (error || !data?.transcript) { failed += 1; continue; }
-                collected[note.id] = data.transcript;
-            } catch {
-                failed += 1;
+                const { transcript } = await transcribeBlob(note.blob, note.mimeType);
+                collected[note.id] = transcript;
+            } catch (err) {
+                failures.push(err?.message || 'Erreur inconnue');
             }
         }
         setTranscribing(null);
@@ -125,7 +121,14 @@ const PredevisReportModal = ({
             onTranscripts?.(collected);
             toast.success(`${count} enregistrement${count > 1 ? 's' : ''} transcrit${count > 1 ? 's' : ''}`);
         }
-        if (failed) toast.error(`${failed} enregistrement${failed > 1 ? 's' : ''} non transcrit${failed > 1 ? 's' : ''} (réseau ou quota ?)`);
+        if (failures.length) {
+            // La vraie cause, pas un « réseau ou quota ? » : une clé absente ou
+            // un fournisseur qui refuse le fichier ne se règlent pas pareil.
+            toast.error(
+                `${failures.length} enregistrement${failures.length > 1 ? 's' : ''} non transcrit${failures.length > 1 ? 's' : ''} : ${failures[0]}`,
+                { duration: 8000 }
+            );
+        }
     };
 
     // Met la transcription brute au propre : une synthèse relisable, placée
@@ -221,7 +224,13 @@ const PredevisReportModal = ({
                     )}
 
                     {/* Transcription des enregistrements */}
-                    {pending.length > 0 && (
+                    {stillRunning > 0 && !transcribing && (
+                        <p className="flex items-center justify-center gap-2 px-4 py-3 bg-violet-50 border border-violet-200 text-violet-700 text-sm font-semibold rounded-xl">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Transcription en cours — {stillRunning} enregistrement{stillRunning > 1 ? 's' : ''} restant{stillRunning > 1 ? 's' : ''}
+                        </p>
+                    )}
+                    {(leftover > 0 || transcribing) && (
                         <button
                             type="button"
                             onClick={handleTranscribe}
@@ -230,7 +239,7 @@ const PredevisReportModal = ({
                         >
                             {transcribing
                                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Transcription {transcribing.done + 1}/{transcribing.total}…</>
-                                : <><Mic className="w-4 h-4" /> Transcrire {pending.length} enregistrement{pending.length > 1 ? 's' : ''}</>}
+                                : <><Mic className="w-4 h-4" /> Transcrire {leftover} enregistrement{leftover > 1 ? 's' : ''}</>}
                         </button>
                     )}
 
