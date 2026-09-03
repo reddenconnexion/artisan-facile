@@ -161,3 +161,30 @@ export function materialDepositComplement(materialTotalHT, linkedDocs, creditNot
         previous: deposits.map((d) => ({ id: d.id, invoice_number: d.invoice_number || null, netHT: round2(d.netHT) })),
     };
 }
+
+/**
+ * Photographie complète de l'acompte matériel d'un chantier, depuis son devis
+ * racine : fournitures fermes (devis + avenants signés), acomptes déjà émis,
+ * reliquat à facturer et part venant des avenants. C'est ce que l'écran
+ * « prochaine étape » et le bouton « Acompte matériel » lisent tous les deux,
+ * pour raconter la même chose à l'artisan.
+ *
+ * @param {object} rootQuote Le devis racine (items, include_tva…).
+ * @param {Array}  linkedDocs Ses documents enfants.
+ * @param {Array}  [creditNotes] Avoirs rattachés aux acomptes.
+ */
+export function materialDepositStatus(rootQuote, linkedDocs, creditNotes = []) {
+    const materialItems = depositMaterialItems(rootQuote?.items || [], linkedDocs);
+    const materialTotalHT = round2(materialItems.reduce(
+        (sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0), 0
+    ));
+    const complement = materialDepositComplement(materialTotalHT, linkedDocs, creditNotes);
+    const amendmentShare = depositAmendmentShare(materialItems);
+    return {
+        materialItems,
+        materialTotalHT,
+        ...complement,
+        amendmentShare,
+        isComplement: complement.alreadyIssuedHT > 0,
+    };
+}

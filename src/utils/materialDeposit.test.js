@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC, materialDepositInvoices, materialDepositComplement } from './materialDeposit';
+import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC, materialDepositInvoices, materialDepositComplement, materialDepositStatus } from './materialDeposit';
 
 // Cas réel (devis n° 226) : main d'œuvre 580 € + fournitures fermes 1118,35 €
 // + une option non retenue à 190 €, sans TVA (art. 293 B du CGI).
@@ -250,5 +250,52 @@ describe('materialDepositComplement', () => {
         const r = materialDepositComplement(1984.59, linked184, partial);
         expect(r.alreadyIssuedHT).toBeCloseTo(1484.59, 2);
         expect(r.remainingHT).toBeCloseTo(500, 2);
+    });
+});
+
+describe('materialDepositStatus', () => {
+    // Devis 184 après signature de l'avenant 220 : +213,51 € de fournitures
+    // nouvelles, −106,55 € de fournitures du devis non posées.
+    const root184 = {
+        include_tva: false,
+        items: [
+            { type: 'service', description: "Main d'œuvre", quantity: 1, price: 1975 },
+            { type: 'material', description: 'Fournitures', quantity: 1, price: 1984.59 },
+        ],
+    };
+    const amendment220 = {
+        id: 268, type: 'amendment', status: 'accepted', quote_number: 220, total_ttc: 6.96,
+        items: [
+            { type: 'service', quantity: 1, price: 125 },
+            { type: 'material', quantity: 1, price: 213.51 },
+            { type: 'service', quantity: 4.5, price: -50 },
+            { type: 'material', quantity: 1, price: -106.55 },
+        ],
+    };
+    const deposit = { id: 230, type: 'invoice', status: 'paid', invoice_number: 'FAC-2026-0096', total_ht: 1984.59,
+        title: 'Facture Acompte Matériel - Travaux', items: [] };
+
+    it('après un acompte initial et un avenant signé, ne reste que le matériel net de l\'avenant', () => {
+        const s = materialDepositStatus(root184, [deposit, amendment220]);
+        expect(s.materialTotalHT).toBeCloseTo(2091.55, 2);
+        expect(s.alreadyIssuedHT).toBeCloseTo(1984.59, 2);
+        expect(s.remainingHT).toBeCloseTo(106.96, 2);
+        expect(s.isComplement).toBe(true);
+        expect(s.amendmentShare.totalHT).toBeCloseTo(106.96, 2);
+        expect(s.amendmentShare.labels).toEqual(['Avenant n°220']);
+        expect(s.previous.map(p => p.invoice_number)).toEqual(['FAC-2026-0096']);
+    });
+
+    it("avant tout acompte, facture 100 % des fournitures du devis", () => {
+        const s = materialDepositStatus(root184, []);
+        expect(s.isComplement).toBe(false);
+        expect(s.remainingHT).toBeCloseTo(1984.59, 2);
+        expect(s.amendmentShare.totalHT).toBe(0);
+    });
+
+    it("ignore un avenant non signé et signale « rien à facturer » quand tout est couvert", () => {
+        const s = materialDepositStatus(root184, [deposit, { ...amendment220, status: 'sent' }]);
+        expect(s.remainingHT).toBe(0);
+        expect(s.isComplement).toBe(true);
     });
 });
