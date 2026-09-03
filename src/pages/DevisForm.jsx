@@ -54,7 +54,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC } from '../utils/materialDeposit';
+import { materialDepositAmounts, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC, materialDepositInvoices, materialDepositComplement } from '../utils/materialDeposit';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -2642,7 +2642,7 @@ Conditions de règlement : Paiement à réception de facture.`
         // les avenants cherchés ici sont bien les enfants du devis courant.
         const { data: linkedDocs, error: linkedError } = await supabase
             .from('quotes')
-            .select('id, title, type, status, items, quote_number')
+            .select('id, title, type, status, items, quote_number, invoice_number, total_ht, total_ttc')
             .eq('parent_id', parseInt(id, 10))
             .neq('status', 'cancelled');
 
@@ -2666,7 +2666,37 @@ Conditions de règlement : Paiement à réception de facture.`
             return;
         }
 
-        const materialTotalTTC = formData.include_tva ? materialTotalHT * 1.2 : materialTotalHT;
+        // Acomptes matériel déjà émis sur ce devis (nets des avoirs qui les
+        // annulent) : on ne facture que le complément — typiquement les
+        // fournitures d'un avenant signé après l'acompte initial.
+        const previousDeposits = materialDepositInvoices(linkedDocs);
+        let creditNotes = [];
+        if (previousDeposits.length > 0) {
+            const { data: notes, error: notesError } = await supabase
+                .from('quotes')
+                .select('id, parent_id, total_ht, invoice_number')
+                .eq('type', 'credit_note')
+                .in('parent_id', previousDeposits.map(inv => inv.id))
+                .neq('status', 'cancelled');
+            if (notesError) {
+                console.error('Error fetching credit notes:', notesError);
+                toast.error("Impossible de vérifier les avoirs liés aux acomptes.");
+                return;
+            }
+            creditNotes = notes || [];
+        }
+        const { alreadyIssuedHT, remainingHT, previous } = materialDepositComplement(materialTotalHT, linkedDocs, creditNotes);
+        const previousLabels = previous.map(d => d.invoice_number || `n°${d.id}`);
+        const isComplement = alreadyIssuedHT > 0;
+
+        if (remainingHT <= 0.005) {
+            toast.info(`Le matériel (${materialTotalHT.toFixed(2)} € HT) est déjà entièrement couvert par ${previousLabels.join(', ')}.`);
+            return;
+        }
+
+        const toTTC = (ht) => (formData.include_tva ? ht * 1.2 : ht);
+        const materialTotalTTC = toTTC(materialTotalHT);
+        const depositAmount = toTTC(remainingHT);
 
         // Le détail des avenants pris en compte est annoncé : l'artisan doit
         // voir d'où vient le montant avant de créer la facture, surtout quand il
@@ -2675,20 +2705,26 @@ Conditions de règlement : Paiement à réception de facture.`
         const amendmentNote = amendmentTotalHT > 0
             ? `\n\nDont ${amendmentTotalHT.toFixed(2)} € HT de fournitures issues de ${amendmentLabels.join(', ')} (signé${amendmentLabels.length > 1 ? 's' : ''}).`
             : '';
+        const complementNote = isComplement
+            ? `\n\nMatériel total : ${materialTotalTTC.toFixed(2)} € TTC, dont ${toTTC(alreadyIssuedHT).toFixed(2)} € déjà facturé (${previousLabels.join(', ')}). Cet acompte ne porte que sur le complément.`
+            : '';
 
-        const okMat = await confirm({ title: 'Acompte matériel', message: `Générer un acompte pour le montant du matériel (${materialTotalTTC.toFixed(2)} € TTC) ?${amendmentNote}`, confirmLabel: 'Générer' });
+        const okMat = await confirm({
+            title: isComplement ? 'Acompte matériel complémentaire' : 'Acompte matériel',
+            message: `Générer un acompte ${isComplement ? 'complémentaire ' : ''}pour le matériel (${depositAmount.toFixed(2)} € TTC) ?${amendmentNote}${complementNote}`,
+            confirmLabel: 'Générer'
+        });
         if (!okMat) return;
 
         try {
             setLoading(true);
-            const depositAmount = materialTotalTTC;
 
             const depositItem = {
                 id: Date.now(),
                 // Le client reconnaît son devis à son NUMÉRO, pas à
                 // l'identifiant interne de la base : `id` affichait ici un
                 // numéro absent de tous les documents qu'il a reçus.
-                description: `Acompte Matériel (100%) sur devis n°${formData.quote_number || id} - ${formData.title}${amendmentTotalHT > 0 ? ` (avenants inclus : ${amendmentLabels.join(', ')})` : ''}`,
+                description: `Acompte Matériel ${isComplement ? 'complémentaire' : '(100%)'} sur devis n°${formData.quote_number || id} - ${formData.title}${amendmentTotalHT > 0 ? ` (avenants inclus : ${amendmentLabels.join(', ')})` : ''}`,
                 quantity: 1,
                 unit: 'forfait',
                 price: 0, // Will be set below
@@ -2709,7 +2745,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 user_id: user.id,
                 client_id: formData.client_id,
                 client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: `Facture Acompte Matériel - ${formData.title}`,
+                title: `Facture Acompte Matériel${isComplement ? ' complémentaire' : ''} - ${formData.title}`,
                 date: new Date().toISOString().split('T')[0],
                 status: 'billed',
                 type: 'invoice',
@@ -2724,8 +2760,10 @@ Conditions de règlement : Paiement à réception de facture.`
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC${amendmentTotalHT > 0 ? `
 • Fournitures d'avenants signés incluses : ${amendmentTotalHT.toFixed(2)} € HT (${amendmentLabels.join(', ')})` : ''}
+• Matériel total : ${materialTotalTTC.toFixed(2)} € TTC${isComplement ? `
+• Acompte matériel déjà facturé : ${toTTC(alreadyIssuedHT).toFixed(2)} € TTC (${previousLabels.join(', ')})` : ''}
 • Montant de cet acompte : ${depositAmount.toFixed(2)} € TTC
-• Reste à payer sur devis : ${(total - depositAmount).toFixed(2)} € TTC
+• Reste à payer sur devis : ${(total + amendmentsTotalTTC(linkedDocs) - toTTC(alreadyIssuedHT) - depositAmount).toFixed(2)} € TTC
 
 Conditions de règlement : Paiement à réception de facture.`
             };

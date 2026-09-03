@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC } from './materialDeposit';
+import { materialDepositAmounts, quoteLineAmount, depositMaterialItems, depositAmendmentShare, amendmentsTotalTTC, materialDepositInvoices, materialDepositComplement } from './materialDeposit';
 
 // Cas réel (devis n° 226) : main d'œuvre 580 € + fournitures fermes 1118,35 €
 // + une option non retenue à 190 €, sans TVA (art. 293 B du CGI).
@@ -196,5 +196,59 @@ describe('amendmentsTotalTTC', () => {
 
     it('traite un total manquant ou illisible comme nul', () => {
         expect(amendmentsTotalTTC([amendment(null), amendment(undefined), amendment(230)])).toBe(230);
+    });
+});
+
+// ── Acompte matériel complémentaire (devis 184 : avenant signé après l'acompte) ──
+
+const linked184 = [
+    { id: 230, type: 'invoice', status: 'paid', invoice_number: 'FAC-2026-0096', total_ht: 1984.59,
+      title: "Facture Acompte Matériel - Travaux d'installation électrique",
+      items: [{ type: 'material', description: 'Acompte Matériel (100%) sur devis n°227', quantity: 1, price: 1984.59 }] },
+    { id: 268, type: 'amendment', status: 'accepted', total_ht: 338.51, title: 'Avenant au devis', items: [] },
+    { id: 300, type: 'invoice', status: 'billed', invoice_number: 'FAC-2026-0120', total_ht: 500, title: 'Facture de clôture', items: [] },
+    { id: 301, type: 'invoice', status: 'cancelled', invoice_number: 'FAC-2026-0099', total_ht: 1984.59, title: 'Facture Acompte Matériel - annulée', items: [] },
+];
+
+describe('materialDepositInvoices', () => {
+    it("reconnaît les acomptes matériel au titre ou à la ligne, hors annulés, clôtures et avenants", () => {
+        expect(materialDepositInvoices(linked184).map(d => d.id)).toEqual([230]);
+        // Titre libre mais ligne générée par l'app
+        const byLine = [{ id: 9, type: 'invoice', status: 'paid', title: 'Facture', items: [{ description: 'Acompte matériel (100%) sur devis n°1' }] }];
+        expect(materialDepositInvoices(byLine)).toHaveLength(1);
+        expect(materialDepositInvoices(null)).toEqual([]);
+    });
+});
+
+describe('materialDepositComplement', () => {
+    it('ne facture que les fournitures non encore couvertes (devis 184 + avenant 220)', () => {
+        const total = 1984.59 + 213.51;
+        const r = materialDepositComplement(total, linked184);
+        expect(r.alreadyIssuedHT).toBeCloseTo(1984.59, 2);
+        expect(r.remainingHT).toBeCloseTo(213.51, 2);
+        expect(r.previous).toEqual([{ id: 230, invoice_number: 'FAC-2026-0096', netHT: 1984.59 }]);
+    });
+
+    it('rend 0 à facturer quand le matériel est déjà entièrement couvert', () => {
+        const r = materialDepositComplement(1984.59, linked184);
+        expect(r.remainingHT).toBe(0);
+        // Un avenant de moins-value ne crée pas de « complément négatif »
+        expect(materialDepositComplement(1500, linked184).remainingHT).toBe(0);
+    });
+
+    it("sans acompte antérieur, facture tout le matériel", () => {
+        const r = materialDepositComplement(1984.59, [linked184[1]]);
+        expect(r.alreadyIssuedHT).toBe(0);
+        expect(r.remainingHT).toBeCloseTo(1984.59, 2);
+        expect(r.previous).toEqual([]);
+    });
+
+    it('retranche les avoirs qui annulent un acompte, en tout ou partie', () => {
+        const full = [{ id: 77, parent_id: 230, total_ht: -1984.59 }];
+        expect(materialDepositComplement(1984.59, linked184, full).remainingHT).toBeCloseTo(1984.59, 2);
+        const partial = [{ id: 78, parent_id: 230, total_ht: -500 }];
+        const r = materialDepositComplement(1984.59, linked184, partial);
+        expect(r.alreadyIssuedHT).toBeCloseTo(1484.59, 2);
+        expect(r.remainingHT).toBeCloseTo(500, 2);
     });
 });

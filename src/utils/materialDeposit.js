@@ -1,3 +1,7 @@
+import { depositsNetOfCreditNotes } from './creditNote';
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
 // ── Acompte matériel : montants du bloc « Conditions de règlement » du devis ──
 //
 // Règle commune à toute l'app (total du devis, acompte généré depuis le
@@ -110,4 +114,50 @@ export function depositAmendmentShare(items) {
 export function amendmentsTotalTTC(linkedDocs) {
     return signedAmendments(linkedDocs)
         .reduce((sum, amd) => sum + (parseFloat(amd.total_ttc) || 0), 0);
+}
+
+// ── Acompte matériel déjà facturé : ne facturer que le complément ──
+//
+// Modèle de règlement : le matériel se paie d'avance, le solde (main d'œuvre)
+// à la fin du chantier. Quand un avenant signé ajoute des fournitures APRÈS
+// l'acompte matériel initial, le bouton « Acompte matériel » recalculait
+// l'assiette entière (devis + avenants) sans retrancher l'acompte déjà
+// encaissé : un second clic facturait deux fois les fournitures du devis.
+//
+// On reconnaît les acomptes matériel parmi les factures rattachées au devis
+// (même règle de détection que le titre et la ligne générés ici), nets des
+// avoirs qui les annulent, et on ne facture que ce qui reste à couvrir.
+
+const MATERIAL_DEPOSIT_RE = /acompte\s+mat[ée]riel/i;
+
+/**
+ * Factures d'acompte matériel (non annulées) parmi les enfants du devis.
+ * @param {Array} linkedDocs Les documents enfants du devis.
+ */
+export function materialDepositInvoices(linkedDocs) {
+    return (linkedDocs || []).filter((doc) =>
+        doc?.type === 'invoice'
+        && doc.status !== 'cancelled'
+        && (MATERIAL_DEPOSIT_RE.test(doc.title || '')
+            || (Array.isArray(doc.items) && doc.items.some((it) => MATERIAL_DEPOSIT_RE.test(it?.description || ''))))
+    );
+}
+
+/**
+ * Part du matériel restant à facturer en acompte.
+ *
+ * @param {number} materialTotalHT Fournitures fermes du devis + avenants signés (HT).
+ * @param {Array}  linkedDocs Les documents enfants du devis.
+ * @param {Array}  [creditNotes] Avoirs rattachés (parent_id = facture d'acompte).
+ * @returns {{ alreadyIssuedHT: number, remainingHT: number, previous: Array<{id:number, invoice_number:string|null, netHT:number}> }}
+ */
+export function materialDepositComplement(materialTotalHT, linkedDocs, creditNotes = []) {
+    const deposits = depositsNetOfCreditNotes(materialDepositInvoices(linkedDocs), creditNotes);
+    const alreadyIssuedHT = round2(deposits.reduce((sum, d) => sum + d.netHT, 0));
+    const remainingHT = round2(Math.max((parseFloat(materialTotalHT) || 0) - alreadyIssuedHT, 0));
+    return {
+        alreadyIssuedHT,
+        remainingHT,
+        previous: deposits.map((d) => ({ id: d.id, invoice_number: d.invoice_number || null, netHT: round2(d.netHT) })),
+    };
 }
