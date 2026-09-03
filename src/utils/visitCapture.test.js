@@ -154,6 +154,12 @@ describe('déroulé de la visite', () => {
         expect(lines).toContain('- Note vocale : « Le client veut déplacer la plaque contre le mur nord. »');
     });
 
+    it("distingue une note muette d'une note encore à transcrire", () => {
+        const lines = buildTimelineLines(walk(), { template: ELEC, transcripts: { v1: '' } });
+        expect(lines).toContain("- Note vocale (18 s, rien d'audible)");
+        expect(lines.some((l) => /non transcrite/.test(l))).toBe(false);
+    });
+
     it('nomme les entrées prises avant toute bascule de pièce', () => {
         const c = addCount(createCapture(), { counterKey: 'prises', at: T0 });
         expect(buildTimelineLines(c, { template: ELEC })[0]).toMatch(/· Pièce non précisée$/);

@@ -132,7 +132,8 @@ export const captureSegments = (capture) => {
  * @param {object} capture
  * @param {object} options
  * @param {object} options.template     - trame métier (libellés des compteurs)
- * @param {object} [options.transcripts] - { [mediaId]: texte transcrit }
+ * @param {object} [options.transcripts] - { [mediaId]: texte transcrit } ; une
+ *   clé présente avec un texte vide signifie « transcrite, rien d'audible »
  */
 export const buildTimelineLines = (capture, { template, transcripts = {} } = {}) => {
     const lines = [];
@@ -148,9 +149,12 @@ export const buildTimelineLines = (capture, { template, transcripts = {} } = {})
                 photos += 1;
             } else if (entry.type === 'voice') {
                 const text = String(transcripts[entry.mediaId] ?? '').trim();
-                lines.push(text
-                    ? `- Note vocale : « ${text} »`
-                    : `- Note vocale (${Math.round(entry.duration || 0)} s, non transcrite)`);
+                const seconds = Math.round(entry.duration || 0);
+                if (text) lines.push(`- Note vocale : « ${text} »`);
+                // Transcrite mais muette (personne ne parlait) : ce n'est pas
+                // la même chose qu'une note qui reste à transcrire.
+                else if (Object.prototype.hasOwnProperty.call(transcripts, entry.mediaId)) lines.push(`- Note vocale (${seconds} s, rien d'audible)`);
+                else lines.push(`- Note vocale (${seconds} s, non transcrite)`);
             } else if (entry.type === 'flag') {
                 lines.push(`- POINT SIGNALÉ${entry.label ? ` : ${entry.label}` : ' — à traiter au chiffrage'}`);
             }

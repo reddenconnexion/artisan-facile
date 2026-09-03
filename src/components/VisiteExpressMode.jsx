@@ -47,7 +47,8 @@ const VisiteExpressMode = ({
     template, survey, capture, onZoneChange,
     isRecording, elapsed, segmentCount,
     level = 0, isSilent = false, micId = '', micLabel = '', micInputs = [], onPickMic,
-    photos = [], onRetryPhotos,
+    photos = [], onRetryPhotos, onOpenPhoto,
+    voiceNotes = [], transcripts = {}, voiceStatus = {}, onRetryTranscriptions,
 }) => {
     const [customOpen, setCustomOpen] = useState(false);
     const [customName, setCustomName] = useState('');
@@ -72,6 +73,12 @@ const VisiteExpressMode = ({
     const entries = [...(capture.entries || [])].reverse();
     const pendingPhotos = photos.filter((p) => !p.path).length;
     const failedPhotos = photos.filter((p) => p.failed && !p.path).length;
+
+    // Transcription : ce qui est fait, ce qui tourne, ce qui a échoué.
+    const transcribedNotes = voiceNotes.filter((n) => transcripts[n.id] !== undefined).length;
+    const transcribingNotes = voiceNotes.filter((n) => ['pending', 'transcribing'].includes(voiceStatus[n.id]?.state)).length;
+    const failedNotes = voiceNotes.filter((n) => voiceStatus[n.id]?.state === 'failed');
+    const firstFailure = failedNotes.map((n) => voiceStatus[n.id]?.error).find(Boolean);
 
     return (
         <div className="p-3 space-y-3">
@@ -221,9 +228,15 @@ const VisiteExpressMode = ({
                         )}
                     </div>
                     <div className="flex gap-1.5 overflow-x-auto">
-                        {photos.map((photo) => (
-                            <div key={photo.id} className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                                <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+                        {photos.map((photo, index) => (
+                            <button
+                                key={photo.id}
+                                type="button"
+                                onClick={() => onOpenPhoto?.(index)}
+                                className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 active:scale-95"
+                                aria-label={`Agrandir la photo ${index + 1}`}
+                            >
+                                <img src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
                                 {photo.uploading && (
                                     <span className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                         <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -234,9 +247,10 @@ const VisiteExpressMode = ({
                                         <AlertTriangle className="w-4 h-4 text-white" />
                                     </span>
                                 )}
-                            </div>
+                            </button>
                         ))}
                     </div>
+                    <p className="text-[11px] text-gray-400">Touchez une photo pour l'agrandir, la copier ou la supprimer.</p>
                     {failedPhotos > 0 && (
                         <button
                             type="button"
@@ -246,6 +260,51 @@ const VisiteExpressMode = ({
                             <RefreshCw className="w-3.5 h-3.5" />
                             Réessayer l'enregistrement de {failedPhotos} photo{failedPhotos > 1 ? 's' : ''}
                         </button>
+                    )}
+                </div>
+            )}
+
+            {/* Transcription des enregistrements, au fil de la visite */}
+            {voiceNotes.length > 0 && (
+                <div className="px-3 py-2.5 bg-white border border-gray-200 rounded-2xl space-y-1.5">
+                    <div className="flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <p className="flex-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            Transcription
+                        </p>
+                        {transcribingNotes > 0 ? (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-violet-600">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                {transcribedNotes}/{voiceNotes.length}
+                            </span>
+                        ) : failedNotes.length > 0 ? (
+                            <span className="text-xs font-semibold text-orange-600">
+                                {transcribedNotes}/{voiceNotes.length}
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                                <Check className="w-3.5 h-3.5" />
+                                {transcribedNotes}/{voiceNotes.length} transcrit{transcribedNotes > 1 ? 's' : ''}
+                            </span>
+                        )}
+                    </div>
+                    {failedNotes.length > 0 && (
+                        <>
+                            {firstFailure && (
+                                <p className="text-xs text-orange-700 flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                    {firstFailure}
+                                </p>
+                            )}
+                            <button
+                                type="button"
+                                onClick={onRetryTranscriptions}
+                                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-50 border border-orange-200 text-xs font-semibold text-orange-700"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Réessayer la transcription de {failedNotes.length} enregistrement{failedNotes.length > 1 ? 's' : ''}
+                            </button>
+                        </>
                     )}
                 </div>
             )}
@@ -273,6 +332,15 @@ const VisiteExpressMode = ({
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${ENTRY_STYLES[entry.type] || 'bg-gray-100 text-gray-600'}`}>
                                 {entryLabel(entry, template)}
                             </span>
+                            {entry.type === 'voice' && (
+                                transcripts[entry.mediaId] !== undefined
+                                    ? <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" aria-label="Transcrit" />
+                                    : voiceStatus[entry.mediaId]?.state === 'failed'
+                                        ? <AlertTriangle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" aria-label="Transcription en échec" />
+                                        : ['pending', 'transcribing'].includes(voiceStatus[entry.mediaId]?.state)
+                                            ? <Loader2 className="w-3.5 h-3.5 text-violet-500 animate-spin flex-shrink-0" aria-label="Transcription en cours" />
+                                            : null
+                            )}
                             {entry.type !== 'zone' && (
                                 <span className="text-xs text-gray-400 truncate ml-auto">{entry.zone || '—'}</span>
                             )}

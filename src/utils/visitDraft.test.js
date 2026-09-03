@@ -77,3 +77,42 @@ describe('draftAgeLabel', () => {
         expect(draftAgeLabel(NOW, NOW + 2 * 86_400_000)).toBe('il y a 2 j');
     });
 });
+
+describe('photos et transcriptions dans le brouillon', () => {
+    it("ne garde que les photos déjà envoyées au stockage", async () => {
+        const { draftPhotos, restoreDraftPhotos } = await import('./visitDraft');
+        const photos = [
+            { id: 'a', path: 'visites/u/a.jpg', url: 'https://x/a.jpg', file: {}, preview: 'blob:1' },
+            { id: 'b', file: {}, preview: 'blob:2' }, // pas encore envoyée
+            { id: 'c', path: 'visites/u/c.jpg', url: 'https://x/c.jpg', name: 'c.jpg', file: {}, preview: 'blob:3' },
+        ];
+        expect(draftPhotos(photos)).toEqual([
+            { id: 'a', path: 'visites/u/a.jpg', url: 'https://x/a.jpg', name: '' },
+            { id: 'c', path: 'visites/u/c.jpg', url: 'https://x/c.jpg', name: 'c.jpg' },
+        ]);
+        const restored = restoreDraftPhotos(draftPhotos(photos));
+        expect(restored).toHaveLength(2);
+        expect(restored[0]).toMatchObject({ id: 'a', path: 'visites/u/a.jpg', preview: 'https://x/a.jpg', file: null, restored: true });
+    });
+
+    it('fait un aller-retour complet du brouillon avec photos, transcriptions et rapport', async () => {
+        const { draftPhotos } = await import('./visitDraft');
+        const storage = makeStorage();
+        saveVisitDraft({
+            clientName: 'Rabié',
+            photos: draftPhotos([{ id: 'a', path: 'visites/u/a.jpg', url: 'https://x/a.jpg' }]),
+            transcripts: { 'seg-1': 'Refaire le tableau', 'seg-2': '' },
+            visitReportId: 9,
+        }, { storage, now: NOW });
+        const draft = loadVisitDraft({ storage, now: NOW + 1000 });
+        expect(draft.photos).toHaveLength(1);
+        expect(draft.transcripts).toEqual({ 'seg-1': 'Refaire le tableau', 'seg-2': '' });
+        expect(draft.visitReportId).toBe(9);
+    });
+
+    it('ignore un brouillon aux photos mal formées', async () => {
+        const { restoreDraftPhotos } = await import('./visitDraft');
+        expect(restoreDraftPhotos(null)).toEqual([]);
+        expect(restoreDraftPhotos([{ id: 'x' }, null])).toEqual([]);
+    });
+});

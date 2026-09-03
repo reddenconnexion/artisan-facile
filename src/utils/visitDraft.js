@@ -80,3 +80,32 @@ export const draftAgeLabel = (savedAt, now = Date.now()) => {
     const days = Math.round(hours / 24);
     return `il y a ${days} j`;
 };
+
+// ── Photos et transcriptions dans le brouillon ────────────────────────────
+// Le brouillon ne gardait que le texte : après une reprise (onglet recyclé,
+// application relancée), les photos déjà envoyées au stockage et les notes
+// déjà transcrites étaient oubliées — le compte rendu archivé ne comptait
+// alors que ce qui avait été fait APRÈS la reprise. Les fichiers eux-mêmes
+// ne survivent pas, mais leurs références oui.
+
+/** Références des photos déjà enregistrées, prêtes pour le brouillon. */
+export const draftPhotos = (photos = []) => photos
+    .filter((p) => p && p.path && p.url)
+    .map((p) => ({ id: p.id, path: p.path, url: p.url, name: p.name || '' }));
+
+/**
+ * Reconstruit l'état « photos » à partir du brouillon : l'aperçu est l'image
+ * en ligne, il n'y a plus de fichier local et rien à renvoyer au stockage.
+ */
+export const restoreDraftPhotos = (list = []) => (Array.isArray(list) ? list : [])
+    .filter((p) => p && p.id && p.path && p.url)
+    .map((p) => ({
+        id: p.id,
+        path: p.path,
+        url: p.url,
+        name: p.name || '',
+        preview: p.url,
+        file: null,
+        mediaType: 'image/jpeg',
+        restored: true,
+    }));
