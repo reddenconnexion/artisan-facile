@@ -430,7 +430,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     // n'affiche pas de pourcentage (division par zéro non significative).
     const caTrend = caLastMonth > 0 ? ((caThisMonth - caLastMonth) / caLastMonth) * 100 : null;
 
-    const pendingBilled = allQuotes.filter(q => q.status === 'billed');
+    const pendingBilled = allQuotes.filter(q => q.status === 'billed' && q.type === 'invoice');
     const pendingTotal = pendingBilled.reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
 
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

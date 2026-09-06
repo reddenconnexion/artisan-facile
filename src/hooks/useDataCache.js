@@ -323,7 +323,7 @@ export function usePendingCounts() {
         q.status === 'sent' && new Date(q.date || q.created_at) < sevenDaysAgo
     ).length;
 
-    const pendingInvoices = quotes.filter(q => q.status === 'billed').length;
+    const pendingInvoices = quotes.filter(q => q.status === 'billed' && q.type === 'invoice').length;
 
     const signedNotBilled = quotes.filter(q => q.status === 'accepted').length;
 

@@ -122,6 +122,7 @@ const ActionableDashboard = ({ user }) => {
                 .select('*, clients(name), children:quotes!parent_id(id)')
                 .eq('user_id', user.id)
                 .eq('status', 'billed')
+                .eq('type', 'invoice')
                 .order('date', { ascending: true })
                 .limit(10);
 
