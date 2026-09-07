@@ -151,7 +151,7 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
         // le body de la réponse (rate limit, clé absente, erreur LLM…).
         let detail = fnErr.message;
         try {
-          const body = await fnErr.context?.response?.clone?.()?.json?.();
+          const body = await fnErr.context?.clone?.()?.json?.();
           if (body?.error) detail = body.error;
         } catch {
           // body non JSON ou pas accessible — on garde le message générique
