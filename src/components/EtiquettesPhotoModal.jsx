@@ -1,5 +1,6 @@
-import React, { useState, useRef } from "react";
-import { Upload, X, Wand2, Loader2, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, X, Wand2, Loader2, Image as ImageIcon, AlertTriangle, ClipboardPaste } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
 import { imageFileToBase64 } from "../utils/mediaConverters";
 
@@ -59,18 +60,75 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
   const [selected, setSelected] = useState({}); // index → bool
   const inputRef = useRef(null);
 
+  const applyImageFile = useCallback(
+    (f) => {
+      if (!f.type.startsWith("image/")) {
+        setError("Le fichier doit être une image.");
+        return;
+      }
+      setFile(f);
+      setError(null);
+      setExtracted(null);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(f));
+    },
+    [previewUrl]
+  );
+
   function handleFileChange(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      setError("Le fichier doit être une image.");
-      return;
+    applyImageFile(f);
+  }
+
+  // Collage clavier (Ctrl/⌘+V) d'une capture d'écran ou d'une image copiée
+  // (mail, site web, explorateur de fichiers…) directement dans la modale,
+  // sans passer par le sélecteur de fichier. On n'intercepte que si le
+  // presse-papiers contient une image, pour laisser le collage de texte
+  // intact ailleurs sur la page.
+  useEffect(() => {
+    function handlePaste(e) {
+      if (loading) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const f = item.getAsFile();
+          if (f) {
+            e.preventDefault();
+            applyImageFile(f);
+          }
+          break;
+        }
+      }
     }
-    setFile(f);
-    setError(null);
-    setExtracted(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(f));
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [loading, applyImageFile]);
+
+  // Bouton « Coller » : lit une image du presse-papiers via la Clipboard API,
+  // pour les cas où le raccourci clavier ne suffit pas (ex. bouton tactile).
+  async function pasteFromClipboard() {
+    try {
+      if (!navigator.clipboard?.read) {
+        toast.error("Ce navigateur ne permet pas de coller directement. Utilisez Ctrl/⌘+V.");
+        return;
+      }
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith("image/"));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          const ext = imgType.split("/")[1] || "png";
+          applyImageFile(new File([blob], `collage-${Date.now()}.${ext}`, { type: imgType }));
+          return;
+        }
+      }
+      toast.error("Aucune image dans le presse-papiers");
+    } catch (err) {
+      console.error("Clipboard paste error:", err);
+      toast.error("Impossible de lire le presse-papiers");
+    }
   }
 
   async function analyze() {
@@ -161,16 +219,27 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
           {!extracted ? (
             <>
               {!previewUrl ? (
-                <button
-                  onClick={() => inputRef.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-slate-500 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-amber-500 dark:hover:bg-amber-900/20 dark:hover:text-amber-300"
-                >
-                  <Upload size={28} />
-                  <span className="text-sm font-medium">Choisir ou prendre une photo</span>
+                <div className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400">
+                  <button
+                    onClick={() => inputRef.current?.click()}
+                    className="flex flex-col items-center gap-2 hover:text-amber-700 dark:hover:text-amber-300"
+                  >
+                    <Upload size={28} />
+                    <span className="text-sm font-medium">Choisir ou prendre une photo</span>
+                  </button>
                   <span className="text-xs text-slate-400 dark:text-slate-500">
                     Cadrez l'ensemble du tableau, étiquettes lisibles
                   </span>
-                </button>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                    <span>ou</span>
+                    <button
+                      onClick={pasteFromClipboard}
+                      className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-amber-500 dark:hover:bg-amber-900/20 dark:hover:text-amber-300"
+                    >
+                      <ClipboardPaste size={14} /> Coller (Ctrl/⌘+V)
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-3">
                   <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
@@ -181,12 +250,21 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
                     />
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <button
-                      onClick={() => inputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-                    >
-                      <ImageIcon size={14} /> Changer la photo
-                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        onClick={() => inputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                      >
+                        <ImageIcon size={14} /> Changer la photo
+                      </button>
+                      <button
+                        onClick={pasteFromClipboard}
+                        className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                        title="Coller une image du presse-papiers (Ctrl/⌘+V)"
+                      >
+                        <ClipboardPaste size={14} /> Coller
+                      </button>
+                    </div>
                     <button
                       onClick={analyze}
                       disabled={loading}
