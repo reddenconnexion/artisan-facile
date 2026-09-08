@@ -659,6 +659,7 @@ export default function EtiquettesTableau() {
 function LabelCard({
   circuit,
   dims,
+  repere,
   isDragging,
   onEdit,
   onDragStart,
@@ -720,6 +721,7 @@ function LabelCard({
         }}
       >
         <div className="label-accent" />
+        {repere && <div className="label-repere">{repere}</div>}
         <div className="label-content">
           <Icon className="label-icon" style={{ width: iconPx, height: iconPx }} />
           <FitText
@@ -779,20 +781,17 @@ function RowView({
       </div>
       <div className="flex items-stretch gap-px rounded-md border border-slate-300 bg-slate-100 p-1 dark:border-slate-600 dark:bg-slate-900">
         {items.map(({ circuit, slot }) => (
-          <div key={circuit.id} className="flex flex-col items-center gap-1">
-            <span className="no-print text-[10px] font-medium text-slate-400 dark:text-slate-500">
-              {rowIndex}.{slot}
-            </span>
-            <LabelCard
-              circuit={circuit}
-              dims={dims}
-              isDragging={dragId === circuit.id}
-              onEdit={() => onEdit(circuit)}
-              onDragStart={() => onDragStart(circuit.id)}
-              onDragEnd={onDragEnd}
-              onDropOn={() => onDropOn(circuit.id)}
-            />
-          </div>
+          <LabelCard
+            key={circuit.id}
+            circuit={circuit}
+            dims={dims}
+            repere={`${rowIndex}.${slot}`}
+            isDragging={dragId === circuit.id}
+            onEdit={() => onEdit(circuit)}
+            onDragStart={() => onDragStart(circuit.id)}
+            onDragEnd={onDragEnd}
+            onDropOn={() => onDropOn(circuit.id)}
+          />
         ))}
         {empty > 0 && (
           <div
@@ -1018,6 +1017,19 @@ function printStyles() {
       color: #475569;
       margin-top: 1px;
       font-weight: 500;
+    }
+    /* Chiffre repère (rangée.emplacement) : coin haut-gauche de l'étiquette,
+       visible à l'écran ET à l'impression (contrairement aux éléments
+       .no-print, celui-ci fait partie du visuel imprimé de l'étiquette). */
+    .label-repere {
+      position: absolute;
+      top: 4px;
+      left: 2px;
+      font-size: 7px;
+      font-weight: 700;
+      color: #64748b;
+      line-height: 1.4;
+      z-index: 1;
     }
 
     @media print {
