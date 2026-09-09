@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Eye, EyeOff, PenTool } from 'lucide-react';
+import { UrgencyBadge } from './ui';
 
 const COLS = [
     {
@@ -83,6 +84,12 @@ const KanbanCard = ({ devis, onClick }) => {
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate mt-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {devis.title || `Devis #${devis.quote_number || devis.id}`}
             </p>
+
+            {['accepted', 'signed', 'billed'].includes(devis.status) && (
+                <div className="mt-1">
+                    <UrgencyBadge value={devis.urgency} />
+                </div>
+            )}
 
             <div className="flex items-center justify-between mt-2 gap-2">
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
