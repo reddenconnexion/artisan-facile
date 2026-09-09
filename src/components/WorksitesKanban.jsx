@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { supabase } from '../utils/supabase';
-import { fetchWorksites, WORKSITE_STAGES } from '../utils/worksites';
+import { fetchWorksites, WORKSITE_STAGES, updateWorksiteUrgency } from '../utils/worksites';
+import { urgencyWeight } from '../utils/urgency';
+import { UrgencyBadge } from './ui';
 
 // Métadonnées d'affichage par colonne (reprend les étapes partagées + une icône
 // et une couleur de liseré, alignées sur la page Pilotage Chantiers).
@@ -63,8 +65,21 @@ const WorksitesKanban = () => {
             const stage = w.work_stage && map[w.work_stage] ? w.work_stage : 'planned';
             map[stage].push(w);
         }
+        // Les chantiers les plus urgents remontent en haut de chaque colonne.
+        for (const stage of Object.keys(map)) {
+            map[stage].sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
+        }
         return map;
     }, [worksites]);
+
+    const handleUrgencyChange = async (quoteId, urgency) => {
+        setWorksites(prev => prev.map(w => (w.id === quoteId ? { ...w, urgency } : w)));
+        try {
+            await updateWorksiteUrgency(quoteId, urgency);
+        } catch (e) {
+            toast.error("Impossible de mettre à jour l'urgence : " + e.message);
+        }
+    };
 
     const updateStage = async (quoteId, newStage) => {
         const current = worksites.find(w => w.id === quoteId);
@@ -168,9 +183,12 @@ const WorksitesKanban = () => {
                                             <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                                                 {job.title || `Devis #${job.id}`}
                                             </p>
-                                            <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300 mt-1">
-                                                {(Number(job.total_ttc) || 0).toFixed(0)} €
-                                            </p>
+                                            <div className="flex items-center justify-between mt-1 gap-2">
+                                                <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                                    {(Number(job.total_ttc) || 0).toFixed(0)} €
+                                                </p>
+                                                <UrgencyBadge value={job.urgency} onChange={(u) => handleUrgencyChange(job.id, u)} />
+                                            </div>
                                         </div>
                                     ))
                                 )}

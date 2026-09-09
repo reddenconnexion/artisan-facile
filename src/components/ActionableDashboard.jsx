@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { fr } from 'date-fns/locale';
+import { urgencyWeight } from '../utils/urgency';
+import { UrgencyBadge } from './ui';
 
 const ActionableDashboard = ({ user }) => {
     const navigate = useNavigate();
@@ -109,11 +111,14 @@ const ActionableDashboard = ({ user }) => {
 
             // Filter out quotes that already have at least one invoice generated (deposit or final)
             // Also exclude test client quotes when not in test mode
-            const signedQuotes = (rawSignedQuotes || []).filter(q =>
-                (!q.invoices || q.invoices.length === 0) &&
-                !isTestQuote(q) &&
-                !(q.type === 'amendment' && parentsWithClosingInvoice.has(q.parent_id))
-            );
+            const signedQuotes = (rawSignedQuotes || [])
+                .filter(q =>
+                    (!q.invoices || q.invoices.length === 0) &&
+                    !isTestQuote(q) &&
+                    !(q.type === 'amendment' && parentsWithClosingInvoice.has(q.parent_id))
+                )
+                // Les chantiers les plus urgents remontent en tête de liste.
+                .sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
 
 
             // 3. Pending Invoices (Billed but not Paid)
@@ -267,9 +272,10 @@ const ActionableDashboard = ({ user }) => {
                                     className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-3 rounded border border-purple-100 dark:border-purple-900/30 shadow-sm cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors"
                                 >
                                     <div>
-                                        <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
                                             {quote.client_name || quote.clients?.name || 'Client'}
                                             <span className="text-xs font-normal text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Signé le {format(parseISO(quote.signed_at || quote.updated_at), 'dd/MM', { locale: fr })}</span>
+                                            <UrgencyBadge value={quote.urgency} />
                                         </p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                             {quote.title} - <span className="font-semibold text-gray-900 dark:text-gray-100">{(quote.total_ttc || 0).toFixed(2)} €</span>

@@ -13,7 +13,9 @@ import {
 import SegmentedControl from '../components/ui/SegmentedControl';
 import WorksitePlanning from '../components/WorksitePlanning';
 import { estimatedHoursFromItems, formatHours, laborProfitability } from '../utils/timeTracking';
-import { fetchWorksites as fetchWorksitesData, WORKSITE_STAGE_MAP } from '../utils/worksites';
+import { fetchWorksites as fetchWorksitesData, WORKSITE_STAGE_MAP, updateWorksiteUrgency } from '../utils/worksites';
+import { urgencyWeight } from '../utils/urgency';
+import { UrgencyBadge } from '../components/ui';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -147,22 +149,36 @@ const WorksitePilot = () => {
     };
 
     const getWorksitesByStage = (stageId) => {
-        return worksites.filter(site => {
-            // Logic to determine stage
-            // If work_stage is set, respect it.
-            // If NOT set, default to 'planned' (since we only fetched accepted+ status)
-            const currentStage = site.work_stage || 'planned';
+        return worksites
+            .filter(site => {
+                // Logic to determine stage
+                // If work_stage is set, respect it.
+                // If NOT set, default to 'planned' (since we only fetched accepted+ status)
+                const currentStage = site.work_stage || 'planned';
 
-            const matchesStage = currentStage === stageId;
+                const matchesStage = currentStage === stageId;
 
-            // Search
-            const term = searchTerm.toLowerCase();
-            const clientName = site.clients?.name?.toLowerCase() || '';
-            const city = site.clients?.city?.toLowerCase() || '';
-            const matchesSearch = !term || clientName.includes(term) || city.includes(term) || site.id.toString().includes(term);
+                // Search
+                const term = searchTerm.toLowerCase();
+                const clientName = site.clients?.name?.toLowerCase() || '';
+                const city = site.clients?.city?.toLowerCase() || '';
+                const matchesSearch = !term || clientName.includes(term) || city.includes(term) || site.id.toString().includes(term);
 
-            return matchesStage && matchesSearch;
-        });
+                return matchesStage && matchesSearch;
+            })
+            // Les chantiers les plus urgents remontent en tête de colonne, pour
+            // prioriser leur préparation (acompte/matériel) et leur planification.
+            .sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
+    };
+
+    const handleUrgencyChange = async (quoteId, urgency) => {
+        setWorksites(prev => prev.map(w => (w.id === quoteId ? { ...w, urgency } : w)));
+        try {
+            await updateWorksiteUrgency(quoteId, urgency);
+        } catch (error) {
+            toast.error("Impossible de mettre à jour l'urgence : " + error.message);
+            fetchWorksites();
+        }
     };
 
     const handleDragStart = (e, quoteId) => {
@@ -323,7 +339,10 @@ const WorksitePilot = () => {
                                                         <span className="truncate">Devis #{job.id} {job.title ? `- ${job.title}` : ''}</span>
                                                     </div>
                                                 </div>
-                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap shrink-0">{Number(job.total_ttc || 0).toFixed(2)} €</span>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <span className="font-bold text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap">{Number(job.total_ttc || 0).toFixed(2)} €</span>
+                                                    <UrgencyBadge value={job.urgency} onChange={(u) => handleUrgencyChange(job.id, u)} />
+                                                </div>
                                             </div>
 
                                             {/* Card Middle: Address & Info */}

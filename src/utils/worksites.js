@@ -79,3 +79,9 @@ export async function fetchWorksites() {
 
     return { worksites, spentByQuote };
 }
+
+/** Met à jour l'urgence client d'un chantier (devis). */
+export async function updateWorksiteUrgency(quoteId, urgency) {
+    const { error } = await supabase.from('quotes').update({ urgency }).eq('id', quoteId);
+    if (error) throw error;
+}

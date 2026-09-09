@@ -7,3 +7,4 @@ export { default as SegmentedControl } from './SegmentedControl';
 export { default as Input } from './Input';
 export { default as Field } from './Field';
 export { default as DismissibleHelp } from './DismissibleHelp';
+export { default as UrgencyBadge } from './UrgencyBadge';

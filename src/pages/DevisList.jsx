@@ -12,7 +12,7 @@ import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
 import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
-import { Button } from '../components/ui';
+import { Button, UrgencyBadge } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -630,6 +630,9 @@ const DevisList = () => {
                                             <div className="flex flex-col gap-1">
                                                 <StatusBadge status={devis.status} />
                                                 {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
+                                                {['accepted', 'billed'].includes(devis.status) && (
+                                                    <UrgencyBadge value={devis.urgency} />
+                                                )}
                                                 <EngagementBadge
                                                     devis={devis}
                                                     stats={emailStats?.byQuote.get(devis.id)}
@@ -724,6 +727,9 @@ const DevisList = () => {
                                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                         <StatusBadge status={devis.status} />
                                         {devis.type === 'invoice' && <TransmissionBadge status={devis.transmission_status} />}
+                                        {['accepted', 'billed'].includes(devis.status) && (
+                                            <UrgencyBadge value={devis.urgency} />
+                                        )}
                                         <EngagementBadge
                                             devis={devis}
                                             stats={emailStats?.byQuote.get(devis.id)}

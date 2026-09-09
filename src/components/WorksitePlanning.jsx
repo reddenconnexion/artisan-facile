@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
+import { toast } from 'sonner';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, toDateString } from '../utils/timeTracking';
+import { urgencyWeight } from '../utils/urgency';
+import { updateWorksiteUrgency } from '../utils/worksites';
+import { UrgencyBadge } from './ui';
 
 // Vue planning des chantiers, volontairement minimale : une ligne par
 // chantier, un segment coloré sur chaque jour où il a un rendez-vous d'agenda.
@@ -175,8 +179,18 @@ const WorksitePlanning = ({ worksites }) => {
         }
         // Les barres les plus proches en premier — l'œil lit de haut en bas
         planned.sort((a, b) => a.from.localeCompare(b.from));
+        // Les chantiers "à planifier" les plus urgents remontent en tête de liste.
+        unplanned.sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
         return { planned, unplanned };
     }, [worksites, events]);
+
+    const handleUrgencyChange = async (quoteId, urgency) => {
+        try {
+            await updateWorksiteUrgency(quoteId, urgency);
+        } catch (e) {
+            toast.error("Impossible de mettre à jour l'urgence : " + e.message);
+        }
+    };
 
     const label = (w) => w.clients?.name || w.title || `Devis #${w.id}`;
 
@@ -283,9 +297,12 @@ const WorksitePlanning = ({ worksites }) => {
                                         className="shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10 text-left px-4 py-3 group"
                                         style={{ width: labelWidth }}
                                     >
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                                            {label(w)}
-                                        </p>
+                                        <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
+                                                {label(w)}
+                                            </span>
+                                            <UrgencyBadge value={w.urgency} />
+                                        </span>
                                         {w.title && (
                                             <p className="text-[11px] text-gray-400 truncate">{w.title}</p>
                                         )}
@@ -349,13 +366,16 @@ const WorksitePlanning = ({ worksites }) => {
                                     </p>
                                     {w.title && <p className="text-[11px] text-gray-400 truncate">{w.title}</p>}
                                 </button>
-                                <button
-                                    onClick={() => planWorksite(w)}
-                                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shrink-0"
-                                >
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    Planifier
-                                </button>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <UrgencyBadge value={w.urgency} onChange={(u) => handleUrgencyChange(w.id, u)} />
+                                    <button
+                                        onClick={() => planWorksite(w)}
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    >
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        Planifier
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

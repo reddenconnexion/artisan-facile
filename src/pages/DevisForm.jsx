@@ -17,6 +17,7 @@ import { extractQuoteFromPdfText, translateQuoteContent } from '../utils/aiServi
 import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
 import { clientGreetingName } from '../utils/clientGreeting';
+import { URGENCY_LEVELS } from '../utils/urgency';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 import MarginGauge from '../components/MarginGauge';
@@ -533,6 +534,7 @@ const DevisForm = () => {
         ],
         notes: '',
         status: 'draft',
+        urgency: 'normal', // 'normal' | 'urgent' | 'critique' — pour prioriser la préparation/planification une fois accepté
         type: 'quote', // 'quote' or 'invoice'
         client_display_mode: 'detailed', // 'detailed' | 'grouped' (présentation PDF/lien public)
         include_tva: true,
@@ -1101,6 +1103,7 @@ const DevisForm = () => {
                     notes: data.notes || '',
                     content_en: data.content_en || null,
                     status: data.status || 'draft',
+                    urgency: data.urgency || 'normal',
                     type: data.type || 'quote',
                     client_display_mode: data.client_display_mode || 'detailed',
                     include_tva: typeof data.include_tva === 'boolean'
@@ -2294,6 +2297,7 @@ const DevisForm = () => {
                 include_tva: formData.include_tva,
                 notes: formData.notes,
                 status: formData.status,
+                urgency: formData.urgency || 'normal',
                 type: formData.type,
                 client_display_mode: formData.client_display_mode || 'detailed',
                 original_pdf_url: formData.original_pdf_url,
@@ -5237,6 +5241,36 @@ Conditions de règlement : Paiement à réception de facture.`
                                 </div>
                             );
                         })()}
+                        {/* Urgence client : une fois le devis accepté, sert à prioriser la
+                            préparation (acompte/matériel) et la planification du chantier
+                            dans le Pilotage Chantiers. */}
+                        {formData.type === 'quote' && ['accepted', 'billed', 'paid'].includes(formData.status) && (
+                            <div className="mt-3">
+                                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Urgence client
+                                </label>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {URGENCY_LEVELS.map(level => {
+                                        const isActive = (formData.urgency || 'normal') === level.id;
+                                        return (
+                                            <button
+                                                key={level.id}
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, urgency: level.id }))}
+                                                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors ${
+                                                    isActive
+                                                        ? `${level.badge} border-transparent`
+                                                        : 'bg-white dark:bg-gray-900 text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                }`}
+                                            >
+                                                {level.id !== 'normal' && <AlertTriangle className="w-2.5 h-2.5" />}
+                                                {level.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                         {formData.last_followup_at && (
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
