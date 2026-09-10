@@ -109,3 +109,38 @@ export const restoreDraftPhotos = (list = []) => (Array.isArray(list) ? list : [
         mediaType: 'image/jpeg',
         restored: true,
     }));
+
+/**
+ * Notes vocales déjà mises à l'abri (envoyées au bucket `visit-audio`),
+ * prêtes pour le brouillon. Sans ça, une visite reprise après coupure perdait
+ * la trace des segments encore en attente de transcription : le Blob a
+ * disparu avec l'onglet, mais le fichier reste sur le serveur.
+ */
+export const draftVoiceNotes = (voiceNotes = []) => voiceNotes
+    .filter((n) => n && n.dbId && n.path)
+    .map((n) => ({
+        id: n.id,
+        dbId: n.dbId,
+        path: n.path,
+        zone: n.zone || '',
+        duration: n.duration || 0,
+        mimeType: n.mimeType || '',
+    }));
+
+/**
+ * Reconstruit les notes vocales à partir du brouillon : sans Blob local, mais
+ * avec de quoi retélécharger l'audio depuis le stockage et relancer sa
+ * transcription.
+ */
+export const restoreDraftVoiceNotes = (list = []) => (Array.isArray(list) ? list : [])
+    .filter((n) => n && n.id && n.dbId && n.path)
+    .map((n) => ({
+        id: n.id,
+        dbId: n.dbId,
+        path: n.path,
+        zone: n.zone || '',
+        duration: n.duration || 0,
+        mimeType: n.mimeType || 'audio/webm',
+        blob: null,
+        restored: true,
+    }));

@@ -115,4 +115,24 @@ describe('photos et transcriptions dans le brouillon', () => {
         expect(restoreDraftPhotos(null)).toEqual([]);
         expect(restoreDraftPhotos([{ id: 'x' }, null])).toEqual([]);
     });
+
+    it("ne garde que les notes vocales déjà mises à l'abri", async () => {
+        const { draftVoiceNotes, restoreDraftVoiceNotes } = await import('./visitDraft');
+        const voiceNotes = [
+            { id: 'seg-1', dbId: 'm1', path: 'u/seg-1.webm', zone: 'Cuisine', duration: 42, mimeType: 'audio/webm', blob: {} },
+            { id: 'seg-2', duration: 10, blob: {} }, // pas encore persistée
+        ];
+        expect(draftVoiceNotes(voiceNotes)).toEqual([
+            { id: 'seg-1', dbId: 'm1', path: 'u/seg-1.webm', zone: 'Cuisine', duration: 42, mimeType: 'audio/webm' },
+        ]);
+        const restored = restoreDraftVoiceNotes(draftVoiceNotes(voiceNotes));
+        expect(restored).toHaveLength(1);
+        expect(restored[0]).toMatchObject({ id: 'seg-1', dbId: 'm1', path: 'u/seg-1.webm', blob: null, restored: true });
+    });
+
+    it('ignore un brouillon aux notes vocales mal formées', async () => {
+        const { restoreDraftVoiceNotes } = await import('./visitDraft');
+        expect(restoreDraftVoiceNotes(null)).toEqual([]);
+        expect(restoreDraftVoiceNotes([{ id: 'x' }, null])).toEqual([]);
+    });
 });

@@ -5,6 +5,7 @@ import {
     visitTitle,
     visitReportNumber,
     visitPhotoPath,
+    visitAudioPath,
     buildVisitRecord,
 } from './visitArchive';
 
@@ -37,6 +38,13 @@ describe('visitReportNumber / visitPhotoPath', () => {
     it('compose un numéro et un chemin stables', () => {
         expect(visitReportNumber(DATE, '4821')).toBe('VT-2026-4821');
         expect(visitPhotoPath('user-1', 'abc')).toBe('visites/user-1/abc.jpg');
+    });
+});
+
+describe('visitAudioPath', () => {
+    it('compose un chemin par artisan dans le bucket privé visit-audio', () => {
+        expect(visitAudioPath('user-1', 'seg-1')).toBe('user-1/seg-1.webm');
+        expect(visitAudioPath('user-1', 'seg-1', 'ogg')).toBe('user-1/seg-1.ogg');
     });
 });
 
