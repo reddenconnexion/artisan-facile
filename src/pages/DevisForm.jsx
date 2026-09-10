@@ -3262,20 +3262,30 @@ Conditions de règlement : Paiement à réception de facture.`
     };
 
     const handlePreview = async () => {
+        // Ouvert tout de suite, dans le même tick que le clic : au-delà de ce
+        // tick (après le moindre await), les navigateurs — Safari en tête,
+        // desktop comme iOS — ne reconnaissent plus le geste utilisateur et
+        // bloquent silencieusement le window.open() en fin de fonction. On
+        // pointe cet onglet vers le PDF une fois prêt, et on le referme si on
+        // n'aboutit pas.
+        const previewTab = window.open('', '_blank');
         try {
             if (!userProfile) {
+                previewTab?.close();
                 toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
                 fetchUserProfile();
                 return;
             }
 
             if (!formData.client_id) {
+                previewTab?.close();
                 toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
                 return;
             }
 
             const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
             if (!selectedClient) {
+                previewTab?.close();
                 toast.error('Client introuvable');
                 return;
             }
@@ -3308,12 +3318,20 @@ Conditions de règlement : Paiement à réception de facture.`
             const url = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
 
             if (url) {
-                window.open(url, '_blank');
+                if (previewTab) {
+                    previewTab.location.href = url;
+                } else {
+                    // Onglet bloqué dès l'ouverture (extension, réglage navigateur) :
+                    // on retente, sans grand espoir mais sans rien perdre.
+                    window.open(url, '_blank');
+                }
             } else {
+                previewTab?.close();
                 throw new Error("La génération du PDF n'a retourné aucune URL");
             }
 
         } catch (error) {
+            previewTab?.close();
             console.error('Error handling preview:', error);
             toast.error("Impossible de générer l'aperçu PDF : " + error.message);
         } finally {
