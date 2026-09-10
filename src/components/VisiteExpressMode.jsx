@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     Mic, Square, Camera, Flag, Undo2, Plus, MapPin, Check, Clock,
-    ClipboardCheck, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw,
+    Sparkles, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
@@ -483,8 +483,8 @@ export const ExpressActionPad = ({
                         onClick={onFinish}
                         className="flex-1 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
                     >
-                        <ClipboardCheck className="w-5 h-5" />
-                        Compte rendu
+                        <Sparkles className="w-5 h-5" />
+                        Générer le devis
                     </button>
                 </div>
             )}
