@@ -219,3 +219,141 @@ export const SURVEY_AI_INSTRUCTION =
     + 'de ces comptages, zone par zone. Chaque non-conformité listée dans la section CONFORMITÉ doit '
     + 'figurer par écrit dans le devis : soit comme ligne de mise en conformité chiffrée, soit comme '
     + 'mention explicite dans suggestions. Les points cochés « À prévoir » deviennent des lignes de devis.';
+
+// ── Pré-remplissage de la trame par l'IA (aiService.extractSurveyFromVisit) ─
+//
+// L'IA lit la conversation de la visite (souvent décousue) et les photos, et
+// propose un relevé structuré. Avant de le mélanger à ce que l'artisan a déjà
+// saisi, chaque valeur est validée contre la trame du métier (types, options
+// de chips, identifiants de compteurs/checklist) : une réponse mal formée ou
+// hors schéma est silencieusement ignorée plutôt que de corrompre l'état.
+
+const sanitizeChipsValue = (raw, field) => {
+    const allowed = new Set(field.options || []);
+    if (field.multi) {
+        const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []);
+        const filtered = arr.filter((v) => allowed.has(v));
+        return filtered.length ? filtered : undefined;
+    }
+    return typeof raw === 'string' && allowed.has(raw) ? raw : undefined;
+};
+
+const sanitizeContexte = (rawContexte, template) => {
+    const out = {};
+    for (const group of template.contextGroups || []) {
+        const rawGroup = rawContexte?.[group.key];
+        if (!rawGroup || typeof rawGroup !== 'object') continue;
+        const groupOut = {};
+        for (const field of group.fields || []) {
+            const raw = rawGroup[field.key];
+            let value;
+            if (field.type === 'chips') value = sanitizeChipsValue(raw, field);
+            else if (field.type === 'number') { const n = Number(raw); value = Number.isFinite(n) ? n : undefined; }
+            else value = typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+            if (value !== undefined) groupOut[field.key] = value;
+        }
+        if (Object.keys(groupOut).length) out[group.key] = groupOut;
+    }
+    return out;
+};
+
+const sanitizeZones = (rawZones, template) => {
+    if (!Array.isArray(rawZones)) return [];
+    const counterKeys = new Set((template.zoneCounters || []).map((c) => c.key));
+    const fieldKeys = new Set((template.zoneExtraFields || []).map((f) => f.key));
+    return rawZones
+        .filter((z) => z && typeof z.name === 'string' && z.name.trim())
+        .map((z) => {
+            const counters = {};
+            for (const [k, v] of Object.entries(z.counters || {})) {
+                if (!counterKeys.has(k)) continue;
+                const n = Number(v);
+                if (Number.isFinite(n) && n > 0) counters[k] = Math.round(n);
+            }
+            const fields = {};
+            for (const [k, v] of Object.entries(z.fields || {})) {
+                if (!fieldKeys.has(k)) continue;
+                if (typeof v === 'string' && v.trim()) fields[k] = v.trim();
+            }
+            return { name: z.name.trim(), counters, fields };
+        });
+};
+
+const sanitizeTableau = (raw, template) => {
+    if (!template.hasTableau || !raw || typeof raw !== 'object') return {};
+    const out = {};
+    const etats = new Set((template.tableauEtats || []).map((e) => e.value));
+    if (typeof raw.etat === 'string' && etats.has(raw.etat)) out.etat = raw.etat;
+    for (const key of ['rangees', 'placesDispo', 'disjoncteurs', 'observations']) {
+        if (typeof raw[key] === 'string' && raw[key].trim()) out[key] = raw[key].trim();
+    }
+    if (typeof raw.renovationComplete === 'boolean') out.renovationComplete = raw.renovationComplete;
+    for (const key of ['diffTypeA', 'diffTypeAC']) {
+        const n = Number(raw[key]);
+        if (Number.isFinite(n) && n > 0) out[key] = n;
+    }
+    return out;
+};
+
+const sanitizeChecklist = (raw, template) => {
+    const out = {};
+    const ids = new Set((template.checklist || []).map((c) => c.id));
+    for (const [k, v] of Object.entries(raw || {})) {
+        if (ids.has(k) && (v === 'verifie' || v === 'prevu')) out[k] = v;
+    }
+    return out;
+};
+
+/**
+ * Fusionne un relevé extrait par l'IA dans le relevé existant, sans jamais
+ * écraser ce que l'artisan a déjà saisi : seuls les champs encore vides sont
+ * complétés (zones assorties par nom, sinon ajoutées). L'artisan garde la
+ * main sur tout ce qu'il a lui-même rempli, avant de le relire et le
+ * chiffrer.
+ *
+ * @param {object} existing - survey courant (createEmptySurvey() ou saisi)
+ * @param {object|null} rawExtracted - retour brut de extractSurveyFromVisit
+ * @param {object} template - trame du métier (getSurveyTemplate)
+ */
+export const mergeSurveyFill = (existing, rawExtracted, template) => {
+    const survey = existing || createEmptySurvey();
+    if (!rawExtracted || typeof rawExtracted !== 'object' || !template) return survey;
+
+    const demande = survey.demande?.trim()
+        ? survey.demande
+        : (typeof rawExtracted.demande === 'string' && rawExtracted.demande.trim() ? rawExtracted.demande.trim() : survey.demande);
+
+    const contexte = sanitizeContexte(rawExtracted.contexte, template);
+    for (const [groupKey, group] of Object.entries(survey.contexte || {})) {
+        contexte[groupKey] = { ...contexte[groupKey], ...group }; // l'existant écrase l'extrait
+    }
+
+    const zones = (survey.zones || []).map((z) => ({ ...z, counters: { ...z.counters }, fields: { ...z.fields } }));
+    for (const ez of sanitizeZones(rawExtracted.zones, template)) {
+        const match = zones.find((z) => z.name.trim().toLowerCase() === ez.name.toLowerCase());
+        if (match) {
+            for (const [k, v] of Object.entries(ez.counters)) if (!match.counters[k]) match.counters[k] = v;
+            for (const [k, v] of Object.entries(ez.fields)) if (!match.fields[k]) match.fields[k] = v;
+        } else {
+            zones.push({ ...createEmptyZone(), name: ez.name, counters: ez.counters, fields: ez.fields });
+        }
+    }
+
+    const tableau = { ...survey.tableau };
+    for (const [k, v] of Object.entries(sanitizeTableau(rawExtracted.tableau, template))) {
+        const current = tableau[k];
+        const isEmpty = current === '' || current === undefined || current === null || current === false;
+        if (isEmpty) tableau[k] = v;
+    }
+
+    const checklist = { ...sanitizeChecklist(rawExtracted.checklist, template), ...survey.checklist };
+
+    const nonConformites = survey.nonConformites?.trim()
+        ? survey.nonConformites
+        : (typeof rawExtracted.nonConformites === 'string' ? rawExtracted.nonConformites.trim() : survey.nonConformites);
+    const notesLibres = survey.notesLibres?.trim()
+        ? survey.notesLibres
+        : (typeof rawExtracted.notesLibres === 'string' ? rawExtracted.notesLibres.trim() : survey.notesLibres);
+
+    return { demande, contexte, zones, tableau, checklist, nonConformites, notesLibres };
+};

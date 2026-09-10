@@ -5,14 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import { generateQuoteFromSiteVisit } from '../utils/aiService';
+import { generateQuoteFromSiteVisit, extractSurveyFromVisit } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
 import { transcribeBlob } from '../utils/transcribeAudio';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitAudioPath, visitReportNumber } from '../utils/visitArchive';
 import { buildPredevisReport } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
-import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
+import { createEmptySurvey, buildSurveyText, hasSurveyContent, mergeSurveyFill } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
@@ -125,6 +125,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const surveyTemplate = getSurveyTemplate(profile?.trade);
     const [survey, setSurvey] = useState(createEmptySurvey);
     const [showSurvey, setShowSurvey] = useState(true);
+    // Pré-remplissage de la trame par l'IA à la fin d'une visite express
+    // (voir handleFinishVisit) : true pendant l'extraction.
+    const [extractingSurvey, setExtractingSurvey] = useState(false);
 
     const [voiceTranscripts, setVoiceTranscripts] = useState({}); // { [idNoteVocale]: texte }
     // Avancement de la transcription de chaque note : { [id]: { state, error, retryable } }
@@ -668,13 +671,41 @@ const VisiteTechniqueMode = ({ onBack }) => {
         }
     };
 
-    const handleFinishVisit = () => {
+    /**
+     * Fin de la visite express : la conversation captée (souvent décousue)
+     * est passée à l'IA pour pré-remplir la trame — pièces, compteurs,
+     * tableau — au lieu de laisser l'artisan deviner les quantités à partir
+     * d'un texte en vrac plus tard. Bascule sur « Mise au propre » pour la
+     * relecture ; le chiffrage (handleAnalyze) reste un geste volontaire,
+     * après vérification.
+     */
+    const handleFinishVisit = async () => {
         if (visitRecorder.isRecording) visitRecorder.stop();
         if (!canAnalyze) {
             toast.error('Rien à analyser — ajoutez une note vocale, une photo ou du texte.');
             return;
         }
-        handleAnalyze();
+        setMode('detail');
+        const transcripts = voiceNotes
+            .map((n) => voiceTranscripts[n.id])
+            .filter((t) => String(t ?? '').trim() !== '');
+        if (!transcripts.length && !textNotes.trim()) return; // rien à extraire, la trame reste telle quelle
+        setExtractingSurvey(true);
+        try {
+            // Les photos sont déjà analysées lors du chiffrage (handleAnalyze) :
+            // les repasser ici doublerait l'appel IA vision pour un gain nul —
+            // la structuration du relevé vient presque toujours de ce qui est dit.
+            const extracted = await extractSurveyFromVisit(transcripts, [], surveyTemplate, textNotes);
+            if (extracted) {
+                setSurvey((prev) => mergeSurveyFill(prev, extracted, surveyTemplate));
+                toast.success('Relevé pré-rempli à partir de la visite — vérifiez avant de chiffrer.');
+            }
+        } catch (err) {
+            console.warn('Pré-remplissage du relevé impossible :', err.message);
+            toast.error("Le relevé n'a pas pu être pré-rempli automatiquement — complétez-le à la main.");
+        } finally {
+            setExtractingSurvey(false);
+        }
     };
 
     const filteredClients = clients.filter(c =>
@@ -1091,6 +1122,13 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
                 {step === 'capture' && mode === 'detail' && (
                     <div className="p-4 space-y-5 pb-28">
+                        {extractingSurvey && (
+                            <div className="flex items-center gap-2 p-3 bg-violet-50 border border-violet-200 rounded-2xl text-sm font-semibold text-violet-700">
+                                <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                                Analyse de la visite — remplissage automatique du relevé…
+                            </div>
+                        )}
+
                         {/* Address */}
                         <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
