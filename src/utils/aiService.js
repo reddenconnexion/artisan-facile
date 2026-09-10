@@ -543,6 +543,78 @@ export const structureVisitTranscript = async (rawNotes, context = {}) => {
     return String(rawResponse ?? '').trim();
 };
 
+/** Décrit un champ de contexte pour le prompt d'extraction (voir surveySchemaPrompt). */
+const contexteFieldPrompt = (field) => {
+    if (field.type === 'chips') {
+        const values = (field.options || []).map((o) => `"${o}"`).join(', ');
+        return `"${field.key}" (${field.label}) : ${field.multi ? `tableau parmi [${values}]` : `une valeur parmi [${values}]`}`;
+    }
+    if (field.type === 'number') return `"${field.key}" (${field.label}) : nombre${field.unit ? ` en ${field.unit}` : ''}`;
+    return `"${field.key}" (${field.label}) : texte court`;
+};
+
+/** Décrit le schéma JSON attendu, dérivé dynamiquement de la trame du métier. */
+const surveySchemaPrompt = (template) => {
+    const contexte = (template.contextGroups || [])
+        .map((g) => `  "${g.key}" (${g.label}) : { ${(g.fields || []).map(contexteFieldPrompt).join(', ')} }`)
+        .join('\n');
+    const counters = (template.zoneCounters || []).map((c) => `"${c.key}" (${c.label})`).join(', ') || '(aucun compteur pour ce métier)';
+    const extraFields = (template.zoneExtraFields || []).map((f) => `"${f.key}" (${f.label})`).join(', ') || '(aucun)';
+    const tableau = template.hasTableau
+        ? `\n  "tableau" : { "etat" : une valeur parmi [${(template.tableauEtats || []).map((e) => `"${e.value}"`).join(', ')}], "rangees" : texte, "placesDispo" : texte, "renovationComplete" : booléen, "diffTypeA" : nombre, "diffTypeAC" : nombre, "disjoncteurs" : texte, "observations" : texte }`
+        : '';
+    const checklist = (template.checklist || []).length
+        ? `\n  "checklist" : { ${(template.checklist || []).map((c) => `"${c.id}" : "verifie" ou "prevu"`).join(', ')} }`
+        : '';
+    return `Réponds UNIQUEMENT avec un objet JSON de cette forme (omets toute clé non évoquée dans la conversation) :
+{
+  "demande" : "ce que le client demande, dans ses mots",
+${contexte}
+  "zones" : [ { "name" : "nom de la pièce", "counters" : { ${counters} : nombre }, "fields" : { ${extraFields} : texte } } ],${tableau}${checklist}
+  "nonConformites" : "texte",
+  "notesLibres" : "texte"
+}`;
+};
+
+/**
+ * Extrait un relevé structuré (trame) à partir de la conversation retranscrite
+ * pendant la visite et des descriptions de photos — pour pré-remplir la trame
+ * automatiquement au lieu de forcer l'artisan à la remplir pendant qu'il parle
+ * au client. L'artisan relit et corrige avant chiffrage (voir mergeSurveyFill,
+ * utils/surveyText.js, qui ne complète que les champs encore vides).
+ *
+ * Consigne stricte : ne jamais deviner une quantité non évoquée. Un relevé
+ * partiel (des champs absents) vaut mieux qu'un relevé inventé qui fausserait
+ * le chiffrage sans que l'artisan s'en rende compte.
+ *
+ * @param {string[]} voiceTranscripts
+ * @param {string[]} photoAnalyses
+ * @param {object} template - trame du métier (getSurveyTemplate)
+ * @param {string} [textNotes]
+ * @returns {Promise<object|null>} objet brut à passer à mergeSurveyFill, ou null si rien à extraire
+ */
+export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyses = [], template, textNotes = '') => {
+    const parts = [];
+    if (voiceTranscripts.length > 0) {
+        parts.push('CONVERSATION AVEC LE CLIENT (retranscrite, peut contenir du bavardage) :\n'
+            + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
+    }
+    if (textNotes.trim()) parts.push('NOTES TEXTE :\n' + textNotes.trim());
+    if (photoAnalyses.length > 0) {
+        parts.push('PHOTOS :\n' + photoAnalyses.map((a, i) => `Photo ${i + 1}: ${a}`).join('\n'));
+    }
+    if (!parts.length) return null;
+
+    const systemPrompt = `Tu structures le relevé de visite d'un ${template?.label || 'artisan'} à partir d'une conversation `
+        + `avec le client et de descriptions de photos. N'invente et ne devine JAMAIS une quantité ou une valeur non `
+        + `explicitement évoquée ou clairement visible : dans le doute, omets le champ plutôt que d'écrire une valeur `
+        + `approximative — l'artisan complètera lui-même ce qui manque.\n\n${surveySchemaPrompt(template || {})}`;
+
+    const rawResponse = await callAiProxy({ systemPrompt, userMessage: parts.join('\n\n') });
+    const parsed = extractJsonObject(rawResponse);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+};
+
 /**
  * Generates a quote from a site visit (voice notes + photos).
  * @param {string[]} voiceTranscripts - Transcriptions of voice notes
