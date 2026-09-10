@@ -169,8 +169,6 @@ const DevisForm = () => {
     const [showImportZone, setShowImportZone] = useState(false);
     const [competitorImport, setCompetitorImport] = useState(null);   // { filename, importedAt } quand on est en contre-proposition
     const [isDragOver, setIsDragOver] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState(null);
-    const [previewLoading, setPreviewLoading] = useState(false);
     const [emailPreview, setEmailPreview] = useState(null);
     // Vue « aperçu PDF » d'un devis finalisé : à l'ouverture d'un document déjà
     // finalisé (envoyé, signé, facturé, payé…), on présente d'abord le PDF pour
@@ -3261,64 +3259,43 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handlePreview = async () => {
-        try {
-            if (!userProfile) {
-                toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
-                fetchUserProfile();
-                return;
-            }
-
-            if (!formData.client_id) {
-                toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
-                return;
-            }
-
-            const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
-            if (!selectedClient) {
-                toast.error('Client introuvable');
-                return;
-            }
-
-            setPreviewLoading(true);
-
-            const isInvoice = formData.type === 'invoice';
-            if (isInvoice && (!userProfile?.iban || userProfile.iban.length < 5)) {
-                toast.warning("Attention : Votre IBAN n'est pas renseigné.", {
-                    description: "Pensez à l'ajouter dans votre profil pour qu'il apparaisse sur la facture.",
-                    duration: 4000
-                });
-            }
-            const devisData = {
-                id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
-                items: formData.items.map(i => ({
-                    ...i,
-                    quantity: parseFloat(i.quantity) || 0,
-                    price: parseFloat(i.price) || 0
-                })),
-                total_ht: subtotal,
-                total_tva: tva,
-                total_ttc: total,
-                include_tva: formData.include_tva,
-                has_material_deposit: formData.has_material_deposit,
-                amendment_details: formData.amendment_details || {}
-            };
-
-            const url = await generateClientPDF(devisData, selectedClient, userProfile, isInvoice, 'bloburl');
-
-            if (url) {
-                window.open(url, '_blank');
-            } else {
-                throw new Error("La génération du PDF n'a retourné aucune URL");
-            }
-
-        } catch (error) {
-            console.error('Error handling preview:', error);
-            toast.error("Impossible de générer l'aperçu PDF : " + error.message);
-        } finally {
-            setPreviewLoading(false);
+    // « Aperçu PDF » depuis l'éditeur : bascule vers la même vue aperçu qu'un
+    // devis déjà finalisé, sur place (pas de nouvelle fenêtre/onglet — un
+    // window.open() ouvrait le PDF hors de l'application, dans une fenêtre à
+    // part que l'artisan ne repérait pas toujours). L'aperçu déjà en cache
+    // est jeté pour refléter les modifications faites depuis la dernière
+    // vue (édition en cours, ou entrée automatique sur un document non-brouillon).
+    const handlePreview = () => {
+        if (!userProfile) {
+            toast.error("Profil utilisateur en cours de chargement, veuillez patienter...");
+            fetchUserProfile();
+            return;
         }
+
+        if (!formData.client_id) {
+            toast.error('Veuillez sélectionner un client pour prévisualiser le PDF');
+            return;
+        }
+
+        const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
+        if (!selectedClient) {
+            toast.error('Client introuvable');
+            return;
+        }
+
+        if (formData.type === 'invoice' && (!userProfile?.iban || userProfile.iban.length < 5)) {
+            toast.warning("Attention : Votre IBAN n'est pas renseigné.", {
+                description: "Pensez à l'ajouter dans votre profil pour qu'il apparaisse sur la facture.",
+                duration: 4000
+            });
+        }
+
+        setOverviewPdfUrl(prev => {
+            if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+            return null;
+        });
+        setOverviewError(null);
+        setPdfOverviewMode(true);
     };
 
     // Génère (en mémoire) le PDF affiché dans la vue « aperçu » d'un devis finalisé.
@@ -4025,7 +4002,7 @@ Conditions de règlement : Paiement à réception de facture.`
         </div>
     ) : null;
 
-    if (isEditing && dataLoaded && pdfOverviewMode) {
+    if (dataLoaded && pdfOverviewMode) {
         const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
         // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
         // pour un document externe dont on ne possède pas le blob à rastériser.
@@ -4033,7 +4010,7 @@ Conditions de règlement : Paiement à réception de facture.`
         const refPrefix = formData.type === 'invoice' ? 'FAC' : (formData.type === 'credit_note' ? 'AVR' : (formData.type === 'amendment' ? 'AVT' : 'DEV'));
         const docRef = ['invoice', 'credit_note'].includes(formData.type) && formData.invoice_number
             ? formData.invoice_number
-            : `${refPrefix} #${formData.quote_number || id}`;
+            : `${refPrefix} #${formData.quote_number || (isEditing ? id : 'brouillon')}`;
         const statusMeta = {
             draft: { label: 'Brouillon', cls: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' },
             sent: { label: 'Envoyé', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
