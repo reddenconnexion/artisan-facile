@@ -21,7 +21,7 @@ ALTER TABLE voice_memos
   ADD COLUMN IF NOT EXISTS zone             TEXT,
   ADD COLUMN IF NOT EXISTS duration_seconds INTEGER,
   ADD COLUMN IF NOT EXISTS mime_type        TEXT,
-  ADD COLUMN IF NOT EXISTS visit_report_id  UUID REFERENCES intervention_reports(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS visit_report_id  BIGINT REFERENCES intervention_reports(id) ON DELETE SET NULL;
 
 COMMENT ON COLUMN voice_memos.source          IS 'quick_memo (pipeline mémo vocal) ou visit_segment (segment de visite prédevis)';
 COMMENT ON COLUMN voice_memos.audio_path      IS 'Chemin dans le bucket privé visit-audio, tant que le segment n''est pas transcrit avec succès';
