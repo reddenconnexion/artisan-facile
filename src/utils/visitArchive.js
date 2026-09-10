@@ -5,9 +5,12 @@
 // le relevé. Chaque visite est donc enregistrée comme rapport d'intervention
 // (`intervention_reports`, type `site_visit`), consultable dans Interventions.
 //
-// L'audio n'est jamais conservé : il sert à produire la transcription, puis il
-// est oublié. Ce sont les mots qui comptent, pas la bande-son d'une
-// conversation avec un client.
+// L'audio n'est jamais conservé dans ce rapport : il sert à produire la
+// transcription, puis il est oublié. Ce sont les mots qui comptent, pas la
+// bande-son d'une conversation avec un client. (Le fichier brut transite par
+// le bucket privé `visit-audio` le temps de la transcription — voir
+// `visitAudioPath` — et n'y survit qu'en cas d'échec, pour permettre une
+// nouvelle tentative.)
 //
 // Module pur : ni horloge ni réseau, tout arrive en paramètre.
 
@@ -29,6 +32,14 @@ export const visitReportNumber = (date, suffix) => `VT-${date.getFullYear()}-${s
 
 /** Emplacement d'une photo de visite dans le bucket `project-photos`. */
 export const visitPhotoPath = (userId, id) => `visites/${userId}/${id}.jpg`;
+
+/**
+ * Emplacement d'un segment audio de visite dans le bucket privé `visit-audio`.
+ * L'audio n'y reste que le temps d'être transcrit : une fois la transcription
+ * réussie, le fichier est effacé — seul un échec le laisse en place, pour
+ * qu'une nouvelle tentative reste possible après une coupure.
+ */
+export const visitAudioPath = (userId, id, ext = 'webm') => `${userId}/${id}.${ext}`;
 
 /**
  * Compose la ligne `intervention_reports` d'une visite.

@@ -9,7 +9,7 @@ import { generateQuoteFromSiteVisit } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
 import { transcribeBlob } from '../utils/transcribeAudio';
 import { assertWithinQuota } from '../utils/storageQuota';
-import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitReportNumber } from '../utils/visitArchive';
+import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitAudioPath, visitReportNumber } from '../utils/visitArchive';
 import { buildPredevisReport } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent } from '../utils/surveyText';
@@ -27,7 +27,10 @@ import {
     buildTimelineLines, photoZones,
 } from '../utils/visitCapture';
 import { surveyCompleteness } from '../utils/predevisReport';
-import { loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos } from '../utils/visitDraft';
+import {
+    loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos,
+    draftVoiceNotes, restoreDraftVoiceNotes,
+} from '../utils/visitDraft';
 import {
     formatDuration,
     fmtEur,
@@ -48,7 +51,7 @@ import {
 const readPendingDraft = () => {
     const draft = loadVisitDraft();
     const usable = draft && (draft.clientName?.trim() || hasSurveyContent(draft.survey) || hasCaptureContent(draft.capture)
-        || draft.photos?.length || Object.keys(draft.transcripts || {}).length);
+        || draft.photos?.length || draft.voiceNotes?.length || Object.keys(draft.transcripts || {}).length);
     return usable ? draft : null;
 };
 
@@ -170,15 +173,17 @@ const VisiteTechniqueMode = ({ onBack }) => {
             () => saveVisitDraft({
                 clientId, clientName, address, textNotes, survey, capture,
                 // Ce qui a déjà été mis à l'abri survit à une reprise : les
-                // photos envoyées, les notes transcrites et le rapport archivé.
+                // photos envoyées, l'audio pas encore transcrit, les notes
+                // déjà transcrites et le rapport archivé.
                 photos: draftPhotos(photos),
+                voiceNotes: draftVoiceNotes(voiceNotes),
                 transcripts: voiceTranscripts,
                 visitReportId,
             }),
             600
         );
         return () => clearTimeout(timer);
-    }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceTranscripts, visitReportId]);
+    }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceNotes, voiceTranscripts, visitReportId]);
 
     const restoreDraft = () => {
         const draft = pendingDraft;
@@ -192,7 +197,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
         // pas à la fermeture de l'onglet, le texte du déroulé si.
         if (draft.capture) setCapture({ ...createCapture(), ...draft.capture });
         // Photos déjà enregistrées et notes déjà transcrites : on les
-        // retrouve ; seuls les fichiers audio sont perdus.
+        // retrouve.
         const restoredPhotos = restoreDraftPhotos(draft.photos);
         if (restoredPhotos.length) {
             setPhotos(restoredPhotos);
@@ -200,10 +205,23 @@ const VisiteTechniqueMode = ({ onBack }) => {
         }
         if (draft.transcripts && typeof draft.transcripts === 'object') setVoiceTranscripts(draft.transcripts);
         if (draft.visitReportId) setVisitReportId(draft.visitReportId);
+        // Audio mis à l'abri avant la coupure : le Blob a disparu avec
+        // l'onglet, mais le fichier est encore dans le stockage — on le
+        // retélécharge pour relancer sa transcription si elle n'a pas abouti.
+        const restoredVoiceNotes = restoreDraftVoiceNotes(draft.voiceNotes);
+        let pendingRedownload = 0;
+        if (restoredVoiceNotes.length) {
+            setVoiceNotes(prev => [...prev, ...restoredVoiceNotes]);
+            const stillPending = restoredVoiceNotes.filter(n => String(draft.transcripts?.[n.id] ?? '').trim() === '');
+            pendingRedownload = stillPending.length;
+            if (stillPending.length) redownloadAndRetry(stillPending);
+        }
         setPendingDraft(null);
-        toast.success(restoredPhotos.length
-            ? `Relevé repris — ${restoredPhotos.length} photo${restoredPhotos.length > 1 ? 's' : ''} retrouvée${restoredPhotos.length > 1 ? 's' : ''}`
-            : 'Relevé repris');
+        const parts = [
+            restoredPhotos.length ? `${restoredPhotos.length} photo${restoredPhotos.length > 1 ? 's' : ''}` : '',
+            pendingRedownload ? `${pendingRedownload} note${pendingRedownload > 1 ? 's' : ''} vocale${pendingRedownload > 1 ? 's' : ''} à retranscrire` : '',
+        ].filter(Boolean);
+        toast.success(parts.length ? `Relevé repris — ${parts.join(', ')} retrouvée(s)` : 'Relevé repris');
     };
 
     const discardDraft = () => {
@@ -226,6 +244,60 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const transcribeQueueRef = useRef([]);
     const transcribingRef = useRef(false);
 
+    /**
+     * Met un segment audio à l'abri dans le bucket privé `visit-audio` et
+     * crée sa ligne `voice_memos` avant même de tenter la transcription :
+     * un onglet recyclé pendant l'appel de transcription ne doit plus faire
+     * disparaître le seul exemplaire de l'audio. Best-effort — si la mise à
+     * l'abri échoue (réseau coupé), la transcription est tentée quand même
+     * avec le Blob en mémoire, comme avant.
+     */
+    const persistVoiceNote = useCallback(async (note) => {
+        if (!user) return note;
+        try {
+            const bareType = note.mimeType.split(';')[0].trim() || 'audio/webm';
+            const ext = bareType.includes('ogg') ? 'ogg' : bareType.includes('mp4') ? 'm4a' : 'webm';
+            const path = visitAudioPath(user.id, note.id, ext);
+            const { error: upErr } = await supabase.storage
+                .from('visit-audio')
+                .upload(path, note.blob, { contentType: bareType });
+            if (upErr) throw upErr;
+            const { data: memo, error: memoErr } = await supabase.from('voice_memos')
+                .insert({
+                    user_id: user.id,
+                    source: 'visit_segment',
+                    status: 'pending',
+                    audio_path: path,
+                    zone: note.zone || null,
+                    duration_seconds: note.duration || null,
+                    mime_type: note.mimeType,
+                })
+                .select('id')
+                .single();
+            if (memoErr) throw memoErr;
+            const enriched = { ...note, dbId: memo.id, path };
+            setVoiceNotes(prev => prev.map(n => (n.id === note.id ? enriched : n)));
+            return enriched;
+        } catch (err) {
+            console.warn('Audio non mis à l\'abri — la transcription se poursuit sans filet :', err.message);
+            return note;
+        }
+    }, [user]);
+
+    /** Termine le suivi d'un segment persisté : transcrit, l'audio n'a plus de raison de rester. */
+    const markVoiceNoteDone = (note) => {
+        if (!note.dbId) return;
+        supabase.from('voice_memos').update({ status: 'done', audio_path: null }).eq('id', note.dbId)
+            .then(() => {}, () => {});
+        if (note.path) supabase.storage.from('visit-audio').remove([note.path]).then(() => {}, () => {});
+    };
+
+    /** Échec définitif ou transitoire : l'audio reste en place pour une nouvelle tentative. */
+    const markVoiceNoteFailed = (note) => {
+        if (!note.dbId) return;
+        supabase.from('voice_memos').update({ status: 'error' }).eq('id', note.dbId).then(() => {}, () => {});
+    };
+
     const runTranscriptionQueue = useCallback(async () => {
         if (transcribingRef.current) return;
         transcribingRef.current = true;
@@ -236,15 +308,17 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 if (!voiceNotesRef.current.some(n => n.id === note.id)) continue;
                 setVoiceStatus(s => ({ ...s, [note.id]: { state: 'transcribing' } }));
                 try {
-                    const { transcript } = await transcribeBlob(note.blob, note.mimeType);
+                    const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId });
                     setVoiceTranscripts(prev => ({ ...prev, [note.id]: transcript }));
                     setVoiceStatus(s => ({ ...s, [note.id]: { state: 'done' } }));
+                    markVoiceNoteDone(note);
                 } catch (err) {
                     console.warn('Transcription en échec :', err);
                     setVoiceStatus(s => ({
                         ...s,
                         [note.id]: { state: 'failed', error: err.message, retryable: err.retryable !== false },
                     }));
+                    markVoiceNoteFailed(note);
                 }
             }
         } finally {
@@ -260,11 +334,37 @@ const VisiteTechniqueMode = ({ onBack }) => {
         runTranscriptionQueue();
     }, [runTranscriptionQueue]);
 
+    /**
+     * Retélécharge l'audio d'un segment repris d'un brouillon (Blob perdu
+     * avec l'onglet, fichier encore dans `visit-audio`) et relance sa
+     * transcription. Sans audio retrouvable, l'échec est définitif.
+     */
+    const redownloadAndRetry = useCallback(async (notes) => {
+        setVoiceStatus(s => notes.reduce((acc, n) => ({ ...acc, [n.id]: { state: 'pending' } }), { ...s }));
+        for (const note of notes) {
+            try {
+                const { data, error } = await supabase.storage.from('visit-audio').createSignedUrl(note.path, 60);
+                if (error) throw error;
+                const blob = await (await fetch(data.signedUrl)).blob();
+                enqueueTranscription([{ ...note, blob }]);
+            } catch (err) {
+                console.warn('Audio introuvable en stockage :', err);
+                setVoiceStatus(s => ({
+                    ...s,
+                    [note.id]: { state: 'failed', error: 'Audio introuvable — impossible de retranscrire cette note.', retryable: false },
+                }));
+            }
+        }
+    }, [enqueueTranscription]);
+
     /** Relance les notes en échec (bouton « Réessayer »). */
     const retryFailedTranscriptions = useCallback(() => {
         const failed = voiceNotesRef.current.filter(n => voiceStatusRef.current[n.id]?.state === 'failed');
-        if (failed.length) enqueueTranscription(failed);
-    }, [enqueueTranscription]);
+        const withBlob = failed.filter(n => n.blob);
+        const needsRedownload = failed.filter(n => !n.blob && n.dbId && n.path);
+        if (withBlob.length) enqueueTranscription(withBlob);
+        if (needsRedownload.length) redownloadAndRetry(needsRedownload);
+    }, [enqueueTranscription, redownloadAndRetry]);
 
     // Retour du réseau : on rattrape ce qui a échoué pour cause de coupure.
     useEffect(() => {
@@ -273,11 +373,14 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 const st = voiceStatusRef.current[n.id];
                 return st?.state === 'failed' && st.retryable;
             });
-            if (failed.length) enqueueTranscription(failed);
+            const withBlob = failed.filter(n => n.blob);
+            const needsRedownload = failed.filter(n => !n.blob && n.dbId && n.path);
+            if (withBlob.length) enqueueTranscription(withBlob);
+            if (needsRedownload.length) redownloadAndRetry(needsRedownload);
         };
         window.addEventListener('online', retry);
         return () => window.removeEventListener('online', retry);
-    }, [enqueueTranscription]);
+    }, [enqueueTranscription, redownloadAndRetry]);
 
     const transcribingCount = Object.values(voiceStatus)
         .filter(st => st.state === 'pending' || st.state === 'transcribing').length;
@@ -289,14 +392,18 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const captureZoneRef = useRef('');
     useEffect(() => { captureZoneRef.current = capture.zone; }, [capture.zone]);
 
-    const handleSegment = useCallback(({ blob, mimeType, duration, index, startedAt, meta }) => {
+    const handleSegment = useCallback(async ({ blob, mimeType, duration, index, startedAt, meta }) => {
         const id = `seg-${startedAt}-${index}`;
         const zone = meta?.zone || '';
         const note = { id, blob, mimeType, duration, zone };
         setVoiceNotes(prev => [...prev, note]);
         setCapture(c => addVoice(c, { mediaId: id, duration, at: startedAt, zone }));
-        enqueueTranscription([note]);
-    }, [enqueueTranscription]);
+        // L'audio est mis à l'abri avant d'être transcrit : si l'appli est
+        // recyclée pendant l'appel de transcription, le fichier survit sur
+        // le serveur et pourra être retransmis plus tard.
+        const persisted = await persistVoiceNote(note);
+        enqueueTranscription([persisted]);
+    }, [enqueueTranscription, persistVoiceNote]);
 
     const getSegmentMeta = useCallback(() => ({ zone: captureZoneRef.current }), []);
 
@@ -504,6 +611,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 }
             }
 
+            let reportId = visitReportId;
             if (visitReportId) {
                 const { error } = await supabase.from('intervention_reports').update(record).eq('id', visitReportId);
                 if (error) throw error;
@@ -511,7 +619,14 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 const { data, error } = await supabase.from('intervention_reports')
                     .insert(record).select('id').single();
                 if (error) throw error;
-                if (data?.id) setVisitReportId(data.id);
+                if (data?.id) { reportId = data.id; setVisitReportId(data.id); }
+            }
+            // Relie les segments audio déjà persistés à leur rapport, pour
+            // pouvoir retrouver un échec resté en base a posteriori.
+            const dbIds = voiceNotesRef.current.map(n => n.dbId).filter(Boolean);
+            if (reportId && dbIds.length) {
+                supabase.from('voice_memos').update({ visit_report_id: reportId }).in('id', dbIds)
+                    .then(() => {}, () => {});
             }
             lastSavedSignatureRef.current = signature;
         } catch (err) {
@@ -588,9 +703,12 @@ const VisiteTechniqueMode = ({ onBack }) => {
     };
 
     const handleDeleteVoice = (id) => {
+        const note = voiceNotesRef.current.find(n => n.id === id);
         setVoiceNotes(prev => prev.filter(n => n.id !== id));
         setVoiceTranscripts(prev => omitKey(prev, id));
         setVoiceStatus(prev => omitKey(prev, id));
+        if (note?.path) supabase.storage.from('visit-audio').remove([note.path]).then(() => {}, () => {});
+        if (note?.dbId) supabase.from('voice_memos').delete().eq('id', note.dbId).then(() => {}, () => {});
     };
 
     // ── Photos ─────────────────────────────────────────────────────────────
@@ -644,13 +762,15 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 for (const note of voiceNotes) {
                     const known = voiceTranscripts[note.id];
                     if (known !== undefined) { if (String(known).trim()) transcripts.push(known); continue; }
-                    if (!note.blob) continue; // note reprise d'un brouillon : l'audio n'existe plus
+                    if (!note.blob) continue; // note reprise d'un brouillon : sa transcription est en cours (voir redownloadAndRetry)
                     try {
-                        const { transcript } = await transcribeBlob(note.blob, note.mimeType);
+                        const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId });
                         collected[note.id] = transcript;
                         if (transcript) transcripts.push(transcript);
+                        markVoiceNoteDone(note);
                     } catch (noteErr) {
                         console.warn('Transcription en échec, note ignorée :', noteErr.message);
+                        markVoiceNoteFailed(note);
                     }
                 }
                 if (Object.keys(collected).length) setVoiceTranscripts(prev => ({ ...prev, ...collected }));
@@ -881,7 +1001,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 </p>
                                 <p className="text-xs text-blue-700 mt-0.5">
                                     {[pendingDraft.clientName, draftAgeLabel(pendingDraft.savedAt)].filter(Boolean).join(' — ')}
-                                    {' '}· photos enregistrées et transcriptions retrouvées, audio non conservé.
+                                    {' '}· photos, transcriptions et audio pas encore transcrit sont retrouvés.
                                 </p>
                                 <div className="flex gap-2 mt-2">
                                     <button
