@@ -19,7 +19,6 @@ import LiveCameraSheet from './LiveCameraSheet';
 import PhotoLightbox from './PhotoLightbox';
 import { isInPageCameraSupported, openCameraStream, cameraErrorMessage } from '../utils/cameraCapture';
 import { readAudioInput, rememberAudioInput } from '../utils/audioInput';
-import PredevisReportModal from './PredevisReportModal';
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
     createCapture, addZoneChange, addCount, addVoice, addPhoto, addFlag,
@@ -44,7 +43,7 @@ import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
-    ClipboardList, ClipboardCheck, History, Zap,
+    ClipboardList, History, Zap,
 } from 'lucide-react';
 
 // Brouillon de visite exploitable retrouvé sur l'appareil, ou null.
@@ -127,8 +126,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const [survey, setSurvey] = useState(createEmptySurvey);
     const [showSurvey, setShowSurvey] = useState(true);
 
-    // Compte rendu de visite (sortie principale : à coller dans l'IA devis)
-    const [showReport, setShowReport] = useState(null); // Date d'ouverture du compte rendu
     const [voiceTranscripts, setVoiceTranscripts] = useState({}); // { [idNoteVocale]: texte }
     // Avancement de la transcription de chaque note : { [id]: { state, error, retryable } }
     const [voiceStatus, setVoiceStatus] = useState({});
@@ -382,9 +379,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
         return () => window.removeEventListener('online', retry);
     }, [enqueueTranscription, redownloadAndRetry]);
 
-    const transcribingCount = Object.values(voiceStatus)
-        .filter(st => st.state === 'pending' || st.state === 'transcribing').length;
-
     // ── Mode express : le micro tourne, les taps complètent ────────────────
 
     // Pièce courante lue par l'enregistreur à l'ouverture de chaque segment,
@@ -509,7 +503,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // Interventions, photos comprises. L'audio, lui, n'est jamais conservé :
     // il produit la transcription puis il est oublié.
 
-    const [visitSaving, setVisitSaving] = useState(false);
     const uploadedPhotosRef = useRef([]);
     const linkedPhotoPathsRef = useRef(new Set());
 
@@ -571,10 +564,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
     });
 
     const saveVisit = async (date, textOverride, { silent = false } = {}) => {
-        if (!user) return;
+        if (!user) return null;
         visitDateRef.current = visitDateRef.current || date;
         const signature = visitSignature();
-        setVisitSaving(true);
         try {
             const uploaded = await uploadPendingPhotos();
             const meta = { ...reportMeta, date, photoCount: photos.length };
@@ -629,11 +621,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
                     .then(() => {}, () => {});
             }
             lastSavedSignatureRef.current = signature;
+            return reportId;
         } catch (err) {
             console.error('Enregistrement de la visite impossible :', err);
-            if (!silent) toast.error("Visite non enregistrée — le compte rendu reste copiable.");
-        } finally {
-            setVisitSaving(false);
+            if (!silent) toast.error("Visite non enregistrée — réessayez dans un instant.");
+            return null;
         }
     };
 
@@ -676,14 +668,13 @@ const VisiteTechniqueMode = ({ onBack }) => {
         }
     };
 
-    const openReport = (date = nowDate()) => {
-        setShowReport(date);
-        saveVisit(date);
-    };
-
     const handleFinishVisit = () => {
         if (visitRecorder.isRecording) visitRecorder.stop();
-        openReport();
+        if (!canAnalyze) {
+            toast.error('Rien à analyser — ajoutez une note vocale, une photo ou du texte.');
+            return;
+        }
+        handleAnalyze();
     };
 
     const filteredClients = clients.filter(c =>
@@ -813,43 +804,30 @@ const VisiteTechniqueMode = ({ onBack }) => {
             setActivePhase('done');
             setResult(quoteResult);
 
-            // Le chiffrage complète la visite déjà archivée (sinon il la crée).
+            // Le chiffrage complète la visite : elle est d'abord archivée
+            // (photos, relevé, transcriptions — comme le fait la sauvegarde
+            // automatique), puis la ligne reçoit en plus le résultat du
+            // chiffrage. C'est le seul chemin d'archivage désormais : il ne
+            // doit donc jamais laisser les photos de côté, contrairement à
+            // l'ancien insert direct qui les ignorait.
             if (user) {
                 try {
-                    const reportNumber = makeReportNumber(nowDate());
-                    const quotePayload = {
-                        user_id: user.id,
-                        client_id: clientId || null,
-                        client_name: clientName || null,
-                        title: quoteResult.title,
-                        description: [surveyText, transcripts.join('\n')].filter(Boolean).join('\n\n') || null,
-                        intervention_address: address || null,
-                        notes: JSON.stringify({
-                            suggestions: quoteResult.suggestions,
-                            price_range: quoteResult.price_range,
-                            estimated_duration: quoteResult.estimated_duration,
-                            confidence: quoteResult.confidence,
-                            ...(hasSurveyContent(survey) ? { survey } : {}),
-                        }),
-                        materials_used: quoteResult.items,
-                        status: 'draft',
-                        date: new Date().toISOString().split('T')[0],
-                        report_number: reportNumber,
-                        report_type: 'site_visit',
-                    };
-                    if (visitReportId) {
+                    const reportId = await saveVisit(nowDate());
+                    if (reportId) {
                         await supabase.from('intervention_reports')
                             .update({
-                                title: quotePayload.title,
-                                notes: quotePayload.notes,
-                                materials_used: quotePayload.materials_used,
+                                title: quoteResult.title,
+                                notes: JSON.stringify({
+                                    suggestions: quoteResult.suggestions,
+                                    price_range: quoteResult.price_range,
+                                    estimated_duration: quoteResult.estimated_duration,
+                                    confidence: quoteResult.confidence,
+                                    ...(hasSurveyContent(survey) ? { survey } : {}),
+                                }),
+                                materials_used: quoteResult.items,
                             })
-                            .eq('id', visitReportId);
-                        setSavedReportId(visitReportId);
-                    } else {
-                        const { data: saved } = await supabase.from('intervention_reports')
-                            .insert(quotePayload).select('id').single();
-                        if (saved?.id) { setSavedReportId(saved.id); setVisitReportId(saved.id); }
+                            .eq('id', reportId);
+                        setSavedReportId(reportId);
                     }
                 } catch (saveErr) {
                     console.error('Error saving site visit:', saveErr);
@@ -910,7 +888,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
         // Les notes tapées sur place partent aussi dans le compte rendu :
         // elles n'alimentaient que le chiffrage direct, jamais l'archive.
         textNotes,
-        date: showReport,
         companyName: profile?.company_name,
         artisanName: profile?.full_name,
         photoCount: photos.length,
@@ -1515,34 +1492,24 @@ const VisiteTechniqueMode = ({ onBack }) => {
                     />
                 )}
                 {step === 'capture' && mode === 'detail' && (
-                    <div className="space-y-2">
-                        <button
-                            onClick={() => openReport()}
-                            disabled={!canAnalyze || isRecording}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                        >
-                            <ClipboardCheck className="w-5 h-5" />
-                            Compte rendu pour mon IA devis
-                            {canAnalyze && (
-                                <span className="text-violet-200 text-sm font-normal">
-                                    ({[
-                                        hasSurveyContent(survey) && 'trame',
-                                        voiceNotes.length > 0 && `${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''}`,
-                                        photos.length > 0 && `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
-                                        textNotes.trim() && 'notes texte',
-                                    ].filter(Boolean).join(', ')})
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleAnalyze}
-                            disabled={!canAnalyze || isRecording}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                        >
-                            <Sparkles className="w-5 h-5" />
-                            Chiffrer directement dans l'app
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleAnalyze}
+                        disabled={!canAnalyze || isRecording}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                    >
+                        <Sparkles className="w-5 h-5" />
+                        Générer le devis
+                        {canAnalyze && (
+                            <span className="text-violet-200 text-sm font-normal">
+                                ({[
+                                    hasSurveyContent(survey) && 'trame',
+                                    voiceNotes.length > 0 && `${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''}`,
+                                    photos.length > 0 && `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
+                                    textNotes.trim() && 'notes texte',
+                                ].filter(Boolean).join(', ')})
+                            </span>
+                        )}
+                    </button>
                 )}
                 {step === 'processing' && (
                     <div className="flex items-center justify-center gap-2 text-gray-500 text-sm py-1">
@@ -1565,13 +1532,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         >
                             <FileText className="w-5 h-5" />
                             Créer un prédevis (estimatif)
-                        </button>
-                        <button
-                            onClick={() => openReport()}
-                            className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold text-violet-600 hover:text-violet-700 py-1"
-                        >
-                            <ClipboardCheck className="w-4 h-4" />
-                            Compte rendu pour mon IA devis
                         </button>
                     </div>
                 )}
@@ -1609,24 +1569,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 index={photoViewer}
                 onIndexChange={setPhotoViewer}
                 onDelete={(_, i) => handleDeletePhoto(photos[i]?.id)}
-            />
-
-            <PredevisReportModal
-                open={Boolean(showReport)}
-                onClose={() => setShowReport(null)}
-                survey={survey}
-                template={surveyTemplate}
-                meta={reportMeta}
-                voiceNotes={voiceNotes}
-                transcripts={voiceTranscripts}
-                transcribingCount={transcribingCount}
-                onTranscripts={(map) => setVoiceTranscripts(prev => ({ ...prev, ...map }))}
-                clientName={clientName}
-                address={address}
-                onPersist={(text) => saveVisit(showReport || nowDate(), text)}
-                savedReportId={visitReportId}
-                saving={visitSaving}
-                onOpenSaved={(id) => navigate(`/app/interventions/${id}`)}
             />
         </div>
     );
