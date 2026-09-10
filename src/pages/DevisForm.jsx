@@ -48,6 +48,7 @@ import SituationModal from '../components/SituationModal';
 import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
 import DevisEmailModal from '../components/DevisEmailModal';
+import { blobToBase64 } from '../utils/mediaConverters';
 import DevisAIModal from '../components/DevisAIModal';
 import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
@@ -1933,7 +1934,7 @@ const DevisForm = () => {
         }
     };
 
-    const handleConfirmSendEmail = async (subject, body, overrideEmail) => {
+    const handleConfirmSendEmail = async (subject, body, overrideEmail, attachmentFiles = []) => {
         if (!emailPreview) return;
 
         // Un mail de retrait n'est pas un envoi de document : il ne doit ni
@@ -1964,6 +1965,22 @@ const DevisForm = () => {
                 const htmlBody = emailPreview.signUrl
                     ? buildQuoteEmailHtml(body, emailPreview.signUrl, emailPreview.signLabel)
                     : undefined;
+
+                let attachmentsPayload = [];
+                if (attachmentFiles.length > 0) {
+                    try {
+                        attachmentsPayload = await Promise.all(attachmentFiles.map(async (file) => ({
+                            filename: file.name,
+                            contentType: file.type || 'application/octet-stream',
+                            content_base64: await blobToBase64(file),
+                        })));
+                    } catch (attachErr) {
+                        console.error('Attachment read failed:', attachErr);
+                        toast.error("Erreur lors de la lecture d'une pièce jointe — envoi sans celle-ci");
+                        attachmentsPayload = [];
+                    }
+                }
+
                 const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
                     method: 'POST',
                     headers: {
@@ -1977,6 +1994,7 @@ const DevisForm = () => {
                         ...(htmlBody ? { html: htmlBody } : {}),
                         quote_id: id,
                         client_id: formData.client_id,
+                        ...(attachmentsPayload.length > 0 ? { attachments: attachmentsPayload } : {}),
                     }),
                 });
                 const result = await res.json();

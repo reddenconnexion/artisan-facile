@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink } from 'lucide-react';
+import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { clientFacingItems } from '../utils/clientView';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
+import { formatBytes } from '../utils/storageQuota';
+
+// Limites alignées sur celles de l'edge function `send-document-email`
+// (voir supabase/functions/send-document-email/index.ts).
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENTS_TOTAL_BYTES = 8 * 1024 * 1024; // 8 Mo
 
 /**
  * Modal de prévisualisation avant envoi d'un devis/facture par email.
@@ -13,7 +19,7 @@ import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImag
  * Props:
  *   preview    { email, rawSubject, rawBody } | null — null = fermé
  *   onClose    () => void
- *   onConfirm  (subject: string, body: string) => void
+ *   onConfirm  (subject: string, body: string, email: string, attachments: File[]) => void
  *   formData   objet courant du formulaire
  *   clients    liste des clients chargés
  *   userProfile profil de l'artisan
@@ -29,17 +35,47 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
     const [pdfPageImages, setPdfPageImages] = useState([]);
     const [pdfLoading, setPdfLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('pdf');
+    const [attachments, setAttachments] = useState([]);
     const isIOS = isIosLikeDevice();
+    // Seul l'envoi direct (SMTP pro) sait transmettre une vraie pièce jointe :
+    // le fallback `mailto:` ouvre le client mail local sans pouvoir y joindre
+    // de fichier depuis le navigateur.
+    const canAttach = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
 
     // Synchronise l'état local quand le parent ouvre/ferme la modal
     useEffect(() => {
         if (preview) {
             setLocalPreview({ ...preview });
             setActiveTab('pdf');
+            setAttachments([]);
         } else {
             setLocalPreview(null);
         }
     }, [preview]);
+
+    const handleAttachmentChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = ''; // permet de resélectionner le même fichier
+        if (files.length === 0) return;
+
+        setAttachments(prev => {
+            const next = [...prev, ...files];
+            if (next.length > MAX_ATTACHMENTS) {
+                toast.error(`Maximum ${MAX_ATTACHMENTS} pièces jointes`);
+                return prev;
+            }
+            const totalSize = next.reduce((sum, f) => sum + f.size, 0);
+            if (totalSize > MAX_ATTACHMENTS_TOTAL_BYTES) {
+                toast.error(`Pièces jointes trop volumineuses (${formatBytes(MAX_ATTACHMENTS_TOTAL_BYTES)} maximum au total)`);
+                return prev;
+            }
+            return next;
+        });
+    };
+
+    const removeAttachment = (index) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
 
     // Génère la prévisualisation PDF dès que la modal s'ouvre
     useEffect(() => {
@@ -261,8 +297,50 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                     </button>
                                 </div>
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Document joint {!canAttach && <span className="font-normal text-amber-600 dark:text-amber-400">(nécessite l'envoi pro)</span>}
+                                </label>
+                                <label
+                                    className={`flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed rounded-lg text-sm ${canAttach
+                                        ? 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer'
+                                        : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
+                                >
+                                    <Paperclip className="w-4 h-4" />
+                                    Joindre un document
+                                    <input
+                                        type="file"
+                                        multiple
+                                        disabled={!canAttach}
+                                        onChange={handleAttachmentChange}
+                                        className="hidden"
+                                    />
+                                </label>
+                                {attachments.length > 0 && (
+                                    <ul className="mt-2 space-y-1">
+                                        {attachments.map((file, i) => (
+                                            <li key={`${file.name}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-300">
+                                                <span className="truncate">{file.name} <span className="text-gray-400 dark:text-gray-500">({formatBytes(file.size)})</span></span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeAttachment(i)}
+                                                    className="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                                                    title="Retirer cette pièce jointe"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {!canAttach && (
+                                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                        Configurez votre adresse mail pro dans votre profil pour pouvoir joindre un document (devis annexe, plan, photo…).
+                                    </p>
+                                )}
+                            </div>
                             <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
-                                Le PDF affiché à gauche est exactement celui que recevra le client en pièce jointe.
+                                Le PDF affiché à gauche est exactement celui que recevra le client.
                                 Vérifiez le montant, l'adresse et les coordonnées avant l'envoi.
                             </p>
                         </div>
@@ -276,7 +354,7 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                     </button>
                     <button
                         type="button"
-                        onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email)}
+                        onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, attachments)}
                         className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
                         title={userProfile?.smtp_config?.host ? `Envoi direct depuis ${userProfile.smtp_config.from_email}` : 'Ouvre votre client mail'}
                     >

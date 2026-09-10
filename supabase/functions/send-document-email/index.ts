@@ -21,7 +21,12 @@
 //     reply_to?: string,
 //     quote_id?: number,              // pour lier le tracking à un devis/facture
 //     client_id?: number,
-//     test?: boolean                  // si true, envoie à l'expéditeur (test connexion)
+//     test?: boolean,                 // si true, envoie à l'expéditeur (test connexion)
+//     attachments?: {                 // documents joints en plus du lien du devis/facture
+//       filename: string,
+//       contentType?: string,
+//       content_base64: string,       // contenu brut encodé en base64
+//     }[]
 //   }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -43,6 +48,35 @@ function normalizeRecipients(v: unknown): string[] {
     if (!v) return [];
     if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
     return String(v).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// ── Pièces jointes ──
+// Limites alignées sur celles imposées côté client (voir DevisEmailModal) :
+// filet de sécurité si l'appel ne passe pas par l'UI.
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENTS_TOTAL_BYTES = 8 * 1024 * 1024; // 8 Mo (poids réel, pas encodé)
+
+type IncomingAttachment = { filename?: unknown; contentType?: unknown; content_base64?: unknown };
+
+function normalizeAttachments(v: unknown): { filename: string; contentType: string; encoding: 'base64'; content: string }[] {
+    if (!Array.isArray(v) || v.length === 0) return [];
+    if (v.length > MAX_ATTACHMENTS) {
+        throw new Error(`Maximum ${MAX_ATTACHMENTS} pièces jointes`);
+    }
+    let totalBytes = 0;
+    const result = (v as IncomingAttachment[]).map((a) => {
+        const filename = String(a?.filename || 'document').slice(0, 200);
+        const contentType = String(a?.contentType || 'application/octet-stream');
+        const content = String(a?.content_base64 || '').replace(/\s/g, '');
+        if (!content) throw new Error(`Pièce jointe "${filename}" vide`);
+        // Estimation du poids réel décodé à partir de la longueur base64.
+        totalBytes += Math.floor((content.length * 3) / 4);
+        return { filename, contentType, encoding: 'base64' as const, content };
+    });
+    if (totalBytes > MAX_ATTACHMENTS_TOTAL_BYTES) {
+        throw new Error('Pièces jointes trop volumineuses (8 Mo maximum au total)');
+    }
+    return result;
 }
 
 // Normalises an email Subject to pure ASCII.
@@ -179,10 +213,18 @@ Deno.serve(async (req) => {
         if (authError || !user) return json({ error: 'Non autorisé' }, 401);
 
         const body = await req.json();
-        const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id } = body;
+        const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id, attachments } = body;
 
         if (!subject || typeof subject !== 'string') return json({ error: 'Sujet requis' }, 400);
         if (!text && !html) return json({ error: 'Contenu requis' }, 400);
+
+        let resolvedAttachments: ReturnType<typeof normalizeAttachments>;
+        try {
+            resolvedAttachments = normalizeAttachments(attachments);
+        } catch (attachErr) {
+            const message = attachErr instanceof Error ? attachErr.message : String(attachErr);
+            return json({ error: message }, 400);
+        }
 
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -270,6 +312,7 @@ Deno.serve(async (req) => {
             subject: toAsciiSubject(test ? `[Test] ${subject}` : subject),
             content: finalText,
             html: finalHtml,
+            attachments: resolvedAttachments,
         });
 
         return json({ success: true, sent_to: toList, email_send_id: emailSendId });
