@@ -52,16 +52,37 @@ const FeedbackModal = ({ isOpen, onClose }) => {
 
     setSubmitting(true);
     try {
+      const page = typeof window !== 'undefined' ? window.location.pathname : null;
       const { error } = await supabase.from('feedback').insert({
         user_id: user.id,
         category,
         message: trimmed,
         rating: rating > 0 ? rating : null,
         // Contexte capturé automatiquement pour aider au triage.
-        page: typeof window !== 'undefined' ? window.location.pathname : null,
+        page,
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       });
       if (error) throw error;
+
+      // Notifie l'administrateur immédiatement (email/push), pour ne plus
+      // dépendre du rapport hebdomadaire ou d'un passage par hasard sur la
+      // page admin. Fire-and-forget : un échec ne doit pas bloquer l'envoi.
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      fetch(`${supabaseUrl}/functions/v1/notify-new-feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          category,
+          message: trimmed,
+          rating: rating > 0 ? rating : null,
+          page,
+          author_user_id: user.id,
+        }),
+      }).catch((err) => console.error('Erreur notification admin:', err));
 
       toast.success('Merci pour votre retour ! 🙏', {
         description: 'Il nous aide à améliorer l\'application.',

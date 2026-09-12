@@ -1186,6 +1186,15 @@ const Profile = () => {
                                         className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
                                 </div>
+                                {formData.logo_url && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, logo_url: '' }))}
+                                        className="mt-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
+                                    >
+                                        Supprimer le logo
+                                    </button>
+                                )}
                                 <input
                                     type="hidden"
                                     name="logo_url"
