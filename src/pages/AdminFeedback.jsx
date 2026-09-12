@@ -52,6 +52,7 @@ const AdminFeedback = () => {
 
   const [catFilter, setCatFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('open'); // 'open' = tout sauf done/declined
+  const [replyDrafts, setReplyDrafts] = useState({}); // { [feedbackId]: texte en cours de saisie }
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-feedback'],
@@ -78,6 +79,25 @@ const AdminFeedback = () => {
     },
     onError: (err) => {
       toast.error('Mise à jour impossible', { description: err?.message });
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: async ({ id, status, reply }) => {
+      const { error } = await supabase.rpc('set_feedback_status', { p_id: id, p_status: status, p_reply: reply });
+      if (error) throw error;
+    },
+    onSuccess: (_data, { id }) => {
+      toast.success('Réponse envoyée à l\'artisan');
+      setReplyDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+    },
+    onError: (err) => {
+      toast.error('Envoi de la réponse impossible', { description: err?.message });
     },
   });
 
@@ -235,6 +255,34 @@ const AdminFeedback = () => {
                               {s.label}
                             </button>
                           ))}
+                        </div>
+
+                        {/* Réponse à l'artisan, visible dans son écran « Mes retours » */}
+                        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                          {it.admin_reply && (
+                            <div className="mb-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-3 py-2">
+                              <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                Votre réponse {it.admin_reply_at ? `· ${fmtDate(it.admin_reply_at)}` : ''}
+                              </p>
+                              <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line break-words mt-0.5">{it.admin_reply}</p>
+                            </div>
+                          )}
+                          <div className="flex items-start gap-2">
+                            <textarea
+                              value={replyDrafts[it.id] ?? ''}
+                              onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [it.id]: e.target.value }))}
+                              placeholder={it.admin_reply ? 'Modifier la réponse…' : 'Répondre à cet artisan…'}
+                              rows={2}
+                              className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-2.5 py-1.5 text-sm resize-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                            <button
+                              disabled={replyMutation.isPending || !(replyDrafts[it.id] ?? '').trim()}
+                              onClick={() => replyMutation.mutate({ id: it.id, status: it.status, reply: replyDrafts[it.id].trim() })}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                              Envoyer
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

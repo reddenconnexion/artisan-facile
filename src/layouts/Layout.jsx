@@ -677,6 +677,23 @@ const Layout = () => {
               <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Donner mon avis</span>
             </button>
 
+            {/* Mes retours — l'artisan y retrouve ses avis envoyés et nos réponses */}
+            <Link
+              to="/app/mes-retours"
+              className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
+                location.pathname.startsWith('/app/mes-retours')
+                  ? 'bg-[#007AFF] text-white shadow-sm'
+                  : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+              }`}
+              title="Vos retours envoyés et nos réponses"
+            >
+              <MessageSquare
+                className="w-[22px] h-[22px] flex-shrink-0"
+                style={{ color: location.pathname.startsWith('/app/mes-retours') ? '#fff' : IOS_BLUE }}
+              />
+              <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Mes retours</span>
+            </Link>
+
             {/* Statistiques plateforme — réservé à l'administrateur */}
             {isAdmin(user) && (
               <Link
