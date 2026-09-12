@@ -213,6 +213,7 @@ const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
 const TimeTracking = lazyWithRetry(() => import('./pages/TimeTracking'));
 const AdminStats = lazyWithRetry(() => import('./pages/AdminStats'));
+const MyFeedback = lazyWithRetry(() => import('./pages/MyFeedback'));
 const AdminFeedback = lazyWithRetry(() => import('./pages/AdminFeedback'));
 const AdminFeedbackReports = lazyWithRetry(() => import('./pages/AdminFeedbackReports'));
 
@@ -300,6 +301,7 @@ function App() {
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="route-planner" element={<RoutePlanner />} />
                 <Route path="heures" element={<TimeTracking />} />
+                <Route path="mes-retours" element={<MyFeedback />} />
                 <Route path="admin" element={<AdminStats />} />
                 <Route path="admin/feedback" element={<AdminFeedback />} />
                 <Route path="admin/reports" element={<AdminFeedbackReports />} />
