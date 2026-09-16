@@ -3032,6 +3032,14 @@ Conditions de règlement : Paiement à réception de facture.`
                 signedAmendmentStatuses.includes(inv.status)
             );
 
+            // Un avenant peut être marqué « Payé » sans qu'aucune facture
+            // d'acompte ne soit passée par l'app (règlement du matériel
+            // encaissé directement par l'artisan à la commande). Ses lignes
+            // sont intégrées en totalité (amendmentItems, plus bas) : sans
+            // déduction dédiée, la clôture les refacturait une seconde fois au
+            // client, alors qu'il les avait déjà réglées.
+            const paidAmendments = amendments.filter(amd => amd.status === 'paid');
+
             // Les avoirs s'accrochent à la FACTURE qu'ils annulent, pas au devis :
             // ils ne figurent donc pas parmi les enfants récupérés ci-dessus et
             // demandent leur propre requête. Sans eux, un acompte annulé restait
@@ -3051,7 +3059,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const netDeposits = depositsNetOfCreditNotes(deposits, creditNotes);
 
-            if (netDeposits.length === 0) {
+            if (netDeposits.length === 0 && paidAmendments.length === 0) {
                 toast.info("Aucun acompte à déduire. La facture de clôture reprendra le devis intégralement.");
             }
 
@@ -3113,7 +3121,26 @@ Conditions de règlement : Paiement à réception de facture.`
                 };
             });
 
-            finalItems = [...finalItems, ...deductionItems];
+            const amendmentDeductionItems = paidAmendments.map(amd => {
+                const amountHT = parseFloat(amd.total_ht) || 0;
+                totalDeducted += Math.abs(amountHT);
+                const amdItems = Array.isArray(amd.items) ? amd.items : [];
+                const materialSum = amdItems.filter(i => i.type === 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const serviceSum = amdItems.filter(i => i.type !== 'material').reduce((sum, i) => sum + Math.abs((parseFloat(i.price) || 0) * (parseFloat(i.quantity) || 0)), 0);
+                const deductionType = materialSum >= serviceSum ? 'material' : 'service';
+                const label = amd.quote_number ? `Avenant n°${amd.quote_number}` : (amd.title || 'Avenant');
+                return {
+                    id: Date.now() + Math.random(),
+                    description: `Déduction ${label} déjà payé`,
+                    quantity: 1,
+                    unit: 'forfait',
+                    price: -Math.abs(amountHT),
+                    buying_price: 0,
+                    type: deductionType
+                };
+            });
+
+            finalItems = [...finalItems, ...deductionItems, ...amendmentDeductionItems];
 
             // 4. Calculate totals
             const subtotal = finalItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
@@ -3126,8 +3153,9 @@ Conditions de règlement : Paiement à réception de facture.`
                 : 'Client';
 
             const creditedCount = deposits.length - netDeposits.length;
-            const deductionSummary = netDeposits.length > 0
-                ? `\n\nDéductions appliquées (${netDeposits.length} acompte${netDeposits.length > 1 ? 's' : ''}) : -${totalDeducted.toFixed(2)} € HT`
+            const totalDeductionCount = netDeposits.length + paidAmendments.length;
+            const deductionSummary = totalDeductionCount > 0
+                ? `\n\nDéductions appliquées (${netDeposits.length} acompte${netDeposits.length > 1 ? 's' : ''}${paidAmendments.length > 0 ? ` + ${paidAmendments.length} avenant${paidAmendments.length > 1 ? 's' : ''} déjà payé${paidAmendments.length > 1 ? 's' : ''}` : ''}) : -${totalDeducted.toFixed(2)} € HT`
                   + (creditedCount > 0 ? `\n${creditedCount} acompte${creditedCount > 1 ? 's' : ''} annulé${creditedCount > 1 ? 's' : ''} par avoir, non déduit${creditedCount > 1 ? 's' : ''}.` : '')
                 : '';
             const amendmentSummary = amendments.length > 0
@@ -3168,7 +3196,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
             const successParts = [];
             if (amendments.length > 0) successParts.push(`${amendments.length} avenant${amendments.length > 1 ? 's' : ''}`);
-            if (deposits.length > 0) successParts.push(`${deposits.length} déduction${deposits.length > 1 ? 's' : ''}`);
+            if (totalDeductionCount > 0) successParts.push(`${totalDeductionCount} déduction${totalDeductionCount > 1 ? 's' : ''}`);
             const successMsg = successParts.length > 0
                 ? `Facture de clôture générée (${successParts.join(' + ')}) !`
                 : "Facture de clôture générée !";
