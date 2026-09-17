@@ -23,6 +23,7 @@ import {
   ToggleRight,
   Power,
   Clock,
+  Minus,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
@@ -241,6 +242,23 @@ export default function EtiquettesTableau() {
     };
     setCircuits((prev) => [...prev, newCircuit]);
     setEditing(newCircuit);
+  }
+
+  // "Espace vide" : réserve un ou plusieurs modules sans disjoncteur, pour
+  // marquer une place libre entre deux disjoncteurs (extension future).
+  // Rejoint le tableau comme un circuit normal (compte dans les modules de
+  // la rangée, se déplace par drag & drop) mais ne représente aucun appareil.
+  function addEmptySpace() {
+    const newSpace = {
+      id: crypto.randomUUID(),
+      label: "",
+      category: "espace",
+      breaker: null,
+      modules: 1,
+      isSpacer: true,
+    };
+    setCircuits((prev) => [...prev, newSpace]);
+    setEditing(newSpace);
   }
 
   function updateCircuit(id, updates) {
@@ -527,6 +545,13 @@ export default function EtiquettesTableau() {
             >
               <Plus size={16} /> Circuit personnalisé
             </button>
+            <button
+              onClick={addEmptySpace}
+              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 py-2 text-sm font-medium text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-slate-700"
+              title="Réserver un emplacement vide entre deux disjoncteurs"
+            >
+              <Minus size={16} /> Espace vide (réserve)
+            </button>
           </div>
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-3">
@@ -672,6 +697,7 @@ function LabelCard({
   // Largeur réelle = largeur d'1 module × nombre de modules occupés
   const modules = circuit.modules || 1;
   const widthMm = dims.modulePitch * modules;
+  const isSpacer = !!circuit.isSpacer;
 
   // Échelle d'affichage à l'écran (1 mm ≈ 3.78 px ; on grossit pour la lisibilité)
   const SCALE = 3.6;
@@ -708,7 +734,7 @@ function LabelCard({
       }}
     >
       <div
-        className="label cursor-pointer"
+        className={`label cursor-pointer${isSpacer ? " label--spacer" : ""}`}
         onClick={onEdit}
         style={{
           // À l'écran : pixels plus grands. À l'impression : mm exacts.
@@ -720,22 +746,30 @@ function LabelCard({
           ["--accent"]: cat.color,
         }}
       >
-        <div className="label-accent" />
+        {!isSpacer && <div className="label-accent" />}
         {repere && <div className="label-repere">{repere}</div>}
-        <div className="label-content">
-          <Icon className="label-icon" style={{ width: iconPx, height: iconPx }} />
-          <FitText
-            text={circuit.label}
-            className="label-title"
-            maxWidth={titleMaxWidth}
-            maxHeight={titleMaxHeight}
-            maxPx={titleMaxFont}
-            minPx={5}
-          />
-          <div className="label-sub">
-            {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
+        {isSpacer ? (
+          <div className="label-content">
+            <div className="label-sub">
+              {modules} module{modules > 1 ? "s" : ""} libre{modules > 1 ? "s" : ""}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="label-content">
+            <Icon className="label-icon" style={{ width: iconPx, height: iconPx }} />
+            <FitText
+              text={circuit.label}
+              className="label-title"
+              maxWidth={titleMaxWidth}
+              maxHeight={titleMaxHeight}
+              maxPx={titleMaxFont}
+              minPx={5}
+            />
+            <div className="label-sub">
+              {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
+            </div>
+          </div>
+        )}
         {/* Indicateur "fin de rangée" : petite icône ciseaux en bas-droite
             quand le flag endsRow est actif (le toggle se fait depuis le
             modal d'édition). */}
@@ -811,6 +845,7 @@ function RowView({
    ========================================================================= */
 
 function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggleEndsRow }) {
+  const isSpacer = !!circuit.isSpacer;
   return (
     <div
       className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
@@ -821,7 +856,9 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold dark:text-slate-100">Modifier l'étiquette</h2>
+          <h2 className="text-base font-semibold dark:text-slate-100">
+            {isSpacer ? "Espace vide (réserve)" : "Modifier l'étiquette"}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
@@ -830,6 +867,32 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
           </button>
         </div>
 
+        {isSpacer ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Réserve un emplacement vide entre deux disjoncteurs (pour une
+              extension future). Aucun libellé n'est imprimé sur cette
+              étiquette.
+            </p>
+            <Field label="Nombre de modules">
+              <div className="grid grid-cols-2 gap-1.5">
+                {MODULE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => onChange({ modules: opt.value })}
+                    className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+                      (circuit.modules || 1) === opt.value
+                        ? "border-amber-500 bg-amber-500 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          </div>
+        ) : (
         <div className="space-y-3">
           <Field label="Libellé">
             <input
@@ -900,6 +963,7 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
             </div>
           </Field>
         </div>
+        )}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
@@ -1018,6 +1082,30 @@ function printStyles() {
       margin-top: 1px;
       font-weight: 500;
     }
+    /* Étiquette "espace vide" : pas de bandeau couleur, fond hachuré,
+       bordure en pointillés — visuellement distincte d'un vrai disjoncteur,
+       aussi bien à l'écran qu'à l'impression (sert de repère pour laisser
+       la place libre lors de la découpe). */
+    .label--spacer {
+      border-style: dashed !important;
+      background: repeating-linear-gradient(
+        45deg,
+        #ffffff,
+        #ffffff 4px,
+        #f1f5f9 4px,
+        #f1f5f9 8px
+      );
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .label--spacer .label-content {
+      justify-content: center;
+    }
+    .label--spacer .label-sub {
+      font-size: 7px;
+      color: #94a3b8;
+      font-style: italic;
+    }
     /* Chiffre repère (rangée.emplacement) : coin haut-gauche de l'étiquette,
        visible à l'écran ET à l'impression (contrairement aux éléments
        .no-print, celui-ci fait partie du visuel imprimé de l'étiquette). */
@@ -1067,6 +1155,11 @@ function printStyles() {
         height: var(--label-h-print) !important;
         border: 1px solid #94a3b8 !important;
         page-break-inside: avoid;
+      }
+      /* Réappliqué après la règle générique ci-dessus (même spécificité,
+         mais celle-ci doit gagner à l'impression pour rester en pointillés). */
+      .label--spacer {
+        border-style: dashed !important;
       }
       /* Strip contigu : on retire le fond gris, la bordure et le padding du
          conteneur de rangée pour que les étiquettes soient bord à bord,
