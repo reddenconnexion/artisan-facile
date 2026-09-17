@@ -24,6 +24,7 @@ import {
   Power,
   Clock,
   Minus,
+  CloudLightning,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 
@@ -56,6 +57,9 @@ const MODULE_OPTIONS = [
 const CATEGORIES = {
   differentiel: { label: "Différentiel", icon: ShieldCheck, color: "#0EA5E9" },
   sectionneur: { label: "Inter. sectionneur", icon: Power, color: "#E11D48" },
+  // Unité affichée dans le calibre : kA (courant de décharge Imax/Iimp)
+  // au lieu de A, contrairement à toutes les autres catégories.
+  parafoudre: { label: "Parafoudre", icon: CloudLightning, color: "#6366F1", unit: "kA" },
   eclairage: { label: "Éclairage", icon: Lightbulb, color: "#F59E0B" },
   prises: { label: "Prises", icon: Plug, color: "#3B82F6" },
   cuisine: { label: "Cuisine", icon: Utensils, color: "#F97316" },
@@ -84,6 +88,14 @@ const PRESET_CIRCUITS = [
   { category: "sectionneur", label: "Inter. sectionneur 40A mono", breaker: 40, modules: 2 },
   { category: "sectionneur", label: "Inter. sectionneur 63A tri", breaker: 63, modules: 4 },
   { category: "sectionneur", label: "Inter. sectionneur 40A tri", breaker: 40, modules: 4 },
+  // Parafoudres — calibre = courant de décharge (Imax pour Type 2, Iimp pour
+  // Type 1) en kA. Mono = 1P+N (2 modules), tri = 3P+N (4 modules).
+  { category: "parafoudre", label: "Parafoudre Type 2 15kA mono", breaker: 15, modules: 2 },
+  { category: "parafoudre", label: "Parafoudre Type 2 25kA mono", breaker: 25, modules: 2 },
+  { category: "parafoudre", label: "Parafoudre Type 2 40kA mono", breaker: 40, modules: 2 },
+  { category: "parafoudre", label: "Parafoudre Type 2 40kA tri", breaker: 40, modules: 4 },
+  { category: "parafoudre", label: "Parafoudre Type 1+2 mono", breaker: 25, modules: 3 },
+  { category: "parafoudre", label: "Parafoudre Type 1+2 tri", breaker: 25, modules: 4 },
   // Éclairage
   { category: "eclairage", label: "Éclairage Cuisine", breaker: 10 },
   { category: "eclairage", label: "Éclairage Salon", breaker: 10 },
@@ -578,7 +590,7 @@ export default function EtiquettesTableau() {
                       >
                         <span className="truncate">{p.label}</span>
                         <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 group-hover:bg-white dark:bg-slate-700 dark:text-slate-300 dark:group-hover:bg-slate-600">
-                          {p.breaker}A
+                          {p.breaker}{cat.unit || "A"}
                         </span>
                       </button>
                     ))}
@@ -766,7 +778,7 @@ function LabelCard({
               minPx={5}
             />
             <div className="label-sub">
-              {circuit.breaker} A{modules > 1 ? ` · ${modules}P` : ""}
+              {circuit.breaker} {cat.unit || "A"}{modules > 1 ? ` · ${modules}P` : ""}
             </div>
           </div>
         )}
