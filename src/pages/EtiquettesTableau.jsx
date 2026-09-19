@@ -602,7 +602,10 @@ export default function EtiquettesTableau() {
         </aside>
 
         {/* ---- Aperçu des étiquettes ---- */}
-        <section>
+        {/* min-w-0 : autorise la piste 1fr de la grille à rétrécir sous la
+            largeur du contenu (étiquettes à largeur fixe en px), sinon la
+            rangée pousse toute la page et déborde à droite. */}
+        <section className="min-w-0">
           {/* Barre d'info / actions */}
           <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -625,7 +628,11 @@ export default function EtiquettesTableau() {
           </div>
 
           {/* Zone d'impression */}
-          <div className="print-area rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:bg-white">
+          {/* overflow-x-auto : à l'écran, une rangée plus large que la colonne
+              défile horizontalement au lieu de déborder de l'écran à droite.
+              À l'impression, le @media print force overflow: visible (largeurs
+              en mm exactes, pas de clipping). */}
+          <div className="print-area overflow-x-auto rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:overflow-visible print:bg-white">
             {circuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-50 dark:bg-amber-900/30">
