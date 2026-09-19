@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, Move, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, ChevronDown, CheckSquare, Square, ArrowRightLeft, ArrowLeft, ArrowRight, Move, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -11,6 +11,11 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+
+// Ordre et libellés des colonnes de classement des photos de chantier.
+// Sert à déplacer une photo d'une colonne à l'autre (Avant → Pendant → Après).
+const CATEGORY_ORDER = ['before', 'during', 'after'];
+const CATEGORY_LABELS = { before: 'Avant', during: 'Pendant', after: 'Après' };
 
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
@@ -730,6 +735,59 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
+    // Déplace une photo vers la colonne voisine (Avant / Pendant / Après).
+    // direction = -1 (colonne de gauche) ou +1 (colonne de droite).
+    // La table project_photos n'a pas de politique RLS UPDATE : on reproduit
+    // la stratégie COPIE + SUPPRESSION utilisée pour le déplacement de dossier
+    // (on recrée la ligne avec la nouvelle catégorie, puis on supprime l'ancienne).
+    const handleMoveCategory = async (photo, direction) => {
+        if (!photo || !user) return;
+        const currentIndex = CATEGORY_ORDER.indexOf(photo.category);
+        const targetIndex = currentIndex + direction;
+        if (currentIndex === -1 || targetIndex < 0 || targetIndex >= CATEGORY_ORDER.length) return;
+        const targetCategory = CATEGORY_ORDER[targetIndex];
+
+        const toastId = toast.loading('Déplacement de la photo…');
+        try {
+            // 1. Copie de la ligne avec la nouvelle catégorie (project_id et
+            //    horodatage conservés pour ne pas déranger le classement/dossier).
+            const { data: inserted, error: insertError } = await supabase
+                .from('project_photos')
+                .insert([{
+                    user_id: user.id,
+                    client_id: photo.client_id,
+                    photo_url: photo.photo_url,
+                    category: targetCategory,
+                    description: photo.description,
+                    created_at: photo.created_at,
+                    project_id: photo.project_id,
+                }])
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            // 2. Suppression de l'ancienne ligne.
+            const { error: deleteError } = await supabase
+                .from('project_photos')
+                .delete()
+                .eq('id', photo.id);
+
+            // Mise à jour immédiate de l'affichage (le realtime rafraîchira aussi).
+            setPhotos(prev => [inserted, ...prev.filter(p => p.id !== photo.id)]);
+
+            if (deleteError) {
+                console.error('Move category (delete old) error:', deleteError);
+                toast.error("Attention : copie réussie mais suppression de l'original échouée.", { id: toastId });
+            } else {
+                toast.success(`Photo déplacée vers « ${CATEGORY_LABELS[targetCategory]} »`, { id: toastId });
+            }
+        } catch (error) {
+            console.error('Error moving photo category:', error);
+            toast.error('Erreur lors du déplacement de la photo', { id: toastId });
+        }
+    };
+
     const handleDelete = async (photoId, photoUrl) => {
         const ok = await confirm({ title: 'Supprimer cette photo', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
         if (!ok) return;
@@ -1346,6 +1404,33 @@ const ProjectPhotos = ({ clientId }) => {
                                         </button>
                                     </div>
                                 )}
+
+                                {/* Boutons « déplacer de colonne » (Avant / Pendant / Après).
+                                    Toujours visibles (utiles au doigt sur mobile, sans survol). */}
+                                {!selectionMode && (
+                                    <div className="absolute bottom-2 inset-x-2 flex justify-between items-center pointer-events-none z-20">
+                                        {CATEGORY_ORDER.indexOf(photo.category) > 0 ? (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleMoveCategory(photo, -1); }}
+                                                className="pointer-events-auto p-2 bg-black/60 backdrop-blur-sm text-white rounded-full hover:bg-black/80 active:scale-95 shadow-md transition-all"
+                                                title={`Déplacer vers « ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(photo.category) - 1]]} »`}
+                                                aria-label={`Déplacer la photo vers ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(photo.category) - 1]]}`}
+                                            >
+                                                <ArrowLeft className="w-4 h-4" />
+                                            </button>
+                                        ) : <span aria-hidden="true" />}
+                                        {CATEGORY_ORDER.indexOf(photo.category) < CATEGORY_ORDER.length - 1 ? (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleMoveCategory(photo, 1); }}
+                                                className="pointer-events-auto p-2 bg-black/60 backdrop-blur-sm text-white rounded-full hover:bg-black/80 active:scale-95 shadow-md transition-all"
+                                                title={`Déplacer vers « ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(photo.category) + 1]]} »`}
+                                                aria-label={`Déplacer la photo vers ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(photo.category) + 1]]}`}
+                                            >
+                                                <ArrowRight className="w-4 h-4" />
+                                            </button>
+                                        ) : <span aria-hidden="true" />}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -1727,8 +1812,36 @@ const ProjectPhotos = ({ clientId }) => {
                             </TransformWrapper>
                         </div>
 
-                        {/* Mobile Action Bar (Copy / Move / Delete) */}
+                        {/* Mobile Action Bar (Colonne / Copy / Move / Delete) */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 z-50">
+                            {CATEGORY_ORDER.indexOf(filteredPhotos[selectedPhotoIndex].category) > 0 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const photo = filteredPhotos[selectedPhotoIndex];
+                                        setSelectedPhotoIndex(null);
+                                        handleMoveCategory(photo, -1);
+                                    }}
+                                    className="bg-white/10 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/20 border border-white/20 shadow-lg"
+                                    title={`Déplacer vers « ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(filteredPhotos[selectedPhotoIndex].category) - 1]]} »`}
+                                >
+                                    <ArrowLeft className="w-6 h-6" />
+                                </button>
+                            )}
+                            {CATEGORY_ORDER.indexOf(filteredPhotos[selectedPhotoIndex].category) < CATEGORY_ORDER.length - 1 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const photo = filteredPhotos[selectedPhotoIndex];
+                                        setSelectedPhotoIndex(null);
+                                        handleMoveCategory(photo, 1);
+                                    }}
+                                    className="bg-white/10 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/20 border border-white/20 shadow-lg"
+                                    title={`Déplacer vers « ${CATEGORY_LABELS[CATEGORY_ORDER[CATEGORY_ORDER.indexOf(filteredPhotos[selectedPhotoIndex].category) + 1]]} »`}
+                                >
+                                    <ArrowRight className="w-6 h-6" />
+                                </button>
+                            )}
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
