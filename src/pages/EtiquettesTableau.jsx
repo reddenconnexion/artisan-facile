@@ -45,6 +45,13 @@ const BRANDS = {
   hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
 
+// Largeur imprimable en mm sur une page A4 paysage (297 mm de papier - 2×15 mm
+// de marges, cf. @page dans printStyles()). Une rangée plus large que ça
+// repasse à la ligne à l'impression (voir .row-view flex-wrap) : ce seuil
+// sert seulement à prévenir l'utilisateur à l'écran, la mise en page réelle
+// est gérée par le navigateur au moment de l'impression.
+const PRINT_PAGE_WIDTH_MM = 297 - 2 * 15;
+
 // Nombre de modules occupés par type de protection
 const MODULE_OPTIONS = [
   { value: 1, label: "1P (1 module)" },
@@ -824,10 +831,24 @@ function RowView({
   onDropOn,
 }) {
   const empty = Math.max(rowSize - used, 0);
+  // Largeur réelle de la rangée imprimée = pas d'1 module × modules utilisés
+  // (les étiquettes sont bord à bord à l'impression, cf. printStyles()).
+  const rowWidthMm = used * dims.modulePitch;
+  const printLines = Math.max(1, Math.ceil(rowWidthMm / PRINT_PAGE_WIDTH_MM));
   return (
     <div className="row-view">
       <div className="no-print mb-1 flex items-center justify-between text-xs">
-        <span className="font-semibold text-slate-700 dark:text-slate-200">Rangée {rowIndex}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="font-semibold text-slate-700 dark:text-slate-200">Rangée {rowIndex}</span>
+          {printLines > 1 && (
+            <span
+              className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+              title={`Cette rangée (${Math.round(rowWidthMm)} mm) dépasse la largeur imprimable d'une page A4 paysage (${PRINT_PAGE_WIDTH_MM} mm) : elle sera imprimée sur ${printLines} lignes.`}
+            >
+              imprimée sur {printLines} lignes (trop large pour A4)
+            </span>
+          )}
+        </span>
         <span className="text-slate-400 dark:text-slate-500">
           {used}/{rowSize} modules
         </span>
@@ -1141,8 +1162,12 @@ function printStyles() {
     }
 
     @media print {
-      /* A4 paysage par défaut : permet d'imprimer une rangée de 13 modules
-         (≈ 234 mm) ou 18 modules (≈ 324 mm — au-delà du paysage, à splitter).
+      /* A4 paysage par défaut : suffit pour une rangée de 13 modules
+         (≈ 234 mm) mais pas pour 18 modules (≈ 315-324 mm) — la largeur
+         imprimable (297 mm de papier - 30 mm de marges = 267 mm) est trop
+         courte, et aucune marge réaliste ne comblerait l'écart. Une rangée
+         trop large est donc repliée sur plusieurs lignes à l'impression
+         (cf. flex-wrap ci-dessous), jamais coupée/perdue.
          Marge de 15 mm pour rester confortablement à l'intérieur de la
          zone imprimable de la plupart des imprimantes consumer (les zones
          non-imprimables vont jusqu'à 10-12 mm sur certaines machines). */
@@ -1190,13 +1215,19 @@ function printStyles() {
       }
       /* Strip contigu : on retire le fond gris, la bordure et le padding du
          conteneur de rangée pour que les étiquettes soient bord à bord,
-         prêtes à découper d'un seul coup au cutter. */
+         prêtes à découper d'un seul coup au cutter. flex-wrap : si la
+         rangée est plus large que la page (ex. 18 modules), les étiquettes
+         en trop repassent à la ligne au lieu d'être coupées/perdues hors
+         de la zone imprimable (le navigateur ne pagine jamais l'excédent
+         horizontal, seulement le vertical).*/
       .row-view > div:nth-child(2) {
         gap: 0 !important;
         padding: 0 !important;
         border: none !important;
         background: transparent !important;
         border-radius: 0 !important;
+        flex-wrap: wrap !important;
+        row-gap: 4mm !important;
       }
       .row-view + .row-view {
         margin-top: 8mm;
