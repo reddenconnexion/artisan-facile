@@ -1102,9 +1102,10 @@ function printStyles() {
       font-weight: 500;
     }
     /* Étiquette "espace vide" : pas de bandeau couleur, fond hachuré,
-       bordure en pointillés — visuellement distincte d'un vrai disjoncteur,
-       aussi bien à l'écran qu'à l'impression (sert de repère pour laisser
-       la place libre lors de la découpe). */
+       bordure en pointillés — visuellement distincte d'un vrai disjoncteur
+       à l'écran (pour la repérer facilement pendant l'édition). À
+       l'impression, elle redevient entièrement blanche (cf. @media print
+       plus bas) : c'est un espace réservé, pas une étiquette à coller. */
     .label--spacer {
       border-style: dashed !important;
       background: repeating-linear-gradient(
@@ -1175,10 +1176,17 @@ function printStyles() {
         border: 1px solid #94a3b8 !important;
         page-break-inside: avoid;
       }
-      /* Réappliqué après la règle générique ci-dessus (même spécificité,
-         mais celle-ci doit gagner à l'impression pour rester en pointillés). */
+      /* L'espace vide doit rester une zone blanche à l'impression (juste
+         la largeur réservée) : ni bordure, ni fond hachuré, ni texte, ni
+         numéro de repère — uniquement des indices utiles à l'écran pour
+         l'édition, pas sur l'étiquette imprimée. */
       .label--spacer {
-        border-style: dashed !important;
+        border: none !important;
+        background: none !important;
+      }
+      .label--spacer .label-content,
+      .label--spacer .label-repere {
+        display: none !important;
       }
       /* Strip contigu : on retire le fond gris, la bordure et le padding du
          conteneur de rangée pour que les étiquettes soient bord à bord,
