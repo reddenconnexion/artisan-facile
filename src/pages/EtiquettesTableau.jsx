@@ -40,7 +40,10 @@ import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 // rowSize = nombre de modules par rangée (utilisé pour le mode "rangées").
 const BRANDS = {
   universel:  { label: "Universel",            modulePitch: 18,   height: 30, rowSize: 13 },
-  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 22, rowSize: 13 },
+  // Legrand DNX³/Drivia : le vrai porte-étiquette est un bandeau bas et large
+  // (icône + texte côte à côte sur 1-2 lignes courtes, cf. photo du tableau
+  // réel), pas le format haut utilisé par défaut ici. 12mm au lieu de 22mm.
+  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 12, rowSize: 13 },
   schneider:  { label: "Schneider Resi9",      modulePitch: 18,   height: 25, rowSize: 13 },
   hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
