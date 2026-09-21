@@ -40,7 +40,10 @@ import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 // rowSize = nombre de modules par rangée (utilisé pour le mode "rangées").
 const BRANDS = {
   universel:  { label: "Universel",            modulePitch: 18,   height: 30, rowSize: 13 },
-  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 22, rowSize: 13 },
+  // Legrand DNX³/Drivia : le porte-étiquette réel est plus large que haut,
+  // mais 12mm s'est révélé trop court à l'usage (test d'impression réel
+  // sur le tableau de l'utilisateur) — 18mm.
+  legrand:    { label: "Legrand DRIVIA / RX³", modulePitch: 17.5, height: 18, rowSize: 13 },
   schneider:  { label: "Schneider Resi9",      modulePitch: 18,   height: 25, rowSize: 13 },
   hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
@@ -161,7 +164,7 @@ const PRESET_CIRCUITS = [
   { category: "horloge", label: "Télérupteur", breaker: 10, modules: 1 },
 ];
 
-const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
+const BREAKER_VALUES = [2, 10, 16, 20, 25, 32, 40, 63];
 
 /* =========================================================================
    COMPOSANT PRINCIPAL
