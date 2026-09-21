@@ -164,7 +164,7 @@ const PRESET_CIRCUITS = [
   { category: "horloge", label: "Télérupteur", breaker: 10, modules: 1 },
 ];
 
-const BREAKER_VALUES = [2, 10, 16, 20, 32, 40, 63];
+const BREAKER_VALUES = [2, 10, 16, 20, 25, 32, 40, 63];
 
 /* =========================================================================
    COMPOSANT PRINCIPAL
