@@ -1757,7 +1757,7 @@ const DevisForm = () => {
                 fr: {
                     subjectPrefix: isInvoice
                         ? `${situationInfo ? 'Facture de situation' : 'Facture'}${isPaidInvoice ? ' acquittée' : ''}`
-                        : (isCreditNote ? 'Avoir' : 'Devis'),
+                        : (isCreditNote ? 'Avoir' : (isAmendmentDoc ? 'Avenant' : 'Devis')),
                     defaultProject: 'Votre projet',
                     defaultWorks: 'Travaux',
                     introCreditNote: (name, title) => `Bonjour ${name},\n\nJe vous transmets un avoir${formData.amendment_details?.credit_note?.parent_invoice_number ? ` sur la facture ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} concernant le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
@@ -1772,9 +1772,12 @@ const DevisForm = () => {
                         remaining: "Restera à facturer d'ici la fin du chantier",
                     })}\n\nVous trouverez ci-dessous le lien pour accéder à la facture.`,
                     introQuote: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets ma proposition de devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter.`,
+                    introAmendment: (name, title) => `Bonjour ${name},\n\nSuite à nos échanges, je vous transmets l'avenant à votre devis pour le projet "${title}".\nVous trouverez ci-dessous le lien pour le consulter et le signer.`,
                     actionInvoice: isPaidInvoice ? 'Consulter et télécharger votre facture acquittée' : 'Consulter et télécharger votre facture',
                     actionQuote: 'Consulter et signer votre devis en ligne',
+                    actionAmendment: 'Consulter et signer votre avenant en ligne',
                     signButtonLabel: 'Signer mon devis',
+                    signButtonLabelAmendment: 'Signer mon avenant',
                     signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
                     portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
@@ -1783,7 +1786,7 @@ const DevisForm = () => {
                 en: {
                     subjectPrefix: isInvoice
                         ? `${situationInfo ? 'Progress invoice' : 'Invoice'}${isPaidInvoice ? ' (paid)' : ''}`
-                        : (isCreditNote ? 'Credit note' : 'Quote'),
+                        : (isCreditNote ? 'Credit note' : (isAmendmentDoc ? 'Amendment' : 'Quote')),
                     defaultProject: 'Your project',
                     defaultWorks: 'Works',
                     introCreditNote: (name, title) => `Hello ${name},\n\nPlease find attached a credit note${formData.amendment_details?.credit_note?.parent_invoice_number ? ` for invoice ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} regarding the project "${title}".\nYou will find the link to access it below.`,
@@ -1798,9 +1801,12 @@ const DevisForm = () => {
                         remaining: 'Remaining to be billed by the end of the project',
                     })}\n\nYou will find the link to access the invoice below.`,
                     introQuote: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find my quote proposal for the project "${title}".\nYou will find the link to view it below.`,
+                    introAmendment: (name, title) => `Hello ${name},\n\nFollowing our discussions, please find the amendment to your quote for the project "${title}".\nYou will find the link to view and sign it below.`,
                     actionInvoice: isPaidInvoice ? 'View and download your paid invoice' : 'View and download your invoice',
                     actionQuote: 'View and sign your quote online',
+                    actionAmendment: 'View and sign your amendment online',
                     signButtonLabel: 'Sign my quote',
+                    signButtonLabelAmendment: 'Sign my amendment',
                     signCaption: 'Signed directly online, no printing needed — in under a minute.',
                     reportLine: `The intervention report is also available from this link.`,
                     portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
@@ -1836,9 +1842,13 @@ const DevisForm = () => {
                         : E.introInvoice(greetingName, projectTitle)))
                 : (isCreditNote && E.introCreditNote
                     ? E.introCreditNote(greetingName, projectTitle)
-                    : E.introQuote(greetingName, projectTitle));
+                    : (isAmendmentDoc && E.introAmendment
+                        ? E.introAmendment(greetingName, projectTitle)
+                        : E.introQuote(greetingName, projectTitle)));
 
-            const actionText = (isInvoice || isCreditNote) ? E.actionInvoice : E.actionQuote;
+            const actionText = (isInvoice || isCreditNote)
+                ? E.actionInvoice
+                : (isAmendmentDoc ? E.actionAmendment : E.actionQuote);
             // Pour un devis, on ajoute la mention « sans impression » sous le lien
             // afin que même les clients en texte brut comprennent que la signature
             // se fait en ligne, sans imprimer. En HTML, le lien devient un bouton.
@@ -1924,7 +1934,7 @@ const DevisForm = () => {
                 // Signature en ligne : uniquement pour les devis (ni factures ni avoirs).
                 // Sert à transformer le lien en bouton dans la version HTML du mail.
                 signUrl: (isInvoice || isCreditNote) ? null : publicUrl,
-                signLabel: E.signButtonLabel,
+                signLabel: isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel,
             });
 
         } catch (error) {
