@@ -1236,6 +1236,21 @@ function printStyles() {
         margin-top: 8mm;
       }
       .row-view { page-break-inside: avoid; }
+      /* Repères de découpe : une rangée qui n'utilise pas tous ses modules
+         (ex. 6 sur 13) laisse un grand vide à droite — sans ces traits, la
+         bordure de la dernière étiquette de la rangée s'arrête là et ne
+         donne plus de guide pour un coup de règle/cutter sur toute la
+         largeur de la feuille. Le trait est porté par .row-view lui-même
+         (déjà large de toute la zone imprimable, indépendamment du nombre
+         de modules réellement utilisés), pas par la bande d'étiquettes. */
+      .row-view {
+        border-top: 1px dashed #94a3b8;
+        padding-top: 1.5mm;
+      }
+      .row-view:last-child {
+        border-bottom: 1px dashed #94a3b8;
+        padding-bottom: 1.5mm;
+      }
     }
   `;
 }
