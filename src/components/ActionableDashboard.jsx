@@ -110,6 +110,11 @@ const ActionableDashboard = ({ user }) => {
             // Also exclude test client quotes when not in test mode
             const signedQuotes = (rawSignedQuotes || [])
                 .filter(q =>
+                    // Seuls un devis ou un avenant restent « à facturer ». Un document
+                    // déjà converti en facture (type 'invoice', même au statut
+                    // 'accepted') ne doit pas resurgir ici : sinon l'artisan le voit
+                    // encore, reclique et croit que sa facturation a échoué.
+                    (q.type === 'quote' || q.type === 'amendment') &&
                     (!q.invoices || q.invoices.length === 0) &&
                     !isTestQuote(q) &&
                     !amendmentAlreadyBilled(q, closingByParent)
@@ -180,6 +185,20 @@ const ActionableDashboard = ({ user }) => {
         setConvertingId(quote.id);
 
         try {
+            // Garde-fou anti re-clic : le document est déjà une facture (une
+            // tentative précédente a pu aboutir même si un message d'erreur s'est
+            // affiché). On ne reconvertit pas, on renvoie simplement vers la facture.
+            if (quote.type === 'invoice') {
+                toast.info('Cet avenant est déjà facturé.', {
+                    action: { label: 'Voir la facture', onClick: () => navigate(`/app/devis/${quote.id}`) },
+                });
+                setActionItems(prev => ({
+                    ...prev,
+                    signedQuotes: prev.signedQuotes.filter(q => q.id !== quote.id)
+                }));
+                return;
+            }
+
             const update = {
                 type: 'invoice',
                 status: 'accepted',
@@ -192,12 +211,18 @@ const ActionableDashboard = ({ user }) => {
                 update.title = complementInvoiceTitle(quote);
             }
 
-            const { error } = await supabase
+            // .select().single() : on vérifie que la ligne est bien convertie et on
+            // récupère le numéro légal attribué par le trigger, pour l'afficher.
+            const { data, error } = await supabase
                 .from('quotes')
                 .update(update)
-                .eq('id', quote.id);
+                .eq('id', quote.id)
+                .select('id, invoice_number')
+                .single();
 
             if (error) throw error;
+
+            const invoiceLabel = data?.invoice_number ? `Facture ${data.invoice_number}` : 'Facture';
 
             // Update client CRM status
             const clientId = quote.client_id;
@@ -214,8 +239,8 @@ const ActionableDashboard = ({ user }) => {
             invalidateQuotes();
             toast.success(
                 quote._complementOfClosing
-                    ? 'Facture complémentaire créée ! Ouvrez-la pour l\'envoyer au client.'
-                    : `Facture FAC #${quote.id} créée !`,
+                    ? `${invoiceLabel} complémentaire créée ! Ouvrez-la pour l'envoyer au client.`
+                    : `${invoiceLabel} créée !`,
                 {
                     action: {
                         label: 'Voir la facture',
@@ -226,7 +251,7 @@ const ActionableDashboard = ({ user }) => {
             );
         } catch (error) {
             console.error('Error converting to invoice:', error);
-            toast.error('Erreur lors de la conversion');
+            toast.error(`Erreur lors de la conversion${error?.message ? ` : ${error.message}` : ''}`);
         } finally {
             setConvertingId(null);
         }
