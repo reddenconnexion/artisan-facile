@@ -1240,16 +1240,31 @@ function printStyles() {
          (ex. 6 sur 13) laisse un grand vide à droite — sans ces traits, la
          bordure de la dernière étiquette de la rangée s'arrête là et ne
          donne plus de guide pour un coup de règle/cutter sur toute la
-         largeur de la feuille. Le trait est porté par .row-view lui-même
-         (déjà large de toute la zone imprimable, indépendamment du nombre
-         de modules réellement utilisés), pas par la bande d'étiquettes. */
+         largeur de la feuille. Le trait est le prolongement direct de la
+         bordure des étiquettes (même épaisseur, couleur et position, pas
+         un trait à part décalé au-dessus/en-dessous) : un pseudo-élément
+         positionné exactement sur le bord haut/bas de .row-view (qui est
+         déjà large de toute la zone imprimable, indépendamment du nombre
+         de modules réellement utilisés), superposé pile à la bordure de
+         la première/dernière étiquette de la rangée. */
       .row-view {
-        border-top: 1px dashed #94a3b8;
-        padding-top: 1.5mm;
+        position: relative;
       }
-      .row-view:last-child {
-        border-bottom: 1px dashed #94a3b8;
-        padding-bottom: 1.5mm;
+      .row-view::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        border-top: 1px solid #94a3b8;
+      }
+      .row-view:last-child::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-bottom: 1px solid #94a3b8;
       }
     }
   `;
