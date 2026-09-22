@@ -434,6 +434,15 @@ export default function EtiquettesTableau() {
     return result;
   }, [circuits, effectiveRowSize]);
 
+  // Largeur (mm) de la rangée la plus large réellement utilisée : sert de
+  // référence au repère de découpe vertical de "fin" (cf. printStyles()),
+  // aligné sur le contenu réel plutôt que sur la capacité théorique
+  // (rowSize) qui laisserait le repère traîner dans le vide.
+  const maxRowWidthMm = useMemo(
+    () => Math.max(0, ...rows.map((r) => r.used)) * dims.modulePitch,
+    [rows, dims.modulePitch]
+  );
+
   /* ----- Rendu ----- */
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
@@ -642,7 +651,10 @@ export default function EtiquettesTableau() {
               défile horizontalement au lieu de déborder de l'écran à droite.
               À l'impression, le @media print force overflow: visible (largeurs
               en mm exactes, pas de clipping). */}
-          <div className="print-area overflow-x-auto rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:overflow-visible print:bg-white">
+          <div
+            className="print-area overflow-x-auto rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none print:overflow-visible print:bg-white"
+            style={{ ["--cut-guide-right"]: `${maxRowWidthMm}mm` }}
+          >
             {circuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-50 dark:bg-amber-900/30">
@@ -1236,17 +1248,17 @@ function printStyles() {
         margin-top: 8mm;
       }
       .row-view { page-break-inside: avoid; }
-      /* Repères de découpe : une rangée qui n'utilise pas tous ses modules
-         (ex. 6 sur 13) laisse un grand vide à droite — sans ces traits, la
-         bordure de la dernière étiquette de la rangée s'arrête là et ne
-         donne plus de guide pour un coup de règle/cutter sur toute la
-         largeur de la feuille. Le trait est le prolongement direct de la
-         bordure des étiquettes (même épaisseur, couleur et position, pas
-         un trait à part décalé au-dessus/en-dessous) : un pseudo-élément
-         positionné exactement sur le bord haut/bas de .row-view (qui est
-         déjà large de toute la zone imprimable, indépendamment du nombre
-         de modules réellement utilisés), superposé pile à la bordure de
-         la première/dernière étiquette de la rangée. */
+      /* Repères de découpe horizontaux : une rangée qui n'utilise pas tous
+         ses modules (ex. 6 sur 13) laisse un grand vide à droite — sans ces
+         traits, la bordure de la dernière étiquette de la rangée s'arrête
+         là et ne donne plus de guide pour un coup de règle/massicot sur
+         toute la largeur de la feuille. Le trait est le prolongement direct
+         de la bordure des étiquettes (même épaisseur, couleur et position,
+         pas un trait à part décalé au-dessus/en-dessous) : un pseudo-élément
+         positionné exactement sur le bord haut ET bas de chaque .row-view
+         (qui est déjà large de toute la zone imprimable, indépendamment du
+         nombre de modules réellement utilisés), superposé pile à la bordure
+         de la première/dernière étiquette de la rangée. */
       .row-view {
         position: relative;
       }
@@ -1258,13 +1270,35 @@ function printStyles() {
         right: 0;
         border-top: 1px solid #94a3b8;
       }
-      .row-view:last-child::after {
+      .row-view::after {
         content: "";
         position: absolute;
         bottom: 0;
         left: 0;
         right: 0;
         border-bottom: 1px solid #94a3b8;
+      }
+      /* Repères de découpe verticaux : même principe que les horizontaux,
+         mais pour le début (toujours à gauche, x=0, commun à toutes les
+         rangées) et la fin (bord droit de la rangée la plus large
+         réellement utilisée — cf. --cut-guide-right posé en inline sur
+         .print-area) des étiquettes, prolongés sur toute la hauteur de la
+         zone imprimée (donc de chaque page traversée). */
+      .print-area::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        border-left: 1px solid #94a3b8;
+      }
+      .print-area::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--cut-guide-right, 0mm);
+        border-left: 1px solid #94a3b8;
       }
     }
   `;
