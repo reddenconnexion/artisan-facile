@@ -48,6 +48,7 @@ import QuickActions from '../components/QuickActions';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
+import { buildDashboardCopilotFacts } from '../utils/copilotContext';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
@@ -1044,6 +1045,12 @@ const Dashboard = () => {
     const hasNoQuotes = allQuotes.length === 0;
     const clientCount = data?.clientCount || 0;
     const pendingQuotesCount = allQuotes.filter(q => ['draft', 'sent'].includes(q.status)).length;
+    // Vrais chiffres (CA, devis à relancer, impayés) pour que le Copilot
+    // puisse répondre à ses propres boutons au lieu de dire qu'il ne sait pas.
+    const copilotFacts = useMemo(
+        () => buildDashboardCopilotFacts(allQuotes, { clientCount }),
+        [allQuotes, clientCount]
+    );
     const recentActivity = useMemo(
         () => (data?.recentActivity || []).filter(a => isTestMode || !a.description.includes('⚗️')),
         [data?.recentActivity, isTestMode]
@@ -1317,15 +1324,12 @@ const Dashboard = () => {
                 context={{
                     page: 'Tableau de bord',
                     today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
-                    facts: [
-                        `Nombre de devis/factures en base : ${allQuotes.length}`,
-                        `Clients : ${clientCount}`,
-                        `Devis en attente (brouillon ou envoyé) : ${pendingQuotesCount}`,
-                    ],
+                    facts: copilotFacts,
                 }}
                 presets={[
-                    { label: 'Quel est mon CA ce mois ?',         prompt: 'Quel est mon chiffre d\'affaires sur les 30 derniers jours ?' },
-                    { label: 'Quels devis relancer ?',            prompt: 'Quels devis envoyés méritent d\'être relancés en priorité ?' },
+                    { label: 'Quel est mon CA ce mois ?',         prompt: 'Quel est mon chiffre d\'affaires encaissé ce mois-ci, et comment se compare-t-il au mois dernier ?' },
+                    { label: 'Quels devis relancer ?',            prompt: 'Quels devis envoyés méritent d\'être relancés en priorité ? Donne-moi les 3 premiers avec le client, le montant et pourquoi.' },
+                    { label: 'Qui ne m\'a pas encore payé ?',     prompt: 'Quelles factures envoyées ne sont pas encore payées ? Classe-les de la plus urgente à la moins urgente.' },
                     { label: 'Idées pour booster mon activité',   prompt: 'Donne-moi 3 idées concrètes pour booster mon activité d\'artisan ce mois.' },
                 ]}
             />

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileText, Check, Calculator, Mic, MicOff, FileCheck, Layers, PenTool, Eye, Star, Loader2, ArrowUp, ArrowDown, Mail, Link, MoreVertical, MoreHorizontal, X, Sparkles, Copy, ExternalLink, ZoomIn, ZoomOut, Clock, Info, Lock, Unlock, ShoppingCart, HelpCircle, ChevronDown, Pencil, RefreshCw, AlertTriangle, Truck, ClipboardPaste, FilePlus, MinusCircle } from 'lucide-react';
 import CopilotChat from '../components/CopilotChat';
+import { buildQuoteCopilotFacts } from '../utils/copilotContext';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
 import { publicLinkExpiry, publicLinkValidityLabel } from '../constants/publicLink';
@@ -405,20 +406,24 @@ const DevisForm = () => {
     const handleVoiceResult = (data) => {
         if (voiceContext === 'quote_item') {
             // Add new item from voice
-            if (data.description) {
+            if (data?.description) {
                 setFormData(prev => ({
                     ...prev,
                     items: [...prev.items, {
                         id: Date.now(),
                         description: data.description,
                         quantity: data.quantity || 1,
-                        unit: 'u', // default unit or try to parse
+                        unit: data.unit || tradeConfig.defaultUnit,
                         price: data.price || 0,
                         buying_price: 0,
-                        type: 'service' // default
+                        type: data.type || 'service'
                     }]
                 }));
-                toast.success('Ligne ajoutée !');
+                const qty = (data.quantity || 1).toLocaleString('fr-FR');
+                const price = (data.price || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                toast.success('Ligne ajoutée', {
+                    description: `${qty} ${data.unit || ''} × ${data.description} — ${price}${data.price ? '' : ' (prix à compléter)'}`,
+                });
             } else {
                 toast.warning("Je n'ai pas compris la ligne à ajouter.");
             }
@@ -5959,6 +5964,20 @@ Conditions de règlement : Paiement à réception de facture.`
 
                         <button
                             type="button"
+                            onClick={() => {
+                                setVoiceContext('quote_item');
+                                setShowSmartVoice(true);
+                            }}
+                            className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors disabled:opacity-50"
+                            disabled={isLocked}
+                            title="Dictez la ligne : « Pose de 10 prises à 45 euros », « 50 mètres de câble à 1,20 euro le mètre »…"
+                        >
+                            <Mic className="w-4 h-4" />
+                            Dicter une ligne
+                        </button>
+
+                        <button
+                            type="button"
                             onClick={addSection}
                             className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors disabled:opacity-50"
                             disabled={isLocked}
@@ -6724,20 +6743,11 @@ Conditions de règlement : Paiement à réception de facture.`
                 context={{
                     page: formData.type === 'invoice' ? 'Édition de facture' : 'Édition de devis',
                     today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
-                    facts: [
-                        formData.type === 'invoice' ? 'Type : Facture' : 'Type : Devis',
-                        formData.title && `Titre : ${formData.title}`,
-                        formData.client_name && `Client : ${formData.client_name}`,
-                        `Statut : ${formData.status || 'brouillon'}`,
-                        `Nombre de lignes : ${(formData.items || []).length}`,
-                        `Total HT : ${(subtotal || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
-                        formData.include_tva && `Total TTC : ${(total || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
-                        formData.valid_until && `Valable jusqu'au : ${new Date(formData.valid_until).toLocaleDateString('fr-FR')}`,
-                    ].filter(Boolean),
+                    facts: buildQuoteCopilotFacts(formData, { subtotal, total }),
                 }}
                 presets={[
                     { label: 'Rédige un email de relance',  prompt: 'Rédige un email de relance court et courtois pour ce devis. Ton professionnel, 4-5 phrases max, pas de relance trop insistante.' },
-                    { label: 'Vérifie la cohérence',        prompt: 'À partir des informations de ce devis, vérifie la cohérence des montants et signale tout point qui mériterait que je le revoie avant envoi.' },
+                    { label: 'Vérifie la cohérence',        prompt: 'Relis les lignes de ce devis : quantités, prix unitaires, lignes à 0 €, oublis probables (fournitures, main d\'œuvre, déplacement, mise en service) et marge. Signale seulement les points à revoir avant envoi.' },
                     { label: 'Suggère une remise commerciale', prompt: 'Quelle remise commerciale serait raisonnable sur ce devis pour augmenter mes chances qu\'il soit signé sans trop entamer ma marge ?' },
                 ]}
             />

@@ -44,8 +44,9 @@ const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
             parsedData = parseClientVoice(localTranscript);
             successMessage = "Fiche client pré-remplie !";
         } else if (context === 'quote_item') {
+            // L'écran appelant annonce lui-même la ligne ajoutée (ou l'échec).
             parsedData = parseQuoteItemVoice(localTranscript);
-            successMessage = "Ligne ajoutée !";
+            successMessage = null;
         } else if (context === 'note') {
             parsedData = { text: localTranscript };
             successMessage = "Note ajoutée !";
@@ -59,7 +60,7 @@ const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
         }
 
         onResult(parsedData);
-        toast.success(successMessage);
+        if (successMessage) toast.success(successMessage);
         onClose();
     };
 
@@ -71,7 +72,7 @@ const SmartVoiceModal = ({ isOpen, onClose, onResult, context }) => {
             case 'client':
                 return "Dites par exemple : \"Nouveau client Jean Dupont, 06 12 34 56 78, habite à Lyon\"";
             case 'quote_item':
-                return "Dites par exemple : \"Pose de carrelage 40m2 à 50 euros\"";
+                return "Dites par exemple : \"Pose de 10 prises à 45 euros\" ou \"50 mètres de câble à 1,20 euro le mètre\"";
             case 'note':
                 return "Dictez votre note simplement...";
             case 'assistant':
