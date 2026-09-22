@@ -11,6 +11,7 @@ import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/u
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { clientGreetingName } from '../utils/clientGreeting';
+import { parseReportDate, planReportPhotoLink } from '../utils/reportPhotoLink';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -369,6 +370,15 @@ const InterventionReportForm = () => {
             if (photo.path) {
                 await supabase.storage.from('project-photos').remove([photo.path]);
             }
+            // La photo versée au dossier du client pointe sur ce fichier :
+            // sans ce nettoyage, sa fiche garderait une vignette cassée.
+            if (photo.url && user) {
+                await supabase
+                    .from('project_photos')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('photo_url', photo.url);
+            }
             const remaining = (formData.photos || []).filter(p => p.url !== photo.url);
             setFormData(prev => ({ ...prev, photos: (prev.photos || []).filter(p => p.url !== photo.url) }));
             if (isEditing) {
@@ -515,6 +525,72 @@ const InterventionReportForm = () => {
         return Boolean(postalCode && city);
     };
 
+    const isSiteVisit = formData.report_type === 'site_visit' || formData.report_number?.startsWith('VT-');
+
+    // ── Photos de visite et fiche client ───────────────────────────────────
+    // Une visite prédevis démarre souvent sans client en fiche : on passe
+    // voir, on photographie, et le client n'est créé qu'au retour. Ses photos
+    // restaient alors dans le seul rapport de visite. Rattacher le client au
+    // rapport les verse donc maintenant dans son dossier photo, en « avant
+    // travaux » — le même fichier, une entrée de plus, sans second
+    // téléversement ni quota supplémentaire.
+    const linkedClientRef = useRef(null); // client déjà servi par ce rapport
+    useEffect(() => {
+        if (existingReport) linkedClientRef.current = existingReport.client_id ?? null;
+    }, [existingReport]);
+
+    const syncVisitPhotosToClient = async () => {
+        if (!isSiteVisit || !user) return;
+        const photos = (formData.photos || []).filter(p => p?.url);
+        const clientId = formData.client_id ? Number(formData.client_id) : null;
+        const previousClientId = linkedClientRef.current;
+        if (!clientId && !previousClientId) return;
+        try {
+            // Ce qui est déjà dans le dossier du client n'y entre pas deux
+            // fois : la visite lancée depuis une fiche y a déjà versé ses
+            // photos, et un simple réenregistrement ne doit rien dupliquer.
+            let linkedUrls = [];
+            if (clientId && photos.length) {
+                const { data, error } = await supabase
+                    .from('project_photos')
+                    .select('photo_url')
+                    .eq('user_id', user.id)
+                    .eq('client_id', clientId)
+                    .in('photo_url', photos.map(p => p.url));
+                if (error) throw error;
+                linkedUrls = (data || []).map(r => r.photo_url);
+            }
+            const { rows, unlinkClientId, unlinkUrls } = planReportPhotoLink({
+                userId: user.id,
+                clientId,
+                previousClientId,
+                photos,
+                linkedUrls,
+                date: parseReportDate(formData.date, new Date()),
+            });
+            if (unlinkClientId && unlinkUrls.length) {
+                const { error } = await supabase
+                    .from('project_photos')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('client_id', unlinkClientId)
+                    .in('photo_url', unlinkUrls);
+                if (error) throw error;
+            }
+            if (rows.length) {
+                const { error } = await supabase.from('project_photos').insert(rows);
+                if (error) throw error;
+                toast.success(`${rows.length} photo(s) ajoutée(s) au dossier du client`);
+            }
+            linkedClientRef.current = clientId;
+        } catch (err) {
+            // Le rapport, lui, est bien enregistré : on le dit sans faire
+            // croire à une perte, et un nouvel enregistrement réessaiera.
+            console.error('Rattachement des photos à la fiche client impossible :', err);
+            toast.error("Photos non ajoutées au dossier du client — réenregistrez pour réessayer.");
+        }
+    };
+
     const handleSave = async (statusOverride = null) => {
         if (!formData.title.trim()) {
             toast.error('Le titre est obligatoire');
@@ -579,6 +655,7 @@ const InterventionReportForm = () => {
                     }
                 }
                 invalidateInterventionReport(id);
+                await syncVisitPhotosToClient();
             } else {
                 const { data, error } = await supabase
                     .from('intervention_reports')
@@ -952,8 +1029,6 @@ const InterventionReportForm = () => {
         }
     };
 
-    const isSiteVisit = formData.report_type === 'site_visit' || formData.report_number?.startsWith('VT-');
-
     let siteVisitMeta = null;
     if (isSiteVisit && formData.notes) {
         try { siteVisitMeta = JSON.parse(formData.notes); } catch {}
@@ -1217,6 +1292,19 @@ const InterventionReportForm = () => {
                         />
                     </Field>
                 </div>
+                {/* Visite faite avant d'avoir créé le client : le dire ici, là où
+                    on peut y remédier, plutôt que de laisser chercher pourquoi la
+                    fiche du client reste sans photos. */}
+                {isSiteVisit && !formData.client_id && (formData.photos || []).length > 0 && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                            Aucun client rattaché à cette visite. Choisissez-le ci-dessus :
+                            ses {(formData.photos || []).length} photo(s) rejoindront son dossier
+                            photo (« avant travaux ») dès l'enregistrement.
+                        </p>
+                    </div>
+                )}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Devis / Facture lié(e)
