@@ -3018,6 +3018,20 @@ Conditions de règlement : Paiement à réception de facture.`
 
             if (fetchError) throw fetchError;
 
+            // Garde-fou anti-doublon : une facture de clôture existe déjà sur ce
+            // devis. En générer une seconde refacturerait tout le chantier (devis
+            // + avenants) et ferait payer deux fois le client. Pour un avenant
+            // signé APRÈS la clôture, la bonne action est une facture
+            // complémentaire (bouton « Facturer l'avenant » sur le tableau de
+            // bord), pas une nouvelle clôture.
+            const existingClosing = (linkedInvoices || []).find(inv =>
+                inv.type === 'invoice' && /cl[oô]ture/i.test(inv.title || '')
+            );
+            if (existingClosing) {
+                toast.error("Une facture de clôture existe déjà pour ce devis. Pour facturer un avenant signé depuis, créez une facture complémentaire depuis le tableau de bord — ne générez pas une seconde clôture.");
+                return;
+            }
+
             // Filter: keep only invoices (not amendments), exclude previous closing invoices
             const deposits = (linkedInvoices || []).filter(inv =>
                 inv.type === 'invoice' &&

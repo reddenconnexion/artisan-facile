@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper, Package } from 'lucide-react';
+import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper, Package, Info } from 'lucide-react';
 import { DismissibleHelp } from './ui';
 import ChantierMaterialModal from './ChantierMaterialModal';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { useInvalidateCache } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { fr } from 'date-fns/locale';
 import { urgencyWeight } from '../utils/urgency';
-import { latestClosingByParent, amendmentAlreadyBilled } from '../utils/amendmentBilling';
+import { latestClosingByParent, amendmentAlreadyBilled, isPostClosingComplement, complementInvoiceTitle } from '../utils/amendmentBilling';
 import { UrgencyBadge } from './ui';
 
 const ActionableDashboard = ({ user }) => {
@@ -114,6 +114,10 @@ const ActionableDashboard = ({ user }) => {
                     !isTestQuote(q) &&
                     !amendmentAlreadyBilled(q, closingByParent)
                 )
+                // Un avenant qui subsiste ici malgré une clôture existante est un
+                // complément signé après coup : on le marque pour guider l'artisan
+                // (libellé, aide, titre de facture prêt à l'emploi).
+                .map(q => ({ ...q, _complementOfClosing: isPostClosingComplement(q, closingByParent) }))
                 // Les chantiers les plus urgents remontent en tête de liste.
                 .sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
 
@@ -176,13 +180,21 @@ const ActionableDashboard = ({ user }) => {
         setConvertingId(quote.id);
 
         try {
+            const update = {
+                type: 'invoice',
+                status: 'accepted',
+                date: new Date().toISOString().split('T')[0]
+            };
+            // Complément d'un avenant signé après la clôture : on titre d'emblée la
+            // facture « Facture complémentaire – … » pour que le client la comprenne
+            // et que l'artisan n'ait rien à renommer.
+            if (quote._complementOfClosing) {
+                update.title = complementInvoiceTitle(quote);
+            }
+
             const { error } = await supabase
                 .from('quotes')
-                .update({
-                    type: 'invoice',
-                    status: 'accepted',
-                    date: new Date().toISOString().split('T')[0]
-                })
+                .update(update)
                 .eq('id', quote.id);
 
             if (error) throw error;
@@ -201,7 +213,9 @@ const ActionableDashboard = ({ user }) => {
 
             invalidateQuotes();
             toast.success(
-                `Facture FAC #${quote.id} créée !`,
+                quote._complementOfClosing
+                    ? 'Facture complémentaire créée ! Ouvrez-la pour l\'envoyer au client.'
+                    : `Facture FAC #${quote.id} créée !`,
                 {
                     action: {
                         label: 'Voir la facture',
@@ -271,12 +285,21 @@ const ActionableDashboard = ({ user }) => {
                                     <div>
                                         <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
                                             {quote.client_name || quote.clients?.name || 'Client'}
+                                            {quote._complementOfClosing && (
+                                                <span className="text-xs font-semibold text-orange-700 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 px-2 py-0.5 rounded-full">Avenant · complément</span>
+                                            )}
                                             <span className="text-xs font-normal text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Signé le {format(parseISO(quote.signed_at || quote.updated_at), 'dd/MM', { locale: fr })}</span>
                                             <UrgencyBadge value={quote.urgency} />
                                         </p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                             {quote.title} - <span className="font-semibold text-gray-900 dark:text-gray-100">{(quote.total_ttc || 0).toFixed(2)} €</span>
                                         </p>
+                                        {quote._complementOfClosing && (
+                                            <p className="text-xs text-orange-700 dark:text-orange-300 mt-1.5 flex items-start gap-1">
+                                                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                                <span>Signé après la facture de clôture. En cliquant, vous créez la <strong>facture complémentaire</strong> de cet avenant — la facture de clôture n'est pas modifiée.</span>
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
@@ -288,7 +311,7 @@ const ActionableDashboard = ({ user }) => {
                                                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                 : <Zap className="w-3.5 h-3.5" />
                                             }
-                                            Facturer
+                                            {quote._complementOfClosing ? 'Facturer l\'avenant' : 'Facturer'}
                                         </button>
                                     </div>
                                 </div>
