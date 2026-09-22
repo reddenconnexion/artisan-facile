@@ -4,6 +4,8 @@ import {
     amendmentBillableTime,
     latestClosingByParent,
     amendmentAlreadyBilled,
+    isPostClosingComplement,
+    complementInvoiceTitle,
 } from './amendmentBilling';
 
 // Repères temporels : la clôture est générée le 10, on teste des avenants
@@ -120,5 +122,39 @@ describe('amendmentAlreadyBilled', () => {
         const map = latestClosingByParent([closing()]);
         expect(amendmentAlreadyBilled({ type: 'quote', parent_id: 1 }, map)).toBe(false);
         expect(amendmentAlreadyBilled(amendment({ parent_id: null }), map)).toBe(false);
+    });
+});
+
+describe('isPostClosingComplement', () => {
+    it('vrai pour un avenant dont le devis parent a une clôture (donc signé après)', () => {
+        const map = latestClosingByParent([closing()]);
+        expect(isPostClosingComplement(amendment(), map)).toBe(true);
+    });
+
+    it('faux sans clôture sur le devis parent', () => {
+        expect(isPostClosingComplement(amendment(), latestClosingByParent([]))).toBe(false);
+    });
+
+    it('faux pour un devis ou un avenant sans parent', () => {
+        const map = latestClosingByParent([closing()]);
+        expect(isPostClosingComplement({ type: 'quote', parent_id: 1 }, map)).toBe(false);
+        expect(isPostClosingComplement(amendment({ parent_id: null }), map)).toBe(false);
+    });
+});
+
+describe('complementInvoiceTitle', () => {
+    it('préfixe le titre de l\'avenant', () => {
+        expect(complementInvoiceTitle({ title: 'Ajout prise cuisine' }))
+            .toBe('Facture complémentaire – Ajout prise cuisine');
+    });
+
+    it('ne double pas le préfixe déjà présent', () => {
+        expect(complementInvoiceTitle({ title: 'Facture complémentaire – tableau' }))
+            .toBe('Facture complémentaire – tableau');
+    });
+
+    it('retombe sur le préfixe seul quand il n\'y a pas de titre', () => {
+        expect(complementInvoiceTitle({ title: '' })).toBe('Facture complémentaire');
+        expect(complementInvoiceTitle({})).toBe('Facture complémentaire');
     });
 });

@@ -78,3 +78,39 @@ export function amendmentAlreadyBilled(amendment, closingByParent) {
     if (signedTime === null) return true; // avenant sans date -> prudence : déjà facturé
     return signedTime <= closingTime;
 }
+
+/**
+ * L'avenant est-il un complément à facturer APRÈS une clôture déjà émise ?
+ *
+ * Un avenant qui reste « à facturer » alors qu'une clôture existe sur son devis
+ * parent a forcément été signé après cette clôture (sinon amendmentAlreadyBilled
+ * l'aurait masqué). Sa facture est donc une facture complémentaire, la clôture
+ * n'étant pas retouchée. Sert à guider l'artisan sur le tableau de bord.
+ *
+ * @param {object} amendment       ligne `quotes` (type 'amendment')
+ * @param {Map}    closingByParent  sortie de latestClosingByParent
+ * @returns {boolean}
+ */
+export function isPostClosingComplement(amendment, closingByParent) {
+    return !!amendment
+        && amendment.type === 'amendment'
+        && amendment.parent_id != null
+        && !!closingByParent
+        && closingByParent.has(amendment.parent_id);
+}
+
+export const COMPLEMENT_TITLE_PREFIX = 'Facture complémentaire';
+
+/**
+ * Titre clair pour la facture complémentaire issue d'un avenant, sans doublonner
+ * le préfixe s'il est déjà présent. Évite à l'artisan de renommer à la main.
+ *
+ * @param {object} amendment ligne `quotes` (type 'amendment')
+ * @returns {string}
+ */
+export function complementInvoiceTitle(amendment) {
+    const base = (amendment?.title || '').trim();
+    if (!base) return COMPLEMENT_TITLE_PREFIX;
+    if (/complémentaire/i.test(base)) return base;
+    return `${COMPLEMENT_TITLE_PREFIX} – ${base}`;
+}
