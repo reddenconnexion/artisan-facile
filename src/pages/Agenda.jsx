@@ -223,7 +223,7 @@ const Agenda = () => {
 
     const handleAddEvent = async (e) => {
         e.preventDefault();
-        if (!newEvent.title || !newEvent.time || !newEvent.date) {
+        if (!newEvent.title || !newEvent.date) {
             toast.error('Veuillez remplir le titre, la date et l\'heure');
             return;
         }
@@ -231,6 +231,7 @@ const Agenda = () => {
         try {
             const eventData = {
                 ...newEvent,
+                time: newEvent.time || '09:00',
                 // Use the date from the input, ensuring it's treated as the correct day
                 date: new Date(newEvent.date).toISOString(),
                 quote_id: newEvent.quote_id || null,
@@ -253,7 +254,7 @@ const Agenda = () => {
 
                 setEvents(events.map(ev =>
                     ev.id === editingEvent.id
-                        ? { ...ev, ...newEvent, date: new Date(newEvent.date) }
+                        ? { ...ev, ...newEvent, time: eventData.time, date: new Date(newEvent.date) }
                         : ev
                 ));
                 toast.success('Rendez-vous modifié avec succès');
@@ -608,13 +609,40 @@ const Agenda = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heure</label>
-                                <input
-                                    type="time"
-                                    required
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                    value={newEvent.time}
-                                    onChange={e => setNewEvent({ ...newEvent, time: e.target.value })}
-                                />
+                                {/* Deux listes au lieu d'un <input type="time"> : le sélecteur natif
+                                    d'Android (horloge + bouton « Définir ») déborde de l'écran sur mobile. */}
+                                {(() => {
+                                    const [hh = '09', mm = '00'] = (newEvent.time || '').split(':');
+                                    const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+                                    if (!minutes.includes(mm)) minutes.push(mm);
+                                    minutes.sort();
+                                    const selectClass = "block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100";
+                                    return (
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                aria-label="Heures"
+                                                className={selectClass}
+                                                value={hh}
+                                                onChange={e => setNewEvent({ ...newEvent, time: `${e.target.value}:${mm}` })}
+                                            >
+                                                {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                                                    <option key={h} value={h}>{h} h</option>
+                                                ))}
+                                            </select>
+                                            <span className="text-gray-500 dark:text-gray-400 font-semibold">:</span>
+                                            <select
+                                                aria-label="Minutes"
+                                                className={selectClass}
+                                                value={mm}
+                                                onChange={e => setNewEvent({ ...newEvent, time: `${hh}:${e.target.value}` })}
+                                            >
+                                                {minutes.map(m => (
+                                                    <option key={m} value={m}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client (Optionnel)</label>
