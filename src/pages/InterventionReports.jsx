@@ -295,14 +295,14 @@ const InterventionReports = () => {
                                     <button
                                         onClick={() => handleExportPDF(report)}
                                         disabled={exportingId === report.id}
-                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 min-h-[44px] text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                     >
                                         <FileDown className="w-3.5 h-3.5" />
                                         PDF
                                     </button>
                                     <button
                                         onClick={() => navigate(`/app/interventions/${report.id}`)}
-                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 min-h-[44px] text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                                     >
                                         <Edit className="w-3.5 h-3.5" />
                                         Modifier
@@ -310,9 +310,10 @@ const InterventionReports = () => {
                                     <button
                                         onClick={() => handleDelete(report.id)}
                                         disabled={deletingId === report.id}
-                                        className="px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                        aria-label="Supprimer le rapport"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>

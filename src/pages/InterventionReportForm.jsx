@@ -27,6 +27,49 @@ import { generateInterventionSummary } from '../utils/aiService';
 
 const EMPTY_MATERIAL = () => ({ id: Date.now(), description: '', quantity: 1, unit: 'unité', price: 0 });
 
+// Champs saisis à la main, gardés en brouillon sur le téléphone tant que le
+// rapport n'est pas enregistré (appel entrant, appareil photo, onglet
+// rechargé par le navigateur mobile…).
+const DRAFT_FIELDS = [
+    'title', 'date', 'client_id', 'client_name', 'quote_id',
+    'intervention_address', 'intervention_postal_code', 'intervention_city',
+    'start_time', 'end_time', 'duration_hours', 'description', 'work_done',
+    'materials_used', 'photos', 'milestones', 'notes', 'signer_name',
+];
+
+const pickDraftFields = (data) =>
+    Object.fromEntries(DRAFT_FIELDS.filter(k => k in data).map(k => [k, data[k]]));
+
+// Empreinte comparable du contenu saisi : sert à savoir s'il reste des
+// modifications non enregistrées. La durée est exclue (recalculée depuis les
+// heures) et les lignes de matériel vides ignorées.
+const contentSnapshot = (data) => ({
+    title: data.title || '',
+    date: data.date || '',
+    client_id: data.client_id ? String(data.client_id) : '',
+    client_name: data.client_name || '',
+    quote_id: data.quote_id ? String(data.quote_id) : '',
+    intervention_address: data.intervention_address || '',
+    intervention_postal_code: data.intervention_postal_code || '',
+    intervention_city: data.intervention_city || '',
+    start_time: (data.start_time || '').slice(0, 5),
+    end_time: (data.end_time || '').slice(0, 5),
+    description: data.description || '',
+    work_done: data.work_done || '',
+    notes: data.notes || '',
+    signer_name: data.signer_name || '',
+    materials_used: (data.materials_used || [])
+        .filter(m => (m.description || '').trim())
+        .map(m => [m.description, String(m.quantity), m.unit, String(m.price)]),
+    photos: (data.photos || []).map(p => p.url),
+    milestones: (data.milestones || []).map(m => [m.id, m.notes || '']),
+});
+
+const nowHHMM = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
 const InterventionReportForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -150,15 +193,105 @@ const InterventionReportForm = () => {
     // Load existing report when editing
     useEffect(() => {
         if (existingReport) {
-            setFormData({
+            const loaded = {
                 ...existingReport,
                 materials_used: existingReport.materials_used?.length
                     ? existingReport.materials_used
                     : [EMPTY_MATERIAL()],
-            });
+            };
+            setFormData(loaded);
             setClientSearch(existingReport.client_name || '');
+            savedSnapshotRef.current = contentSnapshot(loaded);
         }
     }, [existingReport]);
+
+    // ── Brouillon local ────────────────────────────────────────────────────
+    // savedSnapshotRef : contenu tel qu'enregistré en base (ou vierge pour un
+    // nouveau rapport). draftCheckedRef : la reprise éventuelle d'un brouillon
+    // a été proposée — avant ça, on n'écrase pas le brouillon existant.
+    const draftKey = user ? `intervention-draft-${user.id}-${isEditing ? id : 'new'}` : null;
+    const savedSnapshotRef = useRef(isEditing ? null : contentSnapshot(formData));
+    const draftCheckedRef = useRef(false);
+    const isDirty = savedSnapshotRef.current !== null
+        && JSON.stringify(contentSnapshot(formData)) !== JSON.stringify(savedSnapshotRef.current);
+
+    const clearDraft = (key = draftKey) => {
+        if (!key) return;
+        try { localStorage.removeItem(key); } catch { /* stockage indisponible */ }
+    };
+
+    // Proposer de reprendre un brouillon resté sur le téléphone
+    useEffect(() => {
+        if (!draftKey || draftCheckedRef.current) return;
+        if (isEditing && !existingReport) return;
+        draftCheckedRef.current = true;
+        let draft = null;
+        try { draft = JSON.parse(localStorage.getItem(draftKey)); } catch { /* brouillon illisible */ }
+        if (!draft?.data) return;
+        if (JSON.stringify(contentSnapshot(draft.data)) === JSON.stringify(savedSnapshotRef.current)) {
+            clearDraft();
+            return;
+        }
+        const savedAt = draft.savedAt ? new Date(draft.savedAt) : null;
+        const when = savedAt
+            ? ` du ${savedAt.toLocaleDateString('fr-FR')} à ${savedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            : '';
+        confirm({
+            title: 'Reprendre le brouillon ?',
+            message: `Une saisie non enregistrée${when} a été retrouvée sur ce téléphone.`,
+            confirmLabel: 'Reprendre',
+            cancelLabel: 'Ignorer',
+            info: true,
+        }).then(ok => {
+            if (ok) {
+                const data = pickDraftFields(draft.data);
+                setFormData(prev => ({ ...prev, ...data }));
+                if (data.client_name !== undefined) setClientSearch(data.client_name || '');
+                toast.success('Brouillon repris');
+            } else {
+                clearDraft();
+            }
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftKey, existingReport]);
+
+    // Enregistrer le brouillon 1 s après la dernière modification
+    useEffect(() => {
+        if (!draftKey || !draftCheckedRef.current) return;
+        const timer = setTimeout(() => {
+            if (!isDirty) return;
+            try {
+                localStorage.setItem(draftKey, JSON.stringify({
+                    savedAt: new Date().toISOString(),
+                    data: pickDraftFields(formData),
+                }));
+            } catch { /* stockage plein ou indisponible */ }
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [formData, draftKey, isDirty]);
+
+    // Avertir avant de fermer ou recharger l'onglet avec une saisie en cours
+    useEffect(() => {
+        if (!isDirty) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
+
+    const handleLeave = async () => {
+        if (isDirty) {
+            const ok = await confirm({
+                title: 'Quitter sans enregistrer ?',
+                message: 'Les modifications non enregistrées de ce rapport seront perdues.',
+                confirmLabel: 'Quitter',
+                cancelLabel: 'Rester',
+                danger: true,
+            });
+            if (!ok) return;
+            clearDraft();
+        }
+        navigate('/app/interventions');
+    };
 
     // Auto-generate report number for new reports
     useEffect(() => {
@@ -388,6 +521,12 @@ const InterventionReportForm = () => {
                     .eq('id', id);
                 if (error) throw error;
                 invalidateInterventionReport(id);
+                if (savedSnapshotRef.current) {
+                    savedSnapshotRef.current = {
+                        ...savedSnapshotRef.current,
+                        photos: savedSnapshotRef.current.photos.filter(u => u !== photo.url),
+                    };
+                }
             }
             toast.success('Photo supprimée');
             return true;
@@ -497,6 +636,13 @@ const InterventionReportForm = () => {
     };
 
     const removeMilestone = async (milestone) => {
+        const ok = await confirm({
+            title: `Supprimer le jalon « ${milestone.label || 'jalon'} » ?`,
+            message: 'La photo horodatée et sa position seront effacées du stockage. Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             if (milestone.photo_path) {
                 await supabase.storage.from('project-photos').remove([milestone.photo_path]);
@@ -604,6 +750,13 @@ const InterventionReportForm = () => {
         }
 
         setSaving(true);
+        // Le contenu enregistré devient la référence et le brouillon local
+        // n'a plus lieu d'être (clé prise avant la navigation vers /:id).
+        const draftKeyAtSave = draftKey;
+        const markSaved = () => {
+            savedSnapshotRef.current = contentSnapshot(formData);
+            clearDraft(draftKeyAtSave);
+        };
         try {
             const payload = {
                 title: formData.title,
@@ -670,6 +823,7 @@ const InterventionReportForm = () => {
                             .select()
                             .single();
                         if (e2) throw e2;
+                        markSaved();
                         invalidateInterventionReports();
                         navigate(`/app/interventions/${d2.id}`, { replace: true });
                         invalidateInterventionReports();
@@ -678,6 +832,7 @@ const InterventionReportForm = () => {
                     }
                     throw error;
                 }
+                markSaved();
                 invalidateInterventionReports();
                 navigate(`/app/interventions/${data.id}`, { replace: true });
                 invalidateInterventionReports();
@@ -685,6 +840,7 @@ const InterventionReportForm = () => {
                 return data.id;
             }
 
+            markSaved();
             invalidateInterventionReports();
             toast.success('Rapport sauvegardé');
             return isEditing ? Number(id) : true;
@@ -1070,8 +1226,9 @@ const InterventionReportForm = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => navigate('/app/interventions')}
-                        className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        onClick={handleLeave}
+                        aria-label="Retour aux rapports"
+                        className="p-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -1423,13 +1580,21 @@ const InterventionReportForm = () => {
                     <Clock className="w-5 h-5 text-blue-500" />
                     Suivi du temps
                 </h2>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <Field label="Heure début">
                         <Input
                             type="time"
                             value={formData.start_time}
                             onChange={e => updateField('start_time', e.target.value)}
                         />
+                        <button
+                            type="button"
+                            onClick={() => updateField('start_time', nowHHMM())}
+                            className="mt-2 w-full min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+                        >
+                            <Clock className="w-4 h-4" />
+                            Maintenant
+                        </button>
                     </Field>
                     <Field label="Heure fin">
                         <Input
@@ -1437,8 +1602,16 @@ const InterventionReportForm = () => {
                             value={formData.end_time}
                             onChange={e => updateField('end_time', e.target.value)}
                         />
+                        <button
+                            type="button"
+                            onClick={() => updateField('end_time', nowHHMM())}
+                            className="mt-2 w-full min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+                        >
+                            <Clock className="w-4 h-4" />
+                            Maintenant
+                        </button>
                     </Field>
-                    <Field label="Durée (h)">
+                    <Field label="Durée (h)" className="col-span-2 sm:col-span-1">
                         <Input
                             type="number"
                             min="0"
@@ -1569,9 +1742,11 @@ const InterventionReportForm = () => {
                                 />
                                 <button
                                     onClick={() => removeMaterial(material.id)}
-                                    className="col-span-1 flex justify-center p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    className="col-span-1 flex items-center justify-center min-h-[44px] text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Supprimer cette ligne"
+                                    aria-label="Supprimer cette ligne de matériel"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-5 h-5" />
                                 </button>
                             </div>
                         ))}
@@ -1637,11 +1812,11 @@ const InterventionReportForm = () => {
                                 <button
                                     type="button"
                                     onClick={() => removePhoto(photo)}
-                                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-full transition-colors shadow-md"
+                                    className="absolute top-1 right-1 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full transition-colors shadow-md"
                                     title="Supprimer"
                                     aria-label="Supprimer la photo"
                                 >
-                                    <X className="w-3 h-3" />
+                                    <X className="w-4 h-4" />
                                 </button>
                             </div>
                         ))}
@@ -1754,10 +1929,11 @@ const InterventionReportForm = () => {
                                     <button
                                         type="button"
                                         onClick={() => removeMilestone(m)}
-                                        className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded flex-shrink-0"
+                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg flex-shrink-0"
                                         title="Supprimer ce jalon"
+                                        aria-label="Supprimer ce jalon"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             );
@@ -1863,7 +2039,7 @@ const InterventionReportForm = () => {
             {/* Bottom Save */}
             <div className="flex justify-end gap-3 pb-4">
                 <button
-                    onClick={() => navigate('/app/interventions')}
+                    onClick={handleLeave}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
                 >
                     Annuler
