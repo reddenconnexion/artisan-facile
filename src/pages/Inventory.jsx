@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     Package, Search, AlertTriangle, Plus, Minus,
-    X, ScanBarcode, ExternalLink, Trash2, Edit3
+    X, ScanBarcode, ExternalLink, Trash2, Edit3, Check
 } from 'lucide-react';
 import { useZxing } from 'react-zxing';
 import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
@@ -45,7 +46,10 @@ const BarcodeScanner = ({ onResult, onError, onClose }) => {
     );
 };
 
+const QUICK_ADD = [5, 10, 25];
+
 const Inventory = () => {
+    const { user } = useAuth();
     // Utilisation du cache React Query
     const { data: items = [], isLoading: loading } = useInventory();
     const { invalidateInventory } = useInvalidateCache();
@@ -57,6 +61,10 @@ const Inventory = () => {
     // UI States
     const [showBarcodeModal, setShowBarcodeModal] = useState(false);
     const [showNewItemModal, setShowNewItemModal] = useState(false);
+
+    // Saisie directe d'une quantité (réception d'une livraison, inventaire…)
+    const [qtyItem, setQtyItem] = useState(null);
+    const [qtyValue, setQtyValue] = useState('');
 
     // Barcode State
     const [scannedBarcode, setScannedBarcode] = useState(null);
@@ -87,6 +95,19 @@ const Inventory = () => {
         }
     };
 
+    const openQtyEditor = (item) => {
+        setQtyItem(item);
+        setQtyValue(String(item.stock_quantity || 0));
+    };
+
+    const handleSaveQty = (e) => {
+        e.preventDefault();
+        const qty = parseInt(qtyValue, 10);
+        if (!Number.isFinite(qty) || qty < 0) return toast.error('Quantité invalide');
+        if (qty !== (qtyItem.stock_quantity || 0)) updateStock(qtyItem.id, qty);
+        setQtyItem(null);
+    };
+
     const handleDeleteItem = async (id) => {
         const ok = await confirm({ title: 'Supprimer cet article', message: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true });
         if (!ok) return;
@@ -94,6 +115,7 @@ const Inventory = () => {
             const { error } = await supabase.from('price_library').delete().eq('id', id);
             if (error) throw error;
             setLocalItems(prev => prev.filter(i => i.id !== id));
+            setShowNewItemModal(false);
             toast.success("Article supprimé");
             invalidateInventory();
         } catch (error) {
@@ -232,7 +254,7 @@ const Inventory = () => {
         try {
             await saveToDb(newItemData);
             setShowNewItemModal(false);
-            fetchStock();
+            invalidateInventory();
         } catch (e) {
             console.error("Save error:", e);
             // Check for missing column error (Postgres 42703) or generic message
@@ -245,7 +267,7 @@ const Inventory = () => {
                     await saveToDb(fallbackData); // Retry without reference
 
                     setShowNewItemModal(false);
-                    fetchStock();
+                    invalidateInventory();
                     toast.warning("Article sauvegardé, mais la 'Référence' n'a pas pu être stockée (Mettez à jour votre base de données).");
                     return;
                 } catch (retryError) {
@@ -423,8 +445,58 @@ const Inventory = () => {
                                 {newItemData.id ? "Modifier" : "Créer l'article"}
                             </button>
                             <button onClick={() => setShowNewItemModal(false)} className="w-full py-2 text-gray-500 dark:text-gray-400">Annuler</button>
+                            {newItemData.id && (
+                                <button
+                                    onClick={() => handleDeleteItem(newItemData.id)}
+                                    className="w-full py-3 flex items-center justify-center gap-2 text-red-600 font-medium rounded-2xl border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Supprimer l'article
+                                </button>
+                            )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Saisie directe de quantité */}
+            {qtyItem && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setQtyItem(null)}>
+                    <form
+                        onSubmit={handleSaveQty}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-sm w-full p-6"
+                    >
+                        <h3 className="text-lg font-bold truncate">{qtyItem.description}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Stock actuel : {qtyItem.stock_quantity || 0}</p>
+                        <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            value={qtyValue}
+                            onChange={e => setQtyValue(e.target.value)}
+                            onFocus={e => e.target.select()}
+                            className="w-full h-14 px-4 text-center text-2xl font-bold tabular-nums border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                        />
+                        <div className="grid grid-cols-3 gap-2 mt-3">
+                            {QUICK_ADD.map(n => (
+                                <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => setQtyValue(v => String((parseInt(v, 10) || 0) + n))}
+                                    className="h-12 font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/50 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                                >
+                                    +{n}
+                                </button>
+                            ))}
+                        </div>
+                        <button type="submit" className="w-full h-12 mt-4 flex items-center justify-center gap-2 bg-ios text-white font-bold rounded-2xl">
+                            <Check className="w-5 h-5" />
+                            Valider
+                        </button>
+                        <button type="button" onClick={() => setQtyItem(null)} className="w-full py-2 mt-1 text-gray-500 dark:text-gray-400">Annuler</button>
+                    </form>
                 </div>
             )}
 
@@ -480,40 +552,37 @@ const Inventory = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                                {/* Actions Edit/Delete on Desktop (or always) */}
-                                <div className="flex items-center gap-1 mr-2">
-                                    <button
-                                        onClick={() => handleEditItem(item)}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                        title="Modifier"
-                                    >
-                                        <Edit3 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteItem(item.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                        title="Supprimer"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleEditItem(item)}
+                                    className="hidden sm:flex w-11 h-11 items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    title="Modifier"
+                                >
+                                    <Edit3 className="w-5 h-5" />
+                                </button>
 
-                                <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
                                     <button
                                         onClick={() => updateStock(item.id, (item.stock_quantity || 0) - 1)}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-red-600 rounded-md transition-all shadow-sm"
+                                        className="w-11 h-11 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-red-600 rounded-lg transition-all shadow-sm"
+                                        aria-label="Retirer 1"
                                     >
-                                        <Minus className="w-4 h-4" />
+                                        <Minus className="w-5 h-5" />
                                     </button>
-                                    <div className={`w-12 text-center font-bold ${(item.stock_quantity || 0) <= (item.min_stock_alert || 5) ? 'text-red-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                                    <button
+                                        onClick={() => openQtyEditor(item)}
+                                        className={`min-w-[3rem] h-11 px-1 text-center text-lg font-bold tabular-nums rounded-lg underline decoration-dotted underline-offset-4 decoration-gray-300 dark:decoration-gray-600 hover:bg-white dark:hover:bg-gray-900 ${(item.stock_quantity || 0) <= (item.min_stock_alert || 5) ? 'text-red-600' : 'text-gray-700 dark:text-gray-300'}`}
+                                        aria-label="Saisir la quantité"
+                                        title="Saisir la quantité"
+                                    >
                                         {item.stock_quantity || 0}
-                                    </div>
+                                    </button>
                                     <button
                                         onClick={() => updateStock(item.id, (item.stock_quantity || 0) + 1)}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-green-600 rounded-md transition-all shadow-sm"
+                                        className="w-11 h-11 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:text-green-600 rounded-lg transition-all shadow-sm"
+                                        aria-label="Ajouter 1"
                                     >
-                                        <Plus className="w-4 h-4" />
+                                        <Plus className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
