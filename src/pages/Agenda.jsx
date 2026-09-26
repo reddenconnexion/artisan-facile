@@ -23,6 +23,7 @@ import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import ChantierMaterialModal from '../components/ChantierMaterialModal';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
+import ClientSelector from '../components/ClientSelector';
 import { Button } from '../components/ui';
 import { toast } from 'sonner';
 
@@ -43,6 +44,8 @@ const Agenda = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '', quote_id: null });
+    // Clients proposés dans le sélecteur du formulaire de RDV.
+    const [clients, setClients] = useState([]);
     // Devis du client sélectionné, proposés pour association au RDV/chantier.
     const [clientQuotes, setClientQuotes] = useState([]);
     // RDV dont on consulte la liste de matériel à charger.
@@ -184,6 +187,38 @@ const Agenda = () => {
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [events]);
+
+    // Charge la liste des clients à l'ouverture du formulaire, pour une sélection
+    // explicite (plus de devinette sur un nom tapé à la main).
+    useEffect(() => {
+        if (!showModal) return;
+        let active = true;
+        supabase
+            .from('clients')
+            .select('id, name, email, phone, address, postal_code, city')
+            .order('name')
+            .then(({ data }) => {
+                if (active && data) setClients(data);
+            });
+        return () => { active = false; };
+    }, [showModal]);
+
+    // Sélection d'un client : on reprend son nom, son adresse (si le lieu est vide)
+    // et on propose un titre (si vide). Le devis associé ne vaut que pour
+    // l'ancien client, on le retire en cas de changement.
+    const selectClient = (clientId) => {
+        const c = clients.find(cl => cl.id === clientId);
+        if (!c) return;
+        const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
+        setNewEvent(prev => ({
+            ...prev,
+            client_id: c.id,
+            client_name: c.name,
+            ...(prev.client_id !== c.id ? { quote_id: null } : {}),
+            ...(fullAddress && !prev.address ? { address: fullAddress } : {}),
+            ...(!(prev.title || '').trim() ? { title: defaultTitleFor(c.name) } : {}),
+        }));
+    };
 
     // Charge les devis du client sélectionné pour les proposer à l'association.
     // Un chantier programmé découle souvent d'un devis : le rattacher permet de
@@ -670,26 +705,13 @@ const Agenda = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client (Optionnel)</label>
-                                <input
-                                    type="text"
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                    value={newEvent.client_name}
-                                    onChange={e => setNewEvent({ ...newEvent, client_name: e.target.value })}
-                                    onBlur={async () => {
-                                        if (newEvent.client_name) {
-                                            const { data } = await supabase.from('clients').select('id, name, address, postal_code, city').ilike('name', newEvent.client_name).limit(1);
-                                            if (data && data.length > 0) {
-                                                const c = data[0];
-                                                const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
-                                                setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}), ...(!(prev.title || '').trim() ? { title: defaultTitleFor(c.name) } : {}) }));
-                                                toast.success('Client identifié : ' + c.name);
-                                            } else {
-                                                setNewEvent(prev => ({ ...prev, client_id: null }));
-                                            }
-                                        } else {
-                                            setNewEvent(prev => ({ ...prev, client_id: null }));
-                                        }
-                                    }}
+                                <ClientSelector
+                                    clients={clients}
+                                    selectedClientId={newEvent.client_id}
+                                    onChange={selectClient}
+                                    freeTextName={newEvent.client_name}
+                                    onUseFreeText={name => setNewEvent(prev => ({ ...prev, client_id: null, client_name: name, quote_id: null }))}
+                                    onClear={() => setNewEvent(prev => ({ ...prev, client_id: null, client_name: '', quote_id: null }))}
                                 />
                             </div>
                             <div>
