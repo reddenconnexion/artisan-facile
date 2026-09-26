@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+import { readSecret } from '../_shared/vault.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
     const userPlan = profile.plan || 'free';
     const isPrivileged = userPlan === 'pro' || userPlan === 'owner';
     const aiProvider = profile.ai_preferences?.ai_provider || 'openai';
-    const userApiKey = profile.ai_preferences?.openai_api_key;
+    const userApiKey = await readSecret(profile.ai_preferences?.openai_api_key_secret_id);
 
     let apiKey = null;
     if (isPrivileged) {

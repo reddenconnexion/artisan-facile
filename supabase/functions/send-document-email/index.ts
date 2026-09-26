@@ -31,6 +31,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { readSecret } from '../_shared/vault.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -240,7 +241,12 @@ Deno.serve(async (req) => {
         if (profileErr) return json({ error: 'Profil introuvable' }, 404);
 
         const cfg = profile?.smtp_config;
-        if (!cfg?.host || !cfg?.port || !cfg?.username || !cfg?.password || !cfg?.from_email) {
+        if (!cfg?.host || !cfg?.port || !cfg?.username || !cfg?.password_secret_id || !cfg?.from_email) {
+            return json({ error: 'Configuration SMTP incomplète. Renseignez-la dans votre profil.' }, 400);
+        }
+
+        const smtpPassword = await readSecret(cfg.password_secret_id);
+        if (!smtpPassword) {
             return json({ error: 'Configuration SMTP incomplète. Renseignez-la dans votre profil.' }, 400);
         }
 
@@ -294,7 +300,7 @@ Deno.serve(async (req) => {
                 tls: !!cfg.secure,
                 auth: {
                     username: cfg.username,
-                    password: cfg.password,
+                    password: smtpPassword,
                 },
             },
         });

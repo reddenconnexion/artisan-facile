@@ -1,8 +1,9 @@
 // Edge Function `save-smtp-config`
 //
 // Sauvegarde (ou supprime) la configuration SMTP de l'artisan. Le mot de passe
-// est stocké côté serveur uniquement et n'est jamais renvoyé au client par la
-// suite (cf. get_my_profile_safe qui strip le champ `password`).
+// n'est jamais stocké en clair : il est chiffré dans Supabase Vault, et seul
+// son id (`password_secret_id`) est conservé dans `profiles.smtp_config`
+// (cf. get_my_profile_safe qui strip ce champ avant de renvoyer le profil).
 //
 // Body attendu :
 //   { config: { host, port, secure, username, password, from_email, from_name } }
@@ -10,6 +11,7 @@
 //   - Si `config` est null, on supprime totalement la config SMTP.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { upsertSecret } from '../_shared/vault.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -78,18 +80,24 @@ Deno.serve(async (req) => {
             return json({ error: 'Adresse email expéditeur invalide' }, 400);
         }
 
-        // Préserver l'ancien password si non fourni
-        let finalPassword = password;
-        if (!finalPassword) {
-            const { data: existing } = await supabaseAdmin
-                .from('profiles')
-                .select('smtp_config')
-                .eq('id', user.id)
-                .single();
-            finalPassword = existing?.smtp_config?.password || '';
-            if (!finalPassword) {
-                return json({ error: 'Mot de passe SMTP requis' }, 400);
+        const { data: existing } = await supabaseAdmin
+            .from('profiles')
+            .select('smtp_config')
+            .eq('id', user.id)
+            .single();
+        const existingSecretId = existing?.smtp_config?.password_secret_id || null;
+
+        // Le mot de passe n'est jamais stocké en clair : seul son id dans
+        // Supabase Vault (chiffré) est conservé dans `smtp_config`. Si aucun
+        // nouveau mot de passe n'est fourni, on garde le secret existant.
+        let passwordSecretId = existingSecretId;
+        if (password) {
+            passwordSecretId = await upsertSecret(existingSecretId, password, `smtp_password_${user.id}`);
+            if (!passwordSecretId) {
+                return json({ error: 'Erreur lors du chiffrement du mot de passe' }, 500);
             }
+        } else if (!passwordSecretId) {
+            return json({ error: 'Mot de passe SMTP requis' }, 400);
         }
 
         const smtpConfig = {
@@ -97,7 +105,7 @@ Deno.serve(async (req) => {
             port,
             secure,
             username,
-            password: finalPassword,
+            password_secret_id: passwordSecretId,
             from_email: fromEmail,
             from_name: fromName,
         };

@@ -1,6 +1,7 @@
 // v2 — server-key fallback (GEMINI_API_KEY) for free users, quota-enforced
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+import { readSecret } from '../_shared/vault.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
     }
 
     const aiPrefs = profile.ai_preferences || {};
-    const userApiKey = aiPrefs.openai_api_key;
+    const userApiKey = await readSecret(aiPrefs.openai_api_key_secret_id);
     const provider = aiPrefs.ai_provider || 'gemini';
     const plan = profile.plan || 'free';
     const isPro = plan === 'pro' || plan === 'owner';

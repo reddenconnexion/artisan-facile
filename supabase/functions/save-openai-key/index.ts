@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { upsertSecret, deleteSecret } from '../_shared/vault.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,12 +82,29 @@ Deno.serve(async (req) => {
     }
 
     const currentPrefs = profile?.ai_preferences || {};
+    const existingSecretId = currentPrefs.openai_api_key_secret_id || null;
 
-    // Mise à jour de la clé sans renvoyer les autres préférences au client
-    const updatedPrefs = {
-      ...currentPrefs,
-      openai_api_key: deletingKey ? null : api_key,
-    };
+    // La clé n'est jamais stockée en clair : seul son id dans Supabase Vault
+    // (chiffré) est conservé dans `ai_preferences`.
+    const updatedPrefs = { ...currentPrefs };
+    delete updatedPrefs.openai_api_key;
+    delete updatedPrefs.gemini_api_key;
+
+    if (deletingKey) {
+      await deleteSecret(existingSecretId);
+      delete updatedPrefs.openai_api_key_secret_id;
+      delete updatedPrefs.openai_api_key_last4;
+    } else {
+      const secretId = await upsertSecret(existingSecretId, api_key, `ai_api_key_${user.id}`);
+      if (!secretId) {
+        return new Response(
+          JSON.stringify({ error: 'Erreur lors du chiffrement de la clé API' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updatedPrefs.openai_api_key_secret_id = secretId;
+      updatedPrefs.openai_api_key_last4 = api_key.slice(-4);
+    }
 
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
