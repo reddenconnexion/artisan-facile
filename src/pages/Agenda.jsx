@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     format,
@@ -25,6 +25,12 @@ import ChantierMaterialModal from '../components/ChantierMaterialModal';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import { Button } from '../components/ui';
 import { toast } from 'sonner';
+
+// Titre proposé quand un client est reconnu et que le titre est encore vide.
+const defaultTitleFor = (clientName) => `Intervention chez ${clientName}`;
+
+// Fenêtre de rappel avant un RDV.
+const REMINDER_MINUTES = 15;
 
 const Agenda = () => {
     const { user } = useAuth();
@@ -92,7 +98,7 @@ const Agenda = () => {
                         if (data && data.length > 0) {
                             const c = data[0];
                             const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
-                            setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}) }));
+                            setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}), ...(!(prev.title || '').trim() ? { title: defaultTitleFor(c.name) } : {}) }));
                             toast.success(`Client ${c.name} associé`);
                         } else {
                             // If not found, just use the spoken name
@@ -113,7 +119,7 @@ const Agenda = () => {
                 client_id: client_id,
                 client_name: client_name,
                 address: address || '',
-                title: title || prev.title || '',
+                title: title || prev.title || (client_name ? defaultTitleFor(client_name) : ''),
                 date: format(new Date(), 'yyyy-MM-dd'), // Default to today
                 time: '09:00' // Default time
             }));
@@ -131,34 +137,52 @@ const Agenda = () => {
     // Note : la permission notification est demandée depuis Profile > Notifications Push,
     // pas silencieusement ici (Chrome bloque les sites qui demandent sans interaction).
 
-    // Check for upcoming events every minute
+    // Rappels de RDV. On notifie dès qu'un RDV entre dans la fenêtre des 15 minutes
+    // (et pas seulement à la minute exacte), et on revérifie au retour au premier plan :
+    // un téléphone verrouillé au mauvais moment ne fait plus rater le rappel.
+    // Les RDV déjà notifiés sont mémorisés (clé incluant date/heure, pour re-notifier
+    // un RDV déplacé).
+    const notifiedReminders = useRef(new Set());
     useEffect(() => {
         const checkReminders = () => {
-            const now = new Date();
+            const now = Date.now();
             events.forEach(event => {
+                if (!event.date || !event.time) return;
+                const key = `${event.id}-${event.date}-${event.time}`;
+                if (notifiedReminders.current.has(key)) return;
+
                 const eventDate = new Date(event.date);
                 const [hours, minutes] = event.time.split(':');
                 eventDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-                const timeDiff = eventDate.getTime() - now.getTime();
-                const minutesDiff = Math.floor(timeDiff / 1000 / 60);
+                const timeDiff = eventDate.getTime() - now;
+                if (timeDiff <= 0 || timeDiff > REMINDER_MINUTES * 60 * 1000) return;
 
-                // Notify 15 minutes before
-                if (minutesDiff === 15) {
-                    if (Notification.permission === 'granted') {
-                        new Notification('Rappel de rendez-vous', {
-                            body: `${event.title} commence dans 15 minutes.`,
-                            icon: '/vite.svg' // Optional: add an icon
-                        });
-                    } else {
-                        toast.info(`Rappel : ${event.title} dans 15 minutes`);
-                    }
+                notifiedReminders.current.add(key);
+                const minutesLeft = Math.max(1, Math.ceil(timeDiff / 1000 / 60));
+                const label = `dans ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`;
+                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                    new Notification('Rappel de rendez-vous', {
+                        body: `${event.title} commence ${label}.`,
+                        icon: '/vite.svg'
+                    });
+                } else {
+                    toast.info(`Rappel : ${event.title} ${label}`);
                 }
             });
         };
 
-        const interval = setInterval(checkReminders, 60000); // Check every minute
-        return () => clearInterval(interval);
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') checkReminders();
+        };
+
+        checkReminders();
+        const interval = setInterval(checkReminders, 60000);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
     }, [events]);
 
     // Charge les devis du client sélectionné pour les proposer à l'association.
@@ -657,7 +681,7 @@ const Agenda = () => {
                                             if (data && data.length > 0) {
                                                 const c = data[0];
                                                 const fullAddress = [c.address, c.postal_code, c.city].filter(Boolean).join(', ');
-                                                setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}) }));
+                                                setNewEvent(prev => ({ ...prev, client_name: c.name, client_id: c.id, ...(fullAddress && !prev.address ? { address: fullAddress } : {}), ...(!(prev.title || '').trim() ? { title: defaultTitleFor(c.name) } : {}) }));
                                                 toast.success('Client identifié : ' + c.name);
                                             } else {
                                                 setNewEvent(prev => ({ ...prev, client_id: null }));
