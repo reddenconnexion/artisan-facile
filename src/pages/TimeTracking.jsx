@@ -119,7 +119,7 @@ const TimeTracking = () => {
         try {
             const [entriesRes, quotesRes, trackingRes, profileRes] = await Promise.all([
                 supabase.from('task_tracking')
-                    .select('id, quote_id, hours_spent, date, notes')
+                    .select('id, quote_id, hours_spent, date, notes, created_at')
                     .gte('date', days[0])
                     .lte('date', weekEnd)
                     .order('date', { ascending: true })
@@ -269,15 +269,34 @@ const TimeTracking = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        setDeletingId(id);
+    // Suppression immédiate, rattrapable : « Annuler » réinsère la ligne à
+    // l'identique (même id, même horodatage) pendant quelques secondes.
+    const restoreEntry = async (entry) => {
         try {
-            const { error } = await supabase.from('task_tracking').delete().eq('id', id);
+            const { error } = await supabase.from('task_tracking').insert({ ...entry, user_id: user.id });
             if (error) throw error;
-            setEntries(prev => prev.filter(e => e.id !== id));
-            if (editingId === id) closeForm();
+            toast.success('Pointage restauré');
             invalidateTimeTracking();
             fetchAll();
+        } catch (err) {
+            console.error('Erreur restauration pointage:', err);
+            toast.error('Impossible de restaurer ce pointage.');
+        }
+    };
+
+    const handleDelete = async (entry) => {
+        setDeletingId(entry.id);
+        try {
+            const { error } = await supabase.from('task_tracking').delete().eq('id', entry.id);
+            if (error) throw error;
+            setEntries(prev => prev.filter(e => e.id !== entry.id));
+            if (editingId === entry.id) closeForm();
+            invalidateTimeTracking();
+            fetchAll();
+            toast(`Pointage de ${formatHours(Number(entry.hours_spent) || 0)} supprimé`, {
+                duration: 8000,
+                action: { label: 'Annuler', onClick: () => restoreEntry(entry) },
+            });
         } catch (err) {
             console.error('Erreur suppression pointage:', err);
             toast.error('Suppression impossible.');
@@ -411,15 +430,15 @@ const TimeTracking = () => {
                                                 </span>
                                                 <button
                                                     onClick={() => openEditForm(e)}
-                                                    className="p-1 text-gray-300 hover:text-blue-600 transition-colors flex-shrink-0"
+                                                    className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
                                                     aria-label="Modifier ce pointage"
                                                 >
                                                     <Pencil className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(e.id)}
+                                                    onClick={() => handleDelete(e)}
                                                     disabled={deletingId === e.id}
-                                                    className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                                                    className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
                                                     aria-label="Supprimer ce pointage"
                                                 >
                                                     {deletingId === e.id
