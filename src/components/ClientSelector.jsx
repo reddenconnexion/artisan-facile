@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, Mail } from 'lucide-react';
+import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, Mail, X } from 'lucide-react';
 
-const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disabled }) => {
+// Props optionnelles (utilisées par l'Agenda) :
+// - freeTextName : nom affiché quand aucun client de la base n'est sélectionné
+//   (ex. RDV pris pour quelqu'un qui n'a pas encore de fiche) ;
+// - onUseFreeText(nom) : propose « Utiliser ce nom sans fiche client » ;
+// - onClear() : affiche une croix pour retirer le client.
+const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disabled, freeTextName, onUseFreeText, onClear }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
@@ -23,7 +28,7 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disa
     const filteredClients = clients.filter(client => {
         const term = searchTerm.toLowerCase();
         return (
-            client.name.toLowerCase().includes(term) ||
+            (client.name || '').toLowerCase().includes(term) ||
             (client.email && client.email.toLowerCase().includes(term)) ||
             (client.phone && client.phone.includes(term)) ||
             (client.address && client.address.toLowerCase().includes(term))
@@ -42,30 +47,50 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disa
                     }
                 }}
             >
-                <div className={`w-full px-3 py-2 border rounded-lg bg-white flex items-center justify-between cursor-pointer ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : 'border-gray-300 hover:border-gray-400'}`}>
+                <div className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 flex items-center justify-between cursor-pointer ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : 'border-gray-300 hover:border-gray-400 dark:border-gray-700'}`}>
                     {selectedClient ? (
                         <div className="flex items-center gap-2 overflow-hidden">
                             <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold shrink-0">
-                                {selectedClient.name.charAt(0)}
+                                {(selectedClient.name || '?').charAt(0)}
                             </div>
-                            <span className="truncate text-gray-900 font-medium">{selectedClient.name}</span>
+                            <span className="truncate text-gray-900 dark:text-gray-100 font-medium">{selectedClient.name}</span>
                         </div>
+                    ) : freeTextName ? (
+                        <span className="truncate text-gray-900 dark:text-gray-100">
+                            {freeTextName} <span className="text-xs text-gray-500 dark:text-gray-400">(sans fiche client)</span>
+                        </span>
                     ) : (
-                        <span className="text-gray-500">Sélectionner un client...</span>
+                        <span className="text-gray-500 dark:text-gray-400">Sélectionner un client...</span>
                     )}
-                    <ChevronsUpDown className="w-4 h-4 text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1 shrink-0">
+                        {onClear && (selectedClient || freeTextName) && (
+                            <button
+                                type="button"
+                                aria-label="Retirer le client"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                    setIsOpen(false);
+                                }}
+                                className="p-2 -my-2 text-gray-400 hover:text-red-500"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                        <ChevronsUpDown className="w-4 h-4 text-gray-400" />
+                    </div>
                 </div>
             </div>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 flex flex-col">
-                    <div className="p-2 border-b border-gray-100">
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-96 flex flex-col">
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                             <input
                                 ref={inputRef}
                                 type="text"
-                                className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                 placeholder="Rechercher (nom, email, ville...)"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -78,16 +103,17 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disa
                         {filteredClients.length > 0 ? (
                             filteredClients.map((client) => (
                                 <button
+                                    type="button"
                                     key={client.id}
                                     onClick={() => {
                                         onChange(client.id);
                                         setIsOpen(false);
                                         setSearchTerm('');
                                     }}
-                                    className={`w-full text-left px-3 py-2.5 rounded-md flex items-start gap-3 transition-colors ${selectedClientId === client.id ? 'bg-blue-50 text-blue-900' : 'hover:bg-gray-50 text-gray-900'}`}
+                                    className={`w-full text-left px-3 py-2.5 rounded-md flex items-start gap-3 transition-colors ${selectedClientId === client.id ? 'bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100' : 'hover:bg-gray-50 text-gray-900 dark:text-gray-100 dark:hover:bg-gray-700'}`}
                                 >
                                     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${selectedClientId === client.id ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
-                                        {client.name.charAt(0)}
+                                        {(client.name || '?').charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-baseline mb-0.5">
@@ -118,9 +144,27 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disa
                         )}
                     </div>
 
-                    {onCreateNew && (
-                        <div className="p-2 border-t border-gray-100 bg-gray-50/50 rounded-b-lg">
+                    {onUseFreeText && searchTerm.trim() && (
+                        <div className="p-2 border-t border-gray-100 dark:border-gray-700">
                             <button
+                                type="button"
+                                onClick={() => {
+                                    onUseFreeText(searchTerm.trim());
+                                    setIsOpen(false);
+                                    setSearchTerm('');
+                                }}
+                                className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            >
+                                <User className="w-4 h-4 mr-2 shrink-0" />
+                                <span className="truncate">Utiliser « {searchTerm.trim()} » sans fiche client</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {onCreateNew && (
+                        <div className="p-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 rounded-b-lg">
+                            <button
+                                type="button"
                                 onClick={() => {
                                     onCreateNew();
                                     setIsOpen(false);
