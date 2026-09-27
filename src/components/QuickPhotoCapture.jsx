@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, X, Loader2, Check, User } from 'lucide-react';
+import { Camera, X, Loader2, Check, User, Images } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +31,11 @@ const CATEGORIES = [
 
 const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, onUploaded }) => {
     const { user } = useAuth();
-    const fileInputRef = useRef(null);
+    // Appareil photo (un cliché, ré-appuyable) et galerie (sélection multiple)
+    // séparés : capture + multiple sur un même input ne fait ni l'un ni l'autre
+    // correctement sur beaucoup de mobiles.
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
     const [category, setCategory] = useState('during');
     const [uploading, setUploading] = useState(false);
     const [photos, setPhotos] = useState([]); // { id, url }
@@ -39,7 +43,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
 
     // Ouvre directement l'appareil photo au montage : 0 clic superflu sur le chantier.
     useEffect(() => {
-        const t = setTimeout(() => fileInputRef.current?.click(), 150);
+        const t = setTimeout(() => cameraInputRef.current?.click(), 150);
         return () => clearTimeout(t);
     }, []);
 
@@ -164,31 +168,47 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                     </div>
 
                     <input
-                        ref={fileInputRef}
+                        ref={cameraInputRef}
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        className="hidden"
+                        onChange={handleFiles}
+                    />
+                    <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
                         multiple
                         className="hidden"
                         onChange={handleFiles}
                     />
 
-                    {/* Bouton appareil photo */}
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="w-full flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-800 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 active:bg-blue-100 transition-colors disabled:opacity-60"
-                    >
-                        {uploading ? (
-                            <Loader2 className="w-10 h-10 animate-spin" />
-                        ) : (
-                            <Camera className="w-10 h-10" />
-                        )}
-                        <span className="text-base font-bold">
-                            {uploading ? 'Envoi en cours…' : 'Prendre une photo'}
-                        </span>
-                        <span className="text-xs text-blue-400">ou choisir depuis la galerie</span>
-                    </button>
+                    {/* Appareil photo / galerie */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => cameraInputRef.current?.click()}
+                            disabled={uploading}
+                            className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-800 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 active:bg-blue-100 transition-colors disabled:opacity-60"
+                        >
+                            {uploading ? (
+                                <Loader2 className="w-10 h-10 animate-spin" />
+                            ) : (
+                                <Camera className="w-10 h-10" />
+                            )}
+                            <span className="text-sm font-bold text-center">
+                                {uploading ? 'Envoi en cours…' : 'Prendre une photo'}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => galleryInputRef.current?.click()}
+                            disabled={uploading}
+                            className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-3xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 transition-colors disabled:opacity-60"
+                        >
+                            <Images className="w-10 h-10" />
+                            <span className="text-sm font-bold text-center">Choisir dans la galerie</span>
+                        </button>
+                    </div>
 
                     {/* Aperçu des photos ajoutées */}
                     {photos.length > 0 && (

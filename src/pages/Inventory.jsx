@@ -10,7 +10,7 @@ import { useZxing } from 'react-zxing';
 import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
 import { useConfirm } from '../context/ConfirmContext';
-import { Button } from '../components/ui';
+import { Button, EmptyState, LoadingState } from '../components/ui';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -503,17 +503,15 @@ const Inventory = () => {
             {/* List */}
             <div className="grid gap-3">
                 {loading ? (
-                    <div className="py-12 text-center text-gray-400">Chargement...</div>
+                    <LoadingState />
                 ) : filteredItems.length === 0 ? (
                     items.length === 0 ? (
-                        <div className="py-16 text-center bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 px-6 text-gray-900 dark:text-gray-100">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
-                                <Package className="h-10 w-10 text-blue-400" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Votre stock est vide</h3>
-                            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                                Suivez vos consommables, fournitures et matériel en quelques clics.
-                            </p>
+                        <EmptyState
+                            size="lg"
+                            icon={Package}
+                            title="Votre stock est vide"
+                            description="Suivez vos consommables, fournitures et matériel en quelques clics."
+                        >
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                 <Button size="lg" onClick={() => setShowNewItemModal(true)}>
                                     <Plus className="w-4 h-4" />
@@ -527,16 +525,14 @@ const Inventory = () => {
                                     Scanner un code-barre
                                 </button>
                             </div>
-                        </div>
+                        </EmptyState>
                     ) : (
-                        <div className="py-12 text-center bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <Search className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-                            <p className="text-gray-500 dark:text-gray-400">
-                                {searchTerm
-                                    ? <>Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"</>
-                                    : 'Aucun article ne correspond à ce filtre.'}
-                            </p>
-                        </div>
+                        <EmptyState
+                            icon={Search}
+                            title={searchTerm
+                                ? <>Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"</>
+                                : 'Aucun article ne correspond à ce filtre.'}
+                        />
                     )
                 ) : (
                     filteredItems.map(item => (

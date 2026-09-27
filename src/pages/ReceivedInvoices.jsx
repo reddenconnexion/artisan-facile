@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DismissibleHelp } from '../components/ui';
+import { DismissibleHelp, EmptyState, LoadingState } from '../components/ui';
 import { formatDate, formatDateTime } from '../utils/format';
 
 const RECEIVED_INVOICES_BUCKET = 'received-invoices';
@@ -400,25 +400,18 @@ const ReceivedInvoices = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center h-48">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-        </div>
+        <LoadingState className="h-48" />
       ) : error ? (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-400">
           Erreur de chargement : {error.message}
         </div>
       ) : invoices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
-          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center">
-            <Inbox className="w-8 h-8 text-indigo-400" />
-          </div>
-          <div>
-            <p className="font-semibold text-gray-700 dark:text-gray-300">Aucune facture reçue</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Vos factures fournisseurs apparaîtront ici dès qu'elles arriveront via B2BRouter.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          size="lg"
+          icon={Inbox}
+          title="Aucune facture reçue"
+          description="Vos factures fournisseurs apparaîtront ici dès qu'elles arriveront via B2BRouter."
+        />
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Desktop table */}

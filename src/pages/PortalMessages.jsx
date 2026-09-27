@@ -7,6 +7,7 @@ import {
     Phone, Mail, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState, LoadingState } from '../components/ui';
 
 /* ─── Bulle de message ─── */
 const MessageBubble = ({ msg }) => {
@@ -207,11 +208,7 @@ const PortalMessages = () => {
     const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
     /* ── States ── */
-    if (loading) return (
-        <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        </div>
-    );
+    if (loading) return <LoadingState className="h-64" />;
 
     return (
         <div className="max-w-6xl mx-auto">
@@ -244,13 +241,11 @@ const PortalMessages = () => {
 
             {/* État vide */}
             {conversations.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-                    <MessageSquare className="w-12 h-12 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun message pour le moment</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                        Vos clients peuvent vous contacter directement depuis leur espace client partagé.
-                    </p>
-                </div>
+                <EmptyState
+                    icon={MessageSquare}
+                    title="Aucun message pour le moment"
+                    description="Vos clients peuvent vous contacter directement depuis leur espace client partagé."
+                />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ height: 'calc(100vh - 13rem)' }}>
 

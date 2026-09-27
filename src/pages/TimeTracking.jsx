@@ -8,7 +8,7 @@ import {
     TrendingUp, AlertTriangle, CheckCircle, HelpCircle, Hammer,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import { DismissibleHelp } from '../components/ui';
+import { DismissibleHelp, EmptyState, LoadingState } from '../components/ui';
 import TimeClockWidget from '../components/TimeClockWidget';
 import { exportToCSV } from '../utils/csvExport';
 import {
@@ -317,11 +317,7 @@ const TimeTracking = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center py-24">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            </div>
-        );
+        return <LoadingState className="py-24" />;
     }
 
     return (
@@ -340,13 +336,11 @@ const TimeTracking = () => {
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Rentabilité par chantier</h2>
                 </div>
                 {worksites.length === 0 ? (
-                    <div className="bg-gray-50 dark:bg-gray-800/60 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-8 text-center">
-                        <Hammer className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 dark:text-gray-300 font-medium">Aucun chantier en cours</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            Dès qu'un devis est accepté, il apparaît ici avec ses heures prévues vs pointées.
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={Hammer}
+                        title="Aucun chantier en cours"
+                        description="Dès qu'un devis est accepté, il apparaît ici avec ses heures prévues vs pointées."
+                    />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {worksites.map(w => (

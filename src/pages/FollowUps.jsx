@@ -16,6 +16,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { EmptyState, LoadingState } from '../components/ui';
 
 const STEP_STYLES = [
     { badge: 'bg-blue-100 text-blue-700', activeBadge: 'bg-blue-600 text-white', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
@@ -453,7 +454,7 @@ const FollowUps = ({ embedded = false }) => {
             </div>
 
             {loading ? (
-                <div className="text-center py-12 text-gray-500">Chargement...</div>
+                <LoadingState />
             ) : activeTab === 'due' ? (
                 <div className="space-y-4">
                     {groupedDueQuotes.length > 0 && (
@@ -480,11 +481,11 @@ const FollowUps = ({ embedded = false }) => {
                         </div>
                     )}
                     {groupedDueQuotes.length === 0 ? (
-                        <div className="bg-white dark:bg-gray-900 rounded-xl p-12 text-center border border-gray-100 dark:border-gray-800">
-                            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Tout est à jour !</h3>
-                            <p className="text-gray-500">Aucune relance nécessaire pour le moment.</p>
-                        </div>
+                        <EmptyState
+                            icon={CheckCircle}
+                            title="Tout est à jour !"
+                            description="Aucune relance nécessaire pour le moment."
+                        />
                     ) : (
                         <div className="grid gap-4">
                             {groupedDueQuotes.map(renderCard)}
@@ -530,7 +531,7 @@ const FollowUps = ({ embedded = false }) => {
                         </tbody>
                     </table>
                     {history.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">Aucun historique disponible</div>
+                        <EmptyState bare title="Aucun historique disponible" />
                     )}
                 </div>
             )}

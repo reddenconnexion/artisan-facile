@@ -494,7 +494,6 @@ export const ExpressActionPad = ({
                 type="file"
                 accept="image/*"
                 capture="environment"
-                multiple
                 className="hidden"
                 onChange={(e) => { onPhotos(e.target.files); e.target.value = ''; }}
             />

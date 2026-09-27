@@ -11,6 +11,7 @@ import { useClients } from '../hooks/useDataCache';
 import { useConfirm } from '../context/ConfirmContext';
 import { toastError } from '../utils/supabaseErrorHandler';
 import { formatCurrency, formatDate } from '../utils/format';
+import { EmptyState, LoadingState } from '../components/ui';
 
 const FREQUENCY_LABELS = {
     weekly:    'Hebdomadaire',
@@ -532,26 +533,15 @@ const RecurringInvoices = () => {
 
             {/* Liste */}
             {loading ? (
-                <div className="flex justify-center py-16">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                </div>
+                <LoadingState className="py-16" />
             ) : items.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
-                    <Repeat className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Aucun modèle de facture récurrente</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-md mx-auto">
-                        Créez un modèle pour générer automatiquement vos factures de maintenance,
-                        abonnements ou prestations récurrentes.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={handleNew}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Créer mon premier modèle
-                    </button>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={Repeat}
+                    title="Aucun modèle de facture récurrente"
+                    description="Créez un modèle pour générer automatiquement vos factures de maintenance, abonnements ou prestations récurrentes."
+                    action={{ label: 'Créer mon premier modèle', icon: Plus, onClick: handleNew }}
+                />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {items.map(template => (

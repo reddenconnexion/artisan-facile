@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Plus, Search, Trash2, Edit, FileDown, CheckCircle, Clock, PenLine, Sparkles } from 'lucide-react';
-import { Button } from '../components/ui';
+import { Button, EmptyState, LoadingState } from '../components/ui';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -157,26 +157,21 @@ const InterventionReports = () => {
 
             {/* List */}
             {isLoading ? (
-                <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                </div>
+                <LoadingState />
             ) : filtered.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
-                    <ClipboardList className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">
-                        {searchTerm || statusFilter !== 'all'
-                            ? 'Aucun rapport ne correspond à votre recherche'
-                            : 'Aucun rapport d\'intervention pour l\'instant'}
-                    </p>
-                    {!searchTerm && statusFilter === 'all' && (
-                        <button
-                            onClick={() => navigate('/app/interventions/new')}
-                            className="mt-4 px-4 py-2 bg-ios text-white rounded-lg hover:bg-ios-dark transition-colors text-sm font-medium"
-                        >
-                            Créer votre premier rapport
-                        </button>
-                    )}
-                </div>
+                searchTerm || statusFilter !== 'all' ? (
+                    <EmptyState
+                        icon={ClipboardList}
+                        title="Aucun rapport ne correspond à votre recherche"
+                    />
+                ) : (
+                    <EmptyState
+                        size="lg"
+                        icon={ClipboardList}
+                        title="Aucun rapport d'intervention pour l'instant"
+                        action={{ label: 'Créer votre premier rapport', icon: Plus, onClick: () => navigate('/app/interventions/new') }}
+                    />
+                )
             ) : (
                 <>
                     {/* Desktop Table */}

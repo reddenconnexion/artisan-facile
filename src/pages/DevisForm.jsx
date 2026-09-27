@@ -39,7 +39,10 @@ import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import { Input, Field, SegmentedControl } from '../components/ui';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
+import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
+import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
+import DevisProgress from '../components/DevisProgress';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { amendmentProjectTotals } from '../utils/amendmentBilling';
 import { useQuoteMargin } from '../hooks/useQuoteMargin';
@@ -632,6 +635,28 @@ const DevisForm = () => {
     // --- AUTO SAVE LOGIC ---
     const draftKey = user ? `quote_draft_${id || 'new'}` : null;
     const { clearAutoSave, lastSaved, saving } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
+
+    // Hors-ligne (sous-sol, chantier sans 4G) : l'enregistrement en base est
+    // impossible, la saisie reste en brouillon local et on propose de
+    // l'enregistrer dès le retour du réseau.
+    const { isOnline, markPending, clearPending } = useOfflinePendingSave({
+        label: 'Le devis',
+        onSave: () => handleSubmit({ preventDefault: () => {} }),
+    });
+    const persistDraftNow = () => {
+        if (!draftKey || !dataLoaded) return;
+        try {
+            localStorage.setItem(draftKey, JSON.stringify({ ...formData, _draft_saved_at: new Date().toISOString() }));
+        } catch (e) {
+            console.error('Draft save error:', e);
+        }
+    };
+    const keepOfflineDraft = () => {
+        persistDraftNow();
+        markPending();
+        pendingSendRef.current = null;
+        toast.warning(offlineSaveMessage('le devis'), { id: 'offline-save', duration: 8000 });
+    };
 
     // Immediately save to localStorage when the tab becomes hidden, bypassing the debounce.
     // This prevents losing the last typed line when the user switches tabs before the 1-second
@@ -1504,6 +1529,11 @@ const DevisForm = () => {
     };
 
     const handleSendQuoteEmail = async (lang = 'fr') => {
+        if (isOffline()) {
+            persistDraftNow();
+            toast.error("Pas de réseau : l'envoi au client nécessite une connexion. Le devis reste enregistré sur ce téléphone.");
+            return;
+        }
         if (!formData.client_id) {
             toast.error('Veuillez d\'abord sélectionner un client');
             return;
@@ -2230,6 +2260,12 @@ const DevisForm = () => {
             return;
         }
 
+        if (isOffline()) {
+            keepOfflineDraft();
+            setLoading(false);
+            return;
+        }
+
         try {
             const selectedClient = clients.find(c => c.id.toString() === formData.client_id.toString());
 
@@ -2434,6 +2470,7 @@ const DevisForm = () => {
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
             clearAutoSave();
+            clearPending();
             invalidateQuotes();
             if (isEditing) invalidateQuote(id);
 
@@ -2506,6 +2543,10 @@ const DevisForm = () => {
         } catch (error) {
             pendingSendRef.current = null;
             console.error('Error saving quote:', error);
+            if (isNetworkError(error)) {
+                keepOfflineDraft();
+                return;
+            }
             toast.error('Erreur lors de la sauvegarde : ' + (error.message || error.details || error.hint || 'Erreur inconnue'));
         } finally {
             setLoading(false);
@@ -3672,6 +3713,20 @@ Conditions de règlement : Paiement à réception de facture.`
     const isLocked = ['accepted', 'billed', 'paid', 'cancelled'].includes(formData.status)
         || (formData.status === 'sent' && !revisionUnlocked);
 
+    // Étapes de la barre de progression mobile (DevisProgress)
+    const progressSteps = [
+        { id: 'client', label: 'Client', done: !!formData.client_id, targetId: 'devis-step-client' },
+        { id: 'title', label: 'Titre', done: !!(formData.title || '').trim(), targetId: 'devis-title' },
+        {
+            id: 'lines',
+            label: 'Lignes',
+            done: (formData.items || []).some(i =>
+                i.type !== 'section' && (i.description || '').trim() && (parseFloat(i.price) || 0) > 0),
+            targetId: 'devis-step-lines',
+        },
+        { id: 'send', label: 'Envoi', done: !!formData.status && formData.status !== 'draft', targetId: 'devis-step-top' },
+    ];
+
     if (isEditing && !dataLoaded) {
         return (
             <div className="max-w-4xl mx-auto pb-12 flex items-center justify-center min-h-[50vh]">
@@ -4405,7 +4460,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 </div>
             )}
 
-            <div className="flex items-center justify-between mb-6">
+            <div id="devis-step-top" className="flex items-center justify-between mb-6">
                 <button
                     onClick={handleBack}
                     className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
@@ -4505,8 +4560,12 @@ Conditions de règlement : Paiement à réception de facture.`
                         </span>
                     )}
                     {/* Auto-save indicator */}
-                    {!isEditing && (
-                        <AutoSaveIndicator lastSaved={lastSaved} saving={saving} />
+                    {(!isEditing || !isOnline) && (
+                        <AutoSaveIndicator
+                            lastSaved={lastSaved}
+                            saving={saving}
+                            label={isOnline ? 'Brouillon sauvegardé' : 'Hors-ligne · gardé sur le téléphone'}
+                        />
                     )}
                     {/* Retour à la vue aperçu PDF (documents finalisés) */}
                     {isEditing && formData.status && formData.status !== 'draft' && (
@@ -4972,9 +5031,14 @@ Conditions de règlement : Paiement à réception de facture.`
                 </div>
             ) : null}
 
+            {/* Progression (mobile) : où en est la saisie sur chantier */}
+            {!formData.is_external && !isLocked && (
+                <DevisProgress steps={progressSteps} />
+            )}
+
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-8 space-y-8">
                 {/* En-tête Devis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div id="devis-step-client" className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Client</label>
@@ -5004,6 +5068,7 @@ Conditions de règlement : Paiement à réception de facture.`
                             hint="Nom court du projet : il sert aussi de nom de dossier et d'intitulé dans les emails au client."
                         >
                             <Input
+                                id="devis-title"
                                 type="text"
                                 className="disabled:bg-gray-100 disabled:text-gray-500"
                                 placeholder="Ex: Rénovation Salle de Bain"
@@ -5400,7 +5465,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 )}
 
                 {/* Lignes du devis */}
-                <div>
+                <div id="devis-step-lines">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                         Détails : {tradeConfig.terms.task}s ({tradeConfig.terms.materials})
                     </h3>

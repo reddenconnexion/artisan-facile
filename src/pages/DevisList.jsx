@@ -12,7 +12,7 @@ import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
 import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
-import { Button, UrgencyBadge } from '../components/ui';
+import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -346,7 +346,7 @@ const DevisList = () => {
     }).length;
 
     if (loading) {
-        return <div className="flex justify-center items-center h-64">Chargement...</div>;
+        return <LoadingState className="h-64" />;
     }
 
     return (
@@ -556,7 +556,7 @@ const DevisList = () => {
 
             {/* Contenu : liste, kanban ou relances */}
             {isFollowUpsTab ? (
-                <Suspense fallback={<div className="text-center py-12 text-gray-500">Chargement...</div>}>
+                <Suspense fallback={<LoadingState />}>
                     <FollowUps embedded />
                 </Suspense>
             ) : viewMode === 'kanban' ? (
@@ -766,42 +766,29 @@ const DevisList = () => {
                     {filteredDevis.length === 0 && (
                         devisList.length === 0 ? (
                             /* Aucun devis en base — premier usage */
-                            <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 px-6">
-                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
-                                    <FileText className="h-10 w-10 text-blue-400" />
-                                </div>
-                                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                                    Créez votre premier devis
-                                </h3>
-                                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                                    Envoyez un document professionnel à votre client en moins de 2 minutes, directement depuis votre téléphone.
-                                </p>
-                                <Button size="lg" onClick={() => navigate('/app/devis/new')}>
-                                    <Plus className="w-4 h-4" />
-                                    Créer mon premier devis
-                                </Button>
+                            <EmptyState
+                                size="lg"
+                                icon={FileText}
+                                title="Créez votre premier devis"
+                                description="Envoyez un document professionnel à votre client en moins de 2 minutes, directement depuis votre téléphone."
+                                action={{ label: 'Créer mon premier devis', icon: Plus, onClick: () => navigate('/app/devis/new') }}
+                            >
                                 <p className="mt-4 text-sm text-gray-400 dark:text-gray-500">
                                     Vous avez déjà des devis ?{' '}
                                     <button onClick={() => handleImportClick('archive')} className="text-blue-500 hover:underline">
                                         Importez un PDF ou Word
                                     </button>
                                 </p>
-                            </div>
+                            </EmptyState>
                         ) : searchTerm ? (
                             /* Recherche sans résultat */
-                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                <Search className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500 dark:text-gray-400">
-                                    Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"
-                                </p>
-                            </div>
+                            <EmptyState
+                                icon={Search}
+                                title={<>Aucun résultat pour "<span className="font-medium">{searchTerm}</span>"</>}
+                            />
                         ) : (
                             /* Filtre actif sans résultat */
-                            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                <p className="text-gray-500 dark:text-gray-400">
-                                    Aucun devis dans cette catégorie.
-                                </p>
-                            </div>
+                            <EmptyState title="Aucun devis dans cette catégorie." />
                         )
                     )}
 
