@@ -7,7 +7,7 @@ import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, Trash2, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
-    ShoppingCart, MapPin, User, ClipboardCheck,
+    ShoppingCart, MapPin, User, ClipboardCheck, Images,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 import ChantierSuiviMode from '../components/ChantierSuiviMode';
@@ -103,41 +103,57 @@ const TerrainMode = () => {
 
     // ── Photos ────────────────────────────────────────────────────────────────
     const [photos, setPhotos] = useState([]); // { tempId, url, name, preview, uploading }
-    const photoInputRef = useRef(null);
+    // Deux entrées distinctes : l'appareil photo (capture, un cliché à la fois,
+    // ré-appuyable) et la galerie (sélection multiple). Combiner capture +
+    // multiple sur un seul input ne permet ni d'enchaîner les clichés ni
+    // d'ouvrir la galerie sur beaucoup de mobiles (iOS notamment).
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
-    const handlePhotoChange = async (e) => {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-
-        for (const file of files) {
-            const tempId = `${Date.now()}-${Math.random()}`;
-            const preview = URL.createObjectURL(file);
-            setPhotos(prev => [...prev, { tempId, url: null, name: file.name, preview, uploading: true }]);
-
-            try {
-                const ext = file.name.split('.').pop() || 'jpg';
-                const path = `terrain/${user.id}/${Date.now()}.${ext}`;
+    const uploadPhoto = async ({ file, tempId, preview }) => {
+        try {
+            const ext = file.name.split('.').pop() || 'jpg';
+            // Suffixe aléatoire : les envois partent en parallèle, Date.now()
+            // seul donnerait le même chemin à plusieurs photos.
+            const path = `terrain/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
                 // Bucket `project-photos` comme partout ailleurs : le bucket
                 // `intervention-photos` n'existe pas en production, chaque
                 // photo du mode dépannage partait en erreur d'upload.
-                const { error } = await supabase.storage
-                    .from('project-photos')
-                    .upload(path, file, { upsert: true });
-                if (error) throw error;
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-photos')
-                    .getPublicUrl(path);
-                setPhotos(prev => prev.map(p =>
-                    p.tempId === tempId ? { ...p, url: publicUrl, uploading: false } : p
-                ));
-            } catch (err) {
-                console.error('Upload error:', err);
-                toast.error(`Erreur upload : ${file.name}`);
-                setPhotos(prev => prev.filter(p => p.tempId !== tempId));
-                URL.revokeObjectURL(preview);
-            }
+            const { error } = await supabase.storage
+                .from('project-photos')
+                .upload(path, file, { upsert: true });
+            if (error) throw error;
+            const { data: { publicUrl } } = supabase.storage
+                .from('project-photos')
+                .getPublicUrl(path);
+            setPhotos(prev => prev.map(p =>
+                p.tempId === tempId ? { ...p, url: publicUrl, uploading: false } : p
+            ));
+        } catch (err) {
+            console.error('Upload error:', err);
+            toast.error(`Erreur upload : ${file.name}`);
+            setPhotos(prev => prev.filter(p => p.tempId !== tempId));
+            URL.revokeObjectURL(preview);
         }
+    };
+
+    const handlePhotoChange = async (e) => {
+        const files = Array.from(e.target.files);
         e.target.value = '';
+        if (!files.length) return;
+
+        const items = files.map(file => ({
+            file,
+            tempId: `${Date.now()}-${Math.random()}`,
+            preview: URL.createObjectURL(file),
+        }));
+        setPhotos(prev => [
+            ...prev,
+            ...items.map(({ file, tempId, preview }) => ({ tempId, url: null, name: file.name, preview, uploading: true })),
+        ]);
+        // Envois en parallèle : sur une 4G faible, chaque photo n'attend plus
+        // la fin de la précédente.
+        await Promise.allSettled(items.map(uploadPhoto));
     };
 
     const deletePhoto = (tempId) => {
@@ -236,14 +252,26 @@ const TerrainMode = () => {
         updated_at: new Date().toISOString(),
     });
 
-    const persist = async (payload) => {
-        if (reportId) {
+    // Ref + file d'attente : l'autosave et le bouton « Sauver » peuvent se
+    // déclencher en même temps, sans quoi on insérerait deux rapports.
+    const reportIdRef = useRef(null);
+    const persistQueue = useRef(Promise.resolve());
+
+    const persist = (payload) => {
+        const run = persistQueue.current.catch(() => {}).then(() => persistNow(payload));
+        persistQueue.current = run;
+        return run;
+    };
+
+    const persistNow = async (payload) => {
+        const currentId = reportIdRef.current;
+        if (currentId) {
             const { error } = await supabase
                 .from('intervention_reports')
                 .update(payload)
-                .eq('id', reportId);
+                .eq('id', currentId);
             if (error) throw error;
-            return reportId;
+            return currentId;
         } else {
             const reportNumber = `INT-${new Date().getFullYear()}-T${Date.now().toString().slice(-4)}`;
             const { data, error } = await supabase
@@ -252,16 +280,72 @@ const TerrainMode = () => {
                 .select('id')
                 .single();
             if (error) throw error;
+            reportIdRef.current = data.id;
             setReportId(data.id);
             return data.id;
         }
+    };
+
+    // ── Sauvegarde automatique ────────────────────────────────────────────────
+    // Empreinte du contenu saisi (hors chrono, qui change chaque seconde) :
+    // sert à savoir si le rapport a des modifications non sauvegardées.
+    const contentSnapshot = JSON.stringify([
+        title, clientId, clientName, description, workDone, notes, startTime,
+        photos.filter(p => p.url).map(p => p.url),
+    ]);
+    const [savedSnapshot, setSavedSnapshot] = useState(contentSnapshot);
+    const hasContent = !!(clientName.trim() || description.trim() || workDone.trim() || notes.trim() || photos.length);
+    const isDirty = hasContent && contentSnapshot !== savedSnapshot;
+    const photosUploading = photos.some(p => p.uploading);
+    const [autoSaving, setAutoSaving] = useState(false);
+
+    useEffect(() => {
+        if (!user || mode !== 'depannage' || !isDirty || photosUploading) return;
+        if (saving || docStatus === 'signed') return;
+        const t = setTimeout(async () => {
+            const snapshot = contentSnapshot;
+            try {
+                setAutoSaving(true);
+                await persist(buildPayload(docStatus));
+                setSavedSnapshot(snapshot);
+            } catch (err) {
+                // Silencieux : on retentera à la prochaine modification,
+                // et le bouton « Sauver » reste disponible.
+                console.error('Autosave error:', err);
+            } finally {
+                setAutoSaving(false);
+            }
+        }, 8000);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, mode, contentSnapshot, isDirty, photosUploading, saving, docStatus]);
+
+    // Fermeture de l'onglet / rechargement avec un rapport non sauvegardé
+    useEffect(() => {
+        if (!isDirty) return;
+        const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [isDirty]);
+
+    const saveStatusLabel = autoSaving
+        ? 'Sauvegarde auto…'
+        : isDirty
+            ? 'Modifications non sauvegardées'
+            : reportId ? 'Brouillon sauvegardé' : '';
+
+    const leaveTerrain = () => {
+        if ((isDirty || photosUploading) && !window.confirm('Rapport non sauvegardé, quitter quand même ?')) return;
+        navigate('/app');
     };
 
     const handleSave = async (newStatus = docStatus) => {
         if (!user) return;
         try {
             setSaving(true);
+            const snapshot = contentSnapshot;
             await persist(buildPayload(newStatus));
+            setSavedSnapshot(snapshot);
             setDocStatus(newStatus);
             toast.success(newStatus === 'completed' ? 'Rapport terminé !' : 'Brouillon sauvegardé');
         } catch (err) {
@@ -285,6 +369,7 @@ const TerrainMode = () => {
                 signer_name: signerName.trim(),
             };
             await persist(payload);
+            setSavedSnapshot(contentSnapshot);
             setDocStatus('signed');
             setTimerRunning(false);
             toast.success('Rapport signé ✓');
@@ -306,7 +391,7 @@ const TerrainMode = () => {
                 {/* Header */}
                 <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-3 py-3 flex items-center gap-2 safe-area-top">
                     <button
-                        onClick={() => navigate('/app')}
+                        onClick={leaveTerrain}
                         className="p-2 -ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 rounded-xl active:bg-gray-100"
                         aria-label="Retour"
                     >
@@ -526,6 +611,11 @@ const TerrainMode = () => {
                         Sauver
                     </button>
                 </div>
+                {saveStatusLabel && (
+                    <div className="px-3 -mt-2 pb-1.5 text-right text-[11px] text-gray-400" aria-live="polite">
+                        {saveStatusLabel}
+                    </div>
+                )}
 
                 {/* Bannière statut */}
                 {docStatus !== 'draft' && (
@@ -670,26 +760,39 @@ const TerrainMode = () => {
                 {tab === 'photos' && (
                     <div className="p-4 space-y-4 pb-6">
                         <input
-                            ref={photoInputRef}
+                            ref={cameraInputRef}
                             type="file"
                             accept="image/*"
                             capture="environment"
+                            className="hidden"
+                            onChange={handlePhotoChange}
+                        />
+                        <input
+                            ref={galleryInputRef}
+                            type="file"
+                            accept="image/*"
                             multiple
                             className="hidden"
                             onChange={handlePhotoChange}
                         />
 
-                        {/* Bouton appareil photo */}
-                        <button
-                            onClick={() => photoInputRef.current?.click()}
-                            className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white dark:bg-gray-900 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
-                        >
-                            <Camera className="w-12 h-12" />
-                            <div className="text-center">
-                                <div className="text-base font-bold">Prendre une photo</div>
-                                <div className="text-xs text-blue-400 mt-0.5">ou choisir depuis la galerie</div>
-                            </div>
-                        </button>
+                        {/* Appareil photo / galerie : deux grandes zones tactiles */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => cameraInputRef.current?.click()}
+                                className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-900 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                            >
+                                <Camera className="w-10 h-10" />
+                                <span className="text-sm font-bold text-center">Prendre une photo</span>
+                            </button>
+                            <button
+                                onClick={() => galleryInputRef.current?.click()}
+                                className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-3xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 transition-colors"
+                            >
+                                <Images className="w-10 h-10" />
+                                <span className="text-sm font-bold text-center">Choisir dans la galerie</span>
+                            </button>
+                        </div>
 
                         {photos.length === 0 ? (
                             <p className="text-center text-gray-400 text-sm py-4">Aucune photo pour l'instant</p>
