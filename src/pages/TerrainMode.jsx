@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
@@ -27,6 +28,7 @@ const defaultTitle = () => `Intervention du ${new Date().toLocaleDateString('fr-
 
 const TerrainMode = () => {
     const navigate = useNavigate();
+    const confirm = useConfirm();
     const { user } = useAuth();
 
     // ── Mode selection ────────────────────────────────────────────────────────
@@ -334,8 +336,16 @@ const TerrainMode = () => {
             ? 'Modifications non sauvegardées'
             : reportId ? 'Brouillon sauvegardé' : '';
 
-    const leaveTerrain = () => {
-        if ((isDirty || photosUploading) && !window.confirm('Rapport non sauvegardé, quitter quand même ?')) return;
+    const leaveTerrain = async () => {
+        if (isDirty || photosUploading) {
+            const ok = await confirm({
+                title: 'Quitter le mode terrain ?',
+                message: 'Le rapport n’est pas sauvegardé : les dernières modifications seront perdues.',
+                confirmLabel: 'Quitter quand même',
+                danger: true,
+            });
+            if (!ok) return;
+        }
         navigate('/app');
     };
 
