@@ -135,6 +135,9 @@ const DevisForm = () => {
     const { isTestMode, captureEmail } = useTestMode();
     const isEditing = !!id && id !== 'new';
     const [loading, setLoading] = useState(false);
+    // Passe à true dès que l'artisan coche/décoche lui-même l'OTP sur ce
+    // devis : au-delà, la suggestion automatique par montant ne l'écrase plus.
+    const otpTouchedRef = useRef(false);
 
     // Bandeau d'aide premier devis
     const tipDismissKey = user ? `devis_tip_dismissed_${user.id}` : null;
@@ -2269,6 +2272,19 @@ const DevisForm = () => {
     };
 
     const { subtotal, tva, total } = calculateTotal();
+
+    // Suggestion d'OTP à la signature : activée par défaut au-delà de 3000 €
+    // pour un nouveau devis, tant que l'artisan n'a pas lui-même tranché (case
+    // cochée/décochée à la main). Un devis déjà enregistré garde le choix fait
+    // à l'époque, quel que soit le montant actuel — on ne réécrit jamais un
+    // choix explicite en rouvrant un devis existant.
+    useEffect(() => {
+        if (isEditing || otpTouchedRef.current) return;
+        const shouldRequireOtp = total >= 3000;
+        setFormData(prev => (
+            prev.require_otp === shouldRequireOtp ? prev : { ...prev, require_otp: shouldRequireOtp }
+        ));
+    }, [total, isEditing]);
 
     // Helper to auto-update CRM status
     const updateClientCRMStatus = async (clientId, quoteStatus) => {
@@ -5430,19 +5446,22 @@ Conditions de règlement : Paiement à réception de facture.`
                                                 id="require_otp"
                                                 className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-ios disabled:opacity-50 dark:border-gray-700 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500"
                                                 checked={formData.require_otp}
-                                                onChange={(e) => setFormData({ ...formData, require_otp: e.target.checked })}
+                                                onChange={(e) => {
+                                                    otpTouchedRef.current = true;
+                                                    setFormData({ ...formData, require_otp: e.target.checked });
+                                                }}
                                                 disabled={isLocked}
                                             />
                                             <label htmlFor="require_otp" className="text-sm text-gray-700 dark:text-gray-300">
                                                 Exiger la vérification par email (OTP) pour signer
                                             </label>
                                         </div>
-                                        {total >= 5000 && !formData.require_otp && (
+                                        {total >= 3000 && !formData.require_otp && (
                                             <div className="mt-2 ml-6 flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg text-xs text-amber-800 dark:text-amber-400">
                                                 <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                                                 <div>
                                                     <span className="font-semibold">Recommandé pour ce montant.</span>{' '}
-                                                    Au-delà de 5 000 €, activer l'OTP renforce la valeur juridique de la signature
+                                                    Au-delà de 3 000 €, activer l'OTP renforce la valeur juridique de la signature
                                                     en cas de contestation (identification du signataire par email).
                                                 </div>
                                             </div>
