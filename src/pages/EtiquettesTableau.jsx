@@ -499,24 +499,10 @@ export default function EtiquettesTableau() {
               ))}
             </select>
 
-            <label
-              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
-              title="Nombre de modules par rangée du tableau réel (8, 13, 18…). Affecte la vue Rangées."
-            >
-              <span className="whitespace-nowrap">Mod./rangée</span>
-              <input
-                type="number"
-                min={4}
-                max={36}
-                step={1}
-                value={effectiveRowSize}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value, 10);
-                  setCustomRowSize(Number.isFinite(v) && v >= 4 && v <= 36 ? v : null);
-                }}
-                className="w-12 rounded border-0 bg-transparent p-0 text-center text-sm font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-0 dark:text-slate-100"
-              />
-            </label>
+            <RowSizeInput
+              value={effectiveRowSize}
+              onChange={setCustomRowSize}
+            />
 
             <button
               onClick={() => setPhotoImportOpen(true)}
@@ -1064,6 +1050,79 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const ROW_SIZE_MIN = 4;
+const ROW_SIZE_MAX = 36;
+
+/* Saisie du nombre de modules par rangée.
+   Le brouillon local permet d'effacer puis retaper (ex. 13 → 8) : valider à
+   chaque frappe faisait repasser la valeur au défaut dès qu'il restait un
+   chiffre hors bornes (« 1 »), ce qui bloquait la saisie sur mobile où il n'y
+   a pas de flèches. On valide à la sortie du champ ; les boutons −/+ servent
+   au tactile. */
+function RowSizeInput({ value, onChange }) {
+  // null hors saisie : on affiche alors la valeur réelle.
+  const [draft, setDraft] = useState(null);
+
+  function commit(raw) {
+    const v = parseInt(raw, 10);
+    if (Number.isFinite(v)) {
+      onChange(Math.min(Math.max(v, ROW_SIZE_MIN), ROW_SIZE_MAX));
+    }
+    setDraft(null);
+  }
+
+  function step(delta) {
+    onChange(Math.min(Math.max(value + delta, ROW_SIZE_MIN), ROW_SIZE_MAX));
+  }
+
+  const btn =
+    "grid h-7 w-7 place-items-center rounded text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-600";
+
+  return (
+    <div
+      className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+      title="Nombre de modules par rangée du tableau réel (8, 13, 18…). Affecte la vue Rangées."
+    >
+      <span className="whitespace-nowrap pl-0.5">Mod./rangée</span>
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        disabled={value <= ROW_SIZE_MIN}
+        className={btn}
+        aria-label="Un module de moins par rangée"
+      >
+        <Minus size={14} />
+      </button>
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={draft ?? String(value)}
+        onChange={(e) => setDraft(e.target.value.replace(/\D/g, "").slice(0, 2))}
+        onFocus={(e) => {
+          setDraft(String(value));
+          e.target.select();
+        }}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        aria-label="Modules par rangée"
+        className="w-8 rounded border-0 bg-transparent p-0 text-center text-base font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-0 dark:text-slate-100 sm:text-sm"
+      />
+      <button
+        type="button"
+        onClick={() => step(1)}
+        disabled={value >= ROW_SIZE_MAX}
+        className={btn}
+        aria-label="Un module de plus par rangée"
+      >
+        <Plus size={14} />
+      </button>
     </div>
   );
 }
