@@ -6,6 +6,7 @@ import {
     amendmentAlreadyBilled,
     isPostClosingComplement,
     complementInvoiceTitle,
+    amendmentProjectTotals,
 } from './amendmentBilling';
 
 // Repères temporels : la clôture est générée le 10, on teste des avenants
@@ -156,5 +157,26 @@ describe('complementInvoiceTitle', () => {
     it('retombe sur le préfixe seul quand il n\'y a pas de titre', () => {
         expect(complementInvoiceTitle({ title: '' })).toBe('Facture complémentaire');
         expect(complementInvoiceTitle({})).toBe('Facture complémentaire');
+    });
+});
+
+describe('amendmentProjectTotals', () => {
+    it('ajoute le montant de l’avenant au devis initial', () => {
+        const t = amendmentProjectTotals({ total_ttc: 1200 }, 300);
+        expect(t).toMatchObject({ baseline: 1200, newTotal: 1500, showDeposit: false, remaining: 1500 });
+    });
+
+    it('part des situations déjà facturées quand il y en a', () => {
+        const t = amendmentProjectTotals({ total_ttc: 1200, progress_total: 800, deposit_total: 200 }, -100);
+        expect(t).toMatchObject({ baseline: 800, newTotal: 700, showDeposit: false });
+    });
+
+    it('déduit l’acompte déjà versé dans le modèle additif', () => {
+        const t = amendmentProjectTotals({ total_ttc: '1000', deposit_total: 300 }, 200);
+        expect(t).toMatchObject({ newTotal: 1200, showDeposit: true, remaining: 900 });
+    });
+
+    it('tolère un contexte parent absent', () => {
+        expect(amendmentProjectTotals(null, 50)).toMatchObject({ baseline: 0, newTotal: 50, remaining: 50 });
     });
 });

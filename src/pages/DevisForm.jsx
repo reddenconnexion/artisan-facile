@@ -5,7 +5,6 @@ import { ArrowLeft, Plus, Download, Save, Trash2, Printer, Send, Upload, FileTex
 import CopilotChat from '../components/CopilotChat';
 import { buildQuoteCopilotFacts } from '../utils/copilotContext';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
-import { isSignatureBlocked, isSignatureSuspended } from '../utils/quoteSignability';
 import { publicLinkExpiry, publicLinkValidityLabel } from '../constants/publicLink';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -41,8 +40,11 @@ import { Input, Field, SegmentedControl } from '../components/ui';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
-import { useInvalidateCache, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { quoteMarginSummary } from '../utils/chantierMargin';
+import { useInvalidateCache } from '../hooks/useDataCache';
+import { amendmentProjectTotals } from '../utils/amendmentBilling';
+import { useQuoteMargin } from '../hooks/useQuoteMargin';
+import { useAvenantLogic } from '../hooks/useAvenantLogic';
+import { useQuoteSignature } from '../hooks/useQuoteSignature';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -57,7 +59,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus, signedAmendments } from '../utils/materialDeposit';
+import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../utils/materialDeposit';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -152,18 +154,7 @@ const DevisForm = () => {
     const [dataLoaded, setDataLoaded] = useState(!isEditing);
     const [clients, setClients] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
-    const [showSignatureModal, setShowSignatureModal] = useState(false);
-    const [signature, setSignature] = useState(null);
     const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
-    // Coûts d'achat réels (« Matériel à commander ») et heures pointées
-    // (task_tracking) agrégés par devis, pour l'indicateur « Marge réalisée »
-    // — lecture seule, le devis n'est pas modifié.
-    const procurementCosts = useProcurementCostByQuote();
-    const spentHoursMap = useSpentHoursByQuote();
-    // Devis initial + avenants signés du même chantier (id + lignes + total HT
-    // de chacun), pour la marge réalisée CONSOLIDÉE — null tant qu'il n'y a
-    // pas au moins un avenant signé (sinon identique à la marge par document).
-    const [chantierDocs, setChantierDocs] = useState(null);
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
@@ -572,8 +563,45 @@ const DevisForm = () => {
     });
 
     const [showSituationModal, setShowSituationModal] = useState(false);
+    const {
+        signature,
+        setSignature,
+        showSignatureModal,
+        setShowSignatureModal,
+        handleSignatureSave,
+        signatureSuspended,
+        linkExpired,
+        togglingSuspension,
+        fetchLinkSuspended,
+        suspensionBlockMessage,
+        handleToggleSignatureSuspension,
+        isDocumentClosed,
+    } = useQuoteSignature({
+        id,
+        formData,
+        setFormData,
+        onSigned: () => {
+            invalidateQuotes();
+            updateClientCRMStatus(formData.client_id, 'signed');
+        },
+    });
+    const {
+        showDeductionModal,
+        setShowDeductionModal,
+        loadParentQuoteData,
+        handleCreateAvenant,
+        handleAddDeductionItems,
+    } = useAvenantLogic({
+        id,
+        formData,
+        setFormData,
+        user,
+        clients,
+        navigate,
+        setLoading,
+        setShowActionsMenu,
+    });
     // Avenant : modal de déduction des prestations du devis initial non réalisées
-    const [showDeductionModal, setShowDeductionModal] = useState(false);
     const [diffAddress, setDiffAddress] = useState(false);
 
     // Avoir (facture rectificative) : document émis à montants négatifs,
@@ -1155,79 +1183,11 @@ const DevisForm = () => {
                     setDiffAddress(true);
                 }
 
-                if (data.parent_quote_id) {
-                    const { data: parentData } = await supabase
-                        .from('quotes')
-                        .select('id, total_ttc, total_ht, items, date, title, quote_number, status')
-                        .eq('id', data.parent_quote_id)
-                        .single();
+                // Avenant : total du devis initial, situations et acomptes déjà facturés.
+                if (data.parent_quote_id) await loadParentQuoteData(data.parent_quote_id);
 
-                    if (parentData) {
-                        // Un avenant COMPLÈTE le devis (modèle additif), il ne le remplace pas.
-                        // On distingue donc, parmi les factures rattachées au devis :
-                        //  - les vraies situations d'avancement (facturation par tranches qui
-                        //    remplace le devis comme base de calcul) → progress_total ;
-                        //  - les simples acomptes déjà versés → deposit_total, à DÉDUIRE du
-                        //    solde, en gardant le devis initial comme référence.
-                        // Sans cette distinction, un acompte (ex. acompte matériel) était pris
-                        // pour une situation et faussait le « Nouveau Total Projet » de l'avenant.
-                        const { data: childInvoices } = await supabase
-                            .from('quotes')
-                            .select('total_ttc, title, amendment_details')
-                            .eq('parent_id', data.parent_quote_id)
-                            .eq('type', 'invoice')
-                            .neq('status', 'cancelled');
-
-                        const isSituationInv = (inv) =>
-                            inv.amendment_details?.situation || /situation/i.test(inv.title || '');
-                        const isClosingInv = (inv) => /cl[oô]ture/i.test(inv.title || '');
-
-                        let progressTotal = 0;
-                        let depositTotal = 0;
-                        (childInvoices || []).forEach((inv) => {
-                            if (isClosingInv(inv)) return; // ni situation ni acompte
-                            if (isSituationInv(inv)) progressTotal += inv.total_ttc || 0;
-                            else depositTotal += inv.total_ttc || 0;
-                        });
-
-                        setFormData(prev => ({
-                            ...prev,
-                            parent_quote_data: {
-                                ...parentData,
-                                progress_total: progressTotal,
-                                deposit_total: depositTotal
-                            }
-                        }));
-                    }
-                }
-
-                // Marge réalisée CONSOLIDÉE du chantier (devis initial + avenants
-                // signés) : voir docs/analyse-marge-avenants.md, Piste 2. Les coûts
-                // réels s'accumulent le plus souvent sur le seul devis initial alors
-                // que le CA est réparti entre lui et ses avenants — sans effet sur
-                // les factures, qui ne facturent qu'une part du chantier.
-                if (data.type !== 'invoice') {
-                    const chantierRootId = data.type === 'amendment' && data.parent_quote_id
-                        ? data.parent_quote_id
-                        : data.id;
-                    const { data: chantierRows } = await supabase
-                        .from('quotes')
-                        .select('id, type, status, items, total_ht')
-                        .or(`id.eq.${chantierRootId},parent_quote_id.eq.${chantierRootId}`);
-
-                    const rootRow = (chantierRows || []).find((r) => r.id === chantierRootId);
-                    const amendmentRows = (chantierRows || []).filter((r) => r.id !== chantierRootId);
-                    const signed = signedAmendments(amendmentRows);
-
-                    setChantierDocs(rootRow && signed.length > 0
-                        ? [
-                            { id: rootRow.id, items: rootRow.items, total_ht: rootRow.total_ht },
-                            ...signed.map((a) => ({ id: a.id, items: a.items, total_ht: a.total_ht })),
-                        ]
-                        : null);
-                } else {
-                    setChantierDocs(null);
-                }
+                // Marge réalisée consolidée du chantier (voir useQuoteMargin).
+                await quoteMargins.loadChantierDocs(data);
 
                 // Facture de situation : (re)calcule le contexte d'avancement depuis
                 // le devis parent à chaque ouverture, pour que le récapitulatif du PDF
@@ -1382,13 +1342,6 @@ const DevisForm = () => {
         }));
     };
 
-    // Avenant : ajoute en négatif les prestations du devis initial qui ne
-    // seront pas réalisées (lignes construites par buildDeductionItems).
-    const handleAddDeductionItems = ({ items: deductionItems, totalHT, count }) => {
-        setFormData(prev => ({ ...prev, items: [...prev.items, ...deductionItems] }));
-        toast.success(`${count} prestation${count > 1 ? 's' : ''} déduite${count > 1 ? 's' : ''} du devis initial (${totalHT.toFixed(2)} € HT).`);
-    };
-
     const moveItem = (index, direction) => {
         setFormData(prev => {
             const newItems = [...prev.items];
@@ -1495,81 +1448,6 @@ const DevisForm = () => {
 
 
 
-    // ── Suspension de la signature ───────────────────────────────────────────
-    // Un devis ou un avenant déjà envoyé peut devoir être repris : chantier
-    // reporté, erreur de chiffrage, client qui négocie encore. Tant que le lien
-    // est actif, il reste signable et engage les deux parties. `token_revoked`
-    // ferme le lien sans toucher au statut du document : la page publique ne
-    // s'ouvre plus (get_public_quote l'exclut) et la signature est refusée côté
-    // serveur (sign_public_quote), y compris pour un lien déjà dans la boîte
-    // mail du client. Un clic suffit à rouvrir.
-    //
-    // Mais `token_revoked` seul ne dit pas QUI l'a levé : le ménage nocturne
-    // (`cleanup_expired_tokens`) le pose sur tout lien expiré depuis plus de
-    // 7 jours. S'y fier annonçait « Signature suspendue » sur la moitié du
-    // portefeuille, devis signés compris. C'est `signature_suspended_at`, écrite
-    // ici et nulle part ailleurs, qui atteste une décision de l'artisan.
-    const [togglingSuspension, setTogglingSuspension] = useState(false);
-    const signatureSuspended = isSignatureSuspended(formData);
-    // Lien fermé par le ménage, sans décision : l'artisan doit pouvoir le
-    // comprendre au lieu de croire à une suspension qu'il n'a pas faite.
-    const linkExpired = !signatureSuspended && formData.token_revoked === true;
-
-    // Lit l'état réel du lien en base avant toute action qui le rouvrirait.
-    // Se fier au seul formData rouvrirait silencieusement une signature
-    // suspendue depuis un autre appareil ou un autre onglet.
-    const fetchLinkSuspended = async () => {
-        const { data, error } = await supabase
-            .from('quotes')
-            .select('signature_suspended_at')
-            .eq('id', id)
-            .single();
-        if (error) return signatureSuspended;
-        const suspended = !!data?.signature_suspended_at;
-        if (suspended !== signatureSuspended) {
-            setFormData(prev => ({ ...prev, signature_suspended_at: data?.signature_suspended_at || null }));
-        }
-        return suspended;
-    };
-
-    const suspensionBlockMessage = 'Signature suspendue — rouvrez-la d’abord (menu « … » → Rouvrir la signature).';
-
-    const handleToggleSignatureSuspension = async () => {
-        if (!id || id === 'new') return;
-        const suspend = !signatureSuspended;
-        setTogglingSuspension(true);
-        try {
-            // Rouvrir prolonge la validité : un lien suspendu plusieurs semaines
-            // serait sinon rouvert déjà expiré. Rouvrir efface aussi la date de
-            // suspension : elle ne vaut que tant qu'elle est vraie.
-            const suspendedAt = new Date().toISOString();
-            const payload = suspend
-                ? { token_revoked: true, signature_suspended_at: suspendedAt }
-                : {
-                    token_revoked: false,
-                    signature_suspended_at: null,
-                    token_expires_at: publicLinkExpiry(),
-                };
-            const { error } = await supabase.from('quotes').update(payload).eq('id', id);
-            if (error) throw error;
-            setFormData(prev => ({
-                ...prev,
-                token_revoked: suspend,
-                signature_suspended_at: suspend ? suspendedAt : null,
-            }));
-            toast.success(suspend
-                ? 'Signature suspendue — le lien envoyé au client ne s’ouvre plus.'
-                : `Signature rouverte — le lien redevient valable ${publicLinkValidityLabel()}.`);
-        } catch (err) {
-            console.error('Error toggling signature suspension:', err);
-            toast.error(suspend
-                ? "La signature n'a pas pu être suspendue — réessayez."
-                : "La signature n'a pas pu être rouverte — réessayez.");
-        } finally {
-            setTogglingSuspension(false);
-        }
-    };
-
     // ── Prévenir le client du retrait ────────────────────────────────────────
     //
     // Suspendre le lien et changer le statut sont des mesures internes : le
@@ -1578,8 +1456,6 @@ const DevisForm = () => {
     // qu'il l'accepte, et rien n'empêche qu'il ait déjà imprimé le PDF pour le
     // signer à la main. Ce mail est donc la seule action qui compte vraiment,
     // et il laisse une trace datée dans l'historique du client.
-    const isDocumentClosed = signatureSuspended || isSignatureBlocked(formData.status);
-
     const handleNotifyWithdrawal = () => {
         if (!isEditing) {
             toast.error("Enregistrez d'abord le document");
@@ -2304,6 +2180,12 @@ const DevisForm = () => {
     };
 
     const { subtotal, tva, total } = calculateTotal();
+    const quoteMargins = useQuoteMargin({
+        id,
+        formData,
+        subtotal,
+        laborCostRate: userProfile?.labor_cost_rate,
+    });
 
     // Suggestion d'OTP à la signature : activée par défaut au-delà de 3000 €
     // pour un nouveau devis, tant que l'artisan n'a pas lui-même tranché (case
@@ -3010,51 +2892,6 @@ Conditions de règlement : Paiement à réception de facture.`
 
 
 
-    const handleCreateAvenant = async () => {
-        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `Avenant au devis - ${formData.title}`);
-        if (!avenantTitle) return;
-
-        try {
-            setLoading(true);
-
-            const avenantData = {
-                user_id: user.id,
-                client_id: formData.client_id,
-                client_name: clients.find(c => c.id.toString() === formData.client_id.toString())?.name || 'Client',
-                title: avenantTitle,
-                date: new Date().toISOString().split('T')[0],
-                status: 'draft',
-                type: 'amendment', // Correct type
-                parent_id: parseInt(id, 10),
-                parent_quote_id: parseInt(id, 10),
-                items: [],
-                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
-                include_tva: formData.include_tva,
-                total_ht: 0,
-                total_tva: 0,
-                total_ttc: 0
-            };
-
-            const { data, error } = await supabase
-                .from('quotes')
-                .insert([avenantData])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            toast.success("Avenant créé avec succès !");
-            navigate(`/app/devis/${data.id}`);
-            setShowActionsMenu(false);
-
-        } catch (error) {
-            console.error('Error creating avenant:', error);
-            toast.error("Erreur lors de la création de l'avenant");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleCreateClosingInvoice = async () => {
         // Safety check: closing invoice must be generated from the original quote/invoice,
         // not from a child document (deposit, situation, etc.) which would result in
@@ -3652,32 +3489,6 @@ Conditions de règlement : Paiement à réception de facture.`
         }
     };
 
-    const handleSignatureSave = async (signatureData, _otpCode, bonPourAccord) => {
-        try {
-            const now = new Date().toISOString();
-            const { error } = await supabase
-                .from('quotes')
-                .update({
-                    signature: signatureData,
-                    status: 'accepted',
-                    signed_at: now,
-                    bon_pour_accord: bonPourAccord || null
-                })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            setSignature(signatureData);
-            setFormData(prev => ({ ...prev, status: 'accepted', signature: signatureData, signed_at: now, bon_pour_accord: bonPourAccord || null }));
-            invalidateQuotes();
-            updateClientCRMStatus(formData.client_id, 'signed');
-            setShowSignatureModal(false);
-            toast.success('Devis signé avec succès');
-        } catch (error) {
-            console.error('Error saving signature:', error);
-            toast.error('Erreur lors de la sauvegarde de la signature');
-        }
-    };
 
 
     const handleReviewAction = (action) => {
@@ -6315,15 +6126,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                 est renseigné, sinon marge matière. Invite contextuelle
                                 pour renseigner le coût horaire quand il manque. */}
                             {(() => {
-                                const { laborRate, planned: m, realized: r, chantier: cr } = quoteMarginSummary({
-                                    id,
-                                    doc: formData,
-                                    subtotal,
-                                    laborCostRate: userProfile?.labor_cost_rate,
-                                    procurementCosts,
-                                    spentHoursMap,
-                                    chantierDocs,
-                                });
+                                const { laborRate, planned: m, realized: r, chantier: cr } = quoteMargins;
                                 const laborHours = estimatedHoursFromItems(formData.items);
                                 const showPrompt = laborHours > 0 && laborRate <= 0;
 
@@ -6457,16 +6260,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                 l'avenant). On invite donc à ne PAS saisir de ligne « nouveau total »
                                 ni « moins-value totale », qui feraient double emploi. */}
                             {formData.type === 'amendment' && (() => {
-                                const initialTTC = parseFloat(formData.parent_quote_data?.total_ttc) || 0;
-                                const progressTotal = parseFloat(formData.parent_quote_data?.progress_total) || 0;
-                                const depositTotal = parseFloat(formData.parent_quote_data?.deposit_total) || 0;
-                                const baseline = progressTotal > 0 ? progressTotal : initialTTC;
-                                const amendmentTTC = total; // delta, peut être négatif (moins-value)
-                                const newTotal = baseline + amendmentTTC;
-                                // Modèle additif (sans situation) : l'acompte déjà versé est une
-                                // avance à déduire du nouveau total pour obtenir le reste à régler.
-                                const showDeposit = progressTotal === 0 && depositTotal > 0;
-                                const remaining = newTotal - depositTotal;
+                                // total = montant de l'avenant (delta, peut être négatif).
+                                const { progressTotal, depositTotal, baseline, amendmentTTC, newTotal, showDeposit, remaining } =
+                                    amendmentProjectTotals(formData.parent_quote_data, total);
                                 return (
                                     <div className="mt-3 space-y-2">
                                         <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
