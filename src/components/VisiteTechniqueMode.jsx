@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { useUserProfile } from '../hooks/useDataCache';
+import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit, extractSurveyFromVisit } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
@@ -89,6 +89,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const { user } = useAuth();
     const confirm = useConfirm();
     const { data: profile } = useUserProfile();
+    const { data: priceLibrary } = usePriceLibrary();
 
     const [step, setStep] = useState('capture'); // 'capture' | 'processing' | 'result'
     const [mode, setMode] = useState('express'); // 'express' (visite en cours) | 'detail' (mise au propre)
@@ -828,6 +829,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 hourlyRate: profile?.ai_hourly_rate || '',
                 instructions: profile?.ai_instructions || '',
                 customSystemPrompt: profile?.ai_preferences?.quote_system_prompt || profile?.quote_system_prompt || '',
+                trade: profile?.trade || '',
+                priceLibrary: priceLibrary || [],
                 surveyText,
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
@@ -939,7 +942,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
     const photoZonesById = photoZones(capture);
 
-    const totalHT = result?.items?.reduce(
+    // Les options (conseil hors total) ne comptent pas dans le total estimé.
+    const totalHT = result?.items?.filter((item) => !item.is_optional).reduce(
         (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0
     ) || 0;
 
@@ -1468,7 +1472,13 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                     <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.type === 'material' ? 'bg-orange-400' : 'bg-violet-400'}`} />
-                                            <span className="text-sm text-gray-700 truncate">{item.description}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-sm text-gray-700 truncate">
+                                                    {item.is_optional && <span className="mr-1.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-semibold uppercase">Option</span>}
+                                                    {item.description}
+                                                </p>
+                                                {item.option_reason && <p className="text-xs text-gray-400 truncate">{item.option_reason}</p>}
+                                            </div>
                                         </div>
                                         <span className="text-sm font-medium text-gray-900 flex-shrink-0 tabular-nums">
                                             {fmtEur((parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1))}

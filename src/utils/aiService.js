@@ -6,6 +6,7 @@ import {
     parseQuoteResponse,
 } from './quoteValidation';
 import { SURVEY_AI_INSTRUCTION } from './surveyText';
+import { buildSiteVisitMethod, buildPriceLibraryPrompt } from './quoteMethod';
 
 // Re-exported so callers that already import these from aiService keep working.
 export { toSafeNumber };
@@ -621,7 +622,8 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
  * @param {string[]} photoAnalyses - Descriptions of photos from vision AI
  * @param {object} context - Optional context (hourlyRate, instructions,
  *   surveyText: relevé structuré issu de la trame de visite — traité comme
- *   source prioritaire pour les quantités)
+ *   source prioritaire pour les quantités, trade: métier de l'artisan,
+ *   priceLibrary: lignes de sa bibliothèque de prix)
  * @returns {Promise<object>} { title, work_object, items, suggestions, estimated_duration, price_range, confidence }
  */
 export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
@@ -646,6 +648,11 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     if (hourlyRate) extras += `\nTaux horaire MO: ${hourlyRate}€/h.`;
     if (instructions) extras += `\nINSTRUCTIONS: ${instructions}`;
     if (context.surveyText) extras += `\n${SURVEY_AI_INSTRUCTION}`;
+    // Méthode de chiffrage de l'artisan (tri ferme / options, MO en heures,
+    // pas de gonflage) puis ses propres prix : c'est ce qui rend le devis de
+    // visite aussi juste qu'un devis chiffré à la main.
+    extras += buildSiteVisitMethod(context.trade);
+    extras += buildPriceLibraryPrompt(context.priceLibrary, combined);
 
     const userMessage = `VISITE CHANTIER:\n\n${combined}`;
     // Miroir de SITE_VISIT_EXTRAS (supabase/functions/ai-proxy) pour le chemin
@@ -659,7 +666,15 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
     const items = rawItems.map((item, i) => {
         const v = validateQuoteItem(item, i);
-        return { ...v, id: Date.now() + Math.random(), buying_price: 0 };
+        const line = { ...v, id: Date.now() + Math.random(), buying_price: 0 };
+        // Conseil hors total (voir SITE_VISIT_METHOD) : la raison accompagne la ligne.
+        if (item.is_optional === true) {
+            line.is_optional = true;
+            if (typeof item.option_reason === 'string' && item.option_reason.trim()) {
+                line.option_reason = item.option_reason.trim();
+            }
+        }
+        return line;
     });
 
     const priceRange = parsed.price_range && typeof parsed.price_range === 'object'

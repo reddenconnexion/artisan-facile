@@ -771,7 +771,12 @@ const DevisForm = () => {
                             work_object: prev.work_object || siteVisitWorkObject || '',
                             items: siteVisitItems.map((item, i) => ({
                                 id: now + i,
-                                description: item.description || '',
+                                // Une option porte sa raison sur le devis : le client
+                                // voit pourquoi l'artisan la lui propose.
+                                description: item.is_optional && item.option_reason
+                                    ? `${item.description || ''} — ${item.option_reason}`
+                                    : item.description || '',
+                                ...(item.is_optional ? { is_optional: true } : {}),
                                 quantity: parseFloat(item.quantity) || 1,
                                 unit: item.unit || 'u',
                                 price: parseFloat(item.price) || 0,

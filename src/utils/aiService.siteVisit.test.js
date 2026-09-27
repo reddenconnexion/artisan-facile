@@ -110,6 +110,44 @@ describe('generateQuoteFromSiteVisit', () => {
         expect(body.extras).not.toContain('CONSIGNE RELEVÉ STRUCTURÉ');
     });
 
+    it('applique la méthode de chiffrage et la bibliothèque de prix de l\'artisan', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
+
+        await generateQuoteFromSiteVisit(['cuisine : 3 prises à ajouter'], [], {
+            trade: 'electricien',
+            priceLibrary: [{ description: 'Prise 2P+T encastrée', price: 12.5, unit: 'u', type: 'material' }],
+        });
+
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.extras).toContain('MÉTHODE DE CHIFFRAGE');
+        expect(body.extras).toContain('REPÈRES ÉLECTRICITÉ');
+        expect(body.extras).toContain('Prise 2P+T encastrée | u | 12,5 € HT | fourniture');
+    });
+
+    it('le prompt personnalisé reçoit aussi la méthode de chiffrage', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
+
+        await generateQuoteFromSiteVisit(['note'], [], { customSystemPrompt: 'Mon prompt' });
+
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.systemPrompt).toContain('MÉTHODE DE CHIFFRAGE');
+    });
+
+    it('garde les options (conseil hors total) avec leur raison', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({
+            items: [
+                { description: 'Remplacement tableau', quantity: 4, unit: 'h', price: 50, type: 'service', is_optional: false },
+                { description: 'Parafoudre', quantity: 1, unit: 'u', price: 90, type: 'material', is_optional: true, option_reason: ' Zone exposée aux orages. ' },
+                { description: 'Option sans vrai booléen', quantity: 1, price: 10, is_optional: 'yes' },
+            ],
+        })));
+
+        const result = await generateQuoteFromSiteVisit(['note'], []);
+        expect(result.items[0].is_optional).toBeUndefined();
+        expect(result.items[1]).toMatchObject({ is_optional: true, option_reason: 'Zone exposée aux orages.' });
+        expect(result.items[2].is_optional).toBeUndefined();
+    });
+
     it('routes through a custom system prompt when provided', async () => {
         invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
 
