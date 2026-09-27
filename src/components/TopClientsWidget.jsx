@@ -2,13 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Trophy, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
 import { startOfYear, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-
-const fmtEur = (v) =>
-    v >= 10000 ? `${(v / 1000).toFixed(0)} k€`
-    : v >= 1000 ? `${(v / 1000).toFixed(1)} k€`
-    : `${Math.round(v)} €`;
-
-const fmtEurFull = (v) => `${Math.round(v).toLocaleString('fr-FR')} €`;
+import { formatCompactCurrency, formatCurrencyRounded } from '../utils/format';
 
 const PODIUM_STYLES = [
     { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
@@ -110,7 +104,7 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
                                     </div>
                                 </div>
                                 <div className="text-sm font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">
-                                    {fmtEur(client.total)}
+                                    {formatCompactCurrency(client.total)}
                                 </div>
                                 <ChevronDown
                                     size={14}
@@ -132,14 +126,14 @@ const TopClientsWidget = ({ allQuotes, navigate }) => {
                                                     {format(doc.date, 'd MMM', { locale: fr })}
                                                 </span>
                                                 <span className="font-semibold text-gray-800 dark:text-gray-200 flex-shrink-0 tabular-nums">
-                                                    {fmtEurFull(doc.amount)}
+                                                    {formatCurrencyRounded(doc.amount)}
                                                 </span>
                                             </li>
                                         ))}
                                     </ul>
                                     <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                                            Total : {fmtEurFull(client.total)}
+                                            Total : {formatCurrencyRounded(client.total)}
                                         </span>
                                         <button
                                             onClick={() => navigate(`/app/clients/${client.id}`)}

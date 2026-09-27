@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Inbox, ExternalLink, Trash2, User, Clock, Mail, FlaskConical, ChevronRight, Globe } from 'lucide-react';
 import { useTestMode } from '../context/TestModeContext';
+import { formatDateTime } from '../utils/format';
 
 // Extrait tous les liens http(s) d'un corps d'email
 function extractLinks(body) {
@@ -55,10 +56,7 @@ export default function TestModePanel({ onClose }) {
         ? `${window.location.origin}/p/${testClient.portal_token}`
         : null;
 
-    const formatDate = (iso) => {
-        const d = new Date(iso);
-        return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    };
+    const fmtTimestamp = (iso) => formatDateTime(iso, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
     const handleDisable = () => {
         disableTestMode();
@@ -161,7 +159,7 @@ export default function TestModePanel({ onClose }) {
                                         <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{email.subject}</p>
                                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
-                                            {formatDate(email.timestamp)}
+                                            {fmtTimestamp(email.timestamp)}
                                         </p>
                                     </button>
                                 ))
@@ -182,7 +180,7 @@ export default function TestModePanel({ onClose }) {
                                             <span>À : {selectedEmail.email}</span>
                                             <span>·</span>
                                             <Clock className="w-3.5 h-3.5" />
-                                            <span>{formatDate(selectedEmail.timestamp)}</span>
+                                            <span>{fmtTimestamp(selectedEmail.timestamp)}</span>
                                         </div>
                                     </div>
 
@@ -274,7 +272,7 @@ export default function TestModePanel({ onClose }) {
                                             <span className="text-xl">{item.url.includes('/q/') ? '📄' : '🏠'}</span>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{item.subject}</p>
-                                                <p className="text-xs text-gray-400 dark:text-gray-500">{formatDate(item.timestamp)}</p>
+                                                <p className="text-xs text-gray-400 dark:text-gray-500">{fmtTimestamp(item.timestamp)}</p>
                                             </div>
                                             <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors" />
                                         </a>

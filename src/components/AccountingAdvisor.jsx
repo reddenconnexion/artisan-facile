@@ -13,9 +13,7 @@ import {
 import { generateAccountingAdvice } from '../utils/aiService';
 import ChargesManager from './ChargesManager';
 import HourlyCostCalculator from './HourlyCostCalculator';
-
-const fmtCurrency = (n) =>
-  (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+import { formatCurrencyRounded } from '../utils/format';
 
 const PRIORITY_STYLES = {
   haute: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
@@ -57,7 +55,7 @@ const RegimeColumn = ({ title, cotisations, base, highlight }) => (
   </div>
 );
 
-const ComparisonCard = ({ comparison, fmtCurrency }) => {
+const ComparisonCard = ({ comparison }) => {
   const meta = VERDICT_META[comparison.verdict] || VERDICT_META.comparable;
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
@@ -69,14 +67,14 @@ const ComparisonCard = ({ comparison, fmtCurrency }) => {
       <div className="flex flex-col sm:flex-row gap-3">
         <RegimeColumn
           title="Régime micro"
-          cotisations={fmtCurrency(comparison.micro.cotisations)}
-          base={fmtCurrency(comparison.micro.taxable)}
+          cotisations={formatCurrencyRounded(comparison.micro.cotisations)}
+          base={formatCurrencyRounded(comparison.micro.taxable)}
           highlight={comparison.verdict === 'micro'}
         />
         <RegimeColumn
           title="Régime réel (estimé)"
-          cotisations={fmtCurrency(comparison.reel.cotisations)}
-          base={fmtCurrency(comparison.reel.taxable)}
+          cotisations={formatCurrencyRounded(comparison.reel.cotisations)}
+          base={formatCurrencyRounded(comparison.reel.taxable)}
           highlight={comparison.verdict === 'reel'}
         />
       </div>
@@ -87,7 +85,7 @@ const ComparisonCard = ({ comparison, fmtCurrency }) => {
         </div>
         <div className={`flex items-center gap-1.5 font-medium ${comparison.globalSaving > 0 ? 'text-emerald-600' : 'text-gray-500 dark:text-gray-400'}`}>
           <TrendingUp className="w-3.5 h-3.5" />
-          Gain global estimé au réel : {comparison.globalSaving > 0 ? fmtCurrency(comparison.globalSaving) : '—'}
+          Gain global estimé au réel : {comparison.globalSaving > 0 ? formatCurrencyRounded(comparison.globalSaving) : '—'}
         </div>
       </div>
       {comparison.overMicroCeiling && (
@@ -209,7 +207,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard
           label={`CA ${lastYear.year}${lastYear.isCurrent ? ' (en cours)' : ''}`}
-          value={fmtCurrency(lastYear.caTotal)}
+          value={formatCurrencyRounded(lastYear.caTotal)}
           sub={`${lastYear.count} facture${lastYear.count > 1 ? 's' : ''} encaissée${lastYear.count > 1 ? 's' : ''}`}
         />
         <KpiCard
@@ -220,13 +218,13 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
         />
         <KpiCard
           label="Cotisations estimées (cumul)"
-          value={analysis.isMicro ? fmtCurrency(totalCharges) : 'Régime réel'}
+          value={analysis.isMicro ? formatCurrencyRounded(totalCharges) : 'Régime réel'}
           sub={analysis.isMicro ? 'sur l\'historique' : 'calcul via expert-comptable'}
         />
         <KpiCard
           label="Plafond micro utilisé"
           value={`${analysis.thresholds.caUsedPct.toFixed(0)} %`}
-          sub={`sur ${fmtCurrency(analysis.thresholds.caLimit)}`}
+          sub={`sur ${formatCurrencyRounded(analysis.thresholds.caLimit)}`}
           accent={
             analysis.thresholds.caUsedPct >= 100
               ? 'text-red-600'
@@ -258,7 +256,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
               />
               <Tooltip
                 contentStyle={{ fontSize: '12px', borderRadius: '8px', border: '1px solid #E5E7EB' }}
-                formatter={(val, name) => [fmtCurrency(val), name]}
+                formatter={(val, name) => [formatCurrencyRounded(val), name]}
               />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Bar dataKey="Services" stackId="ca" fill="#6366F1" radius={[0, 0, 0, 0]} />
@@ -271,7 +269,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
           * Année en cours (incomplète).{' '}
           {analysis.projection &&
-            `Projection annuelle ${analysis.currentYear} ≈ ${fmtCurrency(analysis.projection.caProjected)} sur la base de ${analysis.projection.monthsElapsed} mois.`}
+            `Projection annuelle ${analysis.currentYear} ≈ ${formatCurrencyRounded(analysis.projection.caProjected)} sur la base de ${analysis.projection.monthsElapsed} mois.`}
         </p>
       </div>
 
@@ -287,7 +285,7 @@ const AccountingAdvisor = ({ invoices = [], profile }) => {
       />
 
       {/* Comparaison chiffrée micro vs réel (déterministe, locale) */}
-      {comparison && <ComparisonCard comparison={comparison} fmtCurrency={fmtCurrency} />}
+      {comparison && <ComparisonCard comparison={comparison} />}
 
       {/* Bouton de génération */}
       {!advice && (

@@ -15,12 +15,13 @@ import {
     toISODate,
 } from '../utils/supplierInvoiceParser';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../utils/uploadValidation';
+import { formatDate } from '../utils/format';
 
 const BUCKET = 'quote_files';
 
 const fmtMoney = (v, currency = 'EUR') =>
     v == null || isNaN(v) ? '—' : `${Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—');
+const fmtDate = (d) => formatDate(d, { fallback: '—' });
 
 // Ligne vide pour la saisie/édition manuelle
 const emptyLine = () => ({

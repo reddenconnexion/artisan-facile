@@ -7,12 +7,12 @@
 // que l'assistant annonce exactement les mêmes montants que l'écran.
 
 import { effectiveLineCost } from './quoteInternalDetail';
+import { formatCurrency } from './format';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_LISTED = 8;
 const MAX_QUOTE_LINES = 40;
 
-const eur = (n) => (Number(n) || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 const amount = (q) => parseFloat(q.total_ttc) || 0;
 const refDate = (q) => new Date(q.date || q.created_at);
 const daysBetween = (from, to) => Math.max(0, Math.floor((to - from) / DAY_MS));
@@ -51,17 +51,17 @@ export const buildDashboardCopilotFacts = (allQuotes, { now = new Date(), client
 
     const facts = [
         `Clients : ${clientCount}`,
-        `CA encaissé ce mois-ci (depuis le 1er, TTC) : ${eur(sumPaid(quotes, monthStart))}`,
-        `CA encaissé le mois dernier (TTC) : ${eur(sumPaid(quotes, lastMonthStart, monthStart))}`,
-        `CA encaissé sur les 30 derniers jours (TTC) : ${eur(sumPaid(quotes, thirtyDaysAgo))}`,
-        `CA encaissé depuis le 1er janvier (TTC) : ${eur(sumPaid(quotes, yearStart))}`,
+        `CA encaissé ce mois-ci (depuis le 1er, TTC) : ${formatCurrency(sumPaid(quotes, monthStart))}`,
+        `CA encaissé le mois dernier (TTC) : ${formatCurrency(sumPaid(quotes, lastMonthStart, monthStart))}`,
+        `CA encaissé sur les 30 derniers jours (TTC) : ${formatCurrency(sumPaid(quotes, thirtyDaysAgo))}`,
+        `CA encaissé depuis le 1er janvier (TTC) : ${formatCurrency(sumPaid(quotes, yearStart))}`,
     ];
 
     const drafts = quotes.filter(q => q.status === 'draft' && (q.type || 'quote') !== 'invoice' && !q.archived_at);
     facts.push(`Devis en brouillon (pas encore envoyés) : ${drafts.length}`);
 
     const sent = quotes.filter(q => q.status === 'sent' && !q.archived_at);
-    facts.push(`Devis envoyés en attente de réponse : ${sent.length} pour ${eur(sent.reduce((s, q) => s + amount(q), 0))}`);
+    facts.push(`Devis envoyés en attente de réponse : ${sent.length} pour ${formatCurrency(sent.reduce((s, q) => s + amount(q), 0))}`);
 
     const toFollow = quotesToFollowUp(quotes, now)
         .sort((a, b) => amount(b) - amount(a));
@@ -72,7 +72,7 @@ export const buildDashboardCopilotFacts = (allQuotes, { now = new Date(), client
         toFollow.slice(0, MAX_LISTED).forEach(q => {
             const lastContact = q.last_followup_at ? new Date(q.last_followup_at) : refDate(q);
             const relances = q.follow_up_count > 0 ? `, ${q.follow_up_count} relance(s) déjà faite(s)` : ', jamais relancé';
-            facts.push(`   – ${clientName(q)} ${docLabel(q)} : ${eur(amount(q))}, dernier contact il y a ${daysBetween(lastContact, now)} j${relances}`);
+            facts.push(`   – ${clientName(q)} ${docLabel(q)} : ${formatCurrency(amount(q))}, dernier contact il y a ${daysBetween(lastContact, now)} j${relances}`);
         });
         if (toFollow.length > MAX_LISTED) facts.push(`   – … et ${toFollow.length - MAX_LISTED} autre(s)`);
     }
@@ -81,9 +81,9 @@ export const buildDashboardCopilotFacts = (allQuotes, { now = new Date(), client
         .filter(q => q.type === 'invoice' && q.status === 'billed')
         .sort((a, b) => refDate(a) - refDate(b));
     if (unpaid.length > 0) {
-        facts.push(`Factures envoyées non encore payées : ${unpaid.length} pour ${eur(unpaid.reduce((s, q) => s + amount(q), 0))}, de la plus ancienne à la plus récente :`);
+        facts.push(`Factures envoyées non encore payées : ${unpaid.length} pour ${formatCurrency(unpaid.reduce((s, q) => s + amount(q), 0))}, de la plus ancienne à la plus récente :`);
         unpaid.slice(0, MAX_LISTED).forEach(q => {
-            facts.push(`   – ${clientName(q)} ${docLabel(q)} : ${eur(amount(q))}, émise il y a ${daysBetween(refDate(q), now)} j`);
+            facts.push(`   – ${clientName(q)} ${docLabel(q)} : ${formatCurrency(amount(q))}, émise il y a ${daysBetween(refDate(q), now)} j`);
         });
         if (unpaid.length > MAX_LISTED) facts.push(`   – … et ${unpaid.length - MAX_LISTED} autre(s)`);
     } else {
@@ -105,8 +105,8 @@ export const buildQuoteCopilotFacts = (formData, { subtotal = 0, total = 0 } = {
         fd.title && `Titre : ${fd.title}`,
         fd.client_name && `Client : ${fd.client_name}`,
         `Statut : ${fd.status || 'brouillon'}`,
-        `Total HT : ${eur(subtotal)} (hors lignes optionnelles)`,
-        fd.include_tva ? `TVA 20 % incluse — Total TTC : ${eur(total)}` : 'Sans TVA : le total HT est le montant à payer',
+        `Total HT : ${formatCurrency(subtotal)} (hors lignes optionnelles)`,
+        fd.include_tva ? `TVA 20 % incluse — Total TTC : ${formatCurrency(total)}` : 'Sans TVA : le total HT est le montant à payer',
         fd.valid_until && `Valable jusqu'au : ${new Date(fd.valid_until).toLocaleDateString('fr-FR')}`,
     ];
 
@@ -128,10 +128,10 @@ export const buildQuoteCopilotFacts = (formData, { subtotal = 0, total = 0 } = {
         const price = parseFloat(item.price) || 0;
         const nature = item.type === 'material' ? 'matériel' : "main d'œuvre";
         const cost = effectiveLineCost(item);
-        const costInfo = cost > 0 ? ` | coût d'achat de la ligne ${eur(cost)}` : '';
+        const costInfo = cost > 0 ? ` | coût d'achat de la ligne ${formatCurrency(cost)}` : '';
         const optional = item.is_optional ? ' | OPTION (hors total)' : '';
         const desc = (item.description || '(sans désignation)').replace(/\s+/g, ' ').trim().slice(0, 100);
-        facts.push(`   – ${desc} | ${fmtQty(qty)} ${item.unit || 'u'} | ${eur(price)} | ${eur(qty * price)} | ${nature}${costInfo}${optional}`);
+        facts.push(`   – ${desc} | ${fmtQty(qty)} ${item.unit || 'u'} | ${formatCurrency(price)} | ${formatCurrency(qty * price)} | ${nature}${costInfo}${optional}`);
         shown++;
     }
     if (lines.length > shown) facts.push(`   – … et ${lines.length - shown} autre(s) ligne(s) non listée(s)`);
@@ -142,7 +142,7 @@ export const buildQuoteCopilotFacts = (formData, { subtotal = 0, total = 0 } = {
     if (totalCost > 0) {
         const margin = subtotal - totalCost;
         const rate = subtotal > 0 ? Math.round((margin / subtotal) * 100) : 0;
-        facts.push(`Coût d'achat connu : ${eur(totalCost)} — marge avant main d'œuvre ${eur(margin)} (${rate} % du HT)`);
+        facts.push(`Coût d'achat connu : ${formatCurrency(totalCost)} — marge avant main d'œuvre ${formatCurrency(margin)} (${rate} % du HT)`);
     } else {
         facts.push("Coûts d'achat non renseignés : la marge réelle n'est pas calculable.");
     }

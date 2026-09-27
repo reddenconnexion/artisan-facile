@@ -9,6 +9,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../constants/admin';
 import { toast } from 'sonner';
+import { formatDate } from '../utils/format';
 
 /* ─── Métadonnées par catégorie ─── */
 const CATEGORY_META = {
@@ -35,7 +36,7 @@ const STATUS_STYLES = {
 };
 
 const fmtDate = (s) =>
-  s ? new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  formatDate(s, { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', fallback: '—' });
 
 /* ─── Carte compteur ─── */
 const Counter = ({ label, value, accent = 'text-gray-900 dark:text-white' }) => (

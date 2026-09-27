@@ -279,6 +279,24 @@ parent, CA réparti sur les enfants. Le correctif empêche les chiffres faux, ma
 n'offre toujours pas de vision consolidée « marge du chantier » regroupant le
 devis initial et tous ses avenants/situations.
 
+## 8. Agrégateur unique « marge chantier »
+
+Les règles de rattachement coût ↔ CA étaient recopiées dans chaque vue (fiche
+devis, Comptabilité, Tableau de bord), ce qui a permis aux deux défauts
+ci-dessus d'apparaître à plusieurs endroits à la fois. Elles vivent désormais
+dans `src/utils/chantierMargin.js` :
+
+| Fonction | Rôle | Utilisée par |
+|---|---|---|
+| `realizedSourcesFor` | achats/heures d'un document, repli parent seulement si périmètre complet (§7.2) | `quoteMarginSummary` |
+| `quoteMarginSummary` | marge prévue + réalisée + consolidée chantier d'un devis | `DevisForm.jsx` |
+| `paidQuoteIdSet` / `isDuplicatePaidChild` / `isCountedPaidDoc` | documents payés comptés, sans doublon parent/facture | `Accounting.jsx`, `Dashboard.jsx` |
+| `splitServiceMaterial` | ventilation main d'œuvre / matériel d'un document | `Accounting.jsx`, `Dashboard.jsx` |
+| `periodNetIncome` | revenu net de période, marge matériel au réel dédupliquée (§7.1) | `Accounting.jsx`, `Dashboard.jsx` |
+
+`realizedMargin.js`, `quoteInternalDetail.js` et `netIncome.js` restent les
+briques de calcul ; les pages ne les appellent plus directement pour la marge.
+
 ---
 
 *Références de code valables à la date de rédaction ; les numéros de ligne peuvent

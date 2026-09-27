@@ -8,12 +8,8 @@ export const formatDuration = (s) => {
     return m > 0 ? `${m}m${sec.toString().padStart(2, '0')}s` : `${sec}s`;
 };
 
-export const fmtEur = (val) => {
-    if (!val && val !== 0) return '—';
-    if (val >= 10000) return `${Math.round(val / 1000)} k€`;
-    if (val >= 1000) return `${(val / 1000).toFixed(1)} k€`;
-    return `${Math.round(val)} €`;
-};
+// Alias historique : les écrans de visite importent fmtEur d'ici.
+export { formatCompactCurrency as fmtEur } from './format';
 
 export const PROCESSING_STEPS = [
     { key: 'voice', label: 'Transcription des notes vocales', Icon: Mic },

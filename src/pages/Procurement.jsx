@@ -14,18 +14,13 @@ import { Button, EmptyState, LoadingState } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 import { groupMaterialsMargin } from '../utils/realizedMargin';
 import ReplaceProcurementModal from '../components/ReplaceProcurementModal';
+import { formatPrice } from '../utils/format';
 
 const CATEGORY_META = {
     materiel: { label: 'Matériel', Icon: Package, iconClass: 'text-blue-500' },
     outillage: { label: 'Outillage', Icon: Hammer, iconClass: 'text-amber-500' },
     consommable: { label: 'Consommable', Icon: ShoppingCart, iconClass: 'text-emerald-500' },
     autre: { label: 'Autre', Icon: ShoppingCart, iconClass: 'text-gray-500' },
-};
-
-const formatPrice = (value) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return '';
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 };
 
 const STATUS_TABS = [

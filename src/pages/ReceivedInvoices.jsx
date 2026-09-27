@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DismissibleHelp, EmptyState, LoadingState } from '../components/ui';
+import { formatDate, formatDateTime } from '../utils/format';
 
 const RECEIVED_INVOICES_BUCKET = 'received-invoices';
 
@@ -16,8 +17,8 @@ const STATUS_CONFIG = {
 };
 
 const fmt = (v) => v ?? '—';
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
-const fmtDateTime = (d) => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+const fmtDate = (d) => formatDate(d, { fallback: '—' });
+const fmtDateTime = (d) => formatDateTime(d, { dateStyle: 'short', timeStyle: 'short', fallback: '—' });
 const fmtAmount = (v, currency = 'EUR') =>
   v != null ? `${Number(v).toFixed(2)} ${currency}` : '—';
 

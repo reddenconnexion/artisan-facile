@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { formatCompactCurrency } from '../utils/format';
 
 // Animate a number from its previous value to `target` each time target changes.
 const useCountUp = (target, duration = 900) => {
@@ -34,9 +35,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { useDashboardData, useNextEvent, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { realizedNetAdjustment } from '../utils/realizedMargin';
+import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome } from '../utils/chantierMargin';
 import { summarizeCharges } from '../utils/accountingAdvisor';
-import { computeNetIncome, estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
+import { estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 
@@ -343,47 +344,32 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
 
     // Revenu net réel du mois courant (Figure 2) : marge chantier − URSSAF − charges pro − impôt.
     const monthlyNet = useMemo(() => {
-        const paidQuoteIds = new Set(
-            allQuotes.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
-        );
+        const paidQuoteIds = paidQuoteIdSet(allQuotes);
         let caServices = 0;
         let caMateriel = 0;
         const countedInvoices = [];
         allQuotes.forEach(q => {
-            if ((q.status || '').toLowerCase() !== 'paid') return;
-            const type = (q.type || 'quote').toLowerCase();
-            if (type === 'invoice' && q.parent_id && paidQuoteIds.has(q.parent_id)) return;
+            if (!isCountedPaidDoc(q, paidQuoteIds)) return;
             const d = new Date(q.date || q.created_at);
             if (isNaN(d.getTime()) || d < thisMonthStart) return;
-            let materialAmount = 0;
-            if (Array.isArray(q.items) && q.items.length > 0) {
-                q.items.forEach(it => {
-                    const line = (parseFloat(it.price) || 0) * (parseFloat(it.quantity) || 0);
-                    if (it.type === 'material') { caMateriel += line; materialAmount += line; }
-                    else caServices += line;
-                });
-            } else {
-                caServices += (q.total_ht || q.total_ttc || 0);
-            }
+            const { serviceAmount, materialAmount } = splitServiceMaterial(q);
+            caServices += serviceAmount;
+            caMateriel += materialAmount;
             countedInvoices.push({ id: q.id, parentId: q.parent_id, materialAmount });
         });
-        const real = realizedNetAdjustment(countedInvoices, costByQuote);
         const urssaf = estimateUrssafCharges({ caServices, caMateriel, activityType: netActivityType, hasAcre: netHasAcre, status: netStatus }) || 0;
         const proMonthly = summarizeCharges(kpiCharges || []).annualTotal / 12;
         const tax = estimateIncomeTax({ caServices, caMateriel, activityType: netActivityType, method: netTaxMethod, tmi: netTmi });
-        return {
-            ...computeNetIncome({
-                caServices,
-                caMateriel,
-                materialMarginRate: netMarginRate,
-                caMaterielReal: real.caMaterielReal,
-                realMaterialCost: real.realMaterialCost,
-                urssafCharges: urssaf,
-                proChargesForPeriod: proMonthly,
-                incomeTax: tax,
-            }),
-            realCoveredCount: real.coveredCount,
-        };
+        return periodNetIncome({
+            entries: countedInvoices,
+            costByQuote,
+            caServices,
+            caMateriel,
+            materialMarginRate: netMarginRate,
+            urssafCharges: urssaf,
+            proChargesForPeriod: proMonthly,
+            incomeTax: tax,
+        });
     }, [allQuotes, thisMonthStart, kpiCharges, costByQuote, netMarginRate, netActivityType, netStatus, netHasAcre, netTaxMethod, netTmi]);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
 
@@ -415,7 +401,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         if (localStorage.getItem(key)) return;
         localStorage.setItem(key, '1');
         toast.success('Objectif du mois atteint 🎉', {
-            description: `${fmtEur(caThisMonth)} encaissés ce mois-ci.`,
+            description: `${formatCompactCurrency(caThisMonth)} encaissés ce mois-ci.`,
         });
     }, [goalReached, caThisMonth]);
 
@@ -462,12 +448,6 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         nextRdvSub = nextEvent.title || 'Rendez-vous';
     }
 
-    const fmtEur = (v) => v >= 10000
-        ? `${(v / 1000).toFixed(0)} k€`
-        : v >= 1000
-        ? `${(v / 1000).toFixed(1)} k€`
-        : `${Math.round(v)} €`;
-
     return (
         <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -482,17 +462,17 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                 <KpiCard
                     index={0}
                     rawValue={caThisMonth}
-                    formatFn={fmtEur}
+                    formatFn={formatCompactCurrency}
                     icon={TrendingUp}
                     iconBg="bg-green-100 dark:bg-green-900/30"
                     iconColor="text-green-600 dark:text-green-400"
-                    value={fmtEur(caThisMonth)}
+                    value={formatCompactCurrency(caThisMonth)}
                     label={`CA ${format(now, 'MMMM', { locale: fr })}`}
                     sub={monthlyGoal > 0
                         ? (goalReached
-                            ? `Objectif ${fmtEur(monthlyGoal)} atteint 🎉`
-                            : `${Math.round(goalPct * 100)}% de l'objectif (${fmtEur(monthlyGoal)})`)
-                        : (caLastMonth > 0 ? `vs ${fmtEur(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
+                            ? `Objectif ${formatCompactCurrency(monthlyGoal)} atteint 🎉`
+                            : `${Math.round(goalPct * 100)}% de l'objectif (${formatCompactCurrency(monthlyGoal)})`)
+                        : (caLastMonth > 0 ? `vs ${formatCompactCurrency(caLastMonth)} le mois dernier` : 'Encaissé ce mois')}
                     trend={caTrend}
                     ring={monthlyGoal > 0 ? { pct: goalPct, color: goalReached ? '#34C759' : '#007AFF' } : undefined}
                     onClick={() => navigate('/app/accounting')}
@@ -567,13 +547,13 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                         {netIsMicro ? 'Revenu net' : 'Marge chantier'} {format(now, 'MMMM', { locale: fr })}
                     </p>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">
-                        {fmtEur(netIsMicro ? monthlyNet.revenuNet : monthlyNet.margeChantier)}
+                        {formatCompactCurrency(netIsMicro ? monthlyNet.revenuNet : monthlyNet.margeChantier)}
                     </p>
                 </div>
             </div>
             <div className="text-right">
                 <p className="text-[11px] text-gray-400">Marge chantier</p>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{fmtEur(monthlyNet.margeChantier)}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{formatCompactCurrency(monthlyNet.margeChantier)}</p>
                 {netIsMicro && (
                     <p className="text-[11px] text-gray-400 mt-0.5">après URSSAF, charges &amp; impôt</p>
                 )}
@@ -641,7 +621,7 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
         };
 
         const refYear = referenceDate.getFullYear();
-        const paidQuoteIds = new Set(allQuotes.filter(q => q.type !== 'invoice' && q.status === 'paid').map(q => q.id));
+        const paidQuoteIds = paidQuoteIdSet(allQuotes);
 
         const formatChartPoints = (data, timeframe) => {
             const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -665,7 +645,7 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
 
             // REVENUE & NET INCOME
             if (status === 'paid') {
-                const isDuplicate = type === 'invoice' && quote.parent_id && paidQuoteIds.has(quote.parent_id);
+                const isDuplicate = isDuplicatePaidChild(quote, paidQuoteIds);
                 if (!isDuplicate) {
                     metrics.revenue.total += amount;
 

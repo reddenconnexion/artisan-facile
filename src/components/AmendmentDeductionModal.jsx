@@ -3,6 +3,7 @@ import { X, MinusCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { deductibleParentLines, buildDeductionItems, parentQuoteRef } from '../utils/amendmentDeduction';
+import { formatAmount } from '../utils/format';
 
 // Sélection, sur un avenant, des prestations du devis initial qui ne seront
 // pas réalisées : chaque ligne cochée est reprise en négatif sur l'avenant
@@ -23,8 +24,6 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
         () => deductibleParentLines(parentQuote, existingItems),
         [parentQuote, existingItems]
     );
-
-    const fmt = (n) => `${(n || 0).toFixed(2)} €`;
 
     const toggle = (line) => {
         setSelected((prev) => {
@@ -160,7 +159,7 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
                                                                 {line.description || <span className="italic text-gray-400">Sans désignation</span>}
                                                             </div>
                                                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                                {line.type === 'material' ? 'Matériel' : "Main d'œuvre"} · {line.quantity} {line.unit} × {fmt(line.price)} = <span className="font-medium text-gray-700 dark:text-gray-300">{fmt(line.amountHT)} HT</span>
+                                                                {line.type === 'material' ? 'Matériel' : "Main d'œuvre"} · {line.quantity} {line.unit} × {formatAmount(line.price)} = <span className="font-medium text-gray-700 dark:text-gray-300">{formatAmount(line.amountHT)} HT</span>
                                                                 {line.deductedQuantity > 0 && (
                                                                     <span className="ml-2 text-red-600 dark:text-red-400 font-medium">
                                                                         {exhausted ? 'Entièrement déduite' : `${line.deductedQuantity} déjà déduite${line.deductedQuantity > 1 ? 's' : ''}`}
@@ -191,7 +190,7 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
                                                                     </span>
                                                                 </label>
                                                                 <span className="w-28 text-right text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
-                                                                    {fmt(deductionHT)}
+                                                                    {formatAmount(deductionHT)}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -219,7 +218,7 @@ const DeductionDialog = ({ onClose, parentQuote, existingItems, onAdd }) => {
                             {selectedCount > 0 ? (
                                 <>
                                     <span className="font-semibold">{selectedCount}</span> prestation{selectedCount > 1 ? 's' : ''} ·
-                                    déduction <span className="font-bold text-red-600 dark:text-red-400">{fmt(previewHT)} HT</span>
+                                    déduction <span className="font-bold text-red-600 dark:text-red-400">{formatAmount(previewHT)} HT</span>
                                 </>
                             ) : (
                                 'Aucune prestation sélectionnée'

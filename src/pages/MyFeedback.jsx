@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MessageSquare, Bug, Sparkles, Lightbulb, MessageCircle, Loader2, Star } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/format';
 
 /* ─── Métadonnées par catégorie (mêmes libellés que la modale d'envoi) ─── */
 const CATEGORY_META = {
@@ -28,7 +29,7 @@ const STATUS_STYLES = {
 };
 
 const fmtDate = (s) =>
-  s ? new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  formatDate(s, { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', fallback: '—' });
 
 const MyFeedback = () => {
   const { user } = useAuth();

@@ -10,6 +10,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../constants/admin';
 import { toast } from 'sonner';
+import { formatDate } from '../utils/format';
 
 /* ─── Métadonnées par catégorie (alignées sur AdminFeedback) ─── */
 const CATEGORY_META = {
@@ -31,8 +32,7 @@ const EFFORT_STYLE = {
   high:   'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
 };
 
-const fmtDate = (s) =>
-  s ? new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtDate = (s) => formatDate(s, { day: '2-digit', month: 'short', year: 'numeric', fallback: '—' });
 
 const Pill = ({ children, className = '' }) => (
   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${className}`}>{children}</span>

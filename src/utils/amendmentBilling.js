@@ -114,3 +114,34 @@ export function complementInvoiceTitle(amendment) {
     if (/complémentaire/i.test(base)) return base;
     return `${COMPLEMENT_TITLE_PREFIX} – ${base}`;
 }
+
+// ── Récapitulatif « Nouveau total projet » d'un avenant ─────────────────────
+
+/**
+ * Un avenant COMPLÈTE le devis initial (modèle additif) : le nouveau total du
+ * projet part du devis initial — ou des situations déjà facturées, qui le
+ * remplacent comme base — auquel s'ajoute le montant de l'avenant (delta,
+ * négatif pour une moins-value). Sans situation, l'acompte déjà versé est une
+ * avance à déduire du nouveau total pour obtenir le reste à régler.
+ *
+ * @param {{total_ttc?:number, progress_total?:number, deposit_total?:number}|null} parentQuoteData
+ *        Contexte du devis parent (formData.parent_quote_data).
+ * @param {number} amendmentTTC Montant TTC de l'avenant.
+ */
+export function amendmentProjectTotals(parentQuoteData, amendmentTTC) {
+    const initialTTC = parseFloat(parentQuoteData?.total_ttc) || 0;
+    const progressTotal = parseFloat(parentQuoteData?.progress_total) || 0;
+    const depositTotal = parseFloat(parentQuoteData?.deposit_total) || 0;
+    const baseline = progressTotal > 0 ? progressTotal : initialTTC;
+    const newTotal = baseline + amendmentTTC;
+    return {
+        initialTTC,
+        progressTotal,
+        depositTotal,
+        baseline,
+        amendmentTTC,
+        newTotal,
+        showDeposit: progressTotal === 0 && depositTotal > 0,
+        remaining: newTotal - depositTotal,
+    };
+}

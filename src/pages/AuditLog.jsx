@@ -7,6 +7,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toastError } from '../utils/supabaseErrorHandler';
+import { formatCurrency } from '../utils/format';
 
 /* ─── Métadonnées par type d'action ─── */
 const ACTION_META = {
@@ -32,33 +33,31 @@ const FILTER_GROUPS = [
 /* ─── Formatage des détails contextuels ─── */
 function formatDetails(action, details) {
     if (!details || typeof details !== 'object') return null;
-    const fmt = (n) => Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-
     switch (action) {
         case 'quote.signed':
-            return [`Signé pour ${details.total_ttc ? fmt(details.total_ttc) : '—'}`];
+            return [`Signé pour ${details.total_ttc ? formatCurrency(details.total_ttc) : '—'}`];
         case 'invoice.paid':
             return [
                 details.payment_method && `Mode : ${details.payment_method}`,
-                details.total_ttc && `Montant : ${fmt(details.total_ttc)}`,
+                details.total_ttc && `Montant : ${formatCurrency(details.total_ttc)}`,
             ].filter(Boolean);
         case 'quote.status_changed':
             return [`${details.from || '—'} → ${details.to || '—'}`];
         case 'quote.amount_changed': {
             const arrow = details.delta_pct >= 0 ? '↗' : '↘';
             return [
-                `${fmt(details.from_ttc)} → ${fmt(details.to_ttc)}`,
+                `${formatCurrency(details.from_ttc)} → ${formatCurrency(details.to_ttc)}`,
                 details.delta_pct != null && `${arrow} ${details.delta_pct > 0 ? '+' : ''}${details.delta_pct}%`,
             ].filter(Boolean);
         }
         case 'quote.created':
         case 'invoice.created':
-            return details.total_ttc ? [`Montant : ${fmt(details.total_ttc)}`] : null;
+            return details.total_ttc ? [`Montant : ${formatCurrency(details.total_ttc)}`] : null;
         case 'quote.deleted':
         case 'invoice.deleted':
             return [
                 details.client_name && `Client : ${details.client_name}`,
-                details.total_ttc && `Montant : ${fmt(details.total_ttc)}`,
+                details.total_ttc && `Montant : ${formatCurrency(details.total_ttc)}`,
             ].filter(Boolean);
         case 'client.deleted':
             return [

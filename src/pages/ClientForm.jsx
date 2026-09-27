@@ -29,6 +29,7 @@ const ProjectPhotosFallback = () => (
 // ── Plans électriques d'un client ────────────────────────────────────────────
 const ClientPlans = ({ clientId, clientName }) => {
     const navigate = useNavigate();
+    const confirm = useConfirm();
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -46,7 +47,8 @@ const ClientPlans = ({ clientId, clientName }) => {
     useEffect(() => { fetchPlans(); }, [clientId]);
 
     const handleDelete = async (planId) => {
-        if (!confirm('Supprimer ce plan ?')) return;
+        const ok = await confirm({ title: 'Supprimer ce plan ?', message: 'Ce plan électrique sera définitivement supprimé.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
         await supabase.from('client_plans').delete().eq('id', planId);
         setPlans(prev => prev.filter(p => p.id !== planId));
     };

@@ -1,9 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, ChevronRight, Info } from 'lucide-react';
-
-const fmt = (n) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n || 0);
+import { formatCurrencyRounded } from '../utils/format';
 
 /**
  * Widget trésorerie prédictive à 90 jours.
@@ -135,7 +133,7 @@ const CashFlowForecast = ({ allQuotes, navigate }) => {
                 {/* Total potentiel */}
                 <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {fmt(totalPotential)}
+                        {formatCurrencyRounded(totalPotential)}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">attendus dans 90 jours</span>
                 </div>
@@ -164,7 +162,7 @@ const CashFlowForecast = ({ allQuotes, navigate }) => {
                                         </p>
                                     </div>
                                     <span className={`text-sm font-bold ${bucket.color}`}>
-                                        {fmt(bucket.amount)}
+                                        {formatCurrencyRounded(bucket.amount)}
                                     </span>
                                 </div>
                                 {/* Barre de progression */}

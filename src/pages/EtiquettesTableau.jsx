@@ -27,6 +27,7 @@ import {
   CloudLightning,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
+import { useConfirm } from "../context/ConfirmContext";
 
 /* =========================================================================
    CONFIGURATION MÉTIER
@@ -187,6 +188,7 @@ function loadAutosave() {
 }
 
 export default function EtiquettesTableau() {
+  const confirm = useConfirm();
   // Restauration de l'autosave au tout premier rendu (lazy init).
   const initial = useMemo(() => loadAutosave() || {}, []);
   const [brand, setBrand] = useState(initial.brand || "universel");
@@ -312,9 +314,15 @@ export default function EtiquettesTableau() {
     );
   }
 
-  function clearAll() {
+  async function clearAll() {
     if (circuits.length === 0) return;
-    if (confirm("Supprimer toutes les étiquettes ?")) setCircuits([]);
+    const ok = await confirm({
+      title: "Supprimer toutes les étiquettes ?",
+      message: "Toutes les étiquettes du tableau seront effacées.",
+      confirmLabel: "Tout supprimer",
+      danger: true,
+    });
+    if (ok) setCircuits([]);
   }
 
   function addManyFromImport(items) {

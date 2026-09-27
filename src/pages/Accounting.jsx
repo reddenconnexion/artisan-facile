@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes, useInvalidateCache, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { realizedNetAdjustment } from '../utils/realizedMargin';
+import { paidQuoteIdSet, isCountedPaidDoc, splitServiceMaterial, periodNetIncome } from '../utils/chantierMargin';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles, Wallet, Loader2 } from 'lucide-react';
@@ -12,7 +12,8 @@ import AccountingAdvisor from '../components/AccountingAdvisor';
 import { DismissibleHelp } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
-import { computeNetIncome, estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
+import { estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
+import { formatCurrency } from '../utils/format';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -157,21 +158,15 @@ const Accounting = () => {
   // Retourne { total, services, vente }
   const periodData = useMemo(() => {
     const safeInvoices = filteredInvoices;
-    if (!safeInvoices.length) return { total: 0, services: 0, vente: 0 };
+    if (!safeInvoices.length) return { total: 0, services: 0, vente: 0, detail: [] };
 
     // Exclure les doublons : si un devis (type!=invoice) est payé ET sa facture enfant aussi,
     // ne compter que l'un des deux (on exclut la facture enfant qui a un parent_id)
-    const paidQuoteIds = new Set(
-      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
-    );
+    const paidQuoteIds = paidQuoteIdSet(safeInvoices);
 
     const filtered = safeInvoices.filter(invoice => {
-      const status = (invoice.status || '').toLowerCase();
-      if (status !== 'paid') return false;
-
-      // Exclure les factures enfant dont le devis parent est déjà payé
-      const type = (invoice.type || 'quote').toLowerCase();
-      if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
+      // Payé, hors factures enfant dont le devis parent est déjà payé
+      if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
 
       const invoiceDate = new Date(invoice.date || invoice.created_at);
       if (isNaN(invoiceDate.getTime())) return false;
@@ -194,20 +189,8 @@ const Accounting = () => {
     const detail = [];
 
     filtered.forEach(inv => {
-      let serviceAmt = 0;
-      let materialAmt = 0;
-      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
-        inv.items.forEach(item => {
-          const price = parseFloat(item.price) || 0;
-          const qty = parseFloat(item.quantity) || 0;
-          const lineTotal = price * qty;
-          if (item.type === 'material') materialAmt += lineTotal;
-          else serviceAmt += lineTotal;
-        });
-      } else {
-        // Fallback si pas d'items: utiliser total_ht, ou total_ttc si pas de TVA
-        serviceAmt = inv.total_ht || inv.total_ttc || 0;
-      }
+      // Sans lignes : total_ht (ou total_ttc si pas de TVA) compté en main d'œuvre.
+      const { serviceAmount: serviceAmt, materialAmount: materialAmt } = splitServiceMaterial(inv);
       totalService += serviceAmt;
       totalMaterial += materialAmt;
       detail.push({
@@ -242,15 +225,11 @@ const Accounting = () => {
   // Calcul du CA annuel (factures payées uniquement, sans doublons)
   const yearlyRevenue = useMemo(() => {
     const safeInvoices = filteredInvoices;
-    const paidQuoteIds = new Set(
-      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
-    );
+    const paidQuoteIds = paidQuoteIdSet(safeInvoices);
     return safeInvoices
       .filter(invoice => {
-        const status = (invoice.status || '').toLowerCase();
-        if (status !== 'paid') return false;
-        const type = (invoice.type || 'quote').toLowerCase();
-        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
+        // Payé, hors factures enfant dont le devis parent est déjà payé
+        if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         return !isNaN(invoiceDate.getTime()) && invoiceDate.getFullYear() === selectedYear;
       })
@@ -334,20 +313,18 @@ const Accounting = () => {
       tmi: netTmi,
     });
     const incomeTax = netTaxOverride.trim() !== '' ? (parseFloat(netTaxOverride) || 0) : estimatedTax;
-    const real = realizedNetAdjustment(periodData.detail || [], costByQuote);
-    const detail = computeNetIncome({
+    const detail = periodNetIncome({
+      entries: periodData.detail,
+      costByQuote,
       caServices: effectiveCaService,
       caMateriel: effectiveCaVente,
       materialMarginRate,
-      caMaterielReal: real.caMaterielReal,
-      realMaterialCost: real.realMaterialCost,
       urssafCharges,
       proChargesForPeriod,
       incomeTax,
     });
     return {
       ...detail,
-      realCoveredCount: real.coveredCount,
       proChargesAnnual: chargesSummary.annualTotal,
       estimatedTax,
       isMicro: artisanStatus === 'micro_entreprise',
@@ -379,15 +356,11 @@ const Accounting = () => {
   // Calcul du CA Services annuel pour le plafond mixte (sans doublons)
   const yearlyRevenueServices = useMemo(() => {
     const safeInvoices = filteredInvoices;
-    const paidQuoteIds = new Set(
-      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
-    );
+    const paidQuoteIds = paidQuoteIdSet(safeInvoices);
     return safeInvoices
       .filter(invoice => {
-        const status = (invoice.status || '').toLowerCase();
-        if (status !== 'paid') return false;
-        const type = (invoice.type || 'quote').toLowerCase();
-        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
+        // Payé, hors factures enfant dont le devis parent est déjà payé
+        if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
         const invoiceDate = new Date(invoice.date || invoice.created_at);
         if (isNaN(invoiceDate.getTime()) || invoiceDate.getFullYear() !== selectedYear) return false;
         return true;
@@ -502,10 +475,6 @@ const Accounting = () => {
     return Array.from(allYears).sort((a, b) => b - a); // Plus récent en premier
   }, [filteredInvoices]);
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
-  };
-
   const PAYMENT_METHOD_LABELS = {
     virement: 'Virement bancaire',
     cheque: 'Chèque',
@@ -521,18 +490,12 @@ const Accounting = () => {
     const safeInvoices = filteredInvoices;
 
     // Filtrer les factures payées, exclure doublons parent/enfant
-    const paidQuoteIds = new Set(
-      safeInvoices.filter(q => (q.type || 'quote') !== 'invoice' && (q.status || '').toLowerCase() === 'paid').map(q => q.id)
-    );
+    const paidQuoteIds = paidQuoteIdSet(safeInvoices);
 
     return safeInvoices
       .filter(invoice => {
-        const status = (invoice.status || '').toLowerCase();
-        if (status !== 'paid') return false;
-
-        // Exclure les factures enfant dont le devis parent est déjà payé
-        const type = (invoice.type || 'quote').toLowerCase();
-        if (type === 'invoice' && invoice.parent_id && paidQuoteIds.has(invoice.parent_id)) return false;
+        // Payé, hors factures enfant dont le devis parent est déjà payé
+        if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
 
         // Filtre par année
         const paidDate = invoice.paid_at ? new Date(invoice.paid_at) : new Date(invoice.date || invoice.created_at);

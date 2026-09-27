@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useClients } from '../hooks/useDataCache';
 import { useConfirm } from '../context/ConfirmContext';
 import { toastError } from '../utils/supabaseErrorHandler';
+import { formatCurrency, formatDate } from '../utils/format';
 import { EmptyState, LoadingState } from '../components/ui';
 
 const FREQUENCY_LABELS = {
@@ -22,11 +23,7 @@ const FREQUENCY_LABELS = {
 
 const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([v, l]) => ({ value: v, label: l }));
 
-const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-
-const formatMoney = (n) =>
-    Number(n || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+const fmtDate = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric', fallback: '—' });
 
 /* ─── Modal de création/édition ─────────────────────────────────────────────── */
 const RecurringForm = ({ initial, onClose, onSaved }) => {
@@ -258,15 +255,15 @@ const RecurringForm = ({ initial, onClose, onSaved }) => {
                     {/* Totaux */}
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm space-y-1">
                         <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                            <span>Total HT</span><span>{formatMoney(totals.ht)}</span>
+                            <span>Total HT</span><span>{formatCurrency(totals.ht)}</span>
                         </div>
                         {form.include_tva && (
                             <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                                <span>TVA</span><span>{formatMoney(totals.tva)}</span>
+                                <span>TVA</span><span>{formatCurrency(totals.tva)}</span>
                             </div>
                         )}
                         <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1 border-t border-gray-200 dark:border-gray-700">
-                            <span>Total TTC</span><span>{formatMoney(totals.ttc)}</span>
+                            <span>Total TTC</span><span>{formatCurrency(totals.ttc)}</span>
                         </div>
                     </div>
 
@@ -332,7 +329,7 @@ const TemplateCard = ({ template, clientName, onEdit, onDelete, onToggle, onGene
                     <div>
                         <p className="text-gray-400 uppercase font-semibold tracking-wider">Prochaine</p>
                         <p className={`font-medium mt-0.5 ${isOverdue ? 'text-amber-700 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                            {formatDate(template.next_due_date)}
+                            {fmtDate(template.next_due_date)}
                             {template.active && !isOverdue && daysUntilDue >= 0 && daysUntilDue <= 7 && (
                                 <span className="block text-amber-600 text-[10px]">dans {daysUntilDue}j</span>
                             )}
@@ -343,7 +340,7 @@ const TemplateCard = ({ template, clientName, onEdit, onDelete, onToggle, onGene
                     </div>
                     <div>
                         <p className="text-gray-400 uppercase font-semibold tracking-wider">Montant</p>
-                        <p className="font-bold text-gray-900 dark:text-white mt-0.5">{formatMoney(totalTTC)}</p>
+                        <p className="font-bold text-gray-900 dark:text-white mt-0.5">{formatCurrency(totalTTC)}</p>
                     </div>
                 </div>
 
@@ -525,7 +522,7 @@ const RecurringInvoices = () => {
                     </div>
                     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4">
                         <p className="text-xs text-gray-400 uppercase font-semibold tracking-wider">CA mensuel récurrent</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatMoney(monthlyRevenue)}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(monthlyRevenue)}</p>
                     </div>
                     <div className={`rounded-xl border p-4 col-span-2 md:col-span-1 ${dueCount > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
                         <p className="text-xs text-gray-400 uppercase font-semibold tracking-wider">À générer</p>

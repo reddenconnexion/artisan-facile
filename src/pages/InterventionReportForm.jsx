@@ -24,6 +24,7 @@ import ReviewRequestModal from '../components/ReviewRequestModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateInterventionSummary } from '../utils/aiService';
+import { formatCompactCurrency } from '../utils/format';
 import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
 import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 
@@ -1243,13 +1244,6 @@ const InterventionReportForm = () => {
         });
     };
 
-    const fmtEur = (val) => {
-        if (!val && val !== 0) return '—';
-        if (val >= 10000) return `${Math.round(val / 1000)} k€`;
-        if (val >= 1000) return `${(val / 1000).toFixed(1)} k€`;
-        return `${Math.round(val)} €`;
-    };
-
     const materialsTotal = formData.materials_used
         .filter(m => m.description.trim())
         .reduce((sum, m) => sum + (parseFloat(m.quantity) || 0) * (parseFloat(m.price) || 0), 0);
@@ -1585,7 +1579,7 @@ const InterventionReportForm = () => {
                             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-violet-100 dark:border-violet-700">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Fourchette estimée</p>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                    {fmtEur(siteVisitMeta.price_range.min)} – {fmtEur(siteVisitMeta.price_range.max)}
+                                    {formatCompactCurrency(siteVisitMeta.price_range.min)} – {formatCompactCurrency(siteVisitMeta.price_range.max)}
                                 </p>
                             </div>
                         )}

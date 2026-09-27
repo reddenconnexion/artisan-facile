@@ -16,14 +16,12 @@ import {
     parseHoursInput, startOfWeek, weekDays, toDateString,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { formatCurrencyRounded } from '../utils/format';
 
 const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 const formatDayDate = (dateStr) =>
     new Date(`${dateStr}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-
-const formatEuro = (n) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 // ── Carte rentabilité d'un chantier ──────────────────────────────────────────
 
@@ -48,7 +46,7 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                         {label}
                     </Link>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Devis : {formatEuro(quote.total_ht || 0)} HT
+                        Devis : {formatCurrencyRounded(quote.total_ht || 0)} HT
                     </p>
                 </div>
                 <Icon className={`w-5 h-5 flex-shrink-0 ${text}`} />
@@ -73,7 +71,7 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
             {status === 'over' && (
                 <p className={`text-xs font-semibold mt-2 ${text}`}>
                     Dépassement : {formatHours(overrunHours)}
-                    {overrunCost > 0 && <> soit ≈ {formatEuro(overrunCost)} de main d'œuvre non facturée</>}
+                    {overrunCost > 0 && <> soit ≈ {formatCurrencyRounded(overrunCost)} de main d'œuvre non facturée</>}
                 </p>
             )}
             {status === 'warning' && (
