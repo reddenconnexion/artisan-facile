@@ -54,7 +54,7 @@ export function materialDepositAmounts(devis) {
 const SIGNED_AMENDMENT_STATUSES = ['accepted', 'billed', 'paid'];
 
 /** Les avenants d'un devis que le client a acceptés — les seuls qui l'engagent. */
-const signedAmendments = (linkedDocs) => (linkedDocs || [])
+export const signedAmendments = (linkedDocs) => (linkedDocs || [])
     .filter(doc => doc.type === 'amendment' && SIGNED_AMENDMENT_STATUSES.includes(doc.status));
 
 /**

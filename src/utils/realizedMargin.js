@@ -153,6 +153,94 @@ export const realizedQuoteMargin = (items, subtotal, laborCostRate, agg, spentHo
 };
 
 /**
+ * Marge RÉALISÉE consolidée à l'échelle du CHANTIER (devis initial + ses
+ * avenants signés), au lieu d'un indicateur par document.
+ *
+ * Les coûts réels (achats, heures pointées) s'accumulent le plus souvent sur
+ * le SEUL devis initial, alors que le CA du chantier est réparti entre lui et
+ * ses avenants (voir docs/analyse-marge-avenants.md, Piste 2). Confronter le
+ * CA partiel d'un avenant aux coûts complets du chantier donne une marge
+ * aberrante ; ce helper additionne CA et coûts sur le même périmètre — le
+ * chantier entier — pour donner un chiffre fiable.
+ *
+ * @param {Array<{id:number, items:Array, total_ht:number}>} docs Devis initial
+ *        + ses avenants signés, chacun avec ses propres lignes et son propre
+ *        total HT. Ne jamais y inclure de factures (elles ne font que
+ *        refacturer ce total, elles ne l'augmentent pas).
+ * @param {Map} procurementCosts Résultat de procurementCostByQuote.
+ * @param {Map} spentHoursMap    Résultat de spentHoursByQuote.
+ * @param {number} laborCostRate Coût horaire de revient (€/h), 0 si inconnu.
+ * @returns {null|{revenue:number, cost:number, margin:number,
+ *          materialCost:number, laborCost:number, materialIsReal:boolean,
+ *          laborIsReal:boolean, spentHours:number, estimatedHours:number,
+ *          plannedMargin:number, delta:number, pricedCount:number,
+ *          totalCount:number, docCount:number}}
+ *   null si rien n'est réalisé sur le chantier (aucun achat au prix
+ *   renseigné, aucune heure pointée).
+ */
+export const chantierRealizedMargin = (docs, procurementCosts, spentHoursMap, laborCostRate) => {
+    const list = (Array.isArray(docs) ? docs : []).filter(Boolean);
+    if (list.length === 0) return null;
+
+    const rate = num(laborCostRate);
+    let revenue = 0;
+    let materialCost = 0;
+    let laborCost = 0;
+    let plannedCost = 0;
+    let spentHours = 0;
+    let estimatedHours = 0;
+    let pricedCount = 0;
+    let totalCount = 0;
+    let materialIsReal = false;
+    let laborIsReal = false;
+
+    list.forEach((doc) => {
+        const docRevenue = num(doc.total_ht);
+        revenue += docRevenue;
+
+        const planned = quoteMargin(doc.items, docRevenue, rate);
+        plannedCost += planned.cost;
+        estimatedHours += planned.laborHours;
+
+        const agg = procurementCosts instanceof Map ? procurementCosts.get(Number(doc.id)) : undefined;
+        const spent = num(spentHoursMap instanceof Map ? spentHoursMap.get(Number(doc.id)) : 0);
+        const docMaterialIsReal = !!agg && agg.pricedCount > 0;
+        const docLaborIsReal = spent > 0 && rate > 0;
+
+        materialCost += docMaterialIsReal ? agg.cost : planned.materialCost;
+        laborCost += docLaborIsReal ? spent * rate : planned.laborCost;
+        spentHours += spent;
+        pricedCount += agg?.pricedCount || 0;
+        totalCount += agg?.totalCount || 0;
+        materialIsReal = materialIsReal || docMaterialIsReal;
+        laborIsReal = laborIsReal || docLaborIsReal;
+    });
+
+    if (!materialIsReal && !laborIsReal) return null;
+
+    const cost = materialCost + laborCost;
+    const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
+    const plannedMargin = revenue > 0 ? (revenue - plannedCost) / revenue : 0;
+
+    return {
+        revenue,
+        cost,
+        margin,
+        materialCost,
+        laborCost,
+        materialIsReal,
+        laborIsReal,
+        spentHours,
+        estimatedHours,
+        plannedMargin,
+        delta: margin - plannedMargin,
+        pricedCount,
+        totalCount,
+        docCount: list.length,
+    };
+};
+
+/**
  * Marge matière d'un groupe d'achats (page Approvisionnement), calculée sur
  * les seules lignes dont PV et PA sont connus — comparaison à périmètre égal.
  * Se met à jour au fil de la saisie des prix fournisseurs.

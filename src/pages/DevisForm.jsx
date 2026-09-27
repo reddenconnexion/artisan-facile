@@ -42,7 +42,7 @@ import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { realizedQuoteMargin, isPartialScopeDoc } from '../utils/realizedMargin';
+import { realizedQuoteMargin, isPartialScopeDoc, chantierRealizedMargin } from '../utils/realizedMargin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -57,7 +57,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
-import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../utils/materialDeposit';
+import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus, signedAmendments } from '../utils/materialDeposit';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
@@ -160,6 +160,10 @@ const DevisForm = () => {
     // — lecture seule, le devis n'est pas modifié.
     const procurementCosts = useProcurementCostByQuote();
     const spentHoursMap = useSpentHoursByQuote();
+    // Devis initial + avenants signés du même chantier (id + lignes + total HT
+    // de chacun), pour la marge réalisée CONSOLIDÉE — null tant qu'il n'y a
+    // pas au moins un avenant signé (sinon identique à la marge par document).
+    const [chantierDocs, setChantierDocs] = useState(null);
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
@@ -1195,6 +1199,34 @@ const DevisForm = () => {
                             }
                         }));
                     }
+                }
+
+                // Marge réalisée CONSOLIDÉE du chantier (devis initial + avenants
+                // signés) : voir docs/analyse-marge-avenants.md, Piste 2. Les coûts
+                // réels s'accumulent le plus souvent sur le seul devis initial alors
+                // que le CA est réparti entre lui et ses avenants — sans effet sur
+                // les factures, qui ne facturent qu'une part du chantier.
+                if (data.type !== 'invoice') {
+                    const chantierRootId = data.type === 'amendment' && data.parent_quote_id
+                        ? data.parent_quote_id
+                        : data.id;
+                    const { data: chantierRows } = await supabase
+                        .from('quotes')
+                        .select('id, type, status, items, total_ht')
+                        .or(`id.eq.${chantierRootId},parent_quote_id.eq.${chantierRootId}`);
+
+                    const rootRow = (chantierRows || []).find((r) => r.id === chantierRootId);
+                    const amendmentRows = (chantierRows || []).filter((r) => r.id !== chantierRootId);
+                    const signed = signedAmendments(amendmentRows);
+
+                    setChantierDocs(rootRow && signed.length > 0
+                        ? [
+                            { id: rootRow.id, items: rootRow.items, total_ht: rootRow.total_ht },
+                            ...signed.map((a) => ({ id: a.id, items: a.items, total_ht: a.total_ht })),
+                        ]
+                        : null);
+                } else {
+                    setChantierDocs(null);
                 }
 
                 // Facture de situation : (re)calcule le contexte d'avancement depuis
@@ -6380,6 +6412,42 @@ Conditions de règlement : Paiement à réception de facture.`
                                                         </div>
                                                     )}
                                                 </>
+                                            );
+                                        })()}
+                                        {/* Marge RÉALISÉE consolidée du CHANTIER (devis initial +
+                                            avenants signés) : les coûts réels s'accumulent le plus
+                                            souvent sur le seul devis initial alors que le CA est
+                                            réparti entre lui et ses avenants — un indicateur par
+                                            document peut donc être trompeur ou absent (voir
+                                            docs/analyse-marge-avenants.md). N'apparaît que s'il y a
+                                            au moins un avenant signé, sinon identique au bloc ci-dessus. */}
+                                        {chantierDocs && chantierDocs.length > 1 && (() => {
+                                            const cr = chantierRealizedMargin(chantierDocs, procurementCosts, spentHoursMap, laborRate);
+                                            if (!cr) return null;
+                                            const pct = Math.round(cr.margin * 100);
+                                            const color = cr.margin >= 0.35 ? 'text-green-600' : cr.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
+                                            const deltaPts = Math.round(cr.delta * 100);
+                                            const amendmentCount = cr.docCount - 1;
+                                            const sources = [
+                                                cr.materialIsReal ? `matière réelle ${cr.materialCost.toFixed(2)} € (${cr.pricedCount}/${cr.totalCount} achat${cr.totalCount > 1 ? 's' : ''} au prix renseigné)` : null,
+                                                cr.laborIsReal ? `main d'œuvre pointée ${formatHours(cr.spentHours)} × ${laborRate.toFixed(2)} € = ${cr.laborCost.toFixed(2)} €` : null,
+                                            ].filter(Boolean).join(' · ');
+                                            const tip = `Devis initial + ${amendmentCount} avenant${amendmentCount > 1 ? 's' : ''} signé${amendmentCount > 1 ? 's' : ''}, CA cumulé ${cr.revenue.toFixed(2)} € HT. D'après le terrain : ${sources}. Marge prévue du chantier : ${Math.round(cr.plannedMargin * 100)} %.`;
+                                            return (
+                                                <div className="flex justify-between text-sm pt-2 mt-1 border-t border-dashed border-gray-100 dark:border-gray-800">
+                                                    <span className="text-gray-400 inline-flex items-center gap-1">
+                                                        <Layers className="w-3.5 h-3.5" />
+                                                        Marge réalisée du chantier
+                                                    </span>
+                                                    <span className={`font-semibold ${color}`} title={tip}>
+                                                        {pct} %
+                                                        {deltaPts !== 0 && (
+                                                            <span className={`ml-1.5 font-normal text-xs ${deltaPts > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                                                ({deltaPts > 0 ? '+' : ''}{deltaPts} pt{Math.abs(deltaPts) > 1 ? 's' : ''})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
                                             );
                                         })()}
                                     </>
