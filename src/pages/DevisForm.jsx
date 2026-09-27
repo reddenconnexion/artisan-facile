@@ -42,7 +42,7 @@ import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
 import AutoSaveIndicator from '../components/AutoSaveIndicator';
 import { useInvalidateCache, useProcurementCostByQuote, useSpentHoursByQuote } from '../hooks/useDataCache';
-import { realizedQuoteMargin, isPartialScopeDoc, chantierRealizedMargin } from '../utils/realizedMargin';
+import { quoteMarginSummary } from '../utils/chantierMargin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
 import SituationModal from '../components/SituationModal';
@@ -55,7 +55,7 @@ import LineInternalDetail from '../components/LineInternalDetail';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
-import { lineComponents, effectiveLineCost, supplyEntries, quoteMargin } from '../utils/quoteInternalDetail';
+import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quoteInternalDetail';
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus, signedAmendments } from '../utils/materialDeposit';
 import DepositNextStepCard from '../components/DepositNextStepCard';
@@ -6315,8 +6315,15 @@ Conditions de règlement : Paiement à réception de facture.`
                                 est renseigné, sinon marge matière. Invite contextuelle
                                 pour renseigner le coût horaire quand il manque. */}
                             {(() => {
-                                const laborRate = parseFloat(userProfile?.labor_cost_rate) || 0;
-                                const m = quoteMargin(formData.items, subtotal, laborRate);
+                                const { laborRate, planned: m, realized: r, chantier: cr } = quoteMarginSummary({
+                                    id,
+                                    doc: formData,
+                                    subtotal,
+                                    laborCostRate: userProfile?.labor_cost_rate,
+                                    procurementCosts,
+                                    spentHoursMap,
+                                    chantierDocs,
+                                });
                                 const laborHours = estimatedHoursFromItems(formData.items);
                                 const showPrompt = laborHours > 0 && laborRate <= 0;
 
@@ -6357,18 +6364,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             réels saisis dans « Matériel à commander » et les
                                             heures réellement pointées sur le chantier.
                                             Purement informatif : le devis n'est jamais modifié. */}
-                                        {subtotal > 0 && (() => {
-                                            // Avenants et factures de situation ne facturent qu'une
-                                            // part du chantier : leur attribuer les coûts complets du
-                                            // devis parent donnerait une marge réalisée absurde.
-                                            const canUseParent = !!formData.parent_quote_id && !isPartialScopeDoc(formData);
-                                            const agg = procurementCosts.get(Number(id))
-                                                ?? (canUseParent ? procurementCosts.get(Number(formData.parent_quote_id)) : undefined);
-                                            const spent = spentHoursMap.get(Number(id))
-                                                ?? (canUseParent ? spentHoursMap.get(Number(formData.parent_quote_id)) : 0)
-                                                ?? 0;
-                                            const r = realizedQuoteMargin(formData.items, subtotal, laborRate, agg, spent);
-                                            if (!r) return null;
+                                        {r && (() => {
                                             const pct = Math.round(r.margin * 100);
                                             const color = r.margin >= 0.35 ? 'text-green-600' : r.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
                                             const deltaPts = Math.round(r.delta * 100);
@@ -6421,9 +6417,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                             document peut donc être trompeur ou absent (voir
                                             docs/analyse-marge-avenants.md). N'apparaît que s'il y a
                                             au moins un avenant signé, sinon identique au bloc ci-dessus. */}
-                                        {chantierDocs && chantierDocs.length > 1 && (() => {
-                                            const cr = chantierRealizedMargin(chantierDocs, procurementCosts, spentHoursMap, laborRate);
-                                            if (!cr) return null;
+                                        {cr && (() => {
                                             const pct = Math.round(cr.margin * 100);
                                             const color = cr.margin >= 0.35 ? 'text-green-600' : cr.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
                                             const deltaPts = Math.round(cr.delta * 100);
