@@ -158,7 +158,7 @@ const Accounting = () => {
   // Retourne { total, services, vente }
   const periodData = useMemo(() => {
     const safeInvoices = filteredInvoices;
-    if (!safeInvoices.length) return { total: 0, services: 0, vente: 0 };
+    if (!safeInvoices.length) return { total: 0, services: 0, vente: 0, detail: [] };
 
     // Exclure les doublons : si un devis (type!=invoice) est payé ET sa facture enfant aussi,
     // ne compter que l'un des deux (on exclut la facture enfant qui a un parent_id)
