@@ -1,18 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Repeat, Loader2, Package, ArrowRight } from 'lucide-react';
+import { formatPrice } from '../utils/format';
 
 const CATEGORIES = [
     { id: 'materiel', label: 'Matériel' },
     { id: 'outillage', label: 'Outillage' },
     { id: 'consommable', label: 'Consommable' },
 ];
-
-const formatPrice = (value) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return '';
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-};
 
 const lineSale = (item) => {
     const sp = parseFloat(item?.sale_price);

@@ -13,6 +13,7 @@ import { DismissibleHelp } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { computeNetIncome, estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
+import { formatCurrency } from '../utils/format';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -501,10 +502,6 @@ const Accounting = () => {
     });
     return Array.from(allYears).sort((a, b) => b - a); // Plus récent en premier
   }, [filteredInvoices]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
-  };
 
   const PAYMENT_METHOD_LABELS = {
     virement: 'Virement bancaire',

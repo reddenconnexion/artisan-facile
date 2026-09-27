@@ -5,9 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { CHARGE_CATEGORIES, summarizeCharges } from '../utils/accountingAdvisor';
-
-const fmtCurrency = (n) =>
-  (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+import { formatCurrencyRounded } from '../utils/format';
 
 const CATEGORY_KEYS = Object.keys(CHARGE_CATEGORIES);
 
@@ -104,7 +102,7 @@ const ChargesManager = ({ onChange }) => {
         </h3>
         <div className="text-right">
           <p className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Total annuel</p>
-          <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{fmtCurrency(summary.annualTotal)}</p>
+          <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{formatCurrencyRounded(summary.annualTotal)}</p>
         </div>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
@@ -181,9 +179,9 @@ const ChargesManager = ({ onChange }) => {
                   <p className="text-xs text-gray-400 dark:text-gray-500">{CHARGE_CATEGORIES[c.category] || c.category}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{fmtCurrency(annual)}<span className="text-xs font-normal text-gray-400"> / an</span></p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{formatCurrencyRounded(annual)}<span className="text-xs font-normal text-gray-400"> / an</span></p>
                   {c.periodicity === 'monthly' && (
-                    <p className="text-[11px] text-gray-400">{fmtCurrency(c.amount)} / mois</p>
+                    <p className="text-[11px] text-gray-400">{formatCurrencyRounded(c.amount)} / mois</p>
                   )}
                 </div>
                 <button

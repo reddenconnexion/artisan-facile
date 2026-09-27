@@ -10,6 +10,7 @@ import { isSignatureBlocked } from '../utils/quoteSignability';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
 import { Toaster, toast } from 'sonner';
+import { formatDate } from '../utils/format';
 
 // Client anonyme dédié à la page publique : pas de session, pas de refresh token.
 // Évite le timeout de vérification de session de l'artisan qui cause data=null sur le RPC.
@@ -458,16 +459,7 @@ const PublicQuote = () => {
     // ferait croire qu'il reste 20 % à ajouter — on l'omet et on l'écrit.
     const amountSuffix = includeTva ? ' TTC' : '';
 
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return '';
-            return date.toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR');
-        } catch (e) {
-            return '';
-        }
-    };
+    const fmtDate = (dateString) => formatDate(dateString, { locale: lang === 'en' ? 'en-GB' : 'fr-FR' });
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
@@ -535,7 +527,7 @@ const PublicQuote = () => {
                         {isSigned && quote.type !== 'invoice' && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 text-sm font-bold rounded-lg border border-green-200">
                                 <FileCheck className="w-4 h-4" />
-                                <span className="hidden sm:inline">{T.signedOn(formatDate(quote.signed_at || quote.updated_at))}</span>
+                                <span className="hidden sm:inline">{T.signedOn(fmtDate(quote.signed_at || quote.updated_at))}</span>
                                 <span className="sm:hidden">{T.signedShort}</span>
                             </div>
                         )}

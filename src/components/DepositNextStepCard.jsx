@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Loader2, Receipt, Info } from 'lucide-react';
-
-const fmt = (n) => `${(Number(n) || 0).toFixed(2)} €`;
+import { formatAmount } from '../utils/format';
 
 /**
  * « Prochaine étape » de facturation d'un chantier au modèle
@@ -55,10 +54,10 @@ const DepositNextStepCard = ({
                             : `Un avenant signé ajoute du matériel non encore facturé`}
                     </p>
                     <p className="text-blue-800 dark:text-blue-300/90 mt-1">
-                        Acompte matériel à facturer au client : <strong>{fmt(amountTTC)} TTC</strong>
+                        Acompte matériel à facturer au client : <strong>{formatAmount(amountTTC)} TTC</strong>
                         {amendments ? ` (fournitures ${amendmentLabels.length > 1 ? 'des' : 'de l\''}${amendments})` : ''}.
                         {alreadyIssuedTTC > 0 && (
-                            <> Le matériel déjà réglé ({fmt(alreadyIssuedTTC)}{previous ? `, ${previous}` : ''}) n'est pas refacturé.</>
+                            <> Le matériel déjà réglé ({formatAmount(alreadyIssuedTTC)}{previous ? `, ${previous}` : ''}) n'est pas refacturé.</>
                         )}
                     </p>
                     <p className="flex items-start gap-1.5 text-xs text-blue-700/80 dark:text-blue-300/70 mt-2">
@@ -80,7 +79,7 @@ const DepositNextStepCard = ({
                     className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
-                    Facturer l'acompte matériel de {fmt(amountTTC)}
+                    Facturer l'acompte matériel de {formatAmount(amountTTC)}
                 </button>
             </div>
         </div>

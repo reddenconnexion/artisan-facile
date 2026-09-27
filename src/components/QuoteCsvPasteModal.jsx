@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, ClipboardPaste, AlertTriangle, Info, Table2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseQuoteCsv } from '../utils/quoteCsvImport';
+import { formatPrice } from '../utils/format';
 
 /**
  * « Coller un tableau » : import des lignes d'un devis sans passer par un
@@ -19,11 +20,7 @@ import { parseQuoteCsv } from '../utils/quoteCsvImport';
 const PREVIEW_ROWS = 12;
 const MAX_CHARS = 2 * 1024 * 1024; // même garde-fou que l'import de fichier (2 MB)
 
-const formatPrice = (value) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return '—';
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-};
+const fmtPrice = (value) => formatPrice(value, '—');
 
 const formatQuantity = (value) => {
     const n = Number(value);
@@ -180,7 +177,7 @@ const QuoteCsvPasteModal = ({ onClose, onImport, hasExistingItems = false, initi
                                         {sections.length > 0 && ` · ${sections.length} section${sections.length > 1 ? 's' : ''}`}
                                     </h4>
                                     <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                        {formatPrice(totalHt)} HT
+                                        {fmtPrice(totalHt)} HT
                                     </span>
                                 </div>
                                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -212,7 +209,7 @@ const QuoteCsvPasteModal = ({ onClose, onImport, hasExistingItems = false, initi
                                                             </td>
                                                             <td className="px-2 py-2 text-right tabular-nums">{formatQuantity(item.quantity)}</td>
                                                             <td className="px-2 py-2 text-gray-500 dark:text-gray-400">{item.unit}</td>
-                                                            <td className="px-3 py-2 text-right tabular-nums">{formatPrice(item.price)}</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums">{fmtPrice(item.price)}</td>
                                                         </tr>
                                                     )
                                                 ))}

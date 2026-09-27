@@ -9,6 +9,7 @@ import { splitQuoteOptionLines } from './quoteOptionLines';
 import { capWorkObject } from './workObject';
 import { isVatFranchise, vatFranchiseTotal } from './vatFranchise';
 import { closedWatermarkKind } from './quoteSignability';
+import { formatAmount, formatDate } from './format';
 
 // Builds the XMP metadata packet required for Factur-X 1.08 / PDF/A-3B identification.
 // Must use context.stream() (uncompressed) — PDF spec §14.3.2 forbids compressing the Metadata stream.
@@ -31,18 +32,6 @@ const buildFacturXXMP = (profile = 'EN 16931', fileName = 'factur-x.xml') => {
   </rdf:RDF>
 </x:xmpmeta>
 <?xpacket end="w"?>`;
-};
-
-// Safe Date Helper
-const formatDate = (dateString, locale) => {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
-        return date.toLocaleDateString(locale);
-    } catch (e) {
-        return '';
-    }
 };
 
 // Renders the artisan logo onto a square canvas with rounded corners and
@@ -301,7 +290,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const doc = new jsPDF();
 
     const L = PDF_I18N[lang] || PDF_I18N.fr;
-    const fmtDate = (d) => formatDate(d, L.dateLocale);
+    const fmtDate = (d) => formatDate(d, { locale: L.dateLocale });
 
     // ── Utilitaires anti-débordement ──
     // Le rendu jsPDF écrit à une abscisse fixe sans limite de largeur : un nom de
@@ -745,7 +734,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     const materials = allItems.filter(i => i.type === 'material');
     const tableColumn = [L.colDescription, L.colQty, L.colUnitPrice, L.colTotal];
 
-    const fmtMoney = (n) => `${(Number(n) || 0).toFixed(2)} €`;
+    const fmtMoney = formatAmount;
     // Montant d'une ligne (cf. materialDeposit.js : gère aussi les postes
     // fusionnés line_total du mode « poste global »).
     const lineAmountOf = quoteLineAmount;

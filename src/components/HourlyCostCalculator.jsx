@@ -6,9 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { computeHourlyCost, DEFAULT_BILLABLE_HOURS } from '../utils/laborCost';
 import { DismissibleHelp } from './ui';
-
-const fmtCurrency = (n) =>
-    (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+import { formatCurrencyRounded } from '../utils/format';
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -183,9 +181,9 @@ const HourlyCostCalculator = ({ profile, chargesAnnual = 0, cotisationsAnnual = 
                 </div>
                 {rate > 0 && (
                     <p className="text-sm text-blue-100 mt-3 pt-3 border-t border-blue-400">
-                        {fmtCurrency(result.annualTotal)} à couvrir ÷ {Math.round(result.billableHours)} h
+                        {formatCurrencyRounded(result.annualTotal)} à couvrir ÷ {Math.round(result.billableHours)} h
                         {laborMarginPct != null && (
-                            <> · vous facturez {fmtCurrency(billing)}/h → marge sur main d'œuvre ≈ <strong>{laborMarginPct} %</strong></>
+                            <> · vous facturez {formatCurrencyRounded(billing)}/h → marge sur main d'œuvre ≈ <strong>{laborMarginPct} %</strong></>
                         )}
                     </p>
                 )}

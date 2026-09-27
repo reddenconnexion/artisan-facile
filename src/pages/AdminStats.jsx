@@ -8,10 +8,10 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../constants/admin';
+import { formatDate } from '../utils/format';
 
 /* ─── Format date courte ─── */
-const fmtDate = (s) =>
-  s ? new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+const fmtDate = (s) => formatDate(s, { day: '2-digit', month: 'short', year: '2-digit', fallback: '—' });
 
 /* ─── « il y a X » pour la dernière connexion ─── */
 const relative = (s) => {

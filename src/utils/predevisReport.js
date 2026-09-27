@@ -10,15 +10,12 @@ import {
     hasZoneContent,
     hasTableauContent,
 } from './surveyText';
+import { formatDate } from './format';
 
 /** Libellés de sections numérotées dans le compte rendu. */
 const numberedTitle = (index, title) => `## ${index}. ${title}`;
 
-const formatDate = (value) => {
-    const d = value instanceof Date ? value : value ? new Date(value) : new Date();
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-};
+const fmtVisitDate = (value) => formatDate(value || new Date(), { day: '2-digit', month: 'long', year: 'numeric' });
 
 /**
  * Un élément essentiel de la trame est-il renseigné ?
@@ -88,7 +85,7 @@ export const buildPredevisReport = ({ survey, template, meta = {}, withAiInstruc
     // ── En-tête ────────────────────────────────────────────────────────────
     const header = ['# COMPTE RENDU DE VISITE PRÉDEVIS', ''];
     const headerLines = [
-        ['Date de la visite', formatDate(meta.date)],
+        ['Date de la visite', fmtVisitDate(meta.date)],
         ['Client', meta.clientName],
         ['Adresse du chantier', meta.address],
         ['Type de relevé', template.label],

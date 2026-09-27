@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Eye, EyeOff, PenTool } from 'lucide-react';
 import { UrgencyBadge } from './ui';
+import { formatCurrencyRounded } from '../utils/format';
 
 const COLS = [
     {
@@ -51,9 +52,6 @@ const COLS = [
     },
 ];
 
-const fmt = (n) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n || 0);
-
 const isExpiringSoon = (d) => {
     if (!['sent', 'draft'].includes(d.status) || !d.valid_until) return false;
     const days = Math.ceil((new Date(d.valid_until) - new Date()) / 86400000);
@@ -93,7 +91,7 @@ const KanbanCard = ({ devis, onClick }) => {
 
             <div className="flex items-center justify-between mt-2 gap-2">
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                    {fmt(devis.total_ttc)}
+                    {formatCurrencyRounded(devis.total_ttc)}
                 </span>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                     {devis.status === 'sent' && (
@@ -152,7 +150,7 @@ const KanbanColumn = ({ col, items, navigate }) => {
             {items.length > 0 && (
                 <div className={`${col.header} px-3 pb-2 -mt-1 flex-shrink-0`}>
                     <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {fmt(total)}
+                        {formatCurrencyRounded(total)}
                     </span>
                 </div>
             )}
