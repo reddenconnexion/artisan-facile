@@ -9,6 +9,8 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
+import { answeredPairs } from '../utils/quoteMethod';
+import VisitQuestionsCard from './VisitQuestionsCard';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
 import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
 import {
@@ -33,6 +35,9 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
     const [photos, setPhotos] = useState([]);          // [{id, file, preview, mediaType}]
     const [activePhase, setActivePhase] = useState(null); // null|'voice'|'photos'|'quote'|'done'
     const [result, setResult] = useState(null);
+    // Entrées du dernier chiffrage, réutilisées pour l'affinage (voir handleRefine).
+    const quoteInputsRef = useRef(null);
+    const [refining, setRefining] = useState(false);
     const [error, setError] = useState(null);
     const [savedReportId, setSavedReportId] = useState(null);
 
@@ -131,6 +136,7 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
                 priceLibrary: priceLibrary || [],
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
+            quoteInputsRef.current = { transcripts, photoAnalyses, context };
 
             setActivePhase('done');
             setResult(quoteResult);
@@ -168,6 +174,38 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
             setError(err.message || "Erreur lors de l'analyse. Veuillez réessayer.");
             setStep(1);
             setActivePhase(null);
+        }
+    };
+
+    // Second et dernier passage : recalcul avec les réponses de l'artisan.
+    const handleRefine = async (answers) => {
+        const inputs = quoteInputsRef.current;
+        if (!inputs) return;
+        setRefining(true);
+        try {
+            const refined = await generateQuoteFromSiteVisit(inputs.transcripts, inputs.photoAnalyses, { ...inputs.context, answers });
+            setResult(refined);
+            toast.success('Devis affiné avec vos précisions');
+            if (user && savedReportId) {
+                await supabase.from('intervention_reports')
+                    .update({
+                        title: refined.title,
+                        notes: JSON.stringify({
+                            suggestions: refined.suggestions,
+                            price_range: refined.price_range,
+                            estimated_duration: refined.estimated_duration,
+                            confidence: refined.confidence,
+                            precisions: answeredPairs(answers),
+                        }),
+                        materials_used: refined.items,
+                    })
+                    .eq('id', savedReportId);
+            }
+        } catch (err) {
+            console.error('Refine error:', err);
+            toast.error(err.message || "Impossible d'affiner le devis. Réessayez.");
+        } finally {
+            setRefining(false);
         }
     };
 
@@ -533,6 +571,8 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
                                     ))}
                                 </div>
                             </div>
+
+                            <VisitQuestionsCard questions={result.questions} onSubmit={handleRefine} loading={refining} />
 
                             {/* Suggestions */}
                             {result.suggestions?.length > 0 && (

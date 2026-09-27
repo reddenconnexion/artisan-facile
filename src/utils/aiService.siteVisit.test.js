@@ -148,6 +148,36 @@ describe('generateQuoteFromSiteVisit', () => {
         expect(result.items[2].is_optional).toBeUndefined();
     });
 
+    it('remonte les questions de précision, nettoyées et plafonnées à 5', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({
+            items: [],
+            questions: [' Longueur de câble jusqu\'au tableau ? ', '', 'Longueur de câble jusqu\'au tableau ?', 'Support : placo ou brique ?', 'Q3 ?', 'Q4 ?', 'Q5 ?', 'Q6 ?'],
+        })));
+
+        const result = await generateQuoteFromSiteVisit(['note'], []);
+        expect(result.questions).toEqual([
+            "Longueur de câble jusqu'au tableau ?", 'Support : placo ou brique ?', 'Q3 ?', 'Q4 ?', 'Q5 ?',
+        ]);
+    });
+
+    it('avec les réponses de l\'artisan : précisions dans le message, plus aucune question', async () => {
+        invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [], questions: ['Encore une ?'] })));
+
+        const result = await generateQuoteFromSiteVisit(['note'], [], {
+            answers: [
+                { question: 'Support ?', answer: 'placo' },
+                { question: 'Gamme ?', answer: '   ' },
+            ],
+        });
+
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain("PRÉCISIONS DE L'ARTISAN");
+        expect(body.userMessage).toContain('- Support ?\n  → placo');
+        expect(body.userMessage).not.toContain('Gamme ?');
+        expect(body.extras).toContain('PRÉCISIONS REÇUES');
+        expect(result.questions).toEqual([]);
+    });
+
     it('routes through a custom system prompt when provided', async () => {
         invokeMock.mockResolvedValue(okResponse(JSON.stringify({ items: [] })));
 

@@ -4,6 +4,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
+import { answeredPairs } from '../utils/quoteMethod';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit, extractSurveyFromVisit } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
@@ -14,6 +15,7 @@ import { buildPredevisReport } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
 import { createEmptySurvey, buildSurveyText, hasSurveyContent, mergeSurveyFill } from '../utils/surveyText';
 import SurveyForm from './SurveyForm';
+import VisitQuestionsCard from './VisitQuestionsCard';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
 import PhotoLightbox from './PhotoLightbox';
@@ -117,6 +119,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const [activePhase, setActivePhase] = useState(null);
     const [result, setResult] = useState(null);
     const [savedReportId, setSavedReportId] = useState(null);
+    // Entrées du dernier chiffrage : l'affinage (réponses aux questions de
+    // l'IA) les réutilise sans retranscrire ni réanalyser les photos.
+    const quoteInputsRef = useRef(null);
+    const [refining, setRefining] = useState(false);
     const [error, setError] = useState(null);
 
     // Tips panel
@@ -834,6 +840,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 surveyText,
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
+            quoteInputsRef.current = { transcripts, photoAnalyses, context };
 
             setActivePhase('done');
             setResult(quoteResult);
@@ -851,13 +858,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
                         await supabase.from('intervention_reports')
                             .update({
                                 title: quoteResult.title,
-                                notes: JSON.stringify({
-                                    suggestions: quoteResult.suggestions,
-                                    price_range: quoteResult.price_range,
-                                    estimated_duration: quoteResult.estimated_duration,
-                                    confidence: quoteResult.confidence,
-                                    ...(hasSurveyContent(survey) ? { survey } : {}),
-                                }),
+                                notes: JSON.stringify(quoteReportNotes(quoteResult)),
                                 materials_used: quoteResult.items,
                             })
                             .eq('id', reportId);
@@ -874,6 +875,42 @@ const VisiteTechniqueMode = ({ onBack }) => {
             setError(err.message || "Erreur lors de l'analyse. Veuillez réessayer.");
             setStep('capture');
             setActivePhase(null);
+        }
+    };
+
+    const quoteReportNotes = (quoteResult, precisions = []) => ({
+        suggestions: quoteResult.suggestions,
+        price_range: quoteResult.price_range,
+        estimated_duration: quoteResult.estimated_duration,
+        confidence: quoteResult.confidence,
+        ...(precisions.length ? { precisions } : {}),
+        ...(hasSurveyContent(survey) ? { survey } : {}),
+    });
+
+    // Second et dernier passage : le devis est recalculé avec les réponses de
+    // l'artisan aux questions posées par l'IA au premier chiffrage.
+    const handleRefine = async (answers) => {
+        const inputs = quoteInputsRef.current;
+        if (!inputs) return;
+        setRefining(true);
+        try {
+            const refined = await generateQuoteFromSiteVisit(inputs.transcripts, inputs.photoAnalyses, { ...inputs.context, answers });
+            setResult(refined);
+            toast.success('Devis affiné avec vos précisions');
+            if (user && savedReportId) {
+                await supabase.from('intervention_reports')
+                    .update({
+                        title: refined.title,
+                        notes: JSON.stringify(quoteReportNotes(refined, answeredPairs(answers))),
+                        materials_used: refined.items,
+                    })
+                    .eq('id', savedReportId);
+            }
+        } catch (err) {
+            console.error('Refine error:', err);
+            toast.error(err.message || "Impossible d'affiner le devis. Réessayez.");
+        } finally {
+            setRefining(false);
         }
     };
 
@@ -1487,6 +1524,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                 ))}
                             </div>
                         </div>
+
+                        <VisitQuestionsCard questions={result.questions} onSubmit={handleRefine} loading={refining} />
 
                         {/* Suggestions */}
                         {result.suggestions?.length > 0 && (

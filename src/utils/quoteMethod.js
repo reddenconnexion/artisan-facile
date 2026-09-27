@@ -39,7 +39,49 @@ MÉTHODE DE CHIFFRAGE (prioritaire sur toute autre consigne de contenu) :
 
 7. Si le total ferme dépasse 5 000 € HT, ajoute dans "suggestions" : « Devis > 5 000 € HT : proposer une étude technique préalable (200 € HT) déductible en cas de signature. »
 
-Format de ligne : {"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","is_optional":false,"option_reason":""}`;
+8. PRÉCISIONS À DEMANDER : s'il manque des informations qui changeraient sensiblement le prix ou le contenu du devis (longueur de câble, type de support, gamme voulue, état de l'existant, accès…), pose TOUTES tes questions en une seule fois dans "questions" (5 au maximum, les plus déterminantes d'abord, une question courte et précise par entrée, jamais une question dont la réponse figure déjà dans la visite). Chiffre quand même le devis avec tes meilleures hypothèses. Si rien d'important ne manque, renvoie "questions": [].
+
+Format de ligne : {"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","is_optional":false,"option_reason":""}
+Ajoute à la réponse : "questions":["..."]`;
+
+// Consigne ajoutée quand l'artisan a répondu aux questions : un seul aller-retour.
+export const ANSWERS_INSTRUCTION = `
+
+PRÉCISIONS REÇUES : l'artisan a répondu à tes questions (bloc « PRÉCISIONS DE L'ARTISAN »). Elles priment sur tes hypothèses : corrige le devis en conséquence et renvoie "questions": [] — aucune nouvelle question.`;
+
+/**
+ * Normalise les réponses de l'artisan : ne garde que les questions répondues.
+ * @param {Array<{question: string, answer: string}>} answers
+ */
+export const answeredPairs = (answers) =>
+    (Array.isArray(answers) ? answers : [])
+        .map((a) => ({ question: String(a?.question ?? '').trim(), answer: String(a?.answer ?? '').trim() }))
+        .filter((a) => a.question && a.answer);
+
+/** Bloc « PRÉCISIONS DE L'ARTISAN » à ajouter au message, vide sans réponse. */
+export const buildAnswersBlock = (answers) => {
+    const pairs = answeredPairs(answers);
+    if (!pairs.length) return '';
+    return 'PRÉCISIONS DE L\'ARTISAN (réponses à tes questions) :\n'
+        + pairs.map((a) => `- ${a.question}\n  → ${a.answer}`).join('\n');
+};
+
+export const MAX_QUESTIONS = 5;
+
+/** Questions renvoyées par le modèle : chaînes non vides, dédoublonnées, plafonnées. */
+export const normalizeQuestions = (raw) => {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set();
+    const out = [];
+    for (const q of raw) {
+        const text = typeof q === 'string' ? q.trim() : typeof q?.question === 'string' ? q.question.trim() : '';
+        if (!text || seen.has(text.toLowerCase())) continue;
+        seen.add(text.toLowerCase());
+        out.push(text);
+        if (out.length === MAX_QUESTIONS) break;
+    }
+    return out;
+};
 
 // Repères de durée propres à l'électricité, tirés de la même skill.
 const ELECTRICIAN_BENCHMARKS = `

@@ -6,7 +6,13 @@ import {
     parseQuoteResponse,
 } from './quoteValidation';
 import { SURVEY_AI_INSTRUCTION } from './surveyText';
-import { buildSiteVisitMethod, buildPriceLibraryPrompt } from './quoteMethod';
+import {
+    buildSiteVisitMethod,
+    buildPriceLibraryPrompt,
+    buildAnswersBlock,
+    normalizeQuestions,
+    ANSWERS_INSTRUCTION,
+} from './quoteMethod';
 
 // Re-exported so callers that already import these from aiService keep working.
 export { toSafeNumber };
@@ -623,8 +629,9 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
  * @param {object} context - Optional context (hourlyRate, instructions,
  *   surveyText: relevé structuré issu de la trame de visite — traité comme
  *   source prioritaire pour les quantités, trade: métier de l'artisan,
- *   priceLibrary: lignes de sa bibliothèque de prix)
- * @returns {Promise<object>} { title, work_object, items, suggestions, estimated_duration, price_range, confidence }
+ *   priceLibrary: lignes de sa bibliothèque de prix, answers: réponses
+ *   [{question, answer}] aux questions d'un premier chiffrage)
+ * @returns {Promise<object>} { title, work_object, items, suggestions, estimated_duration, price_range, confidence, questions }
  */
 export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAnalyses = [], context = {}) => {
     const parts = [];
@@ -639,6 +646,9 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     if (photoAnalyses.length > 0) {
         parts.push('PHOTOS:\n' + photoAnalyses.map((a, i) => `Photo ${i + 1}: ${a}`).join('\n'));
     }
+    // Réponses de l'artisan aux questions du premier chiffrage (un seul aller-retour).
+    const answersBlock = buildAnswersBlock(context.answers);
+    if (answersBlock) parts.push(answersBlock);
     const combined = parts.join('\n\n');
 
     const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
@@ -653,6 +663,7 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     // visite aussi juste qu'un devis chiffré à la main.
     extras += buildSiteVisitMethod(context.trade);
     extras += buildPriceLibraryPrompt(context.priceLibrary, combined);
+    if (answersBlock) extras += ANSWERS_INSTRUCTION;
 
     const userMessage = `VISITE CHANTIER:\n\n${combined}`;
     // Miroir de SITE_VISIT_EXTRAS (supabase/functions/ai-proxy) pour le chemin
@@ -697,6 +708,8 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
         estimated_duration: typeof parsed.estimated_duration === 'string' ? parsed.estimated_duration : null,
         price_range: priceRange,
         confidence,
+        // Précisions demandées à l'artisan — jamais après qu'il a déjà répondu.
+        questions: answersBlock ? [] : normalizeQuestions(parsed.questions),
     };
 };
 
