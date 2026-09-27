@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Upload, X, Wand2, Loader2, Image as ImageIcon, AlertTriangle, ClipboardPaste } from "lucide-react";
+import { X, Wand2, Loader2, Image as ImageIcon, AlertTriangle, ClipboardPaste, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
 import { imageFileToBase64 } from "../utils/mediaConverters";
@@ -58,7 +58,10 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
   const [error, setError] = useState(null);
   const [extracted, setExtracted] = useState(null); // null | array
   const [selected, setSelected] = useState({}); // index → bool
-  const inputRef = useRef(null);
+  // Appareil photo et galerie séparés : avec capture seul, Android ouvre
+  // directement l'appareil sans accès à une photo déjà prise.
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   const applyImageFile = useCallback(
     (f) => {
@@ -220,13 +223,22 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
             <>
               {!previewUrl ? (
                 <div className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400">
-                  <button
-                    onClick={() => inputRef.current?.click()}
-                    className="flex flex-col items-center gap-2 hover:text-amber-700 dark:hover:text-amber-300"
-                  >
-                    <Upload size={28} />
-                    <span className="text-sm font-medium">Choisir ou prendre une photo</span>
-                  </button>
+                  <div className="grid w-full max-w-sm grid-cols-2 gap-2">
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex flex-col items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-4 hover:border-amber-500 hover:text-amber-700 dark:border-slate-600 dark:bg-slate-800 dark:hover:text-amber-300"
+                    >
+                      <Camera size={28} />
+                      <span className="text-sm font-medium">Prendre une photo</span>
+                    </button>
+                    <button
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="flex flex-col items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-4 hover:border-amber-500 hover:text-amber-700 dark:border-slate-600 dark:bg-slate-800 dark:hover:text-amber-300"
+                    >
+                      <ImageIcon size={28} />
+                      <span className="text-sm font-medium">Choisir dans la galerie</span>
+                    </button>
+                  </div>
                   <span className="text-xs text-slate-400 dark:text-slate-500">
                     Cadrez l'ensemble du tableau, étiquettes lisibles
                   </span>
@@ -252,10 +264,16 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button
-                        onClick={() => inputRef.current?.click()}
+                        onClick={() => cameraInputRef.current?.click()}
                         className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                       >
-                        <ImageIcon size={14} /> Changer la photo
+                        <Camera size={14} /> Reprendre
+                      </button>
+                      <button
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                      >
+                        <ImageIcon size={14} /> Galerie
                       </button>
                       <button
                         onClick={pasteFromClipboard}
@@ -285,10 +303,17 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
                 </div>
               )}
               <input
-                ref={inputRef}
+                ref={cameraInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
                 onChange={handleFileChange}
                 className="hidden"
               />

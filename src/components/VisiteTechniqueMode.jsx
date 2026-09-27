@@ -1341,9 +1341,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                     ))}
                                 </div>
                             )}
+                            {/* Sans capture, ce bouton ouvrait la galerie au lieu de l'appareil photo. */}
                             <input
                                 ref={cameraInputRef}
-                                type="file" accept="image/*" multiple
+                                type="file" accept="image/*" capture="environment"
                                 className="hidden"
                                 onChange={e => { handlePhotosSelected(e.target.files); e.target.value = ''; }}
                             />
@@ -1593,7 +1594,6 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                multiple
                 className="hidden"
                 onChange={e => { handleExpressPhotos(e.target.files); e.target.value = ''; }}
             />
