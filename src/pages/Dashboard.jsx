@@ -525,9 +525,9 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
                         onClick={(e) => e.stopPropagation()}
                         title="Naviguer vers l'adresse"
                         aria-label="Naviguer vers l'adresse"
-                        className="absolute bottom-3 right-3 p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        className="absolute top-2 right-2 w-11 h-11 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95 transition-all"
                     >
-                        <Navigation size={14} />
+                        <Navigation size={22} />
                     </a>
                 )}
             </div>
