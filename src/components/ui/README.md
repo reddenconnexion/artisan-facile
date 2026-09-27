@@ -5,7 +5,7 @@ Petite bibliothèque d'UI au style iOS / iPadOS, utilisée dans toute l'app
 les mêmes classes Tailwind partout.
 
 ```js
-import { Card, PageHeader, Button, SegmentedControl, Input, Field } from '../components/ui';
+import { Card, PageHeader, Button, SegmentedControl, Input, Field, EmptyState, LoadingState } from '../components/ui';
 ```
 
 ## Tokens de couleur
@@ -76,6 +76,30 @@ Conteneur de champ : label + indice + erreur.
   <Input type="email" … />
 </Field>
 ```
+
+### `EmptyState`
+État vide de liste. `size="lg"` pour le premier usage (pastille colorée +
+appel à l'action), taille par défaut pour une recherche / un filtre sans
+résultat, `bare` à l'intérieur d'une carte existante.
+```jsx
+<EmptyState size="lg" icon={Users} title="Vous n'avez pas encore de clients"
+  description="Ajoutez votre premier client…"
+  action={{ label: 'Ajouter un client', icon: Plus, onClick: () => navigate('/app/clients/new') }} />
+<EmptyState icon={Search} title="Aucun résultat" />
+```
+
+### `LoadingState`
+Chargement d'une page ou d'une liste (spinner + libellé, `role="status"`).
+```jsx
+if (loading) return <LoadingState className="h-64" />;
+```
+
+## Zones tactiles (44 px)
+
+Sur écran tactile (`pointer: coarse`), toute cible doit faire au moins
+44×44 px. `Button` et `Input` l'appliquent d'office ; pour un `<button>` brut,
+ajoutez l'utilitaire **`tap-target`** (défini dans `src/index.css`) plutôt
+qu'un `min-h-[44px]` au cas par cas. L'affichage souris reste compact.
 
 ## Convention
 

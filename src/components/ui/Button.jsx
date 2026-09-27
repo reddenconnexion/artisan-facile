@@ -4,6 +4,9 @@ import React from 'react';
  * Bouton au style iOS. Variantes : primary (accent système), secondary (gris),
  * plain (texte bleu), danger (rouge). Tailles : sm | md | lg.
  *
+ * Sur écran tactile, toutes les tailles garantissent une zone de 44×44 px
+ * (utilitaire `tap-target`) — inutile d'ajouter min-h-[44px] au cas par cas.
+ *
  * Usage : <Button onClick={…}>Enregistrer</Button>
  *         <Button variant="secondary" size="sm">Annuler</Button>
  */
@@ -25,7 +28,7 @@ const Button = React.forwardRef(
   ({ variant = 'primary', size = 'md', className = '', children, ...props }, ref) => (
     <button
       ref={ref}
-      className={`inline-flex items-center justify-center gap-2 font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${
+      className={`tap-target inline-flex items-center justify-center gap-2 font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${
         VARIANTS[variant] || VARIANTS.primary
       } ${SIZES[size] || SIZES.md} ${className}`}
       {...props}
