@@ -9,6 +9,7 @@ import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { EmptyState, LoadingState } from '../components/ui';
 
 const STATUS_CONFIG = {
     pending:     { label: 'En attente',     icon: Clock,        color: 'text-gray-400',  bg: 'bg-gray-50' },
@@ -310,19 +311,15 @@ const VoiceMemos = () => {
 
             {/* Memo list */}
             {loading ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 size={24} className="animate-spin text-blue-400" />
-                </div>
+                <LoadingState />
             ) : filteredMemos.length === 0 ? (
-                <div className="text-center py-12">
-                    <Mic size={40} className="mx-auto text-gray-200 mb-3" />
-                    <p className="text-gray-400 text-sm">
-                        {filter === 'all'
-                            ? 'Aucun mémo vocal encore. Appuyez sur le bouton micro pour commencer !'
-                            : 'Aucun mémo dans cette catégorie.'
-                        }
-                    </p>
-                </div>
+                <EmptyState
+                    icon={Mic}
+                    title={filter === 'all'
+                        ? 'Aucun mémo vocal encore. Appuyez sur le bouton micro pour commencer !'
+                        : 'Aucun mémo dans cette catégorie.'
+                    }
+                />
             ) : (
                 <div className="space-y-3">
                     {filteredMemos.map(memo => (
