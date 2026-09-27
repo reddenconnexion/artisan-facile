@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
+import { EmptyState, LoadingState } from '../components/ui';
 import { toast } from 'sonner';
 import { format, isPast, addDays, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -166,34 +167,23 @@ const Rentals = () => {
             {/* List */}
             <div className="grid gap-4">
                 {loading ? (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">Chargement...</div>
+                    <LoadingState />
                 ) : filteredRentals.length === 0 ? (
                     rentals.length === 0 ? (
-                        <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 px-6 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
-                                <Truck className="h-10 w-10 text-blue-400" />
-                            </div>
-                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Aucune location enregistrée</h3>
-                            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                                Suivez vos locations de matériel (échafaudages, nacelles, outillage) avec dates, coûts et fournisseur.
-                            </p>
-                            <button
-                                onClick={() => setShowModal(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Ajouter une location
-                            </button>
-                        </div>
+                        <EmptyState
+                            size="lg"
+                            icon={Truck}
+                            title="Aucune location enregistrée"
+                            description="Suivez vos locations de matériel (échafaudages, nacelles, outillage) avec dates, coûts et fournisseur."
+                            action={{ label: 'Ajouter une location', icon: Plus, onClick: () => setShowModal(true) }}
+                        />
                     ) : (
-                        <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                            <Truck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                            <p className="text-gray-500 dark:text-gray-400">
-                                {filter === 'active' ? 'Aucune location en cours.' :
-                                    filter === 'returned' ? 'Aucune location terminée.' :
-                                    'Aucune location dans cette catégorie.'}
-                            </p>
-                        </div>
+                        <EmptyState
+                            icon={Truck}
+                            title={filter === 'active' ? 'Aucune location en cours.' :
+                                filter === 'returned' ? 'Aucune location terminée.' :
+                                'Aucune location dans cette catégorie.'}
+                        />
                     )
                 ) : (
                     filteredRentals.map((rental) => {

@@ -11,6 +11,17 @@
   --color-ios-dark: #0a84ff;
 }
 
+/* ─── Zones tactiles ─────────────────────────────────────── */
+/* Cible de 44×44 px minimum (recommandation Apple / WCAG 2.5.5) sur les
+   écrans tactiles uniquement : l'affichage souris/trackpad reste compact.
+   Déjà appliqué par Button et Input ; à poser sur les <button> bruts. */
+@utility tap-target {
+  @media (pointer: coarse) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* ─── Design system iOS — classes réutilisables ─────────── */
 @layer components {
   /* Carte « inset grouped » iOS : fond, coins arrondis, bordure fine */

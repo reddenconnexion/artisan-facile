@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
-import { Button } from '../components/ui';
+import { Button, EmptyState, LoadingState } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -91,7 +91,7 @@ const Clients = () => {
     const { visibleItems: visibleClients, hasMore, hiddenCount, loadMore, showAll } = useProgressiveList(filteredClients, { pageSize: 100 });
 
     if (loading) {
-        return <div className="flex justify-center items-center h-64">Chargement...</div>;
+        return <LoadingState className="h-64" />;
     }
 
     const ClientListItem = ({ client }) => {
@@ -323,35 +323,20 @@ const Clients = () => {
             {filteredClients.length === 0 && (
                 clients.length === 0 ? (
                     /* État vide réel — aucun client en base */
-                    <div className="text-center py-16">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
-                            <Users className="h-10 w-10 text-blue-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            Vous n'avez pas encore de clients
-                        </h3>
-                        <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-xs mx-auto">
-                            Ajoutez votre premier client pour lui créer un devis professionnel en 2 minutes.
-                        </p>
-                        <button
-                            onClick={() => navigate('/app/clients/new')}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-ios text-white font-semibold rounded-lg hover:bg-ios-dark transition-colors shadow-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Ajouter mon premier client
-                        </button>
-                    </div>
+                    <EmptyState
+                        size="lg"
+                        icon={Users}
+                        title="Vous n'avez pas encore de clients"
+                        description="Ajoutez votre premier client pour lui créer un devis professionnel en 2 minutes."
+                        action={{ label: 'Ajouter mon premier client', icon: Plus, onClick: () => navigate('/app/clients/new') }}
+                    />
                 ) : (
                     /* Aucun résultat pour la recherche */
-                    <div className="text-center py-12">
-                        <div className="bg-gray-50 dark:bg-gray-800 dark:bg-gray-800/50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-                            <Search className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aucun résultat</h3>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">
-                            Aucun client ne correspond à "<span className="font-medium">{searchTerm}</span>".
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={Search}
+                        title="Aucun résultat"
+                        description={<>Aucun client ne correspond à "<span className="font-medium">{searchTerm}</span>".</>}
+                    />
                 )
             )}
         </div >

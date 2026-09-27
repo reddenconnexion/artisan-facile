@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, Loader2, ArrowRight, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, ArrowRight, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConfirm } from '../context/ConfirmContext';
+import { EmptyState, LoadingState } from '../components/ui';
 
 /**
  * Portfolio Page
@@ -145,11 +146,7 @@ const Portfolio = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            </div>
-        );
+        return <LoadingState className="min-h-[50vh]" />;
     }
 
     return (
@@ -167,19 +164,19 @@ const Portfolio = () => {
 
             {/* Gallery Grid */}
             {montages.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-                    <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aucun montage pour le moment</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">
-                        Créez des montages "Avant / Après" depuis la section Photos d'un client pour garnir votre portfolio.
-                    </p>
+                <EmptyState
+                    size="lg"
+                    icon={ImageIcon}
+                    title="Aucun montage pour le moment"
+                    description={'Créez des montages "Avant / Après" depuis la section Photos d\'un client pour garnir votre portfolio.'}
+                >
                     <Link
                         to="/app/clients"
-                        className="mt-6 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         Aller vers Clients <ArrowRight className="w-4 h-4 ml-2" />
                     </Link>
-                </div>
+                </EmptyState>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {montages.map((item) => {

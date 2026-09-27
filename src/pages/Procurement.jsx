@@ -10,7 +10,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useProcurementItems } from '../hooks/useDataCache';
-import { Button } from '../components/ui';
+import { Button, EmptyState, LoadingState } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 import { groupMaterialsMargin } from '../utils/realizedMargin';
 import ReplaceProcurementModal from '../components/ReplaceProcurementModal';
@@ -504,15 +504,12 @@ const Procurement = () => {
 
             {/* List */}
             {loading ? (
-                <div className="flex justify-center py-16">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                </div>
+                <LoadingState className="py-16" />
             ) : filtered.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center">
-                    <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">
-                        Aucun article {statusFilter === 'pending' ? 'à commander' : statusFilter === 'ordered' ? 'en cours de livraison' : 'reçu'} pour le moment.
-                    </p>
+                <EmptyState
+                    icon={ShoppingCart}
+                    title={`Aucun article ${statusFilter === 'pending' ? 'à commander' : statusFilter === 'ordered' ? 'en cours de livraison' : 'reçu'} pour le moment.`}
+                >
                     {statusFilter === 'pending' && (
                         <Link
                             to="/terrain"
@@ -521,7 +518,7 @@ const Procurement = () => {
                             Ajouter depuis le terrain <ExternalLink className="w-3.5 h-3.5" />
                         </Link>
                     )}
-                </div>
+                </EmptyState>
             ) : (
                 <div className="space-y-4">
                     {groupedBySite.map(({ key, label, quoteId, items: list }) => {
