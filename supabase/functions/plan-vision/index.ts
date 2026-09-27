@@ -85,6 +85,9 @@ Deno.serve(async (req) => {
     // Détermine la source de la clé API
     const hasUserKey = !!userApiKey;
     const serverAnthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+    // Même clé serveur que ai-proxy : sert de repli quand la clé Anthropic
+    // n'est pas configurée sur le projet.
+    const serverGeminiKey = Deno.env.get('GEMINI_API_KEY');
 
     if (!hasUserKey && !isPro) {
       return new Response(
@@ -93,7 +96,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!hasUserKey && isPro && !serverAnthropicKey) {
+    if (!hasUserKey && isPro && !serverAnthropicKey && !serverGeminiKey) {
       return new Response(
         JSON.stringify({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -112,9 +115,12 @@ Deno.serve(async (req) => {
     const safeMediaType = (mediaType && mediaType.startsWith('image/')) ? mediaType : 'image/jpeg';
     let text: string;
 
-    if (hasUserKey && provider === 'gemini') {
-      // Gemini Vision
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
+    const useServerGemini = !hasUserKey && !serverAnthropicKey;
+
+    if ((hasUserKey && provider === 'gemini') || useServerGemini) {
+      // Gemini Vision (clé perso, ou clé serveur en repli)
+      const geminiKey = hasUserKey ? userApiKey : serverGeminiKey;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
       const response = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
