@@ -7,6 +7,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// La passerelle Supabase coupe la requête à 150 s : au-delà, le client reçoit
+// une erreur générique sans explication. On abandonne l'appel IA avant pour
+// renvoyer un message clair.
+const AI_TIMEOUT_MS = 120_000;
+
+class AiTimeoutError extends Error {}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new AiTimeoutError("L'analyse IA a pris trop de temps. Réessayez avec une photo plus nette ou mieux cadrée.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -63,6 +85,9 @@ Deno.serve(async (req) => {
     // Détermine la source de la clé API
     const hasUserKey = !!userApiKey;
     const serverAnthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+    // Même clé serveur que ai-proxy : sert de repli quand la clé Anthropic
+    // n'est pas configurée sur le projet.
+    const serverGeminiKey = Deno.env.get('GEMINI_API_KEY');
 
     if (!hasUserKey && !isPro) {
       return new Response(
@@ -71,7 +96,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!hasUserKey && isPro && !serverAnthropicKey) {
+    if (!hasUserKey && isPro && !serverAnthropicKey && !serverGeminiKey) {
       return new Response(
         JSON.stringify({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,10 +115,13 @@ Deno.serve(async (req) => {
     const safeMediaType = (mediaType && mediaType.startsWith('image/')) ? mediaType : 'image/jpeg';
     let text: string;
 
-    if (hasUserKey && provider === 'gemini') {
-      // Gemini Vision
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userApiKey}`;
-      const response = await fetch(url, {
+    const useServerGemini = !hasUserKey && !serverAnthropicKey;
+
+    if ((hasUserKey && provider === 'gemini') || useServerGemini) {
+      // Gemini Vision (clé perso, ou clé serveur en repli)
+      const geminiKey = hasUserKey ? userApiKey : serverGeminiKey;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const response = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,7 +148,7 @@ Deno.serve(async (req) => {
 
     } else if (hasUserKey && provider === 'openai') {
       // OpenAI Vision (gpt-4o)
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +181,7 @@ Deno.serve(async (req) => {
 
     } else {
       // Anthropic (clé serveur, utilisateurs Pro sans clé personnelle)
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,6 +191,10 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: 'claude-opus-5',
           max_tokens: 8192,
+          // Effort par défaut (high) : la réflexion dépassait le délai de la
+          // passerelle (150 s) sur les photos de tableau. Lire / décrire une
+          // photo n'a pas besoin d'une réflexion longue.
+          output_config: { effort: 'low' },
           system: systemPrompt,
           messages: [{
             role: 'user',
@@ -183,7 +215,15 @@ Deno.serve(async (req) => {
       }
 
       const data = await response.json();
+      if (data.stop_reason === 'refusal') {
+        throw new Error("L'IA a refusé d'analyser cette image. Essayez avec une autre photo.");
+      }
       text = data.content?.find((b: { type: string; text?: string }) => b.type === 'text')?.text || '';
+      if (!text) {
+        throw new Error(data.stop_reason === 'max_tokens'
+          ? "Réponse de l'IA tronquée. Réessayez avec une photo recadrée sur une partie du tableau."
+          : 'Réponse Anthropic vide');
+      }
     }
 
     return new Response(
@@ -194,7 +234,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: error instanceof AiTimeoutError ? 504 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
