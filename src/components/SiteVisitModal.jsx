@@ -8,7 +8,9 @@ import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import { useUserProfile } from '../hooks/useDataCache';
+import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
+import { answeredPairs } from '../utils/quoteMethod';
+import VisitQuestionsCard from './VisitQuestionsCard';
 import { generateQuoteFromSiteVisit } from '../utils/aiService';
 import { blobToBase64, imageFileToBase64 } from '../utils/mediaConverters';
 import {
@@ -26,12 +28,16 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
     const navigate = useNavigate();
     const { user } = useAuth();
     const { data: profile } = useUserProfile();
+    const { data: priceLibrary } = usePriceLibrary();
 
     const [step, setStep] = useState(1); // 1=capture, 2=processing, 3=preview
     const [voiceNotes, setVoiceNotes] = useState([]); // [{id, blob, mimeType, duration}]
     const [photos, setPhotos] = useState([]);          // [{id, file, preview, mediaType}]
     const [activePhase, setActivePhase] = useState(null); // null|'voice'|'photos'|'quote'|'done'
     const [result, setResult] = useState(null);
+    // Entrées du dernier chiffrage, réutilisées pour l'affinage (voir handleRefine).
+    const quoteInputsRef = useRef(null);
+    const [refining, setRefining] = useState(false);
     const [error, setError] = useState(null);
     const [savedReportId, setSavedReportId] = useState(null);
 
@@ -126,8 +132,11 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
                 hourlyRate: profile?.ai_hourly_rate || '',
                 instructions: profile?.ai_instructions || '',
                 customSystemPrompt: profile?.ai_preferences?.quote_system_prompt || profile?.quote_system_prompt || '',
+                trade: profile?.trade || '',
+                priceLibrary: priceLibrary || [],
             };
             const quoteResult = await generateQuoteFromSiteVisit(transcripts, photoAnalyses, context);
+            quoteInputsRef.current = { transcripts, photoAnalyses, context };
 
             setActivePhase('done');
             setResult(quoteResult);
@@ -165,6 +174,38 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
             setError(err.message || "Erreur lors de l'analyse. Veuillez réessayer.");
             setStep(1);
             setActivePhase(null);
+        }
+    };
+
+    // Second et dernier passage : recalcul avec les réponses de l'artisan.
+    const handleRefine = async (answers) => {
+        const inputs = quoteInputsRef.current;
+        if (!inputs) return;
+        setRefining(true);
+        try {
+            const refined = await generateQuoteFromSiteVisit(inputs.transcripts, inputs.photoAnalyses, { ...inputs.context, answers });
+            setResult(refined);
+            toast.success('Devis affiné avec vos précisions');
+            if (user && savedReportId) {
+                await supabase.from('intervention_reports')
+                    .update({
+                        title: refined.title,
+                        notes: JSON.stringify({
+                            suggestions: refined.suggestions,
+                            price_range: refined.price_range,
+                            estimated_duration: refined.estimated_duration,
+                            confidence: refined.confidence,
+                            precisions: answeredPairs(answers),
+                        }),
+                        materials_used: refined.items,
+                    })
+                    .eq('id', savedReportId);
+            }
+        } catch (err) {
+            console.error('Refine error:', err);
+            toast.error(err.message || "Impossible d'affiner le devis. Réessayez.");
+        } finally {
+            setRefining(false);
         }
     };
 
@@ -208,7 +249,8 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
 
     // ── Derived values ─────────────────────────────────────────────────────
 
-    const totalHT = result?.items?.reduce(
+    // Les options (conseil hors total) ne comptent pas dans le total estimé.
+    const totalHT = result?.items?.filter((item) => !item.is_optional).reduce(
         (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0
     ) || 0;
 
@@ -514,7 +556,13 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
                                         <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.type === 'material' ? 'bg-orange-400' : 'bg-blue-400'}`} />
-                                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{item.description}</span>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                                        {item.is_optional && <span className="mr-1.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-semibold uppercase">Option</span>}
+                                                        {item.description}
+                                                    </p>
+                                                    {item.option_reason && <p className="text-xs text-gray-400 truncate">{item.option_reason}</p>}
+                                                </div>
                                             </div>
                                             <span className="text-sm font-medium text-gray-900 dark:text-white flex-shrink-0 tabular-nums">
                                                 {fmtEur((parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1))}
@@ -523,6 +571,8 @@ const SiteVisitModal = ({ isOpen, onClose, clientId = null, clientName = null })
                                     ))}
                                 </div>
                             </div>
+
+                            <VisitQuestionsCard questions={result.questions} onSubmit={handleRefine} loading={refining} />
 
                             {/* Suggestions */}
                             {result.suggestions?.length > 0 && (
