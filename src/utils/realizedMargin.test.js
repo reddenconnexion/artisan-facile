@@ -3,6 +3,7 @@ import {
     procurementCostByQuote,
     spentHoursByQuote,
     realizedQuoteMargin,
+    chantierRealizedMargin,
     groupMaterialsMargin,
     realizedNetAdjustment,
     isPartialScopeDoc,
@@ -190,6 +191,56 @@ describe('realizedNetAdjustment', () => {
         const a = realizedNetAdjustment(entries, costByQuote);
         expect(a.realMaterialCost).toBe(150);
         expect(a.coveredCount).toBe(2);
+    });
+});
+
+describe('chantierRealizedMargin', () => {
+    // Reprend l'exemple chiffré de docs/analyse-marge-avenants.md (§3.2) :
+    // chantier initial 10 000 € HT / 4 000 € de matériel réel / 40 h pointées,
+    // avenant 800 € HT sans achat ni pointage propres. Confronté seul à seul
+    // (l'ancien comportement), l'avenant affichait -550 % ; consolidé au
+    // niveau du chantier, la marge redevient normale.
+    const root = {
+        id: 1,
+        total_ht: 10000,
+        items: [{ type: 'material', quantity: 1, price: 10000, buying_price: 4000 }],
+    };
+    const amendment = {
+        id: 2,
+        total_ht: 800,
+        items: [{ type: 'material', quantity: 1, price: 800, buying_price: 0 }],
+    };
+
+    it('additionne le CA de tous les documents et déduplique les coûts réels du parent', () => {
+        const procurementCosts = new Map([[1, { cost: 4000, pricedCount: 1, totalCount: 1 }]]);
+        const spentHoursMap = new Map([[1, 40]]);
+        const cr = chantierRealizedMargin([root, amendment], procurementCosts, spentHoursMap, 30);
+
+        expect(cr.revenue).toBe(10800);              // 10000 + 800
+        expect(cr.materialCost).toBe(4000);           // coût réel du parent, compté une fois
+        expect(cr.laborCost).toBe(1200);              // 40 h × 30 €
+        expect(cr.cost).toBe(5200);
+        expect(cr.margin).toBeCloseTo((10800 - 5200) / 10800, 6); // ≈ 51.9 %, pas -550 %
+        expect(cr.docCount).toBe(2);
+    });
+
+    it('null quand rien n\'est réalisé sur le chantier (aucun achat, aucun pointage)', () => {
+        expect(chantierRealizedMargin([root, amendment], new Map(), new Map(), 30)).toBeNull();
+    });
+
+    it('additionne aussi les coûts propres d\'un avenant qui a ses propres achats', () => {
+        const procurementCosts = new Map([
+            [1, { cost: 4000, pricedCount: 1, totalCount: 1 }],
+            [2, { cost: 300, pricedCount: 1, totalCount: 1 }],
+        ]);
+        const cr = chantierRealizedMargin([root, amendment], procurementCosts, new Map(), 0);
+        expect(cr.materialCost).toBe(4300); // 4000 (parent) + 300 (avenant), sans double comptage
+        expect(cr.revenue).toBe(10800);
+    });
+
+    it('tolère une liste vide ou invalide', () => {
+        expect(chantierRealizedMargin([], new Map(), new Map(), 30)).toBeNull();
+        expect(chantierRealizedMargin(null, new Map(), new Map(), 30)).toBeNull();
     });
 });
 
