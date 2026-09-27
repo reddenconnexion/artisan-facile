@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import {
     getDueFollowUps,
@@ -30,6 +31,7 @@ const FollowUps = ({ embedded = false }) => {
     const { isTestMode, captureEmail } = useTestMode();
     const { data: profile } = useUserProfile();
     const navigate = useNavigate();
+    const confirm = useConfirm();
     const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
     const [availableSteps, setAvailableSteps] = useState([]);
@@ -138,9 +140,11 @@ const FollowUps = ({ embedded = false }) => {
         const labels = quotes.length > 1
             ? `${quotes.length} devis`
             : `le devis "${quotes[0].title || 'sans titre'}"`;
-        const confirmed = window.confirm(
-            `Archiver ${labels} ? Le devis disparaîtra du tableau de bord et du centre de relance, mais restera consultable et restaurable dans l'onglet Archives.`
-        );
+        const confirmed = await confirm({
+            title: `Archiver ${labels} ?`,
+            message: "Le devis disparaîtra du tableau de bord et du centre de relance, mais restera consultable et restaurable dans l'onglet Archives.",
+            confirmLabel: 'Archiver',
+        });
         if (!confirmed) return;
         try {
             await Promise.all(quotes.map(q => archiveQuote(q.id, user.id)));

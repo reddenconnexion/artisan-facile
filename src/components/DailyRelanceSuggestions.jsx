@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile, useInvalidateCache } from '../hooks/useDataCache';
 import {
     getDueFollowUps,
@@ -50,6 +51,7 @@ const DailyRelanceSuggestions = () => {
     const { data: profile } = useUserProfile();
     const { invalidateQuotes } = useInvalidateCache();
     const navigate = useNavigate();
+    const confirm = useConfirm();
 
     const [loading, setLoading] = useState(true);
     const [dueQuotes, setDueQuotes] = useState([]);
@@ -201,7 +203,8 @@ const DailyRelanceSuggestions = () => {
         const label = quotes.length > 1
             ? `${quotes.length} devis seront archivés et ne seront plus relancés. Continuer ?`
             : 'Ce devis sera archivé et ne sera plus relancé. Continuer ?';
-        if (!window.confirm(label)) return;
+        const ok = await confirm({ title: 'Archiver ?', message: label, confirmLabel: 'Archiver' });
+        if (!ok) return;
 
         setArchiving(prev => ({ ...prev, [key]: true }));
         try {
