@@ -4,7 +4,7 @@ import {
     ClipboardList, Save, ArrowLeft, Plus, Trash2, FileDown,
     PenLine, Clock, MapPin, User, Wrench, Package, StickyNote,
     CheckCircle, Camera, X, Mail, Send, Mic, MicOff, Loader2, Sparkles,
-    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag, Star
+    ExternalLink, FileCheck, FilePlus, TrendingUp, AlertCircle, Flag, Star, Images
 } from 'lucide-react';
 import { Input, Field } from '../components/ui';
 import { validateFileForUpload, validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -1768,30 +1768,39 @@ const InterventionReportForm = () => {
                         <Camera className="w-5 h-5 text-blue-500" />
                         Photos de l'intervention
                     </h2>
-                    <label className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium
-                        ${uploadingPhotos
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}>
-                        {uploadingPhotos
-                            ? <><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> Upload...</>
-                            : <><Camera className="w-4 h-4" /> Ajouter des photos</>}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            disabled={uploadingPhotos}
-                            onChange={handlePhotoUpload}
-                        />
-                    </label>
+                    {uploadingPhotos ? (
+                        <span className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-medium bg-gray-100 dark:bg-gray-700 text-gray-400">
+                            <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> Upload...
+                        </span>
+                    ) : (
+                        // Appareil photo et galerie séparés : un seul input ne
+                        // permet pas les deux de façon fiable sur mobile.
+                        <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                                <Camera className="w-4 h-4" /> Photo
+                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                            </label>
+                            <label className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                                <Images className="w-4 h-4" /> Galerie
+                                <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                            </label>
+                        </div>
+                    )}
                 </div>
 
                 {(formData.photos || []).length === 0 ? (
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                        <Camera className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
-                        <span className="text-sm text-gray-400 dark:text-gray-500">Cliquez pour ajouter des photos</span>
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
-                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                            <Camera className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
+                            <span className="text-sm text-gray-400 dark:text-gray-500">Prendre une photo</span>
+                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                        </label>
+                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                            <Images className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
+                            <span className="text-sm text-gray-400 dark:text-gray-500">Choisir dans la galerie</span>
+                            <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                        </label>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {(formData.photos || []).map((photo, idx) => (
