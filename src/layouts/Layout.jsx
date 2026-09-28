@@ -406,6 +406,140 @@ const Layout = () => {
   // Couleur d'accent système iOS
   const IOS_BLUE = '#007AFF';
 
+  // Entrées secondaires (avis, retours, pilotage admin) regroupées dans un seul
+  // menu repliable sous « Mode terrain » pour alléger la barre latérale.
+  const admin = isAdmin(user);
+  const secondaryGroup = {
+    name: 'Retours & suivi',
+    icon: MessageSquare,
+    badge: admin ? newFeedbackCount : 0,
+    children: [
+      { name: 'Donner mon avis', icon: MessageSquarePlus, onClick: () => setShowFeedback(true), title: 'Signaler un bug ou proposer une amélioration' },
+      { name: 'Mes retours', href: '/app/mes-retours', icon: MessageSquare, title: 'Vos retours envoyés et nos réponses' },
+      ...(admin ? [
+        { name: 'Statistiques', href: '/app/admin', exact: true, icon: BarChart3, title: "Statistiques plateforme — qui utilise l'application" },
+        { name: 'Retours artisans', href: '/app/admin/feedback', icon: MessageSquarePlus, badge: newFeedbackCount, title: 'Retours envoyés par les artisans' },
+        { name: 'Rapports hebdo', href: '/app/admin/reports', icon: LineChart, title: 'Synthèse hebdomadaire des retours artisans' },
+      ] : []),
+    ],
+  };
+
+  // Rendu d'une entrée de la barre latérale : lien simple ou groupe repliable.
+  // Un enfant peut être un lien (href) ou une action (onClick), avec badge.
+  const renderNavGroup = (group) => {
+    const hasChildren = !!group.children;
+
+    if (!hasChildren) {
+      const isActive = group.href === '/app'
+        ? location.pathname === '/app'
+        : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
+      return (
+        <Link
+          key={group.name}
+          to={group.href}
+          title={group.name}
+          className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
+            isActive
+              ? 'bg-[#007AFF] text-white shadow-sm'
+              : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+          }`}
+        >
+          <group.icon
+            className="w-[22px] h-[22px] flex-shrink-0"
+            style={{ color: isActive ? '#fff' : IOS_BLUE }}
+          />
+          <span className={`flex-1 ${railCollapsed ? 'md:hidden' : ''}`}>{group.name}</span>
+        </Link>
+      );
+    }
+
+    const isChildActive = (child) => !!child.href && (
+      location.pathname === child.href ||
+      (!child.exact && location.pathname.startsWith(child.href + '/'))
+    );
+    const groupActive = group.children.some(isChildActive);
+    const groupHovered = hoveredGroup === group.name;
+    const groupExpanded = isHoverDevice
+      ? (groupActive || groupHovered)
+      : (groupActive || (expandedGroups[group.name] ?? false));
+    const badgeCount = group.name === 'Devis & Factures' ? pendingCount : (group.badge || 0);
+    const showBadge = badgeCount > 0;
+
+    return (
+      <div
+        key={group.name}
+        onMouseEnter={() => handleGroupEnter(group.name)}
+        onMouseLeave={handleGroupLeave}
+      >
+        <button
+          onClick={() => { if (!isHoverDevice) toggleGroup(group.name); }}
+          title={group.name}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
+            groupActive
+              ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]'
+              : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
+          }`}
+        >
+          <span className="relative flex-shrink-0">
+            <group.icon
+              className="w-[22px] h-[22px]"
+              style={{ color: IOS_BLUE }}
+            />
+            {/* Pastille de rappel quand le menu est réduit : le badge
+                textuel étant masqué, on garde un point rouge visible. */}
+            {showBadge && railCollapsed && (
+              <span className="hidden md:block absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
+            )}
+          </span>
+          <span className={`flex-1 text-left flex items-center gap-2 ${railCollapsed ? 'md:hidden' : ''}`}>
+            {group.name}
+            {showBadge && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {badgeCount > 9 ? '9+' : badgeCount}
+              </span>
+            )}
+          </span>
+          {groupExpanded
+            ? <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
+            : <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
+          }
+        </button>
+        {groupExpanded && (
+          <div className={`mt-0.5 mb-1 space-y-0.5 pl-[2.35rem] pr-1 ${railCollapsed ? 'md:hidden' : ''}`}>
+            {group.children.map(child => {
+              const childActive = isChildActive(child);
+              const isReceivedInvoices = child.href === '/app/received-invoices';
+              const childBadge = isReceivedInvoices ? newReceivedCount : (child.badge || 0);
+              const ChildTag = child.onClick ? 'button' : Link;
+              const tagProps = child.onClick
+                ? { type: 'button', onClick: child.onClick, title: child.title }
+                : { to: child.href, title: child.title };
+              return (
+                <ChildTag
+                  key={child.name}
+                  {...tagProps}
+                  className={`flex items-center gap-2.5 w-full text-left px-3 py-2 text-[14px] rounded-lg transition-colors whitespace-nowrap ${
+                    childActive
+                      ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF] font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <child.icon className="w-4 h-4 flex-shrink-0" style={{ color: childActive ? IOS_BLUE : undefined }} />
+                  <span className="flex-1">{child.name}</span>
+                  {childBadge > 0 && (
+                    <span className="ml-1.5 bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {childBadge > 9 ? '9+' : childBadge}
+                    </span>
+                  )}
+                </ChildTag>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <ConfirmProvider>
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-black overflow-hidden transition-colors duration-200">
@@ -549,112 +683,7 @@ const Layout = () => {
 
           {/* Liste de navigation */}
           <nav className="flex-1 px-3 space-y-0.5 mt-1 overflow-y-auto">
-            {navigationGroups.map((group) => {
-              const hasChildren = !!group.children;
-
-              if (!hasChildren) {
-                const isActive = group.href === '/app'
-                  ? location.pathname === '/app'
-                  : location.pathname === group.href || location.pathname.startsWith(group.href + '/');
-                return (
-                  <Link
-                    key={group.name}
-                    to={group.href}
-                    title={group.name}
-                    className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                      isActive
-                        ? 'bg-[#007AFF] text-white shadow-sm'
-                        : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <group.icon
-                      className="w-[22px] h-[22px] flex-shrink-0"
-                      style={{ color: isActive ? '#fff' : IOS_BLUE }}
-                    />
-                    <span className={`flex-1 ${railCollapsed ? 'md:hidden' : ''}`}>{group.name}</span>
-                  </Link>
-                );
-              }
-
-              const groupActive = group.children.some(child =>
-                location.pathname === child.href || location.pathname.startsWith(child.href + '/')
-              );
-              const groupHovered = hoveredGroup === group.name;
-              const groupExpanded = isHoverDevice
-                ? (groupActive || groupHovered)
-                : (groupActive || (expandedGroups[group.name] ?? false));
-              const showBadge = group.name === 'Devis & Factures' && pendingCount > 0;
-
-              return (
-                <div
-                  key={group.name}
-                  onMouseEnter={() => handleGroupEnter(group.name)}
-                  onMouseLeave={handleGroupLeave}
-                >
-                  <button
-                    onClick={() => { if (!isHoverDevice) toggleGroup(group.name); }}
-                    title={group.name}
-                    className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                      groupActive
-                        ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]'
-                        : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="relative flex-shrink-0">
-                      <group.icon
-                        className="w-[22px] h-[22px]"
-                        style={{ color: IOS_BLUE }}
-                      />
-                      {/* Pastille de rappel quand le menu est réduit : le badge
-                          textuel étant masqué, on garde un point rouge visible. */}
-                      {showBadge && railCollapsed && (
-                        <span className="hidden md:block absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
-                      )}
-                    </span>
-                    <span className={`flex-1 text-left flex items-center gap-2 ${railCollapsed ? 'md:hidden' : ''}`}>
-                      {group.name}
-                      {showBadge && (
-                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                          {pendingCount > 9 ? '9+' : pendingCount}
-                        </span>
-                      )}
-                    </span>
-                    {groupExpanded
-                      ? <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
-                      : <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
-                    }
-                  </button>
-                  {groupExpanded && (
-                    <div className={`mt-0.5 mb-1 space-y-0.5 pl-[2.35rem] pr-1 ${railCollapsed ? 'md:hidden' : ''}`}>
-                      {group.children.map(child => {
-                        const childActive = location.pathname === child.href || location.pathname.startsWith(child.href + '/');
-                        const isReceivedInvoices = child.href === '/app/received-invoices';
-                        const childBadge = isReceivedInvoices && newReceivedCount > 0 ? newReceivedCount : 0;
-                        return (
-                          <Link
-                            key={child.name}
-                            to={child.href}
-                            className={`flex items-center gap-2.5 px-3 py-2 text-[14px] rounded-lg transition-colors whitespace-nowrap ${
-                              childActive
-                                ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF] font-semibold'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'
-                            }`}
-                          >
-                            <child.icon className="w-4 h-4 flex-shrink-0" style={{ color: childActive ? IOS_BLUE : undefined }} />
-                            <span className="flex-1">{child.name}</span>
-                            {childBadge > 0 && (
-                              <span className="ml-1.5 bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {childBadge > 9 ? '9+' : childBadge}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {navigationGroups.map(renderNavGroup)}
 
             {/* Mode terrain — entrée rapide */}
             <button
@@ -666,98 +695,7 @@ const Layout = () => {
               <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Mode terrain</span>
             </button>
 
-            {/* Donner mon avis — collecte des retours d'utilisation */}
-            <button
-              onClick={() => setShowFeedback(true)}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''}`}
-              title="Signaler un bug ou proposer une amélioration"
-            >
-              <MessageSquarePlus className="w-[22px] h-[22px] flex-shrink-0 text-emerald-500" />
-              <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Donner mon avis</span>
-            </button>
-
-            {/* Mes retours — l'artisan y retrouve ses avis envoyés et nos réponses */}
-            <Link
-              to="/app/mes-retours"
-              className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                location.pathname.startsWith('/app/mes-retours')
-                  ? 'bg-[#007AFF] text-white shadow-sm'
-                  : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-              }`}
-              title="Vos retours envoyés et nos réponses"
-            >
-              <MessageSquare
-                className="w-[22px] h-[22px] flex-shrink-0"
-                style={{ color: location.pathname.startsWith('/app/mes-retours') ? '#fff' : IOS_BLUE }}
-              />
-              <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Mes retours</span>
-            </Link>
-
-            {/* Statistiques plateforme — réservé à l'administrateur */}
-            {isAdmin(user) && (
-              <Link
-                to="/app/admin"
-                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                  location.pathname === '/app/admin'
-                    ? 'bg-[#007AFF] text-white shadow-sm'
-                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
-                title="Statistiques plateforme — qui utilise l'application"
-              >
-                <BarChart3
-                  className="w-[22px] h-[22px] flex-shrink-0"
-                  style={{ color: location.pathname === '/app/admin' ? '#fff' : IOS_BLUE }}
-                />
-                <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Statistiques</span>
-              </Link>
-            )}
-
-            {/* Retours des artisans — réservé à l'administrateur */}
-            {isAdmin(user) && (
-              <Link
-                to="/app/admin/feedback"
-                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                  location.pathname.startsWith('/app/admin/feedback')
-                    ? 'bg-[#007AFF] text-white shadow-sm'
-                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
-                title="Retours envoyés par les artisans"
-              >
-                <MessageSquarePlus
-                  className="w-[22px] h-[22px] flex-shrink-0"
-                  style={{ color: location.pathname.startsWith('/app/admin/feedback') ? '#fff' : IOS_BLUE }}
-                />
-                <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Retours artisans</span>
-                {newFeedbackCount > 0 && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${railCollapsed ? 'md:hidden' : ''} ${
-                    location.pathname.startsWith('/app/admin/feedback')
-                      ? 'bg-white text-[#007AFF]'
-                      : 'bg-red-500 text-white'
-                  }`}>
-                    {newFeedbackCount > 9 ? '9+' : newFeedbackCount}
-                  </span>
-                )}
-              </Link>
-            )}
-
-            {/* Rapports hebdomadaires des retours — réservé à l'administrateur */}
-            {isAdmin(user) && (
-              <Link
-                to="/app/admin/reports"
-                className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
-                  location.pathname.startsWith('/app/admin/reports')
-                    ? 'bg-[#007AFF] text-white shadow-sm'
-                    : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
-                title="Synthèse hebdomadaire des retours artisans"
-              >
-                <LineChart
-                  className="w-[22px] h-[22px] flex-shrink-0"
-                  style={{ color: location.pathname.startsWith('/app/admin/reports') ? '#fff' : IOS_BLUE }}
-                />
-                <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Rapports hebdo</span>
-              </Link>
-            )}
+            {renderNavGroup(secondaryGroup)}
           </nav>
 
           {/* Pied : cellule profil + actions (style iOS Réglages) */}
