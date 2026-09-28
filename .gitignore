@@ -28,4 +28,4 @@ dist-ssr
 supabase/.temp/
 
 # Dev utility scripts
-verify_schema.js
+scripts/debug/verify_schema.js
