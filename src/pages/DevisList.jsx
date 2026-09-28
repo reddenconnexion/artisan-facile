@@ -6,6 +6,7 @@ import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/qu
 import { documentRef } from '../utils/documentNumber';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
+import { invoiceReminderStatus } from '../utils/unpaidInvoices';
 import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -344,7 +345,7 @@ const DevisList = () => {
         const due = new Date(ref);
         due.setDate(due.getDate() + delay);
         return due <= new Date();
-    }).length;
+    }).length + activeDevis.filter(d => invoiceReminderStatus(d)?.dueNow).length;
 
     if (loading) {
         return <LoadingState className="h-64" />;

@@ -10,14 +10,17 @@ import {
     getRelanceContext,
     archiveQuote,
     getOptimalSendWindow,
+    getUnpaidInvoiceReminders,
+    markInvoicePaid,
 } from '../utils/followUpService';
+import { buildInvoiceReminderEmail, invoiceReference } from '../utils/unpaidInvoices';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle } from 'lucide-react';
+import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle, Receipt, BadgeCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState, LoadingState } from '../components/ui';
-import { formatDate } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
 
 const STEP_STYLES = [
     { badge: 'bg-blue-100 text-blue-700', activeBadge: 'bg-blue-600 text-white', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
@@ -43,7 +46,11 @@ const FollowUps = ({ embedded = false }) => {
     const [suggestions, setSuggestions] = useState({});
     const [expanded, setExpanded] = useState({});
     const [stepOverrides, setStepOverrides] = useState({});
+    const [unpaidInvoices, setUnpaidInvoices] = useState([]);
+    const [invoiceDrafts, setInvoiceDrafts] = useState({});
     const sendWindow = useMemo(() => getOptimalSendWindow(), []);
+    const invoicesDueNow = unpaidInvoices.filter(inv => inv.reminder.dueNow).length;
+    const unpaidTotal = unpaidInvoices.reduce((sum, inv) => sum + (Number(inv.total_ttc) || 0), 0);
 
     const aiContext = useMemo(() => ({
         companyName: profile?.company_name || '',
@@ -73,11 +80,13 @@ const FollowUps = ({ embedded = false }) => {
 
     const fetchDueQuotes = async () => {
         setLoading(true);
-        const [data, settings] = await Promise.all([
+        const [data, settings, invoices] = await Promise.all([
             getDueFollowUps(user.id),
             getFollowUpSettings(user.id),
+            getUnpaidInvoiceReminders(user.id),
         ]);
         setDueQuotes(data);
+        setUnpaidInvoices(invoices);
         setAvailableSteps(settings.steps || []);
         // Initialise les overrides à l'étape automatique de chaque devis
         const initialOverrides = {};
@@ -157,26 +166,17 @@ const FollowUps = ({ embedded = false }) => {
         }
     };
 
-    const handleSend = async (key, quotes) => {
-        const suggestion = suggestions[key];
-        if (!suggestion) return;
-
-        const clientEmail = quotes[0].clients?.email;
-        if (!clientEmail) {
-            toast.error("Le client n'a pas d'email !");
-            return;
-        }
-
-        const { subject, body } = suggestion;
+    // Envoi d'une relance : capture en mode test, sinon envoi direct depuis
+    // l'adresse pro de l'artisan (Edge Function SMTP, même mécanisme que les
+    // devis/factures), avec repli sur le client mail.
+    const deliverEmail = async ({ to, subject, body, doc }) => {
         const smtpConfigured = !!profile?.smtp_config?.host && !!profile?.smtp_config?.from_email;
-        const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         if (isTestMode) {
-            captureEmail({ email: clientEmail, subject, body });
+            captureEmail({ email: to, subject, body });
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
         } else if (smtpConfigured) {
-            // Envoi direct depuis l'adresse pro de l'artisan via l'Edge Function SMTP
-            // (même mécanisme que les devis/factures). Repli sur mailto en cas d'échec.
             const sendingToast = toast.loading('Envoi de la relance depuis votre adresse pro...');
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -188,17 +188,17 @@ const FollowUps = ({ embedded = false }) => {
                         'Authorization': `Bearer ${session.access_token}`,
                     },
                     body: JSON.stringify({
-                        to: clientEmail,
+                        to,
                         subject,
                         text: body,
-                        quote_id: quotes[0].id,
-                        client_id: quotes[0].client_id,
+                        quote_id: doc.id,
+                        client_id: doc.client_id,
                     }),
                 });
                 const result = await res.json();
                 toast.dismiss(sendingToast);
                 if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
-                toast.success(`Relance envoyée à ${clientEmail}`);
+                toast.success(`Relance envoyée à ${to}`);
             } catch (err) {
                 toast.dismiss(sendingToast);
                 console.error('Direct follow-up send failed:', err);
@@ -208,6 +208,20 @@ const FollowUps = ({ embedded = false }) => {
         } else {
             window.location.href = mailtoUrl;
         }
+    };
+
+    const handleSend = async (key, quotes) => {
+        const suggestion = suggestions[key];
+        if (!suggestion) return;
+
+        const clientEmail = quotes[0].clients?.email;
+        if (!clientEmail) {
+            toast.error("Le client n'a pas d'email !");
+            return;
+        }
+
+        const { subject, body } = suggestion;
+        await deliverEmail({ to: clientEmail, subject, body, doc: quotes[0] });
 
         try {
             // Record follow-up for each quote in the group
@@ -222,6 +236,177 @@ const FollowUps = ({ embedded = false }) => {
             console.error(err);
             toast.error("Erreur lors de l'enregistrement du suivi");
         }
+    };
+
+    const prepareInvoiceReminder = (invoice) => {
+        const draft = buildInvoiceReminderEmail(invoice, invoice.reminder, { client: invoice.clients, profile });
+        setInvoiceDrafts(prev => ({ ...prev, [invoice.id]: draft }));
+    };
+
+    const updateInvoiceDraft = (id, field, value) => {
+        setInvoiceDrafts(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+    };
+
+    const closeInvoiceDraft = (id) => {
+        setInvoiceDrafts(prev => { const n = { ...prev }; delete n[id]; return n; });
+    };
+
+    const handleSendInvoiceReminder = async (invoice) => {
+        const draft = invoiceDrafts[invoice.id];
+        const clientEmail = invoice.clients?.email;
+        if (!draft) return;
+        if (!clientEmail) {
+            toast.error("Le client n'a pas d'email !");
+            return;
+        }
+        await deliverEmail({ to: clientEmail, subject: draft.subject, body: draft.body, doc: invoice });
+        try {
+            await recordFollowUp(
+                invoice, user.id, draft.body, 'email',
+                (invoice.follow_up_count || 0) + 1,
+                `Rappel de paiement facture ${invoiceReference(invoice)} (${invoice.reminder.label})`,
+            );
+            toast.success('Rappel enregistré');
+            closeInvoiceDraft(invoice.id);
+            fetchDueQuotes();
+        } catch (err) {
+            console.error(err);
+            toast.error("Erreur lors de l'enregistrement du rappel");
+        }
+    };
+
+    const handleMarkInvoicePaid = async (invoice) => {
+        const confirmed = await confirm({
+            title: `Marquer la facture ${invoiceReference(invoice)} comme payée ?`,
+            message: `${formatCurrency(invoice.total_ttc)} encaissés aujourd'hui. La facture sortira des relances et comptera dans votre chiffre d'affaires encaissé.`,
+            confirmLabel: 'Marquer payée',
+        });
+        if (!confirmed) return;
+        try {
+            await markInvoicePaid(invoice.id, user.id);
+            toast.success('Facture marquée payée');
+            closeInvoiceDraft(invoice.id);
+            fetchDueQuotes();
+        } catch (err) {
+            toast.error('Erreur : ' + err.message);
+        }
+    };
+
+    const renderInvoiceCard = (invoice) => {
+        const { reminder } = invoice;
+        const draft = invoiceDrafts[invoice.id];
+        const accent = reminder.level === 2 ? 'border-red-300' : reminder.level === 1 ? 'border-orange-300' : 'border-amber-200';
+        return (
+            <div key={invoice.id} className={`bg-white dark:bg-gray-900 rounded-xl border-2 ${reminder.dueNow ? accent : 'border-gray-200 dark:border-gray-700'} shadow-sm`}>
+                <div className="p-5 flex flex-col md:flex-row md:items-start gap-3">
+                    <div className="flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                En retard de {reminder.daysOverdue}j
+                            </span>
+                            {reminder.exhausted ? (
+                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                    Relances épuisées — appeler le client ou engager le recouvrement
+                                </span>
+                            ) : reminder.dueNow ? (
+                                <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                    {reminder.label} à envoyer
+                                </span>
+                            ) : (
+                                <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">
+                                    {reminder.label} prévu le {formatDate(reminder.nextReminderDate)}
+                                </span>
+                            )}
+                        </div>
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                            {invoice.clients?.name || 'Client'} — Facture {invoiceReference(invoice)}
+                        </h3>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{formatCurrency(invoice.total_ttc)}</span>
+                            <span className="flex items-center gap-1">
+                                <Clock className="w-4 h-4" />
+                                Échéance le {formatDate(reminder.dueDate)}
+                            </span>
+                            {invoice.follow_up_count > 0 && invoice.last_followup_at && (
+                                <span className="text-orange-500">
+                                    {invoice.follow_up_count} rappel{invoice.follow_up_count > 1 ? 's' : ''}, dernier le {formatDate(invoice.last_followup_at)}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-start gap-2 shrink-0">
+                        <button
+                            onClick={() => navigate(`/app/devis/${invoice.id}`)}
+                            className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                        >
+                            Voir facture
+                        </button>
+                        <button
+                            onClick={() => handleMarkInvoicePaid(invoice)}
+                            className="px-3 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800 flex items-center gap-1.5"
+                        >
+                            <BadgeCheck className="w-4 h-4" />
+                            Marquer payée
+                        </button>
+                        {!reminder.exhausted && !draft && (
+                            <button
+                                onClick={() => prepareInvoiceReminder(invoice)}
+                                className="px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm bg-red-600 hover:bg-red-700"
+                            >
+                                <Mail className="w-4 h-4" />
+                                Préparer le {reminder.label.toLowerCase()}
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {draft && (
+                    <div className="border-t-2 border-red-100 bg-red-50/50 dark:bg-red-950/10 rounded-b-xl p-5 space-y-3">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                            {reminder.label} — modifiable avant envoi
+                        </p>
+                        {reminder.level === 2 && (
+                            <p className="text-xs text-red-700 dark:text-red-300">
+                                Pour valoir preuve, envoyez aussi ce courrier en recommandé avec accusé de réception.
+                            </p>
+                        )}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Objet</label>
+                            <input
+                                type="text"
+                                value={draft.subject}
+                                onChange={(e) => updateInvoiceDraft(invoice.id, 'subject', e.target.value)}
+                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Message</label>
+                            <textarea
+                                value={draft.body}
+                                onChange={(e) => updateInvoiceDraft(invoice.id, 'body', e.target.value)}
+                                rows={11}
+                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-red-500 outline-none font-mono leading-relaxed"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-1">
+                            <button
+                                onClick={() => closeInvoiceDraft(invoice.id)}
+                                className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => handleSendInvoiceReminder(invoice)}
+                                className="px-5 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow bg-red-600 hover:bg-red-700"
+                            >
+                                <Send className="w-4 h-4" />
+                                Envoyer le rappel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const getDaysOverdue = (dueDate) =>
@@ -441,7 +626,7 @@ const FollowUps = ({ embedded = false }) => {
                             ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        À Relancer ({dueQuotes.length})
+                        À Relancer ({dueQuotes.length + invoicesDueNow})
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
@@ -458,7 +643,7 @@ const FollowUps = ({ embedded = false }) => {
                 <LoadingState />
             ) : activeTab === 'due' ? (
                 <div className="space-y-4">
-                    {groupedDueQuotes.length > 0 && (
+                    {(groupedDueQuotes.length > 0 || invoicesDueNow > 0) && (
                         <div className={`rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 ${
                             sendWindow.isOptimal
                                 ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/40'
@@ -481,16 +666,38 @@ const FollowUps = ({ embedded = false }) => {
                             </div>
                         </div>
                     )}
-                    {groupedDueQuotes.length === 0 ? (
+                    {unpaidInvoices.length > 0 && (
+                        <section className="space-y-3">
+                            <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <Receipt className="w-5 h-5 text-red-600" />
+                                Factures impayées
+                                <span className="text-sm font-normal text-gray-500">
+                                    — {formatCurrency(unpaidTotal)} en retard sur {unpaidInvoices.length} facture{unpaidInvoices.length > 1 ? 's' : ''}
+                                </span>
+                            </h2>
+                            <div className="grid gap-4">
+                                {unpaidInvoices.map(renderInvoiceCard)}
+                            </div>
+                        </section>
+                    )}
+                    {groupedDueQuotes.length === 0 && unpaidInvoices.length === 0 ? (
                         <EmptyState
                             icon={CheckCircle}
                             title="Tout est à jour !"
                             description="Aucune relance nécessaire pour le moment."
                         />
-                    ) : (
-                        <div className="grid gap-4">
-                            {groupedDueQuotes.map(renderCard)}
-                        </div>
+                    ) : groupedDueQuotes.length > 0 && (
+                        <section className="space-y-3">
+                            {unpaidInvoices.length > 0 && (
+                                <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Send className="w-5 h-5 text-blue-600" />
+                                    Devis en attente de réponse
+                                </h2>
+                            )}
+                            <div className="grid gap-4">
+                                {groupedDueQuotes.map(renderCard)}
+                            </div>
+                        </section>
                     )}
                 </div>
             ) : (
