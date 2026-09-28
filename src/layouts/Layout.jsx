@@ -185,6 +185,11 @@ const Layout = () => {
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
+    ];
+
+    // Marketing et portfolio sortent de « Mon activité » dans leur propre
+    // groupe repliable pour garder le menu du quotidien court.
+    const communicationChildren = [
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
       ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: Image }] : []),
     ];
@@ -220,6 +225,11 @@ const Layout = () => {
           : activiteChildren.filter(c =>
               ['/app/interventions', '/app/heures', '/app/procurement'].includes(c.href)
             ),
+      }] : []),
+      ...(showConfirme && communicationChildren.length > 0 ? [{
+        name: 'Communication',
+        icon: Megaphone,
+        children: communicationChildren,
       }] : []),
       // Les outils métier (bibliothèque de prix, étiquettes de tableau, mémos
       // vocaux…) servent dès le premier jour : visibles quel que soit le niveau.
