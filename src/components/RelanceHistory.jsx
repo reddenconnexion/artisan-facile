@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { History, X, Mail, Phone, MessageSquare, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { formatDate, formatDateTime } from '../utils/format';
+import { EmptyState } from './ui';
 
 function timeAgo(dateStr) {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -92,10 +93,7 @@ export default function RelanceHistory({ quoteIds, onClose }) {
                             <div className="w-5 h-5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
                         </div>
                     ) : items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                            <History className="w-8 h-8 mb-2 opacity-30" />
-                            <p className="text-sm">Aucune relance envoyée pour l'instant</p>
-                        </div>
+                        <EmptyState bare icon={History} title="Aucune relance envoyée pour l'instant" />
                     ) : (
                         <ul className="divide-y divide-gray-50 dark:divide-gray-800">
                             {items.map((it, i) => (

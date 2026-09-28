@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { EmptyState } from '../../components/ui';
 import { supabase } from '../../utils/supabase';
 import {
     FileText, Camera, Download, Phone, Mail, Globe, ClipboardList, Eye,
@@ -555,10 +556,7 @@ const ClientPortal = () => {
                     <div className="space-y-8">
                         <div className="space-y-3">
                             {sortedQuotes.length === 0 ? (
-                                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                    <p className="text-gray-500">Aucun document disponible.</p>
-                                </div>
+                                <EmptyState icon={FileText} title="Aucun document disponible." />
                             ) : (
                                 <div className="grid gap-4 md:grid-cols-2">
                                     {sortedQuotes.map((quote) => {
@@ -787,10 +785,7 @@ const ClientPortal = () => {
                 {activeTab === 'photos' && (
                     <div className="space-y-8">
                         {photos.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                                <Camera className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">Aucune photo pour le moment.</p>
-                            </div>
+                            <EmptyState icon={Camera} title="Aucune photo pour le moment." />
                         ) : (
                             Object.entries(photoGroups).map(([cat, catPhotos]) => {
                                 if (catPhotos.length === 0) return null;

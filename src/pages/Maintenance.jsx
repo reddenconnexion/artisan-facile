@@ -5,12 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { Calendar, Wrench, AlertTriangle, CheckCircle, Search, Filter, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { EmptyState } from '../components/ui';
 import { format, addMonths, isBefore, isAfter, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 const Maintenance = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -155,22 +157,13 @@ const Maintenance = () => {
 
             {/* Contracts List */}
             {!loading && contracts.length === 0 ? (
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 py-16 text-center px-6 text-gray-900 dark:text-gray-100">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-5">
-                        <Wrench className="h-10 w-10 text-blue-400" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Aucun contrat de maintenance</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                        Programmez le suivi régulier des équipements de vos clients (chaudières, climatiseurs, alarmes…) pour ne plus rater une échéance.
-                    </p>
-                    <Link
-                        to="/app/clients"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                    >
-                        <Users className="w-4 h-4" />
-                        Ajouter un contrat depuis un client
-                    </Link>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={Wrench}
+                    title="Aucun contrat de maintenance"
+                    description="Programmez le suivi régulier des équipements de vos clients (chaudières, climatiseurs, alarmes…) pour ne plus rater une échéance."
+                    action={{ label: 'Ajouter un contrat depuis un client', icon: Users, onClick: () => navigate('/app/clients') }}
+                />
             ) : (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <table className="w-full text-left">

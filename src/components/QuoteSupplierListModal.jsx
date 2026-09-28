@@ -4,6 +4,7 @@ import { X, Truck, Copy, Download, Check, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { supplierList, buildSupplierListText, formatQuantity } from '../utils/quoteInternalDetail';
 import { exportToCSV } from '../utils/csvExport';
+import { EmptyState } from './ui';
 
 /**
  * « Liste fournisseur » d'un devis validé.
@@ -70,13 +71,12 @@ const QuoteSupplierListModal = ({ open, onClose, quoteLabel, items }) => {
                 {/* Corps */}
                 <div className="flex-1 overflow-y-auto px-5 py-4">
                     {entries.length === 0 ? (
-                        <div className="text-center py-10">
-                            <Package className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Aucun matériel détecté sur ce devis</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                Ajoutez des lignes « Matériel » ou détaillez vos lignes groupées via le chiffrage interne (🔒).
-                            </p>
-                        </div>
+                        <EmptyState
+                            bare
+                            icon={Package}
+                            title="Aucun matériel détecté sur ce devis"
+                            description="Ajoutez des lignes « Matériel » ou détaillez vos lignes groupées via le chiffrage interne (🔒)."
+                        />
                     ) : (
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                             {entries.map((e, i) => (

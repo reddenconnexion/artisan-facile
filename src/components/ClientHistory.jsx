@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EmptyState } from './ui';
 import { supabase } from '../utils/supabase';
 import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle } from 'lucide-react';
 import { formatDate, formatCurrency } from '../utils/format';
@@ -85,16 +86,11 @@ const ClientHistory = ({ clientId }) => {
 
     if (history.length === 0 && interactions.length === 0) {
         return (
-            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-                <FileText className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 dark:text-gray-400">Aucun historique pour ce client.</p>
-                <button
-                    onClick={() => navigate('/app/devis/new', { state: { client_id: clientId } })}
-                    className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-800"
-                >
-                    Créer un devis
-                </button>
-            </div>
+            <EmptyState
+                icon={FileText}
+                title="Aucun historique pour ce client."
+                action={{ label: 'Créer un devis', variant: 'plain', onClick: () => navigate('/app/devis/new', { state: { client_id: clientId } }) }}
+            />
         );
     }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { EmptyState } from '../components/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquarePlus, Bug, Sparkles, Lightbulb, MessageCircle,
@@ -202,9 +203,7 @@ const AdminFeedback = () => {
 
           {/* Liste */}
           {filtered.length === 0 ? (
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-10 text-center text-sm text-gray-500 dark:text-gray-400">
-              Aucun retour pour ce filtre.
-            </div>
+            <EmptyState title="Aucun retour pour ce filtre." />
           ) : (
             <div className="space-y-3">
               {filtered.map((it) => {

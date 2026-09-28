@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { supplyEntries } from '../utils/quoteInternalDetail';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { EmptyState } from './ui';
 
 // Mémorise, par devis, les fournitures déjà envoyées vers la liste d'achats
 // pour éviter les doublons quand on rouvre la modale plus tard.
@@ -119,13 +120,12 @@ const QuoteSupplyListModal = ({ open, onClose, quoteId, quoteLabel, clientId, it
                 {/* Corps */}
                 <div className="flex-1 overflow-y-auto px-5 py-4">
                     {entries.length === 0 ? (
-                        <div className="text-center py-10">
-                            <Package className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Aucune fourniture détectée sur ce devis</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                Ajoutez des lignes « Matériel » ou détaillez vos lignes groupées via le chiffrage interne (🔒).
-                            </p>
-                        </div>
+                        <EmptyState
+                            bare
+                            icon={Package}
+                            title="Aucune fourniture détectée sur ce devis"
+                            description="Ajoutez des lignes « Matériel » ou détaillez vos lignes groupées via le chiffrage interne (🔒)."
+                        />
                     ) : (
                         <ul className="space-y-0.5">
                             {entries.map((e) => {
