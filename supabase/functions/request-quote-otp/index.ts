@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -11,10 +12,22 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { token, email } = await req.json();
+        // Anti-brute-force par IP, en plus du throttle par devis plus bas :
+        // sans ça, un token de devis qui fuite (capture d'écran, transfert,
+        // historique partagé) permet de renvoyer des demandes de code depuis
+        // des devis différents sans jamais être limité globalement.
+        const ip =
+            req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+            req.headers.get('cf-connecting-ip') ||
+            req.headers.get('x-real-ip') ||
+            'unknown';
+        const rl = await enforceRateLimit('request-quote-otp', ip, 10, 300);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
-        if (!token || !email) {
-            return json({ error: 'Token et email requis' }, 400);
+        const { token, portalToken, quoteId, email } = await req.json();
+
+        if ((!token && !(portalToken && quoteId)) || !email) {
+            return json({ error: 'Devis et email requis' }, 400);
         }
 
         // Normaliser l'email
@@ -29,26 +42,62 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         );
 
-        // Récupérer le devis et l'email du client
-        const { data: quote, error: quoteError } = await supabase
-            .from('quotes')
-            .select(`
-                id, status, token_revoked, token_expires_at, signed_at, require_otp,
-                clients ( email )
-            `)
-            .eq('public_token', token)
-            .single();
+        // Récupérer le devis et l'email du client — par lien public (token)
+        // ou par le portail client (portalToken + quoteId), les deux points
+        // d'entrée qui permettent de signer un devis et donc les deux qui
+        // doivent pouvoir demander un code.
+        let quote: {
+            id: number;
+            status: string;
+            token_revoked: boolean | null;
+            token_expires_at: string | null;
+            signed_at: string | null;
+            require_otp: boolean;
+            clients: { email: string | null } | null;
+        } | null = null;
 
-        if (quoteError || !quote) {
-            return json({ error: 'Devis introuvable ou lien invalide' }, 404);
+        if (token) {
+            const { data, error } = await supabase
+                .from('quotes')
+                .select(`
+                    id, status, token_revoked, token_expires_at, signed_at, require_otp,
+                    clients ( email )
+                `)
+                .eq('public_token', token)
+                .single();
+            if (error || !data) return json({ error: 'Devis introuvable ou lien invalide' }, 404);
+            quote = data as unknown as typeof quote;
+        } else {
+            const { data: client, error: clientError } = await supabase
+                .from('clients')
+                .select('id')
+                .eq('portal_token', portalToken)
+                .single();
+            if (clientError || !client) return json({ error: 'Lien de portail invalide' }, 404);
+
+            const { data, error } = await supabase
+                .from('quotes')
+                .select(`
+                    id, status, token_revoked, token_expires_at, signed_at, require_otp,
+                    clients ( email )
+                `)
+                .eq('id', quoteId)
+                .eq('client_id', client.id)
+                .single();
+            if (error || !data) return json({ error: 'Devis introuvable' }, 404);
+            quote = data as unknown as typeof quote;
         }
 
-        // Vérifications de validité du token
-        if (quote.token_revoked) {
-            return json({ error: 'Ce lien a été révoqué' }, 403);
-        }
-        if (quote.token_expires_at && new Date(quote.token_expires_at) < new Date()) {
-            return json({ error: 'Ce lien a expiré. Contactez votre artisan.' }, 403);
+        // Vérifications de validité du token — seulement pertinentes pour le
+        // lien public : le portail a son propre cycle de vie (portal_token_*),
+        // vérifié par ailleurs (get_portal_data), pas par ces colonnes-là.
+        if (token) {
+            if (quote.token_revoked) {
+                return json({ error: 'Ce lien a été révoqué' }, 403);
+            }
+            if (quote.token_expires_at && new Date(quote.token_expires_at) < new Date()) {
+                return json({ error: 'Ce lien a expiré. Contactez votre artisan.' }, 403);
+            }
         }
         if (quote.signed_at) {
             return json({ error: 'Ce devis a déjà été signé' }, 409);
@@ -60,7 +109,7 @@ Deno.serve(async (req) => {
         }
 
         // Vérifier que l'email correspond au destinataire
-        const clientEmail = (quote.clients as any)?.email?.trim().toLowerCase();
+        const clientEmail = quote.clients?.email?.trim().toLowerCase();
         if (!clientEmail) {
             return json({ error: 'Aucun email enregistré pour ce client. Contactez votre artisan.' }, 422);
         }
