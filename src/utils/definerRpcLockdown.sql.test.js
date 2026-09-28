@@ -46,7 +46,7 @@ CREATE TABLE usage_tracking (
   UNIQUE (user_id, month)
 );
 
--- Version d'origine (fix_security_vulnerabilities.sql), jamais versionnée.
+-- Version d'origine (supabase/legacy/fix_security_vulnerabilities.sql), jamais versionnée.
 CREATE FUNCTION cleanup_expired_tokens() RETURNS integer LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE n integer;
 BEGIN

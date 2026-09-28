@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
@@ -39,7 +40,6 @@ const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
     const config = STATUS_CONFIG[memo.status] || STATUS_CONFIG.pending;
     const StatusIcon = config.icon;
     const actions = memo.actions_taken || [];
-    const [confirmDelete, setConfirmDelete] = useState(false);
 
     const isActive = memo.status === 'pending' || memo.status === 'transcribing' || memo.status === 'processing';
 
@@ -112,30 +112,13 @@ const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
                     )}
 
                     {!isActive && (
-                        confirmDelete ? (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => onDelete(memo.id)}
-                                    className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded font-medium"
-                                >
-                                    Confirmer
-                                </button>
-                                <button
-                                    onClick={() => setConfirmDelete(false)}
-                                    className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
-                                >
-                                    Annuler
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => setConfirmDelete(true)}
-                                title="Supprimer ce mémo"
-                                className="text-gray-300 hover:text-red-400 p-1 transition-colors"
-                            >
-                                <Trash2 size={14} />
-                            </button>
-                        )
+                        <button
+                            onClick={() => onDelete(memo.id)}
+                            title="Supprimer ce mémo"
+                            className="text-gray-300 hover:text-red-400 p-1 transition-colors"
+                        >
+                            <Trash2 size={14} />
+                        </button>
                     )}
                 </div>
             </div>
@@ -150,6 +133,7 @@ const VoiceMemos = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const navigate = useNavigate();
+    const confirm = useConfirm();
 
     const fetchMemos = useCallback(async () => {
         if (!user) return;
@@ -183,6 +167,13 @@ const VoiceMemos = () => {
     };
 
     const handleDelete = async (memoId) => {
+        const ok = await confirm({
+            title: 'Supprimer ce mémo ?',
+            message: 'Le mémo vocal et sa transcription seront définitivement supprimés.',
+            confirmLabel: 'Supprimer',
+            danger: true,
+        });
+        if (!ok) return;
         const { error } = await supabase
             .from('voice_memos')
             .delete()
