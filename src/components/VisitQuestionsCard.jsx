@@ -19,12 +19,15 @@ const VisitQuestionsCard = ({ questions, onSubmit, loading = false }) => {
     };
 
     return (
-        <div className="p-4 rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:border-sky-900/40 space-y-3">
+        // Couleurs fixes, sans variante dark : la visite technique reste en thème
+        // clair même quand le téléphone est en mode sombre, et un fond teinté
+        // semi-transparent y rendait le texte illisible.
+        <div className="p-4 rounded-2xl border-2 border-sky-300 bg-white shadow-sm space-y-3">
             <div className="flex items-start gap-2">
-                <HelpCircle className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+                <HelpCircle className="w-5 h-5 text-sky-700 flex-shrink-0 mt-0.5" />
                 <div>
-                    <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Précisions pour affiner le devis</p>
-                    <p className="text-xs text-sky-700 dark:text-sky-300">
+                    <p className="text-base font-bold text-gray-900">Précisions pour affiner le devis</p>
+                    <p className="text-sm text-gray-600">
                         Répondez à ce que vous savez, en une fois. Le reste garde l'hypothèse de l'IA.
                     </p>
                 </div>
@@ -32,13 +35,13 @@ const VisitQuestionsCard = ({ questions, onSubmit, loading = false }) => {
 
             {questions.map((q, i) => (
                 <label key={i} className="block">
-                    <span className="block text-sm text-gray-800 dark:text-gray-200 mb-1">{q}</span>
+                    <span className="block text-sm font-medium text-gray-900 mb-1">{q}</span>
                     <input
                         type="text"
                         value={answers[i] || ''}
                         onChange={(e) => setAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
                         disabled={loading}
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-sky-200 bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+                        className="w-full px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                     />
                 </label>
             ))}
@@ -47,7 +50,7 @@ const VisitQuestionsCard = ({ questions, onSubmit, loading = false }) => {
                 type="button"
                 onClick={submit}
                 disabled={loading || answeredCount === 0}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 text-white text-sm font-semibold disabled:opacity-50 active:bg-sky-700"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-700 text-white text-sm font-semibold disabled:bg-gray-300 disabled:text-gray-600 active:bg-sky-800"
             >
                 {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Affinage en cours…</>
