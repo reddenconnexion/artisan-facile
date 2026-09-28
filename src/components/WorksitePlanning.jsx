@@ -7,6 +7,7 @@ import { startOfWeek, toDateString } from '../utils/timeTracking';
 import { urgencyWeight } from '../utils/urgency';
 import { updateWorksiteUrgency } from '../utils/worksites';
 import { UrgencyBadge } from './ui';
+import { formatDate } from '../utils/format';
 
 // Vue planning des chantiers, volontairement minimale : une ligne par
 // chantier, un segment coloré sur chaque jour où il a un rendez-vous d'agenda.
@@ -219,7 +220,7 @@ const WorksitePlanning = ({ worksites }) => {
             {/* Navigation temporelle — sobre, centrée sur le mois affiché */}
             <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">
-                    {days[Math.floor(DAYS_SHOWN / 2)].toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                    {formatDate(days[Math.floor(DAYS_SHOWN / 2)], { month: 'long', year: 'numeric' })}
                 </p>
                 <div className="flex items-center gap-1">
                     <button
@@ -265,7 +266,7 @@ const WorksitePlanning = ({ worksites }) => {
                                         style={{ width: DAY_WIDTH }}
                                     >
                                         <p className="text-[10px] text-gray-400 leading-none">
-                                            {d.toLocaleDateString('fr-FR', { weekday: 'narrow' })}
+                                            {formatDate(d, { weekday: 'narrow' })}
                                         </p>
                                         <p className={`text-xs mt-1 leading-none tabular-nums ${isToday
                                             ? 'mx-auto w-5 h-5 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold'
@@ -322,8 +323,8 @@ const WorksitePlanning = ({ worksites }) => {
                                             if (visEnd < 0 || visStart > DAYS_SHOWN - 1) return null;
                                             const spanDays = seg.endIdx - seg.startIdx + 1;
                                             const dayLabel = spanDays === 1
-                                                ? new Date(rangeStart.getTime() + seg.startIdx * DAY_MS).toLocaleDateString('fr-FR')
-                                                : `du ${new Date(rangeStart.getTime() + seg.startIdx * DAY_MS).toLocaleDateString('fr-FR')} au ${new Date(rangeStart.getTime() + seg.endIdx * DAY_MS).toLocaleDateString('fr-FR')}`;
+                                                ? formatDate(rangeStart.getTime() + seg.startIdx * DAY_MS)
+                                                : `du ${formatDate(rangeStart.getTime() + seg.startIdx * DAY_MS)} au ${formatDate(rangeStart.getTime() + seg.endIdx * DAY_MS)}`;
                                             return (
                                                 <button
                                                     key={si}

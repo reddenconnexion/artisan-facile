@@ -10,6 +10,7 @@ import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { EmptyState, LoadingState } from '../components/ui';
+import { formatDate } from '../utils/format';
 
 const STATUS_CONFIG = {
     pending:     { label: 'En attente',     icon: Clock,        color: 'text-gray-400',  bg: 'bg-gray-50' },
@@ -205,7 +206,7 @@ const VoiceMemos = () => {
         return acc;
     }, {});
 
-    const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+    const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-6">

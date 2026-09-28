@@ -7,7 +7,7 @@
 // que l'assistant annonce exactement les mêmes montants que l'écran.
 
 import { effectiveLineCost } from './quoteInternalDetail';
-import { formatCurrency } from './format';
+import { formatCurrency, formatDate } from './format';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_LISTED = 8;
@@ -107,7 +107,7 @@ export const buildQuoteCopilotFacts = (formData, { subtotal = 0, total = 0 } = {
         `Statut : ${fd.status || 'brouillon'}`,
         `Total HT : ${formatCurrency(subtotal)} (hors lignes optionnelles)`,
         fd.include_tva ? `TVA 20 % incluse — Total TTC : ${formatCurrency(total)}` : 'Sans TVA : le total HT est le montant à payer',
-        fd.valid_until && `Valable jusqu'au : ${new Date(fd.valid_until).toLocaleDateString('fr-FR')}`,
+        fd.valid_until && `Valable jusqu'au : ${formatDate(fd.valid_until)}`,
     ];
 
     const lines = items.filter(i => i.type !== 'section');

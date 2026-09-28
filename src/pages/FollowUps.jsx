@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState, LoadingState } from '../components/ui';
+import { formatDate } from '../utils/format';
 
 const STEP_STYLES = [
     { badge: 'bg-blue-100 text-blue-700', activeBadge: 'bg-blue-600 text-white', border: 'border-blue-200', panel: 'border-blue-200 bg-blue-50 dark:bg-blue-950/20', btn: 'bg-blue-600 hover:bg-blue-700' },
@@ -287,14 +288,14 @@ const FollowUps = ({ embedded = false }) => {
                                 <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-4 h-4" />
-                                        Devis du {new Date(referenceQuote.date).toLocaleDateString('fr-FR')}
+                                        Devis du {formatDate(referenceQuote.date)}
                                     </span>
                                     <span className="font-semibold text-gray-800 dark:text-gray-200">
                                         {referenceQuote.total_ttc} €
                                     </span>
                                     {referenceQuote.last_followup_at && (
                                         <span className="text-orange-500">
-                                            Dernière relance : {new Date(referenceQuote.last_followup_at).toLocaleDateString('fr-FR')}
+                                            Dernière relance : {formatDate(referenceQuote.last_followup_at)}
                                         </span>
                                     )}
                                 </div>
@@ -508,7 +509,7 @@ const FollowUps = ({ embedded = false }) => {
                             {history.map((item) => (
                                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <td className="px-6 py-4 text-sm text-gray-500">
-                                        {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString().slice(0, 5)}
+                                        {formatDate(item.created_at)} {new Date(item.created_at).toLocaleTimeString().slice(0, 5)}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
                                         {item.quotes?.clients?.name || '-'}

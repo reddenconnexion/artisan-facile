@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { clientGreetingName } from './clientGreeting';
+import { formatDate } from './format';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -244,7 +245,7 @@ export const getRelanceContext = async (quote, userId) => {
             ageDays: issueDate ? Math.max(0, daysBetween(issueDate, today)) : null,
             followUpCount: quote?.follow_up_count || 0,
             daysSinceLastFollowUp: lastFollowUp ? Math.max(0, daysBetween(lastFollowUp, today)) : null,
-            validUntil: validUntil ? validUntil.toLocaleDateString('fr-FR') : null,
+            validUntil: validUntil ? formatDate(validUntil) : null,
             daysUntilExpiry: validUntil ? daysBetween(today, validUntil) : null,
             expired: validUntil ? validUntil < today : false,
             itemCount: items.length,
@@ -410,7 +411,7 @@ export const getOptimalSendWindow = (now = new Date()) => {
     const sameDay = next.toDateString() === now.toDateString();
     const dayLabel = sameDay
         ? "aujourd'hui"
-        : next.toLocaleDateString('fr-FR', { weekday: 'long' });
+        : formatDate(next, { weekday: 'long' });
     return {
         isOptimal: false,
         label: isWeekend ? 'Week-end — réponse peu probable' : (hour >= 19 ? 'Soirée — risque d\'être ignoré' : 'Trop tôt — patientez'),
@@ -464,10 +465,10 @@ export const sendInstallmentReminder = async (installment, userId, captureEmail 
     // Check if installment is actually late or just due
     const isLate = new Date(installment.due_date) < new Date();
 
-    const subject = `Rappel de paiement : Échéance du ${new Date(installment.due_date).toLocaleDateString()} - ${invoice.title}`;
+    const subject = `Rappel de paiement : Échéance du ${formatDate(installment.due_date)} - ${invoice.title}`;
     const body = `Bonjour ${clientGreetingName(client.name)},\n\n` +
         `Sauf erreur de notre part, nous n'avons pas reçu le règlement de l'échéance suivante concernant la facture n°${invoice.id} :\n\n` +
-        `- Date d'échéance : ${new Date(installment.due_date).toLocaleDateString()}\n` +
+        `- Date d'échéance : ${formatDate(installment.due_date)}\n` +
         `- Montant attendu : ${installment.amount.toFixed(2)} €\n` +
         `- Montant restant : ${(installment.amount - (installment.amount_paid || 0)).toFixed(2)} €\n\n` +
         `Merci de régulariser cette situation dès que possible.\n\n` +

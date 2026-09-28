@@ -13,6 +13,7 @@ import {
     normalizeQuestions,
     ANSWERS_INSTRUCTION,
 } from './quoteMethod';
+import { formatDate, formatPrice } from './format';
 
 // Re-exported so callers that already import these from aiService keep working.
 export { toSafeNumber };
@@ -813,13 +814,13 @@ export const generateFollowUpEmail = async (quotes, client, step, context = {}) 
     const isGrouped = quotes.length > 1;
 
     const quoteDate = quotes[0]?.date
-        ? new Date(quotes[0].date).toLocaleDateString('fr-FR')
+        ? formatDate(quotes[0].date)
         : null;
 
     // Build the list of quotes for the prompt
     const quotesLines = quotes.map(q => {
         const montant = q.total_ttc
-            ? Number(q.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+            ? formatPrice(q.total_ttc)
             : 'montant non précisé';
         return `  • ${q.title || 'Travaux'} : ${montant}`;
     }).join('\n');

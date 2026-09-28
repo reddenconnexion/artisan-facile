@@ -16,6 +16,7 @@ import { usePwaUpdate } from '../context/PwaUpdateContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { coefficientFromCatalog } from '../utils/priceLibraryCsv';
 import { checkSiret, normalizeSiret } from '../utils/siret';
+import { formatDateTime } from '../utils/format';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -2121,7 +2122,7 @@ const Profile = () => {
                         <p className="text-xs text-gray-400 dark:text-gray-500">
                             Version {import.meta.env.PACKAGE_VERSION || '—'}
                             {import.meta.env.BUILD_DATE
-                                ? ` — mise en ligne le ${new Date(import.meta.env.BUILD_DATE).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                                ? ` — mise en ligne le ${formatDateTime(import.meta.env.BUILD_DATE, { dateStyle: 'short', timeStyle: 'short' })}`
                                 : ''}
                         </p>
                         <button

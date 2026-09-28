@@ -9,6 +9,7 @@ import { useClients, useQuotes, useInvalidateCache } from '../hooks/useDataCache
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
+import { formatDate } from '../utils/format';
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -132,10 +133,10 @@ const Clients = () => {
                             <div className="md:col-span-4">
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{client.name}</h3>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 hidden md:block">Ajouté le {new Date(client.created_at).toLocaleDateString()}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 hidden md:block">Ajouté le {formatDate(client.created_at)}</p>
                                     {count > 0 && (
                                         <span className="hidden md:inline text-xs text-gray-400">
-                                            · {count} devis{lastQuote ? ` · dernier le ${new Date(lastQuote.created_at).toLocaleDateString()}` : ''}
+                                            · {count} devis{lastQuote ? ` · dernier le ${formatDate(lastQuote.created_at)}` : ''}
                                         </span>
                                     )}
                                 </div>

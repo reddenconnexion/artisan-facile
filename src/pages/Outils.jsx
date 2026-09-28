@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
+import { formatDate } from '../utils/format';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
@@ -454,7 +455,7 @@ const Outils = () => {
                                                 <div className="p-2.5">
                                                     <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{plan.name}</p>
                                                     <p className="text-xs text-gray-400 mt-0.5">
-                                                        {new Date(plan.updated_at).toLocaleDateString('fr-FR')}
+                                                        {formatDate(plan.updated_at)}
                                                     </p>
                                                 </div>
                                             </button>

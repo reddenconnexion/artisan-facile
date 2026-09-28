@@ -13,6 +13,7 @@ import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import { Input, Field } from '../components/ui';
 import { parseClientBlock } from '../utils/addressParser';
+import { formatDate, formatDateTime } from '../utils/format';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -114,7 +115,7 @@ const ClientPlans = ({ clientId, clientName }) => {
                             <div className="p-3 bg-white dark:bg-gray-900">
                                 <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{plan.name}</p>
                                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                    Modifié le {new Date(plan.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    Modifié le {formatDateTime(plan.updated_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             </div>
                         </div>
@@ -151,7 +152,7 @@ const PortalTokenManager = ({ clientId, token, expiresAt, revoked, onUpdate }) =
     }
 
     const expireText = expiresAt
-        ? `jusqu'au ${new Date(expiresAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+        ? `jusqu'au ${formatDate(expiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`
         : 'sans expiration';
 
     const handleCopy = async () => {

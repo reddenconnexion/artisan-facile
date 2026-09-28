@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState, LoadingState } from '../components/ui';
+import { formatDateTime } from '../utils/format';
 
 /* ─── Bulle de message ─── */
 const MessageBubble = ({ msg }) => {
@@ -26,7 +27,7 @@ const MessageBubble = ({ msg }) => {
                 )}
                 <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
                 <p className={`text-[10px] mt-1 ${isArtisan ? 'text-blue-200' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {new Date(msg.created_at).toLocaleString('fr-FR', {
+                    {formatDateTime(msg.created_at, {
                         day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                     })}
                 </p>
@@ -286,7 +287,7 @@ const PortalMessages = () => {
                                             {conv.lastMessage?.content}
                                         </p>
                                         <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5">
-                                            {conv.lastMessage && new Date(conv.lastMessage.created_at).toLocaleString('fr-FR', {
+                                            {conv.lastMessage && formatDateTime(conv.lastMessage.created_at, {
                                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                                             })}
                                         </p>

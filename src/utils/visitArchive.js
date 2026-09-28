@@ -1,3 +1,4 @@
+import { formatDate } from './format';
 // Archivage d'une visite prédevis.
 //
 // Le compte rendu copié dans une IA de devis ne laissait aucune trace : trois
@@ -23,7 +24,7 @@ export const visitDateKey = (date) =>
 /** Titre du rapport : reconnaissable dans une liste, sans avoir à l'ouvrir. */
 export const visitTitle = ({ clientName, address, date }) => {
     const who = String(clientName ?? '').trim() || String(address ?? '').trim();
-    const when = date ? date.toLocaleDateString('fr-FR') : '';
+    const when = formatDate(date);
     return ['Visite prédevis', who, when].filter(Boolean).join(' — ');
 };
 
@@ -107,7 +108,7 @@ export const buildVisitRecord = ({
  */
 export const buildClientPhotoRows = ({ userId, clientId, photos = [], date, zoneByPhotoPath = {} }) => {
     if (!clientId || !userId) return [];
-    const when = date ? date.toLocaleDateString('fr-FR') : '';
+    const when = formatDate(date);
     return photos.filter((photo) => photo?.url).map((photo) => {
         const zone = String(zoneByPhotoPath[photo.path] ?? '').trim();
         return {

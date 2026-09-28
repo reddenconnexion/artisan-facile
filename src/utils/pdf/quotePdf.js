@@ -1287,7 +1287,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         if (devis.signature) {
             const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
-            doc.text(L.signedOn(signedDate.toLocaleDateString(L.dateLocale)), 110, approvalY + 5);
+            doc.text(L.signedOn(formatDate(signedDate, { locale: L.dateLocale })), 110, approvalY + 5);
             try {
                 doc.addImage(devis.signature, 'PNG', 110, approvalY + 8, 50, 25);
             } catch (e) {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { formatCompactCurrency } from '../utils/format';
+import { formatCompactCurrency, formatDate } from '../utils/format';
 
 // Animate a number from its previous value to `target` each time target changes.
 const useCountUp = (target, duration = 900) => {
@@ -1253,7 +1253,7 @@ const Dashboard = () => {
                                         <div>
                                             <div className="font-medium text-gray-900 dark:text-white">{quote.clients?.name || `Devis #${quote.id}`}</div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                {new Date(quote.date || quote.created_at).toLocaleDateString()} -
+                                                {formatDate(quote.date || quote.created_at)} -
                                                 <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${quote.status === 'paid' ? 'bg-green-100 text-green-700' : quote.status === 'billed' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                     {quote.status === 'paid' ? 'Payé' : quote.status === 'billed' ? 'Facturé' : 'Signé'}
                                                 </span>
@@ -1303,7 +1303,7 @@ const Dashboard = () => {
             <CopilotChat
                 context={{
                     page: 'Tableau de bord',
-                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    today: formatDate(new Date(), { day: 'numeric', month: 'long', year: 'numeric' }),
                     facts: copilotFacts,
                 }}
                 presets={[

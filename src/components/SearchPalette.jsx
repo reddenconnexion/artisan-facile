@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, FileText, ClipboardList, X } from 'lucide-react';
 import { useClients, useQuotes, useInterventionReports } from '../hooks/useDataCache';
+import { formatDate } from '../utils/format';
 
 /* ─── Limites par catégorie pour éviter de surcharger ─── */
 const PER_CATEGORY = 6;
@@ -161,7 +162,7 @@ const SearchPalette = ({ isOpen, onClose }) => {
                     ? qu.invoice_number
                     : (qu.quote_number ? `N°${qu.quote_number}` : `#${qu.id}`);
                 const label     = qu.title || (isCreditNote ? 'Avoir' : (isInvoice ? 'Facture' : 'Devis'));
-                const dateStr   = qu.date ? new Date(qu.date).toLocaleDateString('fr-FR') : '';
+                const dateStr   = qu.date ? formatDate(qu.date) : '';
                 return {
                     key:        `quote-${qu.id}`,
                     type:       'quote',
@@ -190,7 +191,7 @@ const SearchPalette = ({ isOpen, onClose }) => {
                 type:       'report',
                 primary:    r.title || `Rapport #${r.report_number || r.id}`,
                 primaryNode: <Highlight text={r.title || `Rapport #${r.report_number || r.id}`} query={query} />,
-                secondary:  [r.report_number && `N°${r.report_number}`, r.date && new Date(r.date).toLocaleDateString('fr-FR')].filter(Boolean).join(' · '),
+                secondary:  [r.report_number && `N°${r.report_number}`, r.date && formatDate(r.date)].filter(Boolean).join(' · '),
                 icon:       ClipboardList,
                 iconBg:     'bg-orange-100 dark:bg-orange-900/40',
                 iconColor:  'text-orange-600 dark:text-orange-400',

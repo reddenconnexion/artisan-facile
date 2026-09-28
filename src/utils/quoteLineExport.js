@@ -1,3 +1,4 @@
+import { formatDate } from './format';
 // Export CSV « Détail des lignes » : toutes les lignes chiffrées de plusieurs
 // devis, aplaties en un seul tableau pour bâtir un référentiel de prix dans un
 // tableur — et pour pouvoir revenir dans l'application par l'import CSV.
@@ -94,7 +95,7 @@ export const LINE_ITEM_COLUMNS = [
     { key: 'reference', label: 'Référence' },
     { key: 'doc_type', label: 'Type document' },
     { key: 'status', label: 'Statut' },
-    { key: 'date', label: 'Date', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
+    { key: 'date', label: 'Date', format: (v) => v ? formatDate(v) : '' },
     { key: 'client_name', label: 'Client' },
     { key: 'title', label: 'Objet' },
     { key: 'line_type', label: 'Type de ligne' },

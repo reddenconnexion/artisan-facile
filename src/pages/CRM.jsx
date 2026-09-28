@@ -16,6 +16,7 @@ import { estimatedHoursFromItems, formatHours, laborProfitability } from '../uti
 import { fetchWorksites as fetchWorksitesData, WORKSITE_STAGE_MAP, updateWorksiteUrgency } from '../utils/worksites';
 import { urgencyWeight } from '../utils/urgency';
 import { UrgencyBadge } from '../components/ui';
+import { formatDate } from '../utils/format';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -389,7 +390,7 @@ const WorksitePilot = () => {
                                             {/* Card Bottom: Actions */}
                                             <div className="flex justify-between items-center pt-2 border-t border-gray-50 dark:border-gray-800">
                                                 <span className="text-[10px] text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
-                                                    MAJ: {new Date(job.updated_at).toLocaleDateString()}
+                                                    MAJ: {formatDate(job.updated_at)}
                                                 </span>
 
                                                 <div className="flex gap-2">

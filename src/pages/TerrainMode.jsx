@@ -15,6 +15,7 @@ import ChantierSuiviMode from '../components/ChantierSuiviMode';
 import ProcurementMode from '../components/ProcurementMode';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import TimeClockWidget from '../components/TimeClockWidget';
+import { formatDate } from '../utils/format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const formatTime = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 const today = () => new Date().toISOString().split('T')[0];
 const nowTime = () => new Date().toTimeString().slice(0, 5);
-const defaultTitle = () => `Intervention du ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
+const defaultTitle = () => `Intervention du ${formatDate(new Date(), { day: 'numeric', month: 'long' })}`;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
