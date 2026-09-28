@@ -134,12 +134,14 @@ const Marketing = () => {
 
       // Then try Supabase (for sync across devices)
       const remote = await loadFromProfile(user.id);
-      if (remote) {
+      if (remote && (!local || (remote._updated > (local._updated || 0)))) {
         // Use remote if it's newer
-        if (!local || (remote._updated > (local._updated || 0))) {
-          applyData(remote);
-          saveData(user.id, remote);
-        }
+        applyData(remote);
+        saveData(user.id, remote);
+      } else if (local && (!remote || (local._updated || 0) > (remote._updated || 0))) {
+        // Notes saisies sur cet appareil mais jamais remontées (ex. avant la
+        // création de profiles.marketing_data) : on les envoie au profil.
+        syncToProfile(user.id, local);
       }
       setLoading(false);
     };
