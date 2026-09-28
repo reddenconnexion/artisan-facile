@@ -336,12 +336,32 @@ const ClientPortal = () => {
         }
     };
 
-    const handleSignQuote = async (signatureDataUrl) => {
+    const handleRequestOtp = async (email) => {
+        try {
+            const response = await fetch(`${supabaseUrl}/functions/v1/request-quote-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                },
+                body: JSON.stringify({ portalToken: token, quoteId: signingQuoteId, email }),
+            });
+            const result = await response.json();
+            if (!response.ok) return { success: false, error: result.error };
+            return { success: true };
+        } catch (err) {
+            console.error('[OTP] fetch failed:', err);
+            return { success: false, error: 'Erreur réseau. Veuillez réessayer.' };
+        }
+    };
+
+    const handleSignQuote = async (signatureDataUrl, otpCode) => {
         if (!signingQuoteId) return;
         const { data: result, error } = await supabase.rpc('sign_quote_via_portal', {
             portal_token_input: token,
             quote_id_input:     signingQuoteId,
             signature_base64:   signatureDataUrl,
+            otp_code:           otpCode || null,
         });
         if (error || !result?.success) {
             toast.error(result?.error || error?.message || 'Erreur lors de la signature');
@@ -400,6 +420,9 @@ const ClientPortal = () => {
 
     const pendingInvoices = sortedQuotes.filter(q => q.type === 'invoice' && q.status !== 'paid').length;
 
+    const signingQuote = quotes.find(q => q.id === signingQuoteId);
+    const signingRequiresOtp = signingQuote?.require_otp === true && Boolean(client?.email);
+
     const TABS = [
         { id: 'documents', label: 'Documents', icon: FileText,       count: quotes.length + reports.length },
         { id: 'photos',    label: 'Photos',     icon: Camera,         count: photos.length },
@@ -414,6 +437,8 @@ const ClientPortal = () => {
                 isOpen={!!signingQuoteId}
                 onSave={handleSignQuote}
                 onClose={() => setSigningQuoteId(null)}
+                onRequestOtp={handleRequestOtp}
+                requiresOtp={signingRequiresOtp}
             />
 
             {/* ── Header ── */}

@@ -25,6 +25,7 @@ const ROOT = cwd();
 const MIGRATIONS = [
   'supabase/migrations/20260901120000_suspend_quote_signature.sql',
   'supabase/migrations/20260901180000_distinguish_suspension_from_expiry.sql',
+  'supabase/migrations/20260928121000_require_otp_in_portal_signature.sql',
 ].map((rel) => path.join(ROOT, rel));
 
 let db;
@@ -98,13 +99,28 @@ const baseItems = () => [
   { id: 'opt1', type: 'material', quantity: 1, price: 50, is_optional: true },
 ];
 
-const insertQuote = async ({ status = 'sent', revoked = false, suspendedAt = null, type = 'quote' } = {}) => {
+const insertQuote = async ({ status = 'sent', revoked = false, suspendedAt = null, type = 'quote', requireOtp = false } = {}) => {
   await db.query(
     `INSERT INTO quotes
-       (id, client_id, public_token, token_revoked, signature_suspended_at, status, type,
+       (id, client_id, public_token, token_revoked, signature_suspended_at, status, type, require_otp,
         is_external, include_tva, items, total_ht, total_tva, total_ttc)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, false, false, $8::jsonb, 100, 0, 100)`,
-    [ID, CLIENT_ID, TOKEN, revoked, suspendedAt, status, type, JSON.stringify(baseItems())]
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, false, $9::jsonb, 100, 0, 100)`,
+    [ID, CLIENT_ID, TOKEN, revoked, suspendedAt, status, type, requireOtp, JSON.stringify(baseItems())]
+  );
+};
+
+// Insère un OTP valide avec le même hachage que le code de production
+// (`encode(sha256(...), 'hex')`), pour tester le vrai chemin de vérification
+// plutôt qu'une simulation.
+const insertOtp = async (code, { expiresInMin = 15, usedAt = null } = {}) => {
+  const { rows } = await db.query(
+    `SELECT encode(sha256(convert_to($1, 'UTF8')), 'hex') AS hash`,
+    [code]
+  );
+  await db.query(
+    `INSERT INTO quote_otps (quote_id, otp_hash, used_at, expires_at)
+     VALUES ($1, $2, $3, NOW() + ($4 || ' minutes')::interval)`,
+    [ID, rows[0].hash, usedAt, String(expiresInMin)]
   );
 };
 
@@ -210,11 +226,12 @@ describe('sign_public_quote — lien fermé', () => {
 });
 
 describe('sign_quote_via_portal', () => {
-  const signViaPortal = async () => {
-    const { rows } = await db.query('SELECT sign_quote_via_portal($1, $2, $3) AS res', [
+  const signViaPortal = async (otpCode = null) => {
+    const { rows } = await db.query('SELECT sign_quote_via_portal($1, $2, $3, $4) AS res', [
       PORTAL_TOKEN,
       ID,
       SIGNATURE,
+      otpCode,
     ]);
     return rows[0].res;
   };
@@ -246,6 +263,73 @@ describe('sign_quote_via_portal', () => {
     const res = await signViaPortal();
     expect(res.success).toBe(true);
     expect((await getQuote()).status).toBe('accepted');
+  });
+
+  // Le trou corrigé par 20260928121000 : le portail ne vérifiait aucun OTP,
+  // contrairement à sign_public_quote, alors même que le client a un email.
+  describe('vérification OTP (parité avec sign_public_quote)', () => {
+    it('refuse de signer sans code quand require_otp est actif', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      const res = await signViaPortal(null);
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('code de vérification est requis');
+      expect((await getQuote()).signature).toBeNull();
+    });
+
+    it('refuse un code invalide ou inconnu', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      await insertOtp('123456');
+      const res = await signViaPortal('000000');
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/invalide ou expiré/);
+    });
+
+    it('refuse un code expiré', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      await insertOtp('123456', { expiresInMin: -1 });
+      const res = await signViaPortal('123456');
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/invalide ou expiré/);
+    });
+
+    it('refuse un code déjà utilisé (rejeu)', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      await insertOtp('123456', { usedAt: new Date().toISOString() });
+      const res = await signViaPortal('123456');
+      expect(res.success).toBe(false);
+    });
+
+    it('signe avec un code valide', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      await insertOtp('123456');
+      const res = await signViaPortal('123456');
+      expect(res.success).toBe(true);
+      expect((await getQuote()).status).toBe('accepted');
+    });
+
+    it('ne consomme pas deux fois le même code', async () => {
+      await insertQuote({ status: 'sent', requireOtp: true });
+      await insertOtp('123456');
+      expect((await signViaPortal('123456')).success).toBe(true);
+
+      // Revenir à un état signable pour isoler la vérif OTP du verrou "déjà signé"
+      await db.query('UPDATE quotes SET signed_at = NULL, status = $1 WHERE id = $2', ['sent', ID]);
+      const res = await signViaPortal('123456');
+      expect(res.success).toBe(false);
+    });
+
+    it('ne demande rien quand require_otp est inactif (pas de régression)', async () => {
+      await insertQuote({ status: 'sent', requireOtp: false });
+      const res = await signViaPortal(null);
+      expect(res.success).toBe(true);
+    });
+
+    it('ne demande rien quand le client n’a pas d’email', async () => {
+      await db.query('UPDATE clients SET email = NULL WHERE id = $1', [CLIENT_ID]);
+      await insertQuote({ status: 'sent', requireOtp: true });
+      const res = await signViaPortal(null);
+      expect(res.success).toBe(true);
+    });
   });
 });
 
