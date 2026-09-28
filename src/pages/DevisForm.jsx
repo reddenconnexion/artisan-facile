@@ -1367,10 +1367,28 @@ const DevisForm = () => {
     };
 
     const removeItem = (id) => {
+        const index = formData.items.findIndex(item => item.id === id);
+        if (index === -1) return;
+        const removed = formData.items[index];
         setFormData(prev => ({
             ...prev,
             items: prev.items.filter(item => item.id !== id)
         }));
+        // Suppression annulable : un tap involontaire (gants, chantier) ne doit pas faire perdre une ligne
+        const label = removed.type === 'section' ? 'Section supprimée' : 'Ligne supprimée';
+        toast(label, {
+            description: removed.description ? removed.description.slice(0, 80) : undefined,
+            duration: 6000,
+            action: {
+                label: 'Annuler',
+                onClick: () => setFormData(prev => {
+                    if (prev.items.some(item => item.id === id)) return prev;
+                    const items = [...prev.items];
+                    items.splice(Math.min(index, items.length), 0, removed);
+                    return { ...prev, items };
+                }),
+            },
+        });
     };
 
     const moveItem = (index, direction) => {
@@ -5599,8 +5617,9 @@ Conditions de règlement : Paiement à réception de facture.`
                                         <button
                                             type="button"
                                             onClick={() => removeItem(item.id)}
-                                            className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-30"
+                                            className="ml-3 p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-30"
                                             disabled={isLocked}
+                                            title="Supprimer la section"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -5838,6 +5857,7 @@ Conditions de règlement : Paiement à réception de facture.`
                                         )}
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => removeItem(item.id)}
                                         className="self-center p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
                                         disabled={isLocked}
