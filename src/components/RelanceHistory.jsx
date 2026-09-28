@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, X, Mail, Phone, MessageSquare, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
+import { formatDate, formatDateTime } from '../utils/format';
 
 function timeAgo(dateStr) {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -8,7 +9,7 @@ function timeAgo(dateStr) {
     if (diff < 3600) return `Il y a ${Math.floor(diff / 60)} min`;
     if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)} h`;
     if (diff < 86400 * 7) return `Il y a ${Math.floor(diff / 86400)} j`;
-    return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    return formatDate(dateStr, { day: 'numeric', month: 'short' });
 }
 
 function MethodIcon({ method }) {
@@ -110,7 +111,7 @@ export default function RelanceHistory({ quoteIds, onClose }) {
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">
-                                        {new Date(it.created_at).toLocaleString('fr-FR', {
+                                        {formatDateTime(it.created_at, {
                                             weekday: 'short',
                                             day: 'numeric',
                                             month: 'short',

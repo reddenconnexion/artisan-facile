@@ -14,14 +14,11 @@ import {
     setAll, lineMatches, matchesStatus, matchesKind,
 } from '../utils/chantierProgress';
 import { loadProgress, loadProgressMap, saveProgress, emptyProgress } from '../utils/chantierProgressStore';
+import { formatCurrency } from '../utils/format';
 
 // ─── Helpers d'affichage ──────────────────────────────────────────────────────
 
-const euros = (value, decimals = 2) =>
-    (Number(value) || 0).toLocaleString('fr-FR', {
-        style: 'currency', currency: 'EUR',
-        minimumFractionDigits: decimals, maximumFractionDigits: decimals,
-    });
+const euros = (value, decimals = 2) => formatCurrency(value, { decimals });
 
 const percent = (ratio) => Math.round((Number(ratio) || 0) * 100);
 

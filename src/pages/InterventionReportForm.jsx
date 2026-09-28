@@ -24,7 +24,7 @@ import ReviewRequestModal from '../components/ReviewRequestModal';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateInterventionSummary } from '../utils/aiService';
-import { formatCompactCurrency } from '../utils/format';
+import { formatCompactCurrency, formatDate, formatDateTime } from '../utils/format';
 import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
 import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 
@@ -264,7 +264,7 @@ const InterventionReportForm = () => {
         }
         const savedAt = draft.savedAt ? new Date(draft.savedAt) : null;
         const when = savedAt
-            ? ` du ${savedAt.toLocaleDateString('fr-FR')} à ${savedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            ? ` du ${formatDate(savedAt)} à ${savedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
             : '';
         confirm({
             title: 'Reprendre le brouillon ?',
@@ -1092,7 +1092,7 @@ const InterventionReportForm = () => {
                 total_ttc: totalTTC,
                 include_tva: includeTva,
                 public_token: invoiceToken,
-                notes: `Facture de clôture — rapport d'intervention du ${formData.date || new Date().toLocaleDateString('fr-FR')}`,
+                notes: `Facture de clôture — rapport d'intervention du ${formData.date || formatDate(new Date())}`,
                 report_pdf_url: reportUrl,
                 // Lier la facture au devis d'origine pour que le dashboard retire ce devis des "À traiter"
                 parent_id: linkedQuote?.id || null,
@@ -1520,7 +1520,7 @@ const InterventionReportForm = () => {
                         {clientQuotes.map(q => (
                             <option key={q.id} value={q.id}>
                                 {q.title || `Devis #${q.id}`}
-                                {q.date ? ` — ${new Date(q.date).toLocaleDateString('fr-FR')}` : ''}
+                                {q.date ? ` — ${formatDate(q.date)}` : ''}
                                 {q.total_ttc ? ` — ${parseFloat(q.total_ttc).toFixed(2)} €` : ''}
                             </option>
                         ))}
@@ -1956,7 +1956,7 @@ const InterventionReportForm = () => {
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-semibold text-sm text-gray-900 dark:text-white">{m.label}</span>
                                             <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                                {new Date(m.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                                                {formatDateTime(m.timestamp, { dateStyle: 'short', timeStyle: 'short' })}
                                             </span>
                                             {m.latitude !== undefined && m.longitude !== undefined && (
                                                 <a
@@ -2026,7 +2026,7 @@ const InterventionReportForm = () => {
                             Signature enregistrée
                             {formData.signed_at && (
                                 <span className="text-gray-500 dark:text-gray-400">
-                                    — {new Date(formData.signed_at).toLocaleString('fr-FR')}
+                                    — {formatDateTime(formData.signed_at)}
                                 </span>
                             )}
                         </div>

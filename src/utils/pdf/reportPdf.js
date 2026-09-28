@@ -2,7 +2,7 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatDate } from '../format';
+import { formatDate, formatDateTime } from '../format';
 import { buildRoundedLogoDataUrl } from './logo';
 
 // ---------------------------------------------------------------
@@ -331,7 +331,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
             doc.setFontSize(8);
             doc.setTextColor(110, 110, 110);
             const dateStr = m.timestamp
-                ? new Date(m.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+                ? formatDateTime(m.timestamp, { dateStyle: 'short', timeStyle: 'short' })
                 : '';
             doc.text(`📅 ${dateStr}`, textX, y + 10);
 
@@ -420,7 +420,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
     if (report.signed_at) {
         doc.setFontSize(8);
         doc.setTextColor(...lightGray);
-        doc.text(`Signé le ${new Date(report.signed_at).toLocaleString('fr-FR')}`, 14, y);
+        doc.text(`Signé le ${formatDateTime(report.signed_at)}`, 14, y);
     }
 
     // ------ Footer ------

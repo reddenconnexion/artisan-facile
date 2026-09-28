@@ -8,6 +8,7 @@ import { PLAN_LIMITS } from '../utils/planLimits';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
+import { formatDate } from '../utils/format';
 
 const FEATURES = [
     {
@@ -74,7 +75,7 @@ const Subscription = () => {
     const [searchParams] = useSearchParams();
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
-    const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+    const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
 
     // Handle Stripe redirect callbacks
     useEffect(() => {

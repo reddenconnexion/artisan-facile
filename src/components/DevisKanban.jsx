@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Eye, EyeOff, PenTool } from 'lucide-react';
 import { UrgencyBadge } from './ui';
-import { formatCurrencyRounded } from '../utils/format';
+import { formatCurrencyRounded, formatDate } from '../utils/format';
 
 const COLS = [
     {
@@ -117,7 +117,7 @@ const KanbanCard = ({ devis, onClick }) => {
 
             {devis.date && (
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
-                    {new Date(devis.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    {formatDate(devis.date, { day: '2-digit', month: '2-digit', year: '2-digit' })}
                 </p>
             )}
         </button>

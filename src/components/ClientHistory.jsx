@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle } from 'lucide-react';
+import { formatDate, formatCurrency } from '../utils/format';
 
 const StatusBadge = ({ status }) => {
     const styles = {
@@ -105,7 +106,7 @@ const ClientHistory = ({ clientId }) => {
                     <Clock className="w-5 h-5 text-blue-600 mr-3 mt-1 md:mt-0 flex-shrink-0" />
                     <div>
                         <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                            Dernier contact : {new Date(lastContact.date).toLocaleDateString()} à {new Date(lastContact.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            Dernier contact : {formatDate(lastContact.date)} à {new Date(lastContact.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                         <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5 flex items-center gap-1">
                             {lastContact.type === 'email' && <><Mail className="w-3 h-3" /> Email</>}
@@ -139,7 +140,7 @@ const ClientHistory = ({ clientId }) => {
                                             {event.title}
                                         </p>
                                         <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
-                                            {new Date(event.date).toLocaleDateString()}
+                                            {formatDate(event.date)}
                                         </span>
                                     </div>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
@@ -178,7 +179,7 @@ const ClientHistory = ({ clientId }) => {
                                         <p className="text-sm font-medium text-gray-900 dark:text-white capitalize truncate">
                                             {log.type === 'email' ? 'Email' : log.type === 'call' ? 'Appel' : log.type === 'sms' ? 'SMS' : log.type}
                                         </p>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">{new Date(log.date).toLocaleDateString()}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">{formatDate(log.date)}</span>
                                     </div>
                                     {log.details && <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{log.details}</p>}
                                 </div>
@@ -225,7 +226,7 @@ const ClientHistory = ({ clientId }) => {
                                         className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                                     >
                                         <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                            {new Date(item.date).toLocaleDateString()}
+                                            {formatDate(item.date)}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                             {['invoice', 'credit_note'].includes(item.type) && item.invoice_number
@@ -233,7 +234,7 @@ const ClientHistory = ({ clientId }) => {
                                                 : `${item.type === 'credit_note' ? 'Avoir' : ((item.type === 'invoice' || item.status === 'paid') ? 'Facture' : 'Devis')} #${item.quote_number || item.id}`}
                                         </td>
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                            {item.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                            {formatCurrency(item.total_ttc)}
                                         </td>
                                         <td className="px-4 py-3">
                                             <StatusBadge status={item.status} />

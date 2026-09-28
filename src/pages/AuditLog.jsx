@@ -7,7 +7,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toastError } from '../utils/supabaseErrorHandler';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate, formatDateTime } from '../utils/format';
 
 /* ─── Métadonnées par type d'action ─── */
 const ACTION_META = {
@@ -78,7 +78,7 @@ function relativeTime(dateStr) {
     if (sec < 3600)          return `il y a ${Math.floor(sec / 60)} min`;
     if (sec < 86400)         return `il y a ${Math.floor(sec / 3600)} h`;
     if (sec < 7 * 86400)     return `il y a ${Math.floor(sec / 86400)} j`;
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    return formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /* ─── Une ligne du journal ─── */
@@ -86,7 +86,7 @@ const LogEntry = ({ entry }) => {
     const meta    = ACTION_META[entry.action] || { label: entry.action, icon: AlertCircle, bg: 'bg-gray-50 dark:bg-gray-800', color: 'text-gray-600 dark:text-gray-400' };
     const Icon    = meta.icon;
     const details = formatDetails(entry.action, entry.details);
-    const dateFull = new Date(entry.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+    const dateFull = formatDateTime(entry.created_at, { dateStyle: 'medium', timeStyle: 'short' });
 
     const linkHref = entry.entity_id && (entry.entity_type === 'quote' || entry.entity_type === 'invoice')
         ? `/app/devis/${entry.entity_id}`

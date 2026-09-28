@@ -8,7 +8,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../constants/admin';
-import { formatDate } from '../utils/format';
+import { formatDate, formatDateTime } from '../utils/format';
 
 /* ─── Format date courte ─── */
 const fmtDate = (s) => formatDate(s, { day: '2-digit', month: 'short', year: '2-digit', fallback: '—' });
@@ -186,7 +186,7 @@ const AdminStats = () => {
 
           <p className="text-xs text-gray-400 dark:text-gray-500 px-1">
             Les comptes de démonstration et de test sont exclus de ces chiffres.
-            {data?.generated_at && ` Données au ${new Date(data.generated_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}.`}
+            {data?.generated_at && ` Données au ${formatDateTime(data.generated_at, { dateStyle: 'short', timeStyle: 'short' })}.`}
           </p>
         </>
       )}

@@ -1,3 +1,4 @@
+import { formatDate } from './format';
 // Construction d'un avoir (facture rectificative, type 'credit_note') à partir
 // d'une facture émise. Une facture émise étant immuable (numéro figé,
 // suppression interdite), l'avoir est le seul moyen réglementaire de l'annuler
@@ -101,7 +102,7 @@ export function buildCreditNotePayload(invoice, { mode, amountTTC = 0, reason = 
             },
         },
         notes: [
-            `Avoir émis le ${new Date().toLocaleDateString('fr-FR')} sur la facture ${parentRef}${invoice.date ? ` du ${new Date(invoice.date).toLocaleDateString('fr-FR')}` : ''}.`,
+            `Avoir émis le ${formatDate(new Date())} sur la facture ${parentRef}${invoice.date ? ` du ${formatDate(invoice.date)}` : ''}.`,
             reason?.trim() ? `Motif : ${reason.trim()}` : null,
             mode === 'total'
                 ? 'Cet avoir annule intégralement la facture référencée.'

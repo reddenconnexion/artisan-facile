@@ -15,6 +15,7 @@ import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
 import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { formatDate, formatDateTime, formatCurrency } from '../utils/format';
 
 const FollowUps = lazy(() => import('./FollowUps'));
 
@@ -72,7 +73,7 @@ const formatFollowUpDate = (dateStr) => {
     if (diffDays === 0) return "Aujourd'hui";
     if (diffDays === 1) return 'Hier';
     if (diffDays < 7) return `il y a ${diffDays}j`;
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    return formatDate(d, { day: '2-digit', month: '2-digit' });
 };
 
 const formatRelativeTime = (dateStr) => {
@@ -87,7 +88,7 @@ const formatRelativeTime = (dateStr) => {
     if (min < 60)   return `il y a ${min} min`;
     if (hours < 24) return `il y a ${hours} h`;
     if (days < 7)   return `il y a ${days} j`;
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    return formatDate(d, { day: '2-digit', month: '2-digit' });
 };
 
 // Badge "vu / non vu" pour les devis envoyés
@@ -102,7 +103,7 @@ const EngagementBadge = ({ devis, stats, onOpenHistory }) => {
         return (
             <span
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
-                title={`Devis ouvert par le client le ${new Date(devis.last_viewed_at).toLocaleString('fr-FR')}`}
+                title={`Devis ouvert par le client le ${formatDateTime(devis.last_viewed_at)}`}
             >
                 <Eye className="w-3 h-3" />
                 Vu {formatRelativeTime(devis.last_viewed_at)}
@@ -406,8 +407,8 @@ const DevisList = () => {
                                                         { key: 'type', label: 'Type' },
                                                         { key: 'status', label: 'Statut' },
                                                         { key: 'client_name', label: 'Client' },
-                                                        { key: 'date', label: 'Date', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
-                                                        { key: 'valid_until', label: 'Valide jusqu\'au', format: (v) => v ? new Date(v).toLocaleDateString('fr-FR') : '' },
+                                                        { key: 'date', label: 'Date', format: (v) => v ? formatDate(v) : '' },
+                                                        { key: 'valid_until', label: 'Valide jusqu\'au', format: (v) => v ? formatDate(v) : '' },
                                                         { key: 'total_ht', label: 'Total HT' },
                                                         { key: 'total_tva', label: 'TVA' },
                                                         { key: 'total_ttc', label: 'Total TTC' },
@@ -613,7 +614,7 @@ const DevisList = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            <div>{new Date(devis.date).toLocaleDateString()}</div>
+                                            <div>{formatDate(devis.date)}</div>
                                             {isExpired(devis) && (
                                                 <span className="text-xs font-medium text-red-600 dark:text-red-400">Expiré</span>
                                             )}
@@ -624,7 +625,7 @@ const DevisList = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
-                                            {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
+                                            {devis.total_ttc ? formatCurrency(devis.total_ttc) : '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex flex-col gap-1">
@@ -713,7 +714,7 @@ const DevisList = () => {
                                             <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{devis.title}</p>
                                         )}
                                         <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
-                                            <span>{new Date(devis.date).toLocaleDateString()}</span>
+                                            <span>{formatDate(devis.date)}</span>
                                             {isExpired(devis) && <span className="text-red-600 dark:text-red-400 font-medium">Expiré</span>}
                                             {isExpiringSoon(devis) && !isExpired(devis) && <span className="text-amber-600 dark:text-amber-400 font-medium">Expire bientôt</span>}
                                             {devis.last_followup_at && (
@@ -736,7 +737,7 @@ const DevisList = () => {
                                             onOpenHistory={handleShowHistory}
                                         />
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
-                                            {devis.total_ttc ? devis.total_ttc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-'}
+                                            {devis.total_ttc ? formatCurrency(devis.total_ttc) : '-'}
                                         </span>
                                         {!mergeMode && (
                                             devis.archived_at ? (
@@ -892,7 +893,7 @@ const DevisList = () => {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                                                    {new Date(o.opened_at).toLocaleString('fr-FR')}
+                                                    {formatDateTime(o.opened_at)}
                                                     {o.is_bot && (
                                                         <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                             Automatique

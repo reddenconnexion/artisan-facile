@@ -13,7 +13,7 @@ import { DismissibleHelp } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
 
 // Taux URSSAF 2026 pour micro-entrepreneurs
 const URSSAF_RATES = {
@@ -528,7 +528,7 @@ const Accounting = () => {
         return {
           id: invoice.id,
           date: paidDate,
-          dateStr: paidDate.toLocaleDateString('fr-FR'),
+          dateStr: formatDate(paidDate),
           reference: `${(invoice.type || 'quote') === 'invoice' ? 'F' : 'D'}${invoice.id}`,
           client: invoice.client_name || 'Client inconnu',
           nature,
@@ -1611,7 +1611,7 @@ const Accounting = () => {
                             {inv.quoteNumber || `${inv.docType === 'invoice' ? 'F' : 'D'}${inv.id}`}
                           </td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {inv.date.toLocaleDateString('fr-FR')}
+                            {formatDate(inv.date)}
                           </td>
                           <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-[140px] truncate">
                             {inv.client}
@@ -1657,10 +1657,10 @@ const Accounting = () => {
       <CopilotChat
         context={{
           page: 'Comptabilité',
-          today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+          today: formatDate(new Date(), { day: 'numeric', month: 'long', year: 'numeric' }),
           facts: [
             `Année consultée : ${selectedYear}`,
-            `CA encaissé sur l'année : ${(yearlyRevenue || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`,
+            `CA encaissé sur l'année : ${formatCurrency(yearlyRevenue)}`,
             `Nombre de factures filtrées affichées : ${filteredInvoices.length}`,
           ],
         }}

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useInvalidateCache } from './useDataCache';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { formatCurrency } from '../utils/format';
 
 /**
  * Hook global : écoute en temps réel les signatures de devis via Supabase Realtime.
@@ -52,7 +53,7 @@ export function useSignatureNotifications() {
                     } catch { /* ignore */ }
 
                     const amount = newRecord.total_ttc
-                        ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(newRecord.total_ttc)
+                        ? formatCurrency(newRecord.total_ttc)
                         : '';
 
                     const message = quoteTitle

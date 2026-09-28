@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrency } from '../utils/format';
 
 const LAST_SEEN_KEY = 'notifications_last_seen';
 
@@ -79,7 +80,7 @@ export function useNotifications() {
                 const isSigned = l.action === 'quote.signed';
                 const amount = l.details?.total_ttc;
                 const amountStr = amount != null
-                    ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount)
+                    ? formatCurrency(amount, { decimals: 0 })
                     : '';
                 return {
                     id: `log_${l.id}`,

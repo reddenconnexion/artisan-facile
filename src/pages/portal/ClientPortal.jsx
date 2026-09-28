@@ -10,6 +10,7 @@ import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdf
 import SignatureModal from '../../components/SignatureModal';
 import { toast } from 'sonner';
 import { canSignInPortal, isSignatureBlocked } from '../../utils/quoteSignability';
+import { formatDate, formatDateTime } from '../../utils/format';
 
 /* ─── Inline PDF Viewer ─── */
 const PdfViewerModal = ({ url, title, onClose }) => {
@@ -133,7 +134,7 @@ const MessageBubble = ({ msg, isArtisan }) => (
             )}
             <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
             <p className={`text-[10px] mt-1 ${isArtisan ? 'text-gray-400' : 'text-blue-200'}`}>
-                {new Date(msg.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {formatDateTime(msg.created_at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </p>
         </div>
     </div>
@@ -201,7 +202,7 @@ const ClientPortal = () => {
             }
             if (portalData.error === 'expired') {
                 const expiredDate = portalData.expired_at
-                    ? new Date(portalData.expired_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    ? formatDate(portalData.expired_at, { day: 'numeric', month: 'long', year: 'numeric' })
                     : null;
                 throw new Error(
                     expiredDate
@@ -606,10 +607,10 @@ const ClientPortal = () => {
                                                     </div>
 
                                                     <p className="text-xs text-gray-500 mb-4">
-                                                        {new Date(quote.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                        {formatDate(quote.date, { day: 'numeric', month: 'long', year: 'numeric' })}
                                                         {isSigned && signedAt && (
                                                             <span className="ml-2 text-green-600 font-medium">
-                                                                · Signé le {new Date(signedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                                · Signé le {formatDate(signedAt, { day: 'numeric', month: 'long', year: 'numeric' })}
                                                             </span>
                                                         )}
                                                     </p>
@@ -692,7 +693,7 @@ const ClientPortal = () => {
                                                     </div>
                                                 </div>
                                                 <p className="text-xs text-gray-500">
-                                                    {new Date(report.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    {formatDate(report.date, { day: 'numeric', month: 'long', year: 'numeric' })}
                                                     {report.signed_at && report.signer_name && (
                                                         <span className="ml-2 text-green-600">· Signé par {report.signer_name}</span>
                                                     )}

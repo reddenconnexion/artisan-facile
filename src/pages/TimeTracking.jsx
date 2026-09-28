@@ -16,12 +16,12 @@ import {
     parseHoursInput, startOfWeek, weekDays, toDateString,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
-import { formatCurrencyRounded } from '../utils/format';
+import { formatCurrencyRounded, formatDate } from '../utils/format';
 
 const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 const formatDayDate = (dateStr) =>
-    new Date(`${dateStr}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    formatDate(`${dateStr}T00:00:00`, { day: 'numeric', month: 'short' });
 
 // ── Carte rentabilité d'un chantier ──────────────────────────────────────────
 

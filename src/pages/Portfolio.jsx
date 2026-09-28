@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useConfirm } from '../context/ConfirmContext';
 import { EmptyState, LoadingState } from '../components/ui';
+import { formatDate } from '../utils/format';
 
 /**
  * Portfolio Page
@@ -183,7 +184,7 @@ const Portfolio = () => {
                         const clientName = item.clients?.name || 'Client inconnu';
                         const location = item.clients?.address;
                         const projectName = item.projects?.name;
-                        const dateDate = new Date(item.created_at).toLocaleDateString('fr-FR');
+                        const dateDate = formatDate(item.created_at);
 
                         return (
                             <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow flex flex-col">

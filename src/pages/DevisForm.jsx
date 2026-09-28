@@ -64,6 +64,7 @@ import { lineComponents, effectiveLineCost, supplyEntries } from '../utils/quote
 import { estimatedHoursFromItems, formatHours } from '../utils/timeTracking';
 import { materialDepositAmounts, amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../utils/materialDeposit';
 import DepositNextStepCard from '../components/DepositNextStepCard';
+import { formatDate, formatDateTime, formatCurrency } from '../utils/format';
 
 // Aides « ? » du formulaire : chacune peut être supprimée définitivement
 // (petite croix) une fois comprise — mémorisé par navigateur.
@@ -421,7 +422,7 @@ const DevisForm = () => {
                     }]
                 }));
                 const qty = (data.quantity || 1).toLocaleString('fr-FR');
-                const price = (data.price || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                const price = formatCurrency(data.price);
                 toast.success('Ligne ajoutée', {
                     description: `${qty} ${data.unit || ''} × ${data.description} — ${price}${data.price ? '' : ' (prix à compléter)'}`,
                 });
@@ -1700,7 +1701,7 @@ const DevisForm = () => {
             // si elle est renseignée.
             const isPaidInvoice = isInvoice && formData.status === 'paid';
             const paidDate = (isPaidInvoice && formData.paid_at)
-                ? new Date(formData.paid_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR')
+                ? formatDate(formData.paid_at, { locale: lang === 'en' ? 'en-GB' : 'fr-FR' })
                 : '';
 
             // Template Construction — bilingue (fr par défaut, en sur demande)
@@ -2639,7 +2640,7 @@ const DevisForm = () => {
                 total_tva: depTVA,
                 total_ttc: depositAmount,
                 parent_id: parseInt(id, 10),
-                notes: `Facture d'acompte générée le ${new Date().toLocaleDateString("fr-FR")}
+                notes: `Facture d'acompte générée le ${formatDate(new Date())}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${total.toFixed(2)} € TTC${amendmentsTTC !== 0 ? `
@@ -2790,7 +2791,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_ht: depositHT,
                 total_tva: depositTVA,
                 total_ttc: depositAmount,
-                notes: `Facture d'acompte matériel générée le ${new Date().toLocaleDateString("fr-FR")}
+                notes: `Facture d'acompte matériel générée le ${formatDate(new Date())}
 
 RÉCAPITULATIF :
 • Montant total du devis : ${rootTotalTTC.toFixed(2)} € TTC${amendmentTotalHT > 0 ? `
@@ -2913,7 +2914,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         index: situationIndex,
                     }
                 },
-                notes: `Facture de situation n°${situationIndex} du ${new Date().toLocaleDateString("fr-FR")}, établie selon l'avancement des travaux du devis n°${parentRef} « ${formData.title || 'Travaux'} ».`
+                notes: `Facture de situation n°${situationIndex} du ${formatDate(new Date())}, établie selon l'avancement des travaux du devis n°${parentRef} « ${formData.title || 'Travaux'} ».`
             };
 
             const { data, error } = await supabase
@@ -3072,7 +3073,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 const deductionType = materialSum >= serviceSum ? 'material' : 'service';
                 return {
                     id: Date.now() + Math.random(),
-                    description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? new Date(inv.date).toLocaleDateString("fr-FR") : 'Date inconnue'}`,
+                    description: `Déduction ${inv.title || 'Acompte'} du ${inv.date ? formatDate(inv.date) : 'Date inconnue'}`,
                     quantity: 1,
                     unit: 'forfait',
                     price: -Math.abs(amountHT),
@@ -3136,7 +3137,7 @@ Conditions de règlement : Paiement à réception de facture.`
                 total_tva: tva,
                 total_ttc: total,
                 parent_id: quoteId,
-                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${new Date().toLocaleDateString("fr-FR")}${amendmentSummary}${deductionSummary}`
+                notes: (formData.notes || '') + `\n\nFacture de clôture générée le ${formatDate(new Date())}${amendmentSummary}${deductionSummary}`
             };
 
             const { data, error } = await supabase
@@ -4394,11 +4395,11 @@ Conditions de règlement : Paiement à réception de facture.`
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                         <span className="font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0">V{v.version_number}</span>
                                         <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">
-                                            {new Date(v.created_at).toLocaleDateString('fr-FR')}
+                                            {formatDate(v.created_at)}
                                         </span>
                                         {!Number.isNaN(versionTtc) && (
                                             <span className="font-medium text-gray-900 dark:text-gray-100 flex-shrink-0">
-                                                {versionTtc.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                                {formatCurrency(versionTtc)}
                                             </span>
                                         )}
                                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${reason.cls}`}>
@@ -4540,10 +4541,10 @@ Conditions de règlement : Paiement à réception de facture.`
                         <button
                             onClick={() => setShowViewHistory(true)}
                             className="flex items-center gap-1 text-gray-400 hover:text-blue-500 text-[10px] transition-colors"
-                            title={`Dernière ouverture : ${new Date(formData.last_viewed_at).toLocaleString()}`}
+                            title={`Dernière ouverture : ${formatDateTime(formData.last_viewed_at)}`}
                         >
                             <Eye className="w-3 h-3" />
-                            Vu {new Date(formData.last_viewed_at).toLocaleDateString()}
+                            Vu {formatDate(formData.last_viewed_at)}
                             {viewCount > 1 && (
                                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-bold px-1 rounded text-[9px]">
                                     ×{viewCount}
@@ -5255,7 +5256,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         {formData.last_followup_at && (
                             <p className="text-xs text-amber-600 mt-1 font-medium flex items-center">
                                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-1.5"></span>
-                                Relancé le {new Date(formData.last_followup_at).toLocaleDateString()}
+                                Relancé le {formatDate(formData.last_followup_at)}
                                 {formData.follow_up_count > 0 && (
                                     <span className="ml-1 text-amber-500">
                                         (étape {formData.follow_up_count})
@@ -6385,7 +6386,7 @@ Conditions de règlement : Paiement à réception de facture.`
                         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 inline-block">
                             <img src={signature} alt="Signature Client" className="h-24 object-contain" />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                Signé le {new Date(formData.signed_at || formData.updated_at || new Date()).toLocaleDateString()}
+                                Signé le {formatDate(formData.signed_at || formData.updated_at || new Date())}
                             </p>
                         </div>
                     </div>
@@ -6689,7 +6690,7 @@ Conditions de règlement : Paiement à réception de facture.`
             <CopilotChat
                 context={{
                     page: formData.type === 'invoice' ? 'Édition de facture' : 'Édition de devis',
-                    today: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    today: formatDate(new Date(), { day: 'numeric', month: 'long', year: 'numeric' }),
                     facts: buildQuoteCopilotFacts(formData, { subtotal, total }),
                 }}
                 presets={[
