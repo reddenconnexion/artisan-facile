@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { clientGreetingName } from './clientGreeting';
 import { formatDate } from './format';
-import { invoiceReminderStatus } from './unpaidInvoices';
+import { idsBilledByChildren, invoiceReminderStatus } from './unpaidInvoices';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -428,7 +428,7 @@ export const getOptimalSendWindow = (now = new Date()) => {
  * @returns {Promise<Array>} factures enrichies de `reminder` (cf. invoiceReminderStatus), les plus en retard d'abord
  */
 export const getUnpaidInvoiceReminders = async (userId) => {
-    const [{ data: invoices, error }, { data: schedules }] = await Promise.all([
+    const [{ data: invoices, error }, { data: schedules }, { data: childInvoices }] = await Promise.all([
         supabase
             .from('quotes')
             .select(`
@@ -441,6 +441,12 @@ export const getUnpaidInvoiceReminders = async (userId) => {
             .not('status', 'in', '(paid,cancelled,draft)')
             .is('archived_at', null),
         supabase.from('invoice_installments').select('quote_id'),
+        supabase
+            .from('quotes')
+            .select('type, status, parent_id')
+            .eq('user_id', userId)
+            .eq('type', 'invoice')
+            .not('parent_id', 'is', null),
     ]);
 
     if (error) {
@@ -449,9 +455,10 @@ export const getUnpaidInvoiceReminders = async (userId) => {
     }
 
     const withSchedule = new Set((schedules || []).map(s => s.quote_id));
+    const billedByChildren = idsBilledByChildren(childInvoices);
     const today = new Date();
     return (invoices || [])
-        .filter(inv => !withSchedule.has(inv.id))
+        .filter(inv => !withSchedule.has(inv.id) && !billedByChildren.has(inv.id))
         .map(inv => ({ ...inv, reminder: invoiceReminderStatus(inv, today) }))
         .filter(inv => inv.reminder)
         .sort((a, b) => b.reminder.daysOverdue - a.reminder.daysOverdue);

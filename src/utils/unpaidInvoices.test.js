@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildInvoiceReminderEmail,
+    idsBilledByChildren,
     invoiceDueDate,
     invoiceReminderStatus,
     isUnpaidInvoice,
@@ -34,6 +35,28 @@ describe('isUnpaidInvoice', () => {
         expect(isUnpaidInvoice(invoice({ type: 'quote' }))).toBe(false);
         expect(isUnpaidInvoice(invoice({ type: 'credit_note' }))).toBe(false);
         expect(isUnpaidInvoice(invoice({ archived_at: '2026-09-01' }))).toBe(false);
+    });
+});
+
+describe('idsBilledByChildren', () => {
+    // Cas réel : un document « invoice » au statut accepté, entièrement réglé
+    // par sa facture d'acompte et sa facture de clôture (parent_id).
+    const docs = [
+        invoice({ id: 114, status: 'accepted' }),
+        invoice({ id: 128, parent_id: 114, status: 'paid' }),
+        invoice({ id: 167, parent_id: 114, status: 'paid' }),
+        invoice({ id: 298, parent_id: 197, status: 'cancelled' }),
+        { id: 181, type: 'amendment', parent_id: 169, status: 'accepted' },
+    ];
+
+    it('le parent facturé par ses factures filles n’est pas dû lui-même', () => {
+        expect(idsBilledByChildren(docs).has(114)).toBe(true);
+    });
+
+    it('une facture fille annulée ou un avenant ne comptent pas', () => {
+        const ids = idsBilledByChildren(docs);
+        expect(ids.has(197)).toBe(false);
+        expect(ids.has(169)).toBe(false);
     });
 });
 

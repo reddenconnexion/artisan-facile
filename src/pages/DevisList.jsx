@@ -6,7 +6,7 @@ import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/qu
 import { documentRef } from '../utils/documentNumber';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuotes } from '../hooks/useDataCache';
-import { invoiceReminderStatus } from '../utils/unpaidInvoices';
+import { idsBilledByChildren, invoiceReminderStatus } from '../utils/unpaidInvoices';
 import DevisKanban from '../components/DevisKanban';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
@@ -336,6 +336,7 @@ const DevisList = () => {
 
     // Estimation client-side des relances en retard (délais par défaut : 3-7-7-13j)
     const FOLLOW_UP_DEFAULT_DELAYS = [3, 7, 7, 13];
+    const billedByChildren = idsBilledByChildren(devisList);
     const followUpDueCount = activeDevis.filter(d => {
         if (d.status !== 'sent') return false;
         const nextStep = d.follow_up_count || 0;
@@ -345,7 +346,7 @@ const DevisList = () => {
         const due = new Date(ref);
         due.setDate(due.getDate() + delay);
         return due <= new Date();
-    }).length + activeDevis.filter(d => invoiceReminderStatus(d)?.dueNow).length;
+    }).length + activeDevis.filter(d => !billedByChildren.has(d.id) && invoiceReminderStatus(d)?.dueNow).length;
 
     if (loading) {
         return <LoadingState className="h-64" />;

@@ -33,6 +33,17 @@ const daysBetween = (from, to) => Math.round((startOfDay(to) - startOfDay(from))
 export const isUnpaidInvoice = (doc) =>
     doc?.type === 'invoice' && !SETTLED_STATUSES.includes(doc.status || 'draft') && !doc.archived_at;
 
+/**
+ * Documents déjà facturés par des factures filles (acompte, situation,
+ * clôture — `parent_id`) : c'est la facture fille qui est due, pas le parent,
+ * même quand celui-ci porte lui-même `type: 'invoice'`.
+ */
+export const idsBilledByChildren = (docs) => new Set(
+    (docs || [])
+        .filter(d => d.type === 'invoice' && d.parent_id != null && d.status !== 'cancelled')
+        .map(d => d.parent_id)
+);
+
 // Même règle que le PDF de la facture : l'échéance imprimée est `valid_until`,
 // à défaut la facture est payable à réception, donc à sa date d'émission.
 export const invoiceDueDate = (invoice) => startOfDay(invoice.valid_until || invoice.date);
