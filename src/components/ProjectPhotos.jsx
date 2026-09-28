@@ -17,6 +17,59 @@ import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 const CATEGORY_ORDER = ['before', 'during', 'after'];
 const CATEGORY_LABELS = { before: 'Avant', during: 'Pendant', after: 'Après' };
 
+// Montage avant/après, 1200×800 à l'échelle 1. Même dessin pour l'aperçu
+// (scale 0.5) et pour l'image exportée : l'aperçu montre exactement ce qui
+// sera téléchargé. Sans recadrage choisi, chaque photo est centrée.
+const drawBeforeAfter = (canvas, imgBefore, imgAfter, cropBefore, cropAfter, scale = 1) => {
+    const ctx = canvas.getContext('2d');
+    const width = 1200 * scale;
+    const height = 800 * scale;
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#111827';
+    ctx.font = `bold ${36 * scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('AVANT / APRÈS', width / 2, 50 * scale);
+
+    const padding = 20 * scale;
+    const top = 80 * scale;
+    const imgWidth = (width - padding * 3) / 2;
+    const imgHeight = height - 100 * scale - padding;
+
+    const drawPhoto = (img, crop, x) => {
+        if (crop) {
+            ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, x, top, imgWidth, imgHeight);
+            return;
+        }
+        const aspectRatio = imgWidth / imgHeight;
+        const imgRatio = img.width / img.height;
+        let sx, sy, sw, sh;
+        if (imgRatio > aspectRatio) {
+            sh = img.height;
+            sw = img.height * aspectRatio;
+            sy = 0;
+            sx = (img.width - sw) / 2;
+        } else {
+            sw = img.width;
+            sh = img.width / aspectRatio;
+            sx = 0;
+            sy = (img.height - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, x, top, imgWidth, imgHeight);
+    };
+    drawPhoto(imgBefore, cropBefore, padding);
+    drawPhoto(imgAfter, cropAfter, padding * 2 + imgWidth);
+
+    ctx.fillStyle = '#6B7280';
+    ctx.font = `${14 * scale}px sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText('Généré par Artisan Facile', width - padding, height - 10 * scale);
+};
+
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
     const confirm = useConfirm();
@@ -129,7 +182,6 @@ const ProjectPhotos = ({ clientId }) => {
 
         try {
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
 
             const [beforeLoaded, afterLoaded] = await Promise.all([
                 loadComparisonImage(splitBefore.photo_url),
@@ -138,83 +190,7 @@ const ProjectPhotos = ({ clientId }) => {
             const imgBefore = beforeLoaded.img;
             const imgAfter = afterLoaded.img;
 
-            // Set canvas size (e.g., 1200x800 for high quality output)
-            const targetWidth = 1200;
-            const targetHeight = 800; // Aspect ratio can be adjusted
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-
-            // Fill background
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-            // Draw Header
-            ctx.fillStyle = '#111827';
-            ctx.font = 'bold 36px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('AVANT / APRÈS', targetWidth / 2, 50);
-
-            // Draw Images
-            // Draw Images
-            // Calculate dimensions to fit side-by-side with padding
-            const padding = 20;
-            const imgWidth = (targetWidth - (padding * 3)) / 2;
-            const imgHeight = targetHeight - 100 - padding; // Space for header
-
-            const drawImageWithCrop = (img, cropData, xPos) => {
-                if (cropData) {
-                    ctx.drawImage(
-                        img,
-                        cropData.x,
-                        cropData.y,
-                        cropData.width,
-                        cropData.height,
-                        xPos,
-                        80,
-                        imgWidth,
-                        imgHeight
-                    );
-                } else {
-                    // Fallback to center crop if no crop data
-                    const aspectRatio = imgWidth / imgHeight;
-                    const imgRatio = img.width / img.height;
-                    let sx, sy, sw, sh;
-
-                    if (imgRatio > aspectRatio) {
-                        sh = img.height;
-                        sw = img.height * aspectRatio;
-                        sy = 0;
-                        sx = (img.width - sw) / 2;
-                    } else {
-                        sw = img.width;
-                        sh = img.width / aspectRatio;
-                        sx = 0;
-                        sy = (img.height - sh) / 2;
-                    }
-                    ctx.drawImage(img, sx, sy, sw, sh, xPos, 80, imgWidth, imgHeight);
-                }
-            };
-
-            drawImageWithCrop(imgBefore, croppedAreaPixelsBefore, padding);
-            drawImageWithCrop(imgAfter, croppedAreaPixelsAfter, padding + imgWidth + padding);
-
-            // Draw Labels
-            const labelHeight = 40;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-
-            // Before Label removed
-
-
-            // After Label
-            // Removed redundant label logic as requested by user
-            // Original code drew an overlay again
-
-
-            // Add Logo/Footer if needed
-            ctx.fillStyle = '#6B7280';
-            ctx.font = '14px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText('Généré par Artisan Facile', targetWidth - padding, targetHeight - 10);
+            drawBeforeAfter(canvas, imgBefore, imgAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter);
 
             if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
             if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
@@ -296,7 +272,6 @@ const ProjectPhotos = ({ clientId }) => {
         try {
             setPreviewError(false);
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
 
             const [beforeLoaded, afterLoaded] = await Promise.all([
                 loadComparisonImage(splitBefore.photo_url),
@@ -305,72 +280,8 @@ const ProjectPhotos = ({ clientId }) => {
             const imgBefore = beforeLoaded.img;
             const imgAfter = afterLoaded.img;
 
-            // Preview size (smaller than full export for performance, but same aspect)
-            // Export is 1200x800. Let's use 600x400 for preview
-            const scale = 0.5;
-            const targetWidth = 1200 * scale;
-            const targetHeight = 800 * scale;
-
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-
-            // Fill background
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-            // Draw Header
-            ctx.fillStyle = '#111827';
-            ctx.font = `bold ${36 * scale}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('AVANT / APRÈS', targetWidth / 2, 50 * scale);
-
-            // Draw Images
-            const padding = 20 * scale;
-            const imgWidth = (1200 - 60) / 2 * scale; // Original logic scaled
-            const imgHeight = (800 - 120) * scale; // Approx height
-
-            const drawImageWithCrop = (img, cropData, xPos) => {
-                if (cropData) {
-                    ctx.drawImage(
-                        img,
-                        cropData.x,
-                        cropData.y,
-                        cropData.width,
-                        cropData.height,
-                        xPos,
-                        80 * scale,
-                        imgWidth,
-                        imgHeight
-                    );
-                } else {
-                    // Cadrage centré par défaut tant que le recadrage n'est pas défini
-                    const aspectRatio = imgWidth / imgHeight;
-                    const imgRatio = img.width / img.height;
-                    let sx, sy, sw, sh;
-                    if (imgRatio > aspectRatio) {
-                        sh = img.height;
-                        sw = img.height * aspectRatio;
-                        sy = 0;
-                        sx = (img.width - sw) / 2;
-                    } else {
-                        sw = img.width;
-                        sh = img.width / aspectRatio;
-                        sx = 0;
-                        sy = (img.height - sh) / 2;
-                    }
-                    ctx.drawImage(img, sx, sy, sw, sh, xPos, 80 * scale, imgWidth, imgHeight);
-                }
-            };
-
-            drawImageWithCrop(imgBefore, croppedAreaPixelsBefore, padding);
-            drawImageWithCrop(imgAfter, croppedAreaPixelsAfter, padding + imgWidth + padding);
-
-            // Add Logo/Footer
-            ctx.fillStyle = '#6B7280';
-            ctx.font = `${14 * scale}px sans-serif`;
-            ctx.textAlign = 'right';
-            ctx.fillText('Artisan Facile', targetWidth - padding, targetHeight - (10 * scale));
+            // Aperçu à mi-résolution : même dessin que l'export, pour qu'il en soit fidèle.
+            drawBeforeAfter(canvas, imgBefore, imgAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter, 0.5);
 
             if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
             if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
