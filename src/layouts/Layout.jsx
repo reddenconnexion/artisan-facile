@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, Scale, LineChart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, LineChart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -183,7 +183,6 @@ const Layout = () => {
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
       { name: 'Heures & rentabilité', href: '/app/heures', icon: Timer },
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
-      { name: 'Comparateur achats', href: '/app/supplier-comparator', icon: Scale },
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
       ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
       ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
@@ -219,7 +218,7 @@ const Layout = () => {
         children: showConfirme
           ? activiteChildren
           : activiteChildren.filter(c =>
-              ['/app/interventions', '/app/heures', '/app/procurement', '/app/supplier-comparator'].includes(c.href)
+              ['/app/interventions', '/app/heures', '/app/procurement'].includes(c.href)
             ),
       }] : []),
       // Les outils métier (bibliothèque de prix, étiquettes de tableau, mémos
