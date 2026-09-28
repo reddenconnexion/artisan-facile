@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { clientGreetingName } from './clientGreeting';
 import { formatDate } from './format';
+import { idsBilledByChildren, invoiceReminderStatus } from './unpaidInvoices';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -153,7 +154,7 @@ export const getDueFollowUps = async (userId) => {
  * @param {string} method
  * @param {number|null} forcedCount - Override the computed follow_up_count (for manual step selection)
  */
-export const recordFollowUp = async (quote, userId, content, method = 'email', forcedCount = null) => {
+export const recordFollowUp = async (quote, userId, content, method = 'email', forcedCount = null, crmLabel = null) => {
     const now = new Date().toISOString();
     const newCount = forcedCount ?? (quote.follow_up_count || 0) + 1;
 
@@ -188,7 +189,7 @@ export const recordFollowUp = async (quote, userId, content, method = 'email', f
             client_id: quote.client_id,
             type: method,
             date: now,
-            details: `Relance devis #${quote.id} (Niveau ${newCount})`
+            details: crmLabel || `Relance devis #${quote.id} (Niveau ${newCount})`
         }]);
     }
 };
@@ -417,6 +418,63 @@ export const getOptimalSendWindow = (now = new Date()) => {
         label: isWeekend ? 'Week-end — réponse peu probable' : (hour >= 19 ? 'Soirée — risque d\'être ignoré' : 'Trop tôt — patientez'),
         suggestion: `Envoi recommandé ${dayLabel} matin (~9h)`
     };
+};
+
+/**
+ * Factures émises et en retard de paiement, avec le rappel qui leur est dû.
+ * Les factures dotées d'un échéancier sont exclues : chaque échéance a déjà
+ * son propre rappel (PaymentSchedule).
+ * @param {string} userId
+ * @returns {Promise<Array>} factures enrichies de `reminder` (cf. invoiceReminderStatus), les plus en retard d'abord
+ */
+export const getUnpaidInvoiceReminders = async (userId) => {
+    const [{ data: invoices, error }, { data: schedules }, { data: childInvoices }] = await Promise.all([
+        supabase
+            .from('quotes')
+            .select(`
+                id, type, status, title, date, valid_until, total_ttc, invoice_number, quote_number,
+                client_id, follow_up_count, last_followup_at, relance_snoozed_until, archived_at,
+                clients (name, email, phone, siren, tva_intracom)
+            `)
+            .eq('user_id', userId)
+            .eq('type', 'invoice')
+            .not('status', 'in', '(paid,cancelled,draft)')
+            .is('archived_at', null),
+        supabase.from('invoice_installments').select('quote_id'),
+        supabase
+            .from('quotes')
+            .select('type, status, parent_id')
+            .eq('user_id', userId)
+            .eq('type', 'invoice')
+            .not('parent_id', 'is', null),
+    ]);
+
+    if (error) {
+        console.error('Error fetching unpaid invoices:', error);
+        return [];
+    }
+
+    const withSchedule = new Set((schedules || []).map(s => s.quote_id));
+    const billedByChildren = idsBilledByChildren(childInvoices);
+    const today = new Date();
+    return (invoices || [])
+        .filter(inv => !withSchedule.has(inv.id) && !billedByChildren.has(inv.id))
+        .map(inv => ({ ...inv, reminder: invoiceReminderStatus(inv, today) }))
+        .filter(inv => inv.reminder)
+        .sort((a, b) => b.reminder.daysOverdue - a.reminder.daysOverdue);
+};
+
+/**
+ * Marque une facture comme payée aujourd'hui — même écriture que la
+ * sauvegarde du formulaire au statut « Payé ».
+ */
+export const markInvoicePaid = async (invoiceId, userId) => {
+    const { error } = await supabase
+        .from('quotes')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', invoiceId)
+        .eq('user_id', userId);
+    if (error) throw error;
 };
 
 /**
