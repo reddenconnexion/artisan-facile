@@ -26,6 +26,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateInterventionSummary } from '../utils/aiService';
 import { formatCompactCurrency, formatDate, formatDateTime } from '../utils/format';
 import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
+import { useBurstCamera } from '../hooks/useBurstCamera';
 import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 
 const EMPTY_MATERIAL = () => ({ id: Date.now(), description: '', quantity: 1, unit: 'unité', price: 0 });
@@ -457,6 +458,13 @@ const InterventionReportForm = () => {
         setShowSignatureModal(false);
         toast.success('Signature enregistrée');
     };
+
+    // Appareil photo en rafale : la série arrive comme une sélection de galerie.
+    const nativePhotoRef = useRef(null);
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => handlePhotoUpload({ target: { files, value: '' } }),
+        onFallback: () => nativePhotoRef.current?.click(),
+    });
 
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -1821,10 +1829,9 @@ const InterventionReportForm = () => {
                         // Appareil photo et galerie séparés : un seul input ne
                         // permet pas les deux de façon fiable sur mobile.
                         <div className="flex items-center gap-2">
-                            <label className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40">
-                                <Camera className="w-4 h-4" /> Photo
-                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
-                            </label>
+                            <button type="button" onClick={openCamera} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                                <Camera className="w-4 h-4" /> Photos
+                            </button>
                             <label className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-colors font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40">
                                 <Images className="w-4 h-4" /> Galerie
                                 <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
@@ -1835,11 +1842,10 @@ const InterventionReportForm = () => {
 
                 {(formData.photos || []).length === 0 ? (
                     <div className="grid grid-cols-2 gap-3">
-                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                        <button type="button" onClick={openCamera} className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                             <Camera className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
-                            <span className="text-sm text-gray-400 dark:text-gray-500">Prendre une photo</span>
-                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
-                        </label>
+                            <span className="text-sm text-gray-400 dark:text-gray-500">Prendre des photos</span>
+                        </button>
                         <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                             <Images className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
                             <span className="text-sm text-gray-400 dark:text-gray-500">Choisir dans la galerie</span>
@@ -1917,6 +1923,10 @@ const InterventionReportForm = () => {
                         </button>
                     ))}
                 </div>
+
+                {/* Repli de l'appareil photo en rafale : appareil du téléphone */}
+                <input ref={nativePhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                {camera}
 
                 {/* Input fichier avec capture caméra (mobile) */}
                 <input

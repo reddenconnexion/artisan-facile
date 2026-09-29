@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import { useBurstCamera } from '../hooks/useBurstCamera';
 
 // Ordre et libellés des colonnes de classement des photos de chantier.
 // Sert à déplacer une photo d'une colonne à l'autre (Avant → Pendant → Après).
@@ -628,6 +629,13 @@ const ProjectPhotos = ({ clientId }) => {
     // Garde le pointeur à jour à chaque rendu pour l'écouteur global « paste ».
     uploadFilesRef.current = uploadFiles;
 
+    // Appareil photo en rafale : la série part d'un coup à la fermeture du viseur.
+    const nativeCameraRef = React.useRef(null);
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => uploadFiles(files),
+        onFallback: () => nativeCameraRef.current?.click(),
+    });
+
     // Collage clavier (Ctrl/⌘+V) d'une capture d'écran ou d'une image copiée :
     // on n'intercepte QUE si le presse-papiers contient une image (le collage de
     // texte dans un champ reste intact). Monté une seule fois ; utilise la
@@ -1022,6 +1030,7 @@ const ProjectPhotos = ({ clientId }) => {
                 <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Photos du chantier
             </h3>
+            {camera}
 
             {/* Project Selector */}
             <div className="mb-6 bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-100 dark:border-gray-800">
@@ -1223,26 +1232,32 @@ const ProjectPhotos = ({ clientId }) => {
                     />
                 </label>
 
-                {/* Option 2: Camera */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+                {/* Option 2: Camera — photos en rafale dans la page */}
+                <button
+                    type="button"
+                    onClick={openCamera}
+                    disabled={uploading}
+                    className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer'}`}
+                >
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                     ) : (
                         <div className="flex flex-col items-center">
                             <Camera className="w-8 h-8 text-blue-500 mb-2" />
-                            <p className="text-sm font-medium text-blue-700">Prendre une photo</p>
-                            <p className="text-xs text-blue-400 mt-1">Appareil photo direct</p>
+                            <p className="text-sm font-medium text-blue-700">Prendre des photos</p>
+                            <p className="text-xs text-blue-400 mt-1">Plusieurs d'affilée</p>
                         </div>
                     )}
-                    <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                    />
-                </label>
+                </button>
+                <input
+                    ref={nativeCameraRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                />
 
                 {/* Option 3: Paste from clipboard */}
                 <button

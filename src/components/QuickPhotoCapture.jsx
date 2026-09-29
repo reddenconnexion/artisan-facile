@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
+import { useBurstCamera } from '../hooks/useBurstCamera';
 import { isNetworkError, isOffline } from '../utils/offlineSave';
 import { queuePhoto } from '../utils/photoOutbox';
 
@@ -43,15 +44,28 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
     const [photos, setPhotos] = useState([]); // { id, url }
     const [savedCount, setSavedCount] = useState(0);
 
-    // Ouvre directement l'appareil photo au montage : 0 clic superflu sur le chantier.
-    useEffect(() => {
-        const t = setTimeout(() => cameraInputRef.current?.click(), 150);
-        return () => clearTimeout(t);
-    }, []);
-
-    const handleFiles = async (e) => {
+    const handleFiles = (e) => {
         const files = Array.from(e.target.files || []);
         e.target.value = '';
+        processFiles(files);
+    };
+
+    // Appareil photo en rafale dans la page : on enchaîne les clichés, la
+    // série part d'un coup à la fermeture. Repli sur l'appareil du téléphone.
+    const categoryLabel = CATEGORIES.find(c => c.id === category)?.label;
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => processFiles(files),
+        onFallback: () => cameraInputRef.current?.click(),
+        label: [categoryLabel, clientName].filter(Boolean).join(' · '),
+    });
+
+    // Ouvre directement l'appareil photo au montage : 0 clic superflu sur le chantier.
+    useEffect(() => {
+        const t = setTimeout(() => openCamera(), 150);
+        return () => clearTimeout(t);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    async function processFiles(files) {
         if (!files.length) return;
         if (!clientId) {
             toast.error('Aucun client associé à cette intervention');
@@ -142,7 +156,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
         } finally {
             setUploading(false);
         }
-    };
+    }
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
@@ -209,7 +223,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                     {/* Appareil photo / galerie */}
                     <div className="grid grid-cols-2 gap-3">
                         <button
-                            onClick={() => cameraInputRef.current?.click()}
+                            onClick={openCamera}
                             disabled={uploading}
                             className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-800 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 active:bg-blue-100 transition-colors disabled:opacity-60"
                         >
@@ -219,7 +233,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                                 <Camera className="w-10 h-10" />
                             )}
                             <span className="text-sm font-bold text-center">
-                                {uploading ? 'Envoi en cours…' : 'Prendre une photo'}
+                                {uploading ? 'Envoi en cours…' : 'Prendre des photos'}
                             </span>
                         </button>
                         <button
@@ -263,6 +277,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                     </button>
                 </div>
             </div>
+            {camera}
         </div>
     );
 };
