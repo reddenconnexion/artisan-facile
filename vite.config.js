@@ -125,7 +125,7 @@ export default defineConfig({
     headers: {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      'X-XSS-Protection': '1; mode=block',
+      'X-XSS-Protection': '0', // filtre XSS navigateur obsolète (OWASP) : la CSP protège
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       // camera/microphone=(self) : la visite technique enregistre le client
       // et photographie depuis la page — aligné sur vercel.json (production).
