@@ -6,7 +6,7 @@ import {
     X, Loader2, PenLine, CheckCircle, Star, MessageSquare, Send,
     Copy, CreditCard, Smartphone, ChevronDown,
 } from 'lucide-react';
-import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
+import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfLazy';
 import SignatureModal from '../../components/SignatureModal';
 import { toast } from 'sonner';
 import { canSignInPortal, isSignatureBlocked } from '../../utils/quoteSignability';
