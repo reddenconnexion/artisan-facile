@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../hooks/useVoice';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { parseProcurementTranscript } from '../utils/procurementParser';
+import { EmptyState } from './ui';
 
 const CATEGORIES = [
     {
@@ -329,14 +330,12 @@ const ProcurementMode = ({ onBack }) => {
                             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                         </div>
                     ) : items.length === 0 ? (
-                        <div className="text-center py-10">
-                            <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-sm text-gray-400">
-                                Aucun article pour l'instant.
-                                <br />
-                                Appuyez sur le micro et dictez vos besoins.
-                            </p>
-                        </div>
+                        <EmptyState
+                            bare
+                            icon={ShoppingCart}
+                            title="Aucun article pour l'instant."
+                            description="Appuyez sur le micro et dictez vos besoins."
+                        />
                     ) : (
                         CATEGORIES.map((cat) => {
                             const list = grouped[cat.id] || [];

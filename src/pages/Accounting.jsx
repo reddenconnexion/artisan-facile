@@ -9,7 +9,7 @@ import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro,
 import { Link, useSearchParams } from 'react-router-dom';
 import CopilotChat from '../components/CopilotChat';
 import AccountingAdvisor from '../components/AccountingAdvisor';
-import { DismissibleHelp } from '../components/ui';
+import { DismissibleHelp, EmptyState } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
@@ -1423,13 +1423,12 @@ const Accounting = () => {
         {/* Tableau du livre de recettes */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
           {recettesData.length === 0 ? (
-            <div className="p-12 text-center">
-              <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium">Aucune recette enregistrée pour {recettesYear}</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                Les factures payées apparaîtront automatiquement ici.
-              </p>
-            </div>
+            <EmptyState
+              bare
+              icon={BookOpen}
+              title={`Aucune recette enregistrée pour ${recettesYear}`}
+              description="Les factures payées apparaîtront automatiquement ici."
+            />
           ) : (
             <>
               {/* Vue desktop */}

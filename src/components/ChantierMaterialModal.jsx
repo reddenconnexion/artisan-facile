@@ -8,6 +8,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { lineComponents } from '../utils/quoteInternalDetail';
+import { EmptyState } from './ui';
 
 // Clé de stockage local pour mémoriser les lignes déjà chargées dans le camion,
 // par couple (rendez-vous, devis). Permet de cocher la veille et de retrouver
@@ -204,13 +205,12 @@ const ChantierMaterialModal = ({ event, onClose }) => {
                             <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     ) : !quote ? (
-                        <div className="text-center py-10">
-                            <FileText className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Aucun devis associé à ce chantier</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                Associez un devis depuis l'agenda pour retrouver la liste du matériel ici.
-                            </p>
-                        </div>
+                        <EmptyState
+                            bare
+                            icon={FileText}
+                            title="Aucun devis associé à ce chantier"
+                            description="Associez un devis depuis l'agenda pour retrouver la liste du matériel ici."
+                        />
                     ) : (
                         <>
                             {/* Sélecteur si plusieurs devis pour le client (repli) */}
