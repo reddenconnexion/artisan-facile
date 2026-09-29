@@ -9,7 +9,7 @@ import { useClients, useQuotes, useInvalidateCache } from '../hooks/useDataCache
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
-import { formatDate } from '../utils/format';
+import { formatDate, normalizeSearch } from '../utils/format';
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -67,12 +67,18 @@ const Clients = () => {
 
     const filteredClients = clients.filter(client => {
         if (!isTestMode && testClient?.id && client.id === testClient.id) return false;
-        const term = debouncedSearch.toLowerCase(); // Utilise la recherche retardée
+        const term = normalizeSearch(debouncedSearch.trim()); // Utilise la recherche retardée
+        if (!term) return true;
+        // « 0612 » doit trouver « 06 12 34 56 78 » : on compare les chiffres seuls
+        const termDigits = /^[\d\s.+-]+$/.test(term) ? term.replace(/\D/g, '') : '';
         return (
-            client.name.toLowerCase().includes(term) ||
-            (client.email && client.email.toLowerCase().includes(term)) ||
-            (client.phone && client.phone.includes(term)) ||
-            (client.address && client.address.toLowerCase().includes(term))
+            normalizeSearch(client.name).includes(term) ||
+            normalizeSearch(client.email).includes(term) ||
+            normalizeSearch(client.address).includes(term) ||
+            (client.phone && (
+                client.phone.includes(term) ||
+                (termDigits.length > 0 && client.phone.replace(/\D/g, '').includes(termDigits))
+            ))
         );
     }).sort((a, b) => {
         const aValue = a[sortConfig.key] || '';
@@ -99,6 +105,7 @@ const Clients = () => {
         const count = quoteCountByClient[client.id] || 0;
         const lastQuote = lastQuoteByClient[client.id];
         const isConfirmingDelete = deleteConfirmId === client.id;
+        const fullAddress = [client.address, client.postal_code, client.city].filter(Boolean).join(' ');
 
         return (
             <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors">
@@ -124,6 +131,7 @@ const Clients = () => {
                         </div>
                     </div>
                 ) : (
+                    <>
                     <div className="p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-800/50">
                         <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold shrink-0">
                             {client.name.charAt(0)}
@@ -207,6 +215,31 @@ const Clients = () => {
                             </button>
                         </div>
                     </div>
+                    {(client.phone || fullAddress) && (
+                        <div className="md:hidden grid grid-cols-2 gap-2 px-4 pb-4 -mt-1">
+                            {client.phone ? (
+                                <a
+                                    href={`tel:${client.phone.replace(/\s/g, '')}`}
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 active:bg-green-700 text-white text-sm font-semibold"
+                                >
+                                    <Phone className="w-5 h-5" />
+                                    Appeler
+                                </a>
+                            ) : <div />}
+                            {fullAddress ? (
+                                <a
+                                    href={`https://waze.com/ul?q=${encodeURIComponent(fullAddress)}&navigate=yes`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 active:bg-blue-700 text-white text-sm font-semibold"
+                                >
+                                    <MapPin className="w-5 h-5" />
+                                    Y aller
+                                </a>
+                            ) : <div />}
+                        </div>
+                    )}
+                    </>
                 )}
             </div>
         );

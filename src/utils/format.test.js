@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    formatCurrency, formatPrice, formatCompactCurrency, formatAmount, formatDate, formatDateTime,
+    formatCurrency, formatPrice, formatCompactCurrency, formatAmount, formatDate, formatDateTime, normalizeSearch,
 } from './format';
 
 // Intl insère des espaces insécables (U+00A0 / U+202F) : on les normalise.
@@ -69,5 +69,15 @@ describe('formatDate / formatDateTime', () => {
     });
     it('inclut l’heure', () => {
         expect(formatDateTime('2026-09-27T14:05:00', { hour: '2-digit', minute: '2-digit' })).toBe('14:05');
+    });
+});
+
+describe('normalizeSearch', () => {
+    it('retire accents et majuscules', () => {
+        expect(normalizeSearch('René Gérard')).toBe('rene gerard');
+    });
+    it('tolère null / undefined', () => {
+        expect(normalizeSearch(null)).toBe('');
+        expect(normalizeSearch(undefined)).toBe('');
     });
 });
