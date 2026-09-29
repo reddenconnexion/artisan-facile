@@ -12,6 +12,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { upsertSecret } from '../_shared/vault.ts';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -41,6 +42,9 @@ Deno.serve(async (req) => {
 
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+
+        const rl = await enforceRateLimit('save-smtp-config', user.id, 20, 3600);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
         const { config } = await req.json();
 

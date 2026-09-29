@@ -1,0 +1,37 @@
+name: CI
+
+# Vérifie chaque PR et chaque push sur main : tests unitaires + build de
+# production. Le lint n'est pas bloquant tant que la dette existante
+# (erreurs historiques) n'est pas résorbée.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint (informatif)
+        run: npm run lint
+        continue-on-error: true

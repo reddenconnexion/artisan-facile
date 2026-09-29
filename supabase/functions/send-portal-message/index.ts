@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,17 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     try {
+        // Endpoint public (jeton de portail) : on limite par IP pour freiner la
+        // recherche de jetons, puis par client pour éviter d'inonder l'artisan
+        // de notifications push / emails.
+        const ip =
+            req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+            req.headers.get('cf-connecting-ip') ||
+            req.headers.get('x-real-ip') ||
+            'unknown';
+        const ipRl = await enforceRateLimit('send-portal-message:ip', ip, 30, 300);
+        if (!ipRl.allowed) return rateLimitResponse(ipRl, corsHeaders);
+
         const { portal_token, sender_name, message_preview } = await req.json();
 
         if (!portal_token) return json({ error: 'portal_token requis' }, 400);
@@ -34,6 +46,9 @@ Deno.serve(async (req) => {
             .single();
 
         if (clientErr || !client) return json({ error: 'Client introuvable' }, 404);
+
+        const clientRl = await enforceRateLimit('send-portal-message:client', client.id, 20, 3600);
+        if (!clientRl.allowed) return rateLimitResponse(clientRl, corsHeaders);
 
         const { data: profile } = await supabase
             .from('profiles')

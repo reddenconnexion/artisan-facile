@@ -32,6 +32,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { readSecret } from '../_shared/vault.ts';
+import { sanitizeHtml } from '../_shared/sanitize-html.ts';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -147,7 +149,8 @@ function splitBodyAndSignature(text: string): { body: string; sig: string } {
 // Signature HTML : utilise la version perso si renseignée, sinon génère
 // automatiquement à partir des champs profil (logo, nom, contact, liens).
 function buildHtmlSignature(profile: Record<string, unknown>): string {
-    const custom = (profile.email_signature_html || '') as string;
+    // Saisie libre de l'artisan : assainie avant d'être insérée dans le mail.
+    const custom = sanitizeHtml(profile.email_signature_html as string);
     if (custom.trim()) {
         // `white-space:pre-wrap` preserves the line breaks and blank lines the
         // artisan typed in the signature editor — HTML normally collapses them,
@@ -212,6 +215,11 @@ Deno.serve(async (req) => {
 
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+
+        // Anti-abus : un compte compromis ne doit pas pouvoir transformer le
+        // SMTP de l'artisan en relais de spam.
+        const rl = await enforceRateLimit('send-document-email', user.id, 60, 3600);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
         const body = await req.json();
         const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id, attachments } = body;

@@ -17,6 +17,7 @@ import { useInvalidateCache } from '../hooks/useDataCache';
 import { coefficientFromCatalog } from '../utils/priceLibraryCsv';
 import { checkSiret, normalizeSiret } from '../utils/siret';
 import { formatDateTime } from '../utils/format';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -1633,7 +1634,7 @@ const Profile = () => {
                                             {/* white-space:pre-wrap pour refléter EXACTEMENT le rendu
                                                 du mail : les sauts de ligne et lignes vides saisis sont
                                                 préservés (l'edge function applique le même style). */}
-                                            <div style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                            <div style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(emailSignatureHtml) }} />
                                         </div>
                                     </div>
                                 )}

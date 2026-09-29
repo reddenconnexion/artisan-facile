@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@13?target=deno';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +45,9 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const rl = await enforceRateLimit('create-checkout-session', user.id, 10, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
