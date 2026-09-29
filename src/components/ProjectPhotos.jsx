@@ -6,11 +6,14 @@ import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
+import { isNetworkError, isOffline } from '../utils/offlineSave';
+import { PHOTOS_SYNCED_EVENT, queuePhoto } from '../utils/photoOutbox';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
+import { useBurstCamera } from '../hooks/useBurstCamera';
 
 // Ordre et libellés des colonnes de classement des photos de chantier.
 // Sert à déplacer une photo d'une colonne à l'autre (Avant → Pendant → Après).
@@ -20,6 +23,9 @@ const CATEGORY_LABELS = { before: 'Avant', during: 'Pendant', after: 'Après' };
 // Montage avant/après, 1200×800 à l'échelle 1. Même dessin pour l'aperçu
 // (scale 0.5) et pour l'image exportée : l'aperçu montre exactement ce qui
 // sera téléchargé. Sans recadrage choisi, chaque photo est centrée.
+// Résultat d'un envoi gardé sur le téléphone faute de réseau.
+const QUEUED = Symbol('queued');
+
 const drawBeforeAfter = (canvas, imgBefore, imgAfter, cropBefore, cropAfter, scale = 1) => {
     const ctx = canvas.getContext('2d');
     const width = 1200 * scale;
@@ -426,6 +432,13 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
+    // Des photos prises hors connexion viennent d'arriver : on recharge la galerie.
+    useEffect(() => {
+        const onSynced = () => fetchPhotos();
+        window.addEventListener(PHOTOS_SYNCED_EVENT, onSynced);
+        return () => window.removeEventListener(PHOTOS_SYNCED_EVENT, onSynced);
+    }, [clientId]);
+
     const fetchPhotos = async () => {
         try {
             const { data, error } = await supabase
@@ -480,28 +493,46 @@ const ProjectPhotos = ({ clientId }) => {
             }
             if (valid.length === 0) return;
 
-            // Vérifie le quota de stockage avant d'envoyer (espace partagé entre comptes)
-            try {
-                const addBytes = valid.reduce((sum, f) => sum + (f.size || 0), 0);
-                await assertWithinQuota(addBytes);
-            } catch (quotaErr) {
-                toast.error(quotaErr.message, { duration: 7000 });
-                return;
+            // Vérifie le quota de stockage avant d'envoyer (espace partagé entre comptes).
+            // Sans réseau, il sera vérifié à l'envoi différé (flushPhotoOutbox).
+            if (!isOffline()) {
+                try {
+                    const addBytes = valid.reduce((sum, f) => sum + (f.size || 0), 0);
+                    await assertWithinQuota(addBytes);
+                } catch (quotaErr) {
+                    toast.error(quotaErr.message, { duration: 7000 });
+                    return;
+                }
             }
 
             // Process uploads in parallel
             const uploadPromises = valid.map(async (file) => {
-                try {
-                    // 1. Upload to Storage. L'extension vient du type MIME : une image
-                    // collée (presse-papiers) peut ne pas avoir de nom exploitable.
-                    const fileExt = (file.type && file.type.split('/')[1])
-                        || (file.name && file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
-                    const fileName = `${user.id}/${clientId}/${crypto.randomUUID()}.${fileExt}`;
+                // L'extension vient du type MIME : une image collée
+                // (presse-papiers) peut ne pas avoir de nom exploitable.
+                const fileExt = (file.type && file.type.split('/')[1])
+                    || (file.name && file.name.includes('.') ? file.name.split('.').pop() : 'jpg');
+                const fileName = `${user.id}/${clientId}/${crypto.randomUUID()}.${fileExt}`;
+                const row = {
+                    user_id: user.id,
+                    client_id: clientId,
+                    category: activeTab,
+                    project_id: selectedProjectId === 'all' || selectedProjectId === 'uncategorized' ? null : selectedProjectId,
+                    description: '',
+                };
+                // Zone blanche : la photo reste sur le téléphone et part toute
+                // seule au retour du réseau.
+                const keepForLater = async () => {
+                    await queuePhoto({ path: fileName, blob: file, row });
+                    return QUEUED;
+                };
 
+                try {
+                    if (isOffline()) return await keepForLater();
+
+                    // 1. Upload to Storage
                     const { error: uploadError } = await supabase.storage
                         .from('project-photos')
                         .upload(fileName, file);
-
                     if (uploadError) throw uploadError;
 
                     // 2. Get Public URL
@@ -512,35 +543,41 @@ const ProjectPhotos = ({ clientId }) => {
                     // 3. Save to Database
                     const { data: photoData, error: dbError } = await supabase
                         .from('project_photos')
-                        .insert([
-                            {
-                                user_id: user.id,
-                                client_id: clientId,
-                                photo_url: publicUrl,
-                                category: activeTab,
-                                project_id: selectedProjectId === 'all' || selectedProjectId === 'uncategorized' ? null : selectedProjectId,
-                                description: ''
-                            }
-                        ])
+                        .insert([{ ...row, photo_url: publicUrl }])
                         .select()
                         .single();
-
                     if (dbError) throw dbError;
 
                     return photoData;
                 } catch (err) {
+                    if (isNetworkError(err)) {
+                        try {
+                            return await keepForLater();
+                        } catch (queueErr) {
+                            console.error('Error keeping photo offline:', file.name, queueErr);
+                            return null;
+                        }
+                    }
                     console.error('Error uploading file:', file.name, err);
                     return null;
                 }
             });
 
             const results = await Promise.all(uploadPromises);
-            const newPhotos = results.filter(p => p !== null);
+            const newPhotos = results.filter(p => p !== null && p !== QUEUED);
+            const queuedCount = results.filter(p => p === QUEUED).length;
 
             if (newPhotos.length > 0) {
                 setPhotos(prev => [...newPhotos, ...prev]);
                 toast.success(`${newPhotos.length} photo(s) ajoutée(s) avec succès`);
-            } else {
+            }
+            if (queuedCount > 0) {
+                toast.warning(
+                    `Pas de réseau : ${queuedCount} photo(s) gardée(s) sur le téléphone. Elles apparaîtront ici dès le retour du réseau.`,
+                    { duration: 6000 },
+                );
+            }
+            if (newPhotos.length === 0 && queuedCount === 0) {
                 toast.error("Aucune photo n'a pu être importée");
             }
 
@@ -591,6 +628,13 @@ const ProjectPhotos = ({ clientId }) => {
 
     // Garde le pointeur à jour à chaque rendu pour l'écouteur global « paste ».
     uploadFilesRef.current = uploadFiles;
+
+    // Appareil photo en rafale : la série part d'un coup à la fermeture du viseur.
+    const nativeCameraRef = React.useRef(null);
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => uploadFiles(files),
+        onFallback: () => nativeCameraRef.current?.click(),
+    });
 
     // Collage clavier (Ctrl/⌘+V) d'une capture d'écran ou d'une image copiée :
     // on n'intercepte QUE si le presse-papiers contient une image (le collage de
@@ -986,6 +1030,7 @@ const ProjectPhotos = ({ clientId }) => {
                 <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Photos du chantier
             </h3>
+            {camera}
 
             {/* Project Selector */}
             <div className="mb-6 bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-100 dark:border-gray-800">
@@ -1187,26 +1232,32 @@ const ProjectPhotos = ({ clientId }) => {
                     />
                 </label>
 
-                {/* Option 2: Camera */}
-                <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+                {/* Option 2: Camera — photos en rafale dans la page */}
+                <button
+                    type="button"
+                    onClick={openCamera}
+                    disabled={uploading}
+                    className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl transition-all ${uploading ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 cursor-not-allowed' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer'}`}
+                >
                     {uploading ? (
                         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                     ) : (
                         <div className="flex flex-col items-center">
                             <Camera className="w-8 h-8 text-blue-500 mb-2" />
-                            <p className="text-sm font-medium text-blue-700">Prendre une photo</p>
-                            <p className="text-xs text-blue-400 mt-1">Appareil photo direct</p>
+                            <p className="text-sm font-medium text-blue-700">Prendre des photos</p>
+                            <p className="text-xs text-blue-400 mt-1">Plusieurs d'affilée</p>
                         </div>
                     )}
-                    <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                    />
-                </label>
+                </button>
+                <input
+                    ref={nativeCameraRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                />
 
                 {/* Option 3: Paste from clipboard */}
                 <button

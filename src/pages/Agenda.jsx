@@ -15,7 +15,7 @@ import {
     parseISO
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera, Navigation, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, MapPin, User, Trash2, Edit2, Calendar, Route as RouteIcon, Package, Camera, Navigation, CalendarRange, WifiOff } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -26,6 +26,8 @@ import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import ClientSelector from '../components/ClientSelector';
 import { Button } from '../components/ui';
 import { toast } from 'sonner';
+import { loadAgendaEvents } from '../utils/agendaEvents';
+import { formatDateTime } from '../utils/format';
 
 // Titre proposé quand un client est reconnu et que le titre est encore vide.
 const defaultTitleFor = (clientName) => `Intervention chez ${clientName}`;
@@ -41,6 +43,7 @@ const Agenda = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [offlineSavedAt, setOfflineSavedAt] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [newEvent, setNewEvent] = useState({ title: '', time: '', client_name: '', client_id: null, address: '', details: '', date: '', quote_id: null });
@@ -253,11 +256,10 @@ const Agenda = () => {
 
     const fetchEvents = async () => {
         try {
-            const { data, error } = await supabase
-                .from('events')
-                .select('*');
-
-            if (error) throw error;
+            // Sans réseau (zone blanche), la dernière copie gardée sur le
+            // téléphone reste consultable.
+            const { data, fromCache, savedAt } = await loadAgendaEvents(user.id);
+            setOfflineSavedAt(fromCache ? savedAt : null);
 
             // Convert strings to Date objects for local usage
             const formattedEvents = data.map(event => ({
@@ -419,6 +421,15 @@ const Agenda = () => {
                     </Button>
                 </div>
             </div>
+
+            {offlineSavedAt && (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/10 dark:text-amber-200">
+                    <WifiOff className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                        Hors connexion — agenda tel qu'enregistré sur ce téléphone le {formatDateTime(offlineSavedAt, { dateStyle: 'short', timeStyle: 'short' })}. Consultation seule.
+                    </span>
+                </div>
+            )}
 
             <div className="flex flex-col lg:flex-row gap-6 h-full">
                 {/* Calendrier */}

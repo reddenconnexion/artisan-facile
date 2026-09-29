@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, X, Loader2, Check, User, Images } from 'lucide-react';
+import { Camera, X, Loader2, Check, User, Images, CloudOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
+import { useBurstCamera } from '../hooks/useBurstCamera';
+import { isNetworkError, isOffline } from '../utils/offlineSave';
+import { queuePhoto } from '../utils/photoOutbox';
 
 /**
  * Capture photo rapide « mode terrain ».
@@ -41,15 +44,28 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
     const [photos, setPhotos] = useState([]); // { id, url }
     const [savedCount, setSavedCount] = useState(0);
 
-    // Ouvre directement l'appareil photo au montage : 0 clic superflu sur le chantier.
-    useEffect(() => {
-        const t = setTimeout(() => cameraInputRef.current?.click(), 150);
-        return () => clearTimeout(t);
-    }, []);
-
-    const handleFiles = async (e) => {
+    const handleFiles = (e) => {
         const files = Array.from(e.target.files || []);
         e.target.value = '';
+        processFiles(files);
+    };
+
+    // Appareil photo en rafale dans la page : on enchaîne les clichés, la
+    // série part d'un coup à la fermeture. Repli sur l'appareil du téléphone.
+    const categoryLabel = CATEGORIES.find(c => c.id === category)?.label;
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => processFiles(files),
+        onFallback: () => cameraInputRef.current?.click(),
+        label: [categoryLabel, clientName].filter(Boolean).join(' · '),
+    });
+
+    // Ouvre directement l'appareil photo au montage : 0 clic superflu sur le chantier.
+    useEffect(() => {
+        const t = setTimeout(() => openCamera(), 150);
+        return () => clearTimeout(t);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    async function processFiles(files) {
         if (!files.length) return;
         if (!clientId) {
             toast.error('Aucun client associé à cette intervention');
@@ -72,55 +88,75 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
             const compressed = await Promise.all(
                 valid.map(f => compressImageFile(f, { maxDim: 1600, quality: 0.8 })),
             );
-            const addBytes = compressed.reduce((sum, f) => sum + (f.size || 0), 0);
-            try {
-                await assertWithinQuota(addBytes);
-            } catch (quotaErr) {
-                toast.error(quotaErr.message, { duration: 7000 });
-                return;
+            // Sans réseau, le quota se vérifiera à l'envoi (cf. flushPhotoOutbox).
+            let networkDown = isOffline();
+            if (!networkDown) {
+                const addBytes = compressed.reduce((sum, f) => sum + (f.size || 0), 0);
+                try {
+                    await assertWithinQuota(addBytes);
+                } catch (quotaErr) {
+                    toast.error(quotaErr.message, { duration: 7000 });
+                    return;
+                }
             }
 
             const description = contextLabel?.trim() || '';
             const inserted = [];
+            const queued = [];
             for (const blob of compressed) {
                 const path = `${user.id}/${clientId}/${crypto.randomUUID()}.jpg`;
-                const { error: uploadError } = await supabase.storage
-                    .from('project-photos')
-                    .upload(path, blob, { contentType: 'image/jpeg' });
-                if (uploadError) throw uploadError;
+                const row = { user_id: user.id, client_id: clientId, category, description };
+                if (!networkDown) {
+                    try {
+                        const { error: uploadError } = await supabase.storage
+                            .from('project-photos')
+                            .upload(path, blob, { contentType: 'image/jpeg' });
+                        if (uploadError) throw uploadError;
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-photos')
-                    .getPublicUrl(path);
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('project-photos')
+                            .getPublicUrl(path);
 
-                const { data: row, error: dbError } = await supabase
-                    .from('project_photos')
-                    .insert([{
-                        user_id: user.id,
-                        client_id: clientId,
-                        photo_url: publicUrl,
-                        category,
-                        description,
-                    }])
-                    .select('id, photo_url')
-                    .single();
-                if (dbError) throw dbError;
-                inserted.push({ id: row.id, url: row.photo_url });
+                        const { data: insertedRow, error: dbError } = await supabase
+                            .from('project_photos')
+                            .insert([{ ...row, photo_url: publicUrl }])
+                            .select('id, photo_url')
+                            .single();
+                        if (dbError) throw dbError;
+                        inserted.push({ id: insertedRow.id, url: insertedRow.photo_url });
+                        continue;
+                    } catch (err) {
+                        // Coupure en cours d'envoi : cette photo et les
+                        // suivantes restent sur le téléphone.
+                        if (!isNetworkError(err)) throw err;
+                        networkDown = true;
+                    }
+                }
+                await queuePhoto({ path, blob, row });
+                queued.push({ id: path, url: URL.createObjectURL(blob), pending: true });
             }
 
-            setPhotos(prev => [...inserted, ...prev]);
-            setSavedCount(c => c + inserted.length);
-            toast.success(
-                `${inserted.length} photo${inserted.length > 1 ? 's' : ''} ajoutée${inserted.length > 1 ? 's' : ''}${clientName ? ` à ${clientName}` : ''}`,
-            );
-            onUploaded?.(inserted.length);
+            setPhotos(prev => [...queued, ...inserted, ...prev]);
+            setSavedCount(c => c + inserted.length + queued.length);
+            if (inserted.length > 0) {
+                toast.success(
+                    `${inserted.length} photo${inserted.length > 1 ? 's' : ''} ajoutée${inserted.length > 1 ? 's' : ''}${clientName ? ` à ${clientName}` : ''}`,
+                );
+            }
+            if (queued.length > 0) {
+                toast.warning(
+                    `Pas de réseau : ${queued.length} photo${queued.length > 1 ? 's' : ''} gardée${queued.length > 1 ? 's' : ''} sur le téléphone. Envoi automatique au retour du réseau.`,
+                    { duration: 6000 },
+                );
+            }
+            onUploaded?.(inserted.length + queued.length);
         } catch (err) {
             console.error('QuickPhotoCapture upload error:', err);
             toast.error('Erreur lors de l\'ajout des photos');
         } finally {
             setUploading(false);
         }
-    };
+    }
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
@@ -187,7 +223,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                     {/* Appareil photo / galerie */}
                     <div className="grid grid-cols-2 gap-3">
                         <button
-                            onClick={() => cameraInputRef.current?.click()}
+                            onClick={openCamera}
                             disabled={uploading}
                             className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-800 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 active:bg-blue-100 transition-colors disabled:opacity-60"
                         >
@@ -197,7 +233,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                                 <Camera className="w-10 h-10" />
                             )}
                             <span className="text-sm font-bold text-center">
-                                {uploading ? 'Envoi en cours…' : 'Prendre une photo'}
+                                {uploading ? 'Envoi en cours…' : 'Prendre des photos'}
                             </span>
                         </button>
                         <button
@@ -216,9 +252,15 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                             {photos.map(p => (
                                 <div key={p.id} className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
                                     <img src={p.url} alt="" className="w-full h-full object-cover" />
-                                    <div className="absolute top-1 right-1 bg-green-600 text-white rounded-full p-0.5">
-                                        <Check className="w-3 h-3" />
-                                    </div>
+                                    {p.pending ? (
+                                        <div className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[10px] font-semibold text-center py-0.5 flex items-center justify-center gap-1">
+                                            <CloudOff className="w-3 h-3" /> En attente
+                                        </div>
+                                    ) : (
+                                        <div className="absolute top-1 right-1 bg-green-600 text-white rounded-full p-0.5">
+                                            <Check className="w-3 h-3" />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -235,6 +277,7 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
                     </button>
                 </div>
             </div>
+            {camera}
         </div>
     );
 };

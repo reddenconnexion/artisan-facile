@@ -2,6 +2,10 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* Téléphone tenu à l'horizontale : peu de hauteur, les barres empilées
+   écraseraient le contenu (cf. appareil photo intégré). */
+@custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 600px));
+
 /* ─── Design system iOS — tokens de couleur ─────────────── */
 /* Expose l'accent système (#007AFF) en tant qu'utilitaires Tailwind :
    bg-ios, text-ios, border-ios, ring-ios… + une variante claire. */

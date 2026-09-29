@@ -8,6 +8,7 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import Layout from './layouts/Layout';
 import ReloadPrompt from './components/ReloadPrompt';
 import OfflineBanner from './components/OfflineBanner';
+import OfflineSync from './components/OfflineSync';
 import { PwaUpdateProvider } from './context/PwaUpdateContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -236,6 +237,7 @@ function App() {
         <PwaUpdateProvider>
         <ReloadPrompt />
         <OfflineBanner />
+        <OfflineSync />
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>

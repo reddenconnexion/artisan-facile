@@ -86,9 +86,12 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[70] bg-black flex flex-col">
-            {/* Bandeau : pièce en cours + enregistrement toujours actif */}
-            <div className="shrink-0 px-4 py-3 flex items-center gap-3 text-white safe-area-top">
+        <div className="fixed inset-0 z-[70] bg-black flex flex-col phone-landscape:flex-row">
+            {/* Bandeau : pièce en cours + enregistrement toujours actif.
+                À l'horizontale, les barres passent par-dessus l'aperçu et le
+                déclencheur sur le côté : empilées, elles ne laisseraient
+                qu'une mince bande d'image. */}
+            <div className="shrink-0 px-4 py-3 flex items-center gap-3 text-white safe-area-top phone-landscape:absolute phone-landscape:left-0 phone-landscape:top-0 phone-landscape:right-28 phone-landscape:z-10 phone-landscape:bg-gradient-to-b phone-landscape:from-black/60 phone-landscape:to-transparent">
                 {isRecording && (
                     <span className="flex items-center gap-1.5 px-2 py-1 bg-red-500 rounded-full text-xs font-bold">
                         <span className="relative flex h-2 w-2">
@@ -132,7 +135,7 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
                     autoPlay
                     playsInline
                     muted
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover phone-landscape:object-contain"
                 />
                 {flash && <div className="absolute inset-0 bg-white animate-pulse" />}
                 {error && (
@@ -159,7 +162,7 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
 
             {/* Pellicule de la session */}
             {shots.length > 0 && (
-                <div className="shrink-0 flex gap-1.5 px-3 py-2 overflow-x-auto">
+                <div className="shrink-0 flex gap-1.5 px-3 py-2 overflow-x-auto phone-landscape:absolute phone-landscape:bottom-0 phone-landscape:left-0 phone-landscape:right-28 phone-landscape:z-10">
                     {shots.map((shot) => (
                         <img
                             key={shot.id}
@@ -172,8 +175,8 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
             )}
 
             {/* Déclencheur */}
-            <div className="shrink-0 px-6 py-5 flex items-center justify-between safe-area-bottom">
-                <span className="w-24 text-white/70 text-sm tabular-nums">
+            <div className="shrink-0 px-6 py-5 flex items-center justify-between safe-area-bottom phone-landscape:w-28 phone-landscape:flex-col phone-landscape:px-2 phone-landscape:py-4">
+                <span className="w-24 text-white/70 text-sm tabular-nums phone-landscape:text-center">
                     {shots.length > 0 ? `${shots.length} photo${shots.length > 1 ? 's' : ''}` : ''}
                 </span>
                 <button
@@ -186,7 +189,7 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
                 <button
                     type="button"
                     onClick={onClose}
-                    className="w-24 flex items-center justify-end gap-1.5 text-white font-semibold"
+                    className="w-24 flex items-center justify-end gap-1.5 text-white font-semibold phone-landscape:justify-center"
                 >
                     <Check className="w-5 h-5" />
                     Terminé

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
+import { loadAgendaEvents } from '../utils/agendaEvents';
+import { useBurstCamera } from '../hooks/useBurstCamera';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -66,16 +68,18 @@ const TerrainMode = () => {
 
     useEffect(() => {
         if (!user) return;
-        supabase.from('events')
-            .select('id, title, time, client_id, client_name, address, date')
-            .not('client_id', 'is', null)
+        // Même copie que l'Agenda : en zone blanche, les RDV du jour restent
+        // affichés (et leurs boutons photo utilisables).
+        loadAgendaEvents(user.id)
             .then(({ data }) => {
                 const todayStr = today();
-                const list = (data || [])
+                const list = data
+                    .filter(e => e.client_id != null)
                     .filter(e => new Date(e.date).toISOString().split('T')[0] === todayStr)
                     .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
                 setTodayEvents(list);
-            });
+            })
+            .catch(() => setTodayEvents([]));
     }, [user]);
 
     // ── Chronomètre ──────────────────────────────────────────────────────────
@@ -158,6 +162,12 @@ const TerrainMode = () => {
         // la fin de la précédente.
         await Promise.allSettled(items.map(uploadPhoto));
     };
+
+    // Appareil photo en rafale : la série arrive comme une sélection de galerie.
+    const { openCamera, camera } = useBurstCamera({
+        onFiles: (files) => handlePhotoChange({ target: { files, value: '' } }),
+        onFallback: () => cameraInputRef.current?.click(),
+    });
 
     const deletePhoto = (tempId) => {
         const p = photos.find(p => p.tempId === tempId);
@@ -770,6 +780,7 @@ const TerrainMode = () => {
                 {/* ══ Onglet Photos ════════════════════════════════════════ */}
                 {tab === 'photos' && (
                     <div className="p-4 space-y-4 pb-6">
+                        {camera}
                         <input
                             ref={cameraInputRef}
                             type="file"
@@ -790,11 +801,11 @@ const TerrainMode = () => {
                         {/* Appareil photo / galerie : deux grandes zones tactiles */}
                         <div className="grid grid-cols-2 gap-3">
                             <button
-                                onClick={() => cameraInputRef.current?.click()}
+                                onClick={openCamera}
                                 className="flex flex-col items-center justify-center gap-2 py-8 bg-white dark:bg-gray-900 border-2 border-dashed border-blue-300 rounded-3xl text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
                             >
                                 <Camera className="w-10 h-10" />
-                                <span className="text-sm font-bold text-center">Prendre une photo</span>
+                                <span className="text-sm font-bold text-center">Prendre des photos</span>
                             </button>
                             <button
                                 onClick={() => galleryInputRef.current?.click()}
