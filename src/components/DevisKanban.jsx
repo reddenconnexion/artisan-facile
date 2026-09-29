@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Eye, EyeOff, PenTool } from 'lucide-react';
 import { UrgencyBadge } from './ui';
-import { formatCurrencyRounded, formatDate } from '../utils/format';
+import { formatCurrencyRounded, formatDate, normalizeSearch } from '../utils/format';
 
 const COLS = [
     {
@@ -178,15 +178,12 @@ const KanbanColumn = ({ col, items, navigate }) => {
 const DevisKanban = ({ devis, searchTerm }) => {
     const navigate = useNavigate();
 
-    const normalize = (s) =>
-        (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-
     const filtered = useMemo(() => {
-        const q = normalize(searchTerm);
+        const q = normalizeSearch(searchTerm);
         if (!q) return devis;
         return devis.filter(d =>
-            normalize(d.client_name).includes(q) ||
-            normalize(d.title).includes(q) ||
+            normalizeSearch(d.client_name).includes(q) ||
+            normalizeSearch(d.title).includes(q) ||
             String(d.quote_number || '').includes(q) ||
             String(d.id).includes(q)
         );

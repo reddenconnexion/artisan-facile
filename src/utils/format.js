@@ -86,3 +86,10 @@ export const formatDateTime = (value, { locale = FR, fallback = '', ...options }
     const d = toDate(value);
     return d ? d.toLocaleString(locale, options) : fallback;
 };
+
+/**
+ * Normalise un texte pour la recherche : minuscules, sans accents
+ * (« René » → « rene »).
+ */
+export const normalizeSearch = (value) =>
+    String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');

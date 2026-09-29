@@ -9,7 +9,7 @@ import { useClients, useQuotes, useInvalidateCache } from '../hooks/useDataCache
 import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
-import { formatDate } from '../utils/format';
+import { formatDate, normalizeSearch } from '../utils/format';
 
 const Clients = () => {
     const navigate = useNavigate();
@@ -67,12 +67,18 @@ const Clients = () => {
 
     const filteredClients = clients.filter(client => {
         if (!isTestMode && testClient?.id && client.id === testClient.id) return false;
-        const term = debouncedSearch.toLowerCase(); // Utilise la recherche retardée
+        const term = normalizeSearch(debouncedSearch.trim()); // Utilise la recherche retardée
+        if (!term) return true;
+        // « 0612 » doit trouver « 06 12 34 56 78 » : on compare les chiffres seuls
+        const termDigits = /^[\d\s.+-]+$/.test(term) ? term.replace(/\D/g, '') : '';
         return (
-            client.name.toLowerCase().includes(term) ||
-            (client.email && client.email.toLowerCase().includes(term)) ||
-            (client.phone && client.phone.includes(term)) ||
-            (client.address && client.address.toLowerCase().includes(term))
+            normalizeSearch(client.name).includes(term) ||
+            normalizeSearch(client.email).includes(term) ||
+            normalizeSearch(client.address).includes(term) ||
+            (client.phone && (
+                client.phone.includes(term) ||
+                (termDigits.length > 0 && client.phone.replace(/\D/g, '').includes(termDigits))
+            ))
         );
     }).sort((a, b) => {
         const aValue = a[sortConfig.key] || '';
