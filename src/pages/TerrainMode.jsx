@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
+import { loadAgendaEvents } from '../utils/agendaEvents';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -66,16 +67,18 @@ const TerrainMode = () => {
 
     useEffect(() => {
         if (!user) return;
-        supabase.from('events')
-            .select('id, title, time, client_id, client_name, address, date')
-            .not('client_id', 'is', null)
+        // Même copie que l'Agenda : en zone blanche, les RDV du jour restent
+        // affichés (et leurs boutons photo utilisables).
+        loadAgendaEvents(user.id)
             .then(({ data }) => {
                 const todayStr = today();
-                const list = (data || [])
+                const list = data
+                    .filter(e => e.client_id != null)
                     .filter(e => new Date(e.date).toISOString().split('T')[0] === todayStr)
                     .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
                 setTodayEvents(list);
-            });
+            })
+            .catch(() => setTodayEvents([]));
     }, [user]);
 
     // ── Chronomètre ──────────────────────────────────────────────────────────

@@ -35,6 +35,26 @@ export function getFromOfflineCache(key) {
     }
 }
 
+/**
+ * Charge des données en ligne et les garde pour la consultation hors-ligne ;
+ * sans réseau, renvoie la dernière copie gardée.
+ * @returns {Promise<{ data: any, fromCache: boolean, savedAt: number|null }>}
+ *   lève seulement si le chargement échoue ET qu'aucune copie n'existe.
+ */
+export async function fetchWithOfflineFallback(key, fetchFn) {
+    try {
+        const data = await fetchFn();
+        saveToOfflineCache(key, data);
+        return { data, fromCache: false, savedAt: Date.now() };
+    } catch (error) {
+        const cached = getFromOfflineCache(key);
+        if (cached?.data !== undefined) {
+            return { data: cached.data, fromCache: true, savedAt: cached.timestamp || null };
+        }
+        throw error;
+    }
+}
+
 export function getLastSyncTime() {
     try {
         const keys = Object.keys(localStorage).filter(k => k.startsWith(CACHE_PREFIX));

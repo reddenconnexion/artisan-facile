@@ -283,26 +283,36 @@ export function useNextEvent() {
         queryFn: async () => {
             const now = new Date();
             const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
-            // On récupère les prochains événements à partir d'aujourd'hui, triés
-            // par date puis par heure, puis on filtre côté client sur la date+heure
-            // réelle pour ignorer les rendez-vous déjà passés dans la journée.
-            const { data, error } = await supabase
-                .from('events')
-                .select('id, title, date, time, type, address')
-                .eq('user_id', user.id)
-                .gte('date', today)
-                .order('date', { ascending: true })
-                .order('time', { ascending: true })
-                .limit(20);
-            if (error) throw error;
-            if (!data || data.length === 0) return null;
-            const next = data.find(ev => {
+            // Premier rendez-vous dont la date+heure réelle n'est pas passée.
+            const pickNext = (events) => events.find(ev => {
                 const evDate = new Date(ev.date);
                 const [h, m] = (ev.time || '09:00').split(':');
                 evDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
                 return evDate.getTime() >= now.getTime();
-            });
-            return next || null;
+            }) || null;
+            try {
+                // On récupère les prochains événements à partir d'aujourd'hui, triés
+                // par date puis par heure, puis on filtre côté client sur la date+heure
+                // réelle pour ignorer les rendez-vous déjà passés dans la journée.
+                const { data, error } = await supabase
+                    .from('events')
+                    .select('id, title, date, time, type, address')
+                    .eq('user_id', user.id)
+                    .gte('date', today)
+                    .order('date', { ascending: true })
+                    .order('time', { ascending: true })
+                    .limit(20);
+                if (error) throw error;
+                return pickNext(data || []);
+            } catch (error) {
+                // Zone blanche : on repart de la copie de l'agenda gardée sur le
+                // téléphone (cf. agendaEvents.js), recalculée à l'heure actuelle.
+                const cached = getFromOfflineCache(`agenda_${user.id}`);
+                if (!Array.isArray(cached?.data)) throw error;
+                const sorted = [...cached.data].sort((a, b) =>
+                    String(a.date).localeCompare(String(b.date)) || (a.time || '').localeCompare(b.time || ''));
+                return pickNext(sorted);
+            }
         },
         enabled: !!user,
         staleTime: 60 * 1000,
