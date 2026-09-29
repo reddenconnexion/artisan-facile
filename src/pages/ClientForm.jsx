@@ -11,6 +11,7 @@ import SmartVoiceModal from '../components/SmartVoiceModal';
 import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
+import ClientStats from '../components/ClientStats';
 import { Input, Field } from '../components/ui';
 import { parseClientBlock } from '../utils/addressParser';
 import { formatDate, formatDateTime } from '../utils/format';
@@ -563,6 +564,8 @@ const ClientForm = () => {
                     )}
                 </div>
             </div>
+
+            {isEditing && <ClientStats clientId={id} onOpenHistory={() => setActiveTab('history')} />}
 
             <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-0.5">
                 <button
