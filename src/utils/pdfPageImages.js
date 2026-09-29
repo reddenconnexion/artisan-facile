@@ -8,12 +8,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-/** Appareil iOS/iPadOS — l'iframe n'y affiche que la première page du PDF. */
-export const isIosLikeDevice = () =>
-    typeof navigator !== 'undefined' && (
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    );
+export { isIosLikeDevice } from './device';
 
 /**
  * Rend chaque page d'un PDF en JPEG (blob URL).

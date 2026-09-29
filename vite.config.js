@@ -125,7 +125,7 @@ export default defineConfig({
     headers: {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      'X-XSS-Protection': '1; mode=block',
+      'X-XSS-Protection': '0', // filtre XSS navigateur obsolète (OWASP) : la CSP protège
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       // camera/microphone=(self) : la visite technique enregistre le client
       // et photographie depuis la page — aligné sur vercel.json (production).
@@ -168,19 +168,36 @@ export default defineConfig({
     target: ['es2020', 'safari14'],
     rollupOptions: {
       output: {
-        manualChunks: {
+        // Forme fonction (et non objet) : la forme objet range aussi dans le
+        // chunk manuel les dépendances partagées (react-dom, helpers CommonJS…),
+        // si bien que l'entrée principale importait « charts », « pdfgen » et
+        // « pdfjs » (~1,7 Mo) dès le démarrage, même sur la page d'accueil.
+        manualChunks(id) {
+          // Modules virtuels (helpers CommonJS de Rollup, preload-helper de
+          // Vite) : partagés par tout le monde.
+          if (id.startsWith('\0commonjsHelpers') || id.startsWith('\0vite/')) return 'vendor';
+          if (!id.includes('/node_modules/')) return undefined;
+          const pkg = id.split('/node_modules/').pop();
+          const is = (...names) => names.some((n) => pkg.startsWith(n + '/'));
+          // Socle partagé, assigné explicitement : sans ça Rollup le range dans
+          // le premier chunk manuel qui en dépend (react-dom se retrouvait
+          // dans « charts »).
+          if (is('react', 'react-dom', 'scheduler', 'react-is', 'use-sync-external-store',
+            'tslib', '@babel/runtime')) return 'vendor';
           // Bibliothèques PDF (très lourdes)
-          pdfjs: ['pdfjs-dist'],
-          pdfgen: ['jspdf', 'jspdf-autotable', 'pdf-lib'],
-          mammoth: ['mammoth'],
+          if (is('pdfjs-dist')) return 'pdfjs';
+          if (is('jspdf', 'jspdf-autotable', 'pdf-lib', '@pdf-lib')) return 'pdfgen';
+          if (is('mammoth')) return 'mammoth';
           // Graphiques
-          charts: ['recharts'],
+          if (is('recharts', 'victory-vendor', 'd3-scale', 'd3-shape', 'd3-array', 'd3-interpolate',
+            'd3-time', 'd3-time-format', 'd3-format', 'd3-color', 'd3-path')) return 'charts';
           // Utilitaires
-          dateFns: ['date-fns'],
+          if (is('date-fns')) return 'dateFns';
           // React Query
-          query: ['@tanstack/react-query'],
+          if (is('@tanstack/react-query', '@tanstack/query-core')) return 'query';
           // Autres
-          excelReader: ['read-excel-file/browser']
+          if (is('read-excel-file')) return 'excelReader';
+          return undefined;
         }
       }
     }
