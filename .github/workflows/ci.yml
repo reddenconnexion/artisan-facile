@@ -28,21 +28,22 @@ jobs:
 
       - run: npm ci
 
-      # Le dépôt porte encore une dette de lint : on bloque uniquement sur les
-      # fichiers touchés par la PR, pour que chaque PR laisse le code propre
-      # là où elle passe sans devoir tout corriger d'un coup.
-      - name: Lint des fichiers modifiés (bloquant)
+      # Le dépôt porte encore une dette de lint : on bloque seulement les PR qui
+      # AJOUTENT des erreurs dans les fichiers qu'elles modifient (comparaison
+      # avec la base, même config). Une PR de nettoyage qui touche un fichier
+      # encore endetté n'est pas obligée de tout corriger.
+      - name: Lint des fichiers modifiés (bloquant sur toute nouvelle erreur)
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- '*.js' '*.jsx')
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- '*.js' '*.jsx' '*.mjs')
           if [ ${#files[@]} -eq 0 ]; then
             echo "Aucun fichier JS/JSX modifié."
             exit 0
           fi
-          printf 'Fichiers vérifiés :\n'; printf '  %s\n' "${files[@]}"
-          npx eslint --no-warn-ignored "${files[@]}"
+          git worktree add --detach "$RUNNER_TEMP/base" "$(git merge-base "origin/${BASE_REF}" HEAD)"
+          node .github/scripts/lint-ratchet.mjs "$RUNNER_TEMP/base" "${files[@]}"
 
       - name: Lint complet (informatif)
         continue-on-error: true
