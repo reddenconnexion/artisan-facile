@@ -32,18 +32,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { readSecret } from '../_shared/vault.ts';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-}
+import { corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 function normalizeRecipients(v: unknown): string[] {
     if (!v) return [];
@@ -195,23 +184,15 @@ function buildHtmlSignature(profile: Record<string, unknown>): string {
 }
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+    if (req.method === 'OPTIONS') return corsPreflight();
     if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405);
 
     let client: SMTPClient | null = null;
 
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) return json({ error: 'Non autorisé' }, 401);
-
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-        );
-
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+        const auth = await requireUser(req);
+        if (auth.response) return auth.response;
+        const { user } = auth;
 
         const body = await req.json();
         const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id, attachments } = body;

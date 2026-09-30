@@ -1,12 +1,7 @@
 // v2 — server-key fallback (GEMINI_API_KEY) for free users, quota-enforced
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 import { readSecret } from '../_shared/vault.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 const FREE_AI_LIMIT = 5;
 
@@ -47,33 +42,13 @@ function resolvePresetPrompt(preset: string, userOverride: string | null | undef
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
     // Authentification
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user, supabase } = auth;
 
     // Rate limit anti-burst : 30 appels IA / heure / utilisateur
     // (en plus du quota mensuel free de 5/mois géré plus bas)
@@ -88,10 +63,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'Profil introuvable' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Profil introuvable' }, 404);
     }
 
     const aiPrefs = profile.ai_preferences || {};
@@ -119,18 +91,12 @@ Deno.serve(async (req) => {
 
         const count = usage?.ai_generations_count ?? 0;
         if (count >= FREE_AI_LIMIT) {
-          return new Response(
-            JSON.stringify({ error: `Limite atteinte : ${FREE_AI_LIMIT} générations IA/mois. Passez au plan Pro pour un accès illimité.` }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return json({ error: `Limite atteinte : ${FREE_AI_LIMIT} générations IA/mois. Passez au plan Pro pour un accès illimité.` }, 403);
         }
       }
 
       if (!serverGeminiKey) {
-        return new Response(
-          JSON.stringify({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }, 503);
       }
 
       effectiveApiKey = serverGeminiKey;
@@ -150,10 +116,7 @@ Deno.serve(async (req) => {
     }
 
     if (!resolvedSystemPrompt || !userMessage) {
-      return new Response(
-        JSON.stringify({ error: 'Paramètres manquants' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Paramètres manquants' }, 400);
     }
 
     let rawResponse: string;
@@ -182,10 +145,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errData = await response.json();
-        return new Response(
-          JSON.stringify({ error: `Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}` }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: `Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}` }, 502);
       }
 
       const data = await response.json();
@@ -211,10 +171,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errData = await response.json();
-        return new Response(
-          JSON.stringify({ error: errData.error?.message || 'Erreur OpenAI API' }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: errData.error?.message || 'Erreur OpenAI API' }, 502);
       }
 
       const data = await response.json();
@@ -230,15 +187,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(
-      JSON.stringify({ rawResponse }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ rawResponse });
 
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: error.message }, 500);
   }
 });

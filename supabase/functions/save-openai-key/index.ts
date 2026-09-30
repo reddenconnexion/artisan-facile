@@ -1,46 +1,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { upsertSecret, deleteSecret } from '../_shared/vault.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Méthode non autorisée' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: 'Méthode non autorisée' }, 405);
   }
 
   try {
     // Authentification
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
     const body = await req.json();
     const { api_key } = body;
@@ -55,10 +28,7 @@ Deno.serve(async (req) => {
       const isOpenAI = isString && api_key.startsWith('sk-') && api_key.length >= 20;
       const isGemini = isString && api_key.startsWith('AIza') && api_key.length >= 35;
       if (!isOpenAI && !isGemini) {
-        return new Response(
-          JSON.stringify({ error: 'Format de clé API invalide. Elle doit commencer par "sk-" (OpenAI) ou "AIza" (Gemini).' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Format de clé API invalide. Elle doit commencer par "sk-" (OpenAI) ou "AIza" (Gemini).' }, 400);
       }
     }
 
@@ -75,10 +45,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (fetchError) {
-      return new Response(
-        JSON.stringify({ error: 'Profil introuvable' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Profil introuvable' }, 404);
     }
 
     const currentPrefs = profile?.ai_preferences || {};
@@ -97,10 +64,7 @@ Deno.serve(async (req) => {
     } else {
       const secretId = await upsertSecret(existingSecretId, api_key, `ai_api_key_${user.id}`);
       if (!secretId) {
-        return new Response(
-          JSON.stringify({ error: 'Erreur lors du chiffrement de la clé API' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Erreur lors du chiffrement de la clé API' }, 500);
       }
       updatedPrefs.openai_api_key_secret_id = secretId;
       updatedPrefs.openai_api_key_last4 = api_key.slice(-4);
@@ -112,22 +76,13 @@ Deno.serve(async (req) => {
       .eq('id', user.id);
 
     if (updateError) {
-      return new Response(
-        JSON.stringify({ error: 'Erreur lors de la mise à jour' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Erreur lors de la mise à jour' }, 500);
     }
 
     // Réponse : jamais la clé elle-même, uniquement son statut
-    return new Response(
-      JSON.stringify({ success: true, configured: !deletingKey }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ success: true, configured: !deletingKey });
 
   } catch {
-    return new Response(
-      JSON.stringify({ error: 'Erreur interne du serveur' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: 'Erreur interne du serveur' }, 500);
   }
 });

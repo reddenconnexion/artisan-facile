@@ -1,11 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 import { readSecret } from '../_shared/vault.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 // La passerelle Supabase coupe la requête à 150 s : au-delà, le client reçoit
 // une erreur générique sans explication. On abandonne l'appel IA avant pour
@@ -30,33 +25,13 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
     // Authentification
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user, supabase } = auth;
 
     // Rate limit : 5 analyses vision / heure / utilisateur (très coûteux)
     const rl = await enforceRateLimit('plan-vision', user.id, 5, 3600);
@@ -70,10 +45,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'Profil introuvable' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Profil introuvable' }, 404);
     }
 
     const aiPrefs = profile.ai_preferences || {};
@@ -90,26 +62,17 @@ Deno.serve(async (req) => {
     const serverGeminiKey = Deno.env.get('GEMINI_API_KEY');
 
     if (!hasUserKey && !isPro) {
-      return new Response(
-        JSON.stringify({ error: 'Cette fonctionnalité est réservée aux comptes Pro. Passez en Pro ou configurez votre clé API dans votre profil.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Cette fonctionnalité est réservée aux comptes Pro. Passez en Pro ou configurez votre clé API dans votre profil.' }, 403);
     }
 
     if (!hasUserKey && isPro && !serverAnthropicKey && !serverGeminiKey) {
-      return new Response(
-        JSON.stringify({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }, 503);
     }
 
     const { imageBase64, mediaType, systemPrompt, userPrompt } = await req.json();
 
     if (!imageBase64 || !systemPrompt || !userPrompt) {
-      return new Response(
-        JSON.stringify({ error: 'Paramètres manquants (imageBase64, systemPrompt, userPrompt).' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Paramètres manquants (imageBase64, systemPrompt, userPrompt).' }, 400);
     }
 
     const safeMediaType = (mediaType && mediaType.startsWith('image/')) ? mediaType : 'image/jpeg';
@@ -136,10 +99,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errData = await response.json();
-        return new Response(
-          JSON.stringify({ error: `Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}` }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: `Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}` }, 502);
       }
 
       const data = await response.json();
@@ -169,10 +129,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errData = await response.json();
-        return new Response(
-          JSON.stringify({ error: errData.error?.message || `Erreur OpenAI ${response.status}` }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: errData.error?.message || `Erreur OpenAI ${response.status}` }, 502);
       }
 
       const data = await response.json();
@@ -208,10 +165,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const err = await response.json();
-        return new Response(
-          JSON.stringify({ error: err.error?.message || `Erreur Anthropic ${response.status}` }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: err.error?.message || `Erreur Anthropic ${response.status}` }, 502);
       }
 
       const data = await response.json();
@@ -226,15 +180,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ text }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ text });
 
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      { status: error instanceof AiTimeoutError ? 504 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: (error as Error).message }, error instanceof AiTimeoutError ? 504 : 500);
   }
 });

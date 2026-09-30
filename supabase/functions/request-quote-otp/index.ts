@@ -1,15 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, corsPreflight, json } from '../_shared/http.ts';
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
-    }
+    if (req.method === 'OPTIONS') return corsPreflight();
 
     try {
         // Anti-brute-force par IP, en plus du throttle par devis plus bas :
@@ -189,13 +183,6 @@ Deno.serve(async (req) => {
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-}
 
 async function sha256hex(input: string): Promise<string> {
     const data = new TextEncoder().encode(input);

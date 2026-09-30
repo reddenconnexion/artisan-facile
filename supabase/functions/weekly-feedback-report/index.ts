@@ -12,11 +12,9 @@
 // manuellement ci-dessous (secret cron OU allowlist email), comme stripe-webhook.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeadersWith, corsPreflight, createUserClient, json as jsonResponse } from '../_shared/http.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
-};
+const corsHeaders = corsHeadersWith('x-cron-secret');
 
 // Doit rester synchronisé avec src/constants/admin.js et les fonctions SQL.
 const ADMIN_EMAILS = ['rotvener97@gmail.com', 'reddenconnexion@gmail.com'];
@@ -28,12 +26,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Autre',
 };
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+const json = (body: unknown, status = 200) => jsonResponse(body, status, corsHeaders);
 
 function fmtDateFr(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -53,9 +46,7 @@ function parseAiJson(raw: string): any {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight(corsHeaders);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -71,12 +62,7 @@ Deno.serve(async (req) => {
     } else {
       const authHeader = req.headers.get('Authorization');
       if (authHeader) {
-        const authClient = createClient(
-          supabaseUrl,
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await authClient.auth.getUser();
+        const { data: { user } } = await createUserClient(authHeader).auth.getUser();
         const email = user?.email?.toLowerCase();
         if (email && ADMIN_EMAILS.includes(email)) authorized = true;
       }

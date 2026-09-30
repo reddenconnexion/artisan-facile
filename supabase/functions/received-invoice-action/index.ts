@@ -24,31 +24,18 @@ import {
   isUsableReference,
   type LifecycleAction,
 } from '../_shared/b2brouter.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 const ACTIONS = ['accept', 'refuse', 'fetch_pdf'] as const;
 type Action = (typeof ACTIONS)[number];
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return json({ error: 'Non autorisé' }, 401);
-
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-    if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
     const rl = await enforceRateLimit('received-invoice-action', user.id, 60, 3600);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);

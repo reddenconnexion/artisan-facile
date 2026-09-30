@@ -44,13 +44,7 @@ import {
   isUsableReference,
   type B2BRouterConfig,
 } from '../_shared/b2brouter.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 const DOC_LABEL: Record<string, string> = { invoice: 'facture', credit_note: 'avoir' };
 
@@ -214,19 +208,12 @@ async function transmitToGenericPDP(
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return json({ error: 'Non autorisé' }, 401);
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
     const { quote_id, pdf_base64, action } = await req.json().catch(() => ({}));
     if (!quote_id) return json({ error: 'Paramètre manquant : quote_id' }, 400);
