@@ -12,11 +12,15 @@ import { DismissibleHelp, EmptyState, LoadingState } from '../components/ui';
 import TimeClockWidget from '../components/TimeClockWidget';
 import { exportToCSV } from '../utils/csvExport';
 import {
-    estimatedHoursFromItems, formatHours, hoursToInput, laborProfitability,
+    chantierHours, chantierRootId, formatHours, hoursToInput, laborProfitability,
     parseHoursInput, startOfWeek, weekDays, toDateString,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { formatCurrencyRounded, formatDate } from '../utils/format';
+
+const QUOTE_FIELDS = 'id, title, client_name, total_ht, items, work_stage, type, status, parent_quote_id, amendment_details';
+
+const docLabel = (q) => [q.title, q.client_name].filter(Boolean).join(' — ') || `Devis #${q.id}`;
 
 const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -33,7 +37,7 @@ const STATUS_STYLES = {
 };
 
 const WorksiteCard = ({ worksite, hourlyRate }) => {
-    const { estimated, spent, quote } = worksite;
+    const { estimated, spent, quote, totalHt, amendmentCount } = worksite;
     const { progress, overrunHours, overrunCost, status } = laborProfitability(estimated, spent, hourlyRate);
     const { bar, text, Icon } = STATUS_STYLES[status];
     const label = [quote.title, quote.client_name].filter(Boolean).join(' — ') || `Devis #${quote.id}`;
@@ -46,7 +50,9 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                         {label}
                     </Link>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Devis : {formatCurrencyRounded(quote.total_ht || 0)} HT
+                        {amendmentCount > 0
+                            ? <>Devis + {amendmentCount > 1 ? `${amendmentCount} avenants` : 'avenant'} : {formatCurrencyRounded(totalHt || 0)} HT</>
+                            : <>Devis : {formatCurrencyRounded(quote.total_ht || 0)} HT</>}
                     </p>
                 </div>
                 <Icon className={`w-5 h-5 flex-shrink-0 ${text}`} />
@@ -95,6 +101,7 @@ const TimeTracking = () => {
     const [loading, setLoading] = useState(true);
     const [entries, setEntries] = useState([]);       // pointages de la semaine affichée
     const [worksites, setWorksites] = useState([]);   // devis acceptés + heures cumulées
+    const [docLabels, setDocLabels] = useState({}); // id devis/avenant → libellé
     const [hourlyRate, setHourlyRate] = useState(0);
     const [weekStart, setWeekStart] = useState(() => startOfWeek());
     const [deletingId, setDeletingId] = useState(null);
@@ -123,7 +130,7 @@ const TimeTracking = () => {
                     .order('date', { ascending: true })
                     .order('created_at', { ascending: true }),
                 supabase.from('quotes')
-                    .select('id, title, client_name, total_ht, items, work_stage')
+                    .select(QUOTE_FIELDS)
                     .eq('status', 'accepted')
                     .neq('type', 'invoice')
                     .order('created_at', { ascending: false })
@@ -144,13 +151,28 @@ const TimeTracking = () => {
                 spentByQuote[t.quote_id] = (spentByQuote[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
             }
 
-            const active = (quotesRes.data || [])
-                .filter(q => q.work_stage !== 'completed' || spentByQuote[q.id] > 0)
-                .map(q => ({
-                    quote: q,
-                    estimated: estimatedHoursFromItems(q.items),
-                    spent: spentByQuote[q.id] || 0,
-                }))
+            // Un avenant signé et son devis initial forment UN chantier : heures
+            // prévues et pointées sont comptées en commun (le RDV d'agenda peut
+            // être lié à l'un ou à l'autre). On complète donc la liste avec les
+            // devis initiaux et tous les avenants des chantiers en cours.
+            const accepted = quotesRes.data || [];
+            const rootIds = [...new Set(accepted.map(chantierRootId))];
+            let docs = accepted;
+            if (rootIds.length > 0) {
+                const { data: related } = await supabase.from('quotes')
+                    .select(QUOTE_FIELDS)
+                    .or(`id.in.(${rootIds.join(',')}),parent_quote_id.in.(${rootIds.join(',')})`);
+                docs = [...accepted, ...(related || [])];
+            }
+            const byRoot = chantierHours(docs, spentByQuote);
+            const roots = new Map(docs.filter(q => chantierRootId(q) === q.id).map(q => [q.id, q]));
+            setDocLabels(Object.fromEntries(docs.map(q => [q.id, docLabel(q)])));
+
+            const active = rootIds
+                .map(id => roots.get(id))
+                .filter(Boolean)
+                .map(q => ({ quote: q, ...byRoot.get(Number(q.id)) }))
+                .filter(w => w.quote.work_stage !== 'completed' || w.spent > 0)
                 // Chantiers avec activité d'abord, pour que la page soit utile dès l'arrivée
                 .sort((a, b) => b.spent - a.spent);
             setWorksites(active);
@@ -174,14 +196,9 @@ const TimeTracking = () => {
         if (showForm && editingId) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, [showForm, editingId]);
 
-    // Libellés de chantiers pour la feuille d'heures et le formulaire
-    const quoteLabels = useMemo(() => {
-        const map = {};
-        for (const w of worksites) {
-            map[w.quote.id] = [w.quote.title, w.quote.client_name].filter(Boolean).join(' — ') || `Devis #${w.quote.id}`;
-        }
-        return map;
-    }, [worksites]);
+    // Libellés de chantiers pour la feuille d'heures et le formulaire (devis
+    // initiaux et avenants : un pointage peut viser l'un ou l'autre).
+    const quoteLabels = docLabels;
 
     // Un pointage peut viser un chantier absent de la liste (devis terminé, au-delà
     // des 50 derniers…) : on conserve son option pour ne pas la perdre en modifiant.

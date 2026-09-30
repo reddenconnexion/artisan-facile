@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { chantierHours } from './timeTracking';
 
 // Étapes d'un chantier, du devis signé aux travaux terminés. Partagé par la
 // page « Pilotage Chantiers » (Kanban/Planning) et le widget du tableau de bord
@@ -39,9 +40,10 @@ function deriveStage(q, depositsMap) {
 
 /**
  * Récupère les chantiers (devis acceptés / facturés / payés, hors acomptes) avec
- * leur étape courante auto-classée, ainsi que les heures pointées par chantier.
+ * leur étape courante auto-classée, ainsi que les heures pointées et prévues
+ * par chantier (devis initial + avenants, comptés ensemble).
  *
- * @returns {Promise<{ worksites: object[], spentByQuote: Record<number, number> }>}
+ * @returns {Promise<{ worksites: object[], spentByQuote: Record<number, number>, estimatedByQuote: Record<number, number> }>}
  */
 export async function fetchWorksites() {
     const { data, error } = await supabase
@@ -52,15 +54,20 @@ export async function fetchWorksites() {
     if (error) throw error;
 
     // Enfants (acomptes/factures) pour détecter les acomptes payés, et heures pointées.
-    const [{ data: allQuotes }, { data: tracking }] = await Promise.all([
+    const [{ data: allQuotes }, { data: tracking }, { data: amendments }] = await Promise.all([
         supabase.from('quotes').select('id, parent_id, status, type, total_ttc'),
         supabase.from('task_tracking').select('quote_id, hours_spent'),
+        // Avenants (y compris convertis en facture) : leurs heures comptent
+        // avec celles du devis initial.
+        supabase.from('quotes')
+            .select('id, type, status, items, total_ht, parent_quote_id, amendment_details')
+            .not('parent_quote_id', 'is', null),
     ]);
 
-    const spentByQuote = {};
+    const spentByDoc = {};
     for (const t of tracking || []) {
         if (t.quote_id == null) continue;
-        spentByQuote[t.quote_id] = (spentByQuote[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
+        spentByDoc[t.quote_id] = (spentByDoc[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
     }
 
     const depositsMap = {};
@@ -77,7 +84,17 @@ export async function fetchWorksites() {
         // kanban au lieu de s'accumuler indéfiniment dans « Terminé ».
         .filter(q => !(q.work_stage === 'completed' && q.status === 'paid'));
 
-    return { worksites, spentByQuote };
+    // Heures d'un chantier = devis initial + avenants, comptées en commun.
+    const byRoot = chantierHours([...worksites, ...(amendments || [])], spentByDoc);
+    const spentByQuote = {};
+    const estimatedByQuote = {};
+    for (const w of worksites) {
+        const h = byRoot.get(Number(w.id));
+        spentByQuote[w.id] = h?.spent || 0;
+        estimatedByQuote[w.id] = h?.estimated || 0;
+    }
+
+    return { worksites, spentByQuote, estimatedByQuote };
 }
 
 /** Met à jour l'urgence client d'un chantier (devis). */
