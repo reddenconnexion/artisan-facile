@@ -7,6 +7,7 @@ import {
     isPostClosingComplement,
     complementInvoiceTitle,
     amendmentProjectTotals,
+    amendmentParentContext,
 } from './amendmentBilling';
 
 // Repères temporels : la clôture est générée le 10, on teste des avenants
@@ -178,5 +179,61 @@ describe('amendmentProjectTotals', () => {
 
     it('tolère un contexte parent absent', () => {
         expect(amendmentProjectTotals(null, 50)).toMatchObject({ baseline: 0, newTotal: 50, remaining: 50 });
+    });
+});
+
+describe('amendmentProjectTotals — avenants précédents', () => {
+    it('ajoute les avenants précédents signés au nouveau total', () => {
+        // Devis 5 000 €, avenant n°1 signé +800 €, avenant n°2 +300 €.
+        const t = amendmentProjectTotals({ total_ttc: 5000, previous_amendments_total: 800, previous_amendments_count: 1 }, 300);
+        expect(t).toMatchObject({ newTotal: 6100, remaining: 6100, previousAmendmentsCount: 1, showRemaining: false });
+    });
+
+    it('déduit l’acompte et les avenants précédents déjà facturés du reste à régler', () => {
+        const t = amendmentProjectTotals({
+            total_ttc: 5000, deposit_total: 1500,
+            previous_amendments_total: 800, previous_amendments_billed: 800, previous_amendments_count: 1,
+        }, 300);
+        expect(t).toMatchObject({ newTotal: 6100, remaining: 3800, showDeposit: true, showPreviousBilled: true, showRemaining: true });
+    });
+
+    it('avec situations : base = situations + avenants précédents', () => {
+        const t = amendmentProjectTotals({ total_ttc: 5000, progress_total: 2000, previous_amendments_total: 800 }, 300);
+        expect(t).toMatchObject({ baseline: 2000, newTotal: 3100, showRemaining: false });
+    });
+});
+
+describe('amendmentParentContext', () => {
+    const children = [
+        { id: 10, type: 'invoice', status: 'billed', title: "Facture d'Acompte - Cuisine", total_ttc: 1500 },
+        { id: 11, type: 'invoice', status: 'billed', title: 'Situation n°1', amendment_details: { situation: { index: 1 } }, total_ttc: 2000 },
+        { id: 12, type: 'invoice', status: 'billed', title: 'Facture de clôture', total_ttc: 9999 },
+        { id: 13, type: 'invoice', status: 'cancelled', title: 'Acompte annulé', total_ttc: 400 },
+        { id: 20, type: 'amendment', status: 'accepted', total_ttc: 800 },
+        // Avenant signé puis converti en facture : reste un avenant (parent_quote_id).
+        { id: 21, type: 'invoice', status: 'billed', parent_quote_id: 1, title: 'Ajout prises', total_ttc: 250 },
+        { id: 22, type: 'amendment', status: 'draft', total_ttc: 120 },
+        { id: 23, type: 'amendment', status: 'refused', total_ttc: 90 },
+        { id: 30, type: 'amendment', status: 'accepted', total_ttc: 300 }, // avenant courant
+        { id: 31, type: 'amendment', status: 'accepted', total_ttc: 700 }, // postérieur
+    ];
+
+    it('ne retient que les avenants antérieurs signés, sans l’avenant courant', () => {
+        expect(amendmentParentContext(children, 30)).toEqual({
+            progressTotal: 2000,
+            depositTotal: 1500,
+            previousAmendmentsTTC: 1050,
+            previousAmendmentsBilledTTC: 250,
+            previousAmendmentsCount: 2,
+        });
+    });
+
+    it('un avenant converti en facture n’est plus compté comme acompte', () => {
+        expect(amendmentParentContext(children, 20).depositTotal).toBe(1500);
+        expect(amendmentParentContext(children, 20).previousAmendmentsCount).toBe(0);
+    });
+
+    it('tolère une liste vide', () => {
+        expect(amendmentParentContext(null, 1).previousAmendmentsTTC).toBe(0);
     });
 });

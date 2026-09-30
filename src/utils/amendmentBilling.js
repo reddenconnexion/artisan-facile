@@ -11,6 +11,8 @@
 // reproposer ferait double emploi. La décision se joue donc sur une simple
 // comparaison de dates : signature de l'avenant vs génération de la clôture.
 
+import { isAmendmentRow } from './amendmentIndex';
+
 const CLOSING_TITLE_RE = /cl[oô]ture/i;
 
 // Millisecondes d'une date ISO/Date, ou null si inexploitable.
@@ -117,14 +119,71 @@ export function complementInvoiceTitle(amendment) {
 
 // ── Récapitulatif « Nouveau total projet » d'un avenant ─────────────────────
 
+const SIGNED_AMENDMENT_STATUSES = ['accepted', 'billed', 'paid'];
+const SITUATION_TITLE_RE = /situation/i;
+
+/**
+ * Contexte financier d'un avenant, tiré des documents rattachés au devis
+ * initial (parent_id) :
+ *  - progressTotal : situations d'avancement facturées (remplacent le devis
+ *    comme base de calcul) ;
+ *  - depositTotal : acomptes versés, à déduire du solde ;
+ *  - previousAmendments* : avenants ANTÉRIEURS à l'avenant courant et signés
+ *    par le client. Ils font partie du projet : sans eux, l'avenant n°2
+ *    annonçait un « Nouveau total projet » qui ignorait l'avenant n°1.
+ *    Ceux déjà convertis en facture sont en plus comptés comme facturés
+ *    (previousAmendmentsBilledTTC), à déduire du reste à régler.
+ *
+ * @param {Array} children  lignes `quotes` dont parent_id = devis initial
+ * @param {number|string|null} currentId  id de l'avenant affiché (exclu, et
+ *        seuls les avenants créés avant lui sont retenus)
+ */
+export function amendmentParentContext(children = [], currentId = null) {
+    const current = currentId != null ? Number(currentId) : null;
+    const ctx = {
+        progressTotal: 0,
+        depositTotal: 0,
+        previousAmendmentsTTC: 0,
+        previousAmendmentsBilledTTC: 0,
+        previousAmendmentsCount: 0,
+    };
+
+    (children || []).forEach((doc) => {
+        if (!doc || doc.status === 'cancelled') return;
+        if (current != null && Number(doc.id) === current) return;
+        const ttc = parseFloat(doc.total_ttc) || 0;
+
+        if (isAmendmentRow(doc)) {
+            // Les ids sont séquentiels : un id plus petit = avenant antérieur.
+            if (current != null && Number(doc.id) > current) return;
+            const billed = doc.type === 'invoice';
+            if (!billed && !SIGNED_AMENDMENT_STATUSES.includes(doc.status)) return;
+            ctx.previousAmendmentsTTC += ttc;
+            ctx.previousAmendmentsCount += 1;
+            if (billed) ctx.previousAmendmentsBilledTTC += ttc;
+            return;
+        }
+
+        if (doc.type !== 'invoice') return;
+        if (CLOSING_TITLE_RE.test(doc.title || '')) return; // ni situation ni acompte
+        const details = typeof doc.amendment_details === 'object' ? doc.amendment_details : null;
+        if (details?.situation || SITUATION_TITLE_RE.test(doc.title || '')) ctx.progressTotal += ttc;
+        else ctx.depositTotal += ttc;
+    });
+
+    return ctx;
+}
+
 /**
  * Un avenant COMPLÈTE le devis initial (modèle additif) : le nouveau total du
  * projet part du devis initial — ou des situations déjà facturées, qui le
- * remplacent comme base — auquel s'ajoute le montant de l'avenant (delta,
- * négatif pour une moins-value). Sans situation, l'acompte déjà versé est une
- * avance à déduire du nouveau total pour obtenir le reste à régler.
+ * remplacent comme base — auquel s'ajoutent les avenants précédents signés,
+ * puis le montant de cet avenant (delta, négatif pour une moins-value). Sans
+ * situation, l'acompte versé et les avenants précédents déjà facturés sont
+ * déduits du nouveau total pour obtenir le reste à régler.
  *
- * @param {{total_ttc?:number, progress_total?:number, deposit_total?:number}|null} parentQuoteData
+ * @param {{total_ttc?:number, progress_total?:number, deposit_total?:number,
+ *          previous_amendments_total?:number, previous_amendments_billed?:number}|null} parentQuoteData
  *        Contexte du devis parent (formData.parent_quote_data).
  * @param {number} amendmentTTC Montant TTC de l'avenant.
  */
@@ -132,16 +191,25 @@ export function amendmentProjectTotals(parentQuoteData, amendmentTTC) {
     const initialTTC = parseFloat(parentQuoteData?.total_ttc) || 0;
     const progressTotal = parseFloat(parentQuoteData?.progress_total) || 0;
     const depositTotal = parseFloat(parentQuoteData?.deposit_total) || 0;
+    const previousAmendmentsTTC = parseFloat(parentQuoteData?.previous_amendments_total) || 0;
+    const previousAmendmentsBilledTTC = parseFloat(parentQuoteData?.previous_amendments_billed) || 0;
+    const previousAmendmentsCount = parseInt(parentQuoteData?.previous_amendments_count, 10) || 0;
     const baseline = progressTotal > 0 ? progressTotal : initialTTC;
-    const newTotal = baseline + amendmentTTC;
+    const newTotal = baseline + previousAmendmentsTTC + amendmentTTC;
+    const hasProgress = progressTotal > 0;
     return {
         initialTTC,
         progressTotal,
         depositTotal,
+        previousAmendmentsTTC,
+        previousAmendmentsBilledTTC,
+        previousAmendmentsCount,
         baseline,
         amendmentTTC,
         newTotal,
-        showDeposit: progressTotal === 0 && depositTotal > 0,
-        remaining: newTotal - depositTotal,
+        showDeposit: !hasProgress && depositTotal > 0,
+        showPreviousBilled: !hasProgress && previousAmendmentsBilledTTC > 0,
+        showRemaining: !hasProgress && (depositTotal > 0 || previousAmendmentsBilledTTC > 0),
+        remaining: newTotal - depositTotal - previousAmendmentsBilledTTC,
     };
 }

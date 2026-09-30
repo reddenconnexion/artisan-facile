@@ -4,6 +4,7 @@
 export const PDF_I18N = {
     fr: {
         facture: 'FACTURE', devis: 'DEVIS', avenant: 'AVENANT', avoir: 'AVOIR',
+        avenantNumbered: (n) => `AVENANT N°${n}`,
         creditNoteRef: (ref, date) => `Sur facture ${ref}${date ? ` du ${date}` : ''}`,
         dateInvoice: 'Date de facturation', dateQuote: "Date d'émission",
         yourCompany: 'Votre Entreprise',
@@ -74,6 +75,8 @@ export const PDF_I18N = {
         newProjectTotal: 'Nouveau Total Projet',
         balanceOnAmendment: (amt) => `(Solde à régler sur cet avenant : ${amt} €)`,
         depositPaid: 'Acompte versé', kept: '(conservé)',
+        previousAmendments: (n) => (n > 1 ? `Avenants précédents signés (${n})` : 'Avenant précédent signé'),
+        previousAmendmentsBilled: 'Avenants précédents déjà facturés',
         amendmentComplementTTC: 'Complément Avenant TTC',
         newBalanceDue: 'Nouveau Solde à Régler',
         projectTotal: (amt) => `(Total Projet : ${amt} € TTC)`,
@@ -106,6 +109,7 @@ export const PDF_I18N = {
     },
     en: {
         facture: 'INVOICE', devis: 'QUOTE', avenant: 'AMENDMENT', avoir: 'CREDIT NOTE',
+        avenantNumbered: (n) => `AMENDMENT No. ${n}`,
         creditNoteRef: (ref, date) => `For invoice ${ref}${date ? ` dated ${date}` : ''}`,
         dateInvoice: 'Invoice date', dateQuote: 'Issue date',
         yourCompany: 'Your Company',
@@ -173,6 +177,8 @@ export const PDF_I18N = {
         newProjectTotal: 'New Project Total',
         balanceOnAmendment: (amt) => `(Balance due on this amendment: €${amt})`,
         depositPaid: 'Deposit paid', kept: '(retained)',
+        previousAmendments: (n) => (n > 1 ? `Previous signed amendments (${n})` : 'Previous signed amendment'),
+        previousAmendmentsBilled: 'Previous amendments already billed',
         amendmentComplementTTC: 'Amendment Supplement (incl. VAT)',
         newBalanceDue: 'New Balance Due',
         projectTotal: (amt) => `(Project Total: €${amt} incl. VAT)`,
