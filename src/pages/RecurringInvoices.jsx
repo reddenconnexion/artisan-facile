@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Repeat, Plus, Edit2, Trash2, Calendar, Pause, Play, Loader2,
+    Repeat, Plus, Edit2, Trash2, Pause, Play, Loader2,
     X, Save, Zap, ChevronRight, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';

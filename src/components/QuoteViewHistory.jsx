@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, X, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { formatDate, formatDateTime } from '../utils/format';

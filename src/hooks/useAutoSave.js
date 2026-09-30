@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useDebounce } from './useDebounce';
-import { toast } from 'sonner';
 
 /**
  * Hook to auto-save state to localStorage

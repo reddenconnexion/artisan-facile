@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Repeat, Loader2, Package, ArrowRight } from 'lucide-react';
 import { formatPrice } from '../utils/format';

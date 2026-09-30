@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Segmented control iOS (pilule active sur fond gris translucide).

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Wallet, Hourglass, FileText, Timer } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { computeClientStats } from '../utils/clientStats';

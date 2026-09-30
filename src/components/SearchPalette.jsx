@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, FileText, ClipboardList, X } from 'lucide-react';
 import { useClients, useQuotes, useInterventionReports } from '../hooks/useDataCache';

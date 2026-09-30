@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, FileText, AlertTriangle, Download } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download } from 'lucide-react';
 import { Button, EmptyState, LoadingState } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';

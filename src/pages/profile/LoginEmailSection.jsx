@@ -1,4 +1,3 @@
-import React from 'react';
 import { Mail, KeyRound } from 'lucide-react';
 import { Button } from '../../components/ui';
 

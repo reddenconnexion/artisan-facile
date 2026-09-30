@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Shield, FileText, FileCheck, Trash2, PenLine, Euro, ArrowLeft,
-    User, Loader2, Filter, Search, Calendar, AlertCircle,
+    User, Loader2, Filter, Search, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';

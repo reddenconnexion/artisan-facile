@@ -1,4 +1,3 @@
-import React from 'react';
 import { ClipboardList, Clock, MapPin, Wrench, StickyNote, Mic, MicOff, Loader2, Sparkles, FilePlus, TrendingUp, AlertCircle } from 'lucide-react';
 import { Input, Field } from '../../components/ui';
 import { formatCompactCurrency } from '../../utils/format';

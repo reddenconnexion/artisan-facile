@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../utils/supabase';

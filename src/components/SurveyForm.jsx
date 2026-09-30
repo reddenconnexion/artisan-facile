@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Minus, Trash2, Check, AlertTriangle, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { createEmptyZone, contexteValueText } from '../utils/surveyText';
 

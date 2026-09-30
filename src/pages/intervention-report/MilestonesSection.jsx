@@ -1,4 +1,3 @@
-import React from 'react';
 import { Trash2, MapPin, Flag } from 'lucide-react';
 import { formatDateTime } from '../../utils/format';
 

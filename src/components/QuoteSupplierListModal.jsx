@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Truck, Copy, Download, Check, Package } from 'lucide-react';
 import { toast } from 'sonner';

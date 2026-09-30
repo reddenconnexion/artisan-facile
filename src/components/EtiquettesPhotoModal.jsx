@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Wand2, Loader2, Image as ImageIcon, AlertTriangle, ClipboardPaste, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabase";

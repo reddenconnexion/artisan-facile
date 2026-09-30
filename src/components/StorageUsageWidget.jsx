@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { HardDrive, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { getQuotaStatus, getGlobalStorage, formatBytes } from '../utils/storageQuota';
 

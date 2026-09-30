@@ -1,4 +1,3 @@
-import React from 'react';
 import { Save, Send, CheckCircle } from 'lucide-react';
 
 const PdpSection = ({

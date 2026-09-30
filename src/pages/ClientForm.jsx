@@ -1,6 +1,6 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Mic, Sparkles, FilePlus, Zap, ExternalLink, Trash, Loader2, RefreshCw, Ban, Copy, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Sparkles, FilePlus, Zap, ExternalLink, Trash, Loader2, RefreshCw, Ban, Copy, CheckCircle, Clock } from 'lucide-react';
 import { toastError } from '../utils/supabaseErrorHandler';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';

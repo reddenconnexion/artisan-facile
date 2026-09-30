@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Truck, Calendar, CheckCircle, AlertTriangle, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Truck, Calendar, CheckCircle, Trash2, X } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -7,8 +7,7 @@ import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import { EmptyState, LoadingState } from '../components/ui';
 import { toast } from 'sonner';
-import { format, isPast, addDays, differenceInDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { format, isPast, differenceInDays } from 'date-fns';
 
 const Rentals = () => {
     const { user } = useAuth();

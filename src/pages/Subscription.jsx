@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2,
     Loader2, ExternalLink, AlertCircle, CreditCard

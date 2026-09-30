@@ -1,5 +1,4 @@
 import { addDays, nextDay, setDate, setMonth, startOfToday, isBefore, addYears, addMonths } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 export const processVoiceCommand = (transcript, navigate) => {
     const command = transcript.toLowerCase();

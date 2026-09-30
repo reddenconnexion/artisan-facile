@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Kanban, ChevronRight, FileText, Package, Calendar, Hammer, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';

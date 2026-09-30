@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Settings2, X, RotateCcw, Loader2, Check, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { DASHBOARD_WIDGETS, useDashboardSettings } from '../hooks/useDashboardSettings';
 import { toast } from 'sonner';

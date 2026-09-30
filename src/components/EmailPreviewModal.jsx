@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Send, Mail } from 'lucide-react';
 import { useModalA11y } from '../hooks/useModalA11y';
 

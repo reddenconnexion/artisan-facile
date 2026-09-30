@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, FileText, Pen, Wrench, Shield, List, Users, Calendar, Calculator, LogOut, Box, ClipboardList, Image as ImageIcon, Megaphone, Kanban, Repeat, Target } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, Wrench, Shield, Calendar, Calculator, Box, ClipboardList, Image as ImageIcon, Megaphone, Repeat, Target } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 import { DismissibleHelp } from '../../components/ui';
 

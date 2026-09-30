@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Copy, Share2, Download, Trash2, Loader2, Check } from 'lucide-react';

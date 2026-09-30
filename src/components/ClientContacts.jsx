@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Mail, Phone, User } from 'lucide-react';
 
 const ClientContacts = ({ contacts = [], onChange }) => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { ChevronDown, RotateCcw } from 'lucide-react';
 import { DEFAULT_QUOTE_PROMPT } from '../../utils/aiService';
 import { coefficientFromCatalog } from '../../utils/priceLibraryCsv';

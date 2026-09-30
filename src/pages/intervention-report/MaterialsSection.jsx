@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, Trash2, Package } from 'lucide-react';
 
 export const MaterialsSection = ({

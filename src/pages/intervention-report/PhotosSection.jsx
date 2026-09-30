@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, Camera, X, Images } from 'lucide-react';
 
 export const PhotosSection = ({

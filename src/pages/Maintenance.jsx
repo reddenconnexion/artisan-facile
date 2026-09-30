@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
-import { Calendar, Wrench, AlertTriangle, CheckCircle, Search, Filter, Users } from 'lucide-react';
+import { Calendar, Wrench, AlertTriangle, Search, Filter, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../components/ui';
-import { format, addMonths, isBefore, isAfter, parseISO } from 'date-fns';
+import { format, addMonths, isBefore, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { X, Mic, Check, Sparkles, Wand2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Mic, Sparkles, Wand2 } from 'lucide-react';
 import { useVoice } from '../hooks/useVoice';
 import { parseClientVoice, parseQuoteItemVoice } from '../utils/voiceParser';
 import { toast } from 'sonner';

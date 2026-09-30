@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Loader2, Clock } from 'lucide-react';
 import { toast } from 'sonner';

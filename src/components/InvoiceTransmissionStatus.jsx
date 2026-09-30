@@ -16,7 +16,7 @@
  *   - onStatusChange : callback({ status, reference, error }) après transmission ou resynchronisation (optionnel)
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Send, CheckCircle, XCircle, Clock, Loader2, Info, RefreshCw, Ban } from 'lucide-react';
 import { useInvoiceTransmission } from '../hooks/useInvoiceTransmission';
 import { getEInvoiceEligibility } from '../utils/einvoiceEligibility';

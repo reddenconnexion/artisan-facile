@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { loadAgendaEvents } from '../utils/agendaEvents';
@@ -8,7 +8,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
-    PenTool, CheckCircle, Trash2, FileText, X, Loader2,
+    PenTool, CheckCircle, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
     ShoppingCart, MapPin, User, ClipboardCheck, Images,
 } from 'lucide-react';

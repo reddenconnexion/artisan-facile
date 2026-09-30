@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
-import { toast } from 'sonner';
 import {
-  Megaphone, Calendar, Lightbulb, StickyNote, Plus, Trash2, Save,
-  ChevronLeft, ChevronRight, Edit, Check, X, Camera, MessageSquare,
-  Zap, GripVertical, Clock, Star
+  Megaphone, Calendar, Lightbulb, StickyNote, Plus, Trash2, Edit, Check, X, Camera, MessageSquare,
+  Zap, Clock, Star
 } from 'lucide-react';
 import ReviewReplyGenerator from '../components/ReviewReplyGenerator';
 

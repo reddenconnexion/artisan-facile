@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, Mic, Truck, Zap, Tag, ChevronRight } from 'lucide-react';

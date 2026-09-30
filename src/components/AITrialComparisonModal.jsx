@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, TrendingUp, Euro, Crown, ChevronRight, X, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, TrendingUp, Crown, ChevronRight, X, Zap } from 'lucide-react';
 
 const PRO_PRICE = 14.99; // € / mois
 const DEFAULT_QUOTES_PER_WEEK = 4;

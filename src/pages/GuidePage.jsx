@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     BookOpen, Building2, Users, FileText, Send, BarChart3, Sparkles, Mic,
-    Smartphone, ChevronRight, ChevronDown, CheckCircle, ExternalLink,
-    Keyboard, Calculator, Bell, Palette, Star, Zap, HelpCircle
+    Smartphone, ChevronRight, ChevronDown, CheckCircle, Keyboard, Bell, Star, Zap, HelpCircle
 } from 'lucide-react';
 
 const Section = ({ icon: Icon, iconBg, title, id, children }) => {

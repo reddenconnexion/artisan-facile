@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Mic, Calendar, Users, FileText } from 'lucide-react';
 import { useModalA11y } from '../hooks/useModalA11y';
 

@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * En-tête de page au style iOS : grand titre (« large title ») à gauche,

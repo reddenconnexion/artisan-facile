@@ -1,4 +1,3 @@
-import React from 'react';
 import { Phone } from 'lucide-react';
 
 const CompanyContactSection = ({ formData, setFormData, handleChange, handleLogoUpload }) => {

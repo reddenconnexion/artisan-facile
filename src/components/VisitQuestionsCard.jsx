@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { HelpCircle, Loader2, Sparkles } from 'lucide-react';
 
 /**

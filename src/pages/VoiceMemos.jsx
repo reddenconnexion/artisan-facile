@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Mic, CheckCircle2, XCircle, Loader2, Clock, RefreshCw, ChevronRight, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';

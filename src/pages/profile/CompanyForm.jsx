@@ -1,4 +1,3 @@
-import React from 'react';
 import { Save } from 'lucide-react';
 import { Button } from '../../components/ui';
 import CompanyIdentitySection from './CompanyIdentitySection';
