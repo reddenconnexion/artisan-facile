@@ -10,6 +10,7 @@ import { pluralizeFrenchHead } from '../frenchText';
 import { materialDepositAmounts, quoteLineAmount } from '../materialDeposit';
 import { splitQuoteOptionLines } from '../quoteOptionLines';
 import { capWorkObject } from '../workObject';
+import { amendmentIndexOf } from '../amendmentIndex';
 import { isVatFranchise, vatFranchiseTotal } from '../vatFranchise';
 import { formatAmount, formatDate } from '../format';
 import { PDF_I18N } from './i18n';
@@ -183,7 +184,10 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     doc.setFontSize(isSituation ? 13.5 : 16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...accent);
-    doc.text(isAmendment ? L.avenant : (isSituation ? L.situationTitle : typeDocument), docRight, docY, { align: 'right' });
+    // Avenant : numéroté à partir du second sur un même devis (AVENANT N°2…).
+    const amendmentIndex = isAmendment ? amendmentIndexOf(devis) : null;
+    const amendmentHeading = amendmentIndex && amendmentIndex >= 2 ? L.avenantNumbered(amendmentIndex) : L.avenant;
+    doc.text(isAmendment ? amendmentHeading : (isSituation ? L.situationTitle : typeDocument), docRight, docY, { align: 'right' });
     docY += 6.5;
     doc.setFontSize(9);
     doc.setTextColor(...ink);

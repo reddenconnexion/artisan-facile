@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
+import { nextAmendmentIndex, amendmentLabel } from '../utils/amendmentIndex';
 
 /**
  * Logique propre aux avenants dans la fiche devis (DevisForm) :
@@ -72,7 +73,21 @@ export const useAvenantLogic = ({
     };
 
     const handleCreateAvenant = async () => {
-        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `Avenant au devis - ${formData.title}`);
+        // Un avenant existe déjà sur ce devis → le nouveau est numéroté (n°2, n°3…).
+        const { data: existingAmendments, error: existingError } = await supabase
+            .from('quotes')
+            .select('id, amendment_details')
+            .eq('parent_id', parseInt(id, 10))
+            .eq('type', 'amendment');
+        if (existingError) {
+            console.error('Error loading existing amendments:', existingError);
+            toast.error("Impossible de vérifier les avenants existants");
+            return;
+        }
+        const amendmentIndex = nextAmendmentIndex(existingAmendments);
+        const label = amendmentLabel(amendmentIndex);
+
+        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `${label} au devis - ${formData.title}`);
         if (!avenantTitle) return;
 
         try {
@@ -89,7 +104,8 @@ export const useAvenantLogic = ({
                 parent_id: parseInt(id, 10),
                 parent_quote_id: parseInt(id, 10),
                 items: [],
-                notes: `Avenant au devis n°${id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
+                amendment_details: { amendment_index: amendmentIndex },
+                notes: `${label} au devis n°${formData.quote_number || id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
                 include_tva: formData.include_tva,
                 total_ht: 0,
                 total_tva: 0,
@@ -104,7 +120,7 @@ export const useAvenantLogic = ({
 
             if (error) throw error;
 
-            toast.success("Avenant créé avec succès !");
+            toast.success(`${label} créé avec succès !`);
             navigate(`/app/devis/${data.id}`);
             setShowActionsMenu(false);
 

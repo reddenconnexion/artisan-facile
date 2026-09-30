@@ -4,6 +4,7 @@
 export const PDF_I18N = {
     fr: {
         facture: 'FACTURE', devis: 'DEVIS', avenant: 'AVENANT', avoir: 'AVOIR',
+        avenantNumbered: (n) => `AVENANT N°${n}`,
         creditNoteRef: (ref, date) => `Sur facture ${ref}${date ? ` du ${date}` : ''}`,
         dateInvoice: 'Date de facturation', dateQuote: "Date d'émission",
         yourCompany: 'Votre Entreprise',
@@ -106,6 +107,7 @@ export const PDF_I18N = {
     },
     en: {
         facture: 'INVOICE', devis: 'QUOTE', avenant: 'AMENDMENT', avoir: 'CREDIT NOTE',
+        avenantNumbered: (n) => `AMENDMENT No. ${n}`,
         creditNoteRef: (ref, date) => `For invoice ${ref}${date ? ` dated ${date}` : ''}`,
         dateInvoice: 'Invoice date', dateQuote: 'Issue date',
         yourCompany: 'Your Company',
