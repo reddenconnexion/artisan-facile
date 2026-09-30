@@ -11,6 +11,7 @@ import { materialDepositAmounts, quoteLineAmount } from '../materialDeposit';
 import { splitQuoteOptionLines } from '../quoteOptionLines';
 import { capWorkObject } from '../workObject';
 import { amendmentIndexOf } from '../amendmentIndex';
+import { amendmentProjectTotals } from '../amendmentBilling';
 import { isVatFranchise, vatFranchiseTotal } from '../vatFranchise';
 import { formatAmount, formatDate } from '../format';
 import { PDF_I18N } from './i18n';
@@ -657,12 +658,12 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const details = devis.amendment_details || {};
         let finalY = (currentTableY > tableStartY ? currentTableY : tableStartY) + 10;
 
-        // Le bloc « Ajustement Financier » occupe ~45 mm (titre + 4 à 5 lignes).
+        // Le bloc « Ajustement Financier » occupe ~45 à 57 mm (titre + 4 à 7 lignes).
         // S'il ne tient pas en bas de la page courante, on passe à une nouvelle
         // page pour ne pas le tronquer (constat + solution + tableau peuvent
         // pousser ce bloc tout en bas).
         const pageHeightMm = doc.internal.pageSize.getHeight();
-        if (finalY + 50 > pageHeightMm - 15) {
+        if (finalY + 62 > pageHeightMm - 15) {
             doc.addPage();
             finalY = 20;
         }
@@ -676,9 +677,6 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         doc.setFont(undefined, 'normal');
 
         let financeY = finalY + 8;
-        const initialTTC = devis.parent_quote_data?.total_ttc || 0;
-        const amendmentTTC = devis.total_ttc || 0;
-        const newTotalTTC = initialTTC + amendmentTTC;
 
         // Acompte(s) déjà versé(s) sur le devis initial : un avenant COMPLÈTE le
         // devis, l'acompte est une avance à déduire du solde (il ne remplace pas
@@ -688,15 +686,29 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         const deposit = (devis.parent_quote_data?.deposit_total || 0)
             || (details?.initial_deposit_amount || 0);
 
-        // Situations d'avancement déjà facturées (hors acomptes) sur le devis parent.
-        const progressTotal = devis.parent_quote_data?.progress_total || 0;
+        // Même calcul que l'encadré de l'éditeur (amendmentProjectTotals) :
+        // devis initial ou situations facturées, avenants précédents signés,
+        // montant de cet avenant, puis acompte et avenants déjà facturés déduits.
+        const totals = amendmentProjectTotals(
+            { ...(devis.parent_quote_data || {}), deposit_total: deposit },
+            parseFloat(devis.total_ttc) || 0,
+        );
+        const { initialTTC, amendmentTTC, progressTotal, previousAmendmentsTTC,
+            previousAmendmentsBilledTTC, previousAmendmentsCount, newTotal } = totals;
+        const leftX = 14;
+        const rightValueX = 100;
+        const signed = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)} €`;
+        const drawPreviousAmendments = () => {
+            if (previousAmendmentsCount === 0) return;
+            doc.text(`${L.previousAmendments(previousAmendmentsCount)} :`, leftX, financeY);
+            doc.text(signed(previousAmendmentsTTC), rightValueX, financeY, { align: 'right' });
+            financeY += 6;
+        };
 
         // SCENARIO CHECK: Has Progress (Situation) Invoice?
         // If yes, Situation replaces Initial Quote for billing baseline.
         // If no, we use Initial Quote + Amendment - Deposit.
 
-        const leftX = 14;
-        const rightValueX = 100;
 
         if (progressTotal > 0) {
             // SCENARIO A: WITH SITUATION 
@@ -716,6 +728,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
+            drawPreviousAmendments();
+
             doc.setFont(undefined, 'bold');
             doc.setTextColor(37, 99, 235); // Blue
             doc.text(`${L.amendmentAmountTTC} :`, leftX, financeY);
@@ -725,8 +739,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
             doc.setFontSize(12);
             doc.text(`${L.newProjectTotal} :`, leftX, financeY);
-            // New Total = Situation + Amendment
-            doc.text(`${(progressTotal + amendmentTTC).toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
+            // Nouveau total = situations + avenants précédents signés + cet avenant
+            doc.text(`${newTotal.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
 
             doc.setFontSize(9);
@@ -742,9 +756,17 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.text(`${initialTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
             financeY += 6;
 
+            drawPreviousAmendments();
+
             if (deposit > 0) {
                 doc.text(`${L.depositPaid} :`, leftX, financeY);
                 doc.text(`${deposit.toFixed(2)} € ${L.kept}`, rightValueX, financeY, { align: 'right' });
+                financeY += 6;
+            }
+
+            if (previousAmendmentsBilledTTC > 0) {
+                doc.text(`${L.previousAmendmentsBilled} :`, leftX, financeY);
+                doc.text(`-${previousAmendmentsBilledTTC.toFixed(2)} €`, rightValueX, financeY, { align: 'right' });
                 financeY += 6;
             }
 
@@ -755,8 +777,9 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setTextColor(0, 0, 0);
             financeY += 8;
 
-            // Balance Calculation
-            const balance = initialTTC + amendmentTTC - deposit;
+            // Solde = devis initial + avenants précédents + cet avenant
+            //         − acompte − avenants précédents déjà facturés
+            const balance = totals.remaining;
 
             doc.setFontSize(12);
             doc.text(`${L.newBalanceDue} :`, leftX, financeY);
@@ -766,7 +789,7 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(100, 100, 100);
-            doc.text(L.projectTotal((initialTTC + amendmentTTC).toFixed(2)), rightValueX, financeY, { align: 'right' });
+            doc.text(L.projectTotal(newTotal.toFixed(2)), rightValueX, financeY, { align: 'right' });
         }
 
         // Update currentY for next sections

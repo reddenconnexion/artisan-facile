@@ -706,8 +706,9 @@ const DevisForm = () => {
                     setDiffAddress(true);
                 }
 
-                // Avenant : total du devis initial, situations et acomptes déjà facturés.
-                if (data.parent_quote_id) await loadParentQuoteData(data.parent_quote_id);
+                // Avenant : total du devis initial, situations et acomptes déjà facturés,
+                // avenants précédents signés.
+                if (data.parent_quote_id) await loadParentQuoteData(data.parent_quote_id, data.id);
 
                 // Marge réalisée consolidée du chantier (voir useQuoteMargin).
                 await quoteMargins.loadChantierDocs(data);

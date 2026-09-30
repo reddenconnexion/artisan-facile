@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { amendmentIndexOf, nextAmendmentIndex, amendmentLabel } from './amendmentIndex';
+import { amendmentIndexOf, nextAmendmentIndex, amendmentLabel, isAmendmentRow } from './amendmentIndex';
 
 describe('nextAmendmentIndex', () => {
     it('premier avenant → 1', () => {
@@ -43,5 +43,19 @@ describe('amendmentLabel', () => {
     it('numérote à partir du second', () => {
         expect(amendmentLabel(2)).toBe('Avenant n°2');
         expect(amendmentLabel(3, 'AVENANT')).toBe('AVENANT n°3');
+    });
+});
+
+describe('isAmendmentRow', () => {
+    it('reconnaît un avenant, même converti en facture', () => {
+        expect(isAmendmentRow({ type: 'amendment' })).toBe(true);
+        expect(isAmendmentRow({ type: 'invoice', parent_quote_id: 4 })).toBe(true);
+        expect(isAmendmentRow({ type: 'invoice', amendment_details: { amendment_index: 2 } })).toBe(true);
+    });
+
+    it('écarte acomptes, situations et avoirs', () => {
+        expect(isAmendmentRow({ type: 'invoice', parent_quote_id: null, amendment_details: { situation: {} } })).toBe(false);
+        expect(isAmendmentRow({ type: 'invoice' })).toBe(false);
+        expect(isAmendmentRow({ type: 'credit_note', parent_quote_id: 4 })).toBe(false);
     });
 });

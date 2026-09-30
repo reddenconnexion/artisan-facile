@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
-import { nextAmendmentIndex, amendmentLabel } from '../utils/amendmentIndex';
+import { nextAmendmentIndex, amendmentLabel, isAmendmentRow } from '../utils/amendmentIndex';
+import { amendmentParentContext } from '../utils/amendmentBilling';
 
 /**
  * Logique propre aux avenants dans la fiche devis (DevisForm) :
@@ -25,8 +26,9 @@ export const useAvenantLogic = ({
 }) => {
     const [showDeductionModal, setShowDeductionModal] = useState(false);
 
-    // Contexte du devis parent d'un avenant.
-    const loadParentQuoteData = async (parentQuoteId) => {
+    // Contexte du devis parent d'un avenant : total initial, situations et
+    // acomptes facturés, avenants précédents signés (amendmentParentContext).
+    const loadParentQuoteData = async (parentQuoteId, currentId = null) => {
         const { data: parentData } = await supabase
             .from('quotes')
             .select('id, total_ttc, total_ht, items, date, title, quote_number, status')
@@ -34,39 +36,23 @@ export const useAvenantLogic = ({
             .single();
 
         if (parentData) {
-            // Un avenant COMPLÈTE le devis (modèle additif), il ne le remplace pas.
-            // On distingue donc, parmi les factures rattachées au devis :
-            //  - les vraies situations d'avancement (facturation par tranches qui
-            //    remplace le devis comme base de calcul) → progress_total ;
-            //  - les simples acomptes déjà versés → deposit_total, à DÉDUIRE du
-            //    solde, en gardant le devis initial comme référence.
-            // Sans cette distinction, un acompte (ex. acompte matériel) était pris
-            // pour une situation et faussait le « Nouveau Total Projet » de l'avenant.
-            const { data: childInvoices } = await supabase
+            const { data: children } = await supabase
                 .from('quotes')
-                .select('total_ttc, title, amendment_details')
+                .select('id, type, status, total_ttc, title, amendment_details, parent_quote_id')
                 .eq('parent_id', parentQuoteId)
-                .eq('type', 'invoice')
-                .neq('status', 'cancelled');
+                .in('type', ['invoice', 'amendment']);
 
-            const isSituationInv = (inv) =>
-                inv.amendment_details?.situation || /situation/i.test(inv.title || '');
-            const isClosingInv = (inv) => /cl[oô]ture/i.test(inv.title || '');
-
-            let progressTotal = 0;
-            let depositTotal = 0;
-            (childInvoices || []).forEach((inv) => {
-                if (isClosingInv(inv)) return; // ni situation ni acompte
-                if (isSituationInv(inv)) progressTotal += inv.total_ttc || 0;
-                else depositTotal += inv.total_ttc || 0;
-            });
+            const ctx = amendmentParentContext(children, currentId);
 
             setFormData(prev => ({
                 ...prev,
                 parent_quote_data: {
                     ...parentData,
-                    progress_total: progressTotal,
-                    deposit_total: depositTotal
+                    progress_total: ctx.progressTotal,
+                    deposit_total: ctx.depositTotal,
+                    previous_amendments_total: ctx.previousAmendmentsTTC,
+                    previous_amendments_billed: ctx.previousAmendmentsBilledTTC,
+                    previous_amendments_count: ctx.previousAmendmentsCount,
                 }
             }));
         }
@@ -85,15 +71,16 @@ export const useAvenantLogic = ({
         // Un avenant existe déjà sur ce devis → le nouveau est numéroté (n°2, n°3…).
         const { data: existingAmendments, error: existingError } = await supabase
             .from('quotes')
-            .select('id, amendment_details')
+            .select('id, type, amendment_details, parent_quote_id')
             .eq('parent_id', rootId)
-            .eq('type', 'amendment');
+            .in('type', ['amendment', 'invoice']);
         if (existingError) {
             console.error('Error loading existing amendments:', existingError);
             toast.error("Impossible de vérifier les avenants existants");
             return;
         }
-        const amendmentIndex = nextAmendmentIndex(existingAmendments);
+        // Un avenant déjà converti en facture reste compté (isAmendmentRow).
+        const amendmentIndex = nextAmendmentIndex((existingAmendments || []).filter(isAmendmentRow));
         const label = amendmentLabel(amendmentIndex);
 
         const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `${label} au devis - ${rootTitle}`);

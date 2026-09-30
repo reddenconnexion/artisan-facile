@@ -20,6 +20,18 @@ export function amendmentIndexOf(amendment) {
     return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+// Une ligne `quotes` rattachée à un devis est-elle un avenant ?
+// Un avenant signé peut être converti en facture depuis le tableau de bord : il
+// passe alors au type 'invoice' mais garde la colonne parent_quote_id, que seuls
+// les avenants renseignent (acomptes, situations et clôtures ne portent que
+// parent_id). Il doit rester compté comme avenant.
+export function isAmendmentRow(row) {
+    if (!row) return false;
+    if (row.type === 'amendment') return true;
+    if (row.type !== 'invoice') return false;
+    return row.parent_quote_id != null || amendmentIndexOf(row) != null;
+}
+
 // Rang du prochain avenant, d'après les avenants déjà rattachés au devis.
 // Tous les avenants comptent (y compris refusés/annulés) : un numéro déjà
 // remis au client n'est jamais réattribué. On prend aussi le plus grand rang

@@ -141,7 +141,7 @@ const QuoteTotalsPanel = ({
                         ni « moins-value totale », qui feraient double emploi. */}
                     {formData.type === 'amendment' && (() => {
                         // total = montant de l'avenant (delta, peut être négatif).
-                        const { progressTotal, depositTotal, baseline, amendmentTTC, newTotal, showDeposit, remaining } =
+                        const { progressTotal, depositTotal, previousAmendmentsTTC, previousAmendmentsBilledTTC, previousAmendmentsCount, baseline, amendmentTTC, newTotal, showDeposit, showPreviousBilled, showRemaining, remaining } =
                             amendmentProjectTotals(formData.parent_quote_data, total);
                         return (
                             <div className="mt-3 space-y-2">
@@ -158,22 +158,36 @@ const QuoteTotalsPanel = ({
                                         <span>{progressTotal > 0 ? 'Déjà facturé (situations)' : 'Devis initial TTC'}</span>
                                         <span>{baseline.toFixed(2)} €</span>
                                     </div>
+                                    {previousAmendmentsCount > 0 && (
+                                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                            <span>{previousAmendmentsCount > 1 ? `Avenants précédents signés (${previousAmendmentsCount})` : 'Avenant précédent signé'}</span>
+                                            <span>{previousAmendmentsTTC >= 0 ? '+' : ''}{previousAmendmentsTTC.toFixed(2)} €</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                                         <span>Montant de l'avenant TTC</span>
                                         <span className={amendmentTTC < 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-blue-600 dark:text-blue-400 font-medium'}>
                                             {amendmentTTC >= 0 ? '+' : ''}{amendmentTTC.toFixed(2)} €
                                         </span>
                                     </div>
-                                    <div className={`flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800 ${showDeposit ? '' : ''}`}>
+                                    <div className={`flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800`}>
                                         <span>Nouveau Total Projet</span>
                                         <span>{newTotal.toFixed(2)} €</span>
                                     </div>
-                                    {showDeposit && (
+                                    {showRemaining && (
                                         <>
-                                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                                                <span>Acompte déjà versé</span>
-                                                <span className="text-red-600 dark:text-red-400 font-medium">−{depositTotal.toFixed(2)} €</span>
-                                            </div>
+                                            {showDeposit && (
+                                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                                    <span>Acompte déjà versé</span>
+                                                    <span className="text-red-600 dark:text-red-400 font-medium">−{depositTotal.toFixed(2)} €</span>
+                                                </div>
+                                            )}
+                                            {showPreviousBilled && (
+                                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                                    <span>Avenants précédents déjà facturés</span>
+                                                    <span className="text-red-600 dark:text-red-400 font-medium">−{previousAmendmentsBilledTTC.toFixed(2)} €</span>
+                                                </div>
+                                            )}
                                             <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-orange-200 dark:border-orange-800">
                                                 <span>Reste à régler</span>
                                                 <span>{remaining.toFixed(2)} €</span>
