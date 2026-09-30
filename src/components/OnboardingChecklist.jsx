@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronRight, X, Sparkles } from 'lucide-react';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';

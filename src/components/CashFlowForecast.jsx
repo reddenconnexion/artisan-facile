@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, ChevronRight, Info } from 'lucide-react';
 import { formatCurrencyRounded } from '../utils/format';

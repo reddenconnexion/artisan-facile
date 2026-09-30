@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Loader2, Check, User, Images, CloudOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';

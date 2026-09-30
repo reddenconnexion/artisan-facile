@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Conteneur de champ de formulaire iOS : label, indice et message d'erreur

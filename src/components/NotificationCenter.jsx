@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, PenTool, CheckCircle2, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';

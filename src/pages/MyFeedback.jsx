@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare, Bug, Sparkles, Lightbulb, MessageCircle, Loader2, Star } from 'lucide-react';
 import { supabase } from '../utils/supabase';

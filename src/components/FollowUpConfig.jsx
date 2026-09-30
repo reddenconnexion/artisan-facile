@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Clock, MessageSquare, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Clock, MessageSquare } from 'lucide-react';
 import { getFollowUpSettings, saveFollowUpSettings } from '../utils/followUpService';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';

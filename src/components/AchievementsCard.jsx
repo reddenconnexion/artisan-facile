@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check, Trophy } from 'lucide-react';
 import { useAchievements } from '../hooks/useAchievements';
 

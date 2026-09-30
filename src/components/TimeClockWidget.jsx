@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Square, Loader2, Timer, ChevronDown, CalendarClock } from 'lucide-react';
 import { supabase } from '../utils/supabase';

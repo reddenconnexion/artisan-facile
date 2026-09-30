@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Loader2, Receipt, Info } from 'lucide-react';
 import { formatAmount } from '../utils/format';

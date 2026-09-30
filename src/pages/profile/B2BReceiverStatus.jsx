@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle, Radio, XCircle, Loader2 } from 'lucide-react';
 
 // Statut d'enregistrement du SIREN dans l'annuaire DGFIP via B2BRouter

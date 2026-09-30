@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Inbox, ExternalLink, Trash2, User, Clock, Mail, FlaskConical, ChevronRight, Globe } from 'lucide-react';
 import { useTestMode } from '../context/TestModeContext';
 import { formatDateTime } from '../utils/format';

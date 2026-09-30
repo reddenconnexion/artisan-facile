@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Mic, MicOff, Loader2, Crown, X } from 'lucide-react';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { useAuth } from '../context/AuthContext';

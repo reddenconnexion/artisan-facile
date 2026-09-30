@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ClipboardPaste, AlertTriangle, Info, Table2 } from 'lucide-react';
 import { toast } from 'sonner';

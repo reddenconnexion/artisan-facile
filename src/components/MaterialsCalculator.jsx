@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calculator, X, Save } from 'lucide-react';
 
 const MaterialsCalculator = ({ isOpen, onClose, onApply }) => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Building, CheckCircle, XCircle } from 'lucide-react';
 import { TRADE_CONFIG } from '../../constants/trades';
 import B2BReceiverStatus from './B2BReceiverStatus';

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, PartyPopper, Package, Info } from 'lucide-react';
+import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, Package, Info } from 'lucide-react';
 import { DismissibleHelp } from './ui';
 import ChantierMaterialModal from './ChantierMaterialModal';
 import { useNavigate } from 'react-router-dom';

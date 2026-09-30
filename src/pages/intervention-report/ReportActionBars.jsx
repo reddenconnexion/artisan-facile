@@ -1,4 +1,3 @@
-import React from 'react';
 import { ClipboardList, Save, ArrowLeft, FileDown, PenLine, CheckCircle, Send, Sparkles, ExternalLink, FileCheck, FilePlus, Star, WifiOff } from 'lucide-react';
 
 // En-tête du rapport : titre, statut et actions (signature, clôture, facture, PDF, enregistrer).

@@ -1,4 +1,3 @@
-import React from 'react';
 import { RotateCcw, CheckCircle } from 'lucide-react';
 import { useConfirm } from '../../context/ConfirmContext';
 import { usePwaUpdate } from '../../context/PwaUpdateContext';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { EmptyState } from '../components/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

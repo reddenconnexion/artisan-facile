@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Plus, Trash2, Calendar, DollarSign, CheckCircle, AlertCircle, Clock, Bell } from 'lucide-react';
+import { Calendar, Bell } from 'lucide-react';
 import { sendInstallmentReminder } from '../utils/followUpService';
 import { useTestMode } from '../context/TestModeContext';
 import { formatDate } from '../utils/format';

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, Mail, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, X } from 'lucide-react';
 
 // Props optionnelles (utilisées par l'Agenda) :
 // - freeTextName : nom affiché quand aucun client de la base n'est sélectionné

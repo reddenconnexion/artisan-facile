@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Inbox, Loader2, RefreshCw, Download, AlertCircle, CheckCircle, Clock, X, ExternalLink, FileText, ThumbsUp, ThumbsDown, Info, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';

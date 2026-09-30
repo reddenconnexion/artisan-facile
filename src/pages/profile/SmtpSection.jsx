@@ -1,4 +1,3 @@
-import React from 'react';
 import { Save, Mail, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui';
 

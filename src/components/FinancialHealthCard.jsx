@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Heart, TrendingUp, ChevronDown, Lightbulb, Activity } from 'lucide-react';
 import { computeFinancialHealth, scoreColor, scoreLabel } from '../utils/financialHealth';
 

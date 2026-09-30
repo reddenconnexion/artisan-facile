@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Calendar, FileSearch, Lightbulb, Sparkles, Tag, ArrowDown, ExternalLink, FileText } from 'lucide-react';
 

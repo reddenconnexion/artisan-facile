@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Check, Calculator } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Check } from 'lucide-react';
 
 const SituationModal = ({ isOpen, onClose, quote, onSave }) => {
     const [title, setTitle] = useState("Situation de travaux n°1");

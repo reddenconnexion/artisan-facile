@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 const computeScore = (password) => {
     if (!password) return 0;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Mic, MicOff, Plus, Trash2, ShoppingCart,

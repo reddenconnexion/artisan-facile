@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Download, ExternalLink, Image as ImageIcon, MapPin, Calendar, ArrowRight, Trash2 } from 'lucide-react';

@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, CheckCircle, Eye, EyeOff, PenTool } from 'lucide-react';
+import { Eye, EyeOff, PenTool } from 'lucide-react';
 import { UrgencyBadge } from './ui';
 import { formatCurrencyRounded, formatDate, normalizeSearch } from '../utils/format';
 

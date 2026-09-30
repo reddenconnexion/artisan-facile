@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Trash2, Plus, GripVertical, Droplet, Layers } from 'lucide-react';
+import { Trash2, Plus, Droplet, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTradeConfig } from '../constants/trades';
 import { useConfirm } from '../context/ConfirmContext';

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Trophy, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
 import { startOfYear, format } from 'date-fns';
 import { fr } from 'date-fns/locale';

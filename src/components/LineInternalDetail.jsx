@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, Trash2, Lock } from 'lucide-react';
 import { componentsCost } from '../utils/quoteInternalDetail';
 

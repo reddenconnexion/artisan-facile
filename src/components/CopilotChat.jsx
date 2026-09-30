@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, X, Send, Loader2, Lightbulb, AlertCircle } from 'lucide-react';
 import { chatWithCopilot } from '../utils/aiService';
-import { toastError } from '../utils/supabaseErrorHandler';
 
 const SYSTEM_PROMPT_BASE = `Tu es l'assistant intelligent d'Artisan Facile, une application de gestion pour artisans français du bâtiment (plomberie, électricité, peinture, maçonnerie...).
 

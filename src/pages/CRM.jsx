@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowLeft, ArrowRight, CheckCircle, Hammer, Phone,
-    CreditCard, Package, Kanban, Timer, CalendarRange
+    Kanban, Timer, CalendarRange
 } from 'lucide-react';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import WorksitePlanning from '../components/WorksitePlanning';

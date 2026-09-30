@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import LiveCameraSheet from '../components/LiveCameraSheet';
 import { cameraErrorMessage, isInPageCameraSupported, openCameraStream } from '../utils/cameraCapture';

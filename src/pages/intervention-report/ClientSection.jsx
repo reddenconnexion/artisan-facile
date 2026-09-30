@@ -1,4 +1,3 @@
-import React from 'react';
 import { User, AlertCircle } from 'lucide-react';
 import { Input, Field } from '../../components/ui';
 import { formatDate } from '../../utils/format';

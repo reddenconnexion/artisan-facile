@@ -1,4 +1,3 @@
-import React from 'react';
 import { MapPin } from 'lucide-react';
 
 const CompanyAddressSection = ({ formData, handleChange }) => {

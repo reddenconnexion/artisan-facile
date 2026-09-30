@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Zap, TrendingUp, BarChart2, ChevronUp, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, Mail, MailOpen } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
