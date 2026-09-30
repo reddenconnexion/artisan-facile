@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
+import { corsPreflight, json } from '../_shared/http.ts';
 
 // Doit rester synchronisé avec src/constants/admin.js et les fonctions SQL
 // get_all_feedback / set_feedback_status (allowlist admin).
@@ -12,20 +13,8 @@ const CATEGORY_LABELS: Record<string, string> = {
     other: 'Autre',
 };
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-}
-
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+    if (req.method === 'OPTIONS') return corsPreflight();
 
     try {
         const { category, message, rating, page, author_user_id } = await req.json();

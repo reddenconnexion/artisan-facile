@@ -17,39 +17,21 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
     // --- Auth ---
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), { status: 401, headers: corsHeaders });
-    }
+    const auth = await requireUser(req, { message: 'Session invalide' });
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
-
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Session invalide' }), { status: 401, headers: corsHeaders });
-    }
 
     // --- Récupérer le profil artisan ---
     const { data: profile, error: profileError } = await supabaseAdmin
@@ -59,15 +41,12 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
-      return new Response(JSON.stringify({ error: 'Profil introuvable' }), { status: 404, headers: corsHeaders });
+      return json({ error: 'Profil introuvable' }, 404);
     }
 
     const siret = (profile.siret || '').replace(/\s/g, '');
     if (siret.length < 9) {
-      return new Response(
-        JSON.stringify({ error: 'SIRET invalide : au moins 9 chiffres requis', skipped: true }),
-        { status: 400, headers: corsHeaders },
-      );
+      return json({ error: 'SIRET invalide : au moins 9 chiffres requis', skipped: true }, 400);
     }
 
     // Le SIREN est les 9 premiers chiffres du SIRET
@@ -81,10 +60,7 @@ Deno.serve(async (req: Request) => {
     if (!apiKey || !accountId) {
       // B2BRouter non configuré — on logue mais on ne bloque pas l'artisan
       console.warn('[register-receiver] B2BRouter non configuré, enregistrement ignoré');
-      return new Response(
-        JSON.stringify({ success: false, error: 'B2BRouter non configuré côté serveur', skipped: true }),
-        { status: 200, headers: corsHeaders },
-      );
+      return json({ success: false, error: 'B2BRouter non configuré côté serveur', skipped: true });
     }
 
     const base = sandbox
@@ -139,10 +115,7 @@ Deno.serve(async (req: Request) => {
         })
         .eq('id', user.id);
 
-      return new Response(
-        JSON.stringify({ success: true, siren, reference: data?.id ?? null }),
-        { status: 200, headers: corsHeaders },
-      );
+      return json({ success: true, siren, reference: data?.id ?? null });
     }
 
     // Erreur B2BRouter
@@ -155,16 +128,10 @@ Deno.serve(async (req: Request) => {
       .update({ b2b_receiver_status: 'error', b2b_receiver_error: errorMsg })
       .eq('id', user.id);
 
-    return new Response(
-      JSON.stringify({ success: false, error: errorMsg }),
-      { status: 200, headers: corsHeaders },
-    );
+    return json({ success: false, error: errorMsg });
 
   } catch (err) {
     console.error('[register-receiver] Exception:', err);
-    return new Response(
-      JSON.stringify({ success: false, error: String(err) }),
-      { status: 500, headers: corsHeaders },
-    );
+    return json({ success: false, error: String(err) }, 500);
   }
 });

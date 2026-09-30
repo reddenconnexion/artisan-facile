@@ -1,17 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 import { readSecret } from '../_shared/vault.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 // Les fournisseurs attendent un type MIME nu : « audio/webm;codecs=opus »
 // (ce que produit MediaRecorder) devient « audio/webm ».
@@ -30,9 +19,7 @@ const readErrorMessage = async (response: Response, fallback: string) => {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   const startedAt = Date.now();
   let memoId: string | undefined;
@@ -47,17 +34,10 @@ Deno.serve(async (req) => {
 
   try {
     // Authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return json({ error: 'Non autorisé' }, 401);
-
-    supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return json({ error: 'Non autorisé' }, 401);
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user } = auth;
+    supabase = auth.supabase;
     userId = user.id;
 
     // Rate limit : 60 transcriptions / heure / utilisateur.

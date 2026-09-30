@@ -1,10 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@13?target=deno';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const isTestMode = stripeKey.startsWith('sk_test_');
@@ -20,30 +16,12 @@ const subscriptionIdField = isTestMode ? 'stripe_test_subscription_id' : 'stripe
 const subscriptionStatusField = isTestMode ? 'stripe_test_subscription_status' : 'stripe_subscription_status';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Non autorisé' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
+    const { user } = auth;
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -57,9 +35,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profile?.plan === 'pro' || profile?.plan === 'owner') {
-      return new Response(JSON.stringify({ error: 'Vous avez déjà un plan Pro actif.' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Vous avez déjà un plan Pro actif.' }, 400);
     }
 
     const { origin } = await req.json().catch(() => ({ origin: 'https://app.artisan-facile.fr' }));
@@ -108,13 +84,9 @@ Deno.serve(async (req) => {
 
     console.log(`Checkout session created (${isTestMode ? 'TEST' : 'LIVE'} mode) for user ${user.id}`);
 
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ url: session.url });
   } catch (err) {
     console.error('Checkout error:', err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ error: err.message }, 500);
   }
 });

@@ -1,35 +1,15 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-}
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+    if (req.method === 'OPTIONS') return corsPreflight();
 
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) return json({ error: 'Non authentifié' }, 401);
-
-        // Client lié à l'utilisateur connecté pour vérifier l'identité
-        const userClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } },
-        );
-
-        const { data: { user }, error: userErr } = await userClient.auth.getUser();
-        if (userErr || !user) return json({ error: 'Non authentifié' }, 401);
+        const auth = await requireUser(req, { message: 'Non authentifié' });
+        if (auth.response) return auth.response;
+        const { user } = auth;
 
         // Rate limit : 3 tests / minute / utilisateur (anti-spam du bouton)
         const rl = await enforceRateLimit('send-test-push', user.id, 3, 60);
