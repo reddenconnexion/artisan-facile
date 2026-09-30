@@ -150,13 +150,7 @@ const Profile = () => {
             </>)}
 
 
-            {/* NB : comportement hérité, conservé tel quel lors du découpage —
-                toutes les sections ci-dessous s'affichent sous l'onglet
-                « application » ; l'onglet « envoi » n'affiche aucune section. */}
-            {settingsTab === 'application' && (<>
-            {/* Jalons de maîtrise (gamification discrète) */}
-            <AchievementsCard />
-
+            {settingsTab === 'envoi' && (<>
             {/* Notifications Push */}
             <PushNotificationsSection
                 isPushSupported={isPushSupported}
@@ -198,6 +192,25 @@ const Profile = () => {
                 handleSignatureImageUpload={signature.handleSignatureImageUpload}
             />
 
+            {/* Plateforme Agréée (e-facture) */}
+            <PdpSection
+                pdpKeyConfigured={pdp.pdpKeyConfigured}
+                pdpUrlInput={pdp.pdpUrlInput}
+                setPdpUrlInput={pdp.setPdpUrlInput}
+                pdpServiceInput={pdp.pdpServiceInput}
+                setPdpServiceInput={pdp.setPdpServiceInput}
+                pdpKeyInput={pdp.pdpKeyInput}
+                setPdpKeyInput={pdp.setPdpKeyInput}
+                savingPdpConfig={pdp.savingPdpConfig}
+                handleSavePdpConfig={pdp.handleSavePdpConfig}
+                handleDeletePdpConfig={pdp.handleDeletePdpConfig}
+            />
+            </>)}
+
+            {settingsTab === 'application' && (<>
+            {/* Jalons de maîtrise (gamification discrète) */}
+            <AchievementsCard />
+
             {/* Préférences de l'application */}
             <PreferencesSection />
 
@@ -217,20 +230,6 @@ const Profile = () => {
                 setCalcCatalog={ai.setCalcCatalog}
                 calcDiscount={ai.calcDiscount}
                 setCalcDiscount={ai.setCalcDiscount}
-            />
-
-            {/* Plateforme Agréée (e-facture) */}
-            <PdpSection
-                pdpKeyConfigured={pdp.pdpKeyConfigured}
-                pdpUrlInput={pdp.pdpUrlInput}
-                setPdpUrlInput={pdp.setPdpUrlInput}
-                pdpServiceInput={pdp.pdpServiceInput}
-                setPdpServiceInput={pdp.setPdpServiceInput}
-                pdpKeyInput={pdp.pdpKeyInput}
-                setPdpKeyInput={pdp.setPdpKeyInput}
-                savingPdpConfig={pdp.savingPdpConfig}
-                handleSavePdpConfig={pdp.handleSavePdpConfig}
-                handleDeletePdpConfig={pdp.handleDeletePdpConfig}
             />
 
             {/* Zone de Danger / Maintenance */}
