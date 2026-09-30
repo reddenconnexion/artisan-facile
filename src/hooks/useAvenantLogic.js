@@ -73,11 +73,20 @@ export const useAvenantLogic = ({
     };
 
     const handleCreateAvenant = async () => {
+        // Un avenant se rattache toujours au devis initial. Le bandeau « Devis
+        // envoyé » propose aussi « Créer un avenant » sur un avenant envoyé :
+        // on remonte alors au devis parent, sinon le nouvel avenant serait
+        // l'enfant du premier et la numérotation repartirait de 1.
+        const rootId = parseInt(formData.parent_id || id, 10);
+        const root = formData.parent_id ? (formData.parent_quote_data || {}) : formData;
+        const rootTitle = root.title || formData.title;
+        const rootRef = root.quote_number || rootId;
+
         // Un avenant existe déjà sur ce devis → le nouveau est numéroté (n°2, n°3…).
         const { data: existingAmendments, error: existingError } = await supabase
             .from('quotes')
             .select('id, amendment_details')
-            .eq('parent_id', parseInt(id, 10))
+            .eq('parent_id', rootId)
             .eq('type', 'amendment');
         if (existingError) {
             console.error('Error loading existing amendments:', existingError);
@@ -87,7 +96,7 @@ export const useAvenantLogic = ({
         const amendmentIndex = nextAmendmentIndex(existingAmendments);
         const label = amendmentLabel(amendmentIndex);
 
-        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `${label} au devis - ${formData.title}`);
+        const avenantTitle = window.prompt("Titre de l'avenant (ex: Ajout prises électriques) ?", `${label} au devis - ${rootTitle}`);
         if (!avenantTitle) return;
 
         try {
@@ -101,11 +110,11 @@ export const useAvenantLogic = ({
                 date: new Date().toISOString().split('T')[0],
                 status: 'draft',
                 type: 'amendment', // Correct type
-                parent_id: parseInt(id, 10),
-                parent_quote_id: parseInt(id, 10),
+                parent_id: rootId,
+                parent_quote_id: rootId,
                 items: [],
                 amendment_details: { amendment_index: amendmentIndex },
-                notes: `${label} au devis n°${formData.quote_number || id} (${formData.title})\n\nCet avenant vient compléter le devis initial.`,
+                notes: `${label} au devis n°${rootRef} (${rootTitle})\n\nCet avenant vient compléter le devis initial.`,
                 include_tva: formData.include_tva,
                 total_ht: 0,
                 total_tva: 0,
