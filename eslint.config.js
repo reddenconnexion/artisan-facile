@@ -27,7 +27,11 @@ export default defineConfig([
     },
   },
   {
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'vite.config.js'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['public/push-handler.js'],
+    languageOptions: { globals: globals.serviceworker },
   },
 ])

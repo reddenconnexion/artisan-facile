@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Le dépôt porte encore une dette de lint : on bloque uniquement sur les
+      # fichiers touchés par la PR, pour que chaque PR laisse le code propre
+      # là où elle passe sans devoir tout corriger d'un coup.
+      - name: Lint des fichiers modifiés (bloquant)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- '*.js' '*.jsx')
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Aucun fichier JS/JSX modifié."
+            exit 0
+          fi
+          printf 'Fichiers vérifiés :\n'; printf '  %s\n' "${files[@]}"
+          npx eslint --no-warn-ignored "${files[@]}"
+
+      - name: Lint complet (informatif)
+        continue-on-error: true
+        run: npx eslint .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
