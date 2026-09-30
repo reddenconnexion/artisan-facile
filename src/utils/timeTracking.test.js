@@ -14,6 +14,8 @@ import {
     weekDays,
     toDateString,
     HOURS_PER_DAY,
+    chantierHours,
+    chantierRootId,
 } from './timeTracking';
 
 describe('estimatedHoursFromItems', () => {
@@ -213,5 +215,35 @@ describe('week helpers', () => {
         expect(days).toHaveLength(7);
         expect(days[0]).toBe('2026-06-29');
         expect(days[6]).toBe('2026-07-05');
+    });
+});
+
+describe('chantierHours — devis initial + avenants comptés ensemble', () => {
+    const root = { id: 1, type: 'quote', status: 'accepted', total_ht: 1000, items: [{ unit: 'h', quantity: 10 }] };
+    const signed = { id: 2, type: 'amendment', status: 'accepted', parent_quote_id: 1, total_ht: 400, items: [{ unit: 'h', quantity: 4 }] };
+    const draft = { id: 3, type: 'amendment', status: 'draft', parent_quote_id: 1, total_ht: 200, items: [{ unit: 'h', quantity: 2 }] };
+    const invoicedAmendment = { id: 4, type: 'invoice', status: 'paid', parent_quote_id: 1, total_ht: 100, items: [{ unit: 'h', quantity: 1 }] };
+
+    it('rattache un avenant (même converti en facture) à son devis initial', () => {
+        expect(chantierRootId(root)).toBe(1);
+        expect(chantierRootId(signed)).toBe(1);
+        expect(chantierRootId(invoicedAmendment)).toBe(1);
+    });
+
+    it('additionne heures prévues des avenants signés et heures pointées de tous les documents', () => {
+        const spent = { 1: 6, 2: 3, 3: 1 };
+        const h = chantierHours([root, signed, draft], spent).get(1);
+        expect(h.estimated).toBe(14);      // 10 + 4, l'avenant brouillon n'engage pas
+        expect(h.spent).toBe(10);          // 6 + 3 + 1 : le temps passé est réel
+        expect(h.totalHt).toBe(1400);
+        expect(h.amendmentCount).toBe(1);
+        expect(h.docIds).toEqual([1, 2, 3]);
+    });
+
+    it('accepte une Map, ignore les doublons et compte l\'avenant facturé', () => {
+        const h = chantierHours([root, signed, signed, invoicedAmendment], new Map([[1, 2], [4, 1]])).get(1);
+        expect(h.estimated).toBe(15);
+        expect(h.spent).toBe(3);
+        expect(h.amendmentCount).toBe(2);
     });
 });

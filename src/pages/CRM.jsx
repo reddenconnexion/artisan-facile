@@ -26,6 +26,7 @@ const WorksitePilot = () => {
     const [loading, setLoading] = useState(true);
     const [worksites, setWorksites] = useState([]);
     const [spentByQuote, setSpentByQuote] = useState({});
+    const [estimatedByQuote, setEstimatedByQuote] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     // Une arrivée depuis l'agenda (« Planning chantiers ») ouvre directement la
     // vue planning, sinon on reprend la dernière vue utilisée.
@@ -117,8 +118,9 @@ const WorksitePilot = () => {
         try {
             // Chantiers + heures pointées, avec étapes auto-classées (util partagé
             // avec le widget du tableau de bord pour garder des chiffres cohérents).
-            const { worksites: processedData, spentByQuote: spent } = await fetchWorksitesData();
+            const { worksites: processedData, spentByQuote: spent, estimatedByQuote: estimated } = await fetchWorksitesData();
             setSpentByQuote(spent);
+            setEstimatedByQuote(estimated);
             setWorksites(processedData);
         } catch (error) {
             toast.error('Erreur chargement chantiers');
@@ -367,7 +369,8 @@ const WorksitePilot = () => {
                                                 {(() => {
                                                     // Heures pointées vs prévues — indicateur discret, absent si rien à dire
                                                     const spentH = spentByQuote[job.id] || 0;
-                                                    const estimatedH = estimatedHoursFromItems(job.items);
+                                                    // Devis initial + avenants signés, comptés ensemble
+                                                    const estimatedH = estimatedByQuote[job.id] ?? estimatedHoursFromItems(job.items);
                                                     if (spentH <= 0 && estimatedH <= 0) return null;
                                                     const { status } = laborProfitability(estimatedH, spentH);
                                                     const dot = status === 'over' ? 'bg-red-500'

@@ -3,6 +3,8 @@
 // rechargements de page et fonctionner hors ligne ; les heures terminées
 // sont enregistrées dans la table `task_tracking` (une ligne par pointage).
 
+import { isAmendmentRow } from './amendmentIndex';
+
 const CLOCK_STORAGE_KEY = 'af-time-clock';
 
 // Unités de ligne de devis considérées comme du temps de main d'œuvre.
@@ -162,6 +164,65 @@ export const laborProfitability = (estimatedHours, spentHours, hourlyRate = 0) =
     const overrunCost = Math.round(overrunHours * rate * 100) / 100;
     const status = progress > 1 ? 'over' : progress >= 0.8 ? 'warning' : 'ok';
     return { progress, overrunHours, overrunCost, status };
+};
+
+// ── Chantier = devis initial + avenants ──────────────────────────────────────
+
+// Statuts d'un avenant signé par le client : ses heures deviennent des heures
+// prévues du chantier.
+const SIGNED_STATUSES = ['accepted', 'billed', 'paid'];
+
+/**
+ * Id du devis initial d'un chantier : pour un avenant (y compris converti en
+ * facture), son devis parent ; sinon le document lui-même.
+ */
+export const chantierRootId = (quote) => {
+    if (!quote) return null;
+    return isAmendmentRow(quote) && quote.parent_quote_id != null
+        ? quote.parent_quote_id
+        : quote.id;
+};
+
+/**
+ * Heures d'un chantier comptées en COMMUN entre le devis initial et ses
+ * avenants : le devis initial n'est pas forcément terminé quand l'avenant est
+ * signé, et un RDV d'agenda peut être lié à l'un ou à l'autre.
+ *   - prévues : devis initial + avenants signés ;
+ *   - pointées : toutes les heures pointées sur le devis initial ou l'un de
+ *     ses avenants (le temps passé est réel, même sur un avenant non signé).
+ *
+ * @param {Array} quotes Lignes `quotes` (devis initiaux et avenants).
+ * @param {Record<number,number>|Map<number,number>} spentByQuote Heures pointées par devis.
+ * @returns {Map<number, {estimated:number, spent:number, totalHt:number, amendmentCount:number, docIds:number[]}>}
+ *   indexée par l'id du devis initial.
+ */
+export const chantierHours = (quotes, spentByQuote = {}) => {
+    const spentOf = (id) => Number(
+        spentByQuote instanceof Map ? spentByQuote.get(Number(id)) : spentByQuote?.[id]
+    ) || 0;
+    const map = new Map();
+    const entry = (rootId) => {
+        const key = Number(rootId);
+        if (!map.has(key)) map.set(key, { estimated: 0, spent: 0, totalHt: 0, amendmentCount: 0, docIds: [] });
+        return map.get(key);
+    };
+
+    const seen = new Set();
+    for (const q of Array.isArray(quotes) ? quotes : []) {
+        if (!q || q.id == null || seen.has(Number(q.id))) continue;
+        seen.add(Number(q.id));
+        const rootId = chantierRootId(q);
+        const isAmendment = Number(rootId) !== Number(q.id);
+        const e = entry(rootId);
+        e.docIds.push(Number(q.id));
+        e.spent += spentOf(q.id);
+        // Un avenant non signé (brouillon, refusé…) n'engage pas encore le client.
+        if (isAmendment && !SIGNED_STATUSES.includes(q.status)) continue;
+        if (isAmendment) e.amendmentCount += 1;
+        e.estimated += estimatedHoursFromItems(q.items);
+        e.totalHt += Number(q.total_ht) || 0;
+    }
+    return map;
 };
 
 // ── Semaine de feuille d'heures ──────────────────────────────────────────────
