@@ -10,8 +10,10 @@ import { UrgencyBadge } from './ui';
 import { formatDate } from '../utils/format';
 
 // Vue planning des chantiers, volontairement minimale : une ligne par
-// chantier, un segment coloré sur chaque jour où il a un rendez-vous d'agenda.
-// Pas de dépendance Gantt — juste des dates, des barres et aujourd'hui.
+// chantier, une pastille par jour où il a un rendez-vous d'agenda. Les RDV
+// sans chantier (visites devis, dépannages…) ont leurs propres lignes, pour
+// que le planning reflète tout l'agenda.
+// Pas de dépendance Gantt — juste des dates, des pastilles et aujourd'hui.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKS_SHOWN = 5;
@@ -49,22 +51,23 @@ const STAGE_COLORS = {
 const dayIndex = (dateStr, rangeStart) =>
     Math.round((new Date(`${dateStr}T00:00:00`) - rangeStart) / DAY_MS);
 
-// À partir des jours d'un chantier (YYYY-MM-DD), construit des segments
-// [début, fin] d'indices de jours : les jours consécutifs fusionnent en une
-// barre, mais un trou (jour sans RDV) coupe le segment. On ne colore ainsi
-// que les jours réellement occupés, pas tout l'intervalle premier→dernier RDV.
-const buildSegments = (dates, rangeStart) => {
-    const idx = [...new Set(dates.map(d => dayIndex(d, rangeStart)))].sort((a, b) => a - b);
-    const segments = [];
-    for (const i of idx) {
-        const last = segments[segments.length - 1];
-        if (last && i === last.endIdx + 1) {
-            last.endIdx = i;
-        } else {
-            segments.push({ startIdx: i, endIdx: i });
-        }
-    }
-    return segments;
+// Couleur des lignes « hors chantier » (visites, dépannages, RDV divers).
+const OTHER_COLOR = 'bg-gray-400 dark:bg-gray-500';
+
+const LEGEND = [
+    { color: STAGE_COLORS.pending_deposit, label: 'Attente acompte' },
+    { color: STAGE_COLORS.material_order, label: 'Commande matériel' },
+    { color: STAGE_COLORS.planned, label: 'Planifié' },
+    { color: STAGE_COLORS.in_progress, label: 'En cours' },
+    { color: STAGE_COLORS.completed, label: 'Terminé' },
+    { color: OTHER_COLOR, label: 'Hors chantier' },
+];
+
+// Regroupe les RDV d'une ligne par jour : { 'YYYY-MM-DD': [rdv, …] }.
+const groupByDay = (rdvs) => {
+    const byDay = {};
+    for (const r of rdvs) (byDay[r.day] = byDay[r.day] || []).push(r);
+    return byDay;
 };
 
 const WorksitePlanning = ({ worksites }) => {
@@ -111,79 +114,123 @@ const WorksitePlanning = ({ worksites }) => {
         let active = true;
         // On récupère aussi client_id : un RDV programmé sans « Devis associé »
         // (quote_id nul) doit quand même apparaître sur le chantier du client.
-        supabase.from('events')
-            .select('quote_id, client_id, date')
-            .then(({ data }) => {
-                if (!active) return;
-                const rows = [];
-                for (const e of data || []) {
-                    if (!e.date) continue;
-                    if (e.quote_id == null && e.client_id == null) continue; // non rattachable
-                    rows.push({
-                        quote_id: e.quote_id,
-                        client_id: e.client_id,
-                        day: toDateString(new Date(e.date)),
-                    });
-                }
-                setEvents(rows);
-                setLoading(false);
-            });
+        // Les avenants (parent_quote_id) servent à ramener sur le chantier
+        // initial un RDV rattaché à un avenant.
+        Promise.all([
+            supabase.from('events').select('id, quote_id, client_id, client_name, title, time, date'),
+            supabase.from('quotes').select('id, parent_quote_id').not('parent_quote_id', 'is', null),
+        ]).then(([{ data }, { data: amendments }]) => {
+            if (!active) return;
+            const parentOf = {};
+            for (const a of amendments || []) parentOf[a.id] = a.parent_quote_id;
+            // Remonte jusqu'au devis racine (garde-fou contre une boucle).
+            const rootOf = (id) => {
+                let cur = id;
+                for (let i = 0; i < 10 && parentOf[cur] != null; i++) cur = parentOf[cur];
+                return cur;
+            };
+            const rows = [];
+            for (const e of data || []) {
+                if (!e.date) continue;
+                rows.push({
+                    id: e.id,
+                    quote_id: e.quote_id != null ? rootOf(e.quote_id) : null,
+                    client_id: e.client_id,
+                    client_name: (e.client_name || '').trim(),
+                    title: (e.title || '').trim(),
+                    time: e.time,
+                    day: toDateString(new Date(e.date)),
+                });
+            }
+            setEvents(rows);
+            setLoading(false);
+        });
         return () => { active = false; };
     }, []);
 
-    // Chantiers avec au moins un RDV → une barre ; les autres → « À planifier ».
-    const { planned, unplanned } = useMemo(() => {
-        // Chantiers actifs (le planning regarde devant, on ignore « terminé »).
+    // Premier / dernier jour affichés, pour ne garder que les lignes utiles.
+    const rangeFirstDay = toDateString(days[0]);
+    const rangeLastDay = toDateString(days[DAYS_SHOWN - 1]);
+    const inRange = (day) => day >= rangeFirstDay && day <= rangeLastDay;
+
+    // Chantiers avec au moins un RDV → une ligne ; les autres → « À planifier ».
+    // RDV sans chantier identifiable → lignes « hors chantier » par client.
+    const { planned, others, unplanned } = useMemo(() => {
         const activeWorksites = worksites.filter(w => w.work_stage !== 'completed');
+        const worksiteIds = new Set(worksites.map(w => String(w.id)));
 
         // Combien de chantiers actifs par client ? Sert à rattacher sans risque
         // un RDV « client seul » : on ne le fait que si le rattachement est
         // univoque (un unique chantier actif pour ce client).
-        const activeCountByClient = {};
+        const activeByClient = {};
         for (const w of activeWorksites) {
             if (w.client_id != null) {
-                activeCountByClient[w.client_id] = (activeCountByClient[w.client_id] || 0) + 1;
+                (activeByClient[w.client_id] = activeByClient[w.client_id] || []).push(w);
             }
         }
 
-        // Dates par devis (rattachement explicite) et dates « client seul »
-        // (RDV sans devis associé), regroupées par client.
-        const datesByQuote = {};
-        const unattachedDatesByClient = {};
+        const rdvsByWorksite = {};
+        const otherGroups = {};
+        const pushTo = (map, key, r) => { (map[key] = map[key] || []).push(r); };
         for (const e of events) {
-            if (e.quote_id != null) {
-                (datesByQuote[e.quote_id] = datesByQuote[e.quote_id] || []).push(e.day);
-            } else if (e.client_id != null) {
-                (unattachedDatesByClient[e.client_id] = unattachedDatesByClient[e.client_id] || []).push(e.day);
+            if (e.quote_id != null && worksiteIds.has(String(e.quote_id))) {
+                pushTo(rdvsByWorksite, e.quote_id, e);
+                continue;
             }
+            const candidates = e.client_id != null ? activeByClient[e.client_id] : null;
+            if (e.quote_id == null && candidates?.length === 1) {
+                pushTo(rdvsByWorksite, candidates[0].id, e);
+                continue;
+            }
+            // Hors chantier : regroupé par client, ou « Divers » sans client.
+            const key = e.client_id != null ? `c${e.client_id}`
+                : e.client_name ? `n${e.client_name.toLowerCase()}` : 'divers';
+            pushTo(otherGroups, key, e);
         }
 
         const planned = [];
         const unplanned = [];
-        for (const w of activeWorksites) {
-            const dates = [...(datesByQuote[w.id] || [])];
-            // Rattachement de repli : RDV du client sans devis associé, mais
-            // uniquement si ce client n'a qu'un seul chantier actif (sinon on ne
-            // saurait pas auquel l'affecter).
-            if (w.client_id != null && activeCountByClient[w.client_id] === 1) {
-                dates.push(...(unattachedDatesByClient[w.client_id] || []));
-            }
-            if (dates.length > 0) {
-                const sorted = [...dates].sort();
-                planned.push({ worksite: w, from: sorted[0], to: sorted[sorted.length - 1], dates: sorted });
-            } else if (w.work_stage !== 'pending_deposit') {
+        for (const w of worksites) {
+            const rdvs = rdvsByWorksite[w.id] || [];
+            const isCompleted = w.work_stage === 'completed';
+            if (rdvs.length > 0) {
+                // Un chantier terminé ne reste affiché que s'il a un RDV sur la
+                // période visible — sinon il encombrerait le planning à vie.
+                if (isCompleted && !rdvs.some(r => inRange(r.day))) continue;
+                const sorted = rdvs.map(r => r.day).sort();
+                planned.push({ worksite: w, rdvs, from: sorted[0], to: sorted[sorted.length - 1] });
+            } else if (!isCompleted && w.work_stage !== 'pending_deposit') {
                 // Un chantier en attente d'acompte n'est pas confirmé : inutile
                 // de l'inviter à « planifier » tant que l'acompte n'est pas payé.
                 // (S'il a déjà un RDV, il reste visible via la branche ci-dessus.)
                 unplanned.push(w);
             }
         }
-        // Les barres les plus proches en premier — l'œil lit de haut en bas
+
+        const others = Object.entries(otherGroups)
+            .map(([key, rdvs]) => {
+                const visible = rdvs.filter(r => inRange(r.day));
+                if (visible.length === 0) return null;
+                const sorted = visible.map(r => r.day).sort();
+                return {
+                    key,
+                    name: key === 'divers' ? 'Divers' : (rdvs.find(r => r.client_name)?.client_name || 'Client'),
+                    subtitle: visible.length === 1 ? visible[0].title : `${visible.length} RDV hors chantier`,
+                    rdvs: visible,
+                    from: sorted[0],
+                };
+            })
+            .filter(Boolean);
+
+        // Les lignes les plus proches en premier — l'œil lit de haut en bas.
         planned.sort((a, b) => a.from.localeCompare(b.from));
+        others.sort((a, b) => a.from.localeCompare(b.from));
         // Les chantiers "à planifier" les plus urgents remontent en tête de liste.
         unplanned.sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
-        return { planned, unplanned };
-    }, [worksites, events]);
+        return { planned, others, unplanned };
+    // inRange dépend uniquement de rangeFirstDay / rangeLastDay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [worksites, events, rangeFirstDay, rangeLastDay]);
 
     const handleUrgencyChange = async (quoteId, urgency) => {
         try {
@@ -209,6 +256,94 @@ const WorksitePlanning = ({ worksites }) => {
                 },
             },
         });
+    };
+
+    // Une ligne de la timeline : nom à gauche, puis une pastille par jour de
+    // RDV. Chaque pastille occupe exactement la case de son jour et porte le
+    // numéro du jour : on voit d'un coup d'œil quels jours sont pris, même
+    // quand plusieurs RDV se suivent (un fin trait relie alors les pastilles).
+    const renderRow = ({ key, name, subtitle, badge, color, rdvs, onOpen }) => {
+        const byDay = groupByDay(rdvs);
+        const visibleIdx = new Set(
+            Object.keys(byDay)
+                .map(d => dayIndex(d, rangeStart))
+                .filter(i => i >= 0 && i < DAYS_SHOWN)
+        );
+        return (
+            <div key={key} className="flex items-stretch border-b border-gray-50 dark:border-gray-800/60 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                <button
+                    onClick={onOpen}
+                    className="shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10 text-left px-4 py-2.5 group"
+                    style={{ width: labelWidth }}
+                >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
+                            {name}
+                        </span>
+                        {badge}
+                    </span>
+                    {subtitle && (
+                        <p className="text-[11px] text-gray-400 truncate">{subtitle}</p>
+                    )}
+                </button>
+                <div className="relative flex" style={{ width: DAYS_SHOWN * DAY_WIDTH, minHeight: 48 }}>
+                    {/* Fond des colonnes : week-end grisé et séparation des semaines,
+                        alignés sur l'en-tête pour lire le jour sous chaque pastille. */}
+                    {days.map((d, i) => {
+                        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                        const isMonday = d.getDay() === 1;
+                        return (
+                            <div
+                                key={i}
+                                className={`shrink-0 ${isWeekend ? 'bg-gray-50/80 dark:bg-gray-800/40' : ''} ${isMonday ? 'border-l border-gray-100 dark:border-gray-800' : ''}`}
+                                style={{ width: DAY_WIDTH }}
+                            />
+                        );
+                    })}
+                    {/* Repère aujourd'hui */}
+                    {todayIdx >= 0 && todayIdx < DAYS_SHOWN && (
+                        <div
+                            className="absolute top-0 bottom-0 w-px bg-blue-500/30"
+                            style={{ left: todayIdx * DAY_WIDTH + DAY_WIDTH / 2 }}
+                        />
+                    )}
+                    {[...visibleIdx].map(i => {
+                        const day = toDateString(days[i]);
+                        const dayRdvs = byDay[day];
+                        const linkedNext = visibleIdx.has(i + 1);
+                        const tooltip = [
+                            `${name} — ${formatDate(days[i], { weekday: 'long', day: 'numeric', month: 'long' })}`,
+                            ...dayRdvs.map(r => `• ${r.time ? `${r.time.slice(0, 5)} ` : ''}${r.title || 'RDV'}`),
+                        ].join('\n');
+                        return (
+                            <span key={i}>
+                                {/* Trait de liaison vers la pastille du lendemain */}
+                                {linkedNext && (
+                                    <span
+                                        className={`absolute top-1/2 -translate-y-1/2 h-1 ${color} opacity-50`}
+                                        style={{ left: i * DAY_WIDTH + DAY_WIDTH - 3, width: 6 }}
+                                    />
+                                )}
+                                <button
+                                    onClick={onOpen}
+                                    className={`absolute top-1/2 -translate-y-1/2 h-7 rounded-lg ${color} text-white text-[11px] font-bold tabular-nums shadow-sm ring-1 ring-black/5 hover:brightness-110 hover:scale-105 transition flex items-center justify-center`}
+                                    style={{ left: i * DAY_WIDTH + 3, width: DAY_WIDTH - 6 }}
+                                    title={tooltip}
+                                    aria-label={tooltip}
+                                >
+                                    {days[i].getDate()}
+                                    {dayRdvs.length > 1 && (
+                                        <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[9px] leading-[14px] text-center">
+                                            {dayRdvs.length}
+                                        </span>
+                                    )}
+                                </button>
+                            </span>
+                        );
+                    })}
+                </div>
+            </div>
+        );
     };
 
     if (loading) {
@@ -280,70 +415,52 @@ const WorksitePlanning = ({ worksites }) => {
                     </div>
 
                     {/* Lignes chantiers */}
-                    {planned.length === 0 ? (
+                    {planned.length === 0 && others.length === 0 ? (
                         <div className="py-14 text-center text-sm text-gray-400">
-                            Aucun rendez-vous de chantier sur cette période.
+                            Aucun rendez-vous sur cette période.
                         </div>
                     ) : (
-                        planned.map(({ worksite: w, dates }) => {
-                            const color = STAGE_COLORS[w.work_stage || 'planned'] || STAGE_COLORS.planned;
-                            // Un segment coloré par plage de jours réellement occupés
-                            // (les jours sans RDV entre deux rendez-vous restent vierges).
-                            const segments = buildSegments(dates, rangeStart);
-                            const rdvCount = new Set(dates).size;
-                            return (
-                                <div key={w.id} className="flex items-center border-b border-gray-50 dark:border-gray-800/60 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                                    <button
-                                        onClick={() => navigate(`/app/devis/${w.id}`)}
-                                        className="shrink-0 sticky left-0 bg-white dark:bg-gray-900 z-10 text-left px-4 py-3 group"
+                        <>
+                            {planned.map(({ worksite: w, rdvs }) => renderRow({
+                                key: w.id,
+                                name: label(w),
+                                subtitle: w.title,
+                                badge: <UrgencyBadge value={w.urgency} />,
+                                color: STAGE_COLORS[w.work_stage || 'planned'] || STAGE_COLORS.planned,
+                                rdvs,
+                                onOpen: () => navigate(`/app/devis/${w.id}`),
+                            }))}
+                            {others.length > 0 && (
+                                <div className="flex border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/30">
+                                    <p
+                                        className="shrink-0 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/90 px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
                                         style={{ width: labelWidth }}
                                     >
-                                        <span className="flex items-center gap-1.5 min-w-0">
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                                                {label(w)}
-                                            </span>
-                                            <UrgencyBadge value={w.urgency} />
-                                        </span>
-                                        {w.title && (
-                                            <p className="text-[11px] text-gray-400 truncate">{w.title}</p>
-                                        )}
-                                    </button>
-                                    <div className="relative" style={{ width: DAYS_SHOWN * DAY_WIDTH, height: 44 }}>
-                                        {/* Repère aujourd'hui */}
-                                        {todayIdx >= 0 && todayIdx < DAYS_SHOWN && (
-                                            <div
-                                                className="absolute top-0 bottom-0 w-px bg-blue-500/30"
-                                                style={{ left: todayIdx * DAY_WIDTH + DAY_WIDTH / 2 }}
-                                            />
-                                        )}
-                                        {segments.map((seg, si) => {
-                                            // Hors champ ? On dessine quand même la partie visible.
-                                            const visStart = Math.max(0, seg.startIdx);
-                                            const visEnd = Math.min(DAYS_SHOWN - 1, seg.endIdx);
-                                            if (visEnd < 0 || visStart > DAYS_SHOWN - 1) return null;
-                                            const spanDays = seg.endIdx - seg.startIdx + 1;
-                                            const dayLabel = spanDays === 1
-                                                ? formatDate(rangeStart.getTime() + seg.startIdx * DAY_MS)
-                                                : `du ${formatDate(rangeStart.getTime() + seg.startIdx * DAY_MS)} au ${formatDate(rangeStart.getTime() + seg.endIdx * DAY_MS)}`;
-                                            return (
-                                                <button
-                                                    key={si}
-                                                    onClick={() => navigate(`/app/devis/${w.id}`)}
-                                                    className={`absolute top-1/2 -translate-y-1/2 h-3.5 rounded-full ${color} opacity-90 hover:opacity-100 transition-opacity`}
-                                                    style={{
-                                                        left: visStart * DAY_WIDTH + 4,
-                                                        width: Math.max((visEnd - visStart + 1) * DAY_WIDTH - 8, DAY_WIDTH - 8),
-                                                    }}
-                                                    title={`${label(w)} — ${dayLabel} (${rdvCount} RDV)`}
-                                                />
-                                            );
-                                        })}
-                                    </div>
+                                        Hors chantier
+                                    </p>
                                 </div>
-                            );
-                        })
+                            )}
+                            {others.map(o => renderRow({
+                                key: o.key,
+                                name: o.name,
+                                subtitle: o.subtitle,
+                                color: OTHER_COLOR,
+                                rdvs: o.rdvs,
+                                onOpen: () => navigate('/app/agenda'),
+                            }))}
+                        </>
                     )}
                 </div>
+            </div>
+
+            {/* Légende des couleurs */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 -mt-3">
+                {LEGEND.map(l => (
+                    <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span className={`w-2.5 h-2.5 rounded-sm ${l.color}`} />
+                        {l.label}
+                    </span>
+                ))}
             </div>
 
             {/* À planifier — liste discrète sous la timeline */}
