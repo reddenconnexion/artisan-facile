@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, CheckSquare, ArrowLeft, ArrowRight, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, CheckSquare, ArrowLeft, ArrowRight, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy, Download } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import Cropper from 'react-easy-crop';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -8,6 +8,7 @@ import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { isNetworkError, isOffline } from '../utils/offlineSave';
 import { PHOTOS_SYNCED_EVENT, queuePhoto } from '../utils/photoOutbox';
+import { photoFileName, savePhotoFiles } from '../utils/photoDownload';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -84,6 +85,7 @@ const ProjectPhotos = ({ clientId }) => {
     const [selectedProjectId, setSelectedProjectId] = useState('all'); // 'all', 'uncategorized', or UUID
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const [creatingProject, setCreatingProject] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
@@ -181,6 +183,42 @@ const ProjectPhotos = ({ clientId }) => {
             image.src = src;
         });
         return { img, objectUrl };
+    };
+
+    // Récupère le fichier d'origine (pleine résolution) d'une photo du bucket.
+    const fetchPhotoBlob = async (photoUrl) => {
+        const marker = '/storage/v1/object/public/project-photos/';
+        const idx = photoUrl.indexOf(marker);
+        if (idx !== -1) {
+            const path = decodeURIComponent(photoUrl.slice(idx + marker.length));
+            const { data, error } = await supabase.storage.from('project-photos').download(path);
+            if (!error && data) return data;
+        }
+        const res = await fetch(photoUrl);
+        if (!res.ok) throw new Error('Photo inaccessible');
+        return res.blob();
+    };
+
+    // Enregistre une ou plusieurs photos sur l'appareil (galerie / Téléchargements).
+    const handleDownloadPhotos = async (list) => {
+        if (!list.length || downloading) return;
+        setDownloading(true);
+        const plural = list.length > 1;
+        const toastId = toast.loading(plural ? `Préparation de ${list.length} photos…` : 'Préparation de la photo…');
+        try {
+            const files = await Promise.all(list.map(async ({ photo, index }) => {
+                const blob = await fetchPhotoBlob(photo.photo_url);
+                return { blob, name: photoFileName(photo, index, blob.type) };
+            }));
+            const result = await savePhotoFiles(files);
+            if (result === 'cancelled') toast.dismiss(toastId);
+            else toast.success(plural ? `${files.length} photos enregistrées` : 'Photo enregistrée', { id: toastId });
+        } catch (err) {
+            console.error('Download photo error:', err);
+            toast.error(plural ? 'Impossible de télécharger les photos' : 'Impossible de télécharger la photo', { id: toastId });
+        } finally {
+            setDownloading(false);
+        }
     };
 
     const handleGenerateComparison = async () => {
@@ -1163,6 +1201,17 @@ const ProjectPhotos = ({ clientId }) => {
                                 Déplacer vers...
                             </button>
 
+                            <button
+                                onClick={() => handleDownloadPhotos(
+                                    photos.filter(p => selectedPhotos.has(p.id)).map((photo, index) => ({ photo, index }))
+                                )}
+                                disabled={selectedPhotos.size === 0 || downloading}
+                                className="px-4 py-2 bg-white border border-blue-200 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                Télécharger
+                            </button>
+
                             <div className="w-px h-8 bg-blue-200 mx-2 hidden sm:block"></div>
 
                             <button
@@ -1349,6 +1398,13 @@ const ProjectPhotos = ({ clientId }) => {
                                             title="Copier la photo"
                                         >
                                             <Copy className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDownloadPhotos([{ photo, index }]); }}
+                                            className="p-2 bg-white text-gray-700 rounded-full hover:bg-gray-100"
+                                            title="Télécharger la photo"
+                                        >
+                                            <Download className="w-5 h-5" />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openMoveModal(photo.id); }}
@@ -1813,6 +1869,17 @@ const ProjectPhotos = ({ clientId }) => {
                                 title="Copier la photo"
                             >
                                 <Copy className="w-6 h-6" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadPhotos([{ photo: filteredPhotos[selectedPhotoIndex], index: selectedPhotoIndex }]);
+                                }}
+                                disabled={downloading}
+                                className="bg-white/10 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/20 border border-white/20 shadow-lg disabled:opacity-50"
+                                title="Télécharger la photo"
+                            >
+                                {downloading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
                             </button>
                             <button
                                 onClick={(e) => {
