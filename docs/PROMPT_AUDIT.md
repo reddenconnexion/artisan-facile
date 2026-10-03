@@ -91,9 +91,9 @@ Décompte par groupe : Groupe 1 (texte des prompts) : 2 · Groupe 2 (fichiers de
 - `src/components/EtiquettesPhotoModal.jsx:24` : « EXACTEMENT une de : … ». Devient redondant sur la voie Anthropic avec l'`enum` du schéma, mais reste utile aux autres fournisseurs.
 - La description de photo de chantier, identique dans `VisiteTechniqueMode.jsx:820` et `SiteVisitModal.jsx:120`, est saine : une ligne de rôle suivie du contexte métier. La duplication fonctionne, rien à changer.
 
-## Correctif proposé
+## Correctif
 
-`docs/prompt-audit.patch` contient les six constats ci-dessus. Il s'applique proprement sur `61615fd` (`git apply docs/prompt-audit.patch`). **Rien n'a été appliqué au code.** Deux regroupements sont imposés par la proximité des lignes : les constats 1, 5 et 6 forment un même fichier, et les constats 3 et 4 partagent un bloc de `plan-electrique.html`.
+Les six constats ci-dessus sont **appliqués** dans cette même PR (`plan-vision/index.ts`, `EtiquettesPhotoModal.jsx`, `plan-electrique.html`). Le fichier de correctif a été retiré une fois appliqué.
 
 ## Vérifications à faire après application
 
