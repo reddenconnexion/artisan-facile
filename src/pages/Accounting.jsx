@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes, useInvalidateCache, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { paidQuoteIdSet, isCountedPaidDoc, splitServiceMaterial, periodNetIncome } from '../utils/chantierMargin';
+import { paidQuoteIdSet, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate } from '../utils/chantierMargin';
+import { computeMicroContributions, URSSAF_RATES } from '../utils/taxUtils';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
 import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro, FileText, Settings, ChevronDown, ChevronUp, BookOpen, Download, Search, Copy, ExternalLink, List, X, Sparkles, Wallet, Loader2 } from 'lucide-react';
@@ -15,25 +16,9 @@ import { summarizeCharges } from '../utils/accountingAdvisor';
 import { estimateIncomeTax, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI, TMI_OPTIONS } from '../utils/netIncome';
 import { formatCurrency, formatDate } from '../utils/format';
 
-// Taux URSSAF 2026 pour micro-entrepreneurs
-const URSSAF_RATES = {
-  micro_entreprise: {
-    services: { normal: 0.212, acre: 0.106, label: 'Prestations de services artisanaux (BIC)' },
-    vente: { normal: 0.123, acre: 0.062, label: 'Achat/revente de marchandises (BIC)' },
-    liberal: { normal: 0.256, acre: 0.128, label: 'Profession libérale (BNC)' },
-    mixte: {
-      services: { normal: 0.212, acre: 0.106 },
-      vente: { normal: 0.123, acre: 0.062 }
-    }
-  },
-  // Pour les autres statuts, les calculs sont plus complexes
-  // On affiche un message informatif
-  ei: null,
-  eirl: null,
-  eurl: null,
-  sasu: null,
-  sarl: null
-};
+// « 21,2 % » : taux affiché à la française.
+const pctLabel = (rate, digits = 2) =>
+  `${(rate * 100).toLocaleString('fr-FR', { maximumFractionDigits: digits })} %`;
 
 const STATUS_LABELS = {
   micro_entreprise: 'Micro-entreprise (Auto-entrepreneur)',
@@ -51,11 +36,11 @@ const ACTIVITY_LABELS = {
   liberal: 'Profession libérale'
 };
 
-// Plafonds de CA micro-entreprise 2025/2026
+// Plafonds de CA micro-entreprise 2026-2028
 const CA_LIMITS = {
-  services: 77700,
-  vente: 188700,
-  liberal: 77700
+  services: 83600,
+  vente: 203100,
+  liberal: 83600
 };
 
 // Seuils Franchise en base de TVA 2025/2026
@@ -168,7 +153,8 @@ const Accounting = () => {
       // Payé, hors factures enfant dont le devis parent est déjà payé
       if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
 
-      const invoiceDate = new Date(invoice.date || invoice.created_at);
+      // Micro-entreprise : on déclare le CA ENCAISSÉ, à la date du paiement.
+      const invoiceDate = paidDate(invoice);
       if (isNaN(invoiceDate.getTime())) return false;
 
       const invoiceYear = invoiceDate.getFullYear();
@@ -200,7 +186,7 @@ const Accounting = () => {
         docType: inv.type || 'quote',
         client: inv.client_name || 'Client inconnu',
         title: inv.title || '',
-        date: new Date(inv.date || inv.created_at),
+        date: paidDate(inv),
         serviceAmount: serviceAmt,
         materialAmount: materialAmt,
       });
@@ -230,7 +216,7 @@ const Accounting = () => {
       .filter(invoice => {
         // Payé, hors factures enfant dont le devis parent est déjà payé
         if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
-        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        const invoiceDate = paidDate(invoice);
         return !isNaN(invoiceDate.getTime()) && invoiceDate.getFullYear() === selectedYear;
       })
       .reduce((sum, invoice) => {
@@ -251,42 +237,35 @@ const Accounting = () => {
   const effectiveCaService = caServices !== '' ? parseFloat(caServices) || 0 : periodData.services;
   const effectiveCaVente = caVente !== '' ? parseFloat(caVente) || 0 : periodData.vente;
 
-  // Calcul des charges URSSAF
+  // Calcul du montant à payer à l'URSSAF : cotisations sociales + CFP + taxe
+  // de chambre consulaire (cf. computeMicroContributions, source unique).
   const calculateCharges = useMemo(() => {
     if (artisanStatus !== 'micro_entreprise') {
       return null;
     }
-    const rates = URSSAF_RATES.micro_entreprise;
 
-    // Logique pour Activité Mixte (Services + Vente)
-    // OU si l'utilisateur est en "Services" mais a rempli du CA Vente (cas hybride non déclaré mais réel)
-    // On force le mode mixte si on détecte les deux types de CA et que l'activité le permet ou pour affichage
+    // Ventilation services / vente dès que les deux types de CA coexistent
+    // (activité mixte, ou activité déclarée services/vente mais CA réel des deux).
     const useMixteCalculation = activityType === 'mixte' || (activityType === 'services' && effectiveCaVente > 0) || (activityType === 'vente' && effectiveCaService > 0);
 
     if (useMixteCalculation) {
-      const servicesRate = hasAcre ? rates.mixte.services.acre : rates.mixte.services.normal;
-      const venteRate = hasAcre ? rates.mixte.vente.acre : rates.mixte.vente.normal;
-
-      const chargesServices = effectiveCaService * servicesRate;
-      const chargesVente = effectiveCaVente * venteRate;
-
-      return {
-        total: chargesServices + chargesVente,
-        details: {
-          services: { ca: effectiveCaService, rate: servicesRate, charges: chargesServices },
-          vente: { ca: effectiveCaVente, rate: venteRate, charges: chargesVente }
-        }
-      };
+      const c = computeMicroContributions({
+        caServices: effectiveCaService,
+        caVente: effectiveCaVente,
+        activityType,
+        hasAcre,
+      });
+      return { ...c, details: { services: c.services, vente: c.vente } };
     }
 
-    const rateConfig = rates[activityType] || rates.services;
-    const rate = hasAcre ? rateConfig.acre : rateConfig.normal;
-
-    return {
-      total: effectiveCa * rate,
-      rate: rate,
-      ca: effectiveCa
-    };
+    // Une seule nature de CA : tout le CA saisi est rattaché à l'activité.
+    const c = computeMicroContributions(
+      activityType === 'vente'
+        ? { caServices: 0, caVente: effectiveCa, activityType, hasAcre }
+        : { caServices: effectiveCa, caVente: 0, activityType, hasAcre }
+    );
+    const part = activityType === 'vente' ? c.vente : c.services;
+    return { ...c, rate: part.rate, ca: effectiveCa };
   }, [artisanStatus, activityType, effectiveCa, effectiveCaService, effectiveCaVente, hasAcre]);
 
   // Coûts d'achat réels (« Matériel à commander ») agrégés par devis d'origine.
@@ -361,7 +340,7 @@ const Accounting = () => {
       .filter(invoice => {
         // Payé, hors factures enfant dont le devis parent est déjà payé
         if (!isCountedPaidDoc(invoice, paidQuoteIds)) return false;
-        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        const invoiceDate = paidDate(invoice);
         if (isNaN(invoiceDate.getTime()) || invoiceDate.getFullYear() !== selectedYear) return false;
         return true;
       })
@@ -369,7 +348,7 @@ const Accounting = () => {
         let sDiff = 0;
         if (invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0) {
           invoice.items.forEach(item => {
-            if (item.type !== 'material') {
+            if (item.type !== 'material' && item.type !== 'section' && !item.is_optional) {
               sDiff += (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
             }
           });
@@ -386,12 +365,12 @@ const Accounting = () => {
   // Vérification du dépassement de plafond
   const limitStatus = useMemo(() => {
     // Cas Mixte :
-    // 1. Le CA total ne doit pas dépasser 188 700 €
-    // 2. La part Services ne doit pas dépasser 77 700 €
+    // 1. Le CA total ne doit pas dépasser 203 100 €
+    // 2. La part Services ne doit pas dépasser 83 600 €
 
     if (activityType === 'mixte') {
-      const globalLimit = CA_LIMITS.vente; // 188 700
-      const serviceLimit = CA_LIMITS.services; // 77 700
+      const globalLimit = CA_LIMITS.vente; // 203 100
+      const serviceLimit = CA_LIMITS.services; // 83 600
 
       const globalPercentage = (yearlyRevenue / globalLimit) * 100;
       const servicePercentage = (yearlyRevenueServices / serviceLimit) * 100;
@@ -799,7 +778,7 @@ const Accounting = () => {
               />
               <div>
                 <label htmlFor="acre" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  Je bénéficie de l'ACRE <span className="text-gray-400 font-normal">(taux de cotisations réduit de moitié la 1re année)</span>
+                  Je bénéficie de l'ACRE <span className="text-gray-400 font-normal">(taux de cotisations réduit de moitié jusqu'à la fin du 3e trimestre civil suivant le début d'activité)</span>
                 </label>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   Cochez uniquement si vous avez créé votre entreprise il y a moins d'un an et avez demandé l'ACRE à l'URSSAF.{' '}
@@ -850,7 +829,7 @@ const Accounting = () => {
                       />
                       <span className="absolute right-3 top-2 text-gray-400">€</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Taux: {hasAcre ? '10.6%' : '21.2%'}</p>
+                    <p className="text-xs text-gray-500 mt-1">Taux cotisations : {pctLabel(hasAcre ? URSSAF_RATES.micro_entreprise.services.acre : URSSAF_RATES.micro_entreprise.services.normal)}</p>
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -878,7 +857,7 @@ const Accounting = () => {
                       />
                       <span className="absolute right-3 top-2 text-gray-400">€</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Taux: {hasAcre ? '6.2%' : '12.3%'}</p>
+                    <p className="text-xs text-gray-500 mt-1">Taux cotisations : {pctLabel(hasAcre ? URSSAF_RATES.micro_entreprise.vente.acre : URSSAF_RATES.micro_entreprise.vente.normal)}</p>
                   </div>
                 </div>
               </div>
@@ -923,7 +902,7 @@ const Accounting = () => {
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Taux applicable : {hasAcre ? (activityType === 'vente' ? '6.2%' : '10.6%') : (activityType === 'vente' ? '12.3%' : '21.2%')}
+                    Taux cotisations : {calculateCharges?.rate != null ? pctLabel(calculateCharges.rate) : '—'}
                   </p>
                 </div>
               </div>
@@ -953,15 +932,25 @@ const Accounting = () => {
                             <span>Services: {formatCurrency(calculateCharges.details.services.ca)} × {(calculateCharges.details.services.rate * 100).toFixed(1)}%</span>
                             <span>{formatCurrency(calculateCharges.details.services.charges)}</span>
                           </div>
-                          <div className="flex justify-between text-sm mb-3">
+                          <div className="flex justify-between text-sm mb-2">
                             <span>Vente: {formatCurrency(calculateCharges.details.vente.ca)} × {(calculateCharges.details.vente.rate * 100).toFixed(1)}%</span>
                             <span>{formatCurrency(calculateCharges.details.vente.charges)}</span>
                           </div>
                         </>
                       ) : (
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Cotisations : {formatCurrency(calculateCharges.ca)} × {(calculateCharges.rate * 100).toFixed(1)}%</span>
+                          <span>{formatCurrency(calculateCharges.cotisations)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm mb-2">
+                        <span>Formation pro (CFP) : {pctLabel(calculateCharges.cfpRate, 1)}</span>
+                        <span>{formatCurrency(calculateCharges.cfp)}</span>
+                      </div>
+                      {calculateCharges.chamberLabel && (
                         <div className="flex justify-between text-sm mb-3">
-                          <span>{formatCurrency(calculateCharges.ca)} × {(calculateCharges.rate * 100).toFixed(1)}%</span>
-                          <span>{formatCurrency(calculateCharges.total)}</span>
+                          <span>{calculateCharges.chamberLabel}</span>
+                          <span>{formatCurrency(calculateCharges.chamber)}</span>
                         </div>
                       )}
                     </div>
@@ -1332,7 +1321,8 @@ const Accounting = () => {
                 <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
                 <p>
                   <strong>ACRE :</strong> L'Aide aux Créateurs et Repreneurs d'Entreprise permet une exonération
-                  partielle de charges (50%) la première année d'activité.
+                  partielle de cotisations sociales (50 %) jusqu'à la fin du 3e trimestre civil suivant le début
+                  d'activité. Pour une création à partir du 1er juillet 2026, l'exonération est ramenée à 25 %.
                 </p>
               </div>
               <div className="flex items-start">

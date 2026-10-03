@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUrssafRate, URSSAF_RATES } from './taxUtils';
+import { getUrssafRate, URSSAF_RATES, computeMicroContributions } from './taxUtils';
 
 describe('getUrssafRate', () => {
     it('returns 0 for non micro-entreprise statuses', () => {
@@ -68,5 +68,38 @@ describe('getUrssafRate', () => {
             .toBe(URSSAF_RATES.micro_entreprise.services.normal);
         expect(getUrssafRate(undefined, 'service'))
             .toBe(URSSAF_RATES.micro_entreprise.services.normal);
+    });
+});
+
+describe('computeMicroContributions', () => {
+    it('artisan électricien : cotisations par part + CFP 0,3 % + taxe CMA', () => {
+        // 3 000 € de main d'œuvre, 2 000 € de matériel
+        const c = computeMicroContributions({ caServices: 3000, caVente: 2000, activityType: 'mixte' });
+        expect(c.services.charges).toBeCloseTo(636, 6); // 3000 × 21,2 %
+        expect(c.vente.charges).toBeCloseTo(246, 6); // 2000 × 12,3 %
+        expect(c.cfp).toBeCloseTo(15, 6); // 5000 × 0,3 %
+        expect(c.chamber).toBeCloseTo(14.4 + 4.4, 6); // 3000 × 0,48 % + 2000 × 0,22 %
+        expect(c.chamberLabel).toBe('Taxe CMA');
+        expect(c.total).toBeCloseTo(636 + 246 + 15 + 18.8, 6);
+    });
+
+    it("l'ACRE ne réduit que les cotisations sociales", () => {
+        const c = computeMicroContributions({ caServices: 1000, activityType: 'services', hasAcre: true });
+        expect(c.cotisations).toBeCloseTo(106, 6);
+        expect(c.cfp).toBeCloseTo(3, 6);
+        expect(c.chamber).toBeCloseTo(4.8, 6);
+    });
+
+    it('commerçant (vente seule) : CFP 0,1 % et taxe CCI', () => {
+        const c = computeMicroContributions({ caVente: 10000, activityType: 'vente' });
+        expect(c.cotisations).toBeCloseTo(1230, 6);
+        expect(c.cfp).toBeCloseTo(10, 6);
+        expect(c.chamber).toBeCloseTo(1.5, 6);
+        expect(c.chamberLabel).toBe('Taxe CCI');
+    });
+
+    it('accepte des montants texte ou vides', () => {
+        const c = computeMicroContributions({ caServices: '1000', caVente: '' });
+        expect(c.total).toBeCloseTo(212 + 3 + 4.8, 6);
     });
 });

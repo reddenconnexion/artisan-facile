@@ -118,6 +118,15 @@ describe('splitServiceMaterial', () => {
     it('ventile les lignes par type', () => {
         expect(splitServiceMaterial({ items })).toEqual({ serviceAmount: 400, materialAmount: 600 });
     });
+    it('ignore les options non retenues et les titres de section', () => {
+        const withOptions = [
+            { type: 'section', description: 'Cuisine' },
+            ...items,
+            { type: 'service', description: 'Prise en option', quantity: 2, price: 45, is_optional: true },
+            { type: 'material', description: 'Spots en option', quantity: 4, price: 30, is_optional: true },
+        ];
+        expect(splitServiceMaterial({ items: withOptions })).toEqual({ serviceAmount: 400, materialAmount: 600 });
+    });
     it('compte tout en main d’œuvre sans lignes', () => {
         expect(splitServiceMaterial({ items: [], total_ht: 500 })).toEqual({ serviceAmount: 500, materialAmount: 0 });
         expect(splitServiceMaterial({ total_ttc: 120 })).toEqual({ serviceAmount: 120, materialAmount: 0 });

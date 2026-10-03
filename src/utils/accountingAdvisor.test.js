@@ -55,8 +55,9 @@ describe('analyzeFinancials', () => {
     const invoices = [paidInvoice({ total_ht: 10000, date: '2024-05-01' })];
     const res = analyzeFinancials(invoices, { artisan_status: 'micro_entreprise', activity_type: 'services' }, new Date('2025-01-15'));
     const y = res.years[0];
-    expect(y.charges).toBeCloseTo(2120, 0); // 10000 * 21.2%
-    expect(y.net).toBeCloseTo(7880, 0);
+    // 10000 × (21,2 % cotisations + 0,3 % CFP + 0,48 % taxe CMA)
+    expect(y.charges).toBeCloseTo(2198, 0);
+    expect(y.net).toBeCloseTo(7802, 0);
   });
 
   it('does not compute charges for non-micro statuses', () => {
