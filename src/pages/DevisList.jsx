@@ -16,7 +16,7 @@ import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
 import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { formatDate, formatDateTime, formatCurrency } from '../utils/format';
+import { formatDate, formatDateTime, formatCurrency, normalizeSearch } from '../utils/format';
 
 const FollowUps = lazy(() => import('./FollowUps'));
 
@@ -197,7 +197,19 @@ const DevisList = () => {
         e.stopPropagation();
         try {
             await archiveQuote(devisId, user.id);
-            toast.success('Devis archivé');
+            toast.success('Devis archivé', {
+                action: {
+                    label: 'Annuler',
+                    onClick: async () => {
+                        try {
+                            await unarchiveQuote(devisId, user.id);
+                            refreshQuotes();
+                        } catch (err2) {
+                            toast.error('Erreur de restauration : ' + err2.message);
+                        }
+                    },
+                },
+            });
             refreshQuotes();
         } catch (err) {
             toast.error("Erreur d'archivage : " + err.message);
@@ -281,13 +293,13 @@ const DevisList = () => {
             if (devis.archived_at) return false;
         }
 
-        const q = debouncedSearch.toLowerCase();
+        const q = normalizeSearch(debouncedSearch.trim());
         const matchesSearch = !q ||
-            (devis.client_name && devis.client_name.toLowerCase().includes(q)) ||
+            normalizeSearch(devis.client_name).includes(q) ||
             devis.id.toString().includes(q) ||
-            (devis.title && devis.title.toLowerCase().includes(q)) ||
+            normalizeSearch(devis.title).includes(q) ||
             (devis.quote_number && devis.quote_number.toString().includes(q)) ||
-            (devis.invoice_number && devis.invoice_number.toLowerCase().includes(q));
+            normalizeSearch(devis.invoice_number).includes(q);
 
         const matchesStatus = statusFilter === 'all' || isArchivedTab ||
             (statusFilter === 'pending' ? ['draft', 'sent'].includes(devis.status) :
@@ -491,12 +503,23 @@ const DevisList = () => {
                             <Search className="h-5 w-5 text-gray-400" />
                         </div>
                         <input
-                            type="text"
+                            type="search"
+                            inputMode="search"
                             placeholder="Rechercher un devis, un client..."
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            className="block w-full pl-10 pr-11 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                aria-label="Effacer la recherche"
+                                className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        )}
                     </div>
                 )}
                 <div className={`flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg overflow-x-auto ${isFollowUpsTab ? 'flex-1' : ''}`}>
@@ -660,7 +683,7 @@ const DevisList = () => {
                                                         <button
                                                             onClick={(e) => handleUnarchive(e, devis.id)}
                                                             title="Restaurer ce devis"
-                                                            className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                                                            className="p-2.5 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                                                         >
                                                             <ArchiveRestore className="w-4 h-4" />
                                                         </button>
@@ -668,7 +691,7 @@ const DevisList = () => {
                                                         <button
                                                             onClick={(e) => handleArchive(e, devis.id)}
                                                             title="Archiver (libère le tableau de bord, restaurable plus tard)"
-                                                            className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
+                                                            className="p-2.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                                         >
                                                             <Archive className="w-4 h-4" />
                                                         </button>
@@ -745,18 +768,19 @@ const DevisList = () => {
                                             devis.archived_at ? (
                                                 <button
                                                     onClick={(e) => handleUnarchive(e, devis.id)}
-                                                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/30"
+                                                    className="inline-flex items-center justify-center gap-1 text-sm font-medium text-emerald-600 px-3 min-h-[44px] rounded-md bg-emerald-50 dark:bg-emerald-900/30"
                                                 >
-                                                    <ArchiveRestore className="w-3 h-3" />
+                                                    <ArchiveRestore className="w-4 h-4" />
                                                     Restaurer
                                                 </button>
                                             ) : (
                                                 <button
                                                     onClick={(e) => handleArchive(e, devis.id)}
-                                                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-0.5"
+                                                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                                     title="Archiver"
+                                                    aria-label="Archiver"
                                                 >
-                                                    <Archive className="w-3 h-3" />
+                                                    <Archive className="w-5 h-5" />
                                                 </button>
                                             )
                                         )}

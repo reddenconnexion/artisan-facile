@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download, X } from 'lucide-react';
 import { Button, EmptyState, LoadingState } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
@@ -289,12 +289,23 @@ const Clients = () => {
                         <Search className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                        type="text"
+                        type="search"
+                        inputMode="search"
                         placeholder="Rechercher par nom, email, téléphone, adresse..."
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-shadow"
+                        className="block w-full pl-10 pr-11 py-2 border border-gray-300 dark:border-gray-700 rounded-lg leading-5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-shadow"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchTerm('')}
+                            aria-label="Effacer la recherche"
+                            className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex gap-2">
