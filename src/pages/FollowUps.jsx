@@ -115,7 +115,10 @@ const FollowUps = ({ embedded = false }) => {
 
     const getEffectiveStep = (key, referenceQuote) => {
         const idx = stepOverrides[key] ?? referenceQuote?.next_step?.index ?? 0;
-        const stepData = availableSteps[idx] ?? referenceQuote?.next_step;
+        // Devis rouvert après expiration : on garde l'étape dédiée tant que
+        // l'artisan ne choisit pas une autre étape de la séquence.
+        const keepReopened = referenceQuote?.next_step?.reopenedAfterExpiry && idx === referenceQuote.next_step.index;
+        const stepData = keepReopened ? referenceQuote.next_step : (availableSteps[idx] ?? referenceQuote?.next_step);
         return { ...stepData, index: idx };
     };
 
@@ -425,7 +428,8 @@ const FollowUps = ({ embedded = false }) => {
         const isGenerating = !!generating[cardKey];
 
         // For single quote, show overdue badge
-        const daysOverdue = !isGrouped ? getDaysOverdue(referenceQuote.next_step?.due_date) : 0;
+        const reopened = quotes.find(q => q.next_step?.reopenedAfterExpiry);
+        const daysOverdue = !isGrouped && !reopened ? getDaysOverdue(referenceQuote.next_step?.due_date) : 0;
 
         return (
             <div key={cardKey} className={`bg-white dark:bg-gray-900 rounded-xl border-2 ${style.border} shadow-sm transition-shadow hover:shadow-md`}>
@@ -435,6 +439,14 @@ const FollowUps = ({ embedded = false }) => {
                     <div className="flex flex-col md:flex-row md:items-start gap-3">
                         <div className="flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
+                                {reopened && (
+                                    <span
+                                        className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full text-xs font-semibold"
+                                        title={`Validité dépassée le ${formatDate(reopened.valid_until)}`}
+                                    >
+                                        Rouvert par le client le {formatDate(reopened.next_step.reopened_at)} — devis expiré
+                                    </span>
+                                )}
                                 {!isGrouped && daysOverdue > 0 && (
                                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-semibold">
                                         En retard de {daysOverdue}j

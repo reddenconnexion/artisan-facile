@@ -13,6 +13,7 @@ import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
 import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
+import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
 import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -351,6 +352,7 @@ const DevisList = () => {
     const billedByChildren = idsBilledByChildren(devisList);
     const followUpDueCount = activeDevis.filter(d => {
         if (d.status !== 'sent') return false;
+        if (reopenedAfterExpiryAt(d)) return true;
         const nextStep = d.follow_up_count || 0;
         if (nextStep >= FOLLOW_UP_DEFAULT_DELAYS.length) return false;
         const delay = FOLLOW_UP_DEFAULT_DELAYS[nextStep];

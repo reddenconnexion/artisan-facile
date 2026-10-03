@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { clientGreetingName } from './clientGreeting';
 import { formatDate } from './format';
 import { idsBilledByChildren, invoiceReminderStatus } from './unpaidInvoices';
+import { REOPENED_AFTER_EXPIRY_STEP, reopenedAfterExpiryAt } from './quoteReopen';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -72,7 +73,9 @@ export const getDueFollowUps = async (userId) => {
 
     if (steps.length === 0) return [];
 
-    // Fetch candidate quotes: Sent, not yet accepted/paid/refused, not archived.
+    // Fetch candidate quotes: Sent, not yet accepted/paid/refused.
+    // Les devis archivés sont aussi chargés : ils ne reviennent dans les
+    // relances que si le client les rouvre après leur date de validité.
     const { data: quotes, error } = await supabase
         .from('quotes')
         .select(`
@@ -82,7 +85,6 @@ export const getDueFollowUps = async (userId) => {
         // Filter by status 'sent' (envoyé) which means we are waiting for response.
         // Note: 'draft' is too early. 'accepted' is too late.
         .eq('status', 'sent')
-        .is('archived_at', null)
         .order('date', { ascending: false });
 
     if (error) {
@@ -93,12 +95,52 @@ export const getDueFollowUps = async (userId) => {
     const today = new Date();
     const dueQuotes = [];
 
+    // Dernière ouverture humaine des e-mails liés aux devis expirés : rouvrir
+    // l'e-mail d'envoi compte autant que rouvrir la page du devis.
+    const todayIso = today.toISOString().split('T')[0];
+    const expiredIds = quotes
+        .filter(q => q.valid_until && String(q.valid_until) < todayIso)
+        .map(q => q.id);
+    const lastEmailOpen = {};
+    if (expiredIds.length > 0) {
+        const { data: sends, error: sendsError } = await supabase
+            .from('email_send_stats')
+            .select('quote_id, last_opened_at')
+            .in('quote_id', expiredIds);
+        if (sendsError) console.warn('getDueFollowUps: email opens lookup failed', sendsError);
+        (sends || []).forEach(s => {
+            if (!s.last_opened_at) return;
+            const prev = lastEmailOpen[s.quote_id];
+            if (!prev || new Date(s.last_opened_at) > new Date(prev)) lastEmailOpen[s.quote_id] = s.last_opened_at;
+        });
+    }
+
     quotes.forEach(quote => {
         // "Reporter" : un devis explicitement reporté est masqué jusqu'à sa date
         // de snooze. La colonne peut être absente sur d'anciennes bases (avant
         // migration) → `undefined`, traité comme non reporté.
         const snoozedUntil = quote.relance_snoozed_until ? new Date(quote.relance_snoozed_until) : null;
         if (snoozedUntil && snoozedUntil > today) return;
+
+        // Devis rouvert par le client après sa date de validité : relance
+        // e-mail immédiate, prioritaire sur la séquence (même terminée) et
+        // même si le devis avait été archivé avant la réouverture.
+        const reopenedAt = reopenedAfterExpiryAt(quote, lastEmailOpen[quote.id]);
+        if (reopenedAt) {
+            dueQuotes.push({
+                ...quote,
+                next_step: {
+                    index: quote.follow_up_count || 0,
+                    ...REOPENED_AFTER_EXPIRY_STEP,
+                    reopenedAfterExpiry: true,
+                    reopened_at: reopenedAt,
+                    due_date: reopenedAt
+                }
+            });
+            return;
+        }
+
+        if (quote.archived_at) return;
 
         // Determine reference date: last follow-up OR created_at (date)
         const lastFollowUp = quote.last_followup_at ? new Date(quote.last_followup_at) : null;
@@ -143,7 +185,13 @@ export const getDueFollowUps = async (userId) => {
         }
     });
 
-    return dueQuotes;
+    // Les devis rouverts après expiration d'abord : c'est la relance la plus
+    // urgente, et dans un regroupement par client le premier devis donne
+    // l'étape (et donc le ton) de l'e-mail.
+    return [
+        ...dueQuotes.filter(q => q.next_step.reopenedAfterExpiry),
+        ...dueQuotes.filter(q => !q.next_step.reopenedAfterExpiry),
+    ];
 };
 
 /**
