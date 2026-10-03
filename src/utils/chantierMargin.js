@@ -119,6 +119,13 @@ export const quoteMarginSummary = ({
 // ── Comptabilité / Tableau de bord ───────────────────────────────────────────
 
 /**
+ * Date d'encaissement d'un document payé : `paid_at` quand il est renseigné,
+ * à défaut la date du document. Un avenant ou une facture réglé ce mois-ci
+ * compte dans le CA de ce mois-ci, même s'il a été émis le mois précédent.
+ */
+export const paidDate = (doc) => new Date(doc?.paid_at || doc?.date || doc?.created_at);
+
+/**
  * Ids des devis (hors factures) payés : leurs factures enfant ne doivent pas
  * être comptées une seconde fois.
  */
