@@ -37,6 +37,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDashboardData, useNextEvent, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
 import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate } from '../utils/chantierMargin';
 import { summarizeCharges } from '../utils/accountingAdvisor';
+import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
 import { estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
@@ -424,10 +425,14 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     // Un devis "à relancer" : envoyé, ni archivé ni reporté, et sans contact
     // depuis 7 jours (sur la base de la dernière relance si elle existe, sinon
     // de la date d'envoi). Ainsi relancer/reporter/archiver fait bien baisser
-    // le compteur (les champs sont chargés par useDashboardData).
+    // le compteur (les champs sont chargés par useDashboardData). Un devis
+    // rouvert par le client après sa date de validité compte tout de suite,
+    // même archivé.
     const toRelanceCount = allQuotes.filter(q => {
-        if (q.status !== 'sent' || q.archived_at) return false;
+        if (q.status !== 'sent') return false;
         if (q.relance_snoozed_until && new Date(q.relance_snoozed_until) > now) return false;
+        if (reopenedAfterExpiryAt(q)) return true;
+        if (q.archived_at) return false;
         const ref = q.last_followup_at ? new Date(q.last_followup_at) : new Date(q.date || q.created_at);
         return ref < sevenDaysAgo;
     }).length;

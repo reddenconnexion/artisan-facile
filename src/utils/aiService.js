@@ -743,7 +743,13 @@ export const generateFollowUpEmail = async (quotes, client, step, context = {}) 
         `Message de clôture respectueux (4-5 phrases). Informer que le${isGrouped ? 's devis vont être archivés' : ' devis va être archivé'} prochainement. Laisser une porte ouverte pour un recontact futur, sans aucune pression. Ton chaleureux.`,
     ];
 
-    const guide = stepGuides[stepIndex] || stepGuides[stepGuides.length - 1];
+    // Devis rouvert par le client après sa date de validité : signal d'intérêt
+    // à saisir, indépendamment de la position dans la séquence de relances.
+    const reopenedGuide = `Message court et chaleureux (3-4 phrases). Le client revient vers ${isGrouped ? 'ces devis' : 'ce devis'} alors que la date de validité est dépassée : ne pas lui dire qu'on a vu qu'il l'a consulté. Prendre simplement des nouvelles du projet, rappeler que l${isGrouped ? 'es devis ne sont' : 'e devis n\'est'} plus valable${isGrouped ? 's' : ''} en l'état et proposer de ${isGrouped ? 'les' : 'le'} réactualiser (prix, planning) ou d'en parler par téléphone. Aucune pression, aucune hausse inventée.`;
+
+    const guide = step.reopenedAfterExpiry
+        ? reopenedGuide
+        : (stepGuides[stepIndex] || stepGuides[stepGuides.length - 1]);
 
     const signalsBlock = buildRelanceSignals(context.relanceContext);
     const persuasionGuide = buildPersuasionGuide(context.persuasionLevel || 'soft');
