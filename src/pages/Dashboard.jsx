@@ -35,7 +35,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { useDashboardData, useNextEvent, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome } from '../utils/chantierMargin';
+import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate } from '../utils/chantierMargin';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
 import { useAuth } from '../context/AuthContext';
@@ -350,7 +350,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
         const countedInvoices = [];
         allQuotes.forEach(q => {
             if (!isCountedPaidDoc(q, paidQuoteIds)) return;
-            const d = new Date(q.date || q.created_at);
+            const d = paidDate(q);
             if (isNaN(d.getTime()) || d < thisMonthStart) return;
             const { serviceAmount, materialAmount } = splitServiceMaterial(q);
             caServices += serviceAmount;
@@ -374,7 +374,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const lastMonthStart = startOfMonth(subMonths(now, 1));
 
     const caThisMonth = allQuotes
-        .filter(q => q.status === 'paid' && new Date(q.date || q.created_at) >= thisMonthStart)
+        .filter(q => q.status === 'paid' && paidDate(q) >= thisMonthStart)
         .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
 
     // Objectif de CA mensuel (profiles.monthly_revenue_goal) : quand il est
@@ -408,7 +408,7 @@ const KpiStrip = ({ allQuotes, navigate, nextEvent }) => {
     const caLastMonth = allQuotes
         .filter(q => {
             if (q.status !== 'paid') return false;
-            const d = new Date(q.date || q.created_at);
+            const d = paidDate(q);
             return d >= lastMonthStart && d < thisMonthStart;
         })
         .reduce((sum, q) => sum + (parseFloat(q.total_ttc) || 0), 0);
@@ -646,7 +646,9 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
             // REVENUE & NET INCOME
             if (status === 'paid') {
                 const isDuplicate = isDuplicatePaidChild(quote, paidQuoteIds);
-                if (!isDuplicate) {
+                // Le CA se range à la date d'encaissement, pas d'émission.
+                const payDate = paidDate(quote);
+                if (!isDuplicate && !isNaN(payDate.getTime())) {
                     metrics.revenue.total += amount;
 
                     // Marge chantier (HT) : main d'œuvre + marge conservée sur le
@@ -678,30 +680,30 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
 
 
 
-                    if (qDate.getFullYear() === refYear) {
+                    if (payDate.getFullYear() === refYear) {
                         metrics.revenue.year += amount;
-                        metrics.revenue.charts.year[qDate.getMonth()] += amount;
+                        metrics.revenue.charts.year[payDate.getMonth()] += amount;
                         metrics.revenue.details.year.push(quote);
 
                         metrics.netIncome.year += netAmount;
-                        metrics.netIncome.charts.year[qDate.getMonth()] += netAmount;
+                        metrics.netIncome.charts.year[payDate.getMonth()] += netAmount;
                         metrics.netIncome.details.year.push({ ...quote, total_ttc: netAmount });
 
-                        if (isSameMonth(qDate, referenceDate)) {
+                        if (isSameMonth(payDate, referenceDate)) {
                             metrics.revenue.month += amount;
-                            if (metrics.revenue.charts.month[getDate(qDate) - 1] !== undefined) metrics.revenue.charts.month[getDate(qDate) - 1] += amount;
+                            if (metrics.revenue.charts.month[getDate(payDate) - 1] !== undefined) metrics.revenue.charts.month[getDate(payDate) - 1] += amount;
                             metrics.revenue.details.month.push(quote);
 
                             metrics.netIncome.month += netAmount;
-                            if (metrics.netIncome.charts.month[getDate(qDate) - 1] !== undefined) metrics.netIncome.charts.month[getDate(qDate) - 1] += netAmount;
+                            if (metrics.netIncome.charts.month[getDate(payDate) - 1] !== undefined) metrics.netIncome.charts.month[getDate(payDate) - 1] += netAmount;
                             metrics.netIncome.details.month.push({ ...quote, total_ttc: netAmount });
                         }
 
-                        const qWeek = getWeek(qDate, { weekStartsOn: 1 });
+                        const qWeek = getWeek(payDate, { weekStartsOn: 1 });
                         const refWeek = getWeek(referenceDate, { weekStartsOn: 1 });
                         if (qWeek === refWeek) {
                             metrics.revenue.week += amount;
-                            const weekDayIndex = (getDay(qDate) + 6) % 7;
+                            const weekDayIndex = (getDay(payDate) + 6) % 7;
                             metrics.revenue.charts.week[weekDayIndex] += amount;
                             metrics.revenue.details.week.push(quote);
 
@@ -710,12 +712,12 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
                             metrics.netIncome.details.week.push({ ...quote, total_ttc: netAmount });
                         }
 
-                    } else if (qDate.getFullYear() === refYear - 1) {
+                    } else if (payDate.getFullYear() === refYear - 1) {
                         metrics.revenue.lastYear += amount;
-                        metrics.revenue.charts.lastYear[qDate.getMonth()] += amount;
+                        metrics.revenue.charts.lastYear[payDate.getMonth()] += amount;
                         metrics.revenue.details.lastYear.push(quote);
                         metrics.netIncome.lastYear += netAmount;
-                        metrics.netIncome.charts.lastYear[qDate.getMonth()] += netAmount;
+                        metrics.netIncome.charts.lastYear[payDate.getMonth()] += netAmount;
                         metrics.netIncome.details.lastYear.push({ ...quote, total_ttc: netAmount });
                     }
                 }

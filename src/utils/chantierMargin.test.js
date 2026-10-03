@@ -7,6 +7,7 @@ import {
     isCountedPaidDoc,
     splitServiceMaterial,
     periodNetIncome,
+    paidDate,
 } from './chantierMargin';
 import { procurementCostByQuote, spentHoursByQuote } from './realizedMargin';
 
@@ -146,5 +147,17 @@ describe('periodNetIncome', () => {
         const res = periodNetIncome({ entries: [], costByQuote: new Map(), caServices: 100, caMateriel: 100, materialMarginRate: 0.25 });
         expect(res.margeMateriel).toBe(25);
         expect(res.realCoveredCount).toBe(0);
+    });
+});
+
+describe('paidDate', () => {
+    it("range un document payé à sa date d'encaissement", () => {
+        const doc = { date: '2026-09-15', created_at: '2026-09-15T10:00:00Z', paid_at: '2026-10-02T09:00:00Z' };
+        expect(paidDate(doc).toISOString()).toBe('2026-10-02T09:00:00.000Z');
+    });
+
+    it("se replie sur la date du document sans paid_at", () => {
+        expect(paidDate({ date: '2026-09-15', created_at: '2026-09-01T10:00:00Z' }).toISOString().slice(0, 10)).toBe('2026-09-15');
+        expect(paidDate({ created_at: '2026-09-01T10:00:00Z' }).toISOString().slice(0, 10)).toBe('2026-09-01');
     });
 });
