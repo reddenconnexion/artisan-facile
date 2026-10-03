@@ -28,6 +28,31 @@ Réponds UNIQUEMENT avec le tableau JSON brut, sans texte autour, sans bloc mark
 Exemple de format attendu :
 [{"label":"Éclairage Salon","breaker":10,"modules":1,"category":"eclairage"},{"label":"Plaque cuisson","breaker":32,"modules":1,"category":"cuisine"}]`;
 
+// Schéma imposé à la réponse sur la voie Anthropic (sorties structurées).
+// La racine doit être un objet : le tableau est sous « circuits », que
+// parseCircuitsResponse retrouve comme un tableau entouré de texte.
+const OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    circuits: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          label: { type: "string" },
+          breaker: { type: "integer" },
+          modules: { type: "integer" },
+          category: { type: "string", enum: VALID_CATEGORIES },
+        },
+        required: ["label", "breaker", "modules", "category"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["circuits"],
+  additionalProperties: false,
+};
+
 // Extrait le tableau JSON même si le modèle a entouré la réponse de texte
 // ou de fences markdown.
 function parseCircuitsResponse(text) {
@@ -146,6 +171,7 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
           mediaType: "image/jpeg",
           systemPrompt: SYSTEM_PROMPT,
           userPrompt: USER_PROMPT,
+          outputSchema: OUTPUT_SCHEMA,
         },
       });
       if (fnErr) {

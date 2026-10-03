@@ -5278,6 +5278,51 @@ function aiLog(msg) {
   log.scrollTop = log.scrollHeight;
 }
 
+// Schéma imposé à la réponse sur la voie Anthropic (sorties structurées).
+const PLAN_POINT_SCHEMA = {
+  type: 'object',
+  properties: { x: { type: 'number' }, y: { type: 'number' } },
+  required: ['x', 'y'],
+  additionalProperties: false,
+};
+const PLAN_OUTPUT_SCHEMA = {
+  type: 'object',
+  properties: {
+    rooms: { type: 'array', items: {
+      type: 'object',
+      properties: { name: { type: 'string' }, points: { type: 'array', items: PLAN_POINT_SCHEMA } },
+      required: ['name', 'points'],
+      additionalProperties: false,
+    } },
+    walls: { type: 'array', items: {
+      type: 'object',
+      properties: { x1: { type: 'number' }, y1: { type: 'number' }, x2: { type: 'number' }, y2: { type: 'number' } },
+      required: ['x1', 'y1', 'x2', 'y2'],
+      additionalProperties: false,
+    } },
+    elements: { type: 'array', items: {
+      type: 'object',
+      properties: {
+        type: { type: 'string' },
+        x: { type: 'number' },
+        y: { type: 'number' },
+        label: { type: 'string' },
+        circuitId: { type: 'integer' },
+      },
+      required: ['type', 'x', 'y', 'label', 'circuitId'],
+      additionalProperties: false,
+    } },
+    cables: { type: 'array', items: {
+      type: 'object',
+      properties: { type: { type: 'string' }, points: { type: 'array', items: PLAN_POINT_SCHEMA } },
+      required: ['type', 'points'],
+      additionalProperties: false,
+    } },
+  },
+  required: ['rooms', 'walls', 'elements', 'cables'],
+  additionalProperties: false,
+};
+
 async function launchAIAnalysis() {
   if (!aiImageBase64) return;
 
@@ -5300,8 +5345,7 @@ async function launchAIAnalysis() {
 Ta mission : analyser une photo ou scan de plan manuscrit et retourner UNIQUEMENT un objet JSON valide, sans texte autour, sans balises markdown.
 
 ═══ ESPACE DE TRAVAIL ═══
-Grille de ${CANVAS_W}x${CANVAS_H} unités, pas de grille : ${GRID} unités.
-TOUTES les coordonnées doivent être des multiples de ${GRID} (ex: 0, 20, 40, 60…).
+Zone de ${CANVAS_W}x${CANVAS_H} unités. L'application aligne ensuite les coordonnées sur sa grille, inutile de les arrondir.
 IMPORTANT : Utilise tout l'espace disponible. Le plan doit s'étendre sur la majorité des ${CANVAS_W}x${CANVAS_H} unités.
   → Identifie d'abord les limites extrêmes du bâtiment dans l'image.
   → Mappe proportionnellement : coin haut-gauche du bâtiment ≈ (40,40), coin bas-droit ≈ (${CANVAS_W-40},${CANVAS_H-40}).
@@ -5369,22 +5413,16 @@ Circuits spécialisés (repères visuels sur le plan) :
 }
 
 ═══ RÈGLES STRICTES ═══
-1. Coordonnées multiples de ${GRID} UNIQUEMENT — arrondis au multiple le plus proche
-2. Reste dans [0, ${CANVAS_W}] (x) et [0, ${CANVAS_H}] (y)
-3. circuitId : 1=éclairage, 2=prises 16A, 3=cuisine 20A, 4=lave-linge, 5=lave-vaisselle, 6=sèche-linge, 8=four/plaque, 9=chauffe-eau, 10=clim
-4. Les rooms sont des polygones fermés — assez de points pour suivre le contour de chaque pièce
-5. Les murs suivent les lignes du plan avec précision (chaque segment = un objet wall)
-6. Place chaque élément AU CENTRE de l'espace qu'il occupe visuellement
-7. Si le plan est flou ou trop petit pour identifier précisément un élément, utilise le type le plus probable
-8. Si aucun plan n'est visible, retourne tous les tableaux vides`;
+1. Reste dans [0, ${CANVAS_W}] (x) et [0, ${CANVAS_H}] (y)
+2. circuitId : 1=éclairage, 2=prises 16A, 3=cuisine 20A, 4=lave-linge, 5=lave-vaisselle, 6=sèche-linge, 8=four/plaque, 9=chauffe-eau, 10=clim
+3. Les rooms sont des polygones fermés — assez de points pour suivre le contour de chaque pièce
+4. Les murs suivent les lignes du plan avec précision (chaque segment = un objet wall)
+5. Place chaque élément AU CENTRE de l'espace qu'il occupe visuellement
+6. Si le plan est flou ou trop petit pour identifier précisément un élément, utilise le type le plus probable
+7. Si aucun plan n'est visible, retourne tous les tableaux vides`;
 
-  const userPrompt = `Analyse ce plan électrique manuscrit étape par étape :
-
-ÉTAPE 1 — Vue d'ensemble : identifie les limites du bâtiment et le nombre de pièces.
-ÉTAPE 2 — Pièces${doRooms ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : trace les contours de chaque pièce avec au minimum 4 points polygonaux.
-ÉTAPE 3 — Murs${doWalls ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : identifie chaque segment de mur (extérieur et séparations).
-ÉTAPE 4 — Équipements${doElements ? ' (REQUIS)' : ' (optionnel, skip si non coché)'} : localise chaque symbole électrique et identifie son type.
-
+  const userPrompt = `Analyse ce plan électrique manuscrit.
+${doRooms ? "Pièces : le contour de chaque pièce, en polygone d'au moins 4 points.\n" : ''}${doWalls ? 'Murs : chaque segment de mur, extérieur et séparations.\n' : ''}${doElements ? 'Équipements : chaque symbole électrique, avec son type.\n' : ''}
 ${!doRooms ? 'Ne retourne PAS de rooms (tableau vide).' : ''}
 ${!doWalls ? 'Ne retourne PAS de walls (tableau vide).' : ''}
 ${!doElements ? 'Ne retourne PAS d\'elements (tableau vide).' : ''}
@@ -5416,6 +5454,7 @@ Retourne UNIQUEMENT le JSON final, sans commentaire.`;
         mediaType: aiImageMediaType,
         systemPrompt,
         userPrompt,
+        outputSchema: PLAN_OUTPUT_SCHEMA,
       }),
     });
 

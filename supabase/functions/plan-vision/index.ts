@@ -69,7 +69,10 @@ Deno.serve(async (req) => {
       return json({ error: 'Service temporairement indisponible. Configurez votre clé API dans votre profil pour continuer.' }, 503);
     }
 
-    const { imageBase64, mediaType, systemPrompt, userPrompt } = await req.json();
+    // outputSchema (optionnel) : schéma JSON imposé à la réponse sur la voie
+    // Anthropic (sorties structurées). Les voies Gemini / OpenAI l'ignorent et
+    // s'appuient sur la consigne JSON du prompt.
+    const { imageBase64, mediaType, systemPrompt, userPrompt, outputSchema } = await req.json();
 
     if (!imageBase64 || !systemPrompt || !userPrompt) {
       return json({ error: 'Paramètres manquants (imageBase64, systemPrompt, userPrompt).' }, 400);
@@ -144,14 +147,21 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           'x-api-key': serverAnthropicKey!,
           'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'server-side-fallback-2026-07-01',
         },
         body: JSON.stringify({
-          model: 'claude-opus-5',
+          model: 'claude-opus-5-5',
           max_tokens: 8192,
-          // Effort par défaut (high) : la réflexion dépassait le délai de la
-          // passerelle (150 s) sur les photos de tableau. Lire / décrire une
-          // photo n'a pas besoin d'une réflexion longue.
-          output_config: { effort: 'low' },
+          // En cas de refus, l'API relance la requête sur le modèle de repli
+          // recommandé au lieu de renvoyer le refus.
+          fallbacks: 'default',
+          // Effort bas : avec un effort plus élevé, la réflexion dépassait le
+          // délai de la passerelle (150 s) sur les photos de tableau. Lire /
+          // décrire une photo n'a pas besoin d'une réflexion longue.
+          output_config: {
+            effort: 'low',
+            ...(outputSchema ? { format: { type: 'json_schema', schema: outputSchema } } : {}),
+          },
           system: systemPrompt,
           messages: [{
             role: 'user',
@@ -169,6 +179,8 @@ Deno.serve(async (req) => {
       }
 
       const data = await response.json();
+      // Suivi des coûts : visible dans les logs de la fonction Supabase.
+      console.log(`plan-vision anthropic model=${data.model} in=${data.usage?.input_tokens} out=${data.usage?.output_tokens} stop=${data.stop_reason}`);
       if (data.stop_reason === 'refusal') {
         throw new Error("L'IA a refusé d'analyser cette image. Essayez avec une autre photo.");
       }
