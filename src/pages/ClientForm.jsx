@@ -715,7 +715,7 @@ const ClientForm = () => {
                                         <button
                                             type="button"
                                             onClick={() => handleContactAction('email', formData.email)}
-                                            className="p-1 text-blue-600 hover:bg-blue-50 rounded-full"
+                                            className="p-2.5 -m-1.5 text-blue-600 hover:bg-blue-50 rounded-full"
                                             title="Envoyer un email"
                                         >
                                             <Mail className="w-4 h-4" />
@@ -725,6 +725,8 @@ const ClientForm = () => {
                             </div>
                             <Input
                                 type="email"
+                                inputMode="email"
+                                autoComplete="email"
                                 id="email"
                                 name="email"
                                 value={formData.email}
@@ -742,7 +744,7 @@ const ClientForm = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => handleContactAction('call', formData.phone)}
-                                                className="p-1 text-green-600 hover:bg-green-50 rounded-full"
+                                                className="p-2.5 -m-1.5 text-green-600 hover:bg-green-50 rounded-full"
                                                 title="Appeler"
                                             >
                                                 <Phone className="w-4 h-4" />
@@ -750,7 +752,7 @@ const ClientForm = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => handleContactAction('sms', formData.phone)}
-                                                className="p-1 text-blue-600 hover:bg-blue-50 rounded-full"
+                                                className="p-2.5 -m-1.5 text-blue-600 hover:bg-blue-50 rounded-full"
                                                 title="Envoyer un SMS"
                                             >
                                                 <MessageSquare className="w-4 h-4" />
@@ -761,6 +763,8 @@ const ClientForm = () => {
                             </div>
                             <Input
                                 type="tel"
+                                inputMode="tel"
+                                autoComplete="tel"
                                 id="phone"
                                 name="phone"
                                 value={formData.phone}
@@ -781,7 +785,7 @@ const ClientForm = () => {
                                             href={`https://www.waze.com/ul?q=${encodeURIComponent([formData.address, formData.postal_code, formData.city].filter(Boolean).join(' '))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="p-1 text-blue-500 hover:bg-blue-50 rounded-full"
+                                            className="p-2.5 -m-1.5 text-blue-500 hover:bg-blue-50 rounded-full"
                                             title="Ouvrir avec Waze"
                                         >
                                             <Navigation className="w-4 h-4" />
@@ -790,7 +794,7 @@ const ClientForm = () => {
                                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([formData.address, formData.postal_code, formData.city].filter(Boolean).join(' '))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="p-1 text-green-600 hover:bg-green-50 rounded-full"
+                                            className="p-2.5 -m-1.5 text-green-600 hover:bg-green-50 rounded-full"
                                             title="Ouvrir avec Google Maps"
                                         >
                                             <MapPin className="w-4 h-4" />
