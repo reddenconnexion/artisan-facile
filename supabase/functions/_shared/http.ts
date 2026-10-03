@@ -19,8 +19,14 @@ import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supa
 
 export type HeaderMap = Record<string, string>;
 
+// Origine autorisée : définir le secret `ALLOWED_ORIGIN` (ex.
+// https://app.mondomaine.fr) pour restreindre les appels navigateur à
+// l'application. Sans secret, comportement inchangé (`*`).
+const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN')?.trim() || '*';
+
 export const corsHeaders: HeaderMap = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
+    ...(allowedOrigin !== '*' ? { Vary: 'Origin' } : {}),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
