@@ -105,19 +105,20 @@ describe('computeNetIncome — revenu net réel (Figure 2)', () => {
 });
 
 describe('estimateUrssafCharges', () => {
-    it('calcule sur le CA total, part par part (services 21,2 % / vente 12,3 %)', () => {
+    it('calcule sur le CA total, part par part (services 21,2 % / vente 12,3 %) + CFP + taxe CMA', () => {
         const c = estimateUrssafCharges({ caServices: 1000, caMateriel: 1000, activityType: 'mixte' });
-        expect(c).toBeCloseTo(1000 * 0.212 + 1000 * 0.123, 6);
+        // cotisations + CFP artisan 0,3 % du CA + CMA 0,48 % services / 0,22 % vente
+        expect(c).toBeCloseTo(1000 * 0.212 + 1000 * 0.123 + 2000 * 0.003 + 1000 * 0.0048 + 1000 * 0.0022, 6);
     });
 
-    it('applique les taux ACRE quand hasAcre', () => {
+    it('applique les taux ACRE quand hasAcre (CFP et CMA non réduites)', () => {
         const c = estimateUrssafCharges({ caServices: 1000, caMateriel: 0, activityType: 'services', hasAcre: true });
-        expect(c).toBeCloseTo(1000 * 0.106, 6);
+        expect(c).toBeCloseTo(1000 * 0.106 + 1000 * 0.003 + 1000 * 0.0048, 6);
     });
 
-    it('libéral : tout le CA au taux libéral', () => {
+    it('libéral : tout le CA au taux libéral + CFP 0,2 %, sans taxe de chambre', () => {
         const c = estimateUrssafCharges({ caServices: 2000, caMateriel: 0, activityType: 'liberal' });
-        expect(c).toBeCloseTo(2000 * 0.256, 6);
+        expect(c).toBeCloseTo(2000 * 0.256 + 2000 * 0.002, 6);
     });
 
     it('retourne null hors micro-entreprise', () => {

@@ -152,6 +152,8 @@ export const isCountedPaidDoc = (doc, paidQuoteIds) =>
 /**
  * Ventile le CA HT d'un document entre main d'œuvre et matériel, d'après le
  * type de ses lignes. Sans lignes, tout le montant est compté en main d'œuvre.
+ * Les options non retenues (is_optional) ne sont pas dues : elles ne font pas
+ * partie du total du document et ne doivent pas gonfler le CA déclaré.
  *
  * @returns {{serviceAmount:number, materialAmount:number}}
  */
@@ -160,6 +162,7 @@ export const splitServiceMaterial = (doc) => {
     let materialAmount = 0;
     if (Array.isArray(doc?.items) && doc.items.length > 0) {
         doc.items.forEach((item) => {
+            if (item.type === 'section' || item.is_optional) return;
             const line = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
             if (item.type === 'material') materialAmount += line;
             else serviceAmount += line;

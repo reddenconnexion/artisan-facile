@@ -11,6 +11,84 @@ export const URSSAF_RATES = {
     }
 };
 
+// Contributions prélevées par l'URSSAF EN PLUS des cotisations sociales, sur
+// la même déclaration de CA (non réduites par l'ACRE) :
+//   - CFP (contribution à la formation professionnelle) : 0,3 % artisan,
+//     0,1 % commerçant, 0,2 % libéral, sur tout le CA ;
+//   - taxe pour frais de chambre consulaire : CMA pour un artisan (0,48 % des
+//     prestations, 0,22 % des ventes), CCI pour un commerçant (0,015 % des
+//     ventes), rien pour un libéral.
+// Les activités « services » et « mixte » de l'app sont des activités
+// artisanales (inscription CMA) ; « vente » seule est commerciale.
+export const MICRO_EXTRA_RATES = {
+    artisan: { cfp: 0.003, chamberServices: 0.0048, chamberVente: 0.0022, chamberLabel: 'Taxe CMA' },
+    commercant: { cfp: 0.001, chamberServices: 0.00044, chamberVente: 0.00015, chamberLabel: 'Taxe CCI' },
+    liberal: { cfp: 0.002, chamberServices: 0, chamberVente: 0, chamberLabel: null },
+};
+
+const extraRatesFor = (activityType) => {
+    if (activityType === 'liberal') return MICRO_EXTRA_RATES.liberal;
+    if (activityType === 'vente') return MICRO_EXTRA_RATES.commercant;
+    return MICRO_EXTRA_RATES.artisan;
+};
+
+const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * Montant total à payer à l'URSSAF pour un CA déclaré (micro-entreprise) :
+ * cotisations sociales (chaque part à son taux, ACRE éventuelle) + CFP + taxe
+ * de chambre consulaire. Source unique pour la Comptabilité et le Tableau de bord.
+ *
+ * @returns {{
+ *   total: number, cotisations: number, cfp: number, chamber: number,
+ *   chamberLabel: string|null, cfpRate: number,
+ *   services: {ca: number, rate: number, charges: number},
+ *   vente: {ca: number, rate: number, charges: number},
+ * }}
+ */
+export const computeMicroContributions = ({
+    caServices = 0,
+    caVente = 0,
+    activityType = 'services',
+    hasAcre = false,
+} = {}) => {
+    const rates = URSSAF_RATES.micro_entreprise;
+    const s = toNum(caServices);
+    const v = toNum(caVente);
+    const pick = (cfg) => (hasAcre ? cfg.acre : cfg.normal);
+
+    let sRate;
+    let vRate;
+    if (activityType === 'liberal') {
+        sRate = pick(rates.liberal);
+        vRate = pick(rates.liberal);
+    } else {
+        sRate = pick(rates.services);
+        vRate = pick(rates.vente);
+    }
+
+    const extra = extraRatesFor(activityType);
+    const services = { ca: s, rate: sRate, charges: s * sRate };
+    const vente = { ca: v, rate: vRate, charges: v * vRate };
+    const cotisations = services.charges + vente.charges;
+    const cfp = (s + v) * extra.cfp;
+    const chamber = s * extra.chamberServices + v * extra.chamberVente;
+
+    return {
+        total: cotisations + cfp + chamber,
+        cotisations,
+        cfp,
+        cfpRate: extra.cfp,
+        chamber,
+        chamberLabel: extra.chamberLabel,
+        services,
+        vente,
+    };
+};
+
 /**
  * Calcule le taux applicable pour un montant donné en fonction du type
  */

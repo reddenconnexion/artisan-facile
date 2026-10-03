@@ -16,7 +16,7 @@
 // Fonctions PURES : aucune dépendance React/réseau (cf. laborCost.js). Les taux
 // sociaux 2026 proviennent de taxUtils.URSSAF_RATES (source unique, non dupliquée).
 
-import { URSSAF_RATES } from './taxUtils';
+import { computeMicroContributions } from './taxUtils';
 import { MICRO_ABATEMENT } from './accountingAdvisor';
 
 // Part du matériel que l'artisan conserve en marge (le reste ressort pour l'achat).
@@ -48,10 +48,11 @@ const num = (v) => {
 };
 
 /**
- * Estime les cotisations sociales URSSAF sur le CA encaissé (micro uniquement).
- * Calcul sur le CA TOTAL (services + matériel), part par part.
+ * Estime le montant à payer à l'URSSAF sur le CA encaissé (micro uniquement) :
+ * cotisations sociales + CFP + taxe de chambre consulaire, calculées sur le CA
+ * TOTAL (services + matériel), part par part (cf. computeMicroContributions).
  *
- * @returns {number|null} cotisations estimées, ou null si statut non-micro.
+ * @returns {number|null} montant estimé, ou null si statut non-micro.
  */
 export const estimateUrssafCharges = ({
     caServices = 0,
@@ -61,18 +62,7 @@ export const estimateUrssafCharges = ({
     status = 'micro_entreprise',
 } = {}) => {
     if (status !== 'micro_entreprise') return null;
-    const rates = URSSAF_RATES.micro_entreprise;
-    const s = num(caServices);
-    const m = num(caMateriel);
-
-    if (activityType === 'liberal') {
-        const r = hasAcre ? rates.liberal.acre : rates.liberal.normal;
-        return (s + m) * r;
-    }
-    // Services + vente (matériel) : chacun à son taux (identique au mode « mixte »).
-    const sRate = hasAcre ? rates.services.acre : rates.services.normal;
-    const vRate = hasAcre ? rates.vente.acre : rates.vente.normal;
-    return s * sRate + m * vRate;
+    return computeMicroContributions({ caServices, caVente: caMateriel, activityType, hasAcre }).total;
 };
 
 /**

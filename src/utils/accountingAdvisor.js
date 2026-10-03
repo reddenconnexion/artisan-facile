@@ -5,13 +5,13 @@
 // profil en un bilan structuré (CA, charges, résultat net, évolution) qui sert
 // à la fois à l'affichage (graphiques, KPI) et à la génération de conseils IA.
 
-import { URSSAF_RATES } from './taxUtils';
+import { URSSAF_RATES, computeMicroContributions } from './taxUtils';
 
-// Plafonds de CA micro-entreprise 2025/2026 (cohérents avec Accounting.jsx)
+// Plafonds de CA micro-entreprise 2026-2028 (cohérents avec Accounting.jsx)
 export const CA_LIMITS = {
-  services: 77700,
-  vente: 188700,
-  liberal: 77700,
+  services: 83600,
+  vente: 203100,
+  liberal: 83600,
 };
 
 // Seuils de franchise en base de TVA 2025/2026
@@ -79,6 +79,8 @@ const splitInvoice = (inv, activityType) => {
   let vente = 0;
   if (Array.isArray(inv.items) && inv.items.length > 0) {
     inv.items.forEach((item) => {
+      // Titres de section et options non retenues ne sont pas facturés.
+      if (item.type === 'section' || item.is_optional) return;
       const lineTotal = toNumber(item.price) * toNumber(item.quantity);
       if (item.type === 'material') vente += lineTotal;
       else services += lineTotal;
@@ -144,9 +146,13 @@ export const analyzeFinancials = (invoices, prefs = {}, now = new Date()) => {
       let charges = null;
       let chargesRate = null;
       if (isMicro) {
-        const cServices = b.caServices * microRate('services', activityType, false);
-        const cVente = b.caVente * microRate('vente', activityType, false);
-        charges = cServices + cVente;
+        // Cotisations (hors ACRE) + CFP + taxe de chambre consulaire.
+        charges = computeMicroContributions({
+          caServices: b.caServices,
+          caVente: b.caVente,
+          activityType,
+          hasAcre: false,
+        }).total;
         chargesRate = caTotal > 0 ? charges / caTotal : 0;
       }
       // Résultat imposable estimé via l'abattement micro-fiscal.

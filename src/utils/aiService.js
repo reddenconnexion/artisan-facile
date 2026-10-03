@@ -1173,7 +1173,7 @@ RÈGLES IMPÉRATIVES :
 - Chiffre les gains/économies estimés quand c'est possible (ordres de grandeur, en précisant « estimation »).
 - Conseils actionnables, pédagogiques, sans jargon inutile. Tutoiement professionnel.
 - Tu n'es pas un avis fiscal personnalisé opposable : rappelle brièvement de valider avec un expert-comptable avant toute démarche importante.
-- Seuils/taux 2025-2026 : micro services BIC cotisations ≈ 21,2 %, vente BIC ≈ 12,3 %, libéral BNC ≈ 24,6 %. Plafonds micro : 77 700 € (services/BNC), 188 700 € (vente). Franchise TVA : 37 500 € (services), 85 000 € (vente).
+- Seuils/taux 2026 : micro services BIC cotisations ≈ 21,2 %, vente BIC ≈ 12,3 %, libéral BNC ≈ 25,6 % ; + CFP (0,3 % artisan) et taxe CMA (0,48 % services, 0,22 % vente) prélevées par l'URSSAF. Plafonds micro 2026-2028 : 83 600 € (services/BNC), 203 100 € (vente). Franchise TVA : 37 500 € (services), 85 000 € (vente).
 
 FORMAT DE RÉPONSE — JSON STRICT UNIQUEMENT, sans markdown, sans texte avant/après :
 {
