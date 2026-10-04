@@ -23,6 +23,7 @@ import { queuePhoto } from '../utils/photoOutbox';
  *  - clientId      : id du client (obligatoire)
  *  - clientName    : nom affiché (facultatif)
  *  - contextLabel  : libellé de contexte enregistré en description (ex. titre du RDV)
+ *  - projectId     : dossier photos du chantier où ranger les clichés (facultatif)
  *  - onClose       : fermeture du modal
  *  - onUploaded    : callback(count) après upload réussi (facultatif)
  */
@@ -32,7 +33,7 @@ const CATEGORIES = [
     { id: 'after', label: 'Après' },
 ];
 
-const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, onUploaded }) => {
+const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', projectId = null, onClose, onUploaded }) => {
     const { user } = useAuth();
     // Appareil photo (un cliché, ré-appuyable) et galerie (sélection multiple)
     // séparés : capture + multiple sur un même input ne fait ni l'un ni l'autre
@@ -105,7 +106,9 @@ const QuickPhotoCapture = ({ clientId, clientName, contextLabel = '', onClose, o
             const queued = [];
             for (const blob of compressed) {
                 const path = `${user.id}/${clientId}/${crypto.randomUUID()}.jpg`;
-                const row = { user_id: user.id, client_id: clientId, category, description };
+                // projectId : dossier photos du chantier (fiche Affaire), sinon
+                // la photo reste rattachée au seul client.
+                const row = { user_id: user.id, client_id: clientId, category, description, ...(projectId ? { project_id: projectId } : {}) };
                 if (!networkDown) {
                     try {
                         const { error: uploadError } = await supabase.storage

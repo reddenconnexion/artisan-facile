@@ -14,6 +14,7 @@ import { Card, Button, LoadingState, EmptyState } from '../components/ui';
 import DevisProgress from '../components/DevisProgress';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import { ChantierMarginCard } from '../components/ChantierMargin';
+import AffaireTerrain from '../components/AffaireTerrain';
 import { useDepositActions } from './devis-form/useDepositActions';
 
 const STATUS_LABELS = {
@@ -321,6 +322,10 @@ const Affaire = () => {
                     loading={busy}
                 />
             )}
+
+            {/* Le chantier : hors devis, photos, RDV, avancement, matériel,
+                heures et rapports, sans quitter l'affaire */}
+            <AffaireTerrain quote={quote} linkedDocs={children} />
 
             {/* Détail des étapes */}
             <Card as="ol" className="divide-y divide-gray-100 dark:divide-white/10">
