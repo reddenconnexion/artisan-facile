@@ -186,6 +186,7 @@ const WorksitePilot = lazyWithRetry(() => import('./pages/CRM'));
 const ClientForm = lazyWithRetry(() => import('./pages/ClientForm'));
 const DevisList = lazyWithRetry(() => import('./pages/DevisList'));
 const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
+const Affaire = lazyWithRetry(() => import('./pages/Affaire'));
 const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
 const Maintenance = lazyWithRetry(() => import('./pages/Maintenance'));
@@ -283,6 +284,7 @@ function App() {
                 <Route path="crm" element={<Navigate to="/app/chantiers" replace />} />
                 <Route path="devis" element={<DevisList />} />
                 <Route path="devis/:id" element={<DevisForm />} />
+                <Route path="affaires/:id" element={<Affaire />} />
                 <Route path="maintenance" element={<Maintenance />} />
                 <Route path="rentals" element={<Rentals />} />
                 <Route path="library" element={<PriceLibrary />} />

@@ -44,6 +44,7 @@ import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { effectiveLineCost } from '../utils/quoteInternalDetail';
 import DepositNextStepCard from '../components/DepositNextStepCard';
+import AffaireLink from './devis-form/AffaireLink';
 import { formatDate, formatCurrency } from '../utils/format';
 import ClientDisplayModeBar from './devis-form/ClientDisplayModeBar';
 import DocumentActionModals from './devis-form/DocumentActionModals';
@@ -1845,6 +1846,14 @@ const DevisForm = () => {
         />
     ) : null;
 
+    // Accès au suivi de l'affaire : dès que le devis est parti chez le client,
+    // ou depuis un document lié (acompte, avenant, clôture). Un avoir se
+    // rattache à une facture, pas au devis : il n'y donne pas accès.
+    const affaireLink = isEditing && id && id !== 'new' && formData.type !== 'credit_note'
+        && (formData.parent_id || (formData.status && formData.status !== 'draft'))
+        ? <AffaireLink id={formData.parent_id || id} />
+        : null;
+
     if (dataLoaded && pdfOverviewMode) {
         return (
             <div className="max-w-5xl mx-auto pb-12 animate-slide-in-right">
@@ -1871,6 +1880,7 @@ const DevisForm = () => {
                     showOverviewDocsMenu={showOverviewDocsMenu}
                     signatureSuspended={signatureSuspended}
                     suspendedSignatureBanner={suspendedSignatureBanner}
+                    affaireLink={affaireLink}
                 />
             </div>
         );
@@ -1897,6 +1907,8 @@ const DevisForm = () => {
                     handleUnlockRevision={handleUnlockRevision}
                 />
             )}
+
+            {affaireLink}
 
             {depositNextStep && (() => {
                 const toTTC = (ht) => (depositNextStep.root.include_tva ? ht * 1.2 : ht);
