@@ -385,11 +385,11 @@ const Procurement = () => {
                     </p>
                 </div>
                 <Link
-                    to="/terrain"
+                    to="/terrain?mode=commande"
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ios hover:bg-ios-dark text-white text-sm font-semibold shadow-sm"
                 >
                     <Mic className="w-4 h-4" />
-                    Mode terrain
+                    Dicter sur le chantier
                 </Link>
             </div>
 
@@ -507,7 +507,7 @@ const Procurement = () => {
                 >
                     {statusFilter === 'pending' && (
                         <Link
-                            to="/terrain"
+                            to="/terrain?mode=commande"
                             className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700"
                         >
                             Ajouter depuis le terrain <ExternalLink className="w-3.5 h-3.5" />

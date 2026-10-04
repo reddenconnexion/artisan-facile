@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Calendar, CheckCircle, FileText, ArrowRight, Wrench, Navigation, Car, Zap, Loader2, Package, Info } from 'lucide-react';
+import { Calendar, CheckCircle, FileText, ArrowRight, Navigation, Car, Zap, Loader2, Package, Info } from 'lucide-react';
 import { DismissibleHelp } from './ui';
 import ChantierMaterialModal from './ChantierMaterialModal';
 import { useNavigate } from 'react-router-dom';
@@ -152,24 +152,10 @@ const ActionableDashboard = ({ user }) => {
                 .order('updated_at', { ascending: false }) // Recently worked on
                 .limit(3);
 
-            // 5. Maintenance (For plumbers/electricians)
-            let maintenanceAlerts = [];
-            const jobType = user.user_metadata?.job_type;
-            if (['plombier', 'chauffagiste', 'electricien'].includes(jobType)) {
-                const { data: alerts } = await supabase
-                    .from('maintenance_contracts')
-                    .select('*, clients(name)')
-                    .eq('user_id', user.id)
-                    .lte('next_maintenance_date', addDays(now, 30).toISOString()) // Due in next 30 days or overdue
-                    .limit(3);
-                maintenanceAlerts = alerts || [];
-            }
-
             setActionItems({
                 upcomingEvents: processedEvents || [],
                 pendingInvoices: (pendingInvoices || []).filter(q => !isTestQuote(q)),
                 draftQuotes: (draftQuotes || []).filter(q => !isTestQuote(q)),
-                maintenanceAlerts: maintenanceAlerts,
                 signedQuotes: signedQuotes || []
             });
 
@@ -345,34 +331,6 @@ const ActionableDashboard = ({ user }) => {
                     </div>
                 )}
 
-                {/* 0b. Maintenance Alerts */}
-                {actionItems.maintenanceAlerts && actionItems.maintenanceAlerts.length > 0 && (
-                    <div className="p-4 bg-orange-50/50 dark:bg-orange-900/10">
-                        <h4 className="text-xs font-bold text-orange-800 dark:text-orange-300 uppercase tracking-wider mb-3 flex items-center">
-                            <Wrench className="w-3 h-3 mr-1" /> Entretiens à prévoir
-                        </h4>
-                        <div className="space-y-2">
-                            {actionItems.maintenanceAlerts.map(contract => (
-                                <div key={contract.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded border border-orange-100 dark:border-orange-900/30 shadow-sm">
-                                    <div className="flex items-center">
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">{contract.clients?.name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {contract.equipment_name} - {format(parseISO(contract.next_maintenance_date), 'dd MMMM', { locale: fr })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => navigate('/app/maintenance')}
-                                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                                    >
-                                        Voir
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* 1. Events */}
                 {actionItems.upcomingEvents.length > 0 && (

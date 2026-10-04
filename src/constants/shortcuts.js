@@ -1,7 +1,6 @@
 import {
     FilePlus, UserPlus, FileText, Users, Calendar, Calculator, Inbox, Box,
-    ShoppingCart, ClipboardList, BookOpen, Wrench, Repeat, Truck, Image,
-    Megaphone, Mic, Map, Kanban,
+    ShoppingCart, ClipboardList, BookOpen, Mic, Map, Kanban,
 } from 'lucide-react';
 
 /**
@@ -34,11 +33,6 @@ export const SHORTCUT_CATALOG = [
     { id: 'procurement',       label: 'À commander',          short: 'Achats',    kind: 'section', icon: ShoppingCart,  color: 'bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',          path: '/app/procurement',        match: (p) => p.startsWith('/app/procurement') },
     { id: 'interventions',     label: 'Rapports',             short: 'Rapports',  kind: 'section', icon: ClipboardList, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',       path: '/app/interventions',      match: (p) => p === '/app/interventions' || p.startsWith('/app/interventions/') },
     { id: 'library',           label: 'Bibliothèque',         short: 'Biblio',    kind: 'section', icon: BookOpen,      color: 'bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',              path: '/app/library',            match: (p) => p.startsWith('/app/library') },
-    { id: 'maintenance',       label: 'Maintenance',          short: 'SAV',       kind: 'section', icon: Wrench,        color: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400',          path: '/app/maintenance',        match: (p) => p.startsWith('/app/maintenance') },
-    { id: 'recurring',         label: 'Factures récurrentes', short: 'Récurr.',   kind: 'section', icon: Repeat,        color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',     path: '/app/recurring',          match: (p) => p.startsWith('/app/recurring') },
-    { id: 'rentals',           label: 'Locations',            short: 'Loc.',      kind: 'section', icon: Truck,         color: 'bg-lime-50 text-lime-600 dark:bg-lime-900/30 dark:text-lime-400',          path: '/app/rentals',            match: (p) => p.startsWith('/app/rentals') },
-    { id: 'portfolio',         label: 'Portfolio',            short: 'Photos',    kind: 'section', icon: Image,         color: 'bg-pink-50 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400',          path: '/app/portfolio',          match: (p) => p.startsWith('/app/portfolio') },
-    { id: 'marketing',         label: 'Marketing',            short: 'Promo',     kind: 'section', icon: Megaphone,     color: 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-900/30 dark:text-fuchsia-400', path: '/app/marketing',          match: (p) => p.startsWith('/app/marketing') },
     { id: 'voice-memos',       label: 'Mémos vocaux',         short: 'Mémos',     kind: 'section', icon: Mic,           color: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',              path: '/app/voice-memos',        match: (p) => p.startsWith('/app/voice-memos') },
     { id: 'route-planner',     label: 'Tournée',              short: 'Tournée',   kind: 'section', icon: Map,           color: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',       path: '/app/route-planner',      match: (p) => p.startsWith('/app/route-planner') },
 ];

@@ -22,8 +22,8 @@ const SECTIONS = [
     {
         title: 'Navigation',
         items: [
-            { keys: [['Alt', 'H']], description: 'Tableau de bord' },
-            { keys: [['g'], ['h']], description: 'Tableau de bord (chord)' },
+            { keys: [['Alt', 'H']], description: "Aujourd'hui (accueil)" },
+            { keys: [['g'], ['h']], description: "Aujourd'hui (accueil, chord)" },
             { keys: [['g'], ['d']], description: 'Devis & factures' },
             { keys: [['g'], ['c']], description: 'Clients' },
             { keys: [['g'], ['w']], description: 'Chantiers' },

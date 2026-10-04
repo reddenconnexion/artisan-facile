@@ -1,7 +1,7 @@
 import { Mic, Camera, Sparkles } from 'lucide-react';
 
 // Shared formatting + step configuration for the site-visit AI flow.
-// Used by SiteVisitModal and VisiteTechniqueMode.
+// Used by VisiteTechniqueMode.
 
 export const formatDuration = (s) => {
     const m = Math.floor(s / 60), sec = s % 60;

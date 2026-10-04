@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield, Wrench } from 'lucide-react';
-import { isTerrainHomeEnabled, setTerrainHomeEnabled } from '../../utils/terrainHome';
+import { Settings, Sun, Moon, Keyboard, HelpCircle, ChevronRight, Shield } from 'lucide-react';
 
 const PreferencesSection = () => {
     const [isDarkMode, setIsDarkMode] = useState(() =>
@@ -14,14 +13,6 @@ const PreferencesSection = () => {
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         return () => observer.disconnect();
     }, []);
-
-    // Préférence propre à l'appareil (stockée localement) : utile sur le téléphone.
-    const [terrainHome, setTerrainHome] = useState(isTerrainHomeEnabled);
-    const handleToggleTerrainHome = () => {
-        const next = !terrainHome;
-        setTerrainHome(next);
-        setTerrainHomeEnabled(next);
-    };
 
     const handleToggleTheme = () => window.dispatchEvent(new Event('artisan:toggle-theme'));
     const handleOpenShortcuts = () => window.dispatchEvent(new Event('artisan:open-shortcuts'));
@@ -53,27 +44,6 @@ const PreferencesSection = () => {
                             </span>
                         </span>
                         <span className="text-xs font-medium text-blue-600">Basculer</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-checked={terrainHome}
-                        onClick={handleToggleTerrainHome}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
-                    >
-                        <span className="flex items-center gap-3">
-                            <Wrench className="w-5 h-5 text-orange-500" />
-                            <span>
-                                <span className="block text-sm font-medium text-gray-900 dark:text-white">Accueil sur le mode terrain</span>
-                                <span className="block text-xs text-gray-500 dark:text-gray-400">
-                                    Sur téléphone, ouvrir l'appli directement sur le mode terrain (réglage de cet appareil)
-                                </span>
-                            </span>
-                        </span>
-                        <span className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${terrainHome ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${terrainHome ? 'translate-x-5' : ''}`} />
-                        </span>
                     </button>
 
                     <button

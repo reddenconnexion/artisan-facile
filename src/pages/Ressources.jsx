@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Mic, Truck, Zap, Tag, ChevronRight } from 'lucide-react';
+import { BookOpen, Mic, Zap, Tag, ChevronRight } from 'lucide-react';
 
 const COLOR = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -13,13 +13,8 @@ const COLOR = {
 const Ressources = () => {
     const { user } = useAuth();
     const userSettings = user?.user_metadata?.activity_settings || {};
-    const jobType = user?.user_metadata?.job_type;
-    const skillLevel = userSettings.skill_level ?? 'debutant';
-    const showConfirme = skillLevel === 'confirme';
 
     const enablePriceLibrary = userSettings.enable_price_library ?? true;
-    const enableRentals = userSettings.enable_rentals
-        ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType);
 
     const tools = [
         ...(enablePriceLibrary ? [{
@@ -50,13 +45,6 @@ const Ressources = () => {
             icon: Mic,
             color: 'rose',
         },
-        ...(enableRentals && showConfirme ? [{
-            name: 'Locations de matériel',
-            description: "Suivez les locations d'équipements (échafaudages, mini-pelles...).",
-            href: '/app/rentals',
-            icon: Truck,
-            color: 'emerald',
-        }] : []),
     ];
 
     return (
