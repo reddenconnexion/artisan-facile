@@ -8,6 +8,8 @@ import { supabase } from '../utils/supabase';
 import { fetchWorksites, WORKSITE_STAGES, updateWorksiteUrgency } from '../utils/worksites';
 import { urgencyWeight } from '../utils/urgency';
 import { UrgencyBadge } from './ui';
+import { useChantierMargins } from '../hooks/useChantierMargins';
+import { MarginBadge, MarginAlertBanner } from './ChantierMargin';
 
 // Métadonnées d'affichage par colonne (reprend les étapes partagées + une icône
 // et une couleur de liseré, alignées sur la page Pilotage Chantiers).
@@ -35,6 +37,7 @@ const WorksitesKanban = () => {
 
     const [loading, setLoading] = useState(true);
     const [worksites, setWorksites] = useState([]);
+    const [amendments, setAmendments] = useState([]);
     const [movingId, setMovingId] = useState(null);
     const [dragOverStage, setDragOverStage] = useState(null);
 
@@ -48,8 +51,11 @@ const WorksitesKanban = () => {
         let active = true;
         (async () => {
             try {
-                const { worksites: data } = await fetchWorksites();
-                if (active) setWorksites(data.filter(q => !isTestQuote(q)));
+                const { worksites: data, amendments: amendmentRows } = await fetchWorksites();
+                if (active) {
+                    setWorksites(data.filter(q => !isTestQuote(q)));
+                    setAmendments(amendmentRows);
+                }
             } catch (e) {
                 console.error('WorksitesKanban load failed', e);
             } finally {
@@ -58,6 +64,8 @@ const WorksitesKanban = () => {
         })();
         return () => { active = false; };
     }, [user, isTestQuote]);
+
+    const { reports: marginReports, alerts: marginAlerts, threshold: marginThreshold } = useChantierMargins(worksites, amendments);
 
     const byStage = useMemo(() => {
         const map = Object.fromEntries(WORKSITE_STAGES.map(s => [s.id, []]));
@@ -132,6 +140,12 @@ const WorksitesKanban = () => {
                 </button>
             </div>
 
+            {marginAlerts.length > 0 && (
+                <div className="px-3 pt-3">
+                    <MarginAlertBanner alerts={marginAlerts} threshold={marginThreshold} compact />
+                </div>
+            )}
+
             {/* Colonnes — défilement horizontal, chaque colonne défile verticalement */}
             <div className="flex gap-3 overflow-x-auto p-3" role="group" aria-label="Chantiers par étape">
                 {WORKSITE_STAGES.map(stage => {
@@ -189,6 +203,9 @@ const WorksitesKanban = () => {
                                                 </p>
                                                 <UrgencyBadge value={job.urgency} onChange={(u) => handleUrgencyChange(job.id, u)} />
                                             </div>
+                                            {marginReports.get(Number(job.id)) && (
+                                                <MarginBadge report={marginReports.get(Number(job.id))} className="mt-1" />
+                                            )}
                                         </div>
                                     ))
                                 )}

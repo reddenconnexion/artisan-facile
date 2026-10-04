@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Timer, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../utils/supabase';
+import { mergeAiPreferences } from '../utils/aiPreferences';
 import { useAuth } from '../context/AuthContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { computeHourlyCost, DEFAULT_BILLABLE_HOURS } from '../utils/laborCost';
@@ -71,10 +71,9 @@ const HourlyCostCalculator = ({ profile, chargesAnnual = 0, cotisationsAnnual = 
         if (!user || rate <= 0) return;
         setSaving(true);
         try {
-            // Lecture-modification-écriture : ne pas écraser les autres clés de
-            // ai_preferences (clé API, zones, taux facturé…).
-            const nextPrefs = {
-                ...prefs,
+            // Fusion côté ligne brute : ne pas écraser les autres clés de
+            // ai_preferences (référence de la clé API, zones, taux facturé…).
+            await mergeAiPreferences(user.id, {
                 labor_cost_rate: round2(rate),
                 labor_cost_inputs: {
                     netMonthly: parseFloat(netMonthly) || 0,
@@ -82,9 +81,7 @@ const HourlyCostCalculator = ({ profile, chargesAnnual = 0, cotisationsAnnual = 
                     fixedCharges: parseFloat(fixedCharges) || 0,
                     billableHours: parseFloat(billableHours) || 0,
                 },
-            };
-            const { error } = await supabase.from('profiles').update({ ai_preferences: nextPrefs }).eq('id', user.id);
-            if (error) throw error;
+            });
             invalidateProfile();
             toast.success('Coût horaire enregistré', {
                 description: 'Vos devis afficheront désormais une marge nette (main d\'œuvre incluse).',

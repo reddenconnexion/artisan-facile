@@ -13,6 +13,7 @@ import { markInvoicePaid } from '../utils/followUpService';
 import { Card, Button, LoadingState, EmptyState } from '../components/ui';
 import DevisProgress from '../components/DevisProgress';
 import DepositNextStepCard from '../components/DepositNextStepCard';
+import { ChantierMarginCard } from '../components/ChantierMargin';
 import { useDepositActions } from './devis-form/useDepositActions';
 
 const STATUS_LABELS = {
@@ -280,6 +281,9 @@ const Affaire = () => {
                     </p>
                 </div>
             </Card>
+
+            {/* Marge réelle : devis rapproché des achats saisis et des heures pointées */}
+            {['accepted', 'billed', 'paid'].includes(quote.status) && <ChantierMarginCard quote={quote} />}
 
             {/* Prochaine étape */}
             {completed ? (
