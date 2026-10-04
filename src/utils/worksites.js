@@ -43,7 +43,10 @@ function deriveStage(q, depositsMap) {
  * leur étape courante auto-classée, ainsi que les heures pointées et prévues
  * par chantier (devis initial + avenants, comptés ensemble).
  *
- * @returns {Promise<{ worksites: object[], spentByQuote: Record<number, number>, estimatedByQuote: Record<number, number> }>}
+ * Renvoie aussi les avenants (lignes avec parent_quote_id), pour la marge
+ * réelle consolidée de chaque chantier (voir useChantierMargins).
+ *
+ * @returns {Promise<{ worksites: object[], amendments: object[], spentByQuote: Record<number, number>, estimatedByQuote: Record<number, number> }>}
  */
 export async function fetchWorksites() {
     const { data, error } = await supabase
@@ -94,7 +97,7 @@ export async function fetchWorksites() {
         estimatedByQuote[w.id] = h?.estimated || 0;
     }
 
-    return { worksites, spentByQuote, estimatedByQuote };
+    return { worksites, amendments: amendments || [], spentByQuote, estimatedByQuote };
 }
 
 /** Met à jour l'urgence client d'un chantier (devis). */

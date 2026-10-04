@@ -17,6 +17,8 @@ import { fetchWorksites as fetchWorksitesData, WORKSITE_STAGE_MAP, updateWorksit
 import { urgencyWeight } from '../utils/urgency';
 import { UrgencyBadge } from '../components/ui';
 import { formatDate } from '../utils/format';
+import { useChantierMargins } from '../hooks/useChantierMargins';
+import { MarginBadge, MarginAlertBanner } from '../components/ChantierMargin';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -27,6 +29,7 @@ const WorksitePilot = () => {
     const [worksites, setWorksites] = useState([]);
     const [spentByQuote, setSpentByQuote] = useState({});
     const [estimatedByQuote, setEstimatedByQuote] = useState({});
+    const [amendments, setAmendments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     // Une arrivée depuis l'agenda (« Planning chantiers ») ouvre directement la
     // vue planning, sinon on reprend la dernière vue utilisée.
@@ -118,7 +121,8 @@ const WorksitePilot = () => {
         try {
             // Chantiers + heures pointées, avec étapes auto-classées (util partagé
             // avec le widget du tableau de bord pour garder des chiffres cohérents).
-            const { worksites: processedData, spentByQuote: spent, estimatedByQuote: estimated } = await fetchWorksitesData();
+            const { worksites: processedData, amendments: amendmentRows, spentByQuote: spent, estimatedByQuote: estimated } = await fetchWorksitesData();
+            setAmendments(amendmentRows);
             setSpentByQuote(spent);
             setEstimatedByQuote(estimated);
             setWorksites(processedData);
@@ -129,6 +133,10 @@ const WorksitePilot = () => {
             setLoading(false);
         }
     };
+
+    // Marge réelle par chantier (devis + avenants signés vs achats saisis et
+    // heures pointées) et alertes sous le seuil.
+    const { reports: marginReports, alerts: marginAlerts, threshold: marginThreshold } = useChantierMargins(worksites, amendments);
 
     const updateStage = async (quoteId, newStage) => {
         try {
@@ -264,6 +272,18 @@ const WorksitePilot = () => {
                 </div>
             </div>
 
+            {/* Alerte marge réelle sous le seuil */}
+            {marginReports.size > 0 && (
+                <div className="px-4 mb-4 shrink-0">
+                    <MarginAlertBanner
+                        alerts={marginAlerts}
+                        threshold={marginThreshold}
+                        trackedCount={marginReports.size}
+                        showWhenEmpty
+                    />
+                </div>
+            )}
+
             {/* Planning — timeline des chantiers */}
             {view === 'planning' && <WorksitePlanning worksites={worksites} />}
 
@@ -351,6 +371,7 @@ const WorksitePilot = () => {
                                                 <div className="flex flex-col items-end gap-1 shrink-0">
                                                     <span className="font-bold text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap">{Number(job.total_ttc || 0).toFixed(2)} €</span>
                                                     <UrgencyBadge value={job.urgency} onChange={(u) => handleUrgencyChange(job.id, u)} />
+                                                    <MarginBadge report={marginReports.get(Number(job.id))} />
                                                 </div>
                                             </div>
 

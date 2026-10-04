@@ -4,6 +4,9 @@
 // recomposer chacune leur calcul à partir des briques de bas niveau :
 //   - fiche devis (DevisForm) : marge prévue, marge réalisée du document,
 //     marge réalisée consolidée du chantier → `quoteMarginSummary` ;
+//   - Pilotage Chantiers, suivi d'affaire, tableau de bord : marge réelle de
+//     chaque chantier et alerte sous le seuil → `chantierMarginReport`,
+//     `chantierMarginAlerts`, `marginAlertLevel` ;
 //   - Comptabilité et Tableau de bord : ventilation main d'œuvre / matériel
 //     des documents payés, puis revenu net de la période avec la marge
 //     matériel au réel quand les achats sont suivis → `splitServiceMaterial`,
@@ -23,6 +26,7 @@ import {
     realizedNetAdjustment,
 } from './realizedMargin';
 import { computeNetIncome } from './netIncome';
+import { isAmendmentRow } from './amendmentIndex';
 
 const num = (v) => {
     const n = parseFloat(v);
@@ -114,6 +118,164 @@ export const quoteMarginSummary = ({
         : null;
 
     return { laborRate, planned, realized, chantier };
+};
+
+// ── Marge réelle par chantier et alerte ─────────────────────────────────────
+
+/** Seuil d'alerte par défaut (en %), aligné sur le rouge des indicateurs de marge. */
+export const DEFAULT_MARGIN_ALERT_THRESHOLD = 20;
+
+/** Écart (en points) au-dessus du seuil où la marge est signalée « à surveiller ». */
+export const MARGIN_WATCH_BAND = 5;
+
+const SIGNED_STATUSES = ['accepted', 'billed', 'paid'];
+
+/**
+ * Seuil d'alerte de marge (en %) lu dans le profil (ai_preferences
+ * aplaties par useUserProfile), à défaut DEFAULT_MARGIN_ALERT_THRESHOLD.
+ */
+export const marginAlertThreshold = (profile) => {
+    const raw = profile?.margin_alert_threshold;
+    if (raw == null || raw === '') return DEFAULT_MARGIN_ALERT_THRESHOLD;
+    const v = parseFloat(raw);
+    return Number.isFinite(v) && v >= 0 && v < 100 ? v : DEFAULT_MARGIN_ALERT_THRESHOLD;
+};
+
+/**
+ * Niveau d'alerte d'une marge (ratio, ex. 0.18) face à un seuil en %.
+ * @returns {'below'|'watch'|'ok'|null} null si la marge est inconnue.
+ */
+export const marginAlertLevel = (margin, thresholdPct = DEFAULT_MARGIN_ALERT_THRESHOLD) => {
+    if (margin == null || !Number.isFinite(margin)) return null;
+    const t = num(thresholdPct) / 100;
+    if (margin < t) return 'below';
+    if (margin < t + MARGIN_WATCH_BAND / 100) return 'watch';
+    return 'ok';
+};
+
+/**
+ * Documents qui forment le CA d'un chantier : le devis initial et ses avenants
+ * SIGNÉS (y compris un avenant converti en facture, qui garde
+ * parent_quote_id). Les acomptes, situations et factures de clôture ne
+ * s'ajoutent pas : ils refacturent ce total, ils ne l'augmentent pas.
+ *
+ * @param {object} root        Devis initial (id, items, total_ht).
+ * @param {Array}  linkedRows  Lignes `quotes` candidates (avenants du compte,
+ *                             toutes racines confondues : filtrées ici).
+ * @returns {Array<{id, items, total_ht}>}
+ */
+export const chantierDocsFor = (root, linkedRows) => {
+    if (!root || root.id == null) return [];
+    const rootId = Number(root.id);
+    const amendments = (Array.isArray(linkedRows) ? linkedRows : []).filter((r) =>
+        r
+        && Number(r.id) !== rootId
+        && Number(r.parent_quote_id) === rootId
+        && isAmendmentRow(r)
+        && SIGNED_STATUSES.includes(lowerOr(r.status, ''))
+    );
+    return [root, ...amendments].map((d) => ({ id: d.id, items: d.items, total_ht: d.total_ht }));
+};
+
+/**
+ * Marge réelle d'UN chantier : CA du devis + avenants signés rapproché des
+ * achats saisis (« Matériel à commander », dont les commandes chantier) et des
+ * heures pointées × coût horaire, puis niveau d'alerte face au seuil.
+ *
+ * Tant qu'un poste n'a rien de réel (aucun achat au prix renseigné, aucune
+ * heure pointée), il reste à sa valeur prévue au devis : la marge affichée
+ * est la meilleure estimation à date.
+ *
+ * @returns {null|(ReturnType<typeof chantierRealizedMargin> & {
+ *   level:'below'|'watch'|'ok', threshold:number, gapPts:number,
+ *   laborRateMissing:boolean })}
+ *   null si rien n'est encore réalisé sur le chantier.
+ */
+export const chantierMarginReport = ({
+    root,
+    linkedRows,
+    procurementCosts,
+    spentHoursMap,
+    laborCostRate,
+    thresholdPct = DEFAULT_MARGIN_ALERT_THRESHOLD,
+}) => {
+    const docs = chantierDocsFor(root, linkedRows);
+    if (docs.length === 0) return null;
+    const rate = num(laborCostRate);
+    const m = chantierRealizedMargin(docs, procurementCosts, spentHoursMap, rate);
+    if (!m || m.revenue <= 0) return null;
+    const threshold = num(thresholdPct);
+    // Heures pointées mais coût horaire inconnu : la main d'œuvre réelle ne
+    // peut pas être chiffrée, la marge reste au prévu sur ce poste.
+    const laborRateMissing = rate <= 0 && m.spentHours > 0;
+    return {
+        ...m,
+        level: marginAlertLevel(m.margin, threshold),
+        threshold,
+        gapPts: Math.round((m.margin * 100 - threshold) * 10) / 10,
+        laborRateMissing,
+    };
+};
+
+/**
+ * Marge réelle de plusieurs chantiers (Pilotage, tableau de bord).
+ *
+ * @param {object} p
+ * @param {Array} p.roots            Devis initiaux des chantiers.
+ * @param {Array} p.linkedRows       Avenants du compte (filtrés par chantier).
+ * @param {Map}   p.procurementCosts Résultat de procurementCostByQuote.
+ * @param {Map}   p.spentHoursMap    Résultat de spentHoursByQuote.
+ * @param {number} p.laborCostRate
+ * @param {number} [p.thresholdPct]
+ * @returns {Map<number, ReturnType<typeof chantierMarginReport>>} id racine →
+ *          rapport (seuls les chantiers ayant du réalisé y figurent).
+ */
+export const chantierMarginReports = ({
+    roots,
+    linkedRows,
+    procurementCosts,
+    spentHoursMap,
+    laborCostRate,
+    thresholdPct = DEFAULT_MARGIN_ALERT_THRESHOLD,
+}) => {
+    const out = new Map();
+    // Index des avenants par racine : évite un filtrage complet par chantier.
+    const byRoot = new Map();
+    (Array.isArray(linkedRows) ? linkedRows : []).forEach((r) => {
+        if (!r || r.parent_quote_id == null) return;
+        const k = Number(r.parent_quote_id);
+        if (!byRoot.has(k)) byRoot.set(k, []);
+        byRoot.get(k).push(r);
+    });
+    (Array.isArray(roots) ? roots : []).forEach((root) => {
+        if (!root || root.id == null) return;
+        const report = chantierMarginReport({
+            root,
+            linkedRows: byRoot.get(Number(root.id)) || [],
+            procurementCosts,
+            spentHoursMap,
+            laborCostRate,
+            thresholdPct,
+        });
+        if (report) out.set(Number(root.id), report);
+    });
+    return out;
+};
+
+/**
+ * Chantiers dont la marge réelle est passée sous le seuil, du pire au moins
+ * pire.
+ *
+ * @param {Array} roots
+ * @param {Map} reports Résultat de chantierMarginReports.
+ * @returns {Array<{root:object, report:object}>}
+ */
+export const chantierMarginAlerts = (roots, reports) => {
+    if (!(reports instanceof Map)) return [];
+    return (Array.isArray(roots) ? roots : [])
+        .map((root) => ({ root, report: root ? reports.get(Number(root.id)) : null }))
+        .filter((x) => x.report && x.report.level === 'below')
+        .sort((a, b) => a.report.margin - b.report.margin);
 };
 
 // ── Comptabilité / Tableau de bord ───────────────────────────────────────────

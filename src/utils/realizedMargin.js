@@ -173,7 +173,8 @@ export const realizedQuoteMargin = (items, subtotal, laborCostRate, agg, spentHo
  * @returns {null|{revenue:number, cost:number, margin:number,
  *          materialCost:number, laborCost:number, materialIsReal:boolean,
  *          laborIsReal:boolean, spentHours:number, estimatedHours:number,
- *          plannedMargin:number, delta:number, pricedCount:number,
+ *          plannedMargin:number, plannedMaterialCost:number,
+ *          plannedLaborCost:number, delta:number, pricedCount:number,
  *          totalCount:number, docCount:number}}
  *   null si rien n'est réalisé sur le chantier (aucun achat au prix
  *   renseigné, aucune heure pointée).
@@ -187,6 +188,8 @@ export const chantierRealizedMargin = (docs, procurementCosts, spentHoursMap, la
     let materialCost = 0;
     let laborCost = 0;
     let plannedCost = 0;
+    let plannedMaterialCost = 0;
+    let plannedLaborCost = 0;
     let spentHours = 0;
     let estimatedHours = 0;
     let pricedCount = 0;
@@ -200,6 +203,8 @@ export const chantierRealizedMargin = (docs, procurementCosts, spentHoursMap, la
 
         const planned = quoteMargin(doc.items, docRevenue, rate);
         plannedCost += planned.cost;
+        plannedMaterialCost += planned.materialCost;
+        plannedLaborCost += planned.laborCost;
         estimatedHours += planned.laborHours;
 
         const agg = procurementCosts instanceof Map ? procurementCosts.get(Number(doc.id)) : undefined;
@@ -233,6 +238,8 @@ export const chantierRealizedMargin = (docs, procurementCosts, spentHoursMap, la
         spentHours,
         estimatedHours,
         plannedMargin,
+        plannedMaterialCost,
+        plannedLaborCost,
         delta: margin - plannedMargin,
         pricedCount,
         totalCount,

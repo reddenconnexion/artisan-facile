@@ -139,6 +139,16 @@ export const useProfileForm = ({ user, invalidateProfile, b2bReceiverStatus, reg
         }
         try {
             setLoading(true);
+            // Préférences actuelles (ligne brute) : le formulaire ne connaît
+            // qu'une partie des clés de ai_preferences (pas la référence de la
+            // clé API, ni le coût horaire, ni le seuil d'alerte de marge…) —
+            // les réécrire à partir de lui seul les effacerait.
+            const { data: current, error: readError } = await supabase
+                .from('profiles')
+                .select('ai_preferences')
+                .eq('id', user.id)
+                .single();
+            if (readError) throw readError;
             const { error } = await supabase
                 .from('profiles')
                 .update({
@@ -168,6 +178,7 @@ export const useProfileForm = ({ user, invalidateProfile, b2bReceiverStatus, reg
                     wero_phone: formData.wero_phone,
 
                     ai_preferences: {
+                        ...(current?.ai_preferences || {}),
                         // La clé API est gérée séparément via l'Edge Function save-openai-key
                         ai_provider: formData.ai_provider,
                         ai_hourly_rate: formData.ai_hourly_rate,
