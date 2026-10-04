@@ -10,13 +10,16 @@ import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, FileText, X, Loader2,
     ChevronDown, Clock, ExternalLink, Wrench, ClipboardList,
-    ShoppingCart, MapPin, User, ClipboardCheck, Images,
+    ShoppingCart, MapPin, User, ClipboardCheck, Images, LayoutDashboard,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 import ChantierSuiviMode from '../components/ChantierSuiviMode';
 import ProcurementMode from '../components/ProcurementMode';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import TimeClockWidget from '../components/TimeClockWidget';
+import TerrainVoiceButton from '../components/TerrainVoiceButton';
+import { pickCurrentEvent } from '../utils/currentAppointment';
+import { isPhoneDevice, isTerrainHomeEnabled, setTerrainHomeEnabled, markTerrainHomeOpened } from '../utils/terrainHome';
 import { formatDate } from '../utils/format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -81,6 +84,43 @@ const TerrainMode = () => {
             })
             .catch(() => setTodayEvents([]));
     }, [user]);
+
+    // RDV du moment : la photo « en un geste » part directement chez ce client.
+    const currentEvent = pickCurrentEvent(todayEvents);
+
+    // ── Accueil terrain sur mobile ────────────────────────────────────────────
+    const isPhone = isPhoneDevice();
+    const [terrainHome, setTerrainHome] = useState(isTerrainHomeEnabled);
+    useEffect(() => { markTerrainHomeOpened(); }, []);
+
+    // ── Photo rapide sans RDV : choix du client ───────────────────────────────
+    const [pickPhotoClient, setPickPhotoClient] = useState(false);
+    const [photoClientQuery, setPhotoClientQuery] = useState('');
+    const [searchedClients, setSearchedClients] = useState(null);
+    // Les 15 clients récents suffisent d'habitude ; au-delà, recherche en base.
+    useEffect(() => {
+        const q = photoClientQuery.trim();
+        if (!user || q.length < 2) { setSearchedClients(null); return; }
+        const t = setTimeout(() => {
+            supabase.from('clients')
+                .select('id, name')
+                .ilike('name', `%${q.replace(/[%_,]/g, ' ')}%`)
+                .order('name')
+                .limit(20)
+                .then(({ data }) => setSearchedClients(data || []));
+        }, 250);
+        return () => clearTimeout(t);
+    }, [user, photoClientQuery]);
+    const photoClients = searchedClients ?? clients;
+
+    const startQuickPhoto = () => {
+        if (currentEvent?.client_id) {
+            setPhotoEvent(currentEvent);
+            return;
+        }
+        setPhotoClientQuery('');
+        setPickPhotoClient(true);
+    };
 
     // ── Chronomètre ──────────────────────────────────────────────────────────
     const [timerRunning, setTimerRunning] = useState(false);
@@ -405,47 +445,88 @@ const TerrainMode = () => {
     // ─── Rendu : sélection du mode ────────────────────────────────────────────
 
     if (!mode) {
+        const modeTiles = [
+            { id: 'depannage', label: 'Dépannage', hint: 'Rapport + signature', Icon: Wrench, tone: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' },
+            { id: 'chantier', label: 'Chantier', hint: 'Suivi du devis', Icon: ClipboardCheck, tone: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' },
+            { id: 'visite', label: 'Visite', hint: 'Pour un devis', Icon: ClipboardList, tone: 'bg-violet-100 dark:bg-violet-900/30 text-violet-600' },
+            { id: 'commande', label: 'Matériel', hint: 'À commander', Icon: ShoppingCart, tone: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' },
+        ];
+
         return (
             <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-800 flex flex-col font-sans overflow-hidden">
                 <Toaster position="top-center" richColors toastOptions={{ style: { maxWidth: 'calc(100vw - 24px)', wordBreak: 'break-word', overflowWrap: 'anywhere' } }} />
 
                 {/* Header */}
                 <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm px-3 py-3 flex items-center gap-2 safe-area-top">
+                    <div className="flex-1 min-w-0 pl-1">
+                        <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Mode terrain</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {currentEvent?.client_name ? `En cours : ${currentEvent.client_name}` : formatDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </p>
+                    </div>
                     <button
                         onClick={leaveTerrain}
-                        className="p-2 -ml-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 rounded-xl active:bg-gray-100"
-                        aria-label="Retour"
+                        className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-xl active:bg-gray-200 dark:active:bg-gray-700"
                     >
-                        <ArrowLeft className="w-5 h-5" />
+                        <LayoutDashboard className="w-4 h-4" />
+                        Bureau
                     </button>
-                    <div>
-                        <p className="font-bold text-gray-900 dark:text-white text-base leading-tight">Mode terrain</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Choisissez le type d'intervention</p>
-                    </div>
                 </div>
 
-                {/* Cards */}
                 <div className="flex-1 overflow-y-auto">
-                  <div className="min-h-full flex flex-col justify-center p-5 gap-4">
+                  <div className="p-4 space-y-4 pb-8">
+                    {/* Les deux gestes du quotidien : photo et dictée */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={startQuickPhoto}
+                            aria-label={currentEvent?.client_name ? `Photo pour ${currentEvent.client_name}` : 'Prendre une photo'}
+                            className="min-h-[9.5rem] flex flex-col items-center justify-center gap-2 rounded-3xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg active:scale-[0.97] transition-all"
+                        >
+                            <Camera className="w-12 h-12" />
+                            <span className="text-xl font-extrabold leading-none">Photo</span>
+                            <span className="text-xs font-medium opacity-75 px-2 text-center truncate max-w-full">
+                                {currentEvent?.client_name || 'Choisir le client'}
+                            </span>
+                        </button>
+                        <TerrainVoiceButton />
+                    </div>
+
                     {/* Pointage chantier : j'arrive / je repars */}
                     <TimeClockWidget compact />
+
+                    {/* Les quatre modes, en gros boutons */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {modeTiles.map(({ id, label, hint, Icon, tone }) => (
+                            <button
+                                key={id}
+                                onClick={() => setMode(id)}
+                                className="min-h-[7.5rem] flex flex-col items-start justify-between gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl text-left active:scale-[0.97] transition-all"
+                            >
+                                <span className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tone}`}>
+                                    <Icon className="w-7 h-7" />
+                                </span>
+                                <span>
+                                    <span className="block font-bold text-gray-900 dark:text-white text-lg leading-tight">{label}</span>
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{hint}</span>
+                                </span>
+                            </button>
+                        ))}
+                    </div>
 
                     {/* Interventions planifiées aujourd'hui — photos sans rechercher le client */}
                     {todayEvents.length > 0 && (
                         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-4">
                             <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" /> Planifié aujourd'hui
+                                <Clock className="w-3.5 h-3.5" /> Aujourd'hui
                             </p>
                             <div className="space-y-2">
                                 {todayEvents.map(ev => (
                                     <button
                                         key={ev.id}
                                         onClick={() => setPhotoEvent(ev)}
-                                        className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-gray-800 active:scale-[0.99] transition-all text-left"
+                                        className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 active:bg-blue-50 dark:active:bg-gray-800 active:scale-[0.99] transition-all text-left"
                                     >
-                                        <div className="flex flex-col items-center justify-center w-12 shrink-0">
-                                            <span className="text-sm font-bold text-blue-600">{ev.time || '--:--'}</span>
-                                        </div>
+                                        <span className="w-12 shrink-0 text-center text-sm font-bold text-blue-600">{ev.time || '--:--'}</span>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{ev.title}</p>
                                             {ev.client_name && (
@@ -459,87 +540,74 @@ const TerrainMode = () => {
                                                 </p>
                                             )}
                                         </div>
-                                        <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-                                            <Camera className="w-4 h-4 text-blue-600" />
-                                        </div>
+                                        <span className="w-11 h-11 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                                            <Camera className="w-5 h-5 text-blue-600" />
+                                        </span>
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-gray-400 mt-3">
-                                Touchez un rendez-vous pour ajouter des photos — le client est déjà rempli.
-                            </p>
                         </div>
                     )}
 
-                    <button
-                        onClick={() => setMode('chantier')}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-amber-400 hover:shadow-md active:scale-[0.98] transition-all group"
-                    >
-                        <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 group-hover:bg-amber-500 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
-                                <ClipboardCheck className="w-7 h-7 text-amber-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Suivi de chantier</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                    Le devis en cours sous les yeux : ce qui est prévu, ce qui ne l'est pas, et les opérations à cocher au fur et à mesure. Plus besoin d'imprimer.
-                                </p>
-                            </div>
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => setMode('depannage')}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-blue-400 hover:shadow-md active:scale-[0.98] transition-all group"
-                    >
-                        <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
-                                <Wrench className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Intervention / Dépannage</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                    Chronomètre, rapport d'intervention, photos avant/après, signature client sur place.
-                                </p>
-                            </div>
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => setMode('visite')}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-violet-400 hover:shadow-md active:scale-[0.98] transition-all group"
-                    >
-                        <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 bg-violet-100 group-hover:bg-violet-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
-                                <ClipboardList className="w-7 h-7 text-violet-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Visite technique</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                    Enregistrez la visite pendant que le client parle, photos à la volée → transcription et compte rendu complet à envoyer à votre IA devis.
-                                </p>
-                            </div>
-                        </div>
-                    </button>
-
-                    <button
-                        onClick={() => setMode('commande')}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 text-left hover:border-emerald-400 hover:shadow-md active:scale-[0.98] transition-all group"
-                    >
-                        <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors">
-                                <ShoppingCart className="w-7 h-7 text-emerald-600 group-hover:text-white transition-colors" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Matériel à commander</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                    Notez ou dictez le matériel et l'outillage qu'il vous manque sur le chantier. À commander plus tard au bureau.
-                                </p>
-                            </div>
-                        </div>
-                    </button>
+                    {/* Préférence : ouvrir l'appli sur cet écran (téléphone uniquement) */}
+                    {isPhone && (
+                        <label className="flex items-center justify-between gap-3 px-1 pt-2 text-sm text-gray-500 dark:text-gray-400">
+                            <span>Ouvrir l'appli sur le mode terrain</span>
+                            <input
+                                type="checkbox"
+                                checked={terrainHome}
+                                onChange={e => { setTerrainHome(e.target.checked); setTerrainHomeEnabled(e.target.checked); }}
+                                className="w-6 h-6 accent-blue-600"
+                            />
+                        </label>
+                    )}
                   </div>
                 </div>
+
+                {/* Photo sans RDV en cours : choisir le client en un appui */}
+                {pickPhotoClient && (
+                    <div className="fixed inset-0 z-[60] bg-black/50 flex items-end" onClick={() => setPickPhotoClient(false)}>
+                        <div
+                            className="w-full max-h-[80vh] flex flex-col bg-white dark:bg-gray-900 rounded-t-3xl safe-area-bottom"
+                            onClick={e => e.stopPropagation()}
+                            role="dialog"
+                            aria-label="Photos pour quel client ?"
+                        >
+                            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                                <p className="font-bold text-lg text-gray-900 dark:text-white">Photos pour quel client ?</p>
+                                <button onClick={() => setPickPhotoClient(false)} className="p-2 -mr-2 text-gray-400" aria-label="Fermer">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                            <div className="px-4 pb-2">
+                                <input
+                                    type="search"
+                                    value={photoClientQuery}
+                                    onChange={e => setPhotoClientQuery(e.target.value)}
+                                    placeholder="Rechercher…"
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-base"
+                                />
+                            </div>
+                            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+                                {photoClients.length === 0 ? (
+                                    <p className="text-center text-sm text-gray-400 py-6">Aucun client trouvé</p>
+                                ) : photoClients.map(c => (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => {
+                                            setPickPhotoClient(false);
+                                            setPhotoEvent({ client_id: c.id, client_name: c.name, title: 'Photos terrain' });
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-left text-base font-semibold text-gray-900 dark:text-white active:bg-blue-50 dark:active:bg-gray-800"
+                                    >
+                                        <User className="w-5 h-5 text-gray-400 shrink-0" />
+                                        <span className="truncate">{c.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {photoEvent && (
                     <QuickPhotoCapture
