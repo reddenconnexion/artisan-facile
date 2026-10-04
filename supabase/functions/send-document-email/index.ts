@@ -135,13 +135,24 @@ function splitBodyAndSignature(text: string): { body: string; sig: string } {
 
 // Signature HTML : utilise la version perso si renseignée, sinon génère
 // automatiquement à partir des champs profil (logo, nom, contact, liens).
+// Défense en profondeur : la signature est déjà nettoyée (DOMPurify) à
+// l'enregistrement côté app, mais la colonne peut être écrite par un autre
+// client. On retire ici les balises et attributs actifs.
+function stripActiveHtml(html: string): string {
+    return html
+        .replace(/<\s*(script|iframe|object|embed|form|link|meta|base|style)\b[\s\S]*?(<\s*\/\s*\1\s*>|$)/gi, '')
+        .replace(/<\s*(script|iframe|object|embed|form|link|meta|base|style)\b[^>]*>/gi, '')
+        .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        .replace(/(href|src)\s*=\s*(["']?)\s*(javascript|vbscript|data:text)[^"'>\s]*\2/gi, '$1="#"');
+}
+
 function buildHtmlSignature(profile: Record<string, unknown>): string {
     const custom = (profile.email_signature_html || '') as string;
     if (custom.trim()) {
         // `white-space:pre-wrap` preserves the line breaks and blank lines the
         // artisan typed in the signature editor — HTML normally collapses them,
         // which made the sent signature look tighter than what was entered.
-        return `<div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;white-space:pre-wrap;">${custom}</div>`;
+        return `<div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;white-space:pre-wrap;">${stripActiveHtml(custom)}</div>`;
     }
 
     const companyName = (profile.company_name || profile.full_name || '') as string;

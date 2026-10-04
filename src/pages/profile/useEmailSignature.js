@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
+import { sanitizeSignatureHtml } from '../../utils/sanitizeHtml';
 import { validateFileForUpload, UPLOAD_PRESETS } from '../../utils/uploadValidation';
 
 // Signature email personnalisée (HTML) — vide = signature auto depuis profil
@@ -19,12 +20,14 @@ export const useEmailSignature = (user) => {
     const handleSaveSignature = async () => {
         setSavingSignature(true);
         try {
+            const cleanHtml = sanitizeSignatureHtml(emailSignatureHtml).trim();
+            setEmailSignatureHtml(cleanHtml);
             const { error } = await supabase
                 .from('profiles')
-                .update({ email_signature_html: emailSignatureHtml.trim() || null })
+                .update({ email_signature_html: cleanHtml || null })
                 .eq('id', user.id);
             if (error) throw error;
-            toast.success(emailSignatureHtml.trim() ? 'Signature personnalisée enregistrée' : 'Signature remise sur l\'auto');
+            toast.success(cleanHtml ? 'Signature personnalisée enregistrée' : 'Signature remise sur l\'auto');
         } catch (err) {
             toast.error(err.message || 'Erreur lors de la sauvegarde');
         } finally {
