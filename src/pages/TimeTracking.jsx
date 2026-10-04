@@ -368,7 +368,7 @@ const TimeTracking = () => {
                 {hourlyRate === 0 && worksites.length > 0 && (
                     <DismissibleHelp storageKey="timetracking_hourly_rate_tip">
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 pr-8">
-                            💡 Renseignez votre taux horaire dans <Link to="/app/settings" className="underline">vos réglages</Link> (section IA)
+                            💡 Renseignez votre taux horaire dans <Link to="/app/settings?tab=application" className="underline">Réglages › Application</Link> (Tarifs, zones de déplacement et IA)
                             pour valoriser les dépassements en euros.
                         </p>
                     </DismissibleHelp>

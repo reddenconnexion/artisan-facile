@@ -653,7 +653,7 @@ const Accounting = () => {
             Votre statut
           </h3>
           <Link
-            to="/app/settings/activity"
+            to="/app/settings?tab=entreprise"
             className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
           >
             <Settings className="w-4 h-4 mr-1" />

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Building, Settings, Send } from 'lucide-react';
+import { Building, Settings, Send, SlidersHorizontal, Crown, ChevronRight } from 'lucide-react';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import AchievementsCard from '../components/AchievementsCard';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -25,6 +26,7 @@ import AdvancedSettingsSection from './profile/AdvancedSettingsSection';
 import PdpSection from './profile/PdpSection';
 import LoginEmailSection from './profile/LoginEmailSection';
 import AppUpdateSection from './profile/AppUpdateSection';
+import ActivitySettings from './settings/ActivitySettings';
 
 const Profile = () => {
     // Component for managing artisan profile settings
@@ -35,9 +37,18 @@ const Profile = () => {
     const [isTestingPush, setIsTestingPush] = useState(false);
 
     // Onglet des réglages : « entreprise » (ce qui figure sur les documents),
-    // « envoi » (notifications, email, facture électronique), « application ».
+    // « envoi » (notifications, email, facture électronique), « modules »
+    // (fonctions affichées, relances, objectif), « application ».
+    // Un lien peut ouvrir un onglet précis : /app/settings?tab=modules.
+    const SETTINGS_TABS = ['entreprise', 'envoi', 'modules', 'application'];
+    const [searchParams] = useSearchParams();
     const [settingsTab, setSettingsTab] = useState(() => {
-        try { return localStorage.getItem('settings_tab') || 'entreprise'; } catch { return 'entreprise'; }
+        const fromUrl = searchParams.get('tab');
+        if (SETTINGS_TABS.includes(fromUrl)) return fromUrl;
+        try {
+            const saved = localStorage.getItem('settings_tab');
+            return SETTINGS_TABS.includes(saved) ? saved : 'entreprise';
+        } catch { return 'entreprise'; }
     });
     const changeTab = (id) => {
         setSettingsTab(id);
@@ -101,17 +112,11 @@ const Profile = () => {
                     <p className="text-gray-500 dark:text-gray-400 mt-1">
                         {settingsTab === 'entreprise' && 'Ces informations apparaîtront sur vos devis et factures.'}
                         {settingsTab === 'envoi' && 'Comment vos documents partent et comment vous êtes prévenu.'}
-                        {settingsTab === 'application' && 'Préférences, options avancées et compte.'}
+                        {settingsTab === 'modules' && 'Les fonctions affichées dans le menu, vos relances et votre objectif.'}
+                        {settingsTab === 'application' && 'Préférences, tarifs, abonnement et compte.'}
                     </p>
                 </div>
                 <div className="flex flex-col gap-2 w-full md:w-auto">
-                    <a
-                        href="/app/settings/activity"
-                        className="flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors"
-                    >
-                        <Building className="w-5 h-5 mr-2" />
-                        Gérer mon activité (Fonctionnalités)
-                    </a>
                     <button
                         onClick={async () => {
                             const { error } = await supabase.auth.signOut();
@@ -131,6 +136,7 @@ const Profile = () => {
                 options={[
                     { id: 'entreprise', label: 'Mon entreprise', icon: Building },
                     { id: 'envoi', label: 'Envoi & documents', icon: Send },
+                    { id: 'modules', label: 'Modules', icon: SlidersHorizontal },
                     { id: 'application', label: 'Application', icon: Settings },
                 ]}
             />
@@ -208,7 +214,24 @@ const Profile = () => {
             />
             </>)}
 
+            {settingsTab === 'modules' && <ActivitySettings embedded />}
+
             {settingsTab === 'application' && (<>
+            {/* Abonnement — auparavant accessible seulement en touchant son nom */}
+            <Link
+                to="/app/subscription"
+                className="mt-2 flex items-center justify-between gap-3 px-6 py-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+                <span className="flex items-center gap-3">
+                    <Crown className="w-5 h-5 text-violet-500" />
+                    <span>
+                        <span className="block text-sm font-semibold text-gray-900 dark:text-white">Abonnement</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">Votre formule, l'utilisation et la facturation</span>
+                    </span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+            </Link>
+
             {/* Jalons de maîtrise (gamification discrète) */}
             <AchievementsCard />
 
@@ -234,6 +257,8 @@ const Profile = () => {
                 setCalcCatalog={ai.setCalcCatalog}
                 calcDiscount={ai.calcDiscount}
                 setCalcDiscount={ai.setCalcDiscount}
+                updateProfile={profileForm.updateProfile}
+                loading={profileForm.loading}
             />
 
             {/* Zone de Danger / Maintenance */}

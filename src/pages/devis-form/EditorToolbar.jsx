@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, Star, MoreVertical, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, MoreVertical, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import AutoSaveIndicator from '../../components/AutoSaveIndicator';
 import { formatDate, formatDateTime } from '../../utils/format';
@@ -49,7 +49,6 @@ const EditorToolbar = ({
     signatureSuspended,
     suspensionBlockMessage,
     togglingSuspension,
-    userProfile,
     viewCount,
 }) => {
     return (
@@ -142,16 +141,6 @@ const EditorToolbar = ({
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Indicateur de chronométrage (nouveau devis uniquement) */}
-                {!isEditing && (
-                    <span
-                        className="hidden sm:flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
-                        title="Votre temps de création est mesuré pour générer des statistiques"
-                    >
-                        <Clock className="w-3 h-3" />
-                        Chrono actif
-                    </span>
-                )}
                 {/* Auto-save indicator */}
                 {(!isEditing || !isOnline) && (
                     <AutoSaveIndicator
@@ -194,18 +183,6 @@ const EditorToolbar = ({
                     >
                         <FileCheck className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">Facturer</span>
-                    </button>
-                )}
-
-                {formData.type === 'invoice' && id && id !== 'new' && formData.client_id && userProfile?.google_review_url && (
-                    <button
-                        type="button"
-                        onClick={() => { setReviewNavigateOnClose(false); setShowReviewRequestModal(true); }}
-                        className="flex items-center px-3 sm:px-4 py-2 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 rounded-lg hover:bg-yellow-100 font-medium transition-colors"
-                        title="Demander un avis Google au client"
-                    >
-                        <Star className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Demander un avis</span>
                     </button>
                 )}
 

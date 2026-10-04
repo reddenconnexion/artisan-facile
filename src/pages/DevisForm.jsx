@@ -1992,7 +1992,6 @@ const DevisForm = () => {
                 signatureSuspended={signatureSuspended}
                 suspensionBlockMessage={suspensionBlockMessage}
                 togglingSuspension={togglingSuspension}
-                userProfile={userProfile}
                 viewCount={viewCount}
             />
 

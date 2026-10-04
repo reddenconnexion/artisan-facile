@@ -6,7 +6,7 @@ import { Save, CheckCircle, Circle, Folder, Calendar, Calculator, Box, Clipboard
 import FollowUpConfig from '../../components/FollowUpConfig';
 import { DismissibleHelp } from '../../components/ui';
 
-const ActivitySettings = () => {
+const ActivitySettings = ({ embedded = false }) => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -142,11 +142,13 @@ const ActivitySettings = () => {
     ];
 
     return (
-        <div className="max-w-4xl mx-auto py-8 px-4">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mon Activité</h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-1">Adaptez l'interface à votre niveau d'utilisation, puis activez les modules dont vous avez besoin.</p>
-            </div>
+        <div className={embedded ? '' : 'max-w-4xl mx-auto py-8 px-4'}>
+            {!embedded && (
+                <div className="mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mon Activité</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Adaptez l'interface à votre niveau d'utilisation, puis activez les modules dont vous avez besoin.</p>
+                </div>
+            )}
 
             {/* Sélecteur de niveau */}
             <div className="mb-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
