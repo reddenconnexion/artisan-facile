@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -183,7 +183,7 @@ const Layout = () => {
     const showConfirme = skillLevel === 'confirme';
 
     return [
-      { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
+      { name: "Aujourd'hui", href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
       { name: 'Chantiers', href: '/app/chantiers', icon: Kanban },
       // L'agenda est le pendant du pilotage chantiers (le planning y puise ses
@@ -219,7 +219,7 @@ const Layout = () => {
   const mobileNavItems = React.useMemo(() => {
     const agendaEnabled = navigationGroups.some(g => g.name === 'Agenda' || g.children?.some(c => c.name === 'Agenda'));
     return [
-      { id: 'home', name: 'Accueil', href: '/app', icon: LayoutDashboard },
+      { id: 'home', name: "Aujourd'hui", href: '/app', icon: LayoutDashboard },
       { id: 'devis', name: 'Devis', href: '/app/devis', icon: FileText },
       { id: 'clients', name: 'Clients', href: '/app/clients', icon: Users },
       ...(agendaEnabled ? [{ id: 'agenda', name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
@@ -382,8 +382,8 @@ const Layout = () => {
   // Couleur d'accent système iOS
   const IOS_BLUE = '#007AFF';
 
-  // Retours des artisans (avis, réponses) : un seul menu repliable sous
-  // « Mode terrain ». L'administrateur, qui recevrait ses propres avis, n'a
+  // Retours des artisans (avis, réponses) : un seul menu repliable en bas de
+  // la navigation. L'administrateur, qui recevrait ses propres avis, n'a
   // pas ce menu : le pilotage de la plateforme est dans Réglages › Application.
   const admin = isAdmin(user);
   const secondaryGroup = admin ? null : {
@@ -656,16 +656,6 @@ const Layout = () => {
           <nav className="flex-1 px-3 space-y-0.5 mt-1 overflow-y-auto">
             {navigationGroups.map(renderNavGroup)}
 
-            {/* Mode terrain — entrée rapide */}
-            <button
-              onClick={() => navigate('/terrain')}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''}`}
-              title="Mode terrain — vue simplifiée sur chantier"
-            >
-              <Wrench className="w-[22px] h-[22px] flex-shrink-0 text-orange-500" />
-              <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Mode terrain</span>
-            </button>
-
             {secondaryGroup && renderNavGroup(secondaryGroup)}
           </nav>
 
@@ -839,33 +829,26 @@ const Layout = () => {
           )}
 
 
-          {/* Voice Pipeline Button */}
-          <VoiceRecorderButton />
+          {/* Micro flottant — absent de l'accueil, qui a déjà son gros bouton
+              « Dicter » (même pipeline vocal). */}
+          {location.pathname !== '/app' && <VoiceRecorderButton />}
 
           {/* Contextual FAB — mobile only, action principale de la page courante */}
           {(() => {
             const FAB_ACTIONS = {
-              '/app':               { label: 'Mode terrain',    Icon: Wrench,        to: '/terrain' },
-              '/app/clients':       { label: 'Nouveau client',  Icon: Users,         to: '/app/clients/new' },
-              '/app/devis':         { label: 'Nouveau devis',   Icon: FileText,      to: '/app/devis/new' },
-              '/app/interventions': { label: 'Nouveau rapport', Icon: ClipboardList, to: '/app/interventions/new' },
+              '/app/clients':       { label: 'Nouveau client',  to: '/app/clients/new' },
+              '/app/devis':         { label: 'Nouveau devis',   to: '/app/devis/new' },
+              '/app/interventions': { label: 'Nouveau rapport', to: '/app/interventions/new' },
             };
             const fab = FAB_ACTIONS[location.pathname];
             if (!fab) return null;
             return (
               <button
                 onClick={() => navigate(fab.to)}
-                className={`fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 ${
-                  fab.to === '/terrain'
-                    ? 'bg-orange-500 hover:bg-orange-600'
-                    : 'bg-[#007AFF] hover:bg-[#0066d6]'
-                }`}
+                className="fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 bg-[#007AFF] hover:bg-[#0066d6]"
                 aria-label={fab.label}
               >
-                {fab.to === '/terrain'
-                  ? <fab.Icon className="w-5 h-5 shrink-0" />
-                  : <Plus className="w-5 h-5 shrink-0" />
-                }
+                <Plus className="w-5 h-5 shrink-0" />
                 <span className="text-sm font-semibold">{fab.label}</span>
               </button>
             );

@@ -47,6 +47,7 @@ import DailyRelanceSuggestions from '../components/DailyRelanceSuggestions';
 import WorksitesKanban from '../components/WorksitesKanban';
 import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
+import TodayPanel from '../components/TodayPanel';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
@@ -1280,13 +1281,13 @@ const Dashboard = () => {
 
             <div className="flex items-end justify-between">
                 <h1 className="text-[34px] leading-none font-bold tracking-tight text-gray-900 dark:text-white">
-                    Tableau de bord
+                    Aujourd'hui
                 </h1>
                 <button
                     type="button"
                     onClick={() => setCustomizeOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/15 rounded-full transition-colors"
-                    title="Personnaliser le tableau de bord"
+                    title="Personnaliser l'accueil"
                 >
                     <Settings2 className="w-4 h-4" />
                     <span className="hidden sm:inline">Personnaliser</span>
@@ -1294,6 +1295,10 @@ const Dashboard = () => {
             </div>
 
             <DashboardCustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+
+            {/* Gestes du chantier, outils terrain et RDV du jour : l'ancien
+                « Mode terrain » est désormais le haut de l'accueil. */}
+            <TodayPanel />
 
             {/* Checklist d'onboarding — affichée tant que les étapes essentielles
                 ne sont pas validées (ou jusqu'à dismiss explicite) */}

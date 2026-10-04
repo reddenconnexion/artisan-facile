@@ -28,7 +28,7 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
     const handleSave = async () => {
         const result = await save();
         if (result.success) {
-            toast.success('Tableau de bord personnalisé', {
+            toast.success('Accueil personnalisé', {
                 description: 'Vos préférences seront conservées sur tous vos appareils.',
             });
             onClose();
@@ -46,7 +46,7 @@ const DashboardCustomizeModal = ({ open, onClose }) => {
                             <Settings2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-gray-900 dark:text-white text-base">Personnaliser le tableau de bord</h2>
+                            <h2 className="font-bold text-gray-900 dark:text-white text-base">Personnaliser l'accueil</h2>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {visibleCount} sur {DASHBOARD_WIDGETS.length} widgets · glissez ou utilisez les flèches pour réordonner
                             </p>

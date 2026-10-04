@@ -84,7 +84,6 @@ import ResetPassword from './pages/ResetPassword';
 // Pas de lazy loading = pas de chunk séparé = affichage direct sur Safari/iPhone
 import PublicQuote from './pages/PublicQuote';
 import ClientPortal from './pages/portal/ClientPortal';
-import { shouldRedirectToTerrain } from './utils/terrainHome';
 
 // Lazy loading avec retry automatique (fix Safari/iOS + Chrome Android).
 // Trois protections :
@@ -213,11 +212,6 @@ const MyFeedback = lazyWithRetry(() => import('./pages/MyFeedback'));
 const AdminFeedback = lazyWithRetry(() => import('./pages/AdminFeedback'));
 const AdminFeedbackReports = lazyWithRetry(() => import('./pages/AdminFeedbackReports'));
 
-// Accueil de l'espace connecté : sur téléphone, on ouvre d'abord le mode
-// terrain (une fois par session) ; sinon le tableau de bord.
-const AppHome = () => (
-  shouldRedirectToTerrain() ? <Navigate to="/terrain" replace /> : <Dashboard />
-);
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -269,7 +263,7 @@ function App() {
                   <Layout />
                 </ProtectedRoute>
               }>
-                <Route index element={<AppHome />} />
+                <Route index element={<Dashboard />} />
                 <Route path="agenda" element={<Agenda />} />
                 <Route path="clients" element={<ClientsHub />} />
                 <Route path="clients/new" element={<ClientForm />} />
