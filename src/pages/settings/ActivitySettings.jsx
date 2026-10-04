@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
-import { Save, CheckCircle, Circle, Folder, Wrench, Shield, Calendar, Calculator, Box, ClipboardList, Image as ImageIcon, Megaphone, Repeat, Target } from 'lucide-react';
+import { Save, CheckCircle, Circle, Folder, Calendar, Calculator, Box, ClipboardList, Target } from 'lucide-react';
 import FollowUpConfig from '../../components/FollowUpConfig';
 import { DismissibleHelp } from '../../components/ui';
 
@@ -16,15 +16,10 @@ const ActivitySettings = () => {
     const [settings, setSettings] = useState({
         skill_level: 'debutant',
         enable_price_library: true,
-        enable_maintenance: false,
-        enable_rentals: false,
         enable_agenda: true,
         enable_calculator: true,
         enable_inventory: true,
-        enable_intervention_reports: true,
-        enable_portfolio: false,
-        enable_marketing: false,
-        enable_recurring: true
+        enable_intervention_reports: true
     });
 
     useEffect(() => {
@@ -52,12 +47,6 @@ const ActivitySettings = () => {
 
             if (meta) {
                 setSettings(prev => ({ ...prev, ...meta }));
-            } else {
-                // Smart Defaults based on Job Type
-                const jobType = user.user_metadata?.job_type;
-                if (['plombier', 'chauffagiste', 'electricien'].includes(jobType)) {
-                    setSettings(prev => ({ ...prev, enable_maintenance: true }));
-                }
             }
         } catch (error) {
             console.error('Error fetching settings:', error);
@@ -112,36 +101,6 @@ const ActivitySettings = () => {
             icon: Box
         },
         {
-            key: 'enable_maintenance',
-            label: 'Contrats de Maintenance',
-            description: 'Suivi des entretiens périodiques et dates d\'échéance (SAV).',
-            icon: Wrench
-        },
-        {
-            key: 'enable_recurring',
-            label: 'Factures Récurrentes',
-            description: 'Modèles de facturation automatique pour contrats de maintenance, abonnements, entretiens périodiques.',
-            icon: Repeat
-        },
-        {
-            key: 'enable_rentals',
-            label: 'Suivi Location Matériel',
-            description: 'Gérez les locations d\'équipements (échafaudages, mini-pelles...).',
-            icon: Shield
-        },
-        {
-            key: 'enable_portfolio',
-            label: 'Portfolio & Réalisations',
-            description: 'Publiez vos photos de chantiers terminés pour les partager avec des prospects.',
-            icon: ImageIcon
-        },
-        {
-            key: 'enable_marketing',
-            label: 'Calendrier Marketing',
-            description: 'Planifiez vos publications sur les réseaux sociaux (Facebook, Instagram…).',
-            icon: Megaphone
-        },
-        {
             key: 'enable_agenda',
             label: 'Agenda Intelligent',
             description: 'Planification des rendez-vous et chantiers.',
@@ -178,7 +137,7 @@ const ActivitySettings = () => {
             id: 'confirme',
             emoji: '🚀',
             label: 'Confirmé',
-            description: 'Ajoute stock, maintenance, marketing, portfolio selon vos choix ci-dessous',
+            description: 'Ajoute le stock selon vos choix ci-dessous',
         },
     ];
 

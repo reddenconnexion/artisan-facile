@@ -189,15 +189,10 @@ const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
 const Affaire = lazyWithRetry(() => import('./pages/Affaire'));
 const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
-const Maintenance = lazyWithRetry(() => import('./pages/Maintenance'));
 const Profile = lazyWithRetry(() => import('./pages/Profile'));
 const ActivitySettings = lazyWithRetry(() => import('./pages/settings/ActivitySettings'));
 const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
-const Portfolio = lazyWithRetry(() => import('./pages/Portfolio'));
-// FollowUps est maintenant intégré dans DevisList comme sous-onglet
-const Rentals = lazyWithRetry(() => import('./pages/Rentals'));
 const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
-const Marketing = lazyWithRetry(() => import('./pages/Marketing'));
 const InterventionReports = lazyWithRetry(() => import('./pages/InterventionReports'));
 const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionReportForm'));
 const ReceivedInvoices = lazyWithRetry(() => import('./pages/ReceivedInvoices'));
@@ -210,7 +205,6 @@ const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
 const Procurement = lazyWithRetry(() => import('./pages/Procurement'));
 const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
-const RecurringInvoices = lazyWithRetry(() => import('./pages/RecurringInvoices'));
 const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
 const TimeTracking = lazyWithRetry(() => import('./pages/TimeTracking'));
@@ -285,18 +279,14 @@ function App() {
                 <Route path="devis" element={<DevisList />} />
                 <Route path="devis/:id" element={<DevisForm />} />
                 <Route path="affaires/:id" element={<Affaire />} />
-                <Route path="maintenance" element={<Maintenance />} />
-                <Route path="rentals" element={<Rentals />} />
                 <Route path="library" element={<PriceLibrary />} />
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="procurement" element={<Procurement />} />
                 <Route path="follow-ups" element={<Navigate to="/app/devis" state={{ filter: 'followups' }} replace />} />
-                <Route path="portfolio" element={<Portfolio />} />
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<ActivitySettings />} />
                 <Route path="accounting" element={<Accounting />} />
                 <Route path="received-invoices" element={<ReceivedInvoices />} />
-                <Route path="marketing" element={<Marketing />} />
                 <Route path="interventions" element={<InterventionReports />} />
                 <Route path="interventions/:id" element={<InterventionReportForm />} />
                 <Route path="voice-memos" element={<VoiceMemos />} />
@@ -306,7 +296,6 @@ function App() {
                 <Route path="etiquettes-tableau" element={<EtiquettesTableau />} />
                 <Route path="guide" element={<GuidePage />} />
                 <Route path="portal-messages" element={<PortalMessages />} />
-                <Route path="recurring" element={<RecurringInvoices />} />
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="route-planner" element={<RoutePlanner />} />
                 <Route path="heures" element={<TimeTracking />} />
@@ -314,6 +303,9 @@ function App() {
                 <Route path="admin" element={<AdminStats />} />
                 <Route path="admin/feedback" element={<AdminFeedback />} />
                 <Route path="admin/reports" element={<AdminFeedbackReports />} />
+                {/* Anciennes pages retirées (locations, maintenance, marketing…) ou lien
+                    périmé : retour à l'accueil plutôt qu'un écran vide. */}
+                <Route path="*" element={<Navigate to="/app" replace />} />
               </Route>
             </Routes >
           </Suspense >

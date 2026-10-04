@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, Megaphone, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Repeat, Sun, Moon, ShoppingCart, Image, BarChart3, LineChart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Wrench, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
-import VoiceHelpModal from '../components/VoiceHelpModal';
 import TestModePanel from '../components/TestModePanel';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
-import { useVoice } from '../hooks/useVoice';
-import { processVoiceCommand } from '../utils/voiceCommands';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { isAdmin } from '../constants/admin';
 
@@ -29,15 +26,15 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showTestPanel, setShowTestPanel] = useState(false);
-  const { isTestMode, capturedEmails, enableTestMode } = useTestMode();
-  const [showVoiceHelp, setShowVoiceHelp] = React.useState(false);
+  const { isTestMode, capturedEmails } = useTestMode();
   const { user, signOut } = useAuth(); // Added user here
-  const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice();
   const { total: pendingCount } = usePendingCounts();
   useAchievements({ notify: false }); // jalons visibles dans le profil, sans interrompre le travail
   const newReceivedCount = useNewReceivedInvoicesCount();
-  const unreadPortalMessages = useUnreadPortalMessagesCount();
+  // Retours artisans non lus (administrateur) : pastille sur l'icône Réglages,
+  // où se trouve désormais la section Administration.
   const newFeedbackCount = useNewFeedbackCount();
+  const unreadPortalMessages = useUnreadPortalMessagesCount();
   const { plan, isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
@@ -164,19 +161,13 @@ const Layout = () => {
   }, [user]);
 
   const navigationGroups = React.useMemo(() => {
-    const jobType = user?.user_metadata?.job_type;
     const userSettings = user?.user_metadata?.activity_settings || {};
 
     // Smart defaults equivalent to ActivitySettings.jsx to avoid flickering empty nav
     const settings = {
       enable_agenda: userSettings.enable_agenda ?? true,
       enable_inventory: userSettings.enable_inventory ?? true,
-      enable_maintenance: userSettings.enable_maintenance ?? ['plombier', 'chauffagiste', 'electricien'].includes(jobType),
-      enable_rentals: userSettings.enable_rentals ?? (['macon', 'gros_oeuvre', 'peintre', 'paysagiste', 'terrassier'].includes(jobType) || !jobType),
       enable_intervention_reports: userSettings.enable_intervention_reports ?? true,
-      enable_portfolio: userSettings.enable_portfolio ?? false,
-      enable_marketing: userSettings.enable_marketing ?? false,
-      enable_recurring: userSettings.enable_recurring ?? true,
     };
 
     const activiteChildren = [
@@ -184,14 +175,6 @@ const Layout = () => {
       { name: 'Heures & rentabilité', href: '/app/heures', icon: Timer },
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
-      ...(settings.enable_maintenance ? [{ name: 'Maintenance', href: '/app/maintenance', icon: Wrench }] : []),
-    ];
-
-    // Marketing et portfolio sortent de « Mon activité » dans leur propre
-    // groupe repliable pour garder le menu du quotidien court.
-    const communicationChildren = [
-      ...(settings.enable_marketing ? [{ name: 'Marketing', href: '/app/marketing', icon: Megaphone }] : []),
-      ...(settings.enable_portfolio ? [{ name: 'Portfolio', href: '/app/portfolio', icon: Image }] : []),
     ];
 
     // Skill level filtering — 'debutant' | 'intermediaire' | 'confirme'
@@ -212,7 +195,6 @@ const Layout = () => {
         icon: FileText,
         children: [
           { name: 'Tous les devis', href: '/app/devis', icon: FileText },
-          ...(settings.enable_recurring ? [{ name: 'Factures récurrentes', href: '/app/recurring', icon: Repeat }] : []),
           { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
           { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
         ],
@@ -225,11 +207,6 @@ const Layout = () => {
           : activiteChildren.filter(c =>
               ['/app/interventions', '/app/heures', '/app/procurement'].includes(c.href)
             ),
-      }] : []),
-      ...(showConfirme && communicationChildren.length > 0 ? [{
-        name: 'Communication',
-        icon: Megaphone,
-        children: communicationChildren,
       }] : []),
       // Les outils métier (bibliothèque de prix, étiquettes de tableau, mémos
       // vocaux…) servent dès le premier jour : visibles quel que soit le niveau.
@@ -248,17 +225,6 @@ const Layout = () => {
       ...(agendaEnabled ? [{ id: 'agenda', name: 'Agenda', href: '/app/agenda', icon: Calendar }] : []),
     ];
   }, [navigationGroups]);
-
-  React.useEffect(() => {
-    if (transcript) {
-      const feedback = processVoiceCommand(transcript, navigate);
-      if (feedback) {
-        toast.success(feedback);
-        resetTranscript();
-        stopListening(); // Stop after successful command
-      }
-    }
-  }, [transcript, navigate, resetTranscript, stopListening]);
 
   const handleLogout = async () => {
     try {
@@ -416,21 +382,16 @@ const Layout = () => {
   // Couleur d'accent système iOS
   const IOS_BLUE = '#007AFF';
 
-  // Entrées secondaires (avis, retours, pilotage admin) regroupées dans un seul
-  // menu repliable sous « Mode terrain » pour alléger la barre latérale.
+  // Retours des artisans (avis, réponses) : un seul menu repliable sous
+  // « Mode terrain ». L'administrateur, qui recevrait ses propres avis, n'a
+  // pas ce menu : le pilotage de la plateforme est dans Réglages › Application.
   const admin = isAdmin(user);
-  const secondaryGroup = {
+  const secondaryGroup = admin ? null : {
     name: 'Retours & suivi',
     icon: MessageSquare,
-    badge: admin ? newFeedbackCount : 0,
     children: [
       { name: 'Donner mon avis', icon: MessageSquarePlus, onClick: () => setShowFeedback(true), title: 'Signaler un bug ou proposer une amélioration' },
       { name: 'Mes retours', href: '/app/mes-retours', icon: MessageSquare, title: 'Vos retours envoyés et nos réponses' },
-      ...(admin ? [
-        { name: 'Statistiques', href: '/app/admin', exact: true, icon: BarChart3, title: "Statistiques plateforme — qui utilise l'application" },
-        { name: 'Retours artisans', href: '/app/admin/feedback', icon: MessageSquarePlus, badge: newFeedbackCount, title: 'Retours envoyés par les artisans' },
-        { name: 'Rapports hebdo', href: '/app/admin/reports', icon: LineChart, title: 'Synthèse hebdomadaire des retours artisans' },
-      ] : []),
     ],
   };
 
@@ -705,7 +666,7 @@ const Layout = () => {
               <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>Mode terrain</span>
             </button>
 
-            {renderNavGroup(secondaryGroup)}
+            {secondaryGroup && renderNavGroup(secondaryGroup)}
           </nav>
 
           {/* Pied : cellule profil + actions (style iOS Réglages) */}
@@ -786,7 +747,12 @@ const Layout = () => {
                 title="Paramètres"
                 aria-label="Paramètres"
               >
-                <Settings className="w-5 h-5" />
+                <span className="relative block">
+                  <Settings className="w-5 h-5" />
+                  {newFeedbackCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+                  )}
+                </span>
               </button>
               <button
                 onClick={handleLogout}
@@ -854,7 +820,6 @@ const Layout = () => {
             </div>
           </main>
 
-          <VoiceHelpModal isOpen={showVoiceHelp} onClose={() => setShowVoiceHelp(false)} />
           {showTestPanel && <TestModePanel onClose={() => setShowTestPanel(false)} />}
 
           {/* Bannière mode test en bas de l'écran */}

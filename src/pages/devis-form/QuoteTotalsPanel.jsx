@@ -23,7 +23,6 @@ const QuoteTotalsPanel = ({
     return (
         <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
             <div className="w-72 space-y-4">
-                {/* MarginGauge removed here as it was used with incorrect props causing crash */}
 
                 <div className="space-y-3">
                     <div className="flex items-center justify-end mb-4">

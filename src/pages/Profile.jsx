@@ -20,6 +20,7 @@ import PushNotificationsSection from './profile/PushNotificationsSection';
 import SmtpSection from './profile/SmtpSection';
 import EmailSignatureSection from './profile/EmailSignatureSection';
 import PreferencesSection from './profile/PreferencesSection';
+import AdminSection from './profile/AdminSection';
 import AdvancedSettingsSection from './profile/AdvancedSettingsSection';
 import PdpSection from './profile/PdpSection';
 import LoginEmailSection from './profile/LoginEmailSection';
@@ -213,6 +214,9 @@ const Profile = () => {
 
             {/* Préférences de l'application */}
             <PreferencesSection />
+
+            {/* Pilotage plateforme — administrateur uniquement */}
+            <AdminSection />
 
             {/* AI Settings — Paramètres avancés */}
             <AdvancedSettingsSection
