@@ -46,7 +46,7 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
             <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                    <Link to={`/app/devis/${quote.id}`} className="font-bold text-gray-900 dark:text-white hover:underline truncate block">
+                    <Link to={`/app/affaires/${quote.id}`} className="font-bold text-gray-900 dark:text-white hover:underline truncate block">
                         {label}
                     </Link>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">

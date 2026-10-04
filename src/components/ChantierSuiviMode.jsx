@@ -624,7 +624,12 @@ const ChantierSuiviMode = ({ onBack }) => {
                             <ul className="divide-y divide-gray-50 dark:divide-gray-800">
                                 {extras.map((extra) => (
                                     <li key={extra.id} className="flex items-start gap-3 px-3 py-3">
-                                        <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100">{extra.description}</span>
+                                        <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100">
+                                            {extra.description}
+                                            {extra.amendment_id && (
+                                                <span className="ml-2 text-[11px] font-semibold text-emerald-600">Chiffré en avenant</span>
+                                            )}
+                                        </span>
                                         <button
                                             onClick={() => removeExtra(extra.id)}
                                             className="p-1 text-gray-300 hover:text-red-500 shrink-0"

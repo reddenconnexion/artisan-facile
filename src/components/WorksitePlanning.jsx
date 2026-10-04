@@ -428,7 +428,7 @@ const WorksitePlanning = ({ worksites }) => {
                                 badge: <UrgencyBadge value={w.urgency} />,
                                 color: STAGE_COLORS[w.work_stage || 'planned'] || STAGE_COLORS.planned,
                                 rdvs,
-                                onOpen: () => navigate(`/app/devis/${w.id}`),
+                                onOpen: () => navigate(`/app/affaires/${w.id}`),
                             }))}
                             {others.length > 0 && (
                                 <div className="flex border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/30">
@@ -476,7 +476,7 @@ const WorksitePlanning = ({ worksites }) => {
                                 className="flex items-center justify-between bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-2.5"
                             >
                                 <button
-                                    onClick={() => navigate(`/app/devis/${w.id}`)}
+                                    onClick={() => navigate(`/app/affaires/${w.id}`)}
                                     className="text-left min-w-0 flex-1 group"
                                 >
                                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
