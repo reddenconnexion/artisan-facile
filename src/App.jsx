@@ -189,7 +189,6 @@ const Affaire = lazyWithRetry(() => import('./pages/Affaire'));
 const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
 const Profile = lazyWithRetry(() => import('./pages/Profile'));
-const ActivitySettings = lazyWithRetry(() => import('./pages/settings/ActivitySettings'));
 const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
 const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
 const InterventionReports = lazyWithRetry(() => import('./pages/InterventionReports'));
@@ -278,7 +277,7 @@ function App() {
                 <Route path="procurement" element={<Procurement />} />
                 <Route path="follow-ups" element={<Navigate to="/app/devis" state={{ filter: 'followups' }} replace />} />
                 <Route path="settings" element={<Profile />} />
-                <Route path="settings/activity" element={<ActivitySettings />} />
+                <Route path="settings/activity" element={<Navigate to="/app/settings?tab=modules" replace />} />
                 <Route path="accounting" element={<Accounting />} />
                 <Route path="received-invoices" element={<ReceivedInvoices />} />
                 <Route path="interventions" element={<InterventionReports />} />

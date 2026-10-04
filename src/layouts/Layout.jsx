@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, Settings, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -35,7 +35,7 @@ const Layout = () => {
   // où se trouve désormais la section Administration.
   const newFeedbackCount = useNewFeedbackCount();
   const unreadPortalMessages = useUnreadPortalMessagesCount();
-  const { plan, isPro, isOwner } = usePlanLimits();
+  const { isPro, isOwner } = usePlanLimits();
   const { data: profile } = useUserProfile();
   const profileBannerKey = `profile_banner_dismissed_${user?.id}`;
   const [profileBannerDismissed, setProfileBannerDismissed] = useState(
@@ -677,22 +677,27 @@ const Layout = () => {
             </button>
 
             <button
-              onClick={() => navigate('/app/subscription')}
+              onClick={() => navigate('/app/settings')}
               className={`flex items-center gap-3 w-full p-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-left ${railCollapsed ? 'md:justify-center' : ''}`}
-              title={`Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)} — Voir l'abonnement`}
+              title="Réglages"
             >
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
+                className="relative w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
                 style={{ backgroundColor: IOS_BLUE }}
               >
                 {initials}
+                {/* Retours artisans non lus (administrateur) : la section
+                    Administration est dans les réglages. */}
+                {newFeedbackCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
+                )}
               </div>
               <div className={`flex-1 min-w-0 ${railCollapsed ? 'md:hidden' : ''}`}>
                 <div className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName}</div>
                 <div className="flex items-center gap-1 text-xs">
                   <Crown className={`w-3 h-3 ${isOwner ? 'text-violet-500' : isPro ? 'text-blue-500' : 'text-gray-400'}`} />
                   <span className="text-gray-500 dark:text-gray-400">
-                    {isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}{!isPro && ' · Passer au Pro'}
+                    Réglages · {isOwner ? 'Owner' : isPro ? 'Pro' : 'Gratuit'}
                   </span>
                 </div>
               </div>
@@ -726,23 +731,6 @@ const Layout = () => {
                 aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
               >
                 {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={() => navigate('/app/settings')}
-                className={`p-2 rounded-xl transition-colors ${
-                  location.pathname.startsWith('/app/settings')
-                    ? 'text-[#007AFF] bg-white dark:bg-white/10'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
-                }`}
-                title="Paramètres"
-                aria-label="Paramètres"
-              >
-                <span className="relative block">
-                  <Settings className="w-5 h-5" />
-                  {newFeedbackCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
-                  )}
-                </span>
               </button>
               <button
                 onClick={handleLogout}

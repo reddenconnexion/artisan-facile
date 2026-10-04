@@ -121,7 +121,7 @@ const PdfOverview = ({
                     )}
                     <button
                         type="button"
-                        onClick={() => handleDownloadPDF(formData.status === 'accepted')}
+                        onClick={() => handleDownloadPDF()}
                         className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         title="Télécharger le PDF"
                     >
@@ -220,7 +220,7 @@ const PdfOverview = ({
                             </p>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => handleDownloadPDF(formData.status === 'accepted')}
+                                    onClick={() => handleDownloadPDF()}
                                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
                                     <Download className="w-4 h-4" />

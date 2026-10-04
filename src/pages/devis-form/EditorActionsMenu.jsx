@@ -37,15 +37,6 @@ const EditorActionsMenu = ({
         <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 z-50 py-1">
             {/* ─── Partage & Signature ─── */}
             <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Partage & Signature</p>
-            {/* Mobile only Send button */}
-            <button
-                onClick={() => { handleSendQuoteEmail('fr'); setShowActionsMenu(false); }}
-                className="sm:hidden flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-                <Send className="w-4 h-4 mr-3 text-blue-600" />
-                {formData.type === 'invoice' ? 'Envoyer la facture' : (isCreditNote ? "Envoyer l'avoir" : 'Envoyer le devis')}
-            </button>
-
             {/* Envoi en anglais (devis/facture + mail traduits) */}
             <button
                 onClick={() => { handleSendQuoteEmail('en'); setShowActionsMenu(false); }}
@@ -142,23 +133,12 @@ const EditorActionsMenu = ({
             </button>
 
             <button
-                onClick={() => { handleDownloadPDF(formData.status === 'accepted'); setShowActionsMenu(false); }}
+                onClick={() => { handleDownloadPDF(); setShowActionsMenu(false); }}
                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
                 <Download className="w-4 h-4 mr-3 text-gray-400" />
-                Télécharger {formData.status === 'accepted' ? 'Facture' : 'Devis'}
+                Télécharger le PDF
             </button>
-
-            {['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && (
-                <button
-                    onClick={() => { handleDownloadPDF(false, { detailed: true }); setShowActionsMenu(false); }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    title="Le même document ligne à ligne, pour vous. La présentation du client reste inchangée."
-                >
-                    <Lock className="w-4 h-4 mr-3 text-amber-600" />
-                    Ma copie détaillée
-                </button>
-            )}
 
             {renderDocumentActions(() => setShowActionsMenu(false))}
 
