@@ -33,6 +33,7 @@ const PdfOverview = ({
     showOverviewDocsMenu,
     signatureSuspended,
     suspendedSignatureBanner,
+    affaireLink = null,
 }) => {
     const overviewSrc = formData.is_external ? displayPdfUrl : overviewPdfUrl;
     // Aperçu en images (mobile) : uniquement pour un PDF généré (blob:), pas
@@ -191,6 +192,8 @@ const PdfOverview = ({
             </div>
 
             {suspendedSignatureBanner}
+
+            {affaireLink}
 
             {/* Visionneuse PDF */}
             <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px]">

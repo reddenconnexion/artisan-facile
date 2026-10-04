@@ -341,6 +341,12 @@ const WorksitePilot = () => {
                                                         <FileText className="w-3 h-3 shrink-0" />
                                                         <span className="truncate">Devis #{job.id} {job.title ? `- ${job.title}` : ''}</span>
                                                     </div>
+                                                    <div
+                                                        onClick={() => navigate(`/app/affaires/${job.id}`)}
+                                                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:underline cursor-pointer mt-0.5"
+                                                    >
+                                                        Suivi de l'affaire →
+                                                    </div>
                                                 </div>
                                                 <div className="flex flex-col items-end gap-1 shrink-0">
                                                     <span className="font-bold text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap">{Number(job.total_ttc || 0).toFixed(2)} €</span>

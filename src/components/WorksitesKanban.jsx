@@ -170,7 +170,7 @@ const WorksitesKanban = () => {
                                             key={job.id}
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, job.id)}
-                                            onClick={() => navigate(`/app/devis/${job.id}`)}
+                                            onClick={() => navigate(`/app/affaires/${job.id}`)}
                                             className="bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 border-l-4 p-2.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing"
                                             style={{ borderLeftColor: meta.border }}
                                         >
