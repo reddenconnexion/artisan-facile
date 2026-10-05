@@ -39,6 +39,16 @@ Assurez-vous que :
     - Cliquez sur "Deploy".
     - Attendez quelques secondes... Votre site est en ligne !
 
+### CORS des Edge Functions
+
+Pour n'autoriser que votre app à appeler les Edge Functions depuis un navigateur, définissez le secret :
+
+```
+supabase secrets set ALLOWED_ORIGIN=https://app.artisan-facile.fr
+```
+
+Sans valeur, les fonctions acceptent toutes les origines (`*`). Une seule origine est supportée.
+
 ## 4. Vérification
 
 - Accédez à l'URL fournie par Vercel (ex: `https://artisan-facile.vercel.app`).

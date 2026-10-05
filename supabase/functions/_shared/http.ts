@@ -19,8 +19,13 @@ import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supa
 
 export type HeaderMap = Record<string, string>;
 
+// `ALLOWED_ORIGIN` (secret Edge Functions, ex: https://app.artisan-facile.fr)
+// restreint les appels navigateur à l'app ; sans valeur on garde `*`.
+const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN')?.trim() || '*';
+
 export const corsHeaders: HeaderMap = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
+    ...(allowedOrigin === '*' ? {} : { Vary: 'Origin' }),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 

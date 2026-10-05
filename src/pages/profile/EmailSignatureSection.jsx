@@ -1,5 +1,6 @@
 import { Save, FileText, RotateCcw, Loader2, Upload } from 'lucide-react';
 import { Button } from '../../components/ui';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 const EmailSignatureSection = ({
     emailSignatureHtml,
@@ -112,7 +113,7 @@ const EmailSignatureSection = ({
                                         {/* white-space:pre-wrap pour refléter EXACTEMENT le rendu
                                             du mail : les sauts de ligne et lignes vides saisis sont
                                             préservés (l'edge function applique le même style). */}
-                                        <div style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: emailSignatureHtml }} />
+                                        <div style={{ whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(emailSignatureHtml) }} />
                                     </div>
                                 </div>
                             )}

@@ -32,7 +32,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { readSecret } from '../_shared/vault.ts';
-import { corsPreflight, json, requireUser } from '../_shared/http.ts';
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 function normalizeRecipients(v: unknown): string[] {
     if (!v) return [];
@@ -193,6 +194,9 @@ Deno.serve(async (req) => {
         const auth = await requireUser(req);
         if (auth.response) return auth.response;
         const { user } = auth;
+
+        const rl = await enforceRateLimit('send-document-email', user.id, 60, 3600);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
         const body = await req.json();
         const { to, subject, text, html, cc, bcc, reply_to, test, quote_id, client_id, attachments } = body;
