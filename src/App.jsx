@@ -202,6 +202,7 @@ const EtiquettesTableau = lazyWithRetry(() => import('./pages/EtiquettesTableau'
 const GuidePage = lazyWithRetry(() => import('./pages/GuidePage'));
 const TerrainMode = lazyWithRetry(() => import('./pages/TerrainMode'));
 const Procurement = lazyWithRetry(() => import('./pages/Procurement'));
+const SupplierOrders = lazyWithRetry(() => import('./pages/SupplierOrders'));
 const PortalMessages = lazyWithRetry(() => import('./pages/PortalMessages'));
 const AuditLog = lazyWithRetry(() => import('./pages/AuditLog'));
 const RoutePlanner = lazyWithRetry(() => import('./pages/RoutePlanner'));
@@ -275,6 +276,7 @@ function App() {
                 <Route path="library" element={<PriceLibrary />} />
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="procurement" element={<Procurement />} />
+                <Route path="commandes" element={<SupplierOrders />} />
                 <Route path="follow-ups" element={<Navigate to="/app/devis" state={{ filter: 'followups' }} replace />} />
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<Navigate to="/app/settings?tab=modules" replace />} />

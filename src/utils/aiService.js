@@ -1331,3 +1331,50 @@ Réponds en restant cohérent avec le fil de discussion.`;
     return callAiProxy(systemPrompt, userMessage);
 };
 
+
+/**
+ * ─── Commande fournisseur (mail de confirmation) ─────────────────────────
+ *
+ * Lit le texte d'un mail de confirmation de commande web (ou d'un ticket
+ * comptoir collé / PDF) et en sort les lignes achetées. L'artisan relit et
+ * impute chaque ligne à un chantier avant l'enregistrement : rien n'est
+ * enregistré sur la seule foi de l'IA.
+ */
+const SUPPLIER_ORDER_PROMPT = `Tu lis le mail de confirmation d'une commande de matériel électrique (site web d'un fournisseur ou ticket de comptoir) reçu par un artisan électricien français.
+
+Extrais UNIQUEMENT ce qui est écrit, n'invente rien. Si une valeur est absente, mets null.
+
+- supplier : nom du site ou du fournisseur (ex. « 123elec », « Rexel »)
+- order_ref : numéro de commande tel qu'écrit
+- order_date : date de la commande au format AAAA-MM-JJ
+- prices_include_vat : true si les prix des lignes sont TTC, false s'ils sont HT
+- lines : une entrée par article commandé (pas les frais de port, pas les remises, pas les sous-totaux)
+  - reference : référence fabricant ou code article (ex. « 406774 »), null sinon
+  - label : désignation courte de l'article
+  - quantity : quantité
+  - unit : « u », « m », « ml », « lot »…
+  - unit_price : prix unitaire dans la même base (TTC ou HT) que prices_include_vat
+  - line_total : total de la ligne s'il est affiché
+- shipping : frais de livraison dans la même base, 0 si offerts
+- discount : montant total des remises (positif), 0 sinon
+- total : montant total payé de la commande dans la même base
+
+JSON UNIQUEMENT — pas de markdown, pas de texte avant/après :
+{"supplier":"","order_ref":"","order_date":"","prices_include_vat":true,"lines":[{"reference":null,"label":"","quantity":1,"unit":"u","unit_price":0,"line_total":0}],"shipping":0,"discount":0,"total":0}`;
+
+export const extractSupplierOrder = async (rawText) => {
+    const content = String(rawText || '').trim();
+    if (content.length < 20) {
+        throw new Error('Collez le contenu du mail de commande (trop court pour être analysé).');
+    }
+    const truncated = content.length > 15000 ? content.slice(0, 15000) + '\n…[tronqué]' : content;
+    const rawResponse = await callAiProxy({
+        systemPrompt: SUPPLIER_ORDER_PROMPT,
+        userMessage: `MAIL DE COMMANDE :\n\n${truncated}`,
+    });
+    try {
+        return extractJsonObject(rawResponse);
+    } catch {
+        throw new Error("L'IA n'a pas su lire cette commande. Vérifiez le texte collé.");
+    }
+};

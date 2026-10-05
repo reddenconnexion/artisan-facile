@@ -15,6 +15,7 @@ import DevisProgress from '../components/DevisProgress';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import { ChantierMarginCard } from '../components/ChantierMargin';
 import AffaireTerrain from '../components/AffaireTerrain';
+import AffaireOrders from '../components/AffaireOrders';
 import { useDepositActions } from './devis-form/useDepositActions';
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 
@@ -287,6 +288,9 @@ const Affaire = () => {
 
             {/* Marge réelle : devis rapproché des achats saisis et des heures pointées */}
             {['accepted', 'billed', 'paid'].includes(quote.status) && <ChantierMarginCard quote={quote} />}
+
+            {/* Achats fournisseurs imputés au chantier (mails de commande web) */}
+            {['sent', 'accepted', 'billed', 'paid'].includes(quote.status) && <AffaireOrders quote={quote} linkedDocs={children} />}
 
             {/* Prochaine étape */}
             {completed ? (

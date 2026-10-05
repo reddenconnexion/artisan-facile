@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider } from '../context/ConfirmContext';
@@ -174,6 +174,7 @@ const Layout = () => {
       ...(settings.enable_intervention_reports ? [{ name: 'Rapports', href: '/app/interventions', icon: ClipboardList }] : []),
       { name: 'Heures & rentabilité', href: '/app/heures', icon: Timer },
       { name: 'À commander', href: '/app/procurement', icon: ShoppingCart },
+      { name: 'Commandes fournisseurs', href: '/app/commandes', icon: Truck },
       ...(settings.enable_inventory ? [{ name: 'Stock', href: '/app/inventory', icon: Box }] : []),
     ];
 
@@ -205,7 +206,7 @@ const Layout = () => {
         children: showConfirme
           ? activiteChildren
           : activiteChildren.filter(c =>
-              ['/app/interventions', '/app/heures', '/app/procurement'].includes(c.href)
+              ['/app/interventions', '/app/heures', '/app/procurement', '/app/commandes'].includes(c.href)
             ),
       }] : []),
       // Les outils métier (bibliothèque de prix, étiquettes de tableau, mémos
