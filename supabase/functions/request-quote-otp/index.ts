@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
+import { clientIp, enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 import { corsHeaders, corsPreflight, json } from '../_shared/http.ts';
 
 Deno.serve(async (req) => {
@@ -10,11 +10,7 @@ Deno.serve(async (req) => {
         // sans ça, un token de devis qui fuite (capture d'écran, transfert,
         // historique partagé) permet de renvoyer des demandes de code depuis
         // des devis différents sans jamais être limité globalement.
-        const ip =
-            req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-            req.headers.get('cf-connecting-ip') ||
-            req.headers.get('x-real-ip') ||
-            'unknown';
+        const ip = clientIp(req);
         const rl = await enforceRateLimit('request-quote-otp', ip, 10, 300);
         if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 

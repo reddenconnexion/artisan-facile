@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { upsertSecret, deleteSecret } from '../_shared/vault.ts';
-import { corsPreflight, json, requireUser } from '../_shared/http.ts';
+import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
+import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
@@ -14,6 +15,9 @@ Deno.serve(async (req) => {
     const auth = await requireUser(req);
     if (auth.response) return auth.response;
     const { user } = auth;
+
+    const rl = await enforceRateLimit('save-openai-key', user.id, 20, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     const body = await req.json();
     const { api_key } = body;

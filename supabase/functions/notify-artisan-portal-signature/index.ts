@@ -1,11 +1,15 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
-import { corsPreflight, json } from '../_shared/http.ts';
+import { corsHeaders, corsPreflight, json } from '../_shared/http.ts';
+import { enforceRateLimit, rateLimitResponse, clientIp } from '../_shared/rate-limit.ts';
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return corsPreflight();
 
     try {
+        const rl = await enforceRateLimit('notify-artisan-portal-signature', clientIp(req), 30, 3600);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
+
         const { lookup_token, quote_id } = await req.json();
 
         if (!lookup_token && !quote_id) {

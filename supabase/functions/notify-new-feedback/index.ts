@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
-import { corsPreflight, json } from '../_shared/http.ts';
+import { corsHeaders, corsPreflight, json } from '../_shared/http.ts';
+import { enforceRateLimit, rateLimitResponse, clientIp } from '../_shared/rate-limit.ts';
 
 // Doit rester synchronisé avec src/constants/admin.js et les fonctions SQL
 // get_all_feedback / set_feedback_status (allowlist admin).
@@ -17,6 +18,9 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return corsPreflight();
 
     try {
+        const rl = await enforceRateLimit('notify-new-feedback', clientIp(req), 20, 3600);
+        if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
+
         const { category, message, rating, page, author_user_id } = await req.json();
 
         if (!message) return json({ error: 'message requis' }, 400);

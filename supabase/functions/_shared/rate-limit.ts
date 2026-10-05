@@ -71,6 +71,14 @@ export async function enforceRateLimit(
     };
 }
 
+/** IP de l'appelant (en-têtes posés par le proxy), pour limiter les endpoints publics. */
+export function clientIp(req: Request): string {
+    return req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+        req.headers.get('cf-connecting-ip') ||
+        req.headers.get('x-real-ip') ||
+        'unknown';
+}
+
 /**
  * Réponse HTTP 429 standardisée avec en-tête `Retry-After`.
  */
