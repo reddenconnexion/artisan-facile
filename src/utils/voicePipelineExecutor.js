@@ -25,7 +25,7 @@ export const executePipelineActions = async (intentResult, userId) => {
                 break;
 
             case 'send_invoice':
-                await executeSendInvoice(data, userId, actionsTaken, recordIds);
+                await executeSendInvoice(data, userId, actionsTaken);
                 break;
 
             case 'create_intervention_report':
@@ -221,18 +221,13 @@ async function executeCreateInvoice(data, userId, actionsTaken, recordIds) {
     });
 }
 
-async function executeSendInvoice(data, userId, actionsTaken, recordIds) {
-    // Find the most recent unpaid invoice for this client
-    let query = supabase
-        .from('quotes')
-        .select('id, title, client_id, clients(name, email)')
-        .eq('user_id', userId)
-        .in('status', ['draft', 'pending'])
-        .order('created_at', { ascending: false })
-        .limit(1);
-
+async function executeSendInvoice(data, userId, actionsTaken) {
+    // « Envoie la facture de X » : on retrouve la dernière facture pas encore
+    // envoyée et on l'ouvre pour l'envoyer par le circuit normal (aperçu +
+    // e-mail). Rien n'est modifié en base, donc l'annulation n'a rien à
+    // défaire — en particulier, elle ne supprime jamais un document existant.
+    let clientId = null;
     if (data.client_name) {
-        // Find client first
         const { data: clients } = await supabase
             .from('clients')
             .select('id')
@@ -240,47 +235,49 @@ async function executeSendInvoice(data, userId, actionsTaken, recordIds) {
             .ilike('name', `%${data.client_name}%`)
             .limit(1);
 
-        if (clients && clients.length > 0) {
-            query = query.eq('client_id', clients[0].id);
+        if (!clients || clients.length === 0) {
+            // Client dicté introuvable : ne jamais retomber sur un autre client.
+            actionsTaken.push({
+                type: 'send_invoice_not_found',
+                label: `Aucune facture trouvée pour ${data.client_name}`,
+                link: '/app/devis',
+            });
+            return;
         }
+        clientId = clients[0].id;
     }
+
+    let query = supabase
+        .from('quotes')
+        .select('id, title, client_id, clients(name, email)')
+        .eq('user_id', userId)
+        .eq('type', 'invoice')
+        .in('status', ['draft', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+    if (clientId != null) query = query.eq('client_id', clientId);
 
     const { data: invoices } = await query;
-    if (invoices && invoices.length > 0) {
-        const invoice = invoices[0];
-        const clientEmail = invoice.clients?.email;
-
-        if (clientEmail) {
-            // Mark as sent
-            await supabase
-                .from('quotes')
-                .update({ status: 'sent' })
-                .eq('id', invoice.id)
-                .eq('user_id', userId);
-
-            recordIds.quote_id = invoice.id;
-            actionsTaken.push({
-                type: 'send_invoice',
-                label: `Facture marquée comme envoyée : ${invoice.title}`,
-                id: invoice.id,
-                link: `/app/devis/${invoice.id}`,
-                note: `Email à envoyer manuellement à ${clientEmail}`,
-            });
-        } else {
-            actionsTaken.push({
-                type: 'send_invoice',
-                label: `Facture trouvée (email client manquant) : ${invoice.title}`,
-                id: invoice.id,
-                link: `/app/devis/${invoice.id}`,
-            });
-        }
-    } else {
+    const invoice = invoices?.[0];
+    if (!invoice) {
         actionsTaken.push({
             type: 'send_invoice_not_found',
-            label: 'Aucune facture en attente trouvée',
+            label: 'Aucune facture à envoyer trouvée',
             link: '/app/devis',
         });
+        return;
     }
+
+    const clientEmail = invoice.clients?.email;
+    actionsTaken.push({
+        type: 'send_invoice',
+        label: `Facture à envoyer : ${invoice.title}`,
+        id: invoice.id,
+        link: `/app/devis/${invoice.id}`,
+        note: clientEmail
+            ? `Ouvrez-la et appuyez sur « Envoyer » (${clientEmail}).`
+            : 'Email du client manquant : complétez sa fiche avant l\'envoi.',
+    });
 }
 
 async function executeCreateInterventionReport(data, userId, actionsTaken, recordIds) {

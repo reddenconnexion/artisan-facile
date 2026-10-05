@@ -514,12 +514,17 @@ export const getUnpaidInvoiceReminders = async (userId) => {
 
 /**
  * Marque une facture comme payée aujourd'hui — même écriture que la
- * sauvegarde du formulaire au statut « Payé ».
+ * sauvegarde du formulaire au statut « Payé », mode de règlement compris
+ * (obligatoire au livre de recettes).
  */
-export const markInvoicePaid = async (invoiceId, userId) => {
+export const markInvoicePaid = async (invoiceId, userId, paymentMethod = null) => {
     const { error } = await supabase
         .from('quotes')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            ...(paymentMethod ? { payment_method: paymentMethod } : {}),
+        })
         .eq('id', invoiceId)
         .eq('user_id', userId);
     if (error) throw error;

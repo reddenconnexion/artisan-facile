@@ -16,6 +16,7 @@ import DepositNextStepCard from '../components/DepositNextStepCard';
 import { ChantierMarginCard } from '../components/ChantierMargin';
 import AffaireTerrain from '../components/AffaireTerrain';
 import { useDepositActions } from './devis-form/useDepositActions';
+import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 
 const STATUS_LABELS = {
     draft: 'Brouillon',
@@ -63,6 +64,7 @@ const Affaire = () => {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
 
     const load = useCallback(async () => {
         const quoteId = parseInt(id, 10);
@@ -144,15 +146,14 @@ const Affaire = () => {
                 await handleCreateClosingInvoice();
                 return;
             case 'mark_paid': {
-                const ok = await confirm({
+                const paymentMethod = await askPaymentMethod({
                     title: 'Paiement reçu',
-                    message: "Marquer cette facture comme payée aujourd'hui ?",
-                    confirmLabel: 'Payée',
+                    message: "Marquer cette facture comme payée aujourd'hui.",
                 });
-                if (!ok) return;
+                if (!paymentMethod) return;
                 setBusy(true);
                 try {
-                    await markInvoicePaid(action.docId, user.id);
+                    await markInvoicePaid(action.docId, user.id, paymentMethod);
                     toast.success('Paiement enregistré');
                     await load();
                 } catch (error) {
@@ -234,6 +235,7 @@ const Affaire = () => {
 
     return (
         <div className="max-w-3xl mx-auto pb-28 sm:pb-12">
+            {paymentPrompt}
             <button
                 type="button"
                 onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/app/chantiers'))}

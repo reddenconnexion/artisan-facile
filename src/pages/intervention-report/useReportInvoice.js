@@ -123,11 +123,67 @@ export const useReportInvoice = ({
         toast.loading('Génération de la facture de clôture…', { id: toastId });
 
         try {
+            // Rapport PDF : uploadé, lié au rapport et au document rattaché.
+            const uploadReportPdf = async () => {
+                const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
+                const reportPath = `interventions/${user.id}/rapport-${formData.report_number || 'INT'}-${Date.now()}.pdf`;
+                const { error: uploadError } = await supabase.storage
+                    .from('quote_files')
+                    .upload(reportPath, reportBlob, { contentType: 'application/pdf' });
+
+                if (uploadError) {
+                    console.error('Upload rapport PDF échoué :', uploadError);
+                    toast.warning(`PDF non uploadé : ${uploadError.message}`, { duration: 5000 });
+                }
+
+                let reportUrl = null;
+                if (!uploadError) {
+                    const { data: { publicUrl: rUrl } } = supabase.storage
+                        .from('quote_files')
+                        .getPublicUrl(reportPath);
+                    reportUrl = rUrl;
+                }
+
+                // Stocker le lien PDF sur le rapport lui-même (pour retrouver le lien depuis n'importe quelle facture liée)
+                if (reportUrl) {
+                    await supabase
+                        .from('intervention_reports')
+                        .update({ report_pdf_url: reportUrl })
+                        .eq('id', savedId);
+                }
+
+                // Si un devis/facture est lié au rapport, on lui affecte aussi le lien du PDF
+                if (reportUrl && formData.quote_id) {
+                    await supabase
+                        .from('quotes')
+                        .update({ report_pdf_url: reportUrl })
+                        .eq('id', formData.quote_id);
+                }
+                return reportUrl;
+            };
+
             // --- Résoudre le devis lié ---
             const linkedQuote = formData.quote_id
                 ? allQuotes.find(q => q.id.toString() === formData.quote_id.toString())
                     ?? (await supabase.from('quotes').select('*').eq('id', formData.quote_id).single()).data
                 : null;
+
+            // Rapport rattaché à un devis : la facture de clôture se fait depuis
+            // le suivi de l'affaire, qui déduit les acomptes déjà facturés et
+            // bloque une seconde clôture. Recopier ici tout le devis
+            // facturerait le client deux fois.
+            if (linkedQuote?.id) {
+                await uploadReportPdf();
+                setFormData(prev => ({ ...prev, status: 'completed' }));
+                toast.dismiss(toastId);
+                const affaireId = linkedQuote.parent_id || linkedQuote.id;
+                toast.success('Rapport terminé', {
+                    description: 'Facturez le solde depuis le suivi de l\'affaire (acomptes déduits).',
+                    duration: 10000,
+                    action: { label: 'Facturer', onClick: () => navigate(`/app/affaires/${affaireId}`) },
+                });
+                return;
+            }
 
             // --- Résoudre le client (cache → fallback DB) ---
             const clientId = formData.client_id || linkedQuote?.client_id;
@@ -147,19 +203,9 @@ export const useReportInvoice = ({
                 toast.warning(`Facture créée — ${client?.name || 'ce client'} n'a pas d'email, vous devrez l'envoyer manuellement`);
             }
 
-            // --- 1. Base : items du devis signé lié ---
-            const baseItems = linkedQuote?.items
-                ? linkedQuote.items.map(i => ({
-                    description: i.description,
-                    quantity: parseFloat(i.quantity) || 1,
-                    unit: i.unit || 'unité',
-                    price: parseFloat(i.price) || 0,
-                    buying_price: parseFloat(i.buying_price) || 0,
-                    type: i.type || 'service',
-                }))
-                : [];
-
-            // --- 2. Matériaux supplémentaires du rapport ---
+            // Dépannage sans devis : la facture reprend le matériel et la
+            // main-d'œuvre du rapport.
+            // --- 1. Matériel du rapport ---
             const reportMaterials = (formData.materials_used || [])
                 .filter(m => m.description?.trim())
                 .map(m => ({
@@ -171,11 +217,10 @@ export const useReportInvoice = ({
                     type: 'material',
                 }));
 
-            // --- 3. Main d'œuvre supplémentaire (heures rapport) ---
-            // Ajoutée uniquement si aucun devis signé n'est lié (pour éviter le doublon avec les items du devis)
+            // --- 2. Main d'œuvre (heures du rapport) ---
             const hours = parseFloat(formData.duration_hours);
             const hourlyRate = parseFloat(userProfile?.ai_hourly_rate);
-            const laborItems = (!linkedQuote && hours > 0 && hourlyRate > 0)
+            const laborItems = (hours > 0 && hourlyRate > 0)
                 ? [{
                     description: `Main d'œuvre — ${formData.title || 'Intervention'} (${hours}h)`,
                     quantity: hours,
@@ -186,62 +231,28 @@ export const useReportInvoice = ({
                 }]
                 : [];
 
-            const items = [...baseItems, ...reportMaterials, ...laborItems];
+            const items = [...reportMaterials, ...laborItems];
             if (items.length === 0) {
                 items.push({ description: formData.title || 'Intervention', quantity: 1, unit: 'forfait', price: 0, buying_price: 0, type: 'service' });
             }
 
             // Les micro-entrepreneurs (auto-entrepreneurs) sont en franchise de TVA
             const isAutoEntrepreneur = userProfile?.artisan_status === 'micro_entreprise';
-            const includeTva = !isAutoEntrepreneur && (linkedQuote?.include_tva !== false);
+            const includeTva = !isAutoEntrepreneur;
             const totalHT = items.reduce((s, i) => s + i.quantity * i.price, 0);
             const totalTVA = includeTva ? totalHT * 0.2 : 0;
             const totalTTC = totalHT + totalTVA;
 
-            // --- 4. Créer la facture dans Supabase ---
+            // --- 3. Créer la facture dans Supabase ---
             const invoiceToken = crypto.randomUUID();
 
-            // --- 5. Uploader le rapport PDF avant de créer la facture ---
-            const reportBlob = await generateInterventionReportPDF(formData, userProfile, true);
-            const reportPath = `interventions/${user.id}/rapport-${formData.report_number || 'INT'}-${Date.now()}.pdf`;
-            const { error: uploadError } = await supabase.storage
-                .from('quote_files')
-                .upload(reportPath, reportBlob, { contentType: 'application/pdf' });
-
-            if (uploadError) {
-                console.error('Upload rapport PDF échoué :', uploadError);
-                toast.warning(`PDF non uploadé : ${uploadError.message}`, { duration: 5000 });
-            }
-
-            let reportUrl = null;
-            if (!uploadError) {
-                const { data: { publicUrl: rUrl } } = supabase.storage
-                    .from('quote_files')
-                    .getPublicUrl(reportPath);
-                reportUrl = rUrl;
-            }
-
-            // Stocker le lien PDF sur le rapport lui-même (pour retrouver le lien depuis n'importe quelle facture liée)
-            if (reportUrl) {
-                await supabase
-                    .from('intervention_reports')
-                    .update({ report_pdf_url: reportUrl })
-                    .eq('id', savedId);
-            }
-
-            // Si un devis/facture est lié au rapport, on lui affecte aussi le lien du PDF
-            if (reportUrl && formData.quote_id) {
-                await supabase
-                    .from('quotes')
-                    .update({ report_pdf_url: reportUrl })
-                    .eq('id', formData.quote_id);
-            }
+            const reportUrl = await uploadReportPdf();
 
             const invoicePayload = {
                 user_id: user.id,
                 client_id: clientId ? Number(clientId) : null,
                 client_name: client?.name || formData.client_name || null,
-                title: linkedQuote?.title || formData.title || 'Facture de clôture',
+                title: formData.title || 'Facture de clôture',
                 date: new Date().toISOString().split('T')[0],
                 type: 'invoice',
                 status: 'sent',
@@ -253,8 +264,6 @@ export const useReportInvoice = ({
                 public_token: invoiceToken,
                 notes: `Facture de clôture — rapport d'intervention du ${formData.date || formatDate(new Date())}`,
                 report_pdf_url: reportUrl,
-                // Lier la facture au devis d'origine pour que le dashboard retire ce devis des "À traiter"
-                parent_id: linkedQuote?.id || null,
             };
 
             const { data: newInvoice, error: invoiceError } = await supabase
@@ -264,14 +273,6 @@ export const useReportInvoice = ({
                 .single();
 
             if (invoiceError) throw invoiceError;
-
-            // Passer le devis lié en "Facturé" pour refléter l'avancement dans le pipeline
-            if (linkedQuote?.id) {
-                await supabase
-                    .from('quotes')
-                    .update({ status: 'billed' })
-                    .eq('id', linkedQuote.id);
-            }
 
             toast.dismiss(toastId);
             toast.success('Facture de clôture créée');

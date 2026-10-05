@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
+import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 import {
     getDueFollowUps,
     recordFollowUp,
@@ -37,6 +38,7 @@ const FollowUps = ({ embedded = false }) => {
     const { data: profile } = useUserProfile();
     const navigate = useNavigate();
     const confirm = useConfirm();
+    const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
     const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
     const [availableSteps, setAvailableSteps] = useState([]);
@@ -279,14 +281,14 @@ const FollowUps = ({ embedded = false }) => {
     };
 
     const handleMarkInvoicePaid = async (invoice) => {
-        const confirmed = await confirm({
-            title: `Marquer la facture ${invoiceReference(invoice)} comme payée ?`,
+        const paymentMethod = await askPaymentMethod({
+            title: `Facture ${invoiceReference(invoice)} payée`,
             message: `${formatCurrency(invoice.total_ttc)} encaissés aujourd'hui. La facture sortira des relances et comptera dans votre chiffre d'affaires encaissé.`,
-            confirmLabel: 'Marquer payée',
+            defaultMethod: invoice.payment_method,
         });
-        if (!confirmed) return;
+        if (!paymentMethod) return;
         try {
-            await markInvoicePaid(invoice.id, user.id);
+            await markInvoicePaid(invoice.id, user.id, paymentMethod);
             toast.success('Facture marquée payée');
             closeInvoiceDraft(invoice.id);
             fetchDueQuotes();
@@ -624,6 +626,7 @@ const FollowUps = ({ embedded = false }) => {
 
     return (
         <div className={embedded ? 'space-y-6' : 'max-w-6xl mx-auto space-y-6'}>
+            {paymentPrompt}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {!embedded && (
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
