@@ -7,11 +7,14 @@
 -- d'achat réel, et la marge du chantier se calcule au plus juste.
 --
 -- Ces objets existaient déjà en production (créés hors dépôt). La migration
--- les versionne à l'identique, de façon rejouable, avec deux durcissements :
+-- les versionne de façon rejouable, avec trois corrections :
 --   1. le trigger ignore un `quote_id` / `procurement_item_id` qui
 --      n'appartient pas à l'auteur de la ligne (sinon, SECURITY DEFINER, il
 --      recopiait le titre et le client du devis d'un autre artisan) ;
---   2. les RPC de rattachement ne sont plus exécutables avec la clé anon.
+--   2. les RPC de rattachement ne sont plus exécutables avec la clé anon ;
+--   3. une nouvelle commande web ne se rapproche plus d'une ligne « à
+--      commander » déjà réglée par un achat précédent (elle écrasait le prix
+--      payé sur un chantier terminé quand on rachetait la même référence).
 -- ──────────────────────────────────────────────────────────────────────────────
 
 -- ── Colonnes ────────────────────────────────────────────────────────────────
@@ -147,12 +150,14 @@ BEGIN
            AND public.reference_key(p.reference, NULL) = v_ref
            AND (NEW.quote_id IS NULL OR p.quote_id = NEW.quote_id)
            AND (NEW.quote_id IS NOT NULL OR p.quote_id IS NULL OR q.status IN ('accepted', 'sent', 'billed'))
+           -- Une ligne déjà réglée par un achat ne se rapproche plus d'une
+           -- nouvelle commande (c'est un nouvel achat, pas le même) ; seule la
+           -- facture peut encore remplacer le prix d'une commande web.
            AND NOT EXISTS (
                 SELECT 1 FROM public.supplier_purchases sp
                  WHERE sp.procurement_item_id = p.id
-                   AND sp.origin = 'invoice'
                    AND sp.match_status IN ('auto', 'manual', 'created')
-                   AND NEW.origin = 'invoice')
+                   AND (NEW.origin = 'web_order' OR sp.origin = 'invoice'))
          ORDER BY (p.quote_id IS NOT NULL) DESC, p.created_at DESC
          LIMIT 1;
     END IF;

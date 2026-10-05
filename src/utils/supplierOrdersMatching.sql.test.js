@@ -139,6 +139,33 @@ describe('match_supplier_purchase', () => {
         const item = (await db.query('SELECT buying_price FROM procurement_items WHERE id = 101')).rows[0];
         expect(Number(item.buying_price)).toBe(54);
     });
+
+    it('ne réécrit pas le prix d’une ligne déjà réglée quand on rachète la même référence', async () => {
+        await db.query(`INSERT INTO procurement_items (id, user_id, quote_id, description, reference, quantity) VALUES (102, $1, 1, 'Peigne 1P', '404926', 6)`, [USER_A]);
+        const first = await insertPurchase(USER_A, {
+            user_id: USER_A, product_name: 'Peigne 404926', product_key: 'peigne', reference: '404926',
+            quantity: 6, unit_price: 2.33, unit_price_ttc: 2.8, origin: 'web_order', quote_id: 1,
+        });
+        expect(first.rows[0]).toMatchObject({ procurement_item_id: 102, match_status: 'auto' });
+        const again = await insertPurchase(USER_A, {
+            user_id: USER_A, product_name: 'Peigne 404926', product_key: 'peigne', reference: '404926',
+            quantity: 10, unit_price: 2.49, unit_price_ttc: 2.99, origin: 'web_order',
+        });
+        expect(again.rows[0]).toMatchObject({ procurement_item_id: null, match_status: 'unmatched' });
+        const item = (await db.query('SELECT buying_price FROM procurement_items WHERE id = 102')).rows[0];
+        expect(Number(item.buying_price)).toBe(2.8);
+    });
+
+    it('laisse la facture remplacer le prix de la commande web', async () => {
+        const { rows } = await insertPurchase(USER_A, {
+            user_id: USER_A, product_name: 'Peigne 404926', product_key: 'peigne', reference: '404926',
+            quantity: 6, unit_price: 2.25, unit_price_ttc: 2.7, origin: 'invoice',
+        });
+        expect(rows[0]).toMatchObject({ procurement_item_id: 102, match_status: 'auto' });
+        const item = (await db.query('SELECT buying_price, buying_price_source FROM procurement_items WHERE id = 102')).rows[0];
+        expect(item).toMatchObject({ buying_price_source: 'invoice' });
+        expect(Number(item.buying_price)).toBe(2.7);
+    });
 });
 
 describe('RPC de rattachement', () => {
