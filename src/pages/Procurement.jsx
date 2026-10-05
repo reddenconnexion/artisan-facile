@@ -384,13 +384,22 @@ const Procurement = () => {
                         Centralisez les besoins notés depuis les chantiers et passez vos commandes.
                     </p>
                 </div>
-                <Link
-                    to="/terrain?mode=commande"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ios hover:bg-ios-dark text-white text-sm font-semibold shadow-sm"
-                >
-                    <Mic className="w-4 h-4" />
-                    Dicter sur le chantier
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                    <Link
+                        to="/app/commandes"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-100 text-sm font-semibold"
+                    >
+                        <Truck className="w-4 h-4" />
+                        Commandes passées
+                    </Link>
+                    <Link
+                        to="/terrain?mode=commande"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ios hover:bg-ios-dark text-white text-sm font-semibold shadow-sm"
+                    >
+                        <Mic className="w-4 h-4" />
+                        Dicter sur le chantier
+                    </Link>
+                </div>
             </div>
 
             {/* Status tabs */}
