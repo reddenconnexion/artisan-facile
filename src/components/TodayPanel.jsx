@@ -103,12 +103,14 @@ const TodayPanel = () => {
                 <button
                     onClick={startQuickPhoto}
                     aria-label={currentEvent?.client_name ? `Photo pour ${currentEvent.client_name}` : 'Prendre une photo'}
-                    className="min-h-[9.5rem] flex flex-col items-center justify-center gap-2 rounded-3xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg active:scale-[0.97] transition-all"
+                    className="min-h-[9.5rem] md:min-h-0 md:h-16 flex flex-col md:flex-row items-center justify-center md:justify-start gap-2 md:gap-3 md:px-5 rounded-3xl md:rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg md:shadow-sm active:scale-[0.97] transition-all"
                 >
-                    <Camera className="w-12 h-12" />
-                    <span className="text-xl font-extrabold leading-none">Photo</span>
-                    <span className="text-xs font-medium opacity-75 px-2 text-center truncate max-w-full">
-                        {currentEvent?.client_name || 'Choisir le client'}
+                    <Camera className="w-12 h-12 md:w-6 md:h-6 shrink-0" />
+                    <span className="flex flex-col items-center md:items-start gap-2 md:gap-0.5 min-w-0 max-w-full">
+                        <span className="text-xl md:text-base font-extrabold leading-none">Photo</span>
+                        <span className="text-xs font-medium opacity-75 px-2 md:px-0 text-center md:text-left truncate max-w-full">
+                            {currentEvent?.client_name || 'Choisir le client'}
+                        </span>
                     </span>
                 </button>
                 <TerrainVoiceButton />
