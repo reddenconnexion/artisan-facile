@@ -360,9 +360,10 @@ export const useQuoteEmail = ({
                 ? `${actionText} :\n${publicUrl}`
                 : `${actionText} :\n${publicUrl}\n${E.signCaption}`;
 
-            // Client Portal Link Logic
+            // Lien du portail client : factures, devis et avenants (pas les
+            // avoirs). Le client y retrouve tous ses documents et le suivi.
             let portalUrl = null;
-            if (isInvoice) {
+            if (isInvoice || !isCreditNote) {
                 let clientPortalToken = selectedClient.portal_token;
 
                 if (!clientPortalToken) {
@@ -481,7 +482,7 @@ export const useQuoteEmail = ({
                 // Devis : on envoie une version HTML où le lien de signature
                 // devient un bouton « Signer ». Le texte brut (avec l'URL) reste
                 // le fallback pour les clients mail sans HTML. Le lien du portail
-                // client (factures) devient un encart avec bouton « Espace client ».
+                // client devient un encart avec bouton « Espace client ».
                 const htmlBody = (emailPreview.signUrl || emailPreview.portalUrl)
                     ? buildDocumentEmailHtml(body, {
                         signUrl: emailPreview.signUrl,
