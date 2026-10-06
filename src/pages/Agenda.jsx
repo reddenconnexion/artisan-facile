@@ -393,6 +393,15 @@ const Agenda = () => {
         setShowModal(true);
     };
 
+    // Bouton flottant mobile : /app/agenda?new=1 ouvre directement le formulaire de RDV
+    useEffect(() => {
+        if (new URLSearchParams(location.search).get('new') === '1') {
+            openNewEventModal();
+            navigate('/app/agenda', { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
+
     const selectedDateEvents = events.filter(event => isSameDay(event.date, selectedDate));
 
     if (loading) {
