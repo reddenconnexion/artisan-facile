@@ -144,3 +144,58 @@ export const restoreDraftVoiceNotes = (list = []) => (Array.isArray(list) ? list
         blob: null,
         restored: true,
     }));
+
+// ── Brouillon côté serveur : finir la visite au bureau ────────────────────
+// Le brouillon local ne vit que sur le téléphone : au bureau, sur
+// l'ordinateur, la visite était introuvable tant qu'elle n'avait pas été
+// chiffrée. Le même brouillon est donc aussi rangé dans le rapport de visite
+// (`intervention_reports.notes.draft`), enregistré dès que la visite a du
+// contenu. Une visite reste « à finir » tant que le chiffrage n'a pas
+// remplacé ces notes.
+
+const parseNotes = (notes) => {
+    if (notes && typeof notes === 'object') return notes;
+    try {
+        const parsed = JSON.parse(notes || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
+/** Vrai pour une visite enregistrée mais pas encore chiffrée. */
+export const isVisitToFinish = (row) => {
+    if (!row || row.report_type !== 'site_visit' || row.status !== 'draft') return false;
+    const draft = parseNotes(row.notes)?.draft;
+    return Boolean(draft && typeof draft === 'object');
+};
+
+/**
+ * Reconstruit le brouillon d'une visite à partir de son rapport, au même
+ * format que le brouillon local. Null si la ligne n'en porte pas.
+ */
+export const draftFromVisitRecord = (row) => {
+    if (!isVisitToFinish(row)) return null;
+    const draft = parseNotes(row.notes).draft;
+    const savedAt = Number(draft.savedAt) || Date.parse(row.updated_at || row.created_at || '') || 0;
+    return {
+        ...draft,
+        clientId: draft.clientId ?? row.client_id ?? null,
+        clientName: draft.clientName || row.client_name || '',
+        address: draft.address || row.intervention_address || '',
+        visitReportId: row.id,
+        savedAt,
+        remote: true,
+    };
+};
+
+/**
+ * Entre le brouillon du téléphone et celui du serveur pour la même visite,
+ * garde le plus récent : la visite reprise sur l'ordinateur ne doit pas être
+ * écrasée par l'ancienne version restée sur le téléphone.
+ */
+export const freshestDraft = (local, remote) => {
+    if (!local) return remote || null;
+    if (!remote) return local;
+    return (Number(remote.savedAt) || 0) > (Number(local.savedAt) || 0) ? remote : local;
+};

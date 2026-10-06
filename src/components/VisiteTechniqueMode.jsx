@@ -30,7 +30,7 @@ import {
 import { surveyCompleteness } from '../utils/predevisReport';
 import {
     loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos,
-    draftVoiceNotes, restoreDraftVoiceNotes,
+    draftVoiceNotes, restoreDraftVoiceNotes, draftFromVisitRecord, freshestDraft, isVisitToFinish,
 } from '../utils/visitDraft';
 import {
     formatDuration,
@@ -86,7 +86,7 @@ const makeReportNumber = (date) => visitReportNumber(date, Date.now().toString()
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-const VisiteTechniqueMode = ({ onBack }) => {
+const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const confirm = useConfirm();
@@ -143,6 +143,9 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const [photoViewer, setPhotoViewer] = useState(null);
     // Rapport d'intervention qui archive cette visite, créé au premier compte rendu
     const [visitReportId, setVisitReportId] = useState(null);
+    // Copie synchrone de visitReportId : deux enregistrements rapprochés ne
+    // doivent jamais créer deux rapports pour la même visite.
+    const visitReportIdRef = useRef(null);
     const visitDateRef = useRef(null);
 
     // Brouillon repéré au démarrage (visite interrompue)
@@ -171,29 +174,82 @@ const VisiteTechniqueMode = ({ onBack }) => {
     // Appel entrant, mise en veille, onglet recyclé par le téléphone : le
     // relevé saisi est relu au démarrage (voir readPendingDraft) et proposé
     // à la reprise ; il est réécrit à chaque modification.
+    // Ce qui a déjà été mis à l'abri survit à une reprise : les photos
+    // envoyées, l'audio pas encore transcrit, les notes déjà transcrites et
+    // le rapport archivé. Le même brouillon part sur le téléphone et dans le
+    // rapport de visite (voir saveVisit), pour finir au bureau.
+    const buildDraft = () => ({
+        clientId, clientName, address, textNotes, survey, capture,
+        photos: draftPhotos(photos),
+        voiceNotes: draftVoiceNotes(voiceNotes),
+        transcripts: voiceTranscripts,
+        visitReportId,
+        visitDate: visitDateRef.current ? visitDateRef.current.toISOString() : null,
+    });
+    const hasVisitContent = Boolean(clientName.trim() || address.trim() || textNotes.trim()
+        || hasSurveyContent(survey) || hasCaptureContent(capture)
+        || photos.some(p => p.path) || voiceNotes.some(n => n.dbId)
+        || Object.values(voiceTranscripts).some(t => String(t ?? '').trim()));
+
     useEffect(() => {
         if (step !== 'capture') return undefined;
-        const hasSomething = clientName.trim() || address.trim() || textNotes.trim()
-            || hasSurveyContent(survey) || hasCaptureContent(capture) || photos.some(p => p.path);
-        if (!hasSomething) return undefined;
-        const timer = setTimeout(
-            () => saveVisitDraft({
-                clientId, clientName, address, textNotes, survey, capture,
-                // Ce qui a déjà été mis à l'abri survit à une reprise : les
-                // photos envoyées, l'audio pas encore transcrit, les notes
-                // déjà transcrites et le rapport archivé.
-                photos: draftPhotos(photos),
-                voiceNotes: draftVoiceNotes(voiceNotes),
-                transcripts: voiceTranscripts,
-                visitReportId,
-            }),
-            600
-        );
+        if (!hasVisitContent) return undefined;
+        const timer = setTimeout(() => saveVisitDraft(buildDraft()), 600);
         return () => clearTimeout(timer);
     }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceNotes, voiceTranscripts, visitReportId]);
 
-    const restoreDraft = () => {
-        const draft = pendingDraft;
+    // ── Visites à finir, enregistrées sur le serveur ───────────────────────
+    // Commencée sur le téléphone, finie sur l'ordinateur du bureau : les
+    // visites pas encore chiffrées sont proposées à la reprise, quel que soit
+    // l'appareil. Une visite ouverte depuis la liste des rapports
+    // (resumeVisitId) est reprise directement.
+    const [remoteDrafts, setRemoteDrafts] = useState([]);
+    const [remoteLoaded, setRemoteLoaded] = useState(false);
+    const autoResumedRef = useRef(false);
+    useEffect(() => {
+        if (!user) return;
+        let cancelled = false;
+        supabase.from('intervention_reports')
+            .select('id, client_id, client_name, intervention_address, notes, status, report_type, created_at, updated_at')
+            .eq('report_type', 'site_visit')
+            .eq('status', 'draft')
+            .order('updated_at', { ascending: false })
+            .limit(20)
+            .then(({ data }) => {
+                if (cancelled) return;
+                const drafts = (data || []).map(draftFromVisitRecord).filter(Boolean);
+                // Même visite que le brouillon du téléphone : on ne garde que
+                // la version la plus récente, proposée une seule fois.
+                setPendingDraft((local) => {
+                    const twin = local?.visitReportId && drafts.find(d => d.visitReportId === local.visitReportId);
+                    return twin ? freshestDraft(local, twin) : local;
+                });
+                setRemoteDrafts(drafts);
+                setRemoteLoaded(true);
+            }, () => {});
+        // Brouillon du téléphone dont la visite a été chiffrée ou supprimée
+        // depuis le bureau : le reprendre réécrirait par-dessus. On l'oublie.
+        const localId = readPendingDraft()?.visitReportId;
+        if (localId) {
+            supabase.from('intervention_reports')
+                .select('id, notes, status, report_type')
+                .eq('id', localId)
+                .maybeSingle()
+                .then(({ data, error: fetchErr }) => {
+                    if (cancelled || fetchErr) return;
+                    if (!data || !isVisitToFinish(data)) {
+                        clearVisitDraft();
+                        setPendingDraft((d) => (d?.visitReportId === localId ? null : d));
+                    }
+                }, () => {});
+        }
+        return () => { cancelled = true; };
+    }, [user]);
+
+    const otherRemoteDrafts = remoteDrafts.filter(d =>
+        d.visitReportId !== pendingDraft?.visitReportId && d.visitReportId !== visitReportId);
+
+    const restoreDraft = (draft = pendingDraft) => {
         if (!draft) return;
         setClientId(draft.clientId ?? null);
         setClientName(draft.clientName || '');
@@ -211,7 +267,13 @@ const VisiteTechniqueMode = ({ onBack }) => {
             uploadedPhotosRef.current = restoredPhotos.map(p => ({ url: p.url, path: p.path, name: p.name || 'photo.jpg' }));
         }
         if (draft.transcripts && typeof draft.transcripts === 'object') setVoiceTranscripts(draft.transcripts);
-        if (draft.visitReportId) setVisitReportId(draft.visitReportId);
+        if (draft.visitReportId) {
+            setVisitReportId(draft.visitReportId);
+            visitReportIdRef.current = draft.visitReportId;
+        }
+        // La visite garde sa date d'origine, même finie le lendemain au bureau.
+        const visitDate = draft.visitDate ? new Date(draft.visitDate) : null;
+        if (visitDate && !Number.isNaN(visitDate.getTime())) visitDateRef.current = visitDate;
         // Audio mis à l'abri avant la coupure : le Blob a disparu avec
         // l'onglet, mais le fichier est encore dans le stockage — on le
         // retélécharge pour relancer sa transcription si elle n'a pas abouti.
@@ -224,6 +286,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
             if (stillPending.length) redownloadAndRetry(stillPending);
         }
         setPendingDraft(null);
+        setRemoteDrafts(prev => prev.filter(d => d.visitReportId !== draft.visitReportId));
         const parts = [
             restoredPhotos.length ? `${restoredPhotos.length} photo${restoredPhotos.length > 1 ? 's' : ''}` : '',
             pendingRedownload ? `${pendingRedownload} note${pendingRedownload > 1 ? 's' : ''} vocale${pendingRedownload > 1 ? 's' : ''} à retranscrire` : '',
@@ -231,10 +294,25 @@ const VisiteTechniqueMode = ({ onBack }) => {
         toast.success(parts.length ? `Relevé repris — ${parts.join(', ')} retrouvée(s)` : 'Relevé repris');
     };
 
+    // « Repartir de zéro » oublie le brouillon du téléphone ; la visite déjà
+    // enregistrée sur le serveur reste dans les rapports d'intervention.
     const discardDraft = () => {
         clearVisitDraft();
         setPendingDraft(null);
     };
+
+    // Ouverture depuis un rapport de visite : reprise immédiate.
+    useEffect(() => {
+        if (!resumeVisitId || autoResumedRef.current || !remoteLoaded) return;
+        autoResumedRef.current = true;
+        const target = remoteDrafts.find(d => String(d.visitReportId) === String(resumeVisitId));
+        if (!target) {
+            toast.error('Cette visite est déjà chiffrée ou introuvable — elle reste consultable dans les rapports.');
+            return;
+        }
+        const local = pendingDraft?.visitReportId === target.visitReportId ? pendingDraft : null;
+        restoreDraft(freshestDraft(local, target));
+    }, [resumeVisitId, remoteDrafts, remoteLoaded]);
 
     // ── Transcription au fil de la visite ──────────────────────────────────
     // Chaque segment part en transcription dès qu'il se ferme, pendant que
@@ -396,6 +474,8 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const captureZoneRef = useRef('');
     useEffect(() => { captureZoneRef.current = capture.zone; }, [capture.zone]);
 
+    // Segments en cours d'envoi : quitter la visite les attend (voir handleBack).
+    const persistingSegmentsRef = useRef(new Set());
     const handleSegment = useCallback(async ({ blob, mimeType, duration, index, startedAt, meta }) => {
         const id = `seg-${startedAt}-${index}`;
         const zone = meta?.zone || '';
@@ -405,7 +485,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
         // L'audio est mis à l'abri avant d'être transcrit : si l'appli est
         // recyclée pendant l'appel de transcription, le fichier survit sur
         // le serveur et pourra être retransmis plus tard.
-        const persisted = await persistVoiceNote(note);
+        const persisting = persistVoiceNote(note);
+        persistingSegmentsRef.current.add(persisting);
+        const persisted = await persisting;
+        persistingSegmentsRef.current.delete(persisting);
         enqueueTranscription([persisted]);
     }, [enqueueTranscription, persistVoiceNote]);
 
@@ -573,9 +656,21 @@ const VisiteTechniqueMode = ({ onBack }) => {
         return () => window.removeEventListener('online', retry);
     });
 
-    const saveVisit = async (date, textOverride, { silent = false } = {}) => {
+    // Un seul enregistrement à la fois, dans l'ordre : la sauvegarde
+    // automatique et le chiffrage peuvent se croiser, et le premier crée le
+    // rapport que le suivant doit mettre à jour.
+    const saveChainRef = useRef(Promise.resolve());
+    const quotedRef = useRef(false);
+    const saveVisit = (date, textOverride, options) => {
+        const run = saveChainRef.current.then(() => saveVisitNow(date, textOverride, options));
+        saveChainRef.current = run.then(() => {}, () => {});
+        return run;
+    };
+
+    const saveVisitNow = async (date, textOverride, { silent = false } = {}) => {
         if (!user) return null;
         visitDateRef.current = visitDateRef.current || date;
+        date = visitDateRef.current;
         const signature = visitSignature();
         try {
             const uploaded = await uploadPendingPhotos();
@@ -592,6 +687,10 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 photos: uploaded,
                 date,
                 reportNumber: makeReportNumber(date),
+                // Une fois chiffrée, la visite n'est plus « à finir ».
+                draft: quotedRef.current
+                    ? undefined
+                    : { ...buildDraft(), visitReportId: visitReportIdRef.current, savedAt: Date.now() },
             });
 
             // Photos aussi dans la fiche client, quand la visite en a une :
@@ -613,15 +712,22 @@ const VisiteTechniqueMode = ({ onBack }) => {
                 }
             }
 
-            let reportId = visitReportId;
-            if (visitReportId) {
-                const { error } = await supabase.from('intervention_reports').update(record).eq('id', visitReportId);
+            let reportId = visitReportIdRef.current;
+            if (reportId) {
+                // Le numéro de rapport reste celui de la création.
+                const changes = { ...record };
+                delete changes.report_number;
+                const { error } = await supabase.from('intervention_reports').update(changes).eq('id', reportId);
                 if (error) throw error;
             } else {
                 const { data, error } = await supabase.from('intervention_reports')
                     .insert(record).select('id').single();
                 if (error) throw error;
-                if (data?.id) { reportId = data.id; setVisitReportId(data.id); }
+                if (data?.id) {
+                    reportId = data.id;
+                    visitReportIdRef.current = data.id;
+                    setVisitReportId(data.id);
+                }
             }
             // Relie les segments audio déjà persistés à leur rapport, pour
             // pouvoir retrouver un échec resté en base a posteriori.
@@ -647,6 +753,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const visitSignature = () => JSON.stringify({
         transcripts: voiceTranscripts,
         photos: photos.filter(p => p.path).map(p => p.path),
+        voiceNotes: voiceNotes.map(n => n.dbId).filter(Boolean),
         entries: (capture.entries || []).length,
         survey,
         textNotes,
@@ -658,14 +765,18 @@ const VisiteTechniqueMode = ({ onBack }) => {
     const saveVisitRef = useRef(saveVisit);
     useEffect(() => { saveVisitRef.current = saveVisit; });
     const currentSignature = visitSignature();
+    // Dès la première photo enregistrée ou la première note transcrite, la
+    // visite existe sur le serveur — plus seulement sur le téléphone. Elle se
+    // retrouve au bureau, sur l'ordinateur, sans rien avoir rempli d'autre.
+    const shouldAutosave = Boolean(user) && (Boolean(visitReportId) || (step === 'capture' && hasVisitContent));
     useEffect(() => {
-        if (!visitReportId || !user) return undefined;
+        if (!shouldAutosave) return undefined;
         if (currentSignature === lastSavedSignatureRef.current) return undefined;
         const timer = setTimeout(() => {
             saveVisitRef.current(visitDateRef.current || nowDate(), undefined, { silent: true });
-        }, 1200);
+        }, 1500);
         return () => clearTimeout(timer);
-    }, [visitReportId, user, currentSignature]);
+    }, [shouldAutosave, currentSignature]);
 
     /** Retire une photo déjà envoyée : du stockage, de l'archive et de la fiche client. */
     const forgetStoredPhoto = async (photo) => {
@@ -844,6 +955,7 @@ const VisiteTechniqueMode = ({ onBack }) => {
 
             setActivePhase('done');
             setResult(quoteResult);
+            quotedRef.current = true;
 
             // Le chiffrage complète la visite : elle est d'abord archivée
             // (photos, relevé, transcriptions — comme le fait la sauvegarde
@@ -929,22 +1041,52 @@ const VisiteTechniqueMode = ({ onBack }) => {
     };
 
     const handleBack = async () => {
+        if (leaving) return;
         const unsaved = photos.filter(p => !p.path).length;
         if (unsaved > 0) {
             const ok = await confirm({
                 title: `${unsaved} photo${unsaved > 1 ? 's' : ''} pas encore enregistrée${unsaved > 1 ? 's' : ''}`,
-                message: "Elles seront perdues si vous quittez maintenant. Ouvrez le compte rendu pour les enregistrer.",
+                message: "Pas encore envoyées (réseau ?) : elles seront perdues si vous quittez maintenant. Attendez le retour du réseau.",
                 confirmLabel: 'Quitter quand même',
                 danger: true,
             });
             if (!ok) return;
         }
         if (isRecording) cancelRecording();
-        if (visitRecorder.isRecording) visitRecorder.stop();
         handleCloseCamera();
+        // Quitter ne ferme pas la visite : le dernier morceau d'audio est mis
+        // à l'abri, puis la visite est enregistrée telle quelle (voir l'effet
+        // `leaving`) et reste à finir, sur le téléphone comme au bureau.
+        if (step === 'capture' && user) {
+            setLeaving(true);
+            if (visitRecorder.isRecording) await visitRecorder.stop();
+            await Promise.all([...persistingSegmentsRef.current]);
+            setLeaving('ready');
+            return;
+        }
+        if (visitRecorder.isRecording) visitRecorder.stop();
         photos.forEach(p => URL.revokeObjectURL(p.preview));
         onBack();
     };
+
+    // Enregistrement de sortie, après le rendu qui porte le dernier segment
+    // audio : la sauvegarde lit alors l'état à jour.
+    const [leaving, setLeaving] = useState(false);
+    useEffect(() => {
+        if (leaving !== 'ready') return;
+        let done = false;
+        (async () => {
+            if (hasVisitContent) {
+                const savedId = await saveVisitRef.current(visitDateRef.current || nowDate(), undefined, { silent: true });
+                if (savedId) toast.success("Visite enregistrée — à finir plus tard, depuis le téléphone ou l'ordinateur.");
+                else toast.error('Pas de réseau : la visite est gardée sur ce téléphone. Rouvrez-la ici avec du réseau pour la retrouver au bureau.');
+            }
+            if (done) return;
+            photosRef.current.forEach(p => p.preview?.startsWith('blob:') && URL.revokeObjectURL(p.preview));
+            onBack();
+        })();
+        return () => { done = true; };
+    }, [leaving]);
 
     // ── Derived ────────────────────────────────────────────────────────────
 
@@ -997,10 +1139,11 @@ const VisiteTechniqueMode = ({ onBack }) => {
             <div className="shrink-0 bg-white border-b border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3 safe-area-top">
                 <button
                     onClick={handleBack}
+                    disabled={Boolean(leaving)}
                     className="p-2 -ml-1 text-gray-500 hover:text-gray-800 rounded-xl active:bg-gray-100"
                     aria-label="Retour"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    {leaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowLeft className="w-5 h-5" />}
                 </button>
                 <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-base leading-tight">Visite technique</p>
@@ -1049,12 +1192,12 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                     Visite en cours retrouvée
                                 </p>
                                 <p className="text-xs text-blue-700 mt-0.5">
-                                    {[pendingDraft.clientName, draftAgeLabel(pendingDraft.savedAt)].filter(Boolean).join(' — ')}
+                                    {[pendingDraft.clientName || 'Client non renseigné', draftAgeLabel(pendingDraft.savedAt)].filter(Boolean).join(' — ')}
                                     {' '}· photos, transcriptions et audio pas encore transcrit sont retrouvés.
                                 </p>
                                 <div className="flex gap-2 mt-2">
                                     <button
-                                        onClick={restoreDraft}
+                                        onClick={() => restoreDraft()}
                                         className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
                                     >
                                         Reprendre
@@ -1066,6 +1209,41 @@ const VisiteTechniqueMode = ({ onBack }) => {
                                         Repartir de zéro
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Visites enregistrées, pas encore chiffrées : commencées
+                            sur le téléphone, elles se finissent ici, au bureau. */}
+                        {!visitReportId && !hasVisitContent && otherRemoteDrafts.length > 0 && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+                                <p className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
+                                    <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                                    Visites à finir ({otherRemoteDrafts.length})
+                                </p>
+                                <ul className="mt-2 space-y-1.5">
+                                    {otherRemoteDrafts.slice(0, 5).map((d) => (
+                                        <li key={d.visitReportId}>
+                                            <button
+                                                onClick={() => restoreDraft(d)}
+                                                className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white border border-amber-200 rounded-xl text-left hover:bg-amber-100 transition-colors"
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-medium text-gray-900 truncate">
+                                                        {d.clientName || d.address || 'Client non renseigné'}
+                                                    </span>
+                                                    <span className="block text-xs text-gray-500">
+                                                        {[
+                                                            draftAgeLabel(d.savedAt),
+                                                            d.photos?.length ? `${d.photos.length} photo${d.photos.length > 1 ? 's' : ''}` : '',
+                                                            d.voiceNotes?.length ? `${d.voiceNotes.length} enregistrement${d.voiceNotes.length > 1 ? 's' : ''}` : '',
+                                                        ].filter(Boolean).join(' · ')}
+                                                    </span>
+                                                </span>
+                                                <span className="text-sm font-semibold text-amber-700 flex-shrink-0">Reprendre</span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 

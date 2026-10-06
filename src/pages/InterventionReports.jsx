@@ -11,6 +11,7 @@ import { useUserProfile } from '../hooks/useDataCache';
 import { generateInterventionReportPDF } from '../utils/pdfGenerator';
 import { useTestMode } from '../context/TestModeContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { isVisitToFinish } from '../utils/visitDraft';
 
 const STATUS_CONFIG = {
     draft: { label: 'Brouillon', bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: Clock },
@@ -37,6 +38,17 @@ const VisiteBadge = () => (
 );
 
 const isVisiteTechnique = (r) => r.report_type === 'site_visit' || r.report_number?.startsWith('VT-');
+
+// Visite commencée sur le terrain, pas encore chiffrée : on la rouvre là où
+// elle s'est arrêtée (photos, enregistrements, relevé).
+const FinishVisitButton = ({ report, navigate }) => (
+    <button
+        onClick={() => navigate(`/terrain?mode=visite&reprendre=${report.id}`)}
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+    >
+        À finir — reprendre
+    </button>
+);
 
 const InterventionReports = () => {
     const navigate = useNavigate();
@@ -203,6 +215,7 @@ const InterventionReports = () => {
                                                     {report.title}
                                                 </button>
                                                 {isVisiteTechnique(report) && <VisiteBadge />}
+                                                {isVisitToFinish(report) && <FinishVisitButton report={report} navigate={navigate} />}
                                             </div>
                                             {report.report_number && (
                                                 <p className="text-xs text-gray-400 mt-0.5">#{report.report_number}</p>
@@ -279,6 +292,7 @@ const InterventionReports = () => {
                                         <StatusBadge status={report.status} />
                                     </div>
                                 </div>
+                                {isVisitToFinish(report) && <FinishVisitButton report={report} navigate={navigate} />}
                                 <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                                     {report.date && (
                                         <span>{format(parseISO(report.date), 'd MMM yyyy', { locale: fr })}</span>

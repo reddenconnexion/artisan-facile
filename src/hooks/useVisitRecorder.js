@@ -289,17 +289,24 @@ export const useVisitRecorder = ({ segmentMs = 8 * 60 * 1000, deviceId = '', onS
         return true;
     }, [isSupported, deviceId, acquireStream, beginSegment, refreshInputs, watchTrack, startLevelMeter]);
 
-    const stop = useCallback(() => {
+    // La promesse se résout une fois le dernier segment remis à `onSegment` :
+    // qui quitte la visite peut attendre que ce morceau soit mis à l'abri.
+    const stop = useCallback(() => new Promise((resolve) => {
         wantsRecordingRef.current = false;
         stopResolveRef.current = null;
         clearRotate();
         if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
-        if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+        if (recorderRef.current?.state === 'recording') {
+            stopResolveRef.current = resolve;
+            recorderRef.current.stop();
+        } else {
+            resolve();
+        }
         recorderRef.current = null;
         stopLevelMeter();
         releaseStream();
         setIsRecording(false);
-    }, [stopLevelMeter]);
+    }), [stopLevelMeter]);
 
     // L'appareil photo natif ou un appel entrant peut confisquer le micro : au
     // retour dans l'application, on relance un segment si l'utilisateur n'a
