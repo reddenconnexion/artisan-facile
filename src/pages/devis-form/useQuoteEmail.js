@@ -94,7 +94,7 @@ export const useQuoteEmail = ({
             rawBody: body,
             lang: 'fr',
             // Ni lien ni bouton de signature : ce mail retire l'offre.
-            signUrl: null,
+            actionUrl: null,
             // Distingue ce mail d'un envoi de document : pas d'archivage de
             // version, pas de passage en « envoyé », pas de date de relance.
             kind: 'withdrawal',
@@ -276,6 +276,8 @@ export const useQuoteEmail = ({
                     actionAmendment: 'Consulter et signer votre avenant en ligne',
                     signButtonLabel: 'Signer mon devis',
                     signButtonLabelAmendment: 'Signer mon avenant',
+                    invoiceButtonLabel: isPaidInvoice ? 'Voir ma facture acquittée' : 'Voir ma facture',
+                    creditNoteButtonLabel: 'Voir mon avoir',
                     signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
                     portalLabel: 'Votre espace client (documents et suivi de chantier) :',
@@ -308,6 +310,8 @@ export const useQuoteEmail = ({
                     actionAmendment: 'View and sign your amendment online',
                     signButtonLabel: 'Sign my quote',
                     signButtonLabelAmendment: 'Sign my amendment',
+                    invoiceButtonLabel: isPaidInvoice ? 'View my paid invoice' : 'View my invoice',
+                    creditNoteButtonLabel: 'View my credit note',
                     signCaption: 'Signed directly online, no printing needed — in under a minute.',
                     reportLine: `The intervention report is also available from this link.`,
                     portalLabel: 'Your client area (documents and project tracking):',
@@ -436,10 +440,15 @@ export const useQuoteEmail = ({
                 rawSubject: subject,
                 rawBody: body,
                 lang,
-                // Signature en ligne : uniquement pour les devis (ni factures ni avoirs).
-                // Sert à transformer le lien en bouton dans la version HTML du mail.
-                signUrl: (isInvoice || isCreditNote) ? null : publicUrl,
-                signLabel: isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel,
+                // Lien principal transformé en bouton dans la version HTML du mail :
+                // « Signer » pour un devis/avenant, « Voir ma facture/mon avoir » sinon.
+                actionUrl: publicUrl,
+                actionLabel: isInvoice
+                    ? E.invoiceButtonLabel
+                    : (isCreditNote
+                        ? E.creditNoteButtonLabel
+                        : (isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel)),
+                actionIcon: (isInvoice || isCreditNote) ? '📄' : '✍️',
                 // Lien du portail client : rendu en encart avec bouton dans le HTML.
                 portalUrl,
                 portalLabelLine: E.portalLabel,
@@ -479,14 +488,15 @@ export const useQuoteEmail = ({
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                // Devis : on envoie une version HTML où le lien de signature
-                // devient un bouton « Signer ». Le texte brut (avec l'URL) reste
+                // Version HTML où le lien du document devient un bouton (« Signer »
+                // pour un devis, « Voir ma facture » sinon). Le texte brut (avec l'URL) reste
                 // le fallback pour les clients mail sans HTML. Le lien du portail
                 // client devient un encart avec bouton « Espace client ».
-                const htmlBody = (emailPreview.signUrl || emailPreview.portalUrl)
+                const htmlBody = (emailPreview.actionUrl || emailPreview.portalUrl)
                     ? buildDocumentEmailHtml(body, {
-                        signUrl: emailPreview.signUrl,
-                        signLabel: emailPreview.signLabel,
+                        actionUrl: emailPreview.actionUrl,
+                        actionLabel: emailPreview.actionLabel,
+                        actionIcon: emailPreview.actionIcon,
                         portalUrl: emailPreview.portalUrl,
                         portalLabelLine: emailPreview.portalLabelLine,
                         portalTitle: emailPreview.portalTitle,
