@@ -7,7 +7,7 @@ import { clientGreetingName } from '../../utils/clientGreeting';
 import { isOffline } from '../../utils/offlineSave';
 import { blobToBase64 } from '../../utils/mediaConverters';
 import { formatDate } from '../../utils/format';
-import { buildQuoteEmailHtml } from './quoteEmailHtml';
+import { buildDocumentEmailHtml } from './quoteEmailHtml';
 
 /**
  * Envoi du document au client : préparation du mail (fr / en, lien de
@@ -94,7 +94,7 @@ export const useQuoteEmail = ({
             rawBody: body,
             lang: 'fr',
             // Ni lien ni bouton de signature : ce mail retire l'offre.
-            signUrl: null,
+            actionUrl: null,
             // Distingue ce mail d'un envoi de document : pas d'archivage de
             // version, pas de passage en « envoyé », pas de date de relance.
             kind: 'withdrawal',
@@ -276,9 +276,14 @@ export const useQuoteEmail = ({
                     actionAmendment: 'Consulter et signer votre avenant en ligne',
                     signButtonLabel: 'Signer mon devis',
                     signButtonLabelAmendment: 'Signer mon avenant',
+                    invoiceButtonLabel: isPaidInvoice ? 'Voir ma facture acquittée' : 'Voir ma facture',
+                    creditNoteButtonLabel: 'Voir mon avoir',
                     signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
-                    portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
+                    portalLabel: 'Votre espace client (documents et suivi de chantier) :',
+                    portalTitle: 'Votre espace client',
+                    portalCaption: 'Retrouvez à tout moment vos devis, factures, rapports et le suivi de votre chantier.',
+                    portalButtonLabel: 'Accéder à mon espace client',
                     closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
                 },
                 en: {
@@ -305,9 +310,14 @@ export const useQuoteEmail = ({
                     actionAmendment: 'View and sign your amendment online',
                     signButtonLabel: 'Sign my quote',
                     signButtonLabelAmendment: 'Sign my amendment',
+                    invoiceButtonLabel: isPaidInvoice ? 'View my paid invoice' : 'View my invoice',
+                    creditNoteButtonLabel: 'View my credit note',
                     signCaption: 'Signed directly online, no printing needed — in under a minute.',
                     reportLine: `The intervention report is also available from this link.`,
-                    portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
+                    portalLabel: 'Your client area (documents and project tracking):',
+                    portalTitle: 'Your client area',
+                    portalCaption: 'Access your quotes, invoices, reports and project tracking at any time.',
+                    portalButtonLabel: 'Go to my client area',
                     closing: `Please do not hesitate to contact me with any questions.\n\nKind regards,`,
                 },
             };
@@ -354,9 +364,10 @@ export const useQuoteEmail = ({
                 ? `${actionText} :\n${publicUrl}`
                 : `${actionText} :\n${publicUrl}\n${E.signCaption}`;
 
-            // Client Portal Link Logic
+            // Lien du portail client : factures, devis et avenants (pas les
+            // avoirs). Le client y retrouve tous ses documents et le suivi.
             let portalUrl = null;
-            if (isInvoice) {
+            if (isInvoice || !isCreditNote) {
                 let clientPortalToken = selectedClient.portal_token;
 
                 if (!clientPortalToken) {
@@ -414,7 +425,7 @@ export const useQuoteEmail = ({
                 bodyParts.push(E.reportLine);
             }
             if (portalUrl) {
-                bodyParts.push(E.portalLine(portalUrl));
+                bodyParts.push(`${E.portalLabel}\n${portalUrl}`);
             }
             bodyParts.push(E.closing);
             // Marqueur RFC 3676 "-- " (dash dash space) : signale la signature.
@@ -429,10 +440,21 @@ export const useQuoteEmail = ({
                 rawSubject: subject,
                 rawBody: body,
                 lang,
-                // Signature en ligne : uniquement pour les devis (ni factures ni avoirs).
-                // Sert à transformer le lien en bouton dans la version HTML du mail.
-                signUrl: (isInvoice || isCreditNote) ? null : publicUrl,
-                signLabel: isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel,
+                // Lien principal transformé en bouton dans la version HTML du mail :
+                // « Signer » pour un devis/avenant, « Voir ma facture/mon avoir » sinon.
+                actionUrl: publicUrl,
+                actionLabel: isInvoice
+                    ? E.invoiceButtonLabel
+                    : (isCreditNote
+                        ? E.creditNoteButtonLabel
+                        : (isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel)),
+                actionIcon: (isInvoice || isCreditNote) ? '📄' : '✍️',
+                // Lien du portail client : rendu en encart avec bouton dans le HTML.
+                portalUrl,
+                portalLabelLine: E.portalLabel,
+                portalTitle: E.portalTitle,
+                portalCaption: E.portalCaption,
+                portalButtonLabel: E.portalButtonLabel,
             });
 
         } catch (error) {
@@ -466,12 +488,21 @@ export const useQuoteEmail = ({
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                // Devis : on envoie une version HTML où le lien de signature
-                // devient un bouton « Signer ». Le texte brut (avec l'URL) reste
-                // le fallback pour les clients mail sans HTML. Les factures gardent
-                // le rendu texte→HTML par défaut de l'edge function (pas de bouton).
-                const htmlBody = emailPreview.signUrl
-                    ? buildQuoteEmailHtml(body, emailPreview.signUrl, emailPreview.signLabel)
+                // Version HTML où le lien du document devient un bouton (« Signer »
+                // pour un devis, « Voir ma facture » sinon). Le texte brut (avec l'URL) reste
+                // le fallback pour les clients mail sans HTML. Le lien du portail
+                // client devient un encart avec bouton « Espace client ».
+                const htmlBody = (emailPreview.actionUrl || emailPreview.portalUrl)
+                    ? buildDocumentEmailHtml(body, {
+                        actionUrl: emailPreview.actionUrl,
+                        actionLabel: emailPreview.actionLabel,
+                        actionIcon: emailPreview.actionIcon,
+                        portalUrl: emailPreview.portalUrl,
+                        portalLabelLine: emailPreview.portalLabelLine,
+                        portalTitle: emailPreview.portalTitle,
+                        portalCaption: emailPreview.portalCaption,
+                        portalButtonLabel: emailPreview.portalButtonLabel,
+                    })
                     : undefined;
 
                 let attachmentsPayload = [];
