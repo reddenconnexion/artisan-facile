@@ -7,7 +7,7 @@ import { clientGreetingName } from '../../utils/clientGreeting';
 import { isOffline } from '../../utils/offlineSave';
 import { blobToBase64 } from '../../utils/mediaConverters';
 import { formatDate } from '../../utils/format';
-import { buildQuoteEmailHtml } from './quoteEmailHtml';
+import { buildDocumentEmailHtml } from './quoteEmailHtml';
 
 /**
  * Envoi du document au client : préparation du mail (fr / en, lien de
@@ -278,7 +278,10 @@ export const useQuoteEmail = ({
                     signButtonLabelAmendment: 'Signer mon avenant',
                     signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
                     reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
-                    portalLine: (url) => `Votre espace client (documents et suivi de chantier) :\n${url}`,
+                    portalLabel: 'Votre espace client (documents et suivi de chantier) :',
+                    portalTitle: 'Votre espace client',
+                    portalCaption: 'Retrouvez à tout moment vos devis, factures, rapports et le suivi de votre chantier.',
+                    portalButtonLabel: 'Accéder à mon espace client',
                     closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
                 },
                 en: {
@@ -307,7 +310,10 @@ export const useQuoteEmail = ({
                     signButtonLabelAmendment: 'Sign my amendment',
                     signCaption: 'Signed directly online, no printing needed — in under a minute.',
                     reportLine: `The intervention report is also available from this link.`,
-                    portalLine: (url) => `Your client area (documents and project tracking):\n${url}`,
+                    portalLabel: 'Your client area (documents and project tracking):',
+                    portalTitle: 'Your client area',
+                    portalCaption: 'Access your quotes, invoices, reports and project tracking at any time.',
+                    portalButtonLabel: 'Go to my client area',
                     closing: `Please do not hesitate to contact me with any questions.\n\nKind regards,`,
                 },
             };
@@ -414,7 +420,7 @@ export const useQuoteEmail = ({
                 bodyParts.push(E.reportLine);
             }
             if (portalUrl) {
-                bodyParts.push(E.portalLine(portalUrl));
+                bodyParts.push(`${E.portalLabel}\n${portalUrl}`);
             }
             bodyParts.push(E.closing);
             // Marqueur RFC 3676 "-- " (dash dash space) : signale la signature.
@@ -433,6 +439,12 @@ export const useQuoteEmail = ({
                 // Sert à transformer le lien en bouton dans la version HTML du mail.
                 signUrl: (isInvoice || isCreditNote) ? null : publicUrl,
                 signLabel: isAmendmentDoc ? E.signButtonLabelAmendment : E.signButtonLabel,
+                // Lien du portail client : rendu en encart avec bouton dans le HTML.
+                portalUrl,
+                portalLabelLine: E.portalLabel,
+                portalTitle: E.portalTitle,
+                portalCaption: E.portalCaption,
+                portalButtonLabel: E.portalButtonLabel,
             });
 
         } catch (error) {
@@ -468,10 +480,18 @@ export const useQuoteEmail = ({
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
                 // Devis : on envoie une version HTML où le lien de signature
                 // devient un bouton « Signer ». Le texte brut (avec l'URL) reste
-                // le fallback pour les clients mail sans HTML. Les factures gardent
-                // le rendu texte→HTML par défaut de l'edge function (pas de bouton).
-                const htmlBody = emailPreview.signUrl
-                    ? buildQuoteEmailHtml(body, emailPreview.signUrl, emailPreview.signLabel)
+                // le fallback pour les clients mail sans HTML. Le lien du portail
+                // client (factures) devient un encart avec bouton « Espace client ».
+                const htmlBody = (emailPreview.signUrl || emailPreview.portalUrl)
+                    ? buildDocumentEmailHtml(body, {
+                        signUrl: emailPreview.signUrl,
+                        signLabel: emailPreview.signLabel,
+                        portalUrl: emailPreview.portalUrl,
+                        portalLabelLine: emailPreview.portalLabelLine,
+                        portalTitle: emailPreview.portalTitle,
+                        portalCaption: emailPreview.portalCaption,
+                        portalButtonLabel: emailPreview.portalButtonLabel,
+                    })
                     : undefined;
 
                 let attachmentsPayload = [];
