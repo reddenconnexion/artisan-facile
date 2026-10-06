@@ -86,10 +86,10 @@ Deno.serve(async (req) => {
     if ((hasUserKey && provider === 'gemini') || useServerGemini) {
       // Gemini Vision (clé perso, ou clé serveur en repli)
       const geminiKey = hasUserKey ? userApiKey : serverGeminiKey;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
       const response = await fetchWithTimeout(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
         body: JSON.stringify({
           contents: [{
             parts: [
