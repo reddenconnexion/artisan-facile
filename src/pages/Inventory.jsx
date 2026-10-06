@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -61,6 +62,16 @@ const Inventory = () => {
     // UI States
     const [showBarcodeModal, setShowBarcodeModal] = useState(false);
     const [showNewItemModal, setShowNewItemModal] = useState(false);
+
+    // Bouton flottant mobile : /app/inventory?new=1 ouvre directement « Nouvel article »
+    const location = useLocation();
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (new URLSearchParams(location.search).get('new') === '1') {
+            setShowNewItemModal(true);
+            navigate('/app/inventory', { replace: true });
+        }
+    }, [location.search, navigate]);
 
     // Saisie directe d'une quantité (réception d'une livraison, inventaire…)
     const [qtyItem, setQtyItem] = useState(null);

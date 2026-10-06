@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -32,6 +32,19 @@ const STATUS_TABS = [
 const Procurement = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Bouton flottant mobile : /app/procurement?new=1 met le curseur dans « Ajouter un article »
+    useEffect(() => {
+        if (new URLSearchParams(location.search).get('new') === '1') {
+            navigate('/app/procurement', { replace: true });
+            setTimeout(() => {
+                const el = document.getElementById('procurement-quick-add');
+                el?.scrollIntoView({ block: 'center' });
+                el?.focus();
+            }, 50);
+        }
+    }, [location.search, navigate]);
     const queryClient = useQueryClient();
     const [statusFilter, setStatusFilter] = useState('pending');
     const [search, setSearch] = useState('');
@@ -478,6 +491,7 @@ const Procurement = () => {
             <div className="bg-white border border-gray-200 rounded-2xl p-3 flex flex-wrap items-center gap-2">
                 <input
                     type="text"
+                    id="procurement-quick-add"
                     value={newDesc}
                     onChange={e => setNewDesc(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addItem(); }}

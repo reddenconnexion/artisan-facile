@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import SearchPalette from '../components/SearchPalette';
-import { ConfirmProvider } from '../context/ConfirmContext';
+import { ConfirmProvider, useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
 import TestModePanel from '../components/TestModePanel';
 import { supabase } from '../utils/supabase';
@@ -21,6 +21,33 @@ import { useTrackUsage } from '../hooks/useUsageTracking';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import NotificationCenter from '../components/NotificationCenter';
 import FeedbackModal from '../components/FeedbackModal';
+
+// Déconnexion isolée du reste des actions, avec confirmation : un appui raté
+// à côté du mode sombre ne doit pas fermer la session sur chantier.
+const LogoutButton = ({ onLogout, collapsed }) => {
+  const confirm = useConfirm();
+  const handleClick = async () => {
+    const ok = await confirm({
+      title: 'Se déconnecter ?',
+      message: 'Les modifications non enregistrées seront perdues.',
+      confirmLabel: 'Se déconnecter',
+      cancelLabel: 'Rester connecté',
+      danger: true,
+    });
+    if (ok) onLogout();
+  };
+  return (
+    <button
+      onClick={handleClick}
+      className={`tap-target mt-2 flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors ${collapsed ? 'md:justify-center md:px-2' : ''}`}
+      title="Se déconnecter"
+      aria-label="Se déconnecter"
+    >
+      <LogOut className="w-5 h-5 flex-shrink-0" />
+      <span className={collapsed ? 'md:hidden' : ''}>Se déconnecter</span>
+    </button>
+  );
+};
 
 const Layout = () => {
   const location = useLocation();
@@ -634,7 +661,7 @@ const Layout = () => {
             </Link>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="md:hidden p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10"
+              className="md:hidden tap-target flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10"
               aria-label="Fermer le menu"
             >
               <X className="w-5 h-5" />
@@ -709,7 +736,7 @@ const Layout = () => {
             <div className={`flex items-center justify-around bg-gray-200/50 dark:bg-white/5 rounded-2xl p-1 ${railCollapsed ? 'md:flex-col md:gap-1' : ''}`}>
               <button
                 onClick={() => navigate('/app/portal-messages')}
-                className={`relative p-2 rounded-xl transition-colors ${
+                className={`tap-target relative flex items-center justify-center p-2.5 rounded-xl transition-colors ${
                   location.pathname.startsWith('/app/portal-messages')
                     ? 'text-[#007AFF] bg-white dark:bg-white/10'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-white/10'
@@ -727,21 +754,14 @@ const Layout = () => {
               <NotificationCenter />
               <button
                 onClick={() => setIsDarkMode(prev => !prev)}
-                className="p-2 text-gray-500 dark:text-gray-400 rounded-xl hover:bg-white dark:hover:bg-white/10 transition-colors"
+                className="tap-target flex items-center justify-center p-2.5 text-gray-500 dark:text-gray-400 rounded-xl hover:bg-white dark:hover:bg-white/10 transition-colors"
                 title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
                 aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
               >
                 {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
               </button>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-red-500 rounded-xl hover:bg-white dark:hover:bg-white/10 transition-colors"
-                title="Déconnexion"
-                aria-label="Déconnexion"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
             </div>
+            <LogoutButton onLogout={handleLogout} collapsed={railCollapsed} />
           </div>
         </aside>
 
@@ -786,10 +806,11 @@ const Layout = () => {
                     sessionStorage.setItem(profileBannerKey, '1');
                     setProfileBannerDismissed(true);
                   }}
-                  className="p-1 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 rounded flex-shrink-0"
+                  className="tap-target flex items-center justify-center p-2 -mr-2 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 rounded flex-shrink-0"
                   title="Masquer pour cette session"
+                  aria-label="Masquer ce bandeau"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             )}
@@ -828,6 +849,9 @@ const Layout = () => {
               '/app/clients':       { label: 'Nouveau client',  to: '/app/clients/new' },
               '/app/devis':         { label: 'Nouveau devis',   to: '/app/devis/new' },
               '/app/interventions': { label: 'Nouveau rapport', to: '/app/interventions/new' },
+              '/app/agenda':        { label: 'Nouveau RDV',     to: '/app/agenda?new=1' },
+              '/app/inventory':     { label: 'Nouvel article',  to: '/app/inventory?new=1' },
+              '/app/procurement':   { label: 'Ajouter un article', to: '/app/procurement?new=1' },
             };
             const fab = FAB_ACTIONS[location.pathname];
             if (!fab) return null;
@@ -868,7 +892,7 @@ const Layout = () => {
                 }`}
             >
               <item.icon className={`w-6 h-6 ${bouncingHref === item.href ? 'animate-nav-bounce' : ''}`} />
-              <span className="text-[10px] font-medium">{item.name}</span>
+              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.name}</span>
             </Link>
           );
         })}
@@ -879,7 +903,7 @@ const Layout = () => {
             }`}
         >
           <Menu className="w-6 h-6" />
-          <span className="text-[10px] font-medium">Plus</span>
+          <span className="text-xs font-medium">Plus</span>
         </button>
       </div>
     </div>
