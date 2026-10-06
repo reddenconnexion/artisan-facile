@@ -30,6 +30,56 @@ const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, wo
 - "work_object" : le périmètre en 2 à 4 phrases (400 caractères max) — ce qui est compris, ce qui ne l'est pas, et les constats relevés qui conditionnent le prix (longueurs, alimentation existante, accès). Aucune liste de postes, aucun montant.
 {"title":"...","work_object":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}`;
 
+// Chiffrage d'une visite technique : le modèle léger (Gemini Flash sans
+// réflexion, gpt-4o-mini) sortait des devis incomplets et irréalistes à partir
+// d'une conversation de chantier décousue. Sans clé personnelle, un compte Pro
+// passe donc par Claude, le même moteur que la skill « devis électrique » qui,
+// elle, colle à la réalité. Repli sur Gemini si Claude ne répond pas à temps.
+const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit']);
+// La passerelle Supabase coupe à 150 s : on laisse la marge du repli Gemini.
+const CLAUDE_TIMEOUT_MS = 100_000;
+
+async function callClaude(apiKey: string, systemPrompt: string, userMessage: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-5-5',
+        max_tokens: 16000,
+        fallbacks: 'default',
+        // Effort moyen : assez de réflexion pour trier ferme / options et
+        // estimer les heures poste par poste, sans dépasser le délai.
+        output_config: { effort: 'medium' },
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erreur Anthropic ${response.status}`);
+    }
+    const data = await response.json();
+    const text = (data.content || [])
+      .filter((b: { type: string }) => b.type === 'text')
+      .map((b: { text: string }) => b.text)
+      .join('');
+    console.log(`ai-proxy anthropic model=${data.model} in=${data.usage?.input_tokens} out=${data.usage?.output_tokens} stop=${data.stop_reason}`);
+    if (!text) throw new Error('Réponse Claude vide');
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function resolvePresetPrompt(preset: string, userOverride: string | null | undefined, extras: string): string {
   const customBase = (userOverride && userOverride.trim()) ? userOverride.trim() : QUOTE_PROMPT;
   if (preset === 'quote') {
@@ -119,9 +169,20 @@ Deno.serve(async (req) => {
       return json({ error: 'Paramètres manquants' }, 400);
     }
 
-    let rawResponse: string;
+    let rawResponse: string | undefined;
 
-    if (effectiveProvider === 'gemini') {
+    const serverAnthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (usingServerKey && isPro && serverAnthropicKey && CLAUDE_QUOTE_PRESETS.has(preset)) {
+      try {
+        rawResponse = await callClaude(serverAnthropicKey, resolvedSystemPrompt, userMessage);
+      } catch (err) {
+        console.warn(`ai-proxy: Claude indisponible, repli Gemini — ${(err as Error).message}`);
+      }
+    }
+
+    if (rawResponse) {
+      // Chiffrage déjà produit par Claude.
+    } else if (effectiveProvider === 'gemini') {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
       const response = await fetch(url, {
         method: 'POST',

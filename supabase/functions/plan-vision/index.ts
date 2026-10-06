@@ -33,8 +33,10 @@ Deno.serve(async (req) => {
     if (auth.response) return auth.response;
     const { user, supabase } = auth;
 
-    // Rate limit : 5 analyses vision / heure / utilisateur (très coûteux)
-    const rl = await enforceRateLimit('plan-vision', user.id, 5, 3600);
+    // Rate limit : 30 analyses vision / heure / utilisateur (coûteux). À 5,
+    // une visite technique de 10 photos n'en faisait analyser que 5 : les
+    // autres étaient ignorées sans bruit et le chiffrage partait incomplet.
+    const rl = await enforceRateLimit('plan-vision', user.id, 30, 3600);
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     // Récupération du profil (clé API + plan)

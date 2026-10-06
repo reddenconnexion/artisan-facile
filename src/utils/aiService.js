@@ -578,7 +578,9 @@ export const generateQuoteFromSiteVisit = async (voiceTranscripts = [], photoAna
     // « prompt personnalisé », qui ne passe pas par le preset serveur.
     const siteVisitExtras = '\n\nMODE VISITE CHANTIER — retourne aussi title, work_object, price_range et confidence:\n- "title" : nom court du projet (8 mots max), pas une phrase.\n- "work_object" : le périmètre en 2 à 4 phrases (400 caractères max) — ce qui est compris, ce qui ne l\'est pas, et les constats relevés qui conditionnent le prix (longueurs, alimentation existante, accès). Aucune liste de postes, aucun montant.\n{"title":"...","work_object":"...","items":[...],"suggestions":[...],"estimated_duration":"...","price_range":{"min":0,"max":0},"confidence":"high|medium|low"}';
     const rawResponse = context.customSystemPrompt
-        ? await callAiProxy({ systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
+        // Le preset accompagne aussi le prompt personnalisé : c'est lui qui
+        // oriente le serveur vers le moteur de chiffrage de visite.
+        ? await callAiProxy({ preset: 'quote-site-visit', systemPrompt: context.customSystemPrompt + siteVisitExtras + extras, userMessage })
         : await callAiProxy({ preset: 'quote-site-visit', extras, userMessage });
 
     const parsed = extractJsonObject(rawResponse);

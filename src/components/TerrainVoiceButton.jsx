@@ -86,21 +86,23 @@ const TerrainVoiceButton = () => {
                 onClick={handleTap}
                 disabled={isProcessing}
                 aria-label={isRecording ? 'Terminer la dictée et envoyer' : 'Dicter une note vocale'}
-                className={`w-full h-full min-h-[9.5rem] flex flex-col items-center justify-center gap-2 rounded-3xl text-white shadow-lg transition-all active:scale-[0.97] disabled:opacity-90 ${color}`}
+                className={`w-full h-full min-h-[9.5rem] md:min-h-0 md:h-16 flex flex-col md:flex-row items-center justify-center md:justify-start gap-2 md:gap-3 md:px-5 md:pr-12 rounded-3xl md:rounded-2xl text-white shadow-lg md:shadow-sm transition-all active:scale-[0.97] disabled:opacity-90 ${color}`}
             >
-                <span className="relative flex items-center justify-center">
-                    {isRecording && <span className="absolute w-16 h-16 rounded-full bg-white/30 animate-ping" />}
-                    <Icon className={`w-12 h-12 ${isProcessing ? 'animate-spin' : ''}`} />
+                <span className="relative flex items-center justify-center shrink-0">
+                    {isRecording && <span className="absolute w-16 h-16 md:w-9 md:h-9 rounded-full bg-white/30 animate-ping" />}
+                    <Icon className={`w-12 h-12 md:w-6 md:h-6 ${isProcessing ? 'animate-spin' : ''}`} />
                 </span>
-                <span className="text-xl font-extrabold leading-none">{label}</span>
-                {sub && <span className="text-xs font-medium text-white/85 px-2 text-center truncate max-w-full">{sub}</span>}
+                <span className="flex flex-col items-center md:items-start gap-2 md:gap-0.5 min-w-0 max-w-full">
+                    <span className="text-xl md:text-base font-extrabold leading-none">{label}</span>
+                    {sub && <span className="text-xs font-medium text-white/85 px-2 md:px-0 text-center md:text-left truncate max-w-full">{sub}</span>}
+                </span>
             </button>
             {isRecording && (
                 <button
                     type="button"
                     onClick={cancelVoiceRecording}
                     aria-label="Annuler la dictée"
-                    className="absolute top-2 right-2 p-2 rounded-full bg-black/25 text-white active:bg-black/40"
+                    className="absolute top-2 right-2 md:top-1/2 md:-translate-y-1/2 md:right-3 p-2 md:p-1.5 rounded-full bg-black/25 text-white active:bg-black/40"
                 >
                     <X className="w-5 h-5" />
                 </button>

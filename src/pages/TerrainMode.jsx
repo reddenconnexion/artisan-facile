@@ -398,7 +398,7 @@ const TerrainMode = () => {
     // ─── Rendu : visite technique ─────────────────────────────────────────────
 
     if (mode === 'visite') {
-        return <VisiteTechniqueMode onBack={() => navigate('/app')} />;
+        return <VisiteTechniqueMode onBack={() => navigate('/app')} resumeVisitId={searchParams.get('reprendre')} />;
     }
 
     // ─── Rendu : intervention / dépannage ─────────────────────────────────────

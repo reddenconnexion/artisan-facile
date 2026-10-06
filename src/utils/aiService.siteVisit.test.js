@@ -186,7 +186,9 @@ describe('generateQuoteFromSiteVisit', () => {
         });
 
         const [, { body }] = invokeMock.mock.calls[0];
-        expect(body.preset).toBeUndefined();
+        // Le preset reste envoyé : il oriente le serveur vers le moteur de
+        // chiffrage de visite ; le prompt personnalisé, lui, prime sur le texte.
+        expect(body.preset).toBe('quote-site-visit');
         expect(body.systemPrompt).toContain('Mon prompt personnalisé');
         expect(body.systemPrompt).toContain('MODE VISITE CHANTIER');
     });
