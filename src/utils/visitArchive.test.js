@@ -109,6 +109,13 @@ describe('buildVisitRecord', () => {
         expect(JSON.stringify(record)).not.toContain('blob');
         expect(record).not.toHaveProperty('audio');
     });
+
+    it('range le brouillon dans les notes pour finir la visite sur un autre appareil', () => {
+        const draft = { textNotes: 'tableau à changer', photos: [] };
+        const notes = JSON.parse(buildVisitRecord({ ...base, draft }).notes);
+        expect(notes.draft).toEqual(draft);
+        expect(JSON.parse(buildVisitRecord(base).notes).draft).toBeUndefined();
+    });
 });
 
 describe('buildClientPhotoRows', () => {

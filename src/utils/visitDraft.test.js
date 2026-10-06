@@ -136,3 +136,58 @@ describe('photos et transcriptions dans le brouillon', () => {
         expect(restoreDraftVoiceNotes([{ id: 'x' }, null])).toEqual([]);
     });
 });
+
+describe('brouillon côté serveur (finir la visite au bureau)', () => {
+    const row = (overrides = {}) => ({
+        id: 'r1',
+        report_type: 'site_visit',
+        status: 'draft',
+        client_id: 'c1',
+        client_name: 'M. Martin',
+        intervention_address: '3 rue des Lilas',
+        updated_at: '2026-10-06T10:00:00Z',
+        notes: JSON.stringify({
+            source: 'visite_predevis',
+            draft: { clientName: '', textNotes: 'tableau à changer', photos: [{ id: 'p', path: 'a.jpg', url: 'u' }], savedAt: NOW },
+        }),
+        ...overrides,
+    });
+
+    it('repère une visite enregistrée et pas encore chiffrée', async () => {
+        const { isVisitToFinish } = await import('./visitDraft');
+        expect(isVisitToFinish(row())).toBe(true);
+        expect(isVisitToFinish(row({ notes: JSON.stringify({ confidence: 'high' }) }))).toBe(false); // chiffrée
+        expect(isVisitToFinish(row({ status: 'completed' }))).toBe(false);
+        expect(isVisitToFinish(row({ report_type: 'intervention' }))).toBe(false);
+        expect(isVisitToFinish(row({ notes: 'pas du json' }))).toBe(false);
+    });
+
+    it('reconstruit le brouillon avec le rapport et complète le client', async () => {
+        const { draftFromVisitRecord } = await import('./visitDraft');
+        const draft = draftFromVisitRecord(row());
+        expect(draft.visitReportId).toBe('r1');
+        expect(draft.clientId).toBe('c1');
+        expect(draft.clientName).toBe('M. Martin');
+        expect(draft.address).toBe('3 rue des Lilas');
+        expect(draft.textNotes).toBe('tableau à changer');
+        expect(draft.photos).toHaveLength(1);
+        expect(draft.savedAt).toBe(NOW);
+        expect(draftFromVisitRecord(row({ status: 'signed' }))).toBeNull();
+    });
+
+    it('prend la date de mise à jour quand le brouillon n\'est pas horodaté', async () => {
+        const { draftFromVisitRecord } = await import('./visitDraft');
+        const draft = draftFromVisitRecord(row({ notes: { draft: { clientName: 'X' } } }));
+        expect(draft.savedAt).toBe(Date.parse('2026-10-06T10:00:00Z'));
+    });
+
+    it('garde la version la plus récente entre téléphone et serveur', async () => {
+        const { freshestDraft } = await import('./visitDraft');
+        const local = { savedAt: NOW, where: 'téléphone' };
+        const remote = { savedAt: NOW + 1000, where: 'bureau' };
+        expect(freshestDraft(local, remote).where).toBe('bureau');
+        expect(freshestDraft({ ...local, savedAt: NOW + 2000 }, remote).where).toBe('téléphone');
+        expect(freshestDraft(null, remote)).toBe(remote);
+        expect(freshestDraft(local, null)).toBe(local);
+    });
+});

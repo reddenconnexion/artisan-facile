@@ -57,6 +57,7 @@ export const visitAudioPath = (userId, id, ext = 'webm') => `${userId}/${id}.${e
  * @param {{url: string, path: string, name: string}[]} [args.photos]
  * @param {Date}   args.date
  * @param {string} args.reportNumber
+ * @param {object} [args.draft] - brouillon complet, pour reprendre la visite sur un autre appareil
  */
 export const buildVisitRecord = ({
     userId,
@@ -70,6 +71,7 @@ export const buildVisitRecord = ({
     photos = [],
     date,
     reportNumber,
+    draft,
 }) => ({
     user_id: userId,
     client_id: clientId || null,
@@ -82,6 +84,7 @@ export const buildVisitRecord = ({
         ...(survey ? { survey } : {}),
         ...(timelineLines.length ? { timeline: timelineLines } : {}),
         ...(Object.keys(transcripts).length ? { transcripts } : {}),
+        ...(draft ? { draft } : {}),
     }),
     photos,
     status: 'draft',
