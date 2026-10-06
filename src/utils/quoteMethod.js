@@ -15,6 +15,12 @@ export const SITE_VISIT_METHOD = `
 
 MÉTHODE DE CHIFFRAGE (prioritaire sur toute autre consigne de contenu) :
 
+0. LIRE LA VISITE COMME UN ARTISAN. Les notes vocales sont la transcription brute d'une visite sur place : l'artisan parle au client, se parle à lui-même, mesure, hésite, se corrige. Ce n'est pas une liste de travaux.
+   - D'abord, dresse pour toi la liste des TRAVAUX DEMANDÉS par le client et des CONSTATS de l'artisan (existant, longueurs, supports, accès). Le relevé structuré, s'il existe, fait foi.
+   - Ignore les bavardages, les idées abandonnées en cours de conversation et ce que le client a écarté (« non, ça on laisse »). Quand l'artisan se corrige, c'est la dernière version qui compte.
+   - Les descriptions de photos sont des constats d'appoint : elles précisent l'existant, elles ne créent pas de travaux à elles seules.
+   - Chiffre ensuite CHAQUE travail demandé, entièrement : rien d'oublié (alimentation, protection au tableau, raccordement, mise en service), rien d'ajouté (voir 1).
+
 1. STRICT NÉCESSAIRE DANS LE TOTAL, CONSEIL EN OPTIONS. Passe CHAQUE ligne envisagée dans ce filtre, dans l'ordre :
    a) Le client l'a demandé → ligne ferme.
    b) Exigé par la réglementation du métier (ex. électricité : NF C 15-100, NF C 14-100, Consuel) → ligne ferme.
@@ -146,4 +152,33 @@ export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIB
 BIBLIOTHÈQUE DE PRIX DE L'ARTISAN (ses prix de vente réels) :
 Quand une ligne du devis correspond à un article ci-dessous, reprends SA désignation et SON prix tels quels. N'estime un prix marché que pour ce qui n'y figure pas.
 ${lines.join('\n')}`;
+};
+
+// ── Lecture des photos de visite ──────────────────────────────────────────
+// Une description générique (« état des surfaces, matériaux visibles ») noyait
+// le chiffrage sous des constats inutiles et lui suggérait des travaux que
+// personne n'avait demandés. La photo ne sert qu'à préciser l'existant.
+
+const PHOTO_GENERIC_FOCUS = 'matériaux et supports visibles, équipements existants et leur état, dimensions approximatives, contraintes d\'accès';
+
+const PHOTO_ELECTRICIAN_FOCUS = `- Tableau : type (coffret, GTL), nombre de rangées, modules libres, interrupteurs différentiels (calibre, 30 mA, type AC/A/F), disjoncteurs et calibres lisibles, peignes, présence d'un disjoncteur de branchement.
+- Terre et liaisons : barrette de terre, conducteur de terre visible ou absent.
+- Câblage : sections lisibles, câbles apparents, goulottes, gaines, état (isolant abîmé, fils sans protection).
+- Supports et cheminements : placo, brique, béton, faux plafond, combles accessibles — ce qui conditionne saignées et passages.
+- Appareillage : prises, interrupteurs, points lumineux visibles et leur état.
+- Écarts visibles à la NF C 15-100, uniquement s'ils sont certains sur la photo.`;
+
+/**
+ * Consignes d'analyse d'une photo de visite, adaptées au métier.
+ * @returns {{systemPrompt: string, userPrompt: string}}
+ */
+export const buildSitePhotoPrompts = (trade) => {
+    const isElec = normalizeTrade(trade) === 'electricien';
+    return {
+        systemPrompt: `Tu assistes un ${isElec ? 'électricien expérimenté' : 'artisan du bâtiment expérimenté'} pendant une visite avant devis. Décris UNIQUEMENT ce qui est visible et utile au chiffrage, en phrases courtes, sans conseil ni liste de travaux à proposer — c'est l'artisan qui décide des travaux.
+Points à relever :
+${isElec ? PHOTO_ELECTRICIAN_FOCUS : `- ${PHOTO_GENERIC_FOCUS}.`}
+Si un élément n'est pas lisible, dis-le plutôt que de le deviner. 8 lignes au maximum.`,
+        userPrompt: 'Relève les constats de cette photo de visite.',
+    };
 };

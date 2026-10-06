@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
-import { answeredPairs } from '../utils/quoteMethod';
+import { answeredPairs, buildSitePhotoPrompts } from '../utils/quoteMethod';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit, extractSurveyFromVisit } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
@@ -928,8 +928,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                             body: {
                                 imageBase64,
                                 mediaType: photo.mediaType,
-                                systemPrompt: 'Tu es un expert en travaux de bâtiment. Décris précisément ce que tu vois sur cette photo de chantier : matériaux visibles, type de travaux, état des surfaces, dimensions approximatives si possible, anomalies ou points d\'attention.',
-                                userPrompt: 'Analyse cette photo pour aider à estimer les travaux à réaliser.',
+                                ...buildSitePhotoPrompts(profile?.trade),
                             }
                         });
                         if (fnErr) { console.warn('Photo analysis skipped:', fnErr.message); continue; }

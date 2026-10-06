@@ -43,3 +43,25 @@ describe('buildPriceLibraryPrompt', () => {
         expect(out).not.toContain('Carrelage');
     });
 });
+
+describe('buildSitePhotoPrompts', () => {
+    it('oriente la photo vers les constats électriques pour un électricien', async () => {
+        const { buildSitePhotoPrompts } = await import('./quoteMethod');
+        const { systemPrompt, userPrompt } = buildSitePhotoPrompts('electricien');
+        expect(systemPrompt).toContain('Tableau');
+        expect(systemPrompt).toContain('sans conseil ni liste de travaux');
+        expect(userPrompt).toBeTruthy();
+    });
+
+    it('reste générique pour les autres métiers', async () => {
+        const { buildSitePhotoPrompts } = await import('./quoteMethod');
+        expect(buildSitePhotoPrompts('plombier').systemPrompt).not.toContain('Tableau');
+    });
+});
+
+describe('lecture de la visite', () => {
+    it('demande de distinguer travaux demandés et bavardages', () => {
+        expect(SITE_VISIT_METHOD).toContain('TRAVAUX DEMANDÉS');
+        expect(SITE_VISIT_METHOD).toContain('dernière version qui compte');
+    });
+});
