@@ -189,10 +189,10 @@ ${feedbackBlock}`;
       }
 
       model = 'gemini-2.5-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const aiRes = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userMessage}` }] }],
           generationConfig: {

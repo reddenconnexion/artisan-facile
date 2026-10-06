@@ -42,7 +42,7 @@ import DevisAIModal from '../components/DevisAIModal';
 import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
-import { effectiveLineCost } from '../utils/quoteInternalDetail';
+import { computeQuoteTotals } from '../utils/quoteTotals';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import AffaireLink from './devis-form/AffaireLink';
 import { formatDate, formatCurrency } from '../utils/format';
@@ -941,28 +941,7 @@ const DevisForm = () => {
         }));
     };
 
-    const calculateTotal = () => {
-        if (formData.is_external) {
-            return {
-                subtotal: parseFloat(formData.manual_total_ht) || 0,
-                tva: parseFloat(formData.manual_total_tva) || 0,
-                total: parseFloat(formData.manual_total_ttc) || 0,
-                totalCost: 0
-            };
-        }
-        // Les lignes optionnelles (is_optional) ne font PAS partie du total ferme :
-        // le devis public, le PDF et la RPC select_quote_options les excluent tous.
-        // On aligne le total interne (listes, tableau de bord, acomptes, clôture)
-        // sur cette même règle, sans quoi il est gonflé par des options non retenues.
-        const lineItems = formData.items.filter(item => item.type !== 'section' && !item.is_optional);
-        const subtotal = lineItems.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
-        // Coût matière : prix d'achat de la ligne, ou à défaut la somme des
-        // fournitures du chiffrage interne (lignes groupées sans buying_price)
-        const totalCost = lineItems.reduce((sum, item) => sum + effectiveLineCost(item), 0);
-        const tva = formData.include_tva ? subtotal * 0.20 : 0;
-        const total = subtotal + tva;
-        return { subtotal, tva, total, totalCost };
-    };
+    const calculateTotal = () => computeQuoteTotals(formData);
 
     // Génère le PDF tel que le CLIENT le verra. En présentation « poste global »,
     // la fusion des lignes (et son contrôle d'égalité) est demandée au serveur —
