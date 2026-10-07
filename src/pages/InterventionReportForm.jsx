@@ -72,22 +72,6 @@ const InterventionReportForm = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Load existing report when editing
-    useEffect(() => {
-        if (existingReport) {
-            const loaded = {
-                ...existingReport,
-                materials_used: existingReport.materials_used?.length
-                    ? existingReport.materials_used
-                    : [EMPTY_MATERIAL()],
-            };
-            setFormData(loaded);
-            setClientSearch(existingReport.client_name || '');
-            savedSnapshotRef.current = contentSnapshot(loaded);
-        }
-    // savedSnapshotRef : référence stable renvoyée par useReportDraft
-    }, [existingReport, savedSnapshotRef]);
-
     // ── Brouillon local ────────────────────────────────────────────────────
     // Brouillon sur le téléphone, avertissement avant de quitter et
     // enregistrement proposé au retour du réseau (voir useReportDraft).
@@ -97,6 +81,10 @@ const InterventionReportForm = () => {
         confirm,
         onSave: () => handleSave(),
     });
+
+    // Le rapport existant est chargé par useReportDraft, avant la recherche
+    // d'un brouillon resté sur le téléphone (qui compare avec ce contenu).
+
 
     const handleLeave = async () => {
         if (isDirty) {

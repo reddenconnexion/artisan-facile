@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { formatDate } from '../../utils/format';
 import { useOfflinePendingSave } from '../../hooks/useOfflinePendingSave';
 import { offlineSaveMessage } from '../../utils/offlineSave';
-import { contentSnapshot, pickDraftFields } from './reportFormUtils';
+import { EMPTY_MATERIAL, contentSnapshot, pickDraftFields } from './reportFormUtils';
 
 /**
  * Brouillon local du rapport (localStorage) et enregistrement hors-ligne.
@@ -49,6 +49,22 @@ export const useReportDraft = ({
         markPending();
         toast.warning(offlineSaveMessage('le rapport'), { id: 'offline-save', duration: 8000 });
     };
+
+    // Charger le rapport existant. Cet effet passe avant la reprise du
+    // brouillon ci-dessous, qui compare avec ce contenu enregistré.
+    useEffect(() => {
+        if (!existingReport) return;
+        const loaded = {
+            ...existingReport,
+            materials_used: existingReport.materials_used?.length
+                ? existingReport.materials_used
+                : [EMPTY_MATERIAL()],
+        };
+        setFormData(loaded);
+        setClientSearch(existingReport.client_name || '');
+        savedSnapshotRef.current = contentSnapshot(loaded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [existingReport]);
 
     // Proposer de reprendre un brouillon resté sur le téléphone
     useEffect(() => {
