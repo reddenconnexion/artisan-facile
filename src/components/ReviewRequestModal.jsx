@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { X, Mail, MessageSquare, Copy, Star, RefreshCw, MapPin } from 'lucide-react';
+import { X, Mail, MessageSquare, Copy, Star, RefreshCw, MapPin, MessageSquareQuote } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTestMode } from '../context/TestModeContext';
 import { useModalA11y } from '../hooks/useModalA11y';
+import ReviewReplyPanel from './ReviewReplyPanel';
 import { buildReviewSuggestions, buildReviewSMS, resolveReviewCity } from '../utils/reviewSuggestions';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention = null }) => {
@@ -19,6 +20,14 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
         [userProfile, client, intervention, seed]
     );
     const [variantIndex, setVariantIndex] = useState(0);
+    // « Demander un avis » au client, ou « Répondre » à un avis déjà reçu.
+    const [tab, setTab] = useState('request');
+    // Chaque ouverture repart sur « Demander un avis ».
+    const [wasOpen, setWasOpen] = useState(isOpen);
+    if (isOpen !== wasOpen) {
+        setWasOpen(isOpen);
+        if (isOpen) setTab('request');
+    }
 
     if (!isOpen) return null;
 
@@ -120,17 +129,50 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
                         <Star className="w-7 h-7 fill-current" />
                     </div>
                     <h2 className="text-xl font-bold">
-                        {isPersonalized ? 'Chantier terminé : demandez un avis !' : 'Félicitations pour ce paiement !'}
+                        {tab === 'reply'
+                            ? 'Répondre à un avis'
+                            : isPersonalized ? 'Chantier terminé : demandez un avis !' : 'Félicitations pour ce paiement !'}
                     </h2>
                     <p className="text-blue-100 text-sm mt-1">
-                        {isPersonalized
-                            ? 'Exemple personnalisé selon le chantier, prêt à envoyer en SMS.'
-                            : "C'est le moment idéal pour demander un avis."}
+                        {tab === 'reply'
+                            ? 'Une réponse soignée sous chaque avis rassure les futurs clients.'
+                            : isPersonalized
+                                ? 'Exemple personnalisé selon le chantier, prêt à envoyer en SMS.'
+                                : "C'est le moment idéal pour demander un avis."}
                     </p>
                 </div>
 
+                <div className="grid grid-cols-2 border-b border-gray-200 shrink-0" role="tablist">
+                    {[
+                        { id: 'request', label: 'Demander un avis', Icon: Star },
+                        { id: 'reply', label: 'Répondre à un avis', Icon: MessageSquareQuote },
+                    ].map(({ id, label, Icon }) => (
+                        <button
+                            key={id}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === id}
+                            onClick={() => setTab(id)}
+                            className={`flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                tab === id
+                                    ? 'border-blue-600 text-blue-700'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="p-6 space-y-5 overflow-y-auto">
-                    {!reviewUrl ? (
+                    {tab === 'reply' ? (
+                        <ReviewReplyPanel
+                            userProfile={userProfile}
+                            intervention={intervention}
+                            defaultCity={contextCity || ''}
+                        />
+                    ) : !reviewUrl ? (
                         <div className="bg-red-50 border border-red-100 text-red-700 p-4 rounded-lg text-sm text-center">
                             <p className="font-medium">Vous n'avez pas configuré votre lien Google Avis.</p>
                             <p className="mt-1">Allez dans Paramètres &gt; Profil pour l'ajouter.</p>
