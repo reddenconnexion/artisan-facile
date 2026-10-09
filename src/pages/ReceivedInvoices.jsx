@@ -85,17 +85,19 @@ const PdfAccess = ({ inv, onPdfFetched, compact = false }) => {
     if (inv.pdf_path) {
       return (
         <button type="button" onClick={handleOpen} disabled={busy} title="Ouvrir la facture"
-          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex disabled:opacity-50">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          className="tap-target min-w-[44px] min-h-[44px] items-center justify-center gap-1.5 px-2 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex disabled:opacity-50">
+          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+          <span className="hidden sm:inline">Ouvrir</span>
         </button>
       );
     }
     if (inv.pdf_url) {
       return (
         <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex"
+          className="min-w-[44px] min-h-[44px] items-center justify-center gap-1.5 px-2 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors inline-flex"
           title="Télécharger la facture">
-          <Download className="w-4 h-4" />
+          <Download className="w-5 h-5" />
+          <span className="hidden sm:inline">Ouvrir</span>
         </a>
       );
     }
@@ -189,13 +191,14 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange, onPdfFetched }) => {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${cfg.color}`}>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-medium ${cfg.color}`}>
               <Icon className="w-3 h-3" />
               {cfg.label}
             </span>
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              aria-label="Fermer"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -325,7 +328,7 @@ const InvoiceDrawer = ({ inv, onClose, onStatusChange, onPdfFetched }) => {
               </div>
             )}
             <DismissibleHelp storageKey="received_invoices_lifecycle_note">
-              <p className="flex items-start gap-1.5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed pr-8">
+              <p className="flex items-start gap-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed pr-8">
                 <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
                 {linkedToPlatform
                   ? "Votre réponse est transmise au fournisseur par la plateforme : c'est le statut de cycle de vie exigé par la réforme. Un refus doit être motivé."
@@ -445,7 +448,7 @@ const ReceivedInvoices = () => {
                       <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white whitespace-nowrap">{fmtAmount(inv.total_ht, inv.currency)}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white whitespace-nowrap">{fmtAmount(inv.total_ttc, inv.currency)}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${cfg.color}`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-medium ${cfg.color}`}>
                           <Icon className="w-3 h-3" />
                           {cfg.label}
                         </span>
@@ -476,7 +479,7 @@ const ReceivedInvoices = () => {
                       <p className="font-semibold text-gray-900 dark:text-white">{fmt(inv.supplier_name)}</p>
                       {inv.supplier_siren && <p className="text-xs text-gray-400">SIREN {inv.supplier_siren}</p>}
                     </div>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${cfg.color} shrink-0`}>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-medium ${cfg.color} shrink-0`}>
                       <Icon className="w-3 h-3" />
                       {cfg.label}
                     </span>

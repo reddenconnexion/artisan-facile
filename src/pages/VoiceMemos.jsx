@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Mic, CheckCircle2, XCircle, Loader2, Clock, RefreshCw, ChevronRight, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
+import { Mic, CheckCircle2, XCircle, Loader2, Clock, RefreshCw, ChevronRight, AlertCircle, Sparkles, Trash2, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { supabase } from '../utils/supabase';
@@ -35,8 +35,9 @@ const INTENT_LABELS = {
     unknown: 'Non identifié',
 };
 
-const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
+const VoiceMemoCard = ({ memo, onCopy, onDelete }) => {
     const navigate = useNavigate();
+    const [expanded, setExpanded] = useState(false);
     const config = STATUS_CONFIG[memo.status] || STATUS_CONFIG.pending;
     const StatusIcon = config.icon;
     const actions = memo.actions_taken || [];
@@ -67,21 +68,26 @@ const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
 
                     {/* Transcript */}
                     {memo.transcript && (
-                        <p className="text-sm text-gray-700 italic line-clamp-2 mb-2">
-                            "{memo.transcript}"
-                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setExpanded(v => !v)}
+                            aria-expanded={expanded}
+                            className="block w-full text-left text-sm text-gray-700 italic mb-2"
+                        >
+                            <span className={expanded ? '' : 'line-clamp-2'}>"{memo.transcript}"</span>
+                        </button>
                     )}
 
                     {/* Actions taken */}
                     {actions.length > 0 && (
-                        <div className="space-y-1">
+                        <div className="space-y-1 mt-1">
                             {actions.map((action, i) => (
                                 <button
                                     key={i}
                                     onClick={() => action.link && navigate(action.link)}
-                                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                    className="flex items-center gap-1.5 min-h-[44px] text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                                 >
-                                    <ChevronRight size={10} />
+                                    <ChevronRight size={16} />
                                     {action.label}
                                 </button>
                             ))}
@@ -101,13 +107,14 @@ const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
 
                 {/* Actions */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {memo.status === 'error' && (
+                    {memo.status === 'error' && memo.transcript && (
                         <button
-                            onClick={() => onRetry(memo.id)}
-                            title="Réessayer"
-                            className="text-gray-400 hover:text-blue-500 p-1"
+                            onClick={() => onCopy(memo.transcript)}
+                            title="Copier le texte"
+                            aria-label="Copier le texte"
+                            className="flex items-center justify-center min-w-[44px] min-h-[44px] text-gray-400 hover:text-blue-500"
                         >
-                            <RefreshCw size={14} />
+                            <Copy size={20} />
                         </button>
                     )}
 
@@ -115,9 +122,10 @@ const VoiceMemoCard = ({ memo, onRetry, onDelete }) => {
                         <button
                             onClick={() => onDelete(memo.id)}
                             title="Supprimer ce mémo"
-                            className="text-gray-300 hover:text-red-400 p-1 transition-colors"
+                            aria-label="Supprimer ce mémo"
+                            className="flex items-center justify-center min-w-[44px] min-h-[44px] text-gray-400 hover:text-red-500 transition-colors"
                         >
-                            <Trash2 size={14} />
+                            <Trash2 size={20} />
                         </button>
                     )}
                 </div>
@@ -162,8 +170,13 @@ const VoiceMemos = () => {
         () => fetchMemos()
     );
 
-    const handleRetry = async (memoId) => {
-        toast.info('Fonctionnalité de relance en cours de développement');
+    const handleCopy = async (text) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success('Texte copié');
+        } catch {
+            toast.error('Copie impossible');
+        }
     };
 
     const handleDelete = async (memoId) => {
@@ -213,10 +226,11 @@ const VoiceMemos = () => {
                 </div>
                 <button
                     onClick={fetchMemos}
-                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                    className="flex items-center justify-center min-w-[44px] min-h-[44px] text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
                     title="Rafraîchir"
+                    aria-label="Rafraîchir"
                 >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={20} />
                 </button>
             </div>
 
@@ -289,7 +303,7 @@ const VoiceMemos = () => {
                         <button
                             key={tab.key}
                             onClick={() => setFilter(tab.key)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                            className={`px-4 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                                 filter === tab.key
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -315,7 +329,7 @@ const VoiceMemos = () => {
             ) : (
                 <div className="space-y-3">
                     {filteredMemos.map(memo => (
-                        <VoiceMemoCard key={memo.id} memo={memo} onRetry={handleRetry} onDelete={handleDelete} />
+                        <VoiceMemoCard key={memo.id} memo={memo} onCopy={handleCopy} onDelete={handleDelete} />
                     ))}
                 </div>
             )}
