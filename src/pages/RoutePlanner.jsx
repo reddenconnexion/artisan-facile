@@ -348,7 +348,7 @@ const RoutePlanner = () => {
 
     return (
         <div className="flex flex-col h-full space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => navigate(-1)}

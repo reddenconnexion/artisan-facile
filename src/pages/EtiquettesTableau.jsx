@@ -480,7 +480,7 @@ export default function EtiquettesTableau() {
               placeholder="Nom du client / chantier"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="w-full min-w-0 rounded-md sm:w-auto border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             <select
               value={brand}
@@ -490,7 +490,7 @@ export default function EtiquettesTableau() {
                 // ensuite ré-overrider via l'input "modules/rangée").
                 setCustomRowSize(null);
               }}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="w-full min-w-0 max-w-full rounded-md sm:w-auto border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             >
               {Object.entries(BRANDS).map(([k, v]) => (
                 <option key={k} value={k}>

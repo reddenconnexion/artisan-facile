@@ -81,7 +81,7 @@ const OfflineSync = () => {
     return (
         <div
             role="status"
-            className="fixed bottom-24 left-4 z-50 flex items-center gap-2 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg md:bottom-4"
+            className="fixed bottom-24 left-4 z-50 flex items-center gap-2 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg nav:bottom-4"
         >
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudOff className="h-3.5 w-3.5" />}
             {pending} photo{pending > 1 ? 's' : ''} en attente d'envoi

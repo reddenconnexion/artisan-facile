@@ -52,7 +52,7 @@ const EditorToolbar = ({
     viewCount,
 }) => {
     return (
-        <div id="devis-step-top" className="flex items-center justify-between mb-6">
+        <div id="devis-step-top" className="flex flex-wrap items-center justify-between gap-y-2 mb-6">
             <button
                 onClick={handleBack}
                 className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"

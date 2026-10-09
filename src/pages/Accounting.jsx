@@ -586,35 +586,35 @@ const Accounting = () => {
       <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl mb-6">
         <button
           onClick={() => setActiveTab('charges')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+          className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 text-xs sm:text-sm leading-tight text-center font-medium rounded-lg transition-all ${
             activeTab === 'charges'
               ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
-          <Calculator className="w-4 h-4" />
+          <Calculator className="w-4 h-4 shrink-0" />
           Charges URSSAF
         </button>
         <button
           onClick={() => setActiveTab('recettes')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+          className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 text-xs sm:text-sm leading-tight text-center font-medium rounded-lg transition-all ${
             activeTab === 'recettes'
               ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
+          <BookOpen className="w-4 h-4 shrink-0" />
           Livre de recettes
         </button>
         <button
           onClick={() => setActiveTab('conseils')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+          className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 text-xs sm:text-sm leading-tight text-center font-medium rounded-lg transition-all ${
             activeTab === 'conseils'
               ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-4 h-4 shrink-0" />
           Bilan & Conseils
         </button>
       </div>

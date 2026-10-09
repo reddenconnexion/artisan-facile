@@ -132,7 +132,7 @@ const CopilotChat = ({ context, presets = [] }) => {
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className={`fixed bottom-24 md:bottom-6 right-4 md:right-6 z-40 group flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg transition-all hover:shadow-xl active:scale-95 ${
+                className={`fixed bottom-24 nav:bottom-6 right-4 nav:right-6 z-40 group flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg transition-all hover:shadow-xl active:scale-95 ${
                     open
                         ? 'opacity-0 pointer-events-none translate-y-2'
                         : 'opacity-100'

@@ -39,12 +39,12 @@ const LogoutButton = ({ onLogout, collapsed }) => {
   return (
     <button
       onClick={handleClick}
-      className={`tap-target mt-2 flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors ${collapsed ? 'md:justify-center md:px-2' : ''}`}
+      className={`tap-target mt-2 flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors ${collapsed ? 'nav:justify-center nav:px-2' : ''}`}
       title="Se déconnecter"
       aria-label="Se déconnecter"
     >
       <LogOut className="w-5 h-5 flex-shrink-0" />
-      <span className={collapsed ? 'md:hidden' : ''}>Se déconnecter</span>
+      <span className={collapsed ? 'nav:hidden' : ''}>Se déconnecter</span>
     </button>
   );
 };
@@ -348,7 +348,7 @@ const Layout = () => {
     });
   }, []);
   // État visuel « réduit » : replié ET non survolé. Toutes les classes
-  // ci-dessous l'appliquent via le préfixe `md:` pour ne toucher que le
+  // ci-dessous l'appliquent via le préfixe `nav:` pour ne toucher que le
   // desktop (sur mobile, le tiroir reste pleine largeur avec ses libellés).
   const railCollapsed = sidebarCollapsed && !railHovered;
 
@@ -437,7 +437,7 @@ const Layout = () => {
           key={group.name}
           to={group.href}
           title={group.name}
-          className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
+          className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'nav:justify-center nav:px-2' : ''} ${
             isActive
               ? 'bg-[#007AFF] text-white shadow-sm'
               : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
@@ -447,7 +447,7 @@ const Layout = () => {
             className="w-[22px] h-[22px] flex-shrink-0"
             style={{ color: isActive ? '#fff' : IOS_BLUE }}
           />
-          <span className={`flex-1 ${railCollapsed ? 'md:hidden' : ''}`}>{group.name}</span>
+          <span className={`flex-1 ${railCollapsed ? 'nav:hidden' : ''}`}>{group.name}</span>
         </Link>
       );
     }
@@ -473,7 +473,7 @@ const Layout = () => {
         <button
           onClick={() => { if (!isHoverDevice) toggleGroup(group.name); }}
           title={group.name}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'md:justify-center md:px-2' : ''} ${
+          className={`flex items-center gap-3 w-full px-3 py-2.5 text-[15px] font-medium rounded-xl transition-colors whitespace-nowrap ${railCollapsed ? 'nav:justify-center nav:px-2' : ''} ${
             groupActive
               ? 'bg-[#007AFF]/10 text-[#007AFF] dark:text-[#0A84FF]'
               : 'text-gray-800 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'
@@ -487,10 +487,10 @@ const Layout = () => {
             {/* Pastille de rappel quand le menu est réduit : le badge
                 textuel étant masqué, on garde un point rouge visible. */}
             {showBadge && railCollapsed && (
-              <span className="hidden md:block absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
+              <span className="hidden nav:block absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
             )}
           </span>
-          <span className={`flex-1 text-left flex items-center gap-2 ${railCollapsed ? 'md:hidden' : ''}`}>
+          <span className={`flex-1 text-left flex items-center gap-2 ${railCollapsed ? 'nav:hidden' : ''}`}>
             {group.name}
             {showBadge && (
               <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
@@ -499,12 +499,12 @@ const Layout = () => {
             )}
           </span>
           {groupExpanded
-            ? <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
-            : <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
+            ? <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'nav:hidden' : ''}`} />
+            : <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ${railCollapsed ? 'nav:hidden' : ''}`} />
           }
         </button>
         {groupExpanded && (
-          <div className={`mt-0.5 mb-1 space-y-0.5 pl-[2.35rem] pr-1 ${railCollapsed ? 'md:hidden' : ''}`}>
+          <div className={`mt-0.5 mb-1 space-y-0.5 pl-[2.35rem] pr-1 ${railCollapsed ? 'nav:hidden' : ''}`}>
             {group.children.map(child => {
               const childActive = isChildActive(child);
               const isReceivedInvoices = child.href === '/app/received-invoices';
@@ -637,7 +637,7 @@ const Layout = () => {
         {/* Overlay du menu latéral (mobile) */}
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 nav:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
@@ -646,22 +646,22 @@ const Layout = () => {
         <aside
           onMouseEnter={() => { if (sidebarCollapsed) setRailHovered(true); }}
           onMouseLeave={() => setRailHovered(false)}
-          className={`fixed md:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-            } md:translate-x-0 transition-all duration-300 ease-in-out bg-gray-100/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border-r border-gray-200/80 dark:border-white/10 flex flex-col w-72 max-w-[85vw] ${railCollapsed ? 'md:w-[4.5rem]' : 'md:w-64'}`}
+          className={`fixed nav:relative inset-y-0 left-0 z-50 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            } nav:translate-x-0 transition-all duration-300 ease-in-out bg-gray-100/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border-r border-gray-200/80 dark:border-white/10 flex flex-col w-72 max-w-[85vw] ${railCollapsed ? 'nav:w-[4.5rem]' : 'nav:w-64'}`}
         >
           {/* En-tête : logo */}
-          <div className={`px-4 pt-5 pb-2 flex items-center justify-between ${railCollapsed ? 'md:px-0 md:justify-center' : ''}`}>
+          <div className={`px-4 pt-5 pb-2 flex items-center justify-between ${railCollapsed ? 'nav:px-0 nav:justify-center' : ''}`}>
             <Link
               to="/app"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-2.5"
             >
               <img src="/logo-bleu.svg" alt="Logo Artisan Facile" className="w-9 h-9 rounded-xl shadow-sm flex-shrink-0" />
-              <span className={`text-[22px] font-bold tracking-tight text-gray-900 dark:text-white ${railCollapsed ? 'md:hidden' : ''}`}>Artisan Facile</span>
+              <span className={`text-[22px] font-bold tracking-tight text-gray-900 dark:text-white ${railCollapsed ? 'nav:hidden' : ''}`}>Artisan Facile</span>
             </Link>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="md:hidden tap-target flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10"
+              className="nav:hidden tap-target flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10"
               aria-label="Fermer le menu"
             >
               <X className="w-5 h-5" />
@@ -672,11 +672,11 @@ const Layout = () => {
           <div className="px-4 pt-1 pb-2">
             <button
               onClick={() => setShowSearch(true)}
-              className={`flex items-center gap-2 w-full h-9 px-3 rounded-xl bg-gray-200/70 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-200 dark:hover:bg-white/15 transition-colors ${railCollapsed ? 'md:justify-center md:px-0' : ''}`}
+              className={`flex items-center gap-2 w-full h-9 px-3 rounded-xl bg-gray-200/70 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-200 dark:hover:bg-white/15 transition-colors ${railCollapsed ? 'nav:justify-center nav:px-0' : ''}`}
               title="Rechercher (Ctrl+K)"
             >
               <Search className="w-4 h-4 flex-shrink-0" />
-              <span className={railCollapsed ? 'md:hidden' : ''}>Rechercher…</span>
+              <span className={railCollapsed ? 'nav:hidden' : ''}>Rechercher…</span>
             </button>
           </div>
 
@@ -692,21 +692,21 @@ const Layout = () => {
             {/* Réduire / agrandir la barre — desktop uniquement */}
             <button
               onClick={toggleSidebarCollapsed}
-              className={`hidden md:flex items-center gap-3 w-full px-3 py-2 text-[13px] font-medium rounded-xl text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${railCollapsed ? 'md:justify-center md:px-2' : ''}`}
+              className={`hidden nav:flex items-center gap-3 w-full px-3 py-2 text-[13px] font-medium rounded-xl text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${railCollapsed ? 'nav:justify-center nav:px-2' : ''}`}
               title={sidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
             >
               {sidebarCollapsed
                 ? <PanelLeftOpen className="w-5 h-5 flex-shrink-0" />
                 : <PanelLeftClose className="w-5 h-5 flex-shrink-0" />
               }
-              <span className={`flex-1 text-left ${railCollapsed ? 'md:hidden' : ''}`}>
+              <span className={`flex-1 text-left ${railCollapsed ? 'nav:hidden' : ''}`}>
                 {sidebarCollapsed ? 'Agrandir le menu' : 'Réduire le menu'}
               </span>
             </button>
 
             <button
               onClick={() => navigate('/app/settings')}
-              className={`flex items-center gap-3 w-full p-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-left ${railCollapsed ? 'md:justify-center' : ''}`}
+              className={`flex items-center gap-3 w-full p-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-left ${railCollapsed ? 'nav:justify-center' : ''}`}
               title="Réglages"
             >
               <div
@@ -720,7 +720,7 @@ const Layout = () => {
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-gray-100 dark:ring-[#1c1c1e]" />
                 )}
               </div>
-              <div className={`flex-1 min-w-0 ${railCollapsed ? 'md:hidden' : ''}`}>
+              <div className={`flex-1 min-w-0 ${railCollapsed ? 'nav:hidden' : ''}`}>
                 <div className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{displayName}</div>
                 <div className="flex items-center gap-1 text-xs">
                   <Crown className={`w-3 h-3 ${isOwner ? 'text-violet-500' : isPro ? 'text-blue-500' : 'text-gray-400'}`} />
@@ -729,11 +729,11 @@ const Layout = () => {
                   </span>
                 </div>
               </div>
-              <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 ${railCollapsed ? 'md:hidden' : ''}`} />
+              <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 ${railCollapsed ? 'nav:hidden' : ''}`} />
             </button>
 
             {/* Rangée d'actions rapides */}
-            <div className={`flex items-center justify-around bg-gray-200/50 dark:bg-white/5 rounded-2xl p-1 ${railCollapsed ? 'md:flex-col md:gap-1' : ''}`}>
+            <div className={`flex items-center justify-around bg-gray-200/50 dark:bg-white/5 rounded-2xl p-1 ${railCollapsed ? 'nav:flex-col nav:gap-1' : ''}`}>
               <button
                 onClick={() => navigate('/app/portal-messages')}
                 className={`tap-target relative flex items-center justify-center p-2.5 rounded-xl transition-colors ${
@@ -766,10 +766,10 @@ const Layout = () => {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pt-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden nav:pt-0">
           <main className="flex-1 overflow-y-auto">
             {/* En-tête mobile translucide (style iOS) */}
-            <div className="sticky top-0 z-30 h-14 bg-gray-100/80 dark:bg-black/70 backdrop-blur-xl border-b border-gray-200/70 dark:border-white/10 flex items-center justify-between px-3 md:hidden">
+            <div className="sticky top-0 z-30 h-14 bg-gray-100/80 dark:bg-black/70 backdrop-blur-xl border-b border-gray-200/70 dark:border-white/10 flex items-center justify-between px-3 nav:hidden">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="p-2 text-[#007AFF] rounded-full active:bg-black/5 dark:active:bg-white/10"
@@ -793,7 +793,7 @@ const Layout = () => {
 
             {/* Bannière profil incomplet */}
             {profileIncomplete && !profileBannerDismissed && (
-              <div className="mx-4 md:mx-8 mt-4 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-4 py-3 text-sm">
+              <div className="mx-4 nav:mx-8 mt-4 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-4 py-3 text-sm">
                 <span className="text-amber-500 text-lg flex-shrink-0">⚠️</span>
                 <p className="text-amber-800 dark:text-amber-300 flex-1">
                   <span className="font-semibold">Profil incomplet —</span> vos devis n'auront pas les mentions légales obligatoires (nom d'entreprise, SIRET).{' '}
@@ -815,7 +815,7 @@ const Layout = () => {
               </div>
             )}
 
-            <div className="p-4 md:p-8 pb-24 md:pb-8">
+            <div className="p-4 nav:p-8 pb-24 nav:pb-8">
               <Outlet />
             </div>
           </main>
@@ -826,7 +826,7 @@ const Layout = () => {
           {isTestMode && !showTestPanel && (
             <button
               onClick={() => setShowTestPanel(true)}
-              className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full shadow-lg transition-colors"
+              className="fixed bottom-20 nav:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full shadow-lg transition-colors"
             >
               <FlaskConical className="w-4 h-4" />
               MODE TEST ACTIF
@@ -858,7 +858,7 @@ const Layout = () => {
             return (
               <button
                 onClick={() => navigate(fab.to)}
-                className="fixed bottom-[4.5rem] left-4 z-40 md:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 bg-[#007AFF] hover:bg-[#0066d6]"
+                className="fixed bottom-[4.5rem] left-4 z-40 nav:hidden flex items-center gap-2 pl-3 pr-4 py-3 text-white rounded-full shadow-lg transition-all active:scale-95 bg-[#007AFF] hover:bg-[#0066d6]"
                 aria-label={fab.label}
               >
                 <Plus className="w-5 h-5 shrink-0" />
@@ -879,7 +879,7 @@ const Layout = () => {
       <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
 
       {/* Barre d'onglets mobile — translucide style iOS */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-t border-gray-200/70 dark:border-white/10 z-50 md:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-t border-gray-200/70 dark:border-white/10 z-50 nav:hidden flex justify-around items-center h-16 pb-safe safe-area-bottom">
         {mobileNavItems.map((item) => {
           const isActive = item.href === '/app'
             ? location.pathname === '/app'
@@ -892,7 +892,7 @@ const Layout = () => {
                 }`}
             >
               <item.icon className={`w-6 h-6 ${bouncingHref === item.href ? 'animate-nav-bounce' : ''}`} />
-              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.name}</span>
+              <span className={`text-[11px] min-[380px]:text-xs max-w-full truncate px-0.5 ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.name}</span>
             </Link>
           );
         })}
@@ -903,7 +903,7 @@ const Layout = () => {
             }`}
         >
           <Menu className="w-6 h-6" />
-          <span className="text-xs font-medium">Plus</span>
+          <span className="text-[11px] min-[380px]:text-xs font-medium">Plus</span>
         </button>
       </div>
     </div>
