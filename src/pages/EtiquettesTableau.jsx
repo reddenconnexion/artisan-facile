@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef, useLayoutEffect, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Lightbulb,
   Plug,
@@ -25,9 +27,15 @@ import {
   Clock,
   Minus,
   CloudLightning,
+  UserRound,
+  Download,
+  Loader2,
 } from "lucide-react";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 import { useConfirm } from "../context/ConfirmContext";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../utils/supabase";
+import { toastError } from "../utils/supabaseErrorHandler";
 
 /* =========================================================================
    CONFIGURATION MÉTIER
@@ -193,7 +201,7 @@ export default function EtiquettesTableau() {
   const initial = useMemo(() => loadAutosave() || {}, []);
   const [brand, setBrand] = useState(initial.brand || "universel");
   const [circuits, setCircuits] = useState(
-    Array.isArray(initial.circuits) ? initial.circuits.map((c) => ({ modules: 1, ...c })) : []
+    Array.isArray(initial.circuits) ? initial.circuits.map((c) => ({ ...c, modules: c.modules ?? 1 })) : []
   );
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
@@ -207,18 +215,146 @@ export default function EtiquettesTableau() {
   );
   const fileInputRef = useRef(null);
 
+  // Rattachement à une fiche client (table client_etiquettes) : client lié,
+  // id de l'enregistrement et nom du jeu (« Tableau principal », « Garage »…).
+  // savedSnapshot = état au dernier enregistrement, pour savoir s'il reste
+  // des modifications non enregistrées.
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [linkedClient, setLinkedClient] = useState(initial.linkedClient || null);
+  const [savedId, setSavedId] = useState(initial.savedId || null);
+  const [projectName, setProjectName] = useState(initial.projectName || "Tableau principal");
+  const [savedSnapshot, setSavedSnapshot] = useState(initial.savedSnapshot || null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const snapshot = JSON.stringify({ brand, circuits, customRowSize });
+  const isDirty = circuits.length > 0 && snapshot !== savedSnapshot;
+
   // Auto-sauvegarde : à chaque changement on persiste l'état en localStorage,
   // pour éviter de tout perdre sur un reload accidentel ou un crash navigateur.
   useEffect(() => {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ brand, circuits, clientName, customRowSize, savedAt: Date.now() })
+        JSON.stringify({
+          brand, circuits, clientName, customRowSize,
+          linkedClient, savedId, projectName, savedSnapshot,
+          savedAt: Date.now(),
+        })
       );
     } catch {
       // Quota dépassé ou navigation privée : on ignore silencieusement.
     }
-  }, [brand, circuits, clientName, customRowSize]);
+  }, [brand, circuits, clientName, customRowSize, linkedClient, savedId, projectName, savedSnapshot]);
+
+  // Ouverture depuis la fiche client :
+  //   ?etiquettes_id=X → recharge un jeu enregistré ;
+  //   ?client_id=Y     → nouveau jeu vierge rattaché à ce client.
+  // Les paramètres sont retirés ensuite : un rechargement reprend l'autosave.
+  useEffect(() => {
+    const etqId = searchParams.get("etiquettes_id");
+    const clientId = searchParams.get("client_id");
+    if (!etqId && !clientId) return;
+    let cancelled = false;
+
+    (async () => {
+      const alreadyOpen = etqId && String(savedId) === etqId;
+      if (!alreadyOpen && isDirty) {
+        const ok = await confirm({
+          title: "Remplacer les étiquettes en cours ?",
+          message: "Les étiquettes affichées ont des modifications non enregistrées. Elles seront remplacées.",
+          confirmLabel: "Remplacer",
+          danger: true,
+        });
+        if (!ok || cancelled) {
+          setSearchParams({}, { replace: true });
+          return;
+        }
+      }
+
+      if (etqId) {
+        if (alreadyOpen) {
+          setSearchParams({}, { replace: true });
+          return;
+        }
+        const { data, error } = await supabase
+          .from("client_etiquettes")
+          .select("id, name, data, client_id, clients(id, name)")
+          .eq("id", etqId)
+          .single();
+        if (cancelled) return;
+        if (error || !data) {
+          toastError(error, "Impossible d'ouvrir ces étiquettes.");
+        } else {
+          const d = data.data || {};
+          const nextBrand = BRANDS[d.brand] ? d.brand : "universel";
+          const nextCircuits = Array.isArray(d.circuits)
+            ? d.circuits.map((c) => ({ ...c, modules: c.modules ?? 1 }))
+            : [];
+          const nextRowSize = typeof d.customRowSize === "number" ? d.customRowSize : null;
+          setBrand(nextBrand);
+          setCircuits(nextCircuits);
+          setCustomRowSize(nextRowSize);
+          setLinkedClient(data.clients ? { id: data.clients.id, name: data.clients.name } : null);
+          setClientName(data.clients?.name || "");
+          setSavedId(data.id);
+          setProjectName(data.name || "Tableau principal");
+          setSavedSnapshot(JSON.stringify({ brand: nextBrand, circuits: nextCircuits, customRowSize: nextRowSize }));
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("id, name")
+          .eq("id", clientId)
+          .single();
+        if (cancelled) return;
+        if (error || !data) {
+          toastError(error, "Client introuvable.");
+        } else {
+          setCircuits([]);
+          setCustomRowSize(null);
+          setLinkedClient({ id: data.id, name: data.name });
+          setClientName(data.name || "");
+          setSavedId(null);
+          setProjectName("Tableau principal");
+          setSavedSnapshot(null);
+        }
+      }
+      setSearchParams({}, { replace: true });
+    })();
+
+    return () => { cancelled = true; };
+    // Ne réagit qu'aux paramètres d'URL ; l'état courant est lu au moment de l'ouverture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Enregistrement sur la fiche client. Même client + même nom → mise à jour
+  // du jeu ouvert ; sinon nouveau jeu (ex. « Garage » pour un 2e tableau).
+  async function saveToClient(client, name) {
+    const data = { brand, circuits, customRowSize };
+    const payload = { client_id: client.id, name, data };
+    const isUpdate = savedId && linkedClient?.id === client.id && name === projectName;
+    const query = isUpdate
+      ? supabase.from("client_etiquettes").update(payload).eq("id", savedId)
+      : supabase.from("client_etiquettes").insert({ ...payload, user_id: user?.id });
+    const { data: row, error } = await query.select("id").single();
+    if (error) {
+      toastError(error, "Impossible d'enregistrer les étiquettes.");
+      return false;
+    }
+    setSavedId(row.id);
+    setLinkedClient(client);
+    setProjectName(name);
+    setSavedSnapshot(JSON.stringify(data));
+    if (!clientName.trim()) setClientName(client.name || "");
+    toast.success(`Étiquettes enregistrées sur la fiche de ${client.name}`, {
+      action: {
+        label: "Voir la fiche",
+        onClick: () => navigate(`/app/clients/${client.id}`, { state: { tab: "plans" } }),
+      },
+    });
+    return true;
+  }
 
   const dims = BRANDS[brand];
   const effectiveRowSize = customRowSize ?? dims.rowSize;
@@ -379,7 +515,7 @@ export default function EtiquettesTableau() {
         if (data.client) setClientName(data.client);
         if (Array.isArray(data.circuits)) {
           // Anciens fichiers (avant V2) : pas de champ `modules`, on défaut à 1
-          setCircuits(data.circuits.map((c) => ({ modules: 1, ...c })));
+          setCircuits(data.circuits.map((c) => ({ ...c, modules: c.modules ?? 1 })));
         }
       } catch {
         alert(
@@ -468,9 +604,21 @@ export default function EtiquettesTableau() {
               <h1 className="text-lg font-semibold leading-tight">
                 Étiquettes Tableau
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Red Den Connexion — Module Artisan Facile
-              </p>
+              {linkedClient ? (
+                <button
+                  onClick={() => navigate(`/app/clients/${linkedClient.id}`, { state: { tab: "plans" } })}
+                  className="flex items-center gap-1 text-xs text-amber-700 hover:underline dark:text-amber-300"
+                  title="Ouvrir la fiche client"
+                >
+                  <UserRound size={12} />
+                  {linkedClient.name} · {projectName}
+                  {isDirty && <span className="text-slate-400 dark:text-slate-500">(non enregistré)</span>}
+                </button>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Red Den Connexion — Module Artisan Facile
+                </p>
+              )}
             </div>
           </div>
 
@@ -528,11 +676,12 @@ export default function EtiquettesTableau() {
             />
 
             <button
-              onClick={saveToFile}
-              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-              title="Sauvegarder en JSON"
+              onClick={() => setSaveOpen(true)}
+              disabled={circuits.length === 0}
+              className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              title="Enregistrer sur la fiche d'un client"
             >
-              <Save size={16} /> Sauver
+              <Save size={16} /> Enregistrer
             </button>
 
             <button
@@ -694,6 +843,22 @@ export default function EtiquettesTableau() {
           onDelete={() => deleteCircuit(editing.id)}
           onDuplicate={() => duplicateCircuit(editing.id)}
           onToggleEndsRow={() => toggleEndsRow(editing.id)}
+        />
+      )}
+
+      {/* Modal d'enregistrement sur une fiche client */}
+      {saveOpen && (
+        <SaveToClientModal
+          initialClient={linkedClient}
+          initialName={projectName}
+          onClose={() => setSaveOpen(false)}
+          onSave={async (client, name) => {
+            if (await saveToClient(client, name)) setSaveOpen(false);
+          }}
+          onDownloadJson={() => {
+            saveToFile();
+            setSaveOpen(false);
+          }}
         />
       )}
 
@@ -1127,6 +1292,152 @@ function RowSizeInput({ value, onChange }) {
       >
         <Plus size={14} />
       </button>
+    </div>
+  );
+}
+
+/* =========================================================================
+   MODALE D'ENREGISTREMENT SUR UNE FICHE CLIENT
+   ========================================================================= */
+
+function SaveToClientModal({ initialClient, initialName, onClose, onSave, onDownloadJson }) {
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [search, setSearch] = useState("");
+  const [client, setClient] = useState(initialClient);
+  const [name, setName] = useState(initialName || "Tableau principal");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("clients")
+      .select("id, name")
+      .order("name")
+      .then(({ data }) => {
+        if (cancelled) return;
+        setClients(data || []);
+        setLoadingClients(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = q ? clients.filter((c) => (c.name || "").toLowerCase().includes(q)) : clients;
+    return list.slice(0, 50);
+  }, [clients, search]);
+
+  async function submit() {
+    if (!client || !name.trim()) return;
+    setSaving(true);
+    await onSave(client, name.trim());
+    setSaving(false);
+  }
+
+  return (
+    <div
+      className="no-print fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl dark:bg-slate-800 sm:rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
+          <h2 className="text-base font-semibold dark:text-slate-100">Enregistrer les étiquettes</h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+            aria-label="Fermer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          <Field label="Client">
+            {client ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-700 dark:bg-amber-900/30">
+                <span className="flex min-w-0 items-center gap-1.5 font-medium text-amber-800 dark:text-amber-200">
+                  <UserRound size={14} className="shrink-0" />
+                  <span className="truncate">{client.name}</span>
+                </span>
+                <button
+                  onClick={() => setClient(null)}
+                  className="shrink-0 text-xs font-medium text-amber-700 hover:underline dark:text-amber-300"
+                >
+                  Changer
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="relative">
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un client…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-2 max-h-56 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
+                  {loadingClients ? (
+                    <p className="flex items-center justify-center gap-2 py-4 text-sm text-slate-400">
+                      <Loader2 size={14} className="animate-spin" /> Chargement…
+                    </p>
+                  ) : filtered.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-slate-400">Aucun client</p>
+                  ) : (
+                    filtered.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => setClient({ id: c.id, name: c.name })}
+                        className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-amber-50 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
+                        {c.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </Field>
+
+          <Field label="Nom du tableau">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tableau principal, Garage…"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Un autre nom crée un second jeu d'étiquettes (ex. tableau divisionnaire).
+            </p>
+          </Field>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] dark:border-slate-700">
+          <button
+            onClick={onDownloadJson}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            title="Télécharger une copie au format .json"
+          >
+            <Download size={14} /> Fichier .json
+          </button>
+          <button
+            onClick={submit}
+            disabled={!client || !name.trim() || saving}
+            className="flex items-center gap-1.5 rounded-md bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Enregistrer
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

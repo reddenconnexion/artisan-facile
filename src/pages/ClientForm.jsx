@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Sparkles, FilePlus, Zap, ExternalLink, Trash, Loader2, RefreshCw, Ban, Copy, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Globe, MapPin, Navigation, History, Users, FileText, Palette, Mail, Phone, MessageSquare, Calendar, Trash2, Sparkles, FilePlus, Zap, ExternalLink, Trash, Tags, Loader2, RefreshCw, Ban, Copy, CheckCircle, Clock } from 'lucide-react';
 import { toastError } from '../utils/supabaseErrorHandler';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -121,6 +121,103 @@ const ClientPlans = ({ clientId, clientName }) => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Étiquettes de tableau d'un client ────────────────────────────────────────
+const ClientEtiquettes = ({ clientId }) => {
+    const navigate = useNavigate();
+    const confirm = useConfirm();
+    const [sets, setSets] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        supabase
+            .from('client_etiquettes')
+            .select('id, name, data, updated_at')
+            .eq('client_id', clientId)
+            .order('updated_at', { ascending: false })
+            .then(({ data }) => {
+                if (cancelled) return;
+                setSets(data || []);
+                setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [clientId]);
+
+    const handleDelete = async (setId) => {
+        const ok = await confirm({ title: 'Supprimer ces étiquettes ?', message: 'Ce jeu d\'étiquettes sera définitivement supprimé.', confirmLabel: 'Supprimer', danger: true });
+        if (!ok) return;
+        const { error } = await supabase.from('client_etiquettes').delete().eq('id', setId);
+        if (error) { toastError(error); return; }
+        setSets(prev => prev.filter(s => s.id !== setId));
+    };
+
+    const createNew = () => navigate(`/app/etiquettes-tableau?client_id=${clientId}`);
+
+    if (loading) return <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Chargement...</div>;
+
+    return (
+        <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Étiquettes de tableau électrique de ce client.</p>
+                <button
+                    onClick={createNew}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors"
+                >
+                    <Tags className="w-4 h-4" />
+                    Nouvelles étiquettes
+                </button>
+            </div>
+
+            {sets.length === 0 ? (
+                <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                    <Tags className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Aucune étiquette enregistrée pour ce client.</p>
+                    <button onClick={createNew} className="mt-3 text-sm text-amber-600 font-medium hover:underline">
+                        Créer les étiquettes du tableau →
+                    </button>
+                </div>
+            ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+                    {sets.map(set => {
+                        const count = (set.data?.circuits || []).filter(c => !c.isSpacer).length;
+                        return (
+                            <div key={set.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900">
+                                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
+                                    <Tags className="w-5 h-5" />
+                                </div>
+                                <button
+                                    onClick={() => navigate(`/app/etiquettes-tableau?etiquettes_id=${set.id}`)}
+                                    className="flex-1 min-w-0 text-left"
+                                >
+                                    <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{set.name}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                        {count} circuit{count > 1 ? 's' : ''} · modifié le {formatDateTime(set.updated_at, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </p>
+                                </button>
+                                <button
+                                    onClick={() => navigate(`/app/etiquettes-tableau?etiquettes_id=${set.id}`)}
+                                    className="tap-target flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    Ouvrir
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(set.id)}
+                                    className="tap-target flex items-center justify-center p-2 text-gray-400 hover:text-red-600 rounded-lg"
+                                    title="Supprimer"
+                                    aria-label="Supprimer ces étiquettes"
+                                >
+                                    <Trash className="w-4 h-4" />
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -281,7 +378,8 @@ const ClientForm = () => {
     const [loading, setLoading] = useState(false);
 
     // const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice(); // Removed
-    const [activeTab, setActiveTab] = useState('info'); // 'info', 'contacts', 'history'
+    // location.state.tab : retour direct sur un onglet (ex. depuis les étiquettes).
+    const [activeTab, setActiveTab] = useState(() => location.state?.tab || 'info'); // 'info', 'contacts', 'history', 'plans'
     const [showVoiceModal, setShowVoiceModal] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -619,7 +717,7 @@ const ClientForm = () => {
                     >
                         <div className="flex items-center gap-2">
                             <Zap className="w-4 h-4" />
-                            Plans élec.
+                            Plans & étiquettes
                         </div>
                         {activeTab === 'plans' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-yellow-500 rounded-t-full" />}
                     </button>
@@ -906,7 +1004,15 @@ const ClientForm = () => {
 
             {activeTab === 'plans' && isEditing && (
                 <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Plans électriques</h3>
                     <ClientPlans clientId={id} clientName={formData.name} />
+                </div>
+            )}
+
+            {activeTab === 'plans' && isEditing && (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Étiquettes de tableau</h3>
+                    <ClientEtiquettes clientId={id} />
                 </div>
             )}
 
