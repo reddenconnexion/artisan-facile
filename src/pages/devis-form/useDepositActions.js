@@ -545,7 +545,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     unit: 'forfait',
                     price: -Math.abs(amountHT),
                     buying_price: 0,
-                    type: deductionType
+                    type: deductionType,
+                    is_settlement_deduction: true
                 };
             });
 
@@ -564,7 +565,8 @@ Conditions de règlement : Paiement à réception de facture.`
                     unit: 'forfait',
                     price: -Math.abs(amountHT),
                     buying_price: 0,
-                    type: deductionType
+                    type: deductionType,
+                    is_settlement_deduction: true
                 };
             });
 

@@ -10,7 +10,6 @@ const QuoteMarginSummary = ({
     formData,
     navigate,
     quoteMargins,
-    subtotal,
 }) => {
     const { laborRate, planned: m, realized: r, chantier: cr } = quoteMargins;
     const laborHours = estimatedHoursFromItems(formData.items);
@@ -34,7 +33,7 @@ const QuoteMarginSummary = ({
                 </span>
             </div>
         )}
-        {m.cost > 0 && subtotal > 0 && (() => {
+        {m.cost > 0 && m.revenue > 0 && (() => {
             const pct = Math.round(m.margin * 100);
             const color = m.margin >= 0.35 ? 'text-green-600' : m.margin >= 0.20 ? 'text-orange-500' : 'text-red-500';
             const tip = m.hasLabor

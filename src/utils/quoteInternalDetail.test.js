@@ -304,4 +304,30 @@ describe('quoteMargin', () => {
         expect(r.margin).toBeGreaterThan(0); // ~ +33 %, plus la fausse marge négative
         expect(r.margin).toBeCloseTo(0.3287, 3);
     });
+
+    it('facture de clôture : réintègre les acomptes déduits au CA (cas réel facture 335)', () => {
+        // Tous les coûts du chantier sont repris, mais 1 967,50 € ont déjà été
+        // facturés en acomptes : la marge doit se calculer sur le CA total.
+        const closing = [
+            { type: 'service', description: 'Pose', quantity: 20, unit: 'h', price: 50, buying_price: 0 },
+            { type: 'material', description: 'Fournitures', quantity: 1, unit: 'u', price: 2032.5, buying_price: 1322.28 },
+            { type: 'material', description: 'Déduction Facture Acompte Matériel du 08/08/2026', quantity: 1, unit: 'forfait', price: -1783.9, buying_price: 0 },
+            { type: 'material', description: 'Acompte complémentaire', quantity: 1, unit: 'forfait', price: -183.6, buying_price: 0, is_settlement_deduction: true },
+        ];
+        const subtotal = 1065;
+        const r = quoteMargin(closing, subtotal, 36.74);
+        expect(r.revenue).toBeCloseTo(3032.5, 2);
+        expect(r.cost).toBeCloseTo(2057.08, 2);
+        expect(r.margin).toBeCloseTo(0.3217, 3);
+    });
+
+    it('un retrait de prestation d\'avenant reste une baisse de CA', () => {
+        const amendment = [
+            { type: 'material', description: 'Ajout', quantity: 1, price: 300, buying_price: 100 },
+            { type: 'material', description: 'Déduction prise — non réalisé', quantity: 1, price: -100, buying_price: 0, deducted_from_item_id: 7 },
+        ];
+        const r = quoteMargin(amendment, 200, 0);
+        expect(r.revenue).toBe(200);
+        expect(r.margin).toBeCloseTo(0.5, 5);
+    });
 });

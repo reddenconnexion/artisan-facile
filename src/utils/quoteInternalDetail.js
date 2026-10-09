@@ -40,6 +40,34 @@ export const effectiveLineCost = (item) => {
 };
 
 /**
+ * Ligne de déduction d'un acompte (ou d'un avenant) déjà facturé, ajoutée sur
+ * une facture de clôture : prix négatif, sans coût. Elle ne retire aucun
+ * travail du chantier — elle dit seulement qu'une partie a déjà été encaissée.
+ * Les retraits de prestations d'un avenant (`deducted_from_item_id`) ne sont
+ * PAS concernés : eux réduisent réellement ce qui est vendu.
+ */
+export const isSettlementDeduction = (item) => {
+    if (!item || item.type === 'section' || item.deducted_from_item_id != null) return false;
+    if ((parseFloat(item.price) || 0) >= 0 || effectiveLineCost(item) > 0) return false;
+    return item.is_settlement_deduction === true
+        || (typeof item.description === 'string' && item.description.startsWith('Déduction '));
+};
+
+/**
+ * CA à confronter aux coûts pour la marge : le total HT du document, acomptes
+ * déjà facturés réintégrés. Une facture de clôture reprend tous les coûts du
+ * chantier ; sans cette réintégration, ils seraient rapportés au seul reste à
+ * payer et la marge deviendrait faussement négative (cas réel : facture 335,
+ * 1 065 € restants pour 2 057 € de coûts → -93 % au lieu de +32 %).
+ */
+export const marginRevenue = (items, sellingSubtotal) => {
+    const settled = (Array.isArray(items) ? items : [])
+        .filter(isSettlementDeduction)
+        .reduce((sum, i) => sum + Math.abs((parseFloat(i.quantity) || 0) * (parseFloat(i.price) || 0)), 0);
+    return (parseFloat(sellingSubtotal) || 0) + settled;
+};
+
+/**
  * Marge d'un devis, matière et (si connu) main d'œuvre incluses.
  *
  * Règle anti-double-comptage : une ligne compte SOIT en matière (son prix
@@ -55,10 +83,11 @@ export const effectiveLineCost = (item) => {
  *   la marge reste une simple marge matière.
  *
  * @param {Array} items            Lignes du devis (quotes.items).
- * @param {number} sellingSubtotal Total HT vendu (Σ quantité × prix de vente).
+ * @param {number} sellingSubtotal Total HT vendu (Σ quantité × prix de vente),
+ *        acomptes déduits compris : ils sont réintégrés (voir marginRevenue).
  * @param {number} laborCostRate   Coût horaire de revient (€/h), 0 si inconnu.
  * @returns {{ materialCost:number, laborHours:number, laborCost:number,
- *            cost:number, margin:number, hasLabor:boolean }}
+ *            cost:number, revenue:number, margin:number, hasLabor:boolean }}
  */
 export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
     // Les options (retenues ou écartées) ne font pas partie du chiffrage ferme :
@@ -70,9 +99,9 @@ export const quoteMargin = (items, sellingSubtotal, laborCostRate = 0) => {
     const rate = parseFloat(laborCostRate) || 0;
     const laborCost = laborHours * rate;
     const cost = materialCost + laborCost;
-    const revenue = parseFloat(sellingSubtotal) || 0;
+    const revenue = marginRevenue(items, sellingSubtotal);
     const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
-    return { materialCost, laborHours, laborCost, cost, margin, hasLabor: rate > 0 };
+    return { materialCost, laborHours, laborCost, cost, revenue, margin, hasLabor: rate > 0 };
 };
 
 /**

@@ -130,7 +130,7 @@ export const realizedQuoteMargin = (items, subtotal, laborCostRate, agg, spentHo
     if (!materialIsReal && !laborIsReal) return null;
 
     const planned = quoteMargin(items, subtotal, laborCostRate);
-    const revenue = num(subtotal);
+    const revenue = planned.revenue;
     const materialCost = materialIsReal ? agg.cost : planned.materialCost;
     const laborCost = laborIsReal ? spent * rate : planned.laborCost;
     const cost = materialCost + laborCost;

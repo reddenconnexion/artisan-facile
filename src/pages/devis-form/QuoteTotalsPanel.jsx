@@ -127,7 +127,6 @@ const QuoteTotalsPanel = ({
                         formData={formData}
                         navigate={navigate}
                         quoteMargins={quoteMargins}
-                        subtotal={subtotal}
                     />
                     <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-700">
                         <span>{formData.type === 'amendment' ? "Montant de l'avenant TTC" : 'Total TTC'}</span>
