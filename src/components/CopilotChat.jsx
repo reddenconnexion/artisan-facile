@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, X, Send, Loader2, Lightbulb, AlertCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { chatWithCopilot } from '../utils/aiService';
 
 const SYSTEM_PROMPT_BASE = `Tu es l'assistant intelligent d'Artisan Facile, une application de gestion pour artisans français du bâtiment (plomberie, électricité, peinture, maçonnerie...).
@@ -61,6 +62,11 @@ const Bubble = ({ msg }) => {
 /* ─── Composant principal ─── */
 const CopilotChat = ({ context, presets = [] }) => {
     const [open, setOpen]         = useState(false);
+    // Le micro flottant (Layout, partout sauf l'accueil) occupe bottom-24
+    // right-* sur mobile : on empile alors Copilot au-dessus au lieu d'être
+    // recouvert. En navigation bureau, Copilot descend à bottom-6, sous le micro.
+    const { pathname } = useLocation();
+    const aboveMic = pathname !== '/app';
     const [messages, setMessages] = useState([]);
     const [input, setInput]       = useState('');
     const [loading, setLoading]   = useState(false);
@@ -132,7 +138,7 @@ const CopilotChat = ({ context, presets = [] }) => {
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className={`fixed bottom-24 nav:bottom-6 right-4 nav:right-6 z-40 group flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg transition-all hover:shadow-xl active:scale-95 ${
+                className={`fixed ${aboveMic ? 'bottom-48' : 'bottom-24'} nav:bottom-6 right-4 nav:right-6 z-40 group flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg transition-all hover:shadow-xl active:scale-95 ${
                     open
                         ? 'opacity-0 pointer-events-none translate-y-2'
                         : 'opacity-100'
