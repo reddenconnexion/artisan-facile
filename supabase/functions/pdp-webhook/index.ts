@@ -84,8 +84,10 @@ async function verifySignature(req: Request, rawBody: string): Promise<boolean> 
     // Format B2BRouter : "t=<timestamp>,s=<hmac_hex>"
     const secret = Deno.env.get('B2BROUTER_WEBHOOK_SECRET');
     if (!secret) {
-      console.warn('[pdp-webhook] B2BROUTER_WEBHOOK_SECRET non configuré — signature non vérifiée');
-      return true;
+      // Sans secret on ne peut rien vérifier : on refuse plutôt que d'accepter
+      // n'importe quel appel (un tiers pourrait marquer des factures « reçues »).
+      console.error('[pdp-webhook] B2BROUTER_WEBHOOK_SECRET non configuré — requête refusée');
+      return false;
     }
     const parts = Object.fromEntries(b2bHeader.split(',').map((p) => p.split('=')));
     const timestamp = parts['t'];
@@ -101,8 +103,10 @@ async function verifySignature(req: Request, rawBody: string): Promise<boolean> 
   // Format PDP générique
   const secret = Deno.env.get('PDP_WEBHOOK_SECRET');
   if (!secret) {
-    console.warn('[pdp-webhook] PDP_WEBHOOK_SECRET non configuré — signature non vérifiée');
-    return true;
+    // Même règle que ci-dessus. Cette branche est aussi atteinte par un appel
+    // qui omet l'en-tête B2BRouter : elle ne doit jamais être ouverte.
+    console.error('[pdp-webhook] PDP_WEBHOOK_SECRET non configuré — requête refusée');
+    return false;
   }
 
   const receivedSig =

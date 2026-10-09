@@ -9,6 +9,8 @@ import { initialOptionSelection, quoteWithSelectedOptions } from '../utils/quote
 import { isSignatureBlocked } from '../utils/quoteSignability';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import SignatureModal from '../components/SignatureModal';
+import DepositPaymentCard from '../components/DepositPaymentCard';
+import { depositDue, paymentReference } from '../utils/depositPayment';
 import { Toaster, toast } from 'sonner';
 import { formatDate } from '../utils/format';
 
@@ -847,6 +849,21 @@ const PublicQuote = () => {
 
             {/* Below PDF: post-sign success banner */}
             <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
+                {/* Règlement de l'acompte : visible dès la signature, et à chaque
+                    réouverture du lien tant que le devis n'est pas facturé. */}
+                {isSigned && !isInvoiceView && quote.status === 'accepted' && (() => {
+                    const signedQuote = buildQuoteForPdf() || quote;
+                    const due = depositDue(signedQuote);
+                    return due ? (
+                        <DepositPaymentCard
+                            artisan={artisan}
+                            amount={due.amount}
+                            reference={paymentReference(quote)}
+                            clientEmail={quote.client?.email}
+                        />
+                    ) : null;
+                })()}
+
                 {/* Post-signature success banner */}
                 {justSigned && (
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center space-y-4">

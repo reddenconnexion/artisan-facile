@@ -26,6 +26,7 @@ import AmendmentFields from '../components/AmendmentFields'; // New Component
 import InvoiceTransmissionStatus from '../components/InvoiceTransmissionStatus';
 import DismissibleHelp from '../components/ui/DismissibleHelp';
 import { useAutoSave, getDraft } from '../hooks/useAutoSave';
+import { quoteDraftKey } from '../utils/localData';
 import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
 import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 import DevisProgress from '../components/DevisProgress';
@@ -502,7 +503,7 @@ const DevisForm = () => {
     const selectedClient = clients.find(c => formData.client_id && c.id.toString() === formData.client_id.toString()) || null;
 
     // --- AUTO SAVE LOGIC ---
-    const draftKey = user ? `quote_draft_${id || 'new'}` : null;
+    const draftKey = user ? quoteDraftKey(user.id, id) : null;
     const { clearAutoSave, lastSaved, saving } = useAutoSave(draftKey, formData, !!user && !loading && dataLoaded);
 
     // Hors-ligne (sous-sol, chantier sans 4G) : l'enregistrement en base est

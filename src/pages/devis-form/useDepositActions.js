@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { quoteDraftKey } from '../../utils/localData';
 import { toast } from 'sonner';
 import { supabase } from '../../utils/supabase';
 import { depositsNetOfCreditNotes } from '../../utils/creditNote';
@@ -618,7 +619,7 @@ Conditions de règlement : Paiement à réception de facture.`
             // (e.g. from a previous navigation side-effect). This ensures the closing invoice
             // always loads its items — including the deduction lines — from the DB on first visit.
             if (user) {
-                localStorage.removeItem(`quote_draft_${data.id}`);
+                localStorage.removeItem(quoteDraftKey(user.id, data.id));
             }
 
             const successParts = [];

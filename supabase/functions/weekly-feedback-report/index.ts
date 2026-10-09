@@ -26,6 +26,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Autre',
 };
 
+// Comparaison à temps constant (via empreintes SHA-256 de même longueur).
+async function secretsMatch(a: string, b: string): Promise<boolean> {
+  const digest = async (v: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  const [da, db] = await Promise.all([digest(a), digest(b)]);
+  let diff = 0;
+  for (let i = 0; i < da.length; i++) diff |= da[i] ^ db[i];
+  return diff === 0;
+}
+
 const json = (body: unknown, status = 200) => jsonResponse(body, status, corsHeaders);
 
 function fmtDateFr(d: Date): string {
@@ -57,7 +66,7 @@ Deno.serve(async (req) => {
     const providedSecret = req.headers.get('x-cron-secret');
     let authorized = false;
 
-    if (cronSecret && providedSecret && providedSecret === cronSecret) {
+    if (cronSecret && providedSecret && (await secretsMatch(providedSecret, cronSecret))) {
       authorized = true; // appel planifié
     } else {
       const authHeader = req.headers.get('Authorization');

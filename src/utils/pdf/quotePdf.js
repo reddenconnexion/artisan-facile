@@ -18,6 +18,8 @@ import { PDF_I18N } from './i18n';
 import { buildRoundedLogoDataUrl } from './logo';
 import { drawPaidWatermark, drawClosedWatermark } from './watermark';
 import { embedFacturX } from './facturx';
+import { drawTransferQr } from './transferQr';
+import { depositDue, paymentReference as depositReference } from '../depositPayment';
 
 // Converted to Async to support pdf-lib operations
 export const generateDevisPDF = async (devis, client, userProfile, isInvoice = false, returnType = false, lang = 'fr') => {
@@ -1377,6 +1379,19 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
             doc.setFont(undefined, 'bold');
             const weroText = L.weroPhone(weroNumber, userProfile.full_name || userProfile.company_name || '');
             doc.text(weroText, 55, elementY + lineOffset);
+        }
+
+        // QR de virement SEPA pour l'acompte : utile quand le PDF est lu sur
+        // un autre écran que celui de la banque (ordinateur, devis imprimé).
+        const due = (hasIban && devis.type !== 'amendment' && devis.status !== 'paid') ? depositDue(devis) : null;
+        if (due) {
+            drawTransferQr(doc, {
+                x: 168, y: elementY + 4, size: 24,
+                iban: userProfile.iban,
+                name: userProfile.company_name || userProfile.full_name,
+                amount: due.amount,
+                reference: depositReference(devis),
+            });
         }
 
         // Reference info - Only if NOT paid

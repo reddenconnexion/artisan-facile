@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
+import { purgeLocalUserData, purgeExpiredDrafts } from '../utils/localData';
 import { supabase } from '../utils/supabase';
 import { seedDemoData } from '../utils/demoData';
 
@@ -116,6 +117,11 @@ export const AuthProvider = ({ children }) => {
                 setUser(currentUser);
                 cacheUserSession(currentUser);
                 setLoading(false);
+
+                // Appareil partagé : le compte suivant ne doit pas retrouver
+                // les copies locales de nos données.
+                if (_event === 'SIGNED_OUT') purgeLocalUserData();
+                if (_event === 'SIGNED_IN' || _event === 'INITIAL_SESSION') purgeExpiredDrafts();
 
                 // Detect email confirmation redirect (hash contains type=signup)
                 if (_event === 'SIGNED_IN' && currentUser) {
