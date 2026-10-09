@@ -26,7 +26,7 @@ const AutoSaveIndicator = ({ lastSaved, saving = false, label = 'Brouillon sauve
                 aria-live="polite"
             >
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Sauvegarde…
+                <span className="hidden min-[480px]:inline">Sauvegarde…</span>
             </span>
         );
     }
@@ -40,7 +40,9 @@ const AutoSaveIndicator = ({ lastSaved, saving = false, label = 'Brouillon sauve
             aria-live="polite"
         >
             <Check className="w-3.5 h-3.5" />
-            <span>{label} <span className="text-gray-400">{formatRelative(lastSaved)}</span></span>
+            {/* Texte masqué sur écran très étroit (écran externe d'un pliant) :
+                la coche seule suffit, le détail reste dans l'infobulle. */}
+            <span className="hidden min-[480px]:inline">{label} <span className="text-gray-400">{formatRelative(lastSaved)}</span></span>
         </span>
     );
 };

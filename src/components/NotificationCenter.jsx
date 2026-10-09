@@ -72,7 +72,7 @@ const NotificationCenter = () => {
             </button>
 
             {open && (
-                <div className="fixed left-2 right-2 top-16 w-auto md:absolute md:inset-x-auto md:top-auto md:bottom-full md:left-0 md:right-auto md:mb-2 md:w-80 flex flex-col max-h-[calc(100vh-8rem)] md:max-h-[calc(100vh-15rem)] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden">
+                <div className="fixed left-2 right-2 top-16 w-auto nav:absolute nav:inset-x-auto nav:top-auto nav:bottom-full nav:left-0 nav:right-auto nav:mb-2 nav:w-80 flex flex-col max-h-[calc(100vh-8rem)] nav:max-h-[calc(100vh-15rem)] bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden">
                     <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             Notifications

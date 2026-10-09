@@ -6,6 +6,16 @@
    écraseraient le contenu (cf. appareil photo intégré). */
 @custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 600px));
 
+/* Navigation « bureau » (barre latérale) : dès 768 px avec une souris, mais
+   seulement à partir de 1024 px sur écran tactile. Un téléphone pliant ouvert
+   (≈ 700–900 px) ou une tablette en portrait garde ainsi la navigation
+   mobile (barre d'onglets en bas) au lieu d'une barre latérale qui mange un
+   tiers de l'écran et dont le mode réduit ne marche qu'au survol. */
+@custom-variant nav {
+  @media (min-width: 64rem) { @slot; }
+  @media (min-width: 48rem) and (hover: hover) and (pointer: fine) { @slot; }
+}
+
 /* ─── Design system iOS — tokens de couleur ─────────────── */
 /* Expose l'accent système (#007AFF) en tant qu'utilitaires Tailwind :
    bg-ios, text-ios, border-ios, ring-ios… + une variante claire. */

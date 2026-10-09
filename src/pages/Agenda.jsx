@@ -410,7 +410,7 @@ const Agenda = () => {
 
     return (
         <div className="flex flex-col h-full space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <h1 className="ios-title flex items-center gap-2">
                     Agenda
                     <RealtimeStatusBadge status={realtimeStatus} className="ml-1" />

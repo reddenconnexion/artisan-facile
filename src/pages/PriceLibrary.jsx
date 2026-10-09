@@ -276,7 +276,7 @@ const PriceLibrary = () => {
                         <p className="text-gray-500 dark:text-gray-400">Enregistrez vos prestations et tarifs pour les réutiliser en un clic dans vos devis</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <button
                         onClick={() => {
                             if (items.length === 0) {
