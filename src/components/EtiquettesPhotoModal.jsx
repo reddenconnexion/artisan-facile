@@ -220,11 +220,11 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
 
   return (
     <div
-      className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      className="no-print fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl dark:bg-slate-800"
+        className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl dark:bg-slate-800 sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
@@ -244,7 +244,7 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           {!extracted ? (
             <>
               {!previewUrl ? (
@@ -387,7 +387,7 @@ export default function EtiquettesPhotoModal({ onClose, onImport, initialFile = 
         </div>
 
         {extracted && (
-          <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-700">
+          <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] dark:border-slate-700">
             <button
               onClick={onClose}
               className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"

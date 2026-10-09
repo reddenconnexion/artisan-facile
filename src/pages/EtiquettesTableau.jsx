@@ -458,7 +458,7 @@ export default function EtiquettesTableau() {
       <style>{printStyles()}</style>
 
       {/* Header — masqué à l'impression */}
-      <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
+      <header className="no-print z-10 md:sticky md:top-0 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500 text-white">
@@ -579,7 +579,7 @@ export default function EtiquettesTableau() {
             </button>
           </div>
 
-          <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-3">
+          <div className="max-h-[45vh] overflow-y-auto p-3 lg:max-h-[calc(100vh-220px)]">
             {Object.entries(presetsByCategory).length === 0 && (
               <p className="px-2 py-4 text-center text-sm text-slate-500 dark:text-slate-400">
                 Aucun résultat
@@ -897,11 +897,13 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
   const isSpacer = !!circuit.isSpacer;
   return (
     <div
-      className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="no-print fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
       onClick={onClose}
     >
+      {/* z-[60] + feuille scrollable : passe au-dessus de la barre d'onglets
+          mobile (z-50) et garde les boutons du bas atteignables. */}
       <div
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-slate-800"
+        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 pb-0 shadow-xl dark:bg-slate-800 sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -1014,7 +1016,8 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
         </div>
         )}
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <div className="safe-area-bottom sticky bottom-0 -mx-5 mt-5 border-t border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 py-3">
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => { onDuplicate(); onClose(); }}
@@ -1048,6 +1051,7 @@ function EditModal({ circuit, onChange, onClose, onDelete, onDuplicate, onToggle
           >
             Terminé
           </button>
+        </div>
         </div>
       </div>
     </div>
