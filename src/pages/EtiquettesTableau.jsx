@@ -57,12 +57,33 @@ const BRANDS = {
   hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
 
-// Largeur imprimable en mm sur une page A4 paysage (297 mm de papier - 2×15 mm
-// de marges, cf. @page dans printStyles()). Une rangée plus large que ça
-// repasse à la ligne à l'impression (voir .row-view flex-wrap) : ce seuil
-// sert seulement à prévenir l'utilisateur à l'écran, la mise en page réelle
-// est gérée par le navigateur au moment de l'impression.
-const PRINT_PAGE_WIDTH_MM = 297 - 2 * 15;
+// Orientation de la feuille A4 à l'impression. Largeur imprimable = largeur
+// du papier - 2×15 mm de marges (cf. @page dans printStyles()). Une rangée
+// plus large repasse à la ligne (voir .row-view flex-wrap). En portrait, un
+// tableau de 4 rangées × 18 modules tient sur une seule feuille (10 + 8
+// modules par rangée) au lieu de deux en paysage (14 + 4).
+const PRINT_MARGIN_MM = 15;
+const ORIENTATIONS = {
+  portrait: { label: "A4 portrait", pageWidthMm: 210 - 2 * PRINT_MARGIN_MM },
+  landscape: { label: "A4 paysage", pageWidthMm: 297 - 2 * PRINT_MARGIN_MM },
+};
+
+// Découpe d'une rangée en lignes imprimées, comme le fait flex-wrap : une
+// étiquette qui ne tient plus sur la ligne passe à la suivante.
+function printLineWidths(items, modulePitch, pageWidthMm) {
+  const lines = [];
+  let line = 0;
+  for (const { circuit } of items) {
+    const w = (circuit.modules || 1) * modulePitch;
+    if (line > 0 && line + w > pageWidthMm) {
+      lines.push(line);
+      line = 0;
+    }
+    line += w;
+  }
+  if (line > 0) lines.push(line);
+  return lines;
+}
 
 // Nombre de modules occupés par type de protection
 const MODULE_OPTIONS = [
@@ -213,6 +234,10 @@ export default function EtiquettesTableau() {
   const [customRowSize, setCustomRowSize] = useState(
     typeof initial.customRowSize === "number" ? initial.customRowSize : null
   );
+  const [orientation, setOrientation] = useState(
+    ORIENTATIONS[initial.orientation] ? initial.orientation : "portrait"
+  );
+  const pageWidthMm = ORIENTATIONS[orientation].pageWidthMm;
   const fileInputRef = useRef(null);
 
   // Rattachement à une fiche client (table client_etiquettes) : client lié,
@@ -237,7 +262,7 @@ export default function EtiquettesTableau() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          brand, circuits, clientName, customRowSize,
+          brand, circuits, clientName, customRowSize, orientation,
           linkedClient, savedId, projectName, savedSnapshot,
           savedAt: Date.now(),
         })
@@ -245,7 +270,7 @@ export default function EtiquettesTableau() {
     } catch {
       // Quota dépassé ou navigation privée : on ignore silencieusement.
     }
-  }, [brand, circuits, clientName, customRowSize, linkedClient, savedId, projectName, savedSnapshot]);
+  }, [brand, circuits, clientName, customRowSize, orientation, linkedClient, savedId, projectName, savedSnapshot]);
 
   // Ouverture depuis la fiche client :
   //   ?etiquettes_id=X → recharge un jeu enregistré ;
@@ -578,20 +603,23 @@ export default function EtiquettesTableau() {
     return result;
   }, [circuits, effectiveRowSize]);
 
-  // Largeur (mm) de la rangée la plus large réellement utilisée : sert de
-  // référence au repère de découpe vertical de "fin" (cf. printStyles()),
-  // aligné sur le contenu réel plutôt que sur la capacité théorique
-  // (rowSize) qui laisserait le repère traîner dans le vide.
+  // Largeur (mm) de la ligne imprimée la plus large : sert de référence au
+  // repère de découpe vertical de "fin" (cf. printStyles()), aligné sur le
+  // contenu réel plutôt que sur la capacité théorique (rowSize) qui
+  // laisserait le repère traîner dans le vide. Une rangée plus large que la
+  // page (ex. 18 modules) est repliée à l'impression : on reproduit ce
+  // repli, sinon le repère sortait de la page et le navigateur réduisait
+  // toute l'impression pour le faire tenir (étiquettes plus à l'échelle).
   const maxRowWidthMm = useMemo(
-    () => Math.max(0, ...rows.map((r) => r.used)) * dims.modulePitch,
-    [rows, dims.modulePitch]
+    () => Math.max(0, ...rows.flatMap((r) => printLineWidths(r.items, dims.modulePitch, pageWidthMm))),
+    [rows, dims.modulePitch, pageWidthMm]
   );
 
   /* ----- Rendu ----- */
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* Style d'impression dédié */}
-      <style>{printStyles()}</style>
+      <style>{printStyles(orientation)}</style>
 
       {/* Header — masqué à l'impression */}
       <header className="no-print z-10 md:sticky md:top-0 border-b border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
@@ -683,6 +711,18 @@ export default function EtiquettesTableau() {
             >
               <Save size={16} /> Enregistrer
             </button>
+
+            <select
+              value={orientation}
+              onChange={(e) => setOrientation(e.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              title="Sens de la feuille à l'impression"
+              aria-label="Sens de la feuille à l'impression"
+            >
+              {Object.entries(ORIENTATIONS).map(([k, o]) => (
+                <option key={k} value={k}>{o.label}</option>
+              ))}
+            </select>
 
             <button
               onClick={handlePrint}
@@ -820,6 +860,8 @@ export default function EtiquettesTableau() {
                     items={row.items}
                     used={row.used}
                     rowSize={effectiveRowSize}
+                    pageWidthMm={pageWidthMm}
+                    orientationLabel={ORIENTATIONS[orientation].label}
                     dims={dims}
                     dragId={dragId}
                     onEdit={(c) => setEditing(c)}
@@ -997,6 +1039,8 @@ function RowView({
   items,
   used,
   rowSize,
+  pageWidthMm,
+  orientationLabel,
   dims,
   dragId,
   onEdit,
@@ -1008,7 +1052,7 @@ function RowView({
   // Largeur réelle de la rangée imprimée = pas d'1 module × modules utilisés
   // (les étiquettes sont bord à bord à l'impression, cf. printStyles()).
   const rowWidthMm = used * dims.modulePitch;
-  const printLines = Math.max(1, Math.ceil(rowWidthMm / PRINT_PAGE_WIDTH_MM));
+  const printLines = Math.max(1, printLineWidths(items, dims.modulePitch, pageWidthMm).length);
   return (
     <div className="row-view">
       <div className="no-print mb-1 flex items-center justify-between text-xs">
@@ -1017,9 +1061,9 @@ function RowView({
           {printLines > 1 && (
             <span
               className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-              title={`Cette rangée (${Math.round(rowWidthMm)} mm) dépasse la largeur imprimable d'une page A4 paysage (${PRINT_PAGE_WIDTH_MM} mm) : elle sera imprimée sur ${printLines} lignes.`}
+              title={`Cette rangée (${Math.round(rowWidthMm)} mm) dépasse la largeur imprimable d'une page ${orientationLabel} (${pageWidthMm} mm) : elle sera imprimée sur ${printLines} lignes.`}
             >
-              imprimée sur {printLines} lignes (trop large pour A4)
+              imprimée sur {printLines} lignes (trop large pour la feuille)
             </span>
           )}
         </span>
@@ -1457,7 +1501,7 @@ function Field({ label, children }) {
    FEUILLE DE STYLE (écran + impression)
    ========================================================================= */
 
-function printStyles() {
+function printStyles(orientation = "portrait") {
   return `
     .labels-grid {
       display: flex;
@@ -1559,34 +1603,51 @@ function printStyles() {
     }
 
     @media print {
-      /* A4 paysage par défaut : suffit pour une rangée de 13 modules
-         (≈ 234 mm) mais pas pour 18 modules (≈ 315-324 mm) — la largeur
-         imprimable (297 mm de papier - 30 mm de marges = 267 mm) est trop
-         courte, et aucune marge réaliste ne comblerait l'écart. Une rangée
-         trop large est donc repliée sur plusieurs lignes à l'impression
-         (cf. flex-wrap ci-dessous), jamais coupée/perdue.
+      /* A4 portrait (par défaut) ou paysage, au choix dans l'en-tête.
+         Aucune des deux ne loge une rangée de 18 modules (≈ 315-324 mm)
+         d'un seul tenant : une rangée trop large est repliée sur plusieurs
+         lignes à l'impression (cf. flex-wrap ci-dessous), jamais
+         coupée/perdue. Le portrait loge plus de rangées par feuille.
          Marge de 15 mm pour rester confortablement à l'intérieur de la
          zone imprimable de la plupart des imprimantes consumer (les zones
          non-imprimables vont jusqu'à 10-12 mm sur certaines machines). */
       @page {
-        size: A4 landscape;
-        margin: 15mm;
+        size: A4 ${orientation === "landscape" ? "landscape" : "portrait"};
+        margin: ${PRINT_MARGIN_MM}mm;
       }
       body { background: white !important; }
       .no-print { display: none !important; }
 
-      /* Isolation totale du print-area : on masque tout le reste de l'app
-         (sidebar du Layout, header, bibliothèque, modals…) sans le retirer
-         du DOM (visibility, pas display:none, sinon les ancêtres se
-         réorganisent et la mise en page mm est cassée). Puis on remonte
-         le print-area en haut-gauche de la page imprimée. */
-      body * { visibility: hidden !important; }
-      .print-area, .print-area * { visibility: visible !important; }
+      /* Isolation du print-area, sans le sortir du flux : il doit pouvoir
+         s'étendre sur plusieurs pages (ex. 4 rangées de 18 modules, chacune
+         repliée sur 2 lignes). Avant, il était en position absolue sous les
+         conteneurs du Layout (hauteur d'écran + overflow caché) : tout ce
+         qui dépassait la 1re page était coupé (4e rangée perdue).
+         1. Ses ancêtres (seuls éléments qui le contiennent, d'où :has)
+            deviennent de simples blocs sans hauteur, marge ni débordement
+            caché ;
+         2. tout le reste de l'app (sidebar, en-têtes, bibliothèque,
+            barres flottantes…) est retiré de la mise en page. */
+      :has(.print-area) {
+        display: block !important;
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: none !important;
+        transform: none !important;
+      }
+      body *:not(:has(.print-area)):not(.print-area):not(.print-area *) {
+        display: none !important;
+      }
       .print-area {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        right: 0 !important;
+        position: relative !important;
         margin: 0 !important;
         border: none !important;
         box-shadow: none !important;
