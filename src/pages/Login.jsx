@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
-import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { Mail, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 import { toastError } from '../utils/supabaseErrorHandler';
 
@@ -17,6 +17,7 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const [showForgot, setShowForgot] = useState(false);
     const [resetEmail, setResetEmail] = useState('');
@@ -82,7 +83,7 @@ const Login = () => {
                 <div className="px-6 pt-6">
                     <button
                         onClick={() => { setShowForgot(false); setResetSent(false); setResetEmail(''); }}
-                        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                        className="tap-target inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Retour à la connexion
@@ -114,7 +115,7 @@ const Login = () => {
                                     </div>
                                     <button
                                         onClick={() => { setShowForgot(false); setResetSent(false); }}
-                                        className="text-sm text-blue-600 hover:text-blue-500"
+                                        className="tap-target text-sm text-blue-600 hover:text-blue-500"
                                     >
                                         Retour à la connexion
                                     </button>
@@ -129,6 +130,9 @@ const Login = () => {
                                             type="email"
                                             required
                                             autoComplete="email"
+                                            inputMode="email"
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
                                             className={inputClass}
                                             placeholder="votre@email.fr"
                                             value={resetEmail}
@@ -157,7 +161,7 @@ const Login = () => {
         <div className="min-h-screen flex flex-col bg-gray-50">
             {/* Header */}
             <div className="px-6 pt-6">
-                <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                <Link to="/" className="tap-target inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                     Retour à l'accueil
                 </Link>
@@ -205,6 +209,9 @@ const Login = () => {
                                     type="email"
                                     required
                                     autoComplete="email"
+                                    inputMode="email"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
                                     className={inputClass}
                                     placeholder="votre@email.fr"
                                     value={email}
@@ -220,22 +227,35 @@ const Login = () => {
                                     <button
                                         type="button"
                                         onClick={() => { setShowForgot(true); setResetEmail(email); }}
-                                        className="text-xs text-blue-600 hover:text-blue-500"
+                                        className="tap-target inline-flex items-center justify-end text-sm text-blue-600 hover:text-blue-500"
                                     >
                                         Mot de passe oublié ?
                                     </button>
                                 </div>
-                                <input
-                                    id="login-password"
-                                    name="password"
-                                    type="password"
-                                    required
-                                    autoComplete="current-password"
-                                    className={inputClass}
-                                    placeholder="Votre mot de passe"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
+                                <div className="relative">
+                                    <input
+                                        id="login-password"
+                                        name="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        required
+                                        autoComplete="current-password"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
+                                        className={`${inputClass} pr-14`}
+                                        placeholder="Votre mot de passe"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        className="tap-target absolute inset-y-0 right-0 flex items-center justify-center px-3 text-gray-500 hover:text-gray-700"
+                                        aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                                        aria-pressed={showPassword}
+                                    >
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
+                                </div>
                             </div>
 
                             <button
