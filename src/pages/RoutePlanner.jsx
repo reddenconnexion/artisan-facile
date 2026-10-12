@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 import {
     Battery, Zap, Route as RouteIcon, MapPin, Plus, Trash2,
     AlertTriangle, CheckCircle2, Settings, ArrowLeft, Loader2, Navigation,
@@ -129,26 +131,35 @@ const RouteCard = ({ title, subtitle, color, route, consumption, onSelect, selec
     );
 };
 
-const StopRow = ({ index, value, onChange, onRemove, canRemove }) => (
+const START_KEY = 'route_planner_start';
+
+const StopRow = ({ index, value, onChange, onRemove, canRemove, onFocus, onEnter, isLast }) => (
     <div className="flex items-center gap-2">
         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold shrink-0">
             {index + 1}
         </div>
         <input
+            id={`stop-${index}`}
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={onFocus}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
+            enterKeyHint={isLast ? 'go' : 'next'}
+            autoComplete="street-address"
+            aria-label={index === 0 ? 'Adresse de départ' : `Étape ${index + 1}`}
             placeholder={index === 0 ? 'Adresse de départ' : `Étape ${index + 1}`}
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+            className="flex-1 min-w-0 px-3 py-3 border border-gray-300 dark:border-gray-700 rounded-lg text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
         />
         {canRemove && (
             <button
                 type="button"
                 onClick={onRemove}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                className="tap-target p-2.5 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                 title="Retirer cette étape"
+                aria-label="Retirer cette étape"
             >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-5 h-5" />
             </button>
         )}
     </div>
@@ -167,7 +178,9 @@ const RoutePlanner = () => {
         if (Array.isArray(prefill) && prefill.length >= 1) {
             return prefill.length >= 2 ? prefill : ['', ...prefill];
         }
-        return ['', ''];
+        let savedStart = '';
+        try { savedStart = localStorage.getItem(START_KEY) || ''; } catch { /* stockage indisponible */ }
+        return [savedStart, ''];
     }, [location.state]);
 
     const [stops, setStops] = useState(initialStops);
@@ -179,6 +192,43 @@ const RoutePlanner = () => {
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState('fastest');
     const [roundTrip, setRoundTrip] = useState(false);
+    const { user } = useAuth();
+    const [suggestions, setSuggestions] = useState([]);
+    const [activeStop, setActiveStop] = useState(null);
+
+    // Adresses proposées : RDV du jour puis clients récents (un appui = une étape).
+    useEffect(() => {
+        if (!user) return;
+        let active = true;
+        (async () => {
+            try {
+                const start = new Date(); start.setHours(0, 0, 0, 0);
+                const end = new Date(start); end.setDate(end.getDate() + 1);
+                const [evRes, clRes] = await Promise.all([
+                    supabase.from('events').select('title, time, address, date')
+                        .eq('user_id', user.id).gte('date', start.toISOString()).lt('date', end.toISOString())
+                        .order('date', { ascending: true }).limit(10),
+                    supabase.from('clients').select('name, address, postal_code, city')
+                        .eq('user_id', user.id).not('address', 'is', null)
+                        .order('id', { ascending: false }).limit(5),
+                ]);
+                const list = [];
+                const seen = new Set();
+                const add = (label, address) => {
+                    const a = (address || '').trim();
+                    if (!a || seen.has(a.toLowerCase())) return;
+                    seen.add(a.toLowerCase());
+                    list.push({ label, address: a });
+                };
+                (evRes.data || []).forEach((e) => add(`${e.time ? `RDV ${e.time} – ` : 'RDV – '}${e.title}`, e.address));
+                (clRes.data || []).forEach((c) => add(c.name, [c.address, c.postal_code, c.city].filter(Boolean).join(', ')));
+                if (active) setSuggestions(list);
+            } catch (err) {
+                console.error('Erreur chargement suggestions tournée:', err);
+            }
+        })();
+        return () => { active = false; };
+    }, [user]);
 
     // Aller-retour pertinent quand il n'y a qu'une destination unique.
     const canRoundTrip = stops.filter((s) => s.trim()).length === 2;
@@ -220,6 +270,15 @@ const RoutePlanner = () => {
 
     const addStop = () => setStops((prev) => [...prev, '']);
     const removeStop = (i) => setStops((prev) => prev.filter((_, idx) => idx !== i));
+
+    const applySuggestion = (address) => {
+        const emptyIdx = stops.findIndex((s) => !s.trim());
+        const idx = activeStop != null && activeStop < stops.length && !stops[activeStop].trim()
+            ? activeStop
+            : emptyIdx;
+        if (idx >= 0) updateStop(idx, address);
+        else setStops((prev) => [...prev, address]);
+    };
 
     const updateProfile = (patch) => {
         setProfile((prev) => {
@@ -282,6 +341,9 @@ const RoutePlanner = () => {
                 setLoading(false);
                 return;
             }
+            try {
+                if (stops[0]?.trim()) localStorage.setItem(START_KEY, stops[0].trim());
+            } catch { /* stockage indisponible */ }
             const usable = geocoded.filter(Boolean);
             // Aller-retour : on rajoute l'origine en fin de parcours pour qu'OSRM
             // calcule le retour réel (peut différer en cas de sens unique, etc.).
@@ -364,7 +426,7 @@ const RoutePlanner = () => {
                 </div>
                 <button
                     onClick={() => setShowSettings((s) => !s)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="tap-target min-h-[44px] flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                     <Settings className="w-4 h-4" />
                     Mon véhicule
@@ -384,7 +446,9 @@ const RoutePlanner = () => {
                                 type="number"
                                 value={profile.rangeCityKm}
                                 onChange={(e) => updateProfile({ rangeCityKm: Number(e.target.value) || 0 })}
-                                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-md"
+                                className="mt-1 w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                inputMode="numeric"
+                                onFocus={(e) => e.target.select()}
                             />
                         </label>
                         <label className="block">
@@ -393,7 +457,9 @@ const RoutePlanner = () => {
                                 type="number"
                                 value={profile.rangeHighwayKm}
                                 onChange={(e) => updateProfile({ rangeHighwayKm: Number(e.target.value) || 0 })}
-                                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-md"
+                                className="mt-1 w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                inputMode="numeric"
+                                onFocus={(e) => e.target.select()}
                             />
                         </label>
                         <label className="block">
@@ -404,7 +470,9 @@ const RoutePlanner = () => {
                                 max="100"
                                 value={profile.currentChargePct}
                                 onChange={(e) => updateProfile({ currentChargePct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
-                                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-md"
+                                className="mt-1 w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                inputMode="numeric"
+                                onFocus={(e) => e.target.select()}
                             />
                         </label>
                         <label className="block">
@@ -415,7 +483,9 @@ const RoutePlanner = () => {
                                 max="50"
                                 value={profile.reserveBufferPct}
                                 onChange={(e) => updateProfile({ reserveBufferPct: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
-                                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded-md"
+                                className="mt-1 w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                inputMode="numeric"
+                                onFocus={(e) => e.target.select()}
                             />
                         </label>
                     </div>
@@ -443,9 +513,30 @@ const RoutePlanner = () => {
                                     onChange={(v) => updateStop(i, v)}
                                     onRemove={() => removeStop(i)}
                                     canRemove={stops.length > 2}
+                                    onFocus={() => setActiveStop(i)}
+                                    isLast={i === stops.length - 1}
+                                    onEnter={() => (i === stops.length - 1 ? handlePlan() : document.getElementById(`stop-${i + 1}`)?.focus())}
                                 />
                             ))}
                         </div>
+                        {suggestions.length > 0 && (
+                            <div className="mt-3">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Adresses proposées (RDV du jour, clients récents)</p>
+                                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                                    {suggestions.map((sg) => (
+                                        <button
+                                            key={sg.address}
+                                            type="button"
+                                            onClick={() => applySuggestion(sg.address)}
+                                            title={sg.address}
+                                            className="tap-target min-h-[44px] shrink-0 max-w-[16rem] truncate px-4 rounded-full border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-sm font-medium text-blue-700 dark:text-blue-300"
+                                        >
+                                            {sg.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-sm">
                             <label className="inline-flex items-center gap-2 cursor-pointer">
                                 <input
@@ -468,10 +559,10 @@ const RoutePlanner = () => {
                                 </label>
                             )}
                         </div>
-                        <div className="flex justify-between items-center mt-3">
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3 mt-3">
                             <button
                                 onClick={addStop}
-                                className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
+                                className="tap-target min-h-[44px] justify-center text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 border border-blue-200 dark:border-blue-900 rounded-lg px-4"
                             >
                                 <Plus className="w-4 h-4" />
                                 Ajouter une étape
@@ -479,7 +570,7 @@ const RoutePlanner = () => {
                             <button
                                 onClick={handlePlan}
                                 disabled={loading}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                                className="min-h-[48px] justify-center inline-flex items-center gap-2 px-5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                                 {loading ? 'Calcul…' : 'Calculer'}

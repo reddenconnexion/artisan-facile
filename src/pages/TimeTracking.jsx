@@ -96,6 +96,13 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const QUICK_HOURS = [
+    { label: '1 h', value: '1' },
+    { label: '2 h', value: '2' },
+    { label: 'Demi-journée (4 h)', value: '4' },
+    { label: 'Journée (8 h)', value: '8' },
+];
+
 const TimeTracking = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -239,7 +246,9 @@ const TimeTracking = () => {
         setEditingId(null);
         setFormDate(toDateString(new Date()));
         setFormHours('');
-        setFormQuoteId('');
+        // Chantier du dernier pointage de la semaine présélectionné
+        const lastWithQuote = [...entries].reverse().find(e => e.quote_id != null);
+        setFormQuoteId(lastWithQuote ? String(lastWithQuote.quote_id) : '');
         setFormNote('');
         setShowForm(true);
     };
@@ -382,25 +391,25 @@ const TimeTracking = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => shiftWeek(-1)}
-                            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                             aria-label="Semaine précédente"
                         >
-                            <ChevronLeft className="w-4 h-4" />
+                            <ChevronLeft className="w-5 h-5" />
                         </button>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums">
                             {formatDayDate(days[0])} – {formatDayDate(weekEnd)}
                         </span>
                         <button
                             onClick={() => shiftWeek(1)}
-                            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                             aria-label="Semaine suivante"
                         >
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-5 h-5" />
                         </button>
                         <button
                             onClick={handleExport}
                             disabled={entries.length === 0}
-                            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
+                            className="tap-target flex items-center gap-1.5 text-sm font-medium px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
                         >
                             <Download className="w-4 h-4" /> CSV
                         </button>
@@ -478,7 +487,7 @@ const TimeTracking = () => {
                             <input
                                 id="tt-date" type="date" required value={formDate}
                                 onChange={(e) => setFormDate(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                             />
                         </div>
                         <div>
@@ -486,15 +495,29 @@ const TimeTracking = () => {
                             <input
                                 id="tt-hours" type="text" inputMode="decimal" required placeholder="Ex : 3,5 ou 3h30"
                                 value={formHours} onChange={(e) => setFormHours(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                             />
+                        </div>
+                        <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2 -mt-1" role="group" aria-label="Durées rapides">
+                            {QUICK_HOURS.map(q => (
+                                <button
+                                    key={q.value} type="button" onClick={() => setFormHours(q.value)}
+                                    className={`tap-target min-h-[44px] px-4 rounded-full border text-sm font-medium ${
+                                        formHours === q.value
+                                            ? 'bg-blue-600 border-blue-600 text-white'
+                                            : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {q.label}
+                                </button>
+                            ))}
                         </div>
                         <div>
                             <label htmlFor="tt-quote" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chantier</label>
                             <select
                                 id="tt-quote" value={formQuoteId}
                                 onChange={(e) => setFormQuoteId(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                             >
                                 <option value="">Sans chantier</option>
                                 {quoteOptions.map(o => (
@@ -507,19 +530,19 @@ const TimeTracking = () => {
                             <input
                                 id="tt-note" type="text" placeholder="Ex : pose faïence"
                                 value={formNote} onChange={(e) => setFormNote(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                             />
                         </div>
-                        <div className="sm:col-span-2 lg:col-span-4 flex gap-2 justify-end">
+                        <div className="sm:col-span-2 lg:col-span-4 flex gap-2 sm:justify-end">
                             <button
                                 type="button" onClick={closeForm}
-                                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="flex-1 sm:flex-none min-h-[48px] px-4 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
                                 Annuler
                             </button>
                             <button
                                 type="submit" disabled={submitting}
-                                className="flex items-center gap-2 bg-blue-600 text-white text-sm font-bold px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
+                                className="flex-1 sm:flex-none min-h-[48px] justify-center flex items-center gap-2 bg-blue-600 text-white text-sm font-bold px-5 rounded-xl hover:bg-blue-700 disabled:opacity-60"
                             >
                                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                                 {editingId ? 'Enregistrer' : 'Ajouter'}
@@ -529,7 +552,7 @@ const TimeTracking = () => {
                 ) : (
                     <button
                         onClick={openAddForm}
-                        className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        className="mt-4 w-full sm:w-auto min-h-[48px] justify-center flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-900 rounded-xl px-4"
                     >
                         <Plus className="w-4 h-4" /> Ajouter des heures manuellement
                     </button>
