@@ -31,6 +31,7 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
+import { ORIENTATIONS, PRINT_MARGIN_MM, printLineWidths, pickPrintOrientation } from "../utils/etiquettesPrint";
 import { buildCricutStrips, cricutStripFileName, renderCricutStrip, CRICUT_PTC_MAX_MM } from "../utils/cricutExport";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 import { useConfirm } from "../context/ConfirmContext";
@@ -58,33 +59,13 @@ const BRANDS = {
   hager:      { label: "Hager Gamma / Volta",  modulePitch: 17.5, height: 20, rowSize: 12 },
 };
 
-// Orientation de la feuille A4 à l'impression. Largeur imprimable = largeur
-// du papier - 2×15 mm de marges (cf. @page dans printStyles()). Une rangée
-// plus large repasse à la ligne (voir .row-view flex-wrap). En portrait, un
-// tableau de 4 rangées × 18 modules tient sur une seule feuille (10 + 8
-// modules par rangée) au lieu de deux en paysage (14 + 4).
-const PRINT_MARGIN_MM = 15;
-const ORIENTATIONS = {
-  portrait: { label: "A4 portrait", pageWidthMm: 210 - 2 * PRINT_MARGIN_MM },
-  landscape: { label: "A4 paysage", pageWidthMm: 297 - 2 * PRINT_MARGIN_MM },
+// Sens de la feuille à l'impression : « Auto » (par défaut) choisit celui
+// qui coupe le moins les rangées, cf. pickPrintOrientation().
+const ORIENTATION_CHOICES = {
+  auto: "Auto",
+  portrait: ORIENTATIONS.portrait.label,
+  landscape: ORIENTATIONS.landscape.label,
 };
-
-// Découpe d'une rangée en lignes imprimées, comme le fait flex-wrap : une
-// étiquette qui ne tient plus sur la ligne passe à la suivante.
-function printLineWidths(items, modulePitch, pageWidthMm) {
-  const lines = [];
-  let line = 0;
-  for (const { circuit } of items) {
-    const w = (circuit.modules || 1) * modulePitch;
-    if (line > 0 && line + w > pageWidthMm) {
-      lines.push(line);
-      line = 0;
-    }
-    line += w;
-  }
-  if (line > 0) lines.push(line);
-  return lines;
-}
 
 // Nombre de modules occupés par type de protection
 const MODULE_OPTIONS = [
@@ -235,10 +216,11 @@ export default function EtiquettesTableau() {
   const [customRowSize, setCustomRowSize] = useState(
     typeof initial.customRowSize === "number" ? initial.customRowSize : null
   );
-  const [orientation, setOrientation] = useState(
-    ORIENTATIONS[initial.orientation] ? initial.orientation : "portrait"
+  // Clé « printOrientation » (et non plus « orientation », où le portrait
+  // était enregistré par défaut) : les projets existants passent en Auto.
+  const [orientationChoice, setOrientationChoice] = useState(
+    ORIENTATION_CHOICES[initial.printOrientation] ? initial.printOrientation : "auto"
   );
-  const pageWidthMm = ORIENTATIONS[orientation].pageWidthMm;
   const fileInputRef = useRef(null);
 
   // Rattachement à une fiche client (table client_etiquettes) : client lié,
@@ -264,7 +246,7 @@ export default function EtiquettesTableau() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          brand, circuits, clientName, customRowSize, orientation,
+          brand, circuits, clientName, customRowSize, printOrientation: orientationChoice,
           linkedClient, savedId, projectName, savedSnapshot,
           savedAt: Date.now(),
         })
@@ -272,7 +254,7 @@ export default function EtiquettesTableau() {
     } catch {
       // Quota dépassé ou navigation privée : on ignore silencieusement.
     }
-  }, [brand, circuits, clientName, customRowSize, orientation, linkedClient, savedId, projectName, savedSnapshot]);
+  }, [brand, circuits, clientName, customRowSize, orientationChoice, linkedClient, savedId, projectName, savedSnapshot]);
 
   // Ouverture depuis la fiche client :
   //   ?etiquettes_id=X → recharge un jeu enregistré ;
@@ -605,6 +587,13 @@ export default function EtiquettesTableau() {
     return result;
   }, [circuits, effectiveRowSize]);
 
+  const autoOrientation = useMemo(
+    () => pickPrintOrientation(rows, dims.modulePitch),
+    [rows, dims.modulePitch]
+  );
+  const orientation = orientationChoice === "auto" ? autoOrientation : orientationChoice;
+  const pageWidthMm = ORIENTATIONS[orientation].pageWidthMm;
+
   // Largeur (mm) de la ligne imprimée la plus large : sert de référence au
   // repère de découpe vertical de "fin" (cf. printStyles()), aligné sur le
   // contenu réel plutôt que sur la capacité théorique (rowSize) qui
@@ -715,14 +704,16 @@ export default function EtiquettesTableau() {
             </button>
 
             <select
-              value={orientation}
-              onChange={(e) => setOrientation(e.target.value)}
+              value={orientationChoice}
+              onChange={(e) => setOrientationChoice(e.target.value)}
               className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               title="Sens de la feuille à l'impression"
               aria-label="Sens de la feuille à l'impression"
             >
-              {Object.entries(ORIENTATIONS).map(([k, o]) => (
-                <option key={k} value={k}>{o.label}</option>
+              {Object.entries(ORIENTATION_CHOICES).map(([k, label]) => (
+                <option key={k} value={k}>
+                  {k === "auto" ? `Auto (${ORIENTATIONS[autoOrientation].label.replace("A4 ", "")})` : label}
+                </option>
               ))}
             </select>
 
