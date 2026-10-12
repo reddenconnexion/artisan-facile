@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useLayoutEffect, useEffect } from "react";
+import { createElement, useState, useMemo, useRef, useLayoutEffect, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,7 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
+import { buildCricutStrips, cricutStripFileName, renderCricutStrip, CRICUT_PTC_MAX_MM } from "../utils/cricutExport";
 import EtiquettesPhotoModal from "../components/EtiquettesPhotoModal";
 import { useConfirm } from "../context/ConfirmContext";
 import { useAuth } from "../context/AuthContext";
@@ -252,6 +253,7 @@ export default function EtiquettesTableau() {
   const [projectName, setProjectName] = useState(initial.projectName || "Tableau principal");
   const [savedSnapshot, setSavedSnapshot] = useState(initial.savedSnapshot || null);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [cricutOpen, setCricutOpen] = useState(false);
   const snapshot = JSON.stringify({ brand, circuits, customRowSize });
   const isDirty = circuits.length > 0 && snapshot !== savedSnapshot;
 
@@ -731,6 +733,15 @@ export default function EtiquettesTableau() {
             >
               <Printer size={16} /> Imprimer / PDF
             </button>
+
+            <button
+              onClick={() => setCricutOpen(true)}
+              disabled={circuits.length === 0}
+              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-slate-700 dark:text-amber-300 dark:hover:bg-slate-600"
+              title="Fichiers à imprimer puis découper avec une Cricut"
+            >
+              <Scissors size={16} /> Cricut
+            </button>
           </div>
         </div>
       </header>
@@ -885,6 +896,16 @@ export default function EtiquettesTableau() {
           onDelete={() => deleteCircuit(editing.id)}
           onDuplicate={() => duplicateCircuit(editing.id)}
           onToggleEndsRow={() => toggleEndsRow(editing.id)}
+        />
+      )}
+
+      {/* Export Cricut (Imprimer puis découper) */}
+      {cricutOpen && (
+        <CricutExportModal
+          rows={rows}
+          dims={dims}
+          clientName={linkedClient?.name || clientName}
+          onClose={() => setCricutOpen(false)}
         />
       )}
 
@@ -1343,6 +1364,152 @@ function RowSizeInput({ value, onChange }) {
 /* =========================================================================
    MODALE D'ENREGISTREMENT SUR UNE FICHE CLIENT
    ========================================================================= */
+
+/* =========================================================================
+   MODALE D'EXPORT CRICUT (« Imprimer puis découper », Cricut Maker 3)
+   ========================================================================= */
+
+function CricutExportModal({ rows, dims, clientName, onClose }) {
+  const strips = useMemo(() => buildCricutStrips(rows, dims), [rows, dims]);
+  const [busy, setBusy] = useState(null); // index en cours, ou "all"
+  const [done, setDone] = useState(() => new Set());
+
+  // Couleur, unité et icône (SVG) de la catégorie d'un circuit.
+  const categoryOf = useMemo(() => {
+    const cache = new Map();
+    return async (circuit) => {
+      const cat = CATEGORIES[circuit.category] || CATEGORIES.autre;
+      if (!cache.has(cat)) {
+        const { renderToStaticMarkup } = await import("react-dom/server");
+        cache.set(cat, {
+          color: cat.color,
+          unit: cat.unit,
+          iconSvg: renderToStaticMarkup(createElement(cat.icon, { size: 96, strokeWidth: 2 })),
+        });
+      }
+      return cache.get(cat);
+    };
+  }, []);
+
+  async function download(i) {
+    const strip = strips[i];
+    // Catégories résolues à l'avance (le rendu canvas attend un accès direct).
+    const resolved = new Map();
+    for (const { circuit } of strip.items) {
+      if (!circuit.isSpacer) resolved.set(circuit.id, await categoryOf(circuit));
+    }
+    const fontFamily = getComputedStyle(document.body).fontFamily || "sans-serif";
+    const blob = await renderCricutStrip(strip, dims, (c) => resolved.get(c.id), fontFamily);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = cricutStripFileName(strip, clientName);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setDone((prev) => new Set(prev).add(i));
+  }
+
+  async function run(target) {
+    setBusy(target);
+    try {
+      if (target === "all") {
+        for (let i = 0; i < strips.length; i++) {
+          await download(i);
+          // Laisse le navigateur traiter chaque téléchargement.
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      } else {
+        await download(target);
+      }
+    } catch (err) {
+      toast.error(`Export Cricut impossible : ${err.message}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const fmt = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+
+  return (
+    <div
+      className="no-print fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-xl dark:bg-slate-800 sm:rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-700">
+          <h2 className="flex items-center gap-2 text-base font-semibold dark:text-slate-100">
+            <Scissors size={18} className="text-amber-500" /> Découper avec la Cricut
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+            aria-label="Fermer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 text-sm text-slate-700 dark:text-slate-300">
+          <p>
+            Une image par bande, à la taille réelle. La zone « Imprimer puis découper » de la
+            Maker 3 étant limitée à {CRICUT_PTC_MAX_MM.short} × {CRICUT_PTC_MAX_MM.long} mm,
+            une rangée plus longue est partagée en morceaux équilibrés, et une bande de plus
+            de {CRICUT_PTC_MAX_MM.short} mm est tournée d'un quart de tour.
+          </p>
+
+          <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+            {strips.map((strip, i) => (
+              <li key={`${strip.rowIndex}-${strip.pieceIndex}`} className="flex items-center gap-3 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                    Rangée {strip.rowIndex}
+                    {strip.pieceCount > 1 && ` — morceau ${strip.pieceIndex}/${strip.pieceCount}`}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {strip.items.length} étiquette{strip.items.length > 1 ? "s" : ""} · largeur{" "}
+                    <strong>{fmt(strip.widthMm)} mm</strong> × hauteur <strong>{fmt(strip.tallMm)} mm</strong>
+                    {strip.rotated && " (tournée)"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => run(i)}
+                  disabled={busy !== null}
+                  className="tap-target flex shrink-0 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                >
+                  {busy === i ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  {done.has(i) ? "Re-télécharger" : "PNG"}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="rounded-md bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+            <p className="mb-1 font-semibold">Dans Cricut Design Space :</p>
+            <ol className="list-decimal space-y-0.5 pl-4">
+              <li>Importer → choisir l'image → type <strong>Complexe</strong> → garder le fond → « Image Imprimer puis découper ».</li>
+              <li>Cadenas fermé, saisir la <strong>largeur indiquée ci-dessus</strong> (Design Space ne garde pas la taille des images importées).</li>
+              <li>Créer → imprimer sur vinyle imprimable ou papier autocollant, puis découper.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] dark:border-slate-700">
+          <button
+            onClick={() => run("all")}
+            disabled={busy !== null || strips.length === 0}
+            className="flex items-center gap-1.5 rounded-md bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy === "all" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Tout télécharger ({strips.length})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SaveToClientModal({ initialClient, initialName, onClose, onSave, onDownloadJson }) {
   const [clients, setClients] = useState([]);
