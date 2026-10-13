@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, CheckSquare, ArrowLeft, ArrowRight, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy, Download } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import Cropper from 'react-easy-crop';
+import BeforeAfterBuilder from './BeforeAfterBuilder';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
 import { compressImageFile } from '../utils/mediaConverters';
 import { assertWithinQuota } from '../utils/storageQuota';
@@ -21,61 +21,8 @@ import { useBurstCamera } from '../hooks/useBurstCamera';
 const CATEGORY_ORDER = ['before', 'during', 'after'];
 const CATEGORY_LABELS = { before: 'Avant', during: 'Pendant', after: 'Après' };
 
-// Montage avant/après, 1200×800 à l'échelle 1. Même dessin pour l'aperçu
-// (scale 0.5) et pour l'image exportée : l'aperçu montre exactement ce qui
-// sera téléchargé. Sans recadrage choisi, chaque photo est centrée.
 // Résultat d'un envoi gardé sur le téléphone faute de réseau.
 const QUEUED = Symbol('queued');
-
-const drawBeforeAfter = (canvas, imgBefore, imgAfter, cropBefore, cropAfter, scale = 1) => {
-    const ctx = canvas.getContext('2d');
-    const width = 1200 * scale;
-    const height = 800 * scale;
-    canvas.width = width;
-    canvas.height = height;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.fillStyle = '#111827';
-    ctx.font = `bold ${36 * scale}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('AVANT / APRÈS', width / 2, 50 * scale);
-
-    const padding = 20 * scale;
-    const top = 80 * scale;
-    const imgWidth = (width - padding * 3) / 2;
-    const imgHeight = height - 100 * scale - padding;
-
-    const drawPhoto = (img, crop, x) => {
-        if (crop) {
-            ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, x, top, imgWidth, imgHeight);
-            return;
-        }
-        const aspectRatio = imgWidth / imgHeight;
-        const imgRatio = img.width / img.height;
-        let sx, sy, sw, sh;
-        if (imgRatio > aspectRatio) {
-            sh = img.height;
-            sw = img.height * aspectRatio;
-            sy = 0;
-            sx = (img.width - sw) / 2;
-        } else {
-            sw = img.width;
-            sh = img.width / aspectRatio;
-            sx = 0;
-            sy = (img.height - sh) / 2;
-        }
-        ctx.drawImage(img, sx, sy, sw, sh, x, top, imgWidth, imgHeight);
-    };
-    drawPhoto(imgBefore, cropBefore, padding);
-    drawPhoto(imgAfter, cropAfter, padding * 2 + imgWidth);
-
-    ctx.fillStyle = '#6B7280';
-    ctx.font = `${14 * scale}px sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.fillText('Généré par Artisan Facile', width - padding, height - 10 * scale);
-};
 
 const ProjectPhotos = ({ clientId }) => {
     const { user } = useAuth();
@@ -91,26 +38,9 @@ const ProjectPhotos = ({ clientId }) => {
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
 
-    // Comparison Mode State
-    const [showComparisonModal, setShowComparisonModal] = useState(false);
-    const [splitBefore, setSplitBefore] = useState(null);
+    // Générateur Avant / Après (null = fermé, sinon photos présélectionnées)
+    const [comparisonInit, setComparisonInit] = useState(null);
 
-    const [splitAfter, setSplitAfter] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null); // LIVE PREVIEW STATE
-    const [previewError, setPreviewError] = useState(false);
-
-    // Crop State
-    const [cropBefore, setCropBefore] = useState({ x: 0, y: 0 });
-    const [zoomBefore, setZoomBefore] = useState(1);
-    const [croppedAreaPixelsBefore, setCroppedAreaPixelsBefore] = useState(null);
-
-    const [cropAfter, setCropAfter] = useState({ x: 0, y: 0 });
-    const [zoomAfter, setZoomAfter] = useState(1);
-    const [croppedAreaPixelsAfter, setCroppedAreaPixelsAfter] = useState(null);
-
-
-
-    const canvasRef = React.useRef(null);
 
     // Garde anti double-import + pointeur vers la dernière closure uploadFiles
     // (pour que l'écouteur global « paste », monté une seule fois, utilise
@@ -221,24 +151,22 @@ const ProjectPhotos = ({ clientId }) => {
         }
     };
 
-    const handleGenerateComparison = async () => {
-        if (!splitBefore || !splitAfter || !canvasRef.current) return;
+    // Ouvre le générateur. Si exactement 2 photos sont sélectionnées dans la
+    // galerie, elles sont reprises directement (la plus ancienne en « Avant »).
+    const openComparison = () => {
+        const picked = selectionMode ? photos.filter(p => selectedPhotos.has(p.id)) : [];
+        if (picked.length === 2) {
+            const [first, second] = [...picked].sort((x, y) => new Date(x.created_at) - new Date(y.created_at));
+            setComparisonInit({ before: first, after: second });
+        } else {
+            setComparisonInit({ before: null, after: null });
+        }
+    };
 
+    const closeComparison = React.useCallback(() => setComparisonInit(null), []);
+
+    const handleGenerateComparison = async (canvas, { before: splitBefore, after: splitAfter }) => {
         try {
-            const canvas = canvasRef.current;
-
-            const [beforeLoaded, afterLoaded] = await Promise.all([
-                loadComparisonImage(splitBefore.photo_url),
-                loadComparisonImage(splitAfter.photo_url)
-            ]);
-            const imgBefore = beforeLoaded.img;
-            const imgAfter = afterLoaded.img;
-
-            drawBeforeAfter(canvas, imgBefore, imgAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter);
-
-            if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
-            if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
-
             // Trigger Download
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             const link = document.createElement('a');
@@ -246,107 +174,65 @@ const ProjectPhotos = ({ clientId }) => {
             link.href = dataUrl;
             link.click();
 
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+            setComparisonInit(null);
+            if (!blob) return;
+
             // Save to Gallery
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
+            const fileName = `${user.id}/${clientId}/comparison_${Date.now()}.jpg`;
 
-                const fileName = `${user.id}/${clientId}/comparison_${Date.now()}.jpg`;
+            // 1. Upload to Storage
+            const { error: uploadError } = await supabase.storage
+                .from('project-photos')
+                .upload(fileName, blob, { contentType: 'image/jpeg' });
 
-                // 1. Upload to Storage
-                const { error: uploadError } = await supabase.storage
-                    .from('project-photos')
-                    .upload(fileName, blob, { contentType: 'image/jpeg' });
+            if (uploadError) {
+                console.error('Error saving comparison:', uploadError);
+                toast.error("Erreur lors de la sauvegarde dans la galerie");
+                return;
+            }
 
-                if (uploadError) {
-                    console.error('Error saving comparison:', uploadError);
-                    toast.error("Erreur lors de la sauvegarde dans la galerie");
-                    return;
-                }
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('project-photos')
+                .getPublicUrl(fileName);
 
-                // 2. Get Public URL
-                const { data: { publicUrl } } = supabase.storage
-                    .from('project-photos')
-                    .getPublicUrl(fileName);
+            // Determine target project
+            let targetProjectId = null;
+            if (selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized') {
+                targetProjectId = selectedProjectId;
+            } else if (splitBefore?.project_id && splitBefore.project_id === splitAfter?.project_id) {
+                // If both photos are from the same project, put the result there
+                targetProjectId = splitBefore.project_id;
+            }
 
-                // Determine target project
-                let targetProjectId = null;
-                if (selectedProjectId !== 'all' && selectedProjectId !== 'uncategorized') {
-                    targetProjectId = selectedProjectId;
-                } else if (splitBefore?.project_id && splitBefore.project_id === splitAfter?.project_id) {
-                    // If both photos are from the same project, put the result there
-                    targetProjectId = splitBefore.project_id;
-                }
+            const targetCategory = activeTab === 'before' ? 'after' : activeTab;
 
-                const targetCategory = activeTab === 'before' ? 'after' : activeTab;
+            // 3. Save to Database
+            const { error: dbError } = await supabase
+                .from('project_photos')
+                .insert([{
+                    user_id: user.id,
+                    client_id: clientId,
+                    photo_url: publicUrl,
+                    category: targetCategory,
+                    project_id: targetProjectId,
+                    description: 'Montage Avant / Après'
+                }]);
 
-                // 3. Save to Database
-                const { error: dbError } = await supabase
-                    .from('project_photos')
-                    .insert([{
-                        user_id: user.id,
-                        client_id: clientId,
-                        photo_url: publicUrl,
-                        category: targetCategory,
-                        project_id: targetProjectId,
-                        description: 'Montage Avant / Après'
-                    }]);
-
-                if (dbError) {
-                    console.error('Error saving comparison to DB:', dbError);
-                    toast.error("Erreur lors de l'enregistrement");
-                } else {
-                    toast.success("Montage sauvegardé dans la galerie !");
-                    setActiveTab(targetCategory); // Switch to the tab where the photo was saved
-                    fetchPhotos(); // Refresh list
-                }
-
-            }, 'image/jpeg', 0.9);
-
-            setShowComparisonModal(false);
-
+            if (dbError) {
+                console.error('Error saving comparison to DB:', dbError);
+                toast.error("Erreur lors de l'enregistrement");
+            } else {
+                toast.success("Montage sauvegardé dans la galerie !");
+                setActiveTab(targetCategory); // Switch to the tab where the photo was saved
+                fetchPhotos(); // Refresh list
+            }
         } catch (error) {
             console.error('Error generating comparison:', error);
             toast.error("Erreur lors de la génération de l'image. Vérifiez votre connexion.");
         }
     };
-
-    const generatePreview = async () => {
-        if (!splitBefore || !splitAfter || !canvasRef.current) return;
-
-        try {
-            setPreviewError(false);
-            const canvas = canvasRef.current;
-
-            const [beforeLoaded, afterLoaded] = await Promise.all([
-                loadComparisonImage(splitBefore.photo_url),
-                loadComparisonImage(splitAfter.photo_url)
-            ]);
-            const imgBefore = beforeLoaded.img;
-            const imgAfter = afterLoaded.img;
-
-            // Aperçu à mi-résolution : même dessin que l'export, pour qu'il en soit fidèle.
-            drawBeforeAfter(canvas, imgBefore, imgAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter, 0.5);
-
-            if (beforeLoaded.objectUrl) URL.revokeObjectURL(beforeLoaded.objectUrl);
-            if (afterLoaded.objectUrl) URL.revokeObjectURL(afterLoaded.objectUrl);
-
-            setPreviewUrl(canvas.toDataURL('image/jpeg', 0.8));
-
-        } catch (error) {
-            console.error('Error generating preview:', error);
-            setPreviewError(true);
-        }
-    };
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (splitBefore && splitAfter) {
-                generatePreview();
-            }
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [splitBefore, splitAfter, croppedAreaPixelsBefore, croppedAreaPixelsAfter]);
 
     // Swipe handling
     const [touchStart, setTouchStart] = useState(null);
@@ -1212,6 +1098,16 @@ const ProjectPhotos = ({ clientId }) => {
                                 Télécharger
                             </button>
 
+                            {selectedPhotos.size === 2 && (
+                                <button
+                                    onClick={openComparison}
+                                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 flex items-center justify-center gap-2"
+                                >
+                                    <ImageIcon className="w-4 h-4" />
+                                    Montage Avant / Après
+                                </button>
+                            )}
+
                             <div className="w-px h-8 bg-blue-200 mx-2 hidden sm:block"></div>
 
                             <button
@@ -1458,7 +1354,7 @@ const ProjectPhotos = ({ clientId }) => {
             {/* Comparison Mode Trigger */}
             <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6">
                 <button
-                    onClick={() => setShowComparisonModal(true)}
+                    onClick={openComparison}
                     className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
                 >
                     <div className="flex -space-x-2 mr-3">
@@ -1470,202 +1366,18 @@ const ProjectPhotos = ({ clientId }) => {
             </div>
 
             {/* Comparison Modal */}
-            {
-                showComparisonModal && (
-                    <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10 transition-colors">
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Générateur Avant / Après</h3>
-                                <button onClick={() => setShowComparisonModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400">
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            {/* Modal content continued below... */}
-                            <div className="p-6 space-y-8 flex-1">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Before Column */}
-                                    <div>
-                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
-                                            <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs flex items-center justify-center mr-2">1</span>
-                                            Choisir photo AVANT
-                                        </h4>
-                                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
-                                            {photos.filter(p => p.category === 'before').map(p => (
-                                                <div
-                                                    key={p.id}
-                                                    onClick={() => {
-                                                        setSplitBefore(p);
-                                                        setCropBefore({ x: 0, y: 0 });
-                                                        setZoomBefore(1);
-                                                    }}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitBefore?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100 dark:ring-purple-900' : 'border-transparent'} `}
-                                                >
-                                                    <img src={p.photo_url} className="w-full h-full object-cover" />
-                                                </div>
-                                            ))}
-                                            {photos.filter(p => p.category === 'before').length === 0 && (
-                                                <div className="col-span-3 text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">Aucune photo "Avant"</div>
-                                            )}
-                                        </div>
-                                        <div className="mt-4 flex flex-col gap-3">
-                                            {splitBefore ? (
-                                                <>
-                                                    <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner group">
-                                                        <Cropper
-                                                            image={splitBefore.photo_url}
-                                                            crop={cropBefore}
-                                                            zoom={zoomBefore}
-                                                            aspect={570 / 680}
-                                                            onCropChange={setCropBefore}
-                                                            onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsBefore(croppedAreaPixels)}
-                                                            onZoomChange={setZoomBefore}
-                                                            objectFit="contain"
-                                                            showGrid={true}
-                                                            classes={{
-                                                                containerClassName: "rounded-xl",
-                                                                cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                                                        <ZoomOut className="w-4 h-4 text-gray-500" />
-                                                        <input
-                                                            type="range"
-                                                            value={zoomBefore}
-                                                            min={1}
-                                                            max={3}
-                                                            step={0.1}
-                                                            aria-labelledby="Zoom"
-                                                            onChange={(e) => setZoomBefore(Number(e.target.value))}
-                                                            className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-blue-600"
-                                                        />
-                                                        <ZoomIn className="w-4 h-4 text-gray-500" />
-                                                    </div>
-
-                                                </>
-                                            ) : (
-                                                <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 text-sm">
-                                                    Sélectionnez une photo ci-dessus
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* After Column */}
-                                    <div>
-                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center">
-                                            <span className="w-6 h-6 rounded-full bg-purple-200 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 text-xs flex items-center justify-center mr-2">2</span>
-                                            Choisir photo APRÈS
-                                        </h4>
-                                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
-                                            {photos.filter(p => p.category === 'after' || p.category === 'during').map(p => (
-                                                <div
-                                                    key={p.id}
-                                                    onClick={() => {
-                                                        setSplitAfter(p);
-                                                        setCropAfter({ x: 0, y: 0 });
-                                                        setZoomAfter(1);
-                                                    }}
-                                                    className={`aspect-square rounded border-2 overflow-hidden cursor-pointer ${splitAfter?.id === p.id ? 'border-purple-600 ring-2 ring-purple-100 dark:ring-purple-900' : 'border-transparent'} `}
-                                                >
-                                                    <img src={p.photo_url} className="w-full h-full object-cover" />
-                                                </div>
-                                            ))}
-                                            {photos.filter(p => p.category === 'after' || p.category === 'during').length === 0 && (
-                                                <div className="col-span-3 text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">Aucune photo "Après"</div>
-                                            )}
-                                        </div>
-                                        {splitAfter && (
-                                            <div className="mt-4 flex flex-col gap-3">
-                                                <div className="rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 relative h-80 bg-gray-100 dark:bg-black shadow-inner">
-                                                    <Cropper
-                                                        image={splitAfter.photo_url}
-                                                        crop={cropAfter}
-                                                        zoom={zoomAfter}
-                                                        aspect={570 / 680}
-                                                        onCropChange={setCropAfter}
-                                                        onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixelsAfter(croppedAreaPixels)}
-                                                        onZoomChange={setZoomAfter}
-                                                        objectFit="contain"
-                                                        showGrid={true}
-                                                        classes={{
-                                                            containerClassName: "rounded-xl",
-                                                            cropAreaClassName: "!border-2 !border-white !shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]"
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-3 px-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                                                    <ZoomOut className="w-4 h-4 text-gray-500" />
-                                                    <input
-                                                        type="range"
-                                                        value={zoomAfter}
-                                                        min={1}
-                                                        max={3}
-                                                        step={0.1}
-                                                        aria-labelledby="Zoom"
-                                                        onChange={(e) => setZoomAfter(Number(e.target.value))}
-                                                        className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-purple-600"
-                                                    />
-                                                    <ZoomIn className="w-4 h-4 text-gray-500" />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Live Preview Section */}
-                                {(splitBefore && splitAfter) && (
-                                    <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 animate-in fade-in slide-in-from-bottom-4">
-                                        <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                            <ImageIcon className="w-5 h-5 text-blue-600" />
-                                            Aperçu du résultat
-                                        </h4>
-                                        <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex justify-center">
-                                            {previewUrl ? (
-                                                <img
-                                                    src={previewUrl}
-                                                    alt="Aperçu Avant/Après"
-                                                    className="max-w-full max-h-[300px] object-contain rounded shadow-lg bg-white"
-                                                />
-                                            ) : previewError ? (
-                                                <div className="flex flex-col items-center justify-center h-32 text-red-500 dark:text-red-400 gap-1 text-sm text-center px-4">
-                                                    <span>Impossible de générer l'aperçu.</span>
-                                                    <span className="text-gray-400 dark:text-gray-500">Vérifiez votre connexion puis réessayez (resélectionnez une photo).</span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center justify-center h-32 text-gray-400 gap-2">
-                                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                                    Génération de l'aperçu...
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 sticky bottom-0">
-                                <button
-                                    onClick={() => setShowComparisonModal(false)}
-                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm font-medium"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    onClick={handleGenerateComparison}
-                                    disabled={!splitBefore || !splitAfter}
-                                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center font-medium shadow-sm transition-all"
-                                >
-                                    <Upload className="w-4 h-4 mr-2" />
-                                    Générer et Télécharger
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Generated Image Preview (Hidden Canvas) */}
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            {comparisonInit && (
+                <BeforeAfterBuilder
+                    photos={photos}
+                    projects={projects}
+                    initialProjectId={selectedProjectId}
+                    initialBefore={comparisonInit.before}
+                    initialAfter={comparisonInit.after}
+                    loadImage={loadComparisonImage}
+                    onGenerate={handleGenerateComparison}
+                    onClose={closeComparison}
+                />
+            )}
 
             {/* Move Modal */}
             {
