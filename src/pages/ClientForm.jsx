@@ -13,7 +13,7 @@ import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import ClientStats from '../components/ClientStats';
 import { Input, Field } from '../components/ui';
-import { parseClientBlock } from '../utils/addressParser';
+import { parseClientBlock, parseClientSms } from '../utils/addressParser';
 import { formatDate, formatDateTime } from '../utils/format';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
@@ -550,6 +550,38 @@ const ClientForm = () => {
         toast.success('Coordonnées du client réparties automatiquement');
     };
 
+    // Champ dédié « SMS du client » (nouveau client) : le message est collé
+    // tel quel, même rédigé en phrases, et les champs reconnus sont remplis
+    // (en écrasant la saisie, l'action étant explicite). Le SMS est gardé dans
+    // les notes internes pour conserver la demande du client.
+    const [smsText, setSmsText] = useState('');
+    const fillFromSms = (text) => {
+        const parsed = parseClientSms(text);
+        if (!parsed) {
+            toast.error('Aucune coordonnée reconnue dans ce message');
+            return;
+        }
+        const sms = text.trim();
+        setFormData(prev => ({
+            ...prev,
+            name: parsed.name || prev.name,
+            address: parsed.address || prev.address,
+            postal_code: parsed.postal_code || prev.postal_code,
+            city: parsed.city || prev.city,
+            phone: parsed.phone || prev.phone,
+            email: parsed.email || prev.email,
+            notes: prev.notes.includes(sms) ? prev.notes : [prev.notes, `SMS du client :\n${sms}`].filter(Boolean).join('\n\n'),
+        }));
+        const found = [
+            parsed.name && 'nom',
+            parsed.address && 'adresse',
+            (parsed.postal_code || parsed.city) && 'ville',
+            parsed.phone && 'téléphone',
+            parsed.email && 'email',
+        ].filter(Boolean);
+        toast.success(`Champs remplis : ${found.join(', ')}`);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -736,6 +768,42 @@ const ClientForm = () => {
                         />
                     )}
                 <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 space-y-6">
+                    {!isEditing && (
+                        <div className="rounded-xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-900/10 p-4">
+                            <label htmlFor="client-sms" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <MessageSquare className="w-4 h-4 text-blue-600" />
+                                SMS du client
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                Collez le message en entier : nom, adresse, code postal, ville, téléphone et email sont remplis automatiquement.
+                            </p>
+                            <Input
+                                as="textarea"
+                                id="client-sms"
+                                rows={3}
+                                placeholder="Ex : Bonjour, je suis Jean Dupont, 13 rue du Port 33230 Coutras, 06 12 34 56 78. Plus de courant dans la cuisine…"
+                                value={smsText}
+                                onChange={(e) => setSmsText(e.target.value)}
+                                onPaste={(e) => {
+                                    const pasted = e.clipboardData?.getData('text');
+                                    // Champ vide : le collage est le SMS complet, on remplit
+                                    // directement sans attendre le bouton.
+                                    if (pasted && !smsText.trim()) fillFromSms(pasted);
+                                }}
+                            />
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => fillFromSms(smsText)}
+                                    disabled={!smsText.trim()}
+                                    className="flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Remplir les champs
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
