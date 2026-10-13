@@ -479,6 +479,13 @@ export const useQuoteEmail = ({
         const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
         const mailtoUrl = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
+        // Sans destinataire, l'envoi pro basculait en silence sur le client mail
+        // et le devis passait quand même en « envoyé » : on bloque avant.
+        if (smtpConfigured && !isTestMode && !recipientEmail) {
+            toast.error("Indiquez l'adresse email du client dans le champ « Pour » avant d'envoyer");
+            return;
+        }
+
         if (isTestMode) {
             captureEmail({ email: recipientEmail, subject, body });
             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
