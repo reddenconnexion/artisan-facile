@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download, X } from 'lucide-react';
 import { Button, EmptyState, LoadingState } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
@@ -184,34 +185,30 @@ const Clients = () => {
                                 <Edit className="w-4 h-4" />
                             </button>
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setActiveMenu(activeMenu === client.id ? null : client.id);
+                                    if (activeMenu?.id === client.id) {
+                                        setActiveMenu(null);
+                                        return;
+                                    }
+                                    // Le menu est affiché hors de la liste (qui coupe ce qui
+                                    // dépasse) : on le positionne sous le bouton, ou au-dessus
+                                    // s'il manque de place en bas de l'écran.
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const openUp = window.innerHeight - rect.bottom < 120;
+                                    setActiveMenu({
+                                        id: client.id,
+                                        right: window.innerWidth - rect.right,
+                                        ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+                                    });
                                 }}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative"
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                title="Plus d'actions"
+                                aria-label="Plus d'actions"
+                                aria-expanded={activeMenu?.id === client.id}
                             >
                                 <MoreVertical className="w-4 h-4" />
-                                {activeMenu === client.id && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-800 dark:border-gray-700 z-50 py-1">
-                                        <button
-                                            onClick={() => navigate('/app/devis/new', { state: { client_id: client.id } })}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:hover:bg-gray-700"
-                                        >
-                                            <Plus className="w-4 h-4 mr-2" />
-                                            Créer un devis
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setDeleteConfirmId(client.id);
-                                                setActiveMenu(null);
-                                            }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Supprimer
-                                        </button>
-                                    </div>
-                                )}
                             </button>
                         </div>
                     </div>
@@ -330,8 +327,11 @@ const Clients = () => {
 
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {/* Appel direct (et non <ClientListItem />) : la fonction étant
+                        redéfinie à chaque rendu, React démonterait toute la liste à
+                        chaque ouverture du menu. */}
                     {visibleClients.map((client) => (
-                        <ClientListItem key={client.id} client={client} />
+                        <Fragment key={client.id}>{ClientListItem({ client })}</Fragment>
                     ))}
                 </div>
             </div>
@@ -358,11 +358,44 @@ const Clients = () => {
                 </div>
             )}
 
-            {activeMenu && (
-                <div
-                    className="fixed inset-0 z-0"
-                    onClick={() => setActiveMenu(null)}
-                />
+            {activeMenu && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setActiveMenu(null)}
+                    />
+                    <div
+                        role="menu"
+                        className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1"
+                        style={{ top: activeMenu.top, bottom: activeMenu.bottom, right: activeMenu.right }}
+                    >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                setActiveMenu(null);
+                                navigate('/app/devis/new', { state: { client_id: activeMenu.id } });
+                            }}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Créer un devis
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                setDeleteConfirmId(activeMenu.id);
+                                setActiveMenu(null);
+                            }}
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Supprimer
+                        </button>
+                    </div>
+                </>,
+                document.body
             )}
 
             {filteredClients.length === 0 && (
