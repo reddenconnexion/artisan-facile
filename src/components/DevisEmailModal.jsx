@@ -255,6 +255,11 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                     placeholder="destinataire@email.fr"
                                     className="block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 text-sm focus:ring-blue-500 focus:border-blue-500"
                                 />
+                                {canAttach && !localPreview.email?.trim() && (
+                                    <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
+                                        Ce client n'a pas d'adresse email : saisissez-la ici pour envoyer depuis votre mail pro.
+                                    </p>
+                                )}
                                 <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                                     Pré-rempli avec l'email du client. Modifiable (ex&nbsp;: tuteur, mandataire, comptable).
                                 </p>
