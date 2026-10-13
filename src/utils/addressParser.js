@@ -41,7 +41,9 @@ export function parseFrenchAddress(text) {
 
 // Mots qui trahissent une voie : une ligne (ou un début de texte) qui en
 // contient ne peut pas être le nom du client.
-const STREET_WORDS = /\b(rue|avenue|av|impasse|chemin|route|rte|all[ée]e|place|pl|boulevard|bd|lotissement|lot|r[ée]sidence|lieu[- ]dit|quartier|hameau|square|cours|quai|voie|za|zi|zac|cit[ée])\b/i;
+// Abréviations courantes des SMS incluses (« r. », « imp », « ch », « rés. ») ;
+// la fin est une absence de lettre plutôt que \b, qui ignore les accents.
+const STREET_WORDS = /\b(rue|r|avenue|av|impasse|imp|chemin|ch|route|rte|all[ée]e|place|pl|boulevard|bd|lotissement|lot|r[ée]sidence|r[ée]s|lieu[- ]dit|quartier|hameau|square|cours|quai|voie|za|zi|zac|cit[ée])(?![A-Za-zÀ-ÿ])/i;
 
 // Téléphone français : 0X ou +33 X puis 4 paires de chiffres, séparées ou
 // non (06 12 34 56 78, 0612345678, 06.12.34.56.78, +33 6 12 34 56 78).
@@ -128,12 +130,14 @@ function isPlausibleName(s) {
 // Nom dans un SMS rédigé : « je suis Jean Dupont », « je m'appelle Martin »,
 // « c'est Mme Martin », « Nom : Dupont », ou une signature seule sur la
 // dernière ligne (« Cordialement,\nJean Dupont »).
-function findNameInMessage(text) {
+function findNameInMessage(text, city = '') {
     const patterns = [
         new RegExp(`\\bnom\\s*:\\s*(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`, 'i'),
         new RegExp(`\\bje\\s+m['’]appelle\\s+(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`, 'i'),
         new RegExp(`\\b(?:je\\s+suis|c['’]est|ici)\\s+(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`),
         new RegExp(`(${CIVILITY}\\s+${NAME_WORD}(?:\\s+${NAME_WORD}){0,1})`),
+        // Signature en fin de message : « … Merci, Julie Bernard »
+        new RegExp(`(?:merci|cordialement|bien\\s+à\\s+vous|bonne\\s+(?:journée|soirée))[\\s,.!]+(${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})[\\s.!]*$`, 'i'),
     ];
     for (const re of patterns) {
         const m = text.match(re);
@@ -141,15 +145,45 @@ function findNameInMessage(text) {
             return m[1].replace(/\s+/g, ' ').trim();
         }
     }
-    // Signature : dernière ligne faite uniquement de 1 à 3 mots en majuscule.
     const lines = text.split(/[\n\r]+/).map(l => l.replace(/[\s,.;!]+$/, '').trim()).filter(Boolean);
+    const nameLine = new RegExp(`^${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2}$`);
+    const isName = (l) => nameLine.test(l) && isPlausibleName(l) && !STREET_WORDS.test(l) && l !== city;
+    // Fiche contact sur plusieurs lignes : le nom en première ligne.
+    if (lines.length >= 2 && isName(lines[0])) return lines[0];
+    // Signature : dernière ligne faite uniquement de 1 à 3 mots en majuscule.
     if (lines.length >= 2) {
         const last = lines[lines.length - 1];
-        if (new RegExp(`^${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2}$`).test(last) && isPlausibleName(last)) {
+        if (isName(last)) {
             return last;
         }
     }
     return '';
+}
+
+// Début de la voie dans un texte libre : dernier « numéro + mot de voie »,
+// sinon dernier mot de voie seul (lieu-dit, lotissement sans numéro),
+// sinon (seulement juste avant un code postal) dernier numéro suivi d'un
+// nom (« 12 Le Bourg 33230 »). -1 si rien.
+function findStreetStart(text, strict = false) {
+    const numbered = [...text.matchAll(new RegExp(`\\b\\d{1,4}\\s*(?:bis|ter|[a-d])?\\s*,?\\s+(?=${STREET_WORDS.source})`, 'gi'))];
+    if (numbered.length) return numbered[numbered.length - 1].index;
+    const words = [...text.matchAll(new RegExp(STREET_WORDS.source, 'gi'))];
+    if (words.length) return words[words.length - 1].index;
+    if (strict) return -1;
+    const m = text.match(/\b\d{1,4}(?:\s?(?:bis|ter))?\s+[A-Za-zÀ-ÿ][^\d,;!?]*$/i);
+    return m ? m.index : -1;
+}
+
+// Ville : jusqu'à la fin de la phrase ou au premier mot de conversation,
+// 6 mots au plus.
+function takeCity(text) {
+    const words = [];
+    for (const w of text.split(/[,.;:!?()]/)[0].trim().split(/\s+/).filter(Boolean)) {
+        if (words.length >= 6 || CHAT_WORDS.test(w)) break;
+        words.push(w);
+    }
+    // « 24700 à Moulin Neuf » : le « à » n'appartient pas à la ville.
+    return words.join(' ').replace(/^[-–]+/, '').replace(/^(?:à|a)\s+/i, '').trim();
 }
 
 // ── SMS du client collé tel quel dans le champ dédié ──
@@ -164,6 +198,10 @@ function findNameInMessage(text) {
 // éventuellement vides) ; null si rien n'a été reconnu.
 export function parseClientSms(text) {
     if (!text || !String(text).trim()) return null;
+    // Code postal tapé avec un espace (« 24 700 ») : recollé, sinon il
+    // n'est pas reconnu et l'adresse entière est perdue. Groupe isolé
+    // seulement, pour ne pas toucher aux chiffres d'un téléphone.
+    text = String(text).replace(/(?<!\d[\s.]?)(\d{2}) (\d{3})(?![\s.]?\d)/g, '$1$2');
 
     // Bloc structuré (nom / adresse / tél.) : le parseur strict suffit.
     const block = parseClientBlock(text);
@@ -179,36 +217,48 @@ export function parseClientSms(text) {
     const phone = phoneMatch ? phoneMatch[0].trim() : '';
     if (phoneMatch) raw = raw.replace(phoneMatch[0], ' ');
 
-    const name = findNameInMessage(raw);
-
     let address = '', postal_code = '', city = '';
-    const flat = raw.replace(/[\n\r]+/g, ' , ').replace(/\s+/g, ' ');
+    const flat = raw.replace(/[\n\r]+/g, ' , ').replace(/\s+/g, ' ')
+        // « 55, rue de la République » : la virgule après le numéro n'est pas
+        // une fin d'adresse.
+        .replace(new RegExp(`\\b(\\d{1,4}(?:\\s?(?:bis|ter))?)\\s*,\\s*(?=${STREET_WORDS.source})`, 'gi'), '$1 ');
     const cps = [...flat.matchAll(/(?<!\d)(\d{5})(?!\d)/g)];
     if (cps.length) {
         const cp = cps[cps.length - 1];
         postal_code = cp[1];
         const before = flat.slice(0, cp.index);
-        // Début de la voie : dernier « numéro + mot de voie », sinon dernier
-        // mot de voie seul (lieu-dit, lotissement sans numéro).
-        const numbered = [...before.matchAll(new RegExp(`\\b\\d{1,4}\\s*(?:bis|ter|[a-d])?\\s*,?\\s+(?=${STREET_WORDS.source})`, 'gi'))];
-        let start = numbered.length ? numbered[numbered.length - 1].index : -1;
-        if (start < 0) {
-            const words = [...before.matchAll(new RegExp(STREET_WORDS.source, 'gi'))];
-            if (words.length) start = words[words.length - 1].index;
-        }
+        const start = findStreetStart(before);
         if (start >= 0) {
-            address = before.slice(start).replace(/[\s,;:.\-–]+$/, '').trim();
+            address = before.slice(start).replace(/[\s,;:.\-–]+$/, '').replace(/\s+à$/i, '').trim();
         }
-        // Ville : jusqu'à la fin de la phrase, 6 mots au plus.
-        // Ville : jusqu'à la fin de la phrase ou au premier mot de
-        // conversation, 6 mots au plus.
-        const cityWords = [];
-        for (const w of flat.slice(cp.index + 5).split(/[,.;:!?()]/)[0].trim().split(/\s+/).filter(Boolean)) {
-            if (cityWords.length >= 6 || CHAT_WORDS.test(w)) break;
-            cityWords.push(w);
+        city = takeCity(flat.slice(cp.index + 5));
+    } else {
+        // Pas de code postal (« 13 rue des Lilas à Coutras ») : la voie va
+        // du numéro jusqu'à la fin de la phrase ou jusqu'à « à <Ville> ».
+        const start = findStreetStart(flat, true);
+        if (start >= 0) {
+            const tail = flat.slice(start);
+            // Fin de phrase : un point après une abréviation (« r. », « Rés. »)
+            // n'en est pas une.
+            const END = /[,;!?()]|(?<=[A-Za-zÀ-ÿ]{4}|\d)\.(?=\s|$)|\s(?:à|a)\s/i;
+            const end = tail.search(END);
+            address = (end >= 0 ? tail.slice(0, end) : tail).trim();
+            const rest = end >= 0 ? tail.slice(end) : '';
+            const at = rest.match(/^\s(?:à|a)\s+(.*)$/i);
+            if (at) {
+                city = takeCity(at[1]);
+            } else {
+                // « 7 Rés. les Chênes, Coutras » : segment suivant fait d'un nom
+                // de commune (majuscule, pas de mot de conversation).
+                const next = rest.replace(/^[\s,]+/, '').split(/[,;!?()]|\.(?=\s|$)/)[0].trim();
+                if (/^[A-ZÀ-Ý]/.test(next) && next.split(/\s+/).length <= 5 && !CHAT_WORDS.test(next) && !/\d/.test(next)) {
+                    city = next;
+                }
+            }
         }
-        city = cityWords.join(' ').replace(/^[-–]+/, '').trim();
     }
+
+    const name = findNameInMessage(raw, city);
 
     if (!name && !address && !postal_code && !phone && !email) return null;
     return { name, address, postal_code, city, phone, email };

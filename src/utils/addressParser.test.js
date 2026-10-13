@@ -243,3 +243,51 @@ describe('parseClientSms', () => {
         expect(parseClientSms('')).toBeNull();
     });
 });
+
+describe('parseClientSms — adresses difficiles', () => {
+    it('adresse sans code postal (« à Ville »)', () => {
+        const r = parseClientSms("Bonjour c'est Mme Martin, j'habite 13 rue des Lilas à Coutras. Mon tel 0612345678");
+        expect(r).toMatchObject({ name: 'Mme Martin', address: '13 rue des Lilas', postal_code: '', city: 'Coutras', phone: '0612345678' });
+    });
+
+    it('adresse sans code postal ni ville', () => {
+        expect(parseClientSms('Bonjour, je suis au 4 chemin de la Gravière, panne de courant')).toMatchObject({ address: '4 chemin de la Gravière' });
+    });
+
+    it('voie sans mot-clé avant le code postal (« 12 Le Bourg »)', () => {
+        expect(parseClientSms('Bonjour je suis Paul Durand, 12 Le Bourg 33230 Les Églisottes. 06 12 34 56 78')).toMatchObject({
+            name: 'Paul Durand', address: '12 Le Bourg', postal_code: '33230', city: 'Les Églisottes',
+        });
+    });
+});
+
+describe('parseClientSms — formats de SMS réels', () => {
+    const cases = [
+        ['13 r. Robert Boulin 33230 St Médard', { address: '13 r. Robert Boulin', postal_code: '33230', city: 'St Médard' }],
+        ["Salut c'est Kevin Morel pour la prise qui chauffe. 7 Rés. les Chênes, Coutras", { name: 'Kevin Morel', address: '7 Rés. les Chênes', city: 'Coutras' }],
+        ['Jean Dupont\n13 rue Robert Boulin\nSaint-Médard-de-Guizières\n0612345678', { name: 'Jean Dupont', address: '13 rue Robert Boulin', city: 'Saint-Médard-de-Guizières' }],
+        ["Devis tableau électrique. 5 Lotissement les Pins 33660 Saint-Seurin-sur-l'Isle. Merci, Julie Bernard", { name: 'Julie Bernard', address: '5 Lotissement les Pins', postal_code: '33660' }],
+        ["Mme Petit, 3 place de l'Église, 33230 Abzac. Tél: 05 57 49 00 00", { name: 'Mme Petit', address: "3 place de l'Église", city: 'Abzac', phone: '05 57 49 00 00' }],
+    ];
+    it.each(cases)('%s', (sms, expected) => {
+        expect(parseClientSms(sms)).toMatchObject(expected);
+    });
+});
+
+describe('parseClientSms — SMS client réel', () => {
+    it('code postal avec espace, virgule après le numéro, « à Ville »', () => {
+        expect(parseClientSms("Bonjour, suite à notre conversation je suis Monsieur Faure Yannick mon adresse, 55, rue de la république, 24 700 à Moulin Neuf, mon adresse mail yannfaure80@gmail.com je vous souhaite un bonne réception à vendredi.")).toEqual({
+            name: 'Monsieur Faure Yannick',
+            address: '55 rue de la république',
+            postal_code: '24700',
+            city: 'Moulin Neuf',
+            phone: '',
+            email: 'yannfaure80@gmail.com',
+        });
+    });
+
+    it('ne recolle pas les chiffres d’un téléphone', () => {
+        expect(parseClientSms('Jean Dupont 06 12 34 56 78')).toMatchObject({ phone: '06 12 34 56 78', postal_code: '' });
+        expect(parseClientSms('Mme Petit 05 57 49 00 00, 3 place de la Mairie 33230 Abzac')).toMatchObject({ phone: '05 57 49 00 00', postal_code: '33230' });
+    });
+});
