@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFrenchAddress, parseClientBlock } from './addressParser';
+import { parseFrenchAddress, parseClientBlock, parseClientSms } from './addressParser';
 
 describe('parseFrenchAddress', () => {
     it('découpe une adresse complète sur une ligne', () => {
@@ -190,5 +190,56 @@ describe('parseClientBlock', () => {
         // Un téléphone est présent mais le reste ressemble à une voie sans
         // code postal : découper perdrait de l'information.
         expect(parseClientBlock('13 rue des Pins 06 12 34 56 78')).toBeNull();
+    });
+});
+
+describe('parseClientSms', () => {
+    it('reprend le bloc structuré tel quel', () => {
+        expect(parseClientSms('Mme Martin\n5 impasse des Lilas\n33660 Porchères\n0612345678')).toEqual({
+            name: 'Mme Martin',
+            address: '5 impasse des Lilas',
+            postal_code: '33660',
+            city: 'Porchères',
+            phone: '0612345678',
+            email: '',
+        });
+    });
+
+    it('extrait les coordonnées d’un SMS rédigé en phrases', () => {
+        expect(parseClientSms("Bonjour, je suis Jean Dupont, j'habite au 13 rue du Port 33230 Coutras. Mon numéro 06 12 34 56 78. Plus de courant dans la cuisine")).toEqual({
+            name: 'Jean Dupont',
+            address: '13 rue du Port',
+            postal_code: '33230',
+            city: 'Coutras',
+            phone: '06 12 34 56 78',
+            email: '',
+        });
+    });
+
+    it('trouve le nom en signature et une ville en plusieurs mots', () => {
+        expect(parseClientSms('Bonjour, pouvez-vous passer pour un tableau qui disjoncte ?\nAdresse : 4 allée des Chênes 33230 St Médard de Guizières\nCordialement\nPaul Durand')).toEqual({
+            name: 'Paul Durand',
+            address: '4 allée des Chênes',
+            postal_code: '33230',
+            city: 'St Médard de Guizières',
+            phone: '',
+            email: '',
+        });
+    });
+
+    it('reconnaît la civilité et l’email', () => {
+        expect(parseClientSms('Bonsoir, c’est Mme Leroy pour le devis. leroy.a@gmail.com')).toEqual({
+            name: 'Mme Leroy',
+            address: '',
+            postal_code: '',
+            city: '',
+            phone: '',
+            email: 'leroy.a@gmail.com',
+        });
+    });
+
+    it('retourne null si rien n’est reconnu', () => {
+        expect(parseClientSms('ok merci à demain')).toBeNull();
+        expect(parseClientSms('')).toBeNull();
     });
 });

@@ -109,3 +109,107 @@ export function parseClientBlock(text) {
 
     return { name, ...parsed, phone, email };
 }
+
+// Mots de conversation : un « nom » qui en contient vient d'un SMS rédigé en
+// phrases (« Bonjour je suis Jean Dupont j'habite au… »), pas d'un bloc.
+const CHAT_WORDS = /(?:^|[\s,.'’])(bonjour|bonsoir|salut|je|j|suis|m'appelle|appelle|habite|mon|ma|mes|adresse|merci|svp|stp|pour|au|aux|c|voici|tel|tél|téléphone|portable|numéro|num|cordialement)(?=$|[\s,.:'’!?])/i;
+
+// Civilités en tête de nom.
+const CIVILITY = "(?:M\\.|Mr\\.?|Mme|Mlle|Monsieur|Madame|Mademoiselle)";
+// Un mot de nom propre : commence par une majuscule (Dupont, Le-Gall, D'Artois).
+const NAME_WORD = "[A-ZÀ-ÖØ-Þ][A-Za-zÀ-ÖØ-öø-ÿ'’-]+";
+
+function isPlausibleName(s) {
+    if (!s) return false;
+    const words = s.trim().split(/\s+/);
+    return words.length <= 5 && !CHAT_WORDS.test(s) && !/\d/.test(s);
+}
+
+// Nom dans un SMS rédigé : « je suis Jean Dupont », « je m'appelle Martin »,
+// « c'est Mme Martin », « Nom : Dupont », ou une signature seule sur la
+// dernière ligne (« Cordialement,\nJean Dupont »).
+function findNameInMessage(text) {
+    const patterns = [
+        new RegExp(`\\bnom\\s*:\\s*(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`, 'i'),
+        new RegExp(`\\bje\\s+m['’]appelle\\s+(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`, 'i'),
+        new RegExp(`\\b(?:je\\s+suis|c['’]est|ici)\\s+(${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2})`),
+        new RegExp(`(${CIVILITY}\\s+${NAME_WORD}(?:\\s+${NAME_WORD}){0,1})`),
+    ];
+    for (const re of patterns) {
+        const m = text.match(re);
+        if (m && isPlausibleName(m[1])) {
+            return m[1].replace(/\s+/g, ' ').trim();
+        }
+    }
+    // Signature : dernière ligne faite uniquement de 1 à 3 mots en majuscule.
+    const lines = text.split(/[\n\r]+/).map(l => l.replace(/[\s,.;!]+$/, '').trim()).filter(Boolean);
+    if (lines.length >= 2) {
+        const last = lines[lines.length - 1];
+        if (new RegExp(`^${CIVILITY}?\\s*${NAME_WORD}(?:\\s+${NAME_WORD}){0,2}$`).test(last) && isPlausibleName(last)) {
+            return last;
+        }
+    }
+    return '';
+}
+
+// ── SMS du client collé tel quel dans le champ dédié ──
+//
+// Contrairement au collage dans « Nom » / « Adresse » (bloc structuré, aucune
+// perte de texte tolérée), le champ dédié conserve le SMS complet sous les
+// yeux de l'artisan : on peut donc extraire ce qui est reconnaissable même au
+// milieu de phrases (« Bonjour, je suis Jean Dupont, j'habite au 13 rue du
+// Port 33230 Coutras. Mon 06 12 34 56 78. Plus de courant dans la cuisine »).
+//
+// Retourne { name, address, postal_code, city, phone, email } (champs
+// éventuellement vides) ; null si rien n'a été reconnu.
+export function parseClientSms(text) {
+    if (!text || !String(text).trim()) return null;
+
+    // Bloc structuré (nom / adresse / tél.) : le parseur strict suffit.
+    const block = parseClientBlock(text);
+    if (block && (!block.name || isPlausibleName(block.name)) && !CHAT_WORDS.test(block.address) && !CHAT_WORDS.test(block.city)) {
+        return block;
+    }
+
+    let raw = String(text);
+    const emailMatch = raw.match(EMAIL_RE);
+    const email = emailMatch ? emailMatch[0] : '';
+    if (emailMatch) raw = raw.replace(emailMatch[0], ' ');
+    const phoneMatch = raw.match(PHONE_RE);
+    const phone = phoneMatch ? phoneMatch[0].trim() : '';
+    if (phoneMatch) raw = raw.replace(phoneMatch[0], ' ');
+
+    const name = findNameInMessage(raw);
+
+    let address = '', postal_code = '', city = '';
+    const flat = raw.replace(/[\n\r]+/g, ' , ').replace(/\s+/g, ' ');
+    const cps = [...flat.matchAll(/(?<!\d)(\d{5})(?!\d)/g)];
+    if (cps.length) {
+        const cp = cps[cps.length - 1];
+        postal_code = cp[1];
+        const before = flat.slice(0, cp.index);
+        // Début de la voie : dernier « numéro + mot de voie », sinon dernier
+        // mot de voie seul (lieu-dit, lotissement sans numéro).
+        const numbered = [...before.matchAll(new RegExp(`\\b\\d{1,4}\\s*(?:bis|ter|[a-d])?\\s*,?\\s+(?=${STREET_WORDS.source})`, 'gi'))];
+        let start = numbered.length ? numbered[numbered.length - 1].index : -1;
+        if (start < 0) {
+            const words = [...before.matchAll(new RegExp(STREET_WORDS.source, 'gi'))];
+            if (words.length) start = words[words.length - 1].index;
+        }
+        if (start >= 0) {
+            address = before.slice(start).replace(/[\s,;:.\-–]+$/, '').trim();
+        }
+        // Ville : jusqu'à la fin de la phrase, 6 mots au plus.
+        // Ville : jusqu'à la fin de la phrase ou au premier mot de
+        // conversation, 6 mots au plus.
+        const cityWords = [];
+        for (const w of flat.slice(cp.index + 5).split(/[,.;:!?()]/)[0].trim().split(/\s+/).filter(Boolean)) {
+            if (cityWords.length >= 6 || CHAT_WORDS.test(w)) break;
+            cityWords.push(w);
+        }
+        city = cityWords.join(' ').replace(/^[-–]+/, '').trim();
+    }
+
+    if (!name && !address && !postal_code && !phone && !email) return null;
+    return { name, address, postal_code, city, phone, email };
+}
