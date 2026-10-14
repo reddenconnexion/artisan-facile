@@ -111,21 +111,21 @@ const Clients = () => {
         return (
             <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors">
                 {isConfirmingDelete ? (
-                    <div className="p-4 flex items-center justify-between gap-4 bg-red-50 dark:bg-red-900/20 dark:bg-red-900/10">
+                    <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-red-50 dark:bg-red-900/20 dark:bg-red-900/10">
                         <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-400">
                             <AlertTriangle className="w-4 h-4 shrink-0" />
                             <span>Supprimer <strong>{client.name}</strong> ? Action irréversible.</span>
                         </div>
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex gap-3 shrink-0">
                             <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
+                                className="tap-target flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
                             >
                                 Annuler
                             </button>
                             <button
                                 onClick={() => handleDeleteClient(client.id)}
-                                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                                className="tap-target flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
                             >
                                 Supprimer
                             </button>
@@ -176,13 +176,14 @@ const Clients = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <button
                                 onClick={() => navigate(`/app/clients/${client.id}`)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                aria-label="Voir la fiche"
+                                className="tap-target flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                 title="Voir fiche"
                             >
-                                <Edit className="w-4 h-4" />
+                                <Edit className="w-5 h-5" />
                             </button>
                             <button
                                 type="button"
@@ -203,12 +204,12 @@ const Clients = () => {
                                         ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
                                     });
                                 }}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                className="tap-target flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                                 title="Plus d'actions"
                                 aria-label="Plus d'actions"
                                 aria-expanded={activeMenu?.id === client.id}
                             >
-                                <MoreVertical className="w-4 h-4" />
+                                <MoreVertical className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
@@ -308,7 +309,7 @@ const Clients = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={() => handleSort('name')}
-                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'name' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                        className={`tap-target flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'name' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Trier par nom"
                     >
                         <span className="text-sm mr-2 hidden sm:inline">Nom</span>
@@ -316,7 +317,7 @@ const Clients = () => {
                     </button>
                     <button
                         onClick={() => handleSort('created_at')}
-                        className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'created_at' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                        className={`tap-target flex items-center px-3 py-2 border rounded-lg transition-colors ${sortConfig.key === 'created_at' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-gray-900 border-gray-300 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                         title="Trier par date"
                     >
                         <span className="text-sm mr-2 hidden sm:inline">Date</span>
