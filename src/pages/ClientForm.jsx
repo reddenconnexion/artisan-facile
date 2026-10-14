@@ -529,6 +529,23 @@ const ClientForm = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // Code postal complet (5 chiffres) → ville pré-remplie si une seule commune
+    // correspond et que la ville est encore vide (API publique geo.api.gouv.fr).
+    useEffect(() => {
+        const cp = formData.postal_code;
+        if (!/^\d{5}$/.test(cp) || formData.city) return;
+        const controller = new AbortController();
+        fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom`, { signal: controller.signal })
+            .then(r => (r.ok ? r.json() : []))
+            .then(list => {
+                if (Array.isArray(list) && list.length === 1) {
+                    setFormData(prev => (prev.postal_code === cp && !prev.city ? { ...prev, city: list[0].nom } : prev));
+                }
+            })
+            .catch(() => {});
+        return () => controller.abort();
+    }, [formData.postal_code, formData.city]);
+
     // Collage intelligent (champs « Nom » et « Adresse ») : un bloc complet
     // collé depuis un SMS (« Jean Dupont 13 rue X 33230 Ville 06 12 34 56 78
     // jean@mail.fr », sur une ou plusieurs lignes) est réparti entre nom, rue,
@@ -619,7 +636,7 @@ const ClientForm = () => {
             toast.success(isEditing ? 'Client modifié avec succès' : 'Client créé avec succès');
             navigate('/app/clients');
         } catch (error) {
-            toast.error('Erreur lors de la sauvegarde');
+            toastError(error, 'Erreur lors de la sauvegarde');
             console.error('Error saving client:', error);
         } finally {
             setLoading(false);
@@ -846,6 +863,7 @@ const ClientForm = () => {
                             <Field label="SIREN (9 chiffres)" htmlFor="siren">
                                 <Input
                                     type="text"
+                                    inputMode="numeric"
                                     id="siren"
                                     name="siren"
                                     maxLength={9}
@@ -973,6 +991,7 @@ const ClientForm = () => {
                             id="address"
                             name="address"
                             type="text"
+                            autoComplete="street-address"
                             placeholder="N° et rue — ou collez l'adresse complète du SMS"
                             value={formData.address}
                             onChange={handleChange}
@@ -983,6 +1002,9 @@ const ClientForm = () => {
                                 <Input
                                     name="postal_code"
                                     type="text"
+                                    inputMode="numeric"
+                                    maxLength={5}
+                                    autoComplete="postal-code"
                                     placeholder="Code postal"
                                     value={formData.postal_code}
                                     onChange={handleChange}
@@ -992,6 +1014,7 @@ const ClientForm = () => {
                                 <Input
                                     name="city"
                                     type="text"
+                                    autoComplete="address-level2"
                                     placeholder="Ville"
                                     value={formData.city}
                                     onChange={handleChange}
@@ -1017,18 +1040,18 @@ const ClientForm = () => {
                         />
                     </div>
 
-                    <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="sticky bottom-0 z-10 -mx-1 flex gap-3 justify-end px-1 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                         <button
                             type="button"
                             onClick={() => navigate('/app/clients')}
-                            className="px-4 py-2 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                            className="tap-target px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
                             Annuler
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
+                            className="tap-target flex flex-1 sm:flex-none items-center justify-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {loading ? 'Enregistrement...' : 'Enregistrer'}
@@ -1044,12 +1067,12 @@ const ClientForm = () => {
                         contacts={formData.contacts}
                         onChange={(newContacts) => setFormData(prev => ({ ...prev, contacts: newContacts }))}
                     />
-                    <div className="flex justify-end pt-4 mt-6 border-t border-gray-100 dark:border-gray-800">
+                    <div className="sticky bottom-0 z-10 flex justify-end pt-3 mt-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                         <button
                             type="button"
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
+                            className="tap-target flex flex-1 sm:flex-none items-center justify-center px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark disabled:opacity-50"
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {loading ? 'Enregistrement...' : 'Enregistrer les contacts'}
