@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink, Paperclip } from 'lucide-react';
+import { Mail, Send, Copy, FileText, Loader2, X, ExternalLink, Paperclip, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateDevisPDF } from '../utils/pdfGenerator';
 import { clientFacingItems } from '../utils/clientView';
@@ -19,7 +19,7 @@ const MAX_ATTACHMENTS_TOTAL_BYTES = 8 * 1024 * 1024; // 8 Mo
  * Props:
  *   preview    { email, rawSubject, rawBody } | null — null = fermé
  *   onClose    () => void
- *   onConfirm  (subject: string, body: string, email: string, attachments: File[]) => void
+ *   onConfirm  (subject: string, body: string, email: string, attachments: File[], options?: { channel: 'share', shareText: string }) => void
  *   formData   objet courant du formulaire
  *   clients    liste des clients chargés
  *   userProfile profil de l'artisan
@@ -357,6 +357,19 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                     <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg">
                         Annuler
                     </button>
+                    {/* Partage par SMS / WhatsApp… : message court avec le lien,
+                        même suivi qu'un envoi par email (passage en « envoyé »). */}
+                    {preview.shareText && preview.kind !== 'withdrawal' && (
+                        <button
+                            type="button"
+                            onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, [], { channel: 'share', shareText: preview.shareText })}
+                            className="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex items-center justify-center"
+                            title="Envoie le lien par SMS, WhatsApp ou une autre application"
+                        >
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Partager (SMS, WhatsApp…)
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, attachments)}

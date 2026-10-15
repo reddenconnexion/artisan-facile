@@ -435,7 +435,17 @@ export const useQuoteEmail = ({
 
             const body = bodyParts.join('\n\n');
 
+            // Message court pour « Partager » (SMS, WhatsApp…) : salutation,
+            // lien et signature — le mail complet est trop long pour un SMS.
+            const shareDoc = lang === 'en'
+                ? (isInvoice ? 'invoice' : isCreditNote ? 'credit note' : isAmendmentDoc ? 'amendment' : 'quote')
+                : (isInvoice ? 'facture' : isCreditNote ? 'avoir' : isAmendmentDoc ? 'avenant' : 'devis');
+            const shareText = lang === 'en'
+                ? `Hello ${greetingName},\n\nHere is your ${shareDoc} "${projectTitle}"${isInvoice || isCreditNote ? '' : ', to review and sign online'}:\n${publicUrl}\n\n${companyName}`
+                : `Bonjour ${greetingName},\n\nVoici votre ${shareDoc} « ${projectTitle} »${isInvoice || isCreditNote ? '' : ', à consulter et signer en ligne'} :\n${publicUrl}\n\n${companyName}`;
+
             setEmailPreview({
+                shareText,
                 email: selectedClient.email,
                 rawSubject: subject,
                 rawBody: body,
@@ -464,8 +474,35 @@ export const useQuoteEmail = ({
         }
     };
 
-    const handleConfirmSendEmail = async (subject, body, overrideEmail, attachmentFiles = []) => {
+    // channel 'share' : le message court (lien de signature) part par la
+    // feuille de partage du téléphone (SMS, WhatsApp…) au lieu d'un email.
+    // Le reste du circuit est identique : version archivée, passage en
+    // « envoyé », date de relance.
+    const handleConfirmSendEmail = async (subject, body, overrideEmail, attachmentFiles = [], { channel = 'email', shareText = '' } = {}) => {
         if (!emailPreview) return;
+
+        if (channel === 'share') {
+            // Appelé avant tout await : le navigateur exige que navigator.share
+            // parte directement du geste de l'utilisateur.
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: subject, text: shareText });
+                } catch (err) {
+                    if (err?.name === 'AbortError') return; // partage annulé : rien n'est envoyé
+                    console.error('Share failed:', err);
+                    toast.error("Le partage n'a pas pu s'ouvrir");
+                    return;
+                }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(shareText);
+                    toast.success('Message copié : collez-le dans un SMS ou WhatsApp');
+                } catch {
+                    toast.error("Impossible de copier le message");
+                    return;
+                }
+            }
+        }
 
         // Un mail de retrait n'est pas un envoi de document : il ne doit ni
         // archiver une version transmise, ni repasser le devis en « envoyé »,
@@ -481,12 +518,14 @@ export const useQuoteEmail = ({
 
         // Sans destinataire, l'envoi pro basculait en silence sur le client mail
         // et le devis passait quand même en « envoyé » : on bloque avant.
-        if (smtpConfigured && !isTestMode && !recipientEmail) {
+        if (channel !== 'share' && smtpConfigured && !isTestMode && !recipientEmail) {
             toast.error("Indiquez l'adresse email du client dans le champ « Pour » avant d'envoyer");
             return;
         }
 
-        if (isTestMode) {
+        if (channel === 'share') {
+            // Message déjà parti par la feuille de partage (début de fonction).
+        } else if (isTestMode) {
             captureEmail({ email: recipientEmail, subject, body });
             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
         } else if (smtpConfigured && recipientEmail) {
@@ -566,11 +605,11 @@ export const useQuoteEmail = ({
             supabase.from('client_interactions').insert([{
                 user_id: user.id,
                 client_id: formData.client_id,
-                type: 'email',
+                type: channel === 'share' ? 'sms' : 'email',
                 date: new Date(),
                 details: isWithdrawal
                     ? `Retrait du document notifié au client par email`
-                    : `Envoi document par email`
+                    : channel === 'share' ? `Envoi document par SMS / messagerie` : `Envoi document par email`
             }]).then(({ error }) => {
                 if (error) console.error('Error logging email interaction:', error);
             });
