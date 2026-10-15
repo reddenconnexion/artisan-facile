@@ -666,6 +666,17 @@ const Agenda = () => {
                         <form onSubmit={handleAddEvent} className="flex flex-col min-h-0 flex-1">
                             <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-4">
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client (Optionnel)</label>
+                                <ClientSelector
+                                    clients={clients}
+                                    selectedClientId={newEvent.client_id}
+                                    onChange={selectClient}
+                                    freeTextName={newEvent.client_name}
+                                    onUseFreeText={name => setNewEvent(prev => ({ ...prev, client_id: null, client_name: name, quote_id: null }))}
+                                    onClear={() => setNewEvent(prev => ({ ...prev, client_id: null, client_name: '', quote_id: null }))}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre</label>
                                 <input
                                     type="text"
@@ -722,17 +733,6 @@ const Agenda = () => {
                                         </div>
                                     );
                                 })()}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client (Optionnel)</label>
-                                <ClientSelector
-                                    clients={clients}
-                                    selectedClientId={newEvent.client_id}
-                                    onChange={selectClient}
-                                    freeTextName={newEvent.client_name}
-                                    onUseFreeText={name => setNewEvent(prev => ({ ...prev, client_id: null, client_name: name, quote_id: null }))}
-                                    onClear={() => setNewEvent(prev => ({ ...prev, client_id: null, client_name: '', quote_id: null }))}
-                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lieu (Optionnel)</label>

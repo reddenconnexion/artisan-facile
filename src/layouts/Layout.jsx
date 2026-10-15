@@ -285,7 +285,7 @@ const Layout = () => {
     if (path.startsWith('/app/devis')) navigate('/app/devis/new');
     else if (path.startsWith('/app/clients')) navigate('/app/clients/new');
     else if (path.startsWith('/app/interventions')) navigate('/app/interventions/new');
-    else if (path.startsWith('/app/agenda')) navigate('/app/agenda', { state: { openNewEvent: true } });
+    else if (path.startsWith('/app/agenda')) navigate('/app/agenda?new=1');
     else navigate('/app/devis/new');
   }, [location.pathname, navigate]);
 
@@ -296,7 +296,7 @@ const Layout = () => {
     'ctrl+k': (e) => { e.preventDefault(); setShowSearch((v) => !v); },
     'alt+d': () => navigate('/app/devis/new'),
     'alt+c': () => navigate('/app/clients/new'),
-    'alt+r': () => navigate('/app/agenda', { state: { openNewEvent: true } }),
+    'alt+r': () => navigate('/app/agenda?new=1'),
     'alt+i': () => navigate('/app/interventions/new'),
     'alt+h': () => navigate('/app'),
     'g h': () => navigate('/app'),
