@@ -1,7 +1,8 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { purgeLocalUserData, purgeExpiredDrafts } from '../utils/localData';
 import { supabase } from '../utils/supabase';
 import { seedDemoData } from '../utils/demoData';
+import { needsMfaChallenge } from '../utils/mfa';
 
 const AuthContext = createContext({});
 
@@ -52,6 +53,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => getCachedSession());
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    // Double authentification : { userId, required } une fois le niveau de la session connu.
+    const [mfaState, setMfaState] = useState(null);
 
     useEffect(() => {
         // Track online/offline status
@@ -140,8 +143,34 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
+    // Vérifie si la session doit encore passer le code TOTP (compte avec double
+    // authentification activée, session seulement en aal1). Lecture locale du
+    // jeton : pas d'appel réseau. En cas d'erreur on ne bloque pas l'accès (la
+    // double authentification est facultative et ne doit jamais verrouiller
+    // un compte sur une panne passagère).
+    const refreshMfa = useCallback(async () => {
+        const userId = user?.id;
+        if (!userId || user.is_anonymous) return;
+        try {
+            const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            setMfaState({ userId, required: needsMfaChallenge(data) });
+        } catch {
+            setMfaState({ userId, required: false });
+        }
+    }, [user]);
+
+    useEffect(() => {
+        refreshMfa();
+    }, [refreshMfa]);
+
+    const mfaChecking = !!user && !user.is_anonymous && mfaState?.userId !== user.id;
+    const mfaRequired = !mfaChecking && !!user && mfaState?.userId === user.id && mfaState.required;
+
     const value = {
         loading,
+        mfaChecking,
+        mfaRequired,
+        refreshMfa,
         signUp: (data) => supabase.auth.signUp(data),
         signIn: async (data) => {
             const result = await supabase.auth.signInWithPassword(data);

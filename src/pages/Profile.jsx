@@ -25,6 +25,7 @@ import AdminSection from './profile/AdminSection';
 import AdvancedSettingsSection from './profile/AdvancedSettingsSection';
 import PdpSection from './profile/PdpSection';
 import LoginEmailSection from './profile/LoginEmailSection';
+import TotpSection from './profile/TotpSection';
 import AppUpdateSection from './profile/AppUpdateSection';
 import ActivitySettings from './settings/ActivitySettings';
 
@@ -260,6 +261,9 @@ const Profile = () => {
                 updateProfile={profileForm.updateProfile}
                 loading={profileForm.loading}
             />
+
+            {/* Double authentification (facultative) */}
+            <TotpSection user={user} />
 
             {/* Zone de Danger / Maintenance */}
             <LoginEmailSection
