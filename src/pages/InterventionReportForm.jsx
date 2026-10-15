@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -132,7 +132,7 @@ const InterventionReportForm = () => {
 
     // Facture liée, clôture et envoi de la facture
     const {
-        linkedInvoice, sendInvoiceModal, setSendInvoiceModal,
+        linkedInvoice, linkedInvoiceChecked, sendInvoiceModal, setSendInvoiceModal,
         handleResendInvoice, handleMarkCompleted, handleCreateInvoiceFromReport,
     } = useReportInvoice({
         user, isEditing,
@@ -141,6 +141,23 @@ const InterventionReportForm = () => {
         navigate,
         handleSave: (statusOverride) => handleSave(statusOverride),
     });
+
+    // « Facturer » depuis le mode Terrain (?facturer=1) : une fois le rapport
+    // chargé et la facture liée cherchée, ouvre la facture existante ou en
+    // prépare une nouvelle — un seul tap après la signature.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const invoiceRequestedRef = useRef(searchParams.get('facturer') === '1');
+    useEffect(() => {
+        if (!invoiceRequestedRef.current || !linkedInvoiceChecked) return;
+        if (!existingReport || String(formData.id) !== String(existingReport.id)) return;
+        invoiceRequestedRef.current = false;
+        // Retire ?facturer=1 de l'historique : un retour arrière depuis la
+        // facture ne doit pas relancer la facturation.
+        setSearchParams({}, { replace: true });
+        if (linkedInvoice) navigate(`/app/devis/${linkedInvoice.id}`);
+        else handleCreateInvoiceFromReport();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [linkedInvoiceChecked, linkedInvoice, existingReport, formData.id]);
 
     // Sync client_name + adresse when client_id changes
     const handleClientChange = (clientId) => {

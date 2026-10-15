@@ -20,6 +20,10 @@ export const useReportInvoice = ({
 }) => {
     const [sendInvoiceModal, setSendInvoiceModal] = useState(null);
     const [linkedInvoice, setLinkedInvoice] = useState(null);
+    // Passe à true une fois la recherche de facture liée terminée (trouvée
+    // ou non) : « Facturer » depuis le mode Terrain attend ce signal pour ne
+    // jamais créer une seconde facture.
+    const [linkedInvoiceChecked, setLinkedInvoiceChecked] = useState(false);
 
     // Charger la facture liée quand le rapport est terminé/signé
     useEffect(() => {
@@ -52,7 +56,8 @@ export const useReportInvoice = ({
             }
         };
 
-        fetchLinkedInvoice();
+        setLinkedInvoiceChecked(false);
+        fetchLinkedInvoice().finally(() => setLinkedInvoiceChecked(true));
     }, [isEditing, formData.status, formData.quote_id, formData.invoice_id, formData.report_pdf_url, user]);
 
     const handleResendInvoice = async () => {
@@ -377,7 +382,7 @@ export const useReportInvoice = ({
     };
 
     return {
-        linkedInvoice, sendInvoiceModal, setSendInvoiceModal,
+        linkedInvoice, linkedInvoiceChecked, sendInvoiceModal, setSendInvoiceModal,
         handleResendInvoice, handleMarkCompleted, handleCreateInvoiceFromReport,
     };
 };

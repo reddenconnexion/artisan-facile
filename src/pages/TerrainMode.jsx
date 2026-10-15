@@ -8,7 +8,7 @@ import { Toaster, toast } from 'sonner';
 import {
     ArrowLeft, Play, Pause, RotateCcw, Camera, Save,
     PenTool, CheckCircle, FileText, X, Loader2,
-    ChevronDown, Clock, ExternalLink, Images,
+    ChevronDown, Clock, ExternalLink, Images, Receipt,
 } from 'lucide-react';
 import VisiteTechniqueMode from '../components/VisiteTechniqueMode';
 import ChantierSuiviMode from '../components/ChantierSuiviMode';
@@ -767,6 +767,18 @@ const TerrainMode = () => {
                             >
                                 <CheckCircle className="w-4 h-4 text-green-500" />
                                 Terminer sans signature
+                            </button>
+                        )}
+
+                        {/* Étape suivante enchaînée : facturer dès la signature
+                            (ouvre la facture déjà liée s'il y en a une). */}
+                        {reportId && (docStatus === 'signed' || docStatus === 'completed') && (
+                            <button
+                                onClick={() => navigate(`/app/interventions/${reportId}?facturer=1`)}
+                                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                            >
+                                <Receipt className="w-5 h-5" />
+                                Facturer cette intervention
                             </button>
                         )}
 
