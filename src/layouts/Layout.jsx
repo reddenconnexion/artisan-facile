@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
+import QuickCreateMenu from '../components/QuickCreateMenu';
 import SearchPalette from '../components/SearchPalette';
 import { ConfirmProvider, useConfirm } from '../context/ConfirmContext';
 import { Toaster, toast } from 'sonner';
@@ -842,6 +843,10 @@ const Layout = () => {
           {/* Micro flottant — absent de l'accueil, qui a déjà son gros bouton
               « Dicter » (même pipeline vocal). */}
           {location.pathname !== '/app' && <VoiceRecorderButton />}
+
+          {/* Accueil : menu « Créer » (devis, client, RDV, rapport), aussi sur
+              ordinateur — l'accueil n'a pas d'autre bouton de création. */}
+          {location.pathname === '/app' && <QuickCreateMenu />}
 
           {/* Contextual FAB — mobile only, action principale de la page courante */}
           {(() => {

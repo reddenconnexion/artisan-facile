@@ -1421,6 +1421,7 @@ const DevisForm = () => {
     // ── Documents liés : acomptes, situation, clôture ───────────────────────
     const {
         depositNextStep,
+        depositPrompt,
         handleCreateDeposit,
         handleCreateMaterialDeposit,
         handleCreateSituation,
@@ -2356,6 +2357,7 @@ const DevisForm = () => {
             )}
 
             {paymentPrompt}
+            {depositPrompt}
 
             {quickClientName !== null && (
                 <QuickClientModal
