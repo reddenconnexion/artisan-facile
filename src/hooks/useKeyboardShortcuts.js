@@ -8,13 +8,26 @@ const isEditableTarget = (target) => {
     return false;
 };
 
-const eventKeyToken = (event) => {
+// Avec Option (macOS) ou AltGr, event.key est le caractère composé (« ® »
+// pour Option+R) : les raccourcis alt+lettre ne se déclenchaient jamais.
+// On retombe alors sur la touche physique (event.code « KeyR »), mais
+// seulement si event.key n'est pas déjà une lettre : sous Windows/Linux
+// (Alt ne compose pas), la disposition AZERTY reste respectée.
+const baseKey = (event) => {
+    const key = event.key.toLowerCase();
+    if (event.altKey && !/^[a-z]$/.test(key) && /^Key[A-Z]$/.test(event.code || '')) {
+        return event.code.slice(3).toLowerCase();
+    }
+    return key;
+};
+
+export const eventKeyToken = (event) => {
     const parts = [];
     if (event.metaKey) parts.push('meta');
     if (event.ctrlKey) parts.push('ctrl');
     if (event.altKey) parts.push('alt');
     if (event.shiftKey && event.key.length > 1) parts.push('shift');
-    parts.push(event.key.toLowerCase());
+    parts.push(baseKey(event));
     return parts.join('+');
 };
 
