@@ -3,6 +3,7 @@ import { WORK_OBJECT_MAX_CHARS, workObjectLength } from '../../utils/workObject'
 import ClientSelector from '../../components/ClientSelector';
 import { Input, Field } from '../../components/ui';
 import QuoteStatusField from './QuoteStatusField';
+import { PAYMENT_METHODS } from '../../constants/paymentMethods';
 import { autoGrow } from './quoteHelpers';
 
 /**
@@ -22,6 +23,8 @@ const QuoteHeaderFields = ({
     isLocked,
     markingFollowUp,
     navigate,
+    onCreateClient,
+    onMarkPaid,
     otpTouchedRef,
     setDiffAddress,
     setFormData,
@@ -55,7 +58,7 @@ const QuoteHeaderFields = ({
                         clients={clients}
                         selectedClientId={formData.client_id}
                         onChange={handleClientChange}
-                        onCreateNew={() => navigate('/app/clients/new')}
+                        onCreateNew={onCreateClient}
                         disabled={isLocked}
                     />
                 </div>
@@ -145,6 +148,7 @@ const QuoteHeaderFields = ({
                 id={id}
                 isCreditNote={isCreditNote}
                 markingFollowUp={markingFollowUp}
+                onMarkPaid={isCreditNote ? undefined : onMarkPaid}
                 setFormData={setFormData}
                 setShowSpecialStatuses={setShowSpecialStatuses}
                 setShowViewHistory={setShowViewHistory}
@@ -162,13 +166,9 @@ const QuoteHeaderFields = ({
                             onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                         >
                             <option value="">-- Sélectionner --</option>
-                            <option value="virement">Virement bancaire</option>
-                            <option value="cheque">Chèque</option>
-                            <option value="especes">Espèces</option>
-                            <option value="carte">Carte bancaire</option>
-                            <option value="paypal">PayPal</option>
-                            <option value="wero">Wero</option>
-                            <option value="autre">Autre</option>
+                            {PAYMENT_METHODS.map(({ id: methodId, label }) => (
+                                <option key={methodId} value={methodId}>{label}</option>
+                            ))}
                         </select>
                     </div>
                     <div>

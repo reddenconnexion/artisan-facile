@@ -203,20 +203,12 @@ export const AuthProvider = ({ children }) => {
                 throw new Error("Échec connexion démo anonyme");
 
             } catch (error) {
+                // Pas de faux compte « local » en repli : sans session Supabase,
+                // chaque requête échouait (identifiant non valide) et l'appli
+                // n'affichait que des « Impossible de charger ces données ».
+                // L'erreur remonte à la page d'accueil, qui l'explique.
                 console.error("Demo login error:", error);
-
-                // Fallback: local UI-only demo (no database access)
-                const fakeUser = {
-                    id: 'demo-local-fallback',
-                    email: null,
-                    is_anonymous: true,
-                    user_metadata: { full_name: 'Électricité Moreau (Démo)', job_type: 'electricien' },
-                    aud: 'authenticated',
-                    role: 'authenticated'
-                };
-                setUser(fakeUser);
-                cacheUserSession(fakeUser);
-                return { data: { user: fakeUser } };
+                throw error;
             }
         },
         user,

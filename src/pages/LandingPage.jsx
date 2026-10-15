@@ -18,7 +18,11 @@ const LandingPage = () => {
             navigate('/app');
         } catch (error) {
             console.error(error);
-            toast.error("Impossible de créer une session démo.");
+            toast.error("La démo est momentanément indisponible.", {
+                description: error?.code === 'anonymous_provider_disabled'
+                    ? "Les connexions démo sont désactivées sur le serveur. Créez un compte gratuit pour essayer l'application."
+                    : 'Réessayez dans un instant ou créez un compte gratuit.',
+            });
         } finally {
             setDemoLoading(false);
         }
