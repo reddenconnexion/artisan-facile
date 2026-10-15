@@ -5,6 +5,7 @@ import { supabase } from '../../utils/supabase';
 import { depositsNetOfCreditNotes } from '../../utils/creditNote';
 import { amendmentsTotalTTC, materialDepositInvoices, materialDepositStatus } from '../../utils/materialDeposit';
 import { formatDate } from '../../utils/format';
+import { useDepositPrompt } from '../../hooks/useDepositPrompt';
 
 /**
  * Documents liés au devis racine du chantier : facture d'acompte, acompte
@@ -27,6 +28,7 @@ export const useDepositActions = ({
     // depuis le devis racine du chantier — affichée sur l'avenant signé et sur
     // le devis quand un avenant a laissé du matériel non couvert.
     const [depositNextStep, setDepositNextStep] = useState(null);
+    const [askDeposit, depositPrompt] = useDepositPrompt();
 
     const handleCreateDeposit = async () => {
         // L'assiette du pourcentage est le CHANTIER, pas le seul devis initial :
@@ -58,21 +60,14 @@ export const useDepositActions = ({
             ? `Base : ${projectTotal.toFixed(2)} € TTC (devis ${total.toFixed(2)} € + avenants signés ${amendmentsTTC.toFixed(2)} €).`
             : `Base : ${projectTotal.toFixed(2)} € TTC.`;
 
-        const percentageStr = window.prompt(`${baseLabel}\n\nQuel pourcentage d'acompte souhaitez-vous ? (ex: 30)`, "30");
-        if (!percentageStr) return;
-
-        const percentage = parseFloat(percentageStr);
-        if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
-            toast.error("Pourcentage invalide");
-            return;
-        }
+        // Une seule fenêtre : pourcentage + type d'acompte, montant affiché.
+        const choice = await askDeposit({ baseLabel, base: projectTotal });
+        if (!choice) return;
+        const { percentage, isForMaterial } = choice;
 
         try {
             setLoading(true);
             const depositAmount = (projectTotal * percentage) / 100;
-
-            // Ask user if this deposit is for materials (to exclude from Net Result)
-            const isForMaterial = await confirm({ title: "Type d'acompte", message: "Cet acompte est-il destiné principalement à l'achat de fournitures ?\n\nOui → comptabilisé comme Matériel (exclu du Résultat Net)\nNon → comptabilisé comme Service (Marge 100%)", confirmLabel: 'Oui (Matériel)', cancelLabel: 'Non (Service)' });
 
             const depositItem = {
                 id: Date.now(),
@@ -644,6 +639,7 @@ Conditions de règlement : Paiement à réception de facture.`
 
     return {
         depositNextStep,
+        depositPrompt,
         handleCreateDeposit,
         handleCreateMaterialDeposit,
         handleCreateSituation,
