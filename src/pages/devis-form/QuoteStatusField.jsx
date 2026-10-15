@@ -14,6 +14,7 @@ const QuoteStatusField = ({
     id,
     isCreditNote,
     markingFollowUp,
+    onMarkPaid,
     setFormData,
     setShowSpecialStatuses,
     setShowViewHistory,
@@ -37,7 +38,9 @@ const QuoteStatusField = ({
                             <React.Fragment key={step.key}>
                                 <button
                                     type="button"
-                                    onClick={() => setFormData(p => ({ ...p, status: step.key }))}
+                                    onClick={() => (step.key === 'paid' && onMarkPaid
+                                        ? onMarkPaid()
+                                        : setFormData(p => ({ ...p, status: step.key })))}
                                     className={`text-[10px] font-semibold px-2 py-1 rounded whitespace-nowrap transition-colors ${
                                         idx === currentIdx ? 'animate-shimmer-step text-white' :
                                         currentIdx >= 0 && idx < currentIdx ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200' :

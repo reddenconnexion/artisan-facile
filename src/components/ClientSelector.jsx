@@ -6,6 +6,8 @@ import { Search, Plus, Check, ChevronsUpDown, User, MapPin, Phone, X } from 'luc
 //   (ex. RDV pris pour quelqu'un qui n'a pas encore de fiche) ;
 // - onUseFreeText(nom) : propose « Utiliser ce nom sans fiche client » ;
 // - onClear() : affiche une croix pour retirer le client.
+// onCreateNew(texteRecherché) reçoit la saisie en cours, pour pré-remplir
+// le nom du nouveau client.
 const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disabled, freeTextName, onUseFreeText, onClear }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -166,13 +168,16 @@ const ClientSelector = ({ clients, selectedClientId, onChange, onCreateNew, disa
                             <button
                                 type="button"
                                 onClick={() => {
-                                    onCreateNew();
+                                    onCreateNew(searchTerm.trim());
                                     setIsOpen(false);
+                                    setSearchTerm('');
                                 }}
                                 className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Créer un nouveau client
+                                <Plus className="w-4 h-4 mr-2 shrink-0" />
+                                <span className="truncate">
+                                    {searchTerm.trim() ? `Créer le client « ${searchTerm.trim()} »` : 'Créer un nouveau client'}
+                                </span>
                             </button>
                         </div>
                     )}

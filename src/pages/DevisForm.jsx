@@ -31,6 +31,7 @@ import { useOfflinePendingSave } from '../hooks/useOfflinePendingSave';
 import { isOffline, isNetworkError, offlineSaveMessage } from '../utils/offlineSave';
 import DevisProgress from '../components/DevisProgress';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 import { useQuoteMargin } from '../hooks/useQuoteMargin';
 import { useAvenantLogic } from '../hooks/useAvenantLogic';
 import { useQuoteSignature } from '../hooks/useQuoteSignature';
@@ -46,6 +47,7 @@ import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { computeQuoteTotals } from '../utils/quoteTotals';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import AffaireLink from './devis-form/AffaireLink';
+import { format } from 'date-fns';
 import { formatDate, formatCurrency } from '../utils/format';
 import ClientDisplayModeBar from './devis-form/ClientDisplayModeBar';
 import DocumentActionModals from './devis-form/DocumentActionModals';
@@ -58,6 +60,7 @@ import ImportDropZone from './devis-form/ImportDropZone';
 import ItemsToolbar from './devis-form/ItemsToolbar';
 import PdfOverview from './devis-form/PdfOverview';
 import QuoteHeaderFields from './devis-form/QuoteHeaderFields';
+import QuickClientModal from '../components/QuickClientModal';
 import QuoteItemRow from './devis-form/QuoteItemRow';
 import QuoteNotesSection from './devis-form/QuoteNotesSection';
 import QuoteTotalsPanel from './devis-form/QuoteTotalsPanel';
@@ -95,8 +98,17 @@ const DevisForm = () => {
     };
     const [dataLoaded, setDataLoaded] = useState(!isEditing);
     const [clients, setClients] = useState([]);
+    // Création rapide d'un client sans quitter le devis (null = fermée,
+    // sinon nom pré-rempli depuis la recherche).
+    const [quickClientName, setQuickClientName] = useState(null);
+    const handleQuickClientCreated = (client) => {
+        setQuickClientName(null);
+        setClients(prev => [...prev, client]);
+        invalidateClients();
+        handleClientChange(client.id, client);
+    };
     const [userProfile, setUserProfile] = useState(null);
-    const { invalidateQuotes, invalidateQuote } = useInvalidateCache();
+    const { invalidateQuotes, invalidateQuote, invalidateClients } = useInvalidateCache();
     const { isSupported: isPushSupported, isSubscribed: isPushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
     const [showSmartVoice, setShowSmartVoice] = useState(false); // New Smart Voice State
@@ -195,6 +207,9 @@ const DevisForm = () => {
     const creationStartRef = useRef(Date.now());
     // Langue d'un envoi demandé avant le premier enregistrement (repris après).
     const pendingSendRef = useRef(null);
+    const sendAfterInvoiceRef = useRef(false);
+    const saveAfterPaidRef = useRef(false);
+    const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
     // Indique si l'IA a généré des lignes pendant cette session
     const [usedAiInSession, setUsedAiInSession] = useState(false);
     // Nombre de devis existants au moment de l'ouverture du formulaire (null = pas encore chargé)
@@ -355,8 +370,9 @@ const DevisForm = () => {
         setVoiceContext(null);
     };
 
-    const handleClientChange = async (clientId) => {
-        const client = clients.find(c => c.id.toString() === clientId?.toString());
+    // `knownClient` : client tout juste créé, pas encore présent dans `clients`.
+    const handleClientChange = async (clientId, knownClient = null) => {
+        const client = knownClient || clients.find(c => c.id.toString() === clientId?.toString());
         setFormData(prev => ({
             ...prev,
             client_id: clientId,
@@ -1669,6 +1685,43 @@ const DevisForm = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, dataLoaded, formData.updated_at]);
 
+    // « Payée » dans le pipeline de statut : demande le mode de règlement
+    // (obligatoire au livre de recettes), pose la date d'encaissement du jour
+    // et enregistre aussitôt — plus besoin de remplir le sélecteur puis de
+    // penser à « Enregistrer ».
+    const handleMarkPaid = async () => {
+        if (formData.status === 'paid') return;
+        const method = await askPaymentMethod({
+            title: 'Paiement reçu',
+            message: `${formatCurrency(total)} encaissés aujourd'hui. Le document sera enregistré comme payé.`,
+            defaultMethod: formData.payment_method || undefined,
+        });
+        if (!method) return;
+        saveAfterPaidRef.current = isEditing;
+        setFormData(prev => ({
+            ...prev,
+            status: 'paid',
+            payment_method: method,
+            paid_at: prev.paid_at || format(new Date(), 'yyyy-MM-dd'),
+        }));
+    };
+
+    useEffect(() => {
+        if (formData.status !== 'paid' || !saveAfterPaidRef.current) return;
+        saveAfterPaidRef.current = false;
+        handleSubmit({ preventDefault: () => {} });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.status]);
+
+    // « Facturer » : ouvre l'envoi de la facture une fois l'état à jour, pour
+    // que le mail parte bien comme une facture (numéro, objet, PDF).
+    useEffect(() => {
+        if (formData.type !== 'invoice' || !sendAfterInvoiceRef.current) return;
+        sendAfterInvoiceRef.current = false;
+        handleSendQuoteEmail();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.type, formData.invoice_number]);
+
     // Génère le PDF dès qu'on entre en vue aperçu (une fois les données prêtes).
     useEffect(() => {
         if (!pdfOverviewMode) return;
@@ -1695,7 +1748,7 @@ const DevisForm = () => {
     const handleConvertToInvoice = async () => {
         const okConv = await confirm({
             title: 'Facturer ce devis',
-            message: 'Le devis devient une facture finale : mêmes lignes, numéro légal attribué, PDF prêt à envoyer. À utiliser quand les travaux sont terminés. Pour un acompte ou une facturation par avancement, passez plutôt par « Acompte matériel » ou « Situation de travaux » dans le menu ⋮.',
+            message: 'Le devis devient une facture finale : mêmes lignes, numéro légal attribué, puis la fenêtre d’envoi au client s’ouvre. À utiliser quand les travaux sont terminés. Pour un acompte ou une facturation par avancement, passez plutôt par « Acompte matériel » ou « Situation de travaux » dans le menu ⋮.',
             confirmLabel: 'Convertir en facture',
         });
         if (!okConv) return;
@@ -1716,10 +1769,13 @@ const DevisForm = () => {
             const invoiceNumber = converted?.invoice_number || null;
             setFormData(prev => ({ ...prev, status: 'accepted', type: 'invoice', invoice_number: invoiceNumber }));
             setInitialStatus('accepted');
-            toast.success(`Devis converti en facture${invoiceNumber ? ` ${invoiceNumber}` : ''} — pensez à l'envoyer au client`);
+            toast.success(`Facture${invoiceNumber ? ` ${invoiceNumber}` : ''} créée`);
             invalidateQuotes();
             updateClientCRMStatus(formData.client_id, 'accepted');
-            await handleDownloadPDF(true, { overrides: { type: 'invoice', status: 'accepted', invoice_number: invoiceNumber } });
+            // Étape suivante enchaînée : la fenêtre d'envoi s'ouvre dès que
+            // formData est passé en facture (cf. effet plus bas), au lieu
+            // d'un simple « pensez à l'envoyer ».
+            sendAfterInvoiceRef.current = true;
         } catch (error) {
             toast.error('Erreur lors de la conversion');
             console.error('Error converting to invoice:', error);
@@ -2021,6 +2077,8 @@ const DevisForm = () => {
                     isLocked={isLocked}
                     markingFollowUp={markingFollowUp}
                     navigate={navigate}
+                    onCreateClient={(name) => setQuickClientName(name || '')}
+                    onMarkPaid={handleMarkPaid}
                     otpTouchedRef={otpTouchedRef}
                     setDiffAddress={setDiffAddress}
                     setFormData={setFormData}
@@ -2295,6 +2353,16 @@ const DevisForm = () => {
                     onClose={() => setShowViewHistory(false)}
                 />,
                 document.body
+            )}
+
+            {paymentPrompt}
+
+            {quickClientName !== null && (
+                <QuickClientModal
+                    initialName={quickClientName}
+                    onClose={() => setQuickClientName(null)}
+                    onCreated={handleQuickClientCreated}
+                />
             )}
 
             {/* Email Preview Modal */}

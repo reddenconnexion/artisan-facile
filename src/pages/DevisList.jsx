@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen, Banknote } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
@@ -12,7 +12,8 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
-import { archiveQuote, unarchiveQuote } from '../utils/followUpService';
+import { archiveQuote, unarchiveQuote, markInvoicePaid } from '../utils/followUpService';
+import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
 import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -194,6 +195,30 @@ const DevisList = () => {
 
     const refreshQuotes = () => queryClient.invalidateQueries({ queryKey: ['quotes', user?.id] });
 
+    // « Payée » directement depuis la liste : mode de règlement puis
+    // enregistrement, sans ouvrir la facture.
+    const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
+    const canMarkPaid = (devis) => devis.type === 'invoice' && !devis.archived_at
+        && ['accepted', 'sent', 'billed'].includes(devis.status);
+    const handleMarkPaid = async (e, devis) => {
+        e.stopPropagation();
+        const ref = devis.invoice_number || `Facture #${devis.quote_number || devis.id}`;
+        const method = await askPaymentMethod({
+            title: `${ref} payée`,
+            message: `${formatCurrency(devis.total_ttc || 0)} encaissés aujourd'hui.`,
+            defaultMethod: devis.payment_method || undefined,
+        });
+        if (!method) return;
+        try {
+            await markInvoicePaid(devis.id, user.id, method);
+            toast.success('Facture marquée payée');
+            refreshQuotes();
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        } catch (err) {
+            toast.error('Erreur : ' + err.message);
+        }
+    };
+
     const handleArchive = async (e, devisId) => {
         e.stopPropagation();
         try {
@@ -368,6 +393,7 @@ const DevisList = () => {
 
     return (
         <div className="space-y-6">
+            {paymentPrompt}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h1 className="ios-title">
                     Devis &amp; Factures
@@ -680,6 +706,16 @@ const DevisList = () => {
                                                         <span className="text-gray-400">-</span>
                                                     ) : null}
                                                 </span>
+                                                {!mergeMode && canMarkPaid(devis) && (
+                                                    <button
+                                                        onClick={(e) => handleMarkPaid(e, devis)}
+                                                        title="Paiement reçu : marquer la facture payée"
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                                                    >
+                                                        <Banknote className="w-4 h-4" />
+                                                        Payée
+                                                    </button>
+                                                )}
                                                 {!mergeMode && (
                                                     devis.archived_at ? (
                                                         <button
@@ -766,6 +802,15 @@ const DevisList = () => {
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? formatCurrency(devis.total_ttc) : '-'}
                                         </span>
+                                        {!mergeMode && canMarkPaid(devis) && (
+                                            <button
+                                                onClick={(e) => handleMarkPaid(e, devis)}
+                                                className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300 px-3 min-h-[44px] rounded-md bg-emerald-50 dark:bg-emerald-900/30"
+                                            >
+                                                <Banknote className="w-4 h-4" />
+                                                Payée
+                                            </button>
+                                        )}
                                         {!mergeMode && (
                                             devis.archived_at ? (
                                                 <button
