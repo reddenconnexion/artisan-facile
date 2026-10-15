@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import MfaChallenge from './components/MfaChallenge';
 import { TestModeProvider } from './context/TestModeContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import Layout from './layouts/Layout';
@@ -214,13 +215,15 @@ const AdminFeedbackReports = lazyWithRetry(() => import('./pages/AdminFeedbackRe
 
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, mfaChecking, mfaRequired } = useAuth();
   const location = useLocation();
 
-  if (loading) return <PageLoader />;
+  if (loading || mfaChecking) return <PageLoader />;
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
+  // Double authentification activée : le code doit être saisi avant tout accès.
+  if (mfaRequired) return <MfaChallenge />;
   return children;
 };
 
