@@ -375,7 +375,7 @@ const Layout = () => {
   React.useEffect(() => {
     // Supabase anonymous auth sets is_anonymous = true
     // Fallback: detect local demo user by id
-    const anonymous = user?.is_anonymous === true || user?.id === 'demo-local-fallback';
+    const anonymous = user?.is_anonymous === true;
     setIsDemo(!!anonymous);
   }, [user]);
 
