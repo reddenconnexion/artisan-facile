@@ -178,8 +178,18 @@ export const draftFromVisitRecord = (row) => {
     if (!isVisitToFinish(row)) return null;
     const draft = parseNotes(row.notes).draft;
     const savedAt = Number(draft.savedAt) || Date.parse(row.updated_at || row.created_at || '') || 0;
+    // Photos du rapport absentes du brouillon : on les reprend. Un brouillon
+    // sans ses photos, une fois repris, réécrivait le rapport avec une liste
+    // vide — les photos restaient dans le stockage mais plus nulle part
+    // dans l'application.
+    const draftList = Array.isArray(draft.photos) ? draft.photos : [];
+    const known = new Set(draftList.map((p) => p?.path).filter(Boolean));
+    const fromRecord = (Array.isArray(row.photos) ? row.photos : [])
+        .filter((p) => p?.path && p?.url && !known.has(p.path))
+        .map((p) => ({ id: `rec-${p.path}`, path: p.path, url: p.url, name: p.name || '' }));
     return {
         ...draft,
+        photos: [...draftList, ...fromRecord],
         clientId: draft.clientId ?? row.client_id ?? null,
         clientName: draft.clientName || row.client_name || '',
         address: draft.address || row.intervention_address || '',

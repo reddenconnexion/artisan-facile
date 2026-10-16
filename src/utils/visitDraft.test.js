@@ -175,6 +175,21 @@ describe('brouillon côté serveur (finir la visite au bureau)', () => {
         expect(draftFromVisitRecord(row({ status: 'signed' }))).toBeNull();
     });
 
+    it('reprend les photos du rapport absentes du brouillon, sans doublon', async () => {
+        const { draftFromVisitRecord } = await import('./visitDraft');
+        const draft = draftFromVisitRecord(row({
+            photos: [
+                { path: 'a.jpg', url: 'u' },
+                { path: 'b.jpg', url: 'https://x/b.jpg', name: 'b.jpg' },
+                { path: '', url: 'sans-chemin' },
+            ],
+        }));
+        expect(draft.photos).toEqual([
+            { id: 'p', path: 'a.jpg', url: 'u' },
+            { id: 'rec-b.jpg', path: 'b.jpg', url: 'https://x/b.jpg', name: 'b.jpg' },
+        ]);
+    });
+
     it('prend la date de mise à jour quand le brouillon n\'est pas horodaté', async () => {
         const { draftFromVisitRecord } = await import('./visitDraft');
         const draft = draftFromVisitRecord(row({ notes: { draft: { clientName: 'X' } } }));
