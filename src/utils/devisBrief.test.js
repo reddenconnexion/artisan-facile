@@ -1,0 +1,43 @@
+import { describe, it, expect } from 'vitest';
+import { zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes, isClaudeProjectUrl } from './devisBrief';
+
+describe('zonedTranscripts', () => {
+    it('garde l\'ordre de la visite et la pièce, sans les notes vides', () => {
+        const notes = [{ id: 'a', zone: 'Cuisine' }, { id: 'b', zone: '' }, { id: 'c', zone: 'Séjour' }];
+        expect(zonedTranscripts(notes, { a: ' 3 prises ', b: 'tableau à changer', c: '' })).toEqual([
+            { zone: 'Cuisine', text: '3 prises' },
+            { zone: '', text: 'tableau à changer' },
+        ]);
+    });
+});
+
+describe('photoFindings', () => {
+    it('associe chaque constat à la pièce de la photo', () => {
+        const photos = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
+        expect(photoFindings(photos, { p1: 'Tableau 2 rangées', p3: '' }, { p1: 'Garage' })).toEqual([
+            { zone: 'Garage', text: 'Tableau 2 rangées' },
+        ]);
+    });
+});
+
+describe('zonedLine', () => {
+    it('préfixe la pièce entre crochets', () => {
+        expect(zonedLine({ zone: 'Cuisine', text: '3 prises' })).toBe('[Cuisine] 3 prises');
+        expect(zonedLine({ zone: '', text: '3 prises' })).toBe('3 prises');
+    });
+});
+
+describe('keepPhotoNotes', () => {
+    it('oublie les constats des photos supprimées', () => {
+        expect(keepPhotoNotes({ p1: 'a', p2: 'b' }, [{ id: 'p2' }])).toEqual({ p2: 'b' });
+    });
+});
+
+describe('isClaudeProjectUrl', () => {
+    it('n\'accepte que les liens claude.ai en https', () => {
+        expect(isClaudeProjectUrl('https://claude.ai/project/0198abcd')).toBe(true);
+        expect(isClaudeProjectUrl('http://claude.ai/project/x')).toBe(false);
+        expect(isClaudeProjectUrl('https://evil.com/claude.ai')).toBe(false);
+        expect(isClaudeProjectUrl('pas un lien')).toBe(false);
+    });
+});

@@ -9,7 +9,7 @@ vi.mock('./supabase', () => ({
     },
 }));
 
-import { extractSurveyFromVisit } from './aiService';
+import { extractSurveyFromVisit, summarizeVisitForQuote } from './aiService';
 
 const okResponse = (rawResponse) => ({ data: { rawResponse }, error: null });
 
@@ -102,5 +102,60 @@ describe('extractSurveyFromVisit', () => {
         const [, { body }] = invokeMock.mock.calls[0];
         expect(body.userMessage).toContain('Client pressé, veut finir avant Noël');
         expect(body.userMessage).toContain('tableau électrique vétuste');
+    });
+
+    it('place les groupes de contexte sous « contexte » dans le schéma demandé', async () => {
+        invokeMock.mockResolvedValue(okResponse('{}'));
+        await extractSurveyFromVisit(['note'], [], TEMPLATE);
+        const [, { body }] = invokeMock.mock.calls[0];
+        // Le schéma doit correspondre à ce que lit mergeSurveyFill.
+        expect(body.systemPrompt).toMatch(/"contexte" : \{\s*\n\s*"bien"/);
+        expect(body.systemPrompt).toContain('"client"');
+        expect(body.systemPrompt).toContain('"a_remplacer" (À remplacer)');
+    });
+
+    it('rattache notes et photos à leur pièce et cite les pièces déjà créées', async () => {
+        invokeMock.mockResolvedValue(okResponse('{}'));
+        await extractSurveyFromVisit(
+            [{ zone: 'Cuisine', text: 'trois prises ici' }, 'le tableau est à refaire'],
+            [{ zone: 'Garage', text: 'Tableau 1 rangée, pas de différentiel' }],
+            TEMPLATE,
+            '',
+            { knownZones: ['Cuisine', 'Séjour'] },
+        );
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain('1. [Cuisine] trois prises ici');
+        expect(body.userMessage).toContain('2. le tableau est à refaire');
+        expect(body.userMessage).toContain('Photo 1. [Garage] Tableau 1 rangée');
+        expect(body.userMessage).toContain('PIÈCES DÉJÀ CRÉÉES : Cuisine, Séjour');
+    });
+});
+
+describe('summarizeVisitForQuote', () => {
+    it('envoie relevé, notes, photos et points manquants, et nettoie la réponse', async () => {
+        invokeMock.mockResolvedValue(okResponse('```\nFais-moi le devis à partir de cette visite.\n\n**CLIENT** : M. Martin\n```'));
+        const text = await summarizeVisitForQuote({
+            surveyText: 'RELEVÉ PAR ZONE :\n- Cuisine : Prises 2P+T : 6',
+            transcripts: [{ zone: 'Cuisine', text: 'plaque à induction' }],
+            photoAnalyses: [{ zone: 'Garage', text: 'Tableau vétuste' }],
+            textNotes: 'Client pressé',
+            missing: [{ key: 'tableau', label: 'État du tableau électrique' }],
+            meta: { clientName: 'M. Martin', address: 'Libourne' },
+        });
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.systemPrompt).toMatch(/N'invente RIEN/);
+        expect(body.systemPrompt).toContain('POINTS À CONFIRMER AVANT CHIFFRAGE');
+        expect(body.userMessage).toContain('Client : M. Martin');
+        expect(body.userMessage).toContain('Prises 2P+T : 6');
+        expect(body.userMessage).toContain('[Cuisine] plaque à induction');
+        expect(body.userMessage).toContain('[Garage] Tableau vétuste');
+        expect(body.userMessage).toContain('Client pressé');
+        expect(body.userMessage).toContain('NON RELEVÉ PENDANT LA VISITE : État du tableau électrique');
+        expect(text).toBe('Fais-moi le devis à partir de cette visite.\n\nCLIENT : M. Martin');
+    });
+
+    it('refuse de résumer une visite vide, sans appel IA', async () => {
+        await expect(summarizeVisitForQuote({ meta: { clientName: 'M. Martin' } })).rejects.toThrow(/Rien à résumer/);
+        expect(invokeMock).not.toHaveBeenCalled();
     });
 });

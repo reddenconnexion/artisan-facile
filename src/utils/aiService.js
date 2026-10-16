@@ -476,20 +476,55 @@ const surveySchemaPrompt = (template) => {
     const counters = (template.zoneCounters || []).map((c) => `"${c.key}" (${c.label})`).join(', ') || '(aucun compteur pour ce métier)';
     const extraFields = (template.zoneExtraFields || []).map((f) => `"${f.key}" (${f.label})`).join(', ') || '(aucun)';
     const tableau = template.hasTableau
-        ? `\n  "tableau" : { "etat" : une valeur parmi [${(template.tableauEtats || []).map((e) => `"${e.value}"`).join(', ')}], "rangees" : texte, "placesDispo" : texte, "renovationComplete" : booléen, "diffTypeA" : nombre, "diffTypeAC" : nombre, "disjoncteurs" : texte, "observations" : texte }`
+        ? `\n  "tableau" : { "etat" : une valeur parmi [${(template.tableauEtats || []).map((e) => `"${e.value}" (${e.label})`).join(', ')}], "rangees" : texte, "placesDispo" : texte, "renovationComplete" : booléen, "diffTypeA" : nombre, "diffTypeAC" : nombre, "disjoncteurs" : texte, "observations" : texte }`
         : '';
     const checklist = (template.checklist || []).length
         ? `\n  "checklist" : { ${(template.checklist || []).map((c) => `"${c.id}" : "verifie" ou "prevu"`).join(', ')} }`
         : '';
-    return `Réponds UNIQUEMENT avec un objet JSON de cette forme (omets toute clé non évoquée dans la conversation) :
+    return `Réponds UNIQUEMENT avec un objet JSON de cette forme (omets une clé seulement si la visite ne dit rien dessus) :
 {
-  "demande" : "ce que le client demande, dans ses mots",
+  "client" : { "nom" : "nom du client s'il est prononcé", "adresse" : "adresse du chantier si elle est dite" },
+  "demande" : "ce que le client demande, en une ou deux phrases",
+  "contexte" : {
 ${contexte}
+  },
   "zones" : [ { "name" : "nom de la pièce", "counters" : { ${counters} : nombre }, "fields" : { ${extraFields} : texte } } ],${tableau}${checklist}
   "nonConformites" : "texte",
   "notesLibres" : "texte"
 }`;
 };
+
+/** Une note de visite : texte seul, ou { zone, text } quand la pièce est connue. */
+const visitNoteLine = (note, i) => {
+    if (note && typeof note === 'object') {
+        const text = String(note.text ?? '').trim();
+        if (!text) return '';
+        return `${i + 1}. ${note.zone ? `[${note.zone}] ` : ''}${text}`;
+    }
+    const text = String(note ?? '').trim();
+    return text ? `${i + 1}. ${text}` : '';
+};
+
+const visitNotesBlock = (notes) => (Array.isArray(notes) ? notes : [])
+    .map(visitNoteLine)
+    .filter(Boolean)
+    .join('\n');
+
+const SURVEY_EXTRACTION_RULES = `Tu remplis la fiche de relevé d'une visite avant devis, à la place de l'artisan qui parlait avec son client.
+
+TU REÇOIS :
+- la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage). Entre crochets, la pièce où l'artisan se trouvait quand il parlait ;
+- éventuellement ses notes tapées et les constats lus sur ses photos (entre crochets, la pièce de la photo).
+
+COMMENT REMPLIR :
+1. Remplis TOUT ce que la visite permet de remplir. Un champ vide oblige l'artisan à le ressaisir : c'est ce qu'on veut éviter.
+2. Pour les champs à choix, choisis l'option qui correspond à ce qui est dit, même avec d'autres mots : « on refait tout » → "Rénovation totale" ; « c'est du placo » → "Placo" ; « ils vivent dedans pendant les travaux » → "Logement occupé" ; « compteur Linky » → "Linky" ; « pas de terre » → "Absente — à créer". Recopie l'option EXACTEMENT telle qu'écrite dans le schéma.
+3. Les photos complètent l'existant : tableau (état, rangées, places libres, différentiels, disjoncteurs), terre, nature des murs, mode de pose, état du compteur. Une information lisible sur une photo se reporte dans la fiche.
+4. Pièces : une entrée par pièce évoquée, avec le nom le plus simple (« Cuisine », « Chambre 1 »…). Rattache chaque demande à sa pièce grâce aux crochets ou au contexte. Réutilise exactement les noms de pièces déjà créées quand c'est la même pièce.
+5. Compteurs : nombre d'éléments À POSER ou À REMPLACER dans la pièce, tel que dit (« trois prises » → 3, « une prise de chaque côté du lit » → 2). Les circuits spécialisés (four, plaque, lave-linge, chauffe-eau, VMC, borne…) vont dans le champ texte prévu, avec calibre et longueur si dits.
+6. Quand l'artisan ou le client se corrige, garde la DERNIÈRE version. Ignore ce que le client a écarté.
+7. Ne fabrique AUCUNE quantité, dimension, puissance ou valeur qui n'est ni dite ni lisible : dans ce cas omets le champ. Mieux vaut un champ vide qu'un chiffre inventé.
+8. Non-conformités : uniquement celles constatées (dites ou visibles), en phrases courtes. Notes libres : ce qui compte pour le devis et ne rentre nulle part ailleurs (marque ou gamme voulue, accès, horaires, animaux, matériel fourni par le client…).`;
 
 /**
  * Extrait un relevé structuré (trame) à partir de la conversation retranscrite
@@ -498,36 +533,128 @@ ${contexte}
  * au client. L'artisan relit et corrige avant chiffrage (voir mergeSurveyFill,
  * utils/surveyText.js, qui ne complète que les champs encore vides).
  *
- * Consigne stricte : ne jamais deviner une quantité non évoquée. Un relevé
- * partiel (des champs absents) vaut mieux qu'un relevé inventé qui fausserait
- * le chiffrage sans que l'artisan s'en rende compte.
+ * La consigne pousse à remplir tout ce qui est dit ou visible — y compris en
+ * reformulant vers les options de la trame — mais interdit toujours d'inventer
+ * une quantité : un champ vide vaut mieux qu'un chiffre faux.
  *
- * @param {string[]} voiceTranscripts
- * @param {string[]} photoAnalyses
+ * @param {Array<string|{zone: string, text: string}>} voiceTranscripts - notes, avec leur pièce si connue
+ * @param {Array<string|{zone: string, text: string}>} photoAnalyses - constats lus sur les photos
  * @param {object} template - trame du métier (getSurveyTemplate)
  * @param {string} [textNotes]
+ * @param {object} [options]
+ * @param {string[]} [options.knownZones] - pièces déjà créées dans la trame
  * @returns {Promise<object|null>} objet brut à passer à mergeSurveyFill, ou null si rien à extraire
  */
-export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyses = [], template, textNotes = '') => {
+export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyses = [], template, textNotes = '', options = {}) => {
     const parts = [];
-    if (voiceTranscripts.length > 0) {
-        parts.push('CONVERSATION AVEC LE CLIENT (retranscrite, peut contenir du bavardage) :\n'
-            + voiceTranscripts.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-    }
-    if (textNotes.trim()) parts.push('NOTES TEXTE :\n' + textNotes.trim());
-    if (photoAnalyses.length > 0) {
-        parts.push('PHOTOS :\n' + photoAnalyses.map((a, i) => `Photo ${i + 1}: ${a}`).join('\n'));
-    }
+    const notes = visitNotesBlock(voiceTranscripts);
+    if (notes) parts.push('CONVERSATION DE LA VISITE (retranscrite, peut contenir du bavardage) :\n' + notes);
+    if (String(textNotes ?? '').trim()) parts.push('NOTES TAPÉES PAR L\'ARTISAN :\n' + String(textNotes).trim());
+    const photos = (Array.isArray(photoAnalyses) ? photoAnalyses : [])
+        .map((p, i) => {
+            const line = visitNoteLine(p, i);
+            return line ? `Photo ${line}` : '';
+        })
+        .filter(Boolean);
+    if (photos.length) parts.push('CONSTATS SUR LES PHOTOS :\n' + photos.join('\n'));
     if (!parts.length) return null;
 
-    const systemPrompt = `Tu structures le relevé de visite d'un ${template?.label || 'artisan'} à partir d'une conversation `
-        + `avec le client et de descriptions de photos. N'invente et ne devine JAMAIS une quantité ou une valeur non `
-        + `explicitement évoquée ou clairement visible : dans le doute, omets le champ plutôt que d'écrire une valeur `
-        + `approximative — l'artisan complètera lui-même ce qui manque.\n\n${surveySchemaPrompt(template || {})}`;
+    const knownZones = (options.knownZones || []).map((z) => String(z ?? '').trim()).filter(Boolean);
+    if (knownZones.length) parts.push(`PIÈCES DÉJÀ CRÉÉES : ${knownZones.join(', ')}`);
+
+    const systemPrompt = `${SURVEY_EXTRACTION_RULES}\n\nFiche : ${template?.label || 'relevé de visite'}.\n\n`
+        + `Rappel : n'invente et ne devine jamais une quantité non dite.\n\n${surveySchemaPrompt(template || {})}`;
 
     const rawResponse = await callAiProxy({ systemPrompt, userMessage: parts.join('\n\n') });
     const parsed = extractJsonObject(rawResponse);
     return parsed && typeof parsed === 'object' ? parsed : null;
+};
+
+/**
+ * Consigne du résumé « prêt pour devis » : ce que l'artisan colle dans son
+ * projet Claude de chiffrage (skill devis électrique). Le format suit ce que
+ * ce projet attend — une liste de travaux et de matériel, pièce par pièce,
+ * sans prix — et rien de ce qui n'aide pas à chiffrer.
+ */
+const DEVIS_BRIEF_PROMPT = `Tu prépares, pour un artisan électricien, le résumé de sa visite avant devis. Ce résumé sera collé tel quel dans l'outil qui rédige ses devis : il doit contenir tout ce qui sert à chiffrer, et rien d'autre.
+
+SOURCES (par ordre de priorité) :
+1. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix.
+2. La conversation retranscrite (fautes de reconnaissance vocale, bavardage, hésitations) : entre crochets, la pièce où elle a été dite.
+3. Les notes tapées et les constats lus sur les photos.
+
+RÈGLES :
+- N'invente RIEN : aucune quantité, longueur, calibre ou marque qui ne soit dit, relevé ou visible. Aucun prix.
+- Quand l'artisan ou le client se corrige, garde la dernière version ; ignore ce qui a été écarté.
+- Quantités chiffrées et regroupées par pièce. Vocabulaire du métier, désignations génériques (pas de références fabricant, sauf si le client a imposé une marque : dis-le dans CHOIX DU CLIENT).
+- Phrases courtes, listes à tirets, pas de markdown (ni #, ni **).
+- Une rubrique sans information est omise, sauf POINTS À CONFIRMER.
+
+FORMAT EXACT :
+Fais-moi le devis à partir de cette visite.
+
+CLIENT : nom — adresse du chantier (si connus)
+OBJET : la demande du client en une phrase
+
+TRAVAUX DEMANDÉS (pièce par pièce)
+- Pièce : quantité + désignation ; quantité + désignation…
+
+TABLEAU, ALIMENTATION, TERRE
+- existant constaté et travaux demandés (rangées, places libres, différentiels, compteur, puissance, distance compteur-tableau, terre, GTL)
+
+CONDITIONS DE CHANTIER (temps de main d'œuvre)
+- murs, mode de pose, saignées et rebouchage, hauteur sous plafond, accès, logement occupé ou vide
+
+CHOIX DU CLIENT
+- gamme d'appareillage, marque imposée, matériel fourni par le client, délai, budget évoqué
+
+NON-CONFORMITÉS ET RÉSERVES À ÉCRIRE SUR LE DEVIS
+- …
+
+OPTIONS ÉVOQUÉES (hors total)
+- ce dont le client a parlé sans le décider
+
+POINTS À CONFIRMER AVANT CHIFFRAGE
+- ce qui manque ou reste flou et change le prix (ou « Aucun »)`;
+
+/**
+ * Résumé de la visite prêt à coller dans le projet de chiffrage de l'artisan.
+ *
+ * @param {object} input
+ * @param {string} [input.surveyText] - relevé structuré (buildSurveyText)
+ * @param {Array<string|{zone: string, text: string}>} [input.transcripts]
+ * @param {Array<string|{zone: string, text: string}>} [input.photoAnalyses]
+ * @param {string} [input.textNotes]
+ * @param {string[]} [input.missing] - points essentiels non relevés
+ * @param {object} [input.meta] - { clientName, address }
+ * @returns {Promise<string>} texte brut
+ */
+export const summarizeVisitForQuote = async ({
+    surveyText = '', transcripts = [], photoAnalyses = [], textNotes = '', missing = [], meta = {},
+} = {}) => {
+    const parts = [];
+    const entete = [
+        meta.clientName && `Client : ${meta.clientName}`,
+        meta.address && `Adresse du chantier : ${meta.address}`,
+    ].filter(Boolean).join('\n');
+    if (entete) parts.push(entete);
+    if (String(surveyText).trim()) parts.push('RELEVÉ STRUCTURÉ :\n' + String(surveyText).trim());
+    const notes = visitNotesBlock(transcripts);
+    if (notes) parts.push('CONVERSATION DE LA VISITE :\n' + notes);
+    if (String(textNotes ?? '').trim()) parts.push('NOTES TAPÉES :\n' + String(textNotes).trim());
+    const photos = visitNotesBlock(photoAnalyses);
+    if (photos) parts.push('CONSTATS SUR LES PHOTOS :\n' + photos);
+    if (!parts.some((p) => p !== entete)) throw new Error('Rien à résumer : la visite ne contient encore ni relevé, ni note, ni photo analysée.');
+    const gaps = (missing || []).map((m) => (typeof m === 'string' ? m : m?.label)).filter(Boolean);
+    if (gaps.length) parts.push('NON RELEVÉ PENDANT LA VISITE : ' + gaps.join(' ; '));
+
+    const rawResponse = await callAiProxy({ systemPrompt: DEVIS_BRIEF_PROMPT, userMessage: parts.join('\n\n') });
+    const text = String(rawResponse ?? '')
+        .replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '')
+        .replace(/\*\*/g, '')
+        .trim();
+    if (!text) throw new Error("L'IA n'a rien renvoyé. Réessayez dans un instant.");
+    return text;
 };
 
 /**

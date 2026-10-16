@@ -2,18 +2,24 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useInvalidateCache } from '../hooks/useDataCache';
+import { mergeAiPreferences } from '../utils/aiPreferences';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile, usePriceLibrary } from '../hooks/useDataCache';
 import { answeredPairs, buildSitePhotoPrompts } from '../utils/quoteMethod';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import { generateQuoteFromSiteVisit, extractSurveyFromVisit } from '../utils/aiService';
+import { generateQuoteFromSiteVisit, extractSurveyFromVisit, summarizeVisitForQuote } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
 import { transcribeBlob } from '../utils/transcribeAudio';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitAudioPath, visitReportNumber } from '../utils/visitArchive';
-import { buildPredevisReport } from '../utils/predevisReport';
+import { buildPredevisReport, findMissingEssentials } from '../utils/predevisReport';
 import { getSurveyTemplate } from '../constants/surveyTemplates';
-import { createEmptySurvey, buildSurveyText, hasSurveyContent, mergeSurveyFill } from '../utils/surveyText';
+import {
+    createEmptySurvey, buildSurveyText, hasSurveyContent, mergeSurveyFill, extractVisitIdentity, countSurveyValues,
+} from '../utils/surveyText';
+import { zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes } from '../utils/devisBrief';
+import DevisBriefSheet from './DevisBriefSheet';
 import SurveyForm from './SurveyForm';
 import VisitQuestionsCard from './VisitQuestionsCard';
 import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
@@ -45,7 +51,7 @@ import {
     ArrowLeft, Mic, MicOff, Camera, Image as ImageIcon, Trash2,
     Loader2, CheckCircle2, AlertCircle, Sparkles, Clock, ChevronDown,
     X, TrendingUp, MapPin, AlignLeft, FilePlus, FileText, ChevronUp, Lightbulb,
-    ClipboardList, History, Zap,
+    ClipboardList, History, Zap, Wand2,
 } from 'lucide-react';
 
 // Brouillon de visite exploitable retrouvé sur l'appareil, ou null.
@@ -73,6 +79,23 @@ const photoAsFile = async (photo) => {
     return new File([blob], photo.name || 'photo.jpg', { type: blob.type || 'image/jpeg' });
 };
 
+// Analyse des photos : quelques appels en parallèle, pas dix d'un coup (le
+// serveur limite le débit) ni un par un (dix photos = plus d'une minute).
+const PHOTO_ANALYSIS_CONCURRENCY = 3;
+const runPool = async (items, worker, size) => {
+    let next = 0;
+    const runners = Array.from({ length: Math.min(size, items.length) }, async () => {
+        while (next < items.length) {
+            const item = items[next];
+            next += 1;
+            await worker(item);
+        }
+    });
+    await Promise.all(runners);
+};
+
+const wait = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 const omitKey = (obj, key) => Object.fromEntries(Object.entries(obj).filter(([k]) => k !== String(key)));
 
 // Horloge du fil de visite. Impure : appelée depuis les gestionnaires
@@ -92,6 +115,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     const confirm = useConfirm();
     const { data: profile } = useUserProfile();
     const { data: priceLibrary } = usePriceLibrary();
+    const { invalidateProfile } = useInvalidateCache();
 
     const [step, setStep] = useState('capture'); // 'capture' | 'processing' | 'result'
     const [mode, setMode] = useState('express'); // 'express' (visite en cours) | 'detail' (mise au propre)
@@ -132,9 +156,23 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     const surveyTemplate = getSurveyTemplate(profile?.trade);
     const [survey, setSurvey] = useState(createEmptySurvey);
     const [showSurvey, setShowSurvey] = useState(true);
-    // Pré-remplissage de la trame par l'IA à la fin d'une visite express
-    // (voir handleFinishVisit) : true pendant l'extraction.
+    // Pré-remplissage de la trame par l'IA (voir runAutoFill) : true pendant
+    // l'extraction, avec l'étape en cours pour l'affichage.
     const [extractingSurvey, setExtractingSurvey] = useState(false);
+    const [fillStage, setFillStage] = useState('');
+    const autoFillingRef = useRef(false);
+
+    // Constats lus sur chaque photo : { [idPhoto]: texte }. Analysée une
+    // fois, une photo sert au remplissage du relevé, au résumé et au
+    // chiffrage sans repasser par l'IA vision.
+    const [photoNotes, setPhotoNotes] = useState({});
+    const photoNotesRef = useRef(photoNotes);
+    useEffect(() => { photoNotesRef.current = photoNotes; }, [photoNotes]);
+
+    // Résumé prêt pour devis, à coller dans le projet Claude de chiffrage.
+    const [devisBrief, setDevisBrief] = useState('');
+    const [briefOpen, setBriefOpen] = useState(false);
+    const [briefLoading, setBriefLoading] = useState(false);
 
     const [voiceTranscripts, setVoiceTranscripts] = useState({}); // { [idNoteVocale]: texte }
     // Avancement de la transcription de chaque note : { [id]: { state, error, retryable } }
@@ -183,6 +221,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         photos: draftPhotos(photos),
         voiceNotes: draftVoiceNotes(voiceNotes),
         transcripts: voiceTranscripts,
+        photoNotes: keepPhotoNotes(photoNotes, photos.filter(p => p.path)),
+        devisBrief,
         visitReportId,
         visitDate: visitDateRef.current ? visitDateRef.current.toISOString() : null,
     });
@@ -196,7 +236,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         if (!hasVisitContent) return undefined;
         const timer = setTimeout(() => saveVisitDraft(buildDraft()), 600);
         return () => clearTimeout(timer);
-    }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceNotes, voiceTranscripts, visitReportId]);
+    }, [step, clientId, clientName, address, textNotes, survey, capture, photos, voiceNotes, voiceTranscripts, visitReportId, photoNotes, devisBrief]);
 
     // ── Visites à finir, enregistrées sur le serveur ───────────────────────
     // Commencée sur le téléphone, finie sur l'ordinateur du bureau : les
@@ -267,6 +307,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
             uploadedPhotosRef.current = restoredPhotos.map(p => ({ url: p.url, path: p.path, name: p.name || 'photo.jpg' }));
         }
         if (draft.transcripts && typeof draft.transcripts === 'object') setVoiceTranscripts(draft.transcripts);
+        if (draft.photoNotes && typeof draft.photoNotes === 'object') setPhotoNotes(draft.photoNotes);
+        if (typeof draft.devisBrief === 'string') setDevisBrief(draft.devisBrief);
         if (draft.visitReportId) {
             setVisitReportId(draft.visitReportId);
             visitReportIdRef.current = draft.visitReportId;
@@ -326,6 +368,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     useEffect(() => { voiceNotesRef.current = voiceNotes; }, [voiceNotes]);
     const voiceStatusRef = useRef(voiceStatus);
     useEffect(() => { voiceStatusRef.current = voiceStatus; }, [voiceStatus]);
+    const voiceTranscriptsRef = useRef(voiceTranscripts);
+    useEffect(() => { voiceTranscriptsRef.current = voiceTranscripts; }, [voiceTranscripts]);
     const transcribeQueueRef = useRef([]);
     const transcribingRef = useRef(false);
 
@@ -760,6 +804,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         clientId,
         clientName,
         address,
+        photoNotes,
+        devisBrief,
     });
     const lastSavedSignatureRef = useRef(null);
     const saveVisitRef = useRef(saveVisit);
@@ -789,41 +835,182 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         }
     };
 
+    // ── Remplissage automatique du relevé ──────────────────────────────────
+    // Ce que l'artisan a dit et photographié remplit la trame : il ne
+    // ressaisit pas au bureau ce que l'enregistrement contient déjà.
+
+    // Dernier état connu, pour les traitements longs (attente des
+    // transcriptions, appels IA) qui ne doivent pas travailler sur un
+    // relevé vieux d'une minute.
+    const latestRef = useRef({});
+    useEffect(() => {
+        latestRef.current = { survey, textNotes, address, clientName, capture };
+    }, [survey, textNotes, address, clientName, capture]);
+
+    const transcriptionsBusy = () => transcribingRef.current
+        || transcribeQueueRef.current.length > 0
+        || voiceNotesRef.current.some((n) => ['pending', 'transcribing'].includes(voiceStatusRef.current[n.id]?.state));
+
     /**
-     * Fin de la visite express : la conversation captée (souvent décousue)
-     * est passée à l'IA pour pré-remplir la trame — pièces, compteurs,
-     * tableau — au lieu de laisser l'artisan deviner les quantités à partir
-     * d'un texte en vrac plus tard. Bascule sur « Mise au propre » pour la
-     * relecture ; le chiffrage (handleAnalyze) reste un geste volontaire,
-     * après vérification.
+     * Attend la fin des transcriptions en cours : le dernier segment se ferme
+     * à l'arrêt du micro, juste avant « Terminer ». Sans cette attente, le
+     * remplissage partait sans lui — souvent la partie la plus utile.
+     * @returns {Promise<boolean>} true si tout est transcrit
+     */
+    const waitForTranscriptions = async (timeoutMs = 90000) => {
+        if (visitRecorder.isRecording) await visitRecorder.stop();
+        await Promise.all([...persistingSegmentsRef.current]);
+        await wait(50); // laisse la note fraîchement persistée rejoindre la file
+        const started = nowMs();
+        while (transcriptionsBusy() && nowMs() - started < timeoutMs) {
+            await wait(400);
+        }
+        return !transcriptionsBusy();
+    };
+
+    /**
+     * Lit les photos pas encore analysées (constats utiles au devis) et
+     * garde le résultat : chaque photo ne passe qu'une fois par l'IA vision.
+     * @returns {Promise<{findings: {zone: string, text: string}[], failed: number, failure: string}>}
+     */
+    const analyzePhotos = async (list = photosRef.current) => {
+        const known = photoNotesRef.current;
+        const todo = list.filter((p) => known[p.id] === undefined);
+        const fresh = {};
+        let failed = 0;
+        let failure = '';
+        await runPool(todo, async (photo) => {
+            try {
+                const imageBase64 = await imageFileToBase64(await photoAsFile(photo));
+                const { data, error: fnErr } = await supabase.functions.invoke('plan-vision', {
+                    body: {
+                        imageBase64,
+                        mediaType: photo.mediaType,
+                        ...buildSitePhotoPrompts(profile?.trade),
+                    },
+                });
+                if (fnErr || data?.error) throw new Error(data?.error || fnErr.message);
+                fresh[photo.id] = String(data?.text ?? '').trim();
+            } catch (photoErr) {
+                failed += 1;
+                failure = failure || photoErr?.message || '';
+                console.warn('Analyse de photo impossible :', photoErr?.message || photoErr);
+            }
+        }, PHOTO_ANALYSIS_CONCURRENCY);
+        const all = { ...known, ...fresh };
+        if (Object.keys(fresh).length) {
+            photoNotesRef.current = all;
+            setPhotoNotes(all);
+        }
+        return { findings: photoFindings(list, all, photoZones(latestRef.current.capture)), failed, failure };
+    };
+
+    /**
+     * Remplit la trame à partir de tout ce que la visite contient : notes
+     * vocales (rattachées à leur pièce), notes tapées, constats photo. Ne
+     * complète que les champs encore vides — ce que l'artisan a saisi garde
+     * la main (voir mergeSurveyFill).
+     */
+    const runAutoFill = async () => {
+        if (autoFillingRef.current) return;
+        autoFillingRef.current = true;
+        setExtractingSurvey(true);
+        try {
+            setFillStage('Transcription des derniers enregistrements…');
+            const allTranscribed = await waitForTranscriptions();
+            setFillStage('Lecture des photos…');
+            const { findings, failed, failure } = await analyzePhotos(photosRef.current);
+            const transcripts = zonedTranscripts(voiceNotesRef.current, voiceTranscriptsRef.current);
+            const { textNotes: typed, survey: current } = latestRef.current;
+            if (!transcripts.length && !findings.length && !String(typed ?? '').trim()) {
+                toast.info(allTranscribed
+                    ? 'Rien à analyser pour l\'instant — enregistrez une note vocale ou prenez une photo.'
+                    : 'Les notes vocales sont encore en cours de transcription — réessayez dans un instant.');
+                return;
+            }
+            setFillStage('Remplissage du relevé…');
+            const extracted = await extractSurveyFromVisit(transcripts, findings, surveyTemplate, typed, {
+                knownZones: (current.zones || []).map((z) => z.name),
+            });
+            if (!extracted) return;
+
+            const before = latestRef.current.survey;
+            const merged = mergeSurveyFill(before, extracted, surveyTemplate);
+            setSurvey(merged);
+            const identity = extractVisitIdentity(extracted);
+            if (identity.adresse && !String(latestRef.current.address ?? '').trim()) setAddress(identity.adresse);
+            if (identity.nom && !String(latestRef.current.clientName ?? '').trim()) setClientName(identity.nom);
+
+            const added = Math.max(0, countSurveyValues(merged) - countSurveyValues(before));
+            const missing = findMissingEssentials(merged, surveyTemplate);
+            toast.success(
+                added > 0
+                    ? `${added} information${added > 1 ? 's' : ''} reportée${added > 1 ? 's' : ''} dans le relevé — vérifiez avant de chiffrer.`
+                    : 'Relevé déjà à jour avec la visite.',
+                missing.length ? { description: `Encore à compléter : ${missing.map((m) => m.label).join(', ')}.` } : undefined,
+            );
+            if (!allTranscribed) toast.warning('Des notes vocales sont encore en cours de transcription — relancez « Remplir le relevé » quand elles sont prêtes.');
+            if (failed) {
+                toast.warning(`${failed} photo${failed > 1 ? 's' : ''} non analysée${failed > 1 ? 's' : ''} — le relevé est rempli sans elle${failed > 1 ? 's' : ''}.`,
+                    failure ? { description: failure } : undefined);
+            }
+        } catch (err) {
+            console.warn('Pré-remplissage du relevé impossible :', err.message);
+            toast.error("Le relevé n'a pas pu être pré-rempli automatiquement — réessayez ou complétez-le à la main.");
+        } finally {
+            autoFillingRef.current = false;
+            setExtractingSurvey(false);
+            setFillStage('');
+        }
+    };
+
+    /**
+     * Fin de la visite express : bascule sur « Mise au propre » et remplit
+     * la trame à partir de la visite. Le chiffrage (handleAnalyze) reste un
+     * geste volontaire, après vérification.
      */
     const handleFinishVisit = async () => {
-        if (visitRecorder.isRecording) visitRecorder.stop();
         if (!canAnalyze) {
+            if (visitRecorder.isRecording) visitRecorder.stop();
             toast.error('Rien à analyser — ajoutez une note vocale, une photo ou du texte.');
             return;
         }
         setMode('detail');
-        const transcripts = voiceNotes
-            .map((n) => voiceTranscripts[n.id])
-            .filter((t) => String(t ?? '').trim() !== '');
-        if (!transcripts.length && !textNotes.trim()) return; // rien à extraire, la trame reste telle quelle
-        setExtractingSurvey(true);
+        await runAutoFill();
+    };
+
+    // ── Résumé pour devis ──────────────────────────────────────────────────
+
+    const handleBuildBrief = async () => {
+        setBriefOpen(true);
+        if (briefLoading) return;
+        setBriefLoading(true);
         try {
-            // Les photos sont déjà analysées lors du chiffrage (handleAnalyze) :
-            // les repasser ici doublerait l'appel IA vision pour un gain nul —
-            // la structuration du relevé vient presque toujours de ce qui est dit.
-            const extracted = await extractSurveyFromVisit(transcripts, [], surveyTemplate, textNotes);
-            if (extracted) {
-                setSurvey((prev) => mergeSurveyFill(prev, extracted, surveyTemplate));
-                toast.success('Relevé pré-rempli à partir de la visite — vérifiez avant de chiffrer.');
-            }
+            if (transcriptionsBusy()) toast.info('Des notes vocales sont encore en cours de transcription : elles ne figureront pas dans ce résumé.');
+            const { findings } = await analyzePhotos(photosRef.current);
+            const { survey: current, textNotes: typed, clientName: name, address: addr } = latestRef.current;
+            const text = await summarizeVisitForQuote({
+                surveyText: buildSurveyText(current, surveyTemplate),
+                transcripts: zonedTranscripts(voiceNotesRef.current, voiceTranscriptsRef.current),
+                photoAnalyses: findings,
+                textNotes: typed,
+                missing: findMissingEssentials(current, surveyTemplate),
+                meta: { clientName: name, address: addr },
+            });
+            setDevisBrief(text);
         } catch (err) {
-            console.warn('Pré-remplissage du relevé impossible :', err.message);
-            toast.error("Le relevé n'a pas pu être pré-rempli automatiquement — complétez-le à la main.");
+            console.warn('Résumé pour devis impossible :', err.message);
+            toast.error(err.message || 'Résumé impossible — réessayez dans un instant.');
         } finally {
-            setExtractingSurvey(false);
+            setBriefLoading(false);
         }
+    };
+
+    const claudeProjectUrl = profile?.ai_preferences?.claude_project_url || '';
+    const handleSaveProjectUrl = async (url) => {
+        if (!user) return;
+        await mergeAiPreferences(user.id, { claude_project_url: url || null });
+        invalidateProfile();
     };
 
     const filteredClients = clients.filter(c =>
@@ -887,26 +1074,15 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         setStep('processing');
         setError(null);
         try {
-            const transcripts = [];
-
-            // Notes déjà transcrites depuis le compte rendu : on ne repasse
-            // pas une deuxième fois par le serveur.
-            const alreadyTranscribed = voiceNotes
-                .map((n) => voiceTranscripts[n.id])
-                .filter((t) => String(t ?? '').trim() !== '');
-            if (alreadyTranscribed.length === voiceNotes.length && voiceNotes.length > 0) {
-                transcripts.push(...alreadyTranscribed);
-            } else if (voiceNotes.length > 0) {
+            // Notes encore sans texte : transcrites ici, une dernière fois.
+            const collected = {};
+            const missingText = voiceNotes.filter((n) => voiceTranscripts[n.id] === undefined && n.blob);
+            if (missingText.length > 0) {
                 setActivePhase('voice');
-                const collected = {};
-                for (const note of voiceNotes) {
-                    const known = voiceTranscripts[note.id];
-                    if (known !== undefined) { if (String(known).trim()) transcripts.push(known); continue; }
-                    if (!note.blob) continue; // note reprise d'un brouillon : sa transcription est en cours (voir redownloadAndRetry)
+                for (const note of missingText) {
                     try {
                         const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId });
                         collected[note.id] = transcript;
-                        if (transcript) transcripts.push(transcript);
                         markVoiceNoteDone(note);
                     } catch (noteErr) {
                         console.warn('Transcription en échec, note ignorée :', noteErr.message);
@@ -916,27 +1092,17 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 if (Object.keys(collected).length) setVoiceTranscripts(prev => ({ ...prev, ...collected }));
             }
 
+            // Chaque note garde sa pièce : « trois prises ici » n'a de sens
+            // qu'avec la pièce où c'est dit.
+            const transcripts = zonedTranscripts(voiceNotes, { ...voiceTranscripts, ...collected }).map(zonedLine);
             if (textNotes.trim()) transcripts.push(textNotes.trim());
 
-            const photoAnalyses = [];
+            // Photos déjà lues au remplissage du relevé : pas de second passage.
+            let photoAnalyses = [];
             if (photos.length > 0) {
                 setActivePhase('photos');
-                for (const photo of photos) {
-                    try {
-                        const imageBase64 = await imageFileToBase64(await photoAsFile(photo));
-                        const { data, error: fnErr } = await supabase.functions.invoke('plan-vision', {
-                            body: {
-                                imageBase64,
-                                mediaType: photo.mediaType,
-                                ...buildSitePhotoPrompts(profile?.trade),
-                            }
-                        });
-                        if (fnErr) { console.warn('Photo analysis skipped:', fnErr.message); continue; }
-                        if (data?.text) photoAnalyses.push(data.text);
-                    } catch (photoErr) {
-                        console.warn('Photo analysis error, skipping:', photoErr);
-                    }
-                }
+                const { findings } = await analyzePhotos(photos);
+                photoAnalyses = findings.map(zonedLine);
             }
 
             setActivePhase('quote');
@@ -1090,6 +1256,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     // ── Derived ────────────────────────────────────────────────────────────
 
     const completeness = surveyCompleteness(survey, surveyTemplate);
+    const transcribedCount = voiceNotes.filter((n) => String(voiceTranscripts[n.id] ?? '').trim()).length;
 
     // Assemblé à chaque rendu : quelques concaténations sur des données de
     // taille modeste, et une identité stable ne servirait qu'à mémoïser un
@@ -1116,6 +1283,10 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 return text ? `${n.zone ? `${n.zone} — ` : ''}${text}` : '';
             })
             .filter(Boolean),
+        // Ce que l'IA a lu sur les photos : archivé avec la visite.
+        photoNotes: photoFindings(photos, photoNotes, photoZones(capture)).map(zonedLine),
+        // Le résumé pour devis, s'il a été fait, ouvre le compte rendu.
+        summaryText: devisBrief,
     };
 
     const photoZonesById = photoZones(capture);
@@ -1340,12 +1511,43 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
 
                 {step === 'capture' && mode === 'detail' && (
                     <div className="p-4 space-y-5 pb-28">
-                        {extractingSurvey && (
-                            <div className="flex items-center gap-2 p-3 bg-violet-50 border border-violet-200 rounded-2xl text-sm font-semibold text-violet-700">
-                                <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                                Analyse de la visite — remplissage automatique du relevé…
+                        {/* La visite remplit le relevé, puis se résume pour le devis */}
+                        <div className="p-3 bg-white border border-violet-200 rounded-2xl space-y-2">
+                            {extractingSurvey ? (
+                                <div className="flex items-center gap-2 py-1 text-sm font-semibold text-violet-700">
+                                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                                    {fillStage || 'Analyse de la visite…'}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-gray-500">
+                                    {[
+                                        `${transcribedCount}/${voiceNotes.length} note${voiceNotes.length > 1 ? 's' : ''} transcrite${transcribedCount > 1 ? 's' : ''}`,
+                                        `${photos.length} photo${photos.length > 1 ? 's' : ''}`,
+                                        `relevé ${completeness.done}/${completeness.total}`,
+                                    ].join(' · ')}
+                                </p>
+                            )}
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={runAutoFill}
+                                    disabled={extractingSurvey || !canAnalyze}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50"
+                                >
+                                    <Wand2 className="w-4 h-4 flex-shrink-0" />
+                                    Remplir le relevé
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => (devisBrief && !briefLoading ? setBriefOpen(true) : handleBuildBrief())}
+                                    disabled={extractingSurvey || !canAnalyze}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-violet-300 text-violet-700 text-sm font-semibold rounded-xl hover:bg-violet-50 disabled:opacity-50"
+                                >
+                                    <FileText className="w-4 h-4 flex-shrink-0" />
+                                    Résumé pour devis
+                                </button>
                             </div>
-                        )}
+                        </div>
 
                         {/* Address */}
                         <div>
@@ -1785,6 +1987,13 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 {step === 'result' && (
                     <div className="space-y-3">
                         <button
+                            onClick={() => (devisBrief && !briefLoading ? setBriefOpen(true) : handleBuildBrief())}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-violet-300 text-violet-700 font-semibold rounded-xl hover:bg-violet-50 transition-colors active:scale-[0.98]"
+                        >
+                            <ClipboardList className="w-5 h-5" />
+                            Résumé pour mon projet devis
+                        </button>
+                        <button
                             onClick={() => handleCreateDevis(false)}
                             className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors active:scale-[0.98]"
                         >
@@ -1822,6 +2031,17 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 capture="environment"
                 className="hidden"
                 onChange={e => { handleExpressPhotos(e.target.files); e.target.value = ''; }}
+            />
+
+            <DevisBriefSheet
+                open={briefOpen}
+                onClose={() => setBriefOpen(false)}
+                text={devisBrief}
+                onChange={setDevisBrief}
+                loading={briefLoading}
+                onRegenerate={handleBuildBrief}
+                projectUrl={claudeProjectUrl}
+                onSaveProjectUrl={handleSaveProjectUrl}
             />
 
             <PhotoLightbox

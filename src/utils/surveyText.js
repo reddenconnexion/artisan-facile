@@ -228,28 +228,81 @@ export const SURVEY_AI_INSTRUCTION =
 // de chips, identifiants de compteurs/checklist) : une réponse mal formée ou
 // hors schéma est silencieusement ignorée plutôt que de corrompre l'état.
 
-const sanitizeChipsValue = (raw, field) => {
-    const allowed = new Set(field.options || []);
-    if (field.multi) {
-        const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []);
-        const filtered = arr.filter((v) => allowed.has(v));
-        return filtered.length ? filtered : undefined;
-    }
-    return typeof raw === 'string' && allowed.has(raw) ? raw : undefined;
+// La réponse de l'IA ne reprend pas toujours les libellés au caractère
+// près (« maison », « linky », « À prévoir »…) : une valeur juste mais mal
+// orthographiée était jetée et le champ restait vide. On compare donc sans
+// accents, casse ni ponctuation, et on accepte un libellé abrégé.
+export const normalizeLabel = (value) => String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const matchOption = (raw, options) => {
+    if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+    const wanted = normalizeLabel(raw);
+    if (!wanted) return undefined;
+    const exact = options.find((o) => normalizeLabel(o) === wanted);
+    if (exact) return exact;
+    // « A prevoir » → « À prévoir (à ma charge) » ; « Linky (compteur) » → « Linky ».
+    const partial = options.filter((o) => {
+        const opt = normalizeLabel(o);
+        return opt.startsWith(`${wanted} `) || wanted.startsWith(`${opt} `);
+    });
+    return partial.length === 1 ? partial[0] : undefined;
 };
 
-const sanitizeContexte = (rawContexte, template) => {
+const sanitizeChipsValue = (raw, field) => {
+    const options = field.options || [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    const matched = [...new Set(list.map((v) => matchOption(v, options)).filter(Boolean))];
+    if (field.multi) return matched.length ? matched : undefined;
+    return matched[0];
+};
+
+/** « 45 m² », « 45,5 », 45 → nombre ; sinon undefined. */
+export const parseLooseNumber = (raw) => {
+    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : undefined;
+    if (typeof raw !== 'string') return undefined;
+    const m = raw.replace(/\s/g, '').match(/-?\d+(?:[.,]\d+)?/);
+    if (!m) return undefined;
+    const n = Number(m[0].replace(',', '.'));
+    return Number.isFinite(n) ? n : undefined;
+};
+
+/** Texte court : chaîne, nombre ou liste de chaînes ; undefined si vide. */
+const looseText = (raw) => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+    if (Array.isArray(raw)) {
+        const joined = raw.filter((v) => typeof v === 'string' || typeof v === 'number').map(String)
+            .map((v) => v.trim()).filter(Boolean).join(', ');
+        return joined || undefined;
+    }
+    return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+};
+
+const sanitizeContexte = (rawContexte, template, rawRoot = {}) => {
     const out = {};
+    const flat = rawContexte && typeof rawContexte === 'object' ? rawContexte : {};
     for (const group of template.contextGroups || []) {
-        const rawGroup = rawContexte?.[group.key];
-        if (!rawGroup || typeof rawGroup !== 'object') continue;
+        // Groupe attendu sous « contexte » ; repli sur la racine de la réponse,
+        // là où l'ancien schéma du prompt le plaçait.
+        const isGroup = (g) => g && typeof g === 'object' && !Array.isArray(g);
+        const rawGroup = isGroup(flat[group.key]) ? flat[group.key]
+            : isGroup(rawRoot?.[group.key]) ? rawRoot[group.key]
+            : {};
         const groupOut = {};
         for (const field of group.fields || []) {
-            const raw = rawGroup[field.key];
+            // Le modèle oublie parfois le niveau du groupe : on accepte le
+            // champ posé directement dans « contexte », voire à la racine.
+            let raw = rawGroup[field.key];
+            if (raw === undefined && flat[field.key] !== undefined && typeof flat[field.key] !== 'object') raw = flat[field.key];
+            if (raw === undefined && Array.isArray(flat[field.key])) raw = flat[field.key];
+            if (raw === undefined && rawRoot && rawRoot[field.key] !== undefined) raw = rawRoot[field.key];
             let value;
             if (field.type === 'chips') value = sanitizeChipsValue(raw, field);
-            else if (field.type === 'number') { const n = Number(raw); value = Number.isFinite(n) ? n : undefined; }
-            else value = typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+            else if (field.type === 'number') value = parseLooseNumber(raw);
+            else value = looseText(raw);
             if (value !== undefined) groupOut[field.key] = value;
         }
         if (Object.keys(groupOut).length) out[group.key] = groupOut;
@@ -265,15 +318,16 @@ const sanitizeZones = (rawZones, template) => {
         .filter((z) => z && typeof z.name === 'string' && z.name.trim())
         .map((z) => {
             const counters = {};
-            for (const [k, v] of Object.entries(z.counters || {})) {
+            for (const [k, v] of Object.entries(z.counters && typeof z.counters === 'object' ? z.counters : {})) {
                 if (!counterKeys.has(k)) continue;
-                const n = Number(v);
-                if (Number.isFinite(n) && n > 0) counters[k] = Math.round(n);
+                const n = parseLooseNumber(v);
+                if (n !== undefined && n > 0) counters[k] = Math.round(n);
             }
             const fields = {};
-            for (const [k, v] of Object.entries(z.fields || {})) {
+            for (const [k, v] of Object.entries(z.fields && typeof z.fields === 'object' ? z.fields : {})) {
                 if (!fieldKeys.has(k)) continue;
-                if (typeof v === 'string' && v.trim()) fields[k] = v.trim();
+                const text = looseText(v);
+                if (text) fields[k] = text;
             }
             return { name: z.name.trim(), counters, fields };
         });
@@ -282,27 +336,40 @@ const sanitizeZones = (rawZones, template) => {
 const sanitizeTableau = (raw, template) => {
     if (!template.hasTableau || !raw || typeof raw !== 'object') return {};
     const out = {};
-    const etats = new Set((template.tableauEtats || []).map((e) => e.value));
-    if (typeof raw.etat === 'string' && etats.has(raw.etat)) out.etat = raw.etat;
+    const etats = template.tableauEtats || [];
+    if (raw.etat !== undefined) {
+        // Valeur technique (« a_remplacer ») ou libellé (« À remplacer »).
+        const wanted = normalizeLabel(raw.etat);
+        const etat = etats.find((e) => normalizeLabel(e.value) === wanted || normalizeLabel(e.label) === wanted);
+        if (etat) out.etat = etat.value;
+    }
     for (const key of ['rangees', 'placesDispo', 'disjoncteurs', 'observations']) {
-        if (typeof raw[key] === 'string' && raw[key].trim()) out[key] = raw[key].trim();
+        const text = looseText(raw[key]);
+        if (text) out[key] = text;
     }
     if (typeof raw.renovationComplete === 'boolean') out.renovationComplete = raw.renovationComplete;
     for (const key of ['diffTypeA', 'diffTypeAC']) {
-        const n = Number(raw[key]);
-        if (Number.isFinite(n) && n > 0) out[key] = n;
+        const n = parseLooseNumber(raw[key]);
+        if (n !== undefined && n > 0) out[key] = Math.round(n);
     }
     return out;
 };
 
+const CHECKLIST_STATES = { verifie: 'verifie', prevu: 'prevu', 'a prevoir': 'prevu', prevoir: 'prevu' };
+
 const sanitizeChecklist = (raw, template) => {
     const out = {};
     const ids = new Set((template.checklist || []).map((c) => c.id));
-    for (const [k, v] of Object.entries(raw || {})) {
-        if (ids.has(k) && (v === 'verifie' || v === 'prevu')) out[k] = v;
+    for (const [k, v] of Object.entries(raw && typeof raw === 'object' ? raw : {})) {
+        const state = CHECKLIST_STATES[normalizeLabel(v)];
+        if (ids.has(k) && state) out[k] = state;
     }
     return out;
 };
+
+// Noms de pièce comparés sans casse, accents ni article : « la cuisine »
+// retrouve « Cuisine » au lieu de créer une seconde pièce.
+const zoneKey = (name) => normalizeLabel(name).replace(/^(la|le|les|l|du|de la|dans la|dans le)\s+/, '');
 
 /**
  * Fusionne un relevé extrait par l'IA dans le relevé existant, sans jamais
@@ -321,16 +388,16 @@ export const mergeSurveyFill = (existing, rawExtracted, template) => {
 
     const demande = survey.demande?.trim()
         ? survey.demande
-        : (typeof rawExtracted.demande === 'string' && rawExtracted.demande.trim() ? rawExtracted.demande.trim() : survey.demande);
+        : (looseText(rawExtracted.demande) ?? survey.demande);
 
-    const contexte = sanitizeContexte(rawExtracted.contexte, template);
+    const contexte = sanitizeContexte(rawExtracted.contexte, template, rawExtracted);
     for (const [groupKey, group] of Object.entries(survey.contexte || {})) {
         contexte[groupKey] = { ...contexte[groupKey], ...group }; // l'existant écrase l'extrait
     }
 
     const zones = (survey.zones || []).map((z) => ({ ...z, counters: { ...z.counters }, fields: { ...z.fields } }));
     for (const ez of sanitizeZones(rawExtracted.zones, template)) {
-        const match = zones.find((z) => z.name.trim().toLowerCase() === ez.name.toLowerCase());
+        const match = zones.find((z) => zoneKey(z.name) === zoneKey(ez.name));
         if (match) {
             for (const [k, v] of Object.entries(ez.counters)) if (!match.counters[k]) match.counters[k] = v;
             for (const [k, v] of Object.entries(ez.fields)) if (!match.fields[k]) match.fields[k] = v;
@@ -350,10 +417,50 @@ export const mergeSurveyFill = (existing, rawExtracted, template) => {
 
     const nonConformites = survey.nonConformites?.trim()
         ? survey.nonConformites
-        : (typeof rawExtracted.nonConformites === 'string' ? rawExtracted.nonConformites.trim() : survey.nonConformites);
+        : (looseText(rawExtracted.nonConformites) ?? survey.nonConformites);
     const notesLibres = survey.notesLibres?.trim()
         ? survey.notesLibres
-        : (typeof rawExtracted.notesLibres === 'string' ? rawExtracted.notesLibres.trim() : survey.notesLibres);
+        : (looseText(rawExtracted.notesLibres) ?? survey.notesLibres);
 
     return { demande, contexte, zones, tableau, checklist, nonConformites, notesLibres };
+};
+
+/**
+ * Nom du client et adresse du chantier entendus pendant la visite (bloc
+ * « client » de la réponse d'extraction). Rien n'est deviné : vide si la
+ * conversation ne les mentionne pas.
+ * @returns {{nom: string, adresse: string}}
+ */
+export const extractVisitIdentity = (rawExtracted) => {
+    const client = rawExtracted && typeof rawExtracted.client === 'object' && rawExtracted.client
+        ? rawExtracted.client
+        : {};
+    return {
+        nom: looseText(client.nom) || '',
+        adresse: looseText(client.adresse) || '',
+    };
+};
+
+/**
+ * Nombre d'informations renseignées dans le relevé (demande, champs de
+ * contexte, compteurs et champs de pièces, tableau, check-list, textes) —
+ * pour dire à l'artisan combien le remplissage automatique en a ajouté.
+ */
+export const countSurveyValues = (survey) => {
+    if (!survey) return 0;
+    const filled = (v) => (Array.isArray(v) ? v.length > 0 : v !== false && String(v ?? '').trim() !== '' && v !== 0);
+    let n = 0;
+    if (filled(survey.demande)) n += 1;
+    for (const group of Object.values(survey.contexte || {})) {
+        n += Object.values(group || {}).filter(filled).length;
+    }
+    for (const zone of survey.zones || []) {
+        n += Object.values(zone.counters || {}).filter((c) => Number(c) > 0).length;
+        n += Object.values(zone.fields || {}).filter(filled).length;
+    }
+    n += Object.values(survey.tableau || {}).filter(filled).length;
+    n += Object.values(survey.checklist || {}).filter(Boolean).length;
+    if (filled(survey.nonConformites)) n += 1;
+    if (filled(survey.notesLibres)) n += 1;
+    return n;
 };
