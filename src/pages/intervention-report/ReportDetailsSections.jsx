@@ -1,4 +1,5 @@
-import { ClipboardList, Clock, MapPin, Wrench, StickyNote, Mic, MicOff, Loader2, Sparkles, FilePlus, TrendingUp, AlertCircle } from 'lucide-react';
+import { ClipboardList, Clock, MapPin, Wrench, StickyNote, Mic, MicOff, Loader2, Sparkles, FilePlus, TrendingUp, AlertCircle, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input, Field } from '../../components/ui';
 import { formatCompactCurrency } from '../../utils/format';
 import { nowHHMM } from './reportFormUtils';
@@ -208,6 +209,20 @@ export const WorkDescriptionSection = ({
                 <Wrench className="w-5 h-5 text-blue-500" />
                 {isSiteVisit ? 'Notes de visite' : 'Description des travaux'}
             </h2>
+            {isSiteVisit && String(formData.description ?? '').trim() && (
+                // Le compte rendu archivé (résumé pour devis compris) se colle
+                // tel quel dans le projet où l'artisan rédige ses devis.
+                <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(formData.description).then(
+                        () => toast.success('Compte rendu copié — collez-le dans votre projet devis.'),
+                        () => toast.error('Copie impossible — sélectionnez le texte à la main.'),
+                    )}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-900/20 dark:text-violet-300"
+                >
+                    <Copy className="w-4 h-4" /> Copier pour devis
+                </button>
+            )}
             {!isSiteVisit && micSupported && (
                 <button
                     type="button"
