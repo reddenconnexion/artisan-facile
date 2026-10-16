@@ -250,7 +250,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         if (!user) return;
         let cancelled = false;
         supabase.from('intervention_reports')
-            .select('id, client_id, client_name, intervention_address, notes, status, report_type, created_at, updated_at')
+            .select('id, client_id, client_name, intervention_address, notes, photos, status, report_type, created_at, updated_at')
             .eq('report_type', 'site_visit')
             .eq('status', 'draft')
             .order('updated_at', { ascending: false })
@@ -641,6 +641,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     // il produit la transcription puis il est oublié.
 
     const uploadedPhotosRef = useRef([]);
+    const uploadingIdsRef = useRef(new Set());
     const linkedPhotoPathsRef = useRef(new Set());
 
     /**
@@ -651,9 +652,13 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
      * / échouée) pour que ce soit visible à l'écran.
      */
     const uploadPhotos = async (list) => {
-        const todo = list.filter(p => p && !p.path);
+        // Une photo déjà en cours d'envoi n'est pas renvoyée : la sauvegarde
+        // automatique repassait toutes les secondes sur les photos sans
+        // chemin et chacune partait en plusieurs exemplaires.
+        const todo = list.filter(p => p && !p.path && !uploadingIdsRef.current.has(p.id));
         if (!todo.length || !user) return uploadedPhotosRef.current;
         const ids = new Set(todo.map(p => p.id));
+        ids.forEach(id => uploadingIdsRef.current.add(id));
         setPhotos(prev => prev.map(p => (ids.has(p.id) ? { ...p, uploading: true, failed: false } : p)));
         try {
             const files = await Promise.all(
@@ -672,7 +677,11 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                     { url: publicUrl, path, name: todo[i].file?.name || 'photo.jpg' },
                 ];
                 const uploadedId = todo[i].id;
-                setPhotos(prev => prev.map(ph => (ph.id === uploadedId ? { ...ph, path, uploading: false } : ph)));
+                // L'adresse publique accompagne le chemin : sans elle, la photo
+                // n'entrait pas dans le brouillon (voir draftPhotos) et une
+                // visite reprise plus tard réécrivait le rapport sans ses photos.
+                setPhotos(prev => prev.map(ph => (ph.id === uploadedId ? { ...ph, path, url: publicUrl, uploading: false } : ph)));
+                uploadingIdsRef.current.delete(uploadedId);
             }
         } catch (err) {
             // Réseau coupé, stockage plein : la photo reste en mémoire et
@@ -680,6 +689,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
             // rendu. On le dit plutôt que de laisser croire que c'est fait.
             setPhotos(prev => prev.map(p => (ids.has(p.id) && !p.path ? { ...p, uploading: false, failed: true } : p)));
             toast.error(err.message || 'Photos pas encore enregistrées — nouvelle tentative plus tard.');
+        } finally {
+            ids.forEach(id => uploadingIdsRef.current.delete(id));
         }
         return uploadedPhotosRef.current;
     };
