@@ -245,8 +245,8 @@ const Outils = () => {
     );
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col">
-            <div className="px-4 mb-3 shrink-0 flex items-center justify-between">
+        <div className="h-[calc(100dvh-64px)] flex flex-col">
+            <div className="px-4 mb-3 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <Zap className="w-8 h-8 text-yellow-500" />
@@ -256,7 +256,7 @@ const Outils = () => {
                 </div>
                 <button
                     onClick={openCopyModal}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors border border-blue-200 dark:border-blue-800"
+                    className="tap-target flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium transition-colors border border-blue-200 dark:border-blue-800"
                 >
                     <FolderOpen className="w-4 h-4" />
                     Copier un plan client
@@ -295,7 +295,7 @@ const Outils = () => {
                                 <Save className="w-5 h-5 text-green-500" />
                                 Sauvegarder dans une fiche client
                             </h3>
-                            <button onClick={() => setShowSaveModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                            <button onClick={() => setShowSaveModal(false)} className="tap-target flex items-center justify-center p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500" aria-label="Fermer">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -314,7 +314,7 @@ const Outils = () => {
                                     type="text"
                                     value={planName}
                                     onChange={e => setPlanName(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                    className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                                     placeholder="Ex : Plan RDC Maison Dupont"
                                 />
                             </div>
@@ -327,7 +327,7 @@ const Outils = () => {
                                         value={clientSearch}
                                         onChange={e => setClientSearch(e.target.value)}
                                         placeholder="Rechercher un client..."
-                                        className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                        className="w-full pl-9 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                                     />
                                 </div>
                                 <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
@@ -351,13 +351,13 @@ const Outils = () => {
                         </div>
 
                         <div className="flex gap-3 p-5 border-t border-gray-100 dark:border-gray-700">
-                            <button onClick={() => setShowSaveModal(false)} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <button onClick={() => setShowSaveModal(false)} className="flex-1 min-h-[48px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                                 Annuler
                             </button>
                             <button
                                 onClick={handleSave}
                                 disabled={!selectedClientId || !planName.trim() || saving}
-                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="flex-1 min-h-[48px] px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 <Save className="w-4 h-4" />
                                 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
@@ -376,7 +376,7 @@ const Outils = () => {
                                 <Copy className="w-5 h-5 text-blue-500" />
                                 Copier un plan client existant
                             </h3>
-                            <button onClick={() => setShowCopyModal(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500">
+                            <button onClick={() => setShowCopyModal(false)} className="tap-target flex items-center justify-center p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500" aria-label="Fermer">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -392,7 +392,7 @@ const Outils = () => {
                                             value={copyClientSearch}
                                             onChange={e => setCopyClientSearch(e.target.value)}
                                             placeholder="Rechercher..."
-                                            className="w-full pl-8 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-xs dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full pl-8 pr-3 py-3 border border-gray-200 dark:border-gray-600 rounded-lg text-base dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
