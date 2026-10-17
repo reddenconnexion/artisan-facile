@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
     Maximize2, Minimize2, Search, MapPin, FileText,
     Calendar, ArrowLeft, ArrowRight, CheckCircle, Hammer, Phone,
-    Kanban, Timer, CalendarRange
+    Kanban, Timer, CalendarRange, X
 } from 'lucide-react';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import WorksitePlanning from '../components/WorksitePlanning';
@@ -138,7 +138,8 @@ const WorksitePilot = () => {
     // heures pointées) et alertes sous le seuil.
     const { reports: marginReports, alerts: marginAlerts, threshold: marginThreshold } = useChantierMargins(worksites, amendments);
 
-    const updateStage = async (quoteId, newStage) => {
+    const updateStage = async (quoteId, newStage, { silent = false } = {}) => {
+        const previousStage = worksites.find(w => w.id === quoteId)?.work_stage;
         try {
             // Optimistic Update
             setWorksites(prev => prev.map(w =>
@@ -151,7 +152,18 @@ const WorksitePilot = () => {
                 .eq('id', quoteId);
 
             if (error) throw error;
-            toast.success('Chantier déplacé');
+            if (silent) {
+                toast.success('Chantier remis à son étape');
+            } else {
+                const stageTitle = columns.find(c => c.id === newStage)?.title;
+                // Déplacement annulable : un appui involontaire (gants, chantier) se rattrape en un geste
+                toast.success(stageTitle ? `Chantier déplacé vers « ${stageTitle} »` : 'Chantier déplacé', {
+                    duration: 6000,
+                    action: previousStage && previousStage !== newStage
+                        ? { label: 'Annuler', onClick: () => updateStage(quoteId, previousStage, { silent: true }) }
+                        : undefined,
+                });
+            }
         } catch (error) {
             console.error('Error updating stage:', error);
             toast.error('Erreur mise à jour: ' + error.message);
@@ -253,13 +265,25 @@ const WorksitePilot = () => {
                     {view === 'kanban' && (
                     <div className="relative flex-1 md:w-64">
                         <input
-                            type="text"
+                            type="search"
+                            inputMode="search"
+                            enterKeyHint="search"
                             placeholder="Rechercher chantier..."
-                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            className="w-full pl-9 pr-11 py-3 md:py-2 border border-gray-300 rounded-lg text-base md:text-sm focus:ring-blue-500 focus:border-blue-500 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 [&::-webkit-search-cancel-button]:appearance-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                aria-label="Effacer la recherche"
+                                className="tap-target absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        )}
                     </div>
                     )}
 
@@ -293,6 +317,26 @@ const WorksitePilot = () => {
                 ref={containerRef}
                 className={`flex gap-4 px-4 pb-4 md:h-full ${focusedColumn ? 'overflow-hidden' : 'flex-col md:flex-row md:overflow-x-auto'}`}
             >
+                {/* Raccourcis de colonnes (téléphone) : évite de faire défiler toutes les étapes */}
+                <div className="md:hidden -mx-4 px-4 flex gap-2 overflow-x-auto pb-1 shrink-0" role="tablist" aria-label="Étapes des chantiers">
+                    {[{ id: null, title: 'Tout', count: null }, ...columns.map(c => ({ id: c.id, title: c.title, count: getWorksitesByStage(c.id).length }))].map(chip => {
+                        const active = (focusedColumn || null) === chip.id;
+                        return (
+                            <button
+                                key={chip.id || 'all'}
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                onClick={() => setFocusedColumn(chip.id)}
+                                className={`tap-target shrink-0 min-h-[44px] px-4 rounded-full text-sm font-medium border transition-colors ${active
+                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300'}`}
+                            >
+                                {chip.title}{chip.count !== null && ` (${chip.count})`}
+                            </button>
+                        );
+                    })}
+                </div>
                 <div className="flex flex-col md:flex-row gap-4 md:h-full" style={{ zoom: zoomLevel }}>
                     {columns.map((column, columnIndex) => {
                         if (focusedColumn && focusedColumn !== column.id) return null;
@@ -326,8 +370,8 @@ const WorksitePilot = () => {
                                         </div>
                                     </div>
                                     {!focusedColumn && (
-                                        <button onClick={() => setFocusedColumn(column.id)} className="p-1 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                            <Maximize2 className="w-4 h-4" />
+                                        <button onClick={() => setFocusedColumn(column.id)} aria-label={`Agrandir la colonne ${column.title}`} className="tap-target flex items-center justify-center p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                            <Maximize2 className="w-5 h-5" />
                                         </button>
                                     )}
                                 </div>
@@ -419,11 +463,11 @@ const WorksitePilot = () => {
 
                                             {/* Card Bottom: Actions */}
                                             <div className="flex justify-between items-center pt-2 border-t border-gray-50 dark:border-gray-800">
-                                                <span className="text-[10px] text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                                <span className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                     MAJ: {formatDate(job.updated_at)}
                                                 </span>
 
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-3">
                                                     <button
                                                         onClick={() => {
                                                             const address = job.intervention_address
@@ -441,10 +485,10 @@ const WorksitePilot = () => {
                                                                 }
                                                             });
                                                         }}
-                                                        className="p-1.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 rounded transition-colors"
+                                                        className="tap-target flex items-center justify-center p-2.5  hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 rounded transition-colors"
                                                         title="Planifier"
                                                     >
-                                                        <Calendar className="w-4 h-4" />
+                                                        <Calendar className="w-5 h-5" />
                                                     </button>
 
                                                     {(job.intervention_address || job.clients?.address) && (
@@ -456,28 +500,28 @@ const WorksitePilot = () => {
                                                             )}`}
                                                             target="_blank"
                                                             rel="noreferrer"
-                                                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 rounded transition-colors"
+                                                            className="tap-target flex items-center justify-center p-2.5  hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 rounded transition-colors"
                                                             title={job.intervention_address ? "GPS Chantier" : "GPS Client"}
                                                         >
-                                                            <MapPin className="w-4 h-4" />
+                                                            <MapPin className="w-5 h-5" />
                                                         </a>
                                                     )}
                                                     {prevColumn && (
                                                         <button
                                                             onClick={() => updateStage(job.id, prevColumn.id)}
-                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
+                                                            className="tap-target flex items-center justify-center p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
                                                             title={`Reculer vers « ${prevColumn.title} »`}
                                                         >
-                                                            <ArrowLeft className="w-4 h-4" />
+                                                            <ArrowLeft className="w-5 h-5" />
                                                         </button>
                                                     )}
                                                     {nextColumn && (
                                                         <button
                                                             onClick={() => updateStage(job.id, nextColumn.id)}
-                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
+                                                            className="tap-target flex items-center justify-center p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
                                                             title={`Avancer vers « ${nextColumn.title} »`}
                                                         >
-                                                            <ArrowRight className="w-4 h-4" />
+                                                            <ArrowRight className="w-5 h-5" />
                                                         </button>
                                                     )}
                                                 </div>
