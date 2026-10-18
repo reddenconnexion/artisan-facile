@@ -156,7 +156,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [localPreview?.email, localPreview?.lang, formData.client_id, isEditing, quoteId, userProfile?.id, totals.subtotal, totals.tva, totals.total]);
 
-    if (!localPreview) return null;
+    // `preview` repasse à null (envoi confirmé, Annuler) un rendu avant que
+    // l'effet ne vide `localPreview` : on ferme dès ce rendu-là.
+    if (!preview || !localPreview) return null;
 
     return createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50">
@@ -359,10 +361,10 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                     </button>
                     {/* Partage par SMS / WhatsApp… : message court avec le lien,
                         même suivi qu'un envoi par email (passage en « envoyé »). */}
-                    {preview.shareText && preview.kind !== 'withdrawal' && (
+                    {localPreview.shareText && localPreview.kind !== 'withdrawal' && (
                         <button
                             type="button"
-                            onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, [], { channel: 'share', shareText: preview.shareText })}
+                            onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, [], { channel: 'share', shareText: localPreview.shareText })}
                             className="px-4 py-2 border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex items-center justify-center"
                             title="Envoie le lien par SMS, WhatsApp ou une autre application"
                         >
