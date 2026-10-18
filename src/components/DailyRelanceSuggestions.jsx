@@ -14,6 +14,7 @@ import {
 } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
+import { sendDocumentEmail, probablySentMessage } from '../utils/sendDocumentEmail';
 import { toast } from 'sonner';
 import {
     Sparkles, Send, Mail, Clock, ChevronRight, ChevronDown, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2, History,
@@ -239,31 +240,20 @@ const DailyRelanceSuggestions = () => {
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
         } else if (smtpConfigured) {
             const sendingToast = toast.loading('Envoi de la relance depuis votre adresse pro...');
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                        to: clientEmail,
-                        subject,
-                        text: body,
-                        quote_id: quotes[0].id,
-                        client_id: quotes[0].client_id,
-                    }),
-                });
-                const result = await res.json();
-                toast.dismiss(sendingToast);
-                if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+            const { status, error } = await sendDocumentEmail({
+                to: clientEmail,
+                subject,
+                text: body,
+                quote_id: quotes[0].id,
+                client_id: quotes[0].client_id,
+            });
+            toast.dismiss(sendingToast);
+            if (status === 'sent') {
                 toast.success(`Relance envoyée à ${clientEmail}`);
-            } catch (err) {
-                toast.dismiss(sendingToast);
-                console.error('Direct follow-up send failed:', err);
-                toast.error((err.message || 'Échec de l\'envoi direct') + ' — ouverture du client mail');
+            } else if (status === 'probably_sent') {
+                toast.warning(probablySentMessage(clientEmail), { duration: 12000 });
+            } else {
+                toast.error((error || 'Échec de l\'envoi direct') + ' — ouverture du client mail');
                 window.location.href = mailtoUrl;
             }
         } else {

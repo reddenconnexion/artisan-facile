@@ -1,6 +1,6 @@
 import { CheckCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../utils/supabase';
+import { sendDocumentEmail, probablySentMessage } from '../../utils/sendDocumentEmail';
 
 // Modal d'envoi de la facture (automatique à la clôture, ou renvoi) :
 // SMTP pro, inbox du mode test ou repli sur la messagerie (mailto:).
@@ -68,31 +68,20 @@ export const SendInvoiceModal = ({
                                 toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
                             } else if (smtpConfigured && sendInvoiceModal.email) {
                                 const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
-                                try {
-                                    const { data: { session } } = await supabase.auth.getSession();
-                                    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                                    const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${session.access_token}`,
-                                        },
-                                        body: JSON.stringify({
-                                            to: sendInvoiceModal.email,
-                                            subject: sendInvoiceModal.subject,
-                                            text: sendInvoiceModal.body,
-                                            quote_id: sendInvoiceModal.invoice_id ?? null,
-                                            client_id: sendInvoiceModal.client_id ?? null,
-                                        }),
-                                    });
-                                    const result = await res.json();
-                                    toast.dismiss(sendingToast);
-                                    if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+                                const { status, error } = await sendDocumentEmail({
+                                    to: sendInvoiceModal.email,
+                                    subject: sendInvoiceModal.subject,
+                                    text: sendInvoiceModal.body,
+                                    quote_id: sendInvoiceModal.invoice_id ?? null,
+                                    client_id: sendInvoiceModal.client_id ?? null,
+                                });
+                                toast.dismiss(sendingToast);
+                                if (status === 'sent') {
                                     toast.success(`Email envoyé à ${sendInvoiceModal.email}`);
-                                } catch (err) {
-                                    toast.dismiss(sendingToast);
-                                    console.error('Direct email send failed:', err);
-                                    toast.error(err.message || 'Échec — ouverture du client mail');
+                                } else if (status === 'probably_sent') {
+                                    toast.warning(probablySentMessage(sendInvoiceModal.email), { duration: 12000 });
+                                } else {
+                                    toast.error(error || 'Échec — ouverture du client mail');
                                     const url = `mailto:${sendInvoiceModal.email}?subject=${encodeURIComponent(sendInvoiceModal.subject)}&body=${encodeURIComponent(sendInvoiceModal.body)}`;
                                     window.location.href = url;
                                 }
