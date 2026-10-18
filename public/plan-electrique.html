@@ -636,7 +636,7 @@
   <div class="header-sep"></div>
   <!-- Intégrations -->
   <div class="header-group header-right">
-    <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;" title="Importer un plan photo via IA">🤖 IA</button>
+    <button class="btn" id="btnAIImport" onclick="openAIImport()" style="border-color:#a78bfa;color:#a78bfa;" title="Importer ou coller (Ctrl+V) une image de plan à transformer">🤖 IA</button>
     <button class="btn" onclick="saveToClient()" style="border-color:#66bb6a;color:#66bb6a;" title="Lier à la fiche client">🏠 Fiche</button>
   </div>
 </header>
@@ -1019,14 +1019,14 @@
       background:var(--surface);border:1px solid var(--border);border-radius:8px;
       padding:6px 10px;display:none;align-items:center;gap:8px;z-index:50;font-size:12px;
       color:var(--text2);box-shadow:0 2px 8px rgba(0,0,0,0.4);">
-      <span style="white-space:nowrap;">🗺 Fond PDF</span>
+      <span style="white-space:nowrap;">🗺 Fond de plan</span>
       <input type="range" id="bgPdfOpacitySlider" min="0.05" max="1" step="0.05" value="0.35"
         style="width:70px;cursor:pointer;accent-color:var(--accent);"
         oninput="setBgPdfOpacity(this.value)" title="Opacité du fond" />
       <span id="bgPdfOpacityLabel" style="min-width:28px;text-align:right;">35%</span>
       <button onclick="removePDFBackground()"
         style="background:none;border:none;color:#ef5350;cursor:pointer;font-size:16px;padding:0 2px;"
-        title="Supprimer le fond PDF">✕</button>
+        title="Supprimer le fond de plan">✕</button>
     </div>
     <div class="coords" id="coords">X: 0 — Y: 0</div>
     <div class="zoom-bar">
@@ -1133,9 +1133,11 @@
 <!-- IA IMPORT MODAL -->
 <div class="modal-overlay" id="aiModal">
   <div class="modal" style="width:520px;max-width:96vw;">
-    <h3 style="color:#a78bfa;">🤖 Importer un plan manuscrit</h3>
+    <h3 style="color:#a78bfa;">🤖 Transformer une image en plan</h3>
     <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
-      Prends en photo ou scanne ton plan fait à la main. L'IA va reconnaître les pièces, murs et équipements électriques et les replacer automatiquement sur le canvas.
+      Photo, scan, capture d'écran ou plan d'architecte : importe ou colle l'image (Ctrl+V).
+      L'IA reconnaît les pièces, murs et équipements électriques et les replace sur le canvas,
+      ou bien garde l'image en fond pour redessiner par-dessus.
     </p>
 
     <!-- Drop zone -->
@@ -1146,11 +1148,14 @@
     ">
       <div id="aiDropContent">
         <div style="font-size:32px;margin-bottom:8px;">📷</div>
-        <div style="font-size:13px;font-weight:700;color:#a78bfa;">Cliquer ou déposer une image</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:4px;">JPG, PNG, WEBP — photo ou scan</div>
+        <div style="font-size:13px;font-weight:700;color:#a78bfa;">Cliquer, déposer ou coller (Ctrl+V) une image</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">JPG, PNG, WEBP — photo, scan ou capture d'écran</div>
       </div>
       <img id="aiPreview" style="display:none;max-width:100%;max-height:200px;border-radius:6px;margin-top:8px;" />
     </div>
+    <button class="btn" type="button" onclick="pasteAIImageFromClipboard()" style="width:100%;margin:-4px 0 12px;justify-content:center;border-color:#a78bfa;color:#a78bfa;">
+      📋 Coller l'image du presse-papiers
+    </button>
     <input type="file" id="aiFileInput" accept="image/*" style="display:none" onchange="handleAIImageSelect(event)" />
 
     <!-- Options -->
@@ -1177,8 +1182,11 @@
       white-space:pre-wrap; margin-bottom:12px;
     "></div>
 
-    <div class="modal-btn-row">
+    <div class="modal-btn-row" style="flex-wrap:wrap;">
       <button class="btn" onclick="closeAIModal()">Annuler</button>
+      <button class="btn" id="aiBtnBackground" onclick="useAIImageAsBackground()" style="border-color:#f59e0b;color:#f59e0b;opacity:0.4;cursor:not-allowed;" disabled title="Placer l'image en fond semi-transparent pour dessiner le plan par-dessus">
+        🗺 Utiliser comme fond
+      </button>
       <button class="btn" id="aiBtnAnalyse" onclick="launchAIAnalysis()" style="background:#a78bfa;border-color:#a78bfa;color:#000;opacity:0.4;cursor:not-allowed;" disabled>
         🔍 Analyser et importer
       </button>
@@ -4545,7 +4553,7 @@ function _hideBgPdfControls() {
   if (el) el.style.display = 'none';
 }
 
-function _restoreBgPdf(dataUrl, opacity, basePdfWidth, basePdfHeight) {
+function _restoreBgPdf(dataUrl, opacity, basePdfWidth, basePdfHeight, onLoaded) {
   const img = new Image();
   img.onload = () => {
     state.bgPdf.dataUrl      = dataUrl;
@@ -4555,6 +4563,7 @@ function _restoreBgPdf(dataUrl, opacity, basePdfWidth, basePdfHeight) {
     state.bgPdf.basePdfHeight = basePdfHeight || null;
     _showBgPdfControls(opacity);
     draw();
+    onLoaded?.();
   };
   img.src = dataUrl;
 }
@@ -4589,7 +4598,7 @@ function removePDFBackground(silent) {
   _hideBgPdfControls();
   draw();
   saveToLocalStorage();
-  if (!silent) toast('Fond PDF supprimé');
+  if (!silent) toast('Fond de plan supprimé');
 }
 
 function setBgPdfOpacity(v) {
@@ -4605,6 +4614,8 @@ function setBgPdfOpacity(v) {
 // ══════════════════════════════════════════════════════════════
 let aiImageBase64 = null;
 let aiImageMediaType = 'image/jpeg';
+let aiImageDataUrl = null;
+let aiImageSize = null;
 let _sbUrl = null, _sbKey = null, _sbToken = null;
 
 // Réception de la config Supabase depuis la page parente
@@ -5212,37 +5223,128 @@ ${cableRows ? `
   }, 80);
 }
 
+function _setAIActionButtonsEnabled(enabled) {
+  for (const id of ['aiBtnAnalyse', 'aiBtnBackground']) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.disabled = !enabled;
+    btn.style.opacity = enabled ? '1' : '0.4';
+    btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  }
+}
+
 function openAIImport() {
   document.getElementById('aiModal').classList.add('open');
   aiImageBase64 = null;
+  aiImageDataUrl = null;
   document.getElementById('aiPreview').style.display = 'none';
   document.getElementById('aiDropContent').style.display = 'block';
   document.getElementById('aiLog').style.display = 'none';
   document.getElementById('aiLog').textContent = '';
-  const btn = document.getElementById('aiBtnAnalyse');
-  btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed';
+  _setAIActionButtonsEnabled(false);
 }
 
 function closeAIModal() {
   document.getElementById('aiModal').classList.remove('open');
 }
 
-function handleAIImageSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  aiImageMediaType = file.type || 'image/jpeg';
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    aiImageBase64 = ev.target.result.split(',')[1];
+// Les captures d'écran collées sont souvent des PNG de plusieurs Mo : l'IA
+// réduit de toute façon l'image, et le fond de plan est enregistré dans le
+// plan. On ramène donc l'image à 2000 px max en JPEG (fond blanc pour les PNG
+// transparents).
+const AI_IMAGE_MAX_SIDE = 2000;
+
+function _normalizeAIImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lecture de l\'image impossible'));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Format d\'image non pris en charge'));
+      img.onload = () => {
+        const scale = Math.min(1, AI_IMAGE_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const off = document.createElement('canvas');
+        off.width = w; off.height = h;
+        const octx = off.getContext('2d');
+        octx.fillStyle = '#ffffff';
+        octx.fillRect(0, 0, w, h);
+        octx.drawImage(img, 0, 0, w, h);
+        resolve({ dataUrl: off.toDataURL('image/jpeg', 0.9), width: w, height: h });
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadAIImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    toast('Ce n\'est pas une image');
+    return;
+  }
+  try {
+    const { dataUrl, width, height } = await _normalizeAIImage(file);
+    aiImageDataUrl = dataUrl;
+    aiImageSize = { width, height };
+    aiImageBase64 = dataUrl.split(',')[1];
+    aiImageMediaType = 'image/jpeg';
     const preview = document.getElementById('aiPreview');
-    preview.src = ev.target.result;
+    preview.src = dataUrl;
     preview.style.display = 'block';
     document.getElementById('aiDropContent').style.display = 'none';
-    const btn = document.getElementById('aiBtnAnalyse');
-    btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-  };
-  reader.readAsDataURL(file);
+    _setAIActionButtonsEnabled(true);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function handleAIImageSelect(e) {
+  const file = e.target.files[0];
   e.target.value = '';
+  if (file) loadAIImageFile(file);
+}
+
+// Bouton « Coller » : utile sur tablette/téléphone où Ctrl+V n'existe pas.
+async function pasteAIImageFromClipboard() {
+  if (!navigator.clipboard?.read) {
+    toast('Collage non pris en charge ici : utilisez Ctrl+V');
+    return;
+  }
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const type = item.types.find(t => t.startsWith('image/'));
+      if (!type) continue;
+      const blob = await item.getType(type);
+      await loadAIImageFile(new File([blob], 'image-collee', { type }));
+      toast('Image collée ✓');
+      return;
+    }
+    toast('Aucune image dans le presse-papiers');
+  } catch {
+    toast('Accès au presse-papiers refusé : utilisez Ctrl+V');
+  }
+}
+
+// Ctrl+V n'importe où dans l'éditeur : ouvre la fenêtre IA avec l'image collée.
+document.addEventListener('paste', (e) => {
+  const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+  if (!file) return;
+  e.preventDefault();
+  if (!document.getElementById('aiModal').classList.contains('open')) openAIImport();
+  loadAIImageFile(file).then(() => { if (aiImageBase64) toast('Image collée ✓'); });
+});
+
+// Place l'image en fond de plan (même calque que le fond PDF), ajustée à la
+// zone de dessin de 1000×800 unités utilisée par l'analyse IA.
+function useAIImageAsBackground() {
+  if (!aiImageDataUrl || !aiImageSize) return;
+  const fit = Math.min(1000 / aiImageSize.width, 800 / aiImageSize.height);
+  _restoreBgPdf(aiImageDataUrl, state.bgPdf.opacity, aiImageSize.width * fit, aiImageSize.height * fit, saveToLocalStorage);
+  closeAIModal();
+  toast('Image placée en fond de plan ✓ — dessinez par-dessus');
 }
 
 // Drag & drop sur la zone
@@ -5254,20 +5356,7 @@ document.addEventListener('DOMContentLoaded', () => {
   zone.addEventListener('drop', e => {
     e.preventDefault(); zone.style.borderColor = '#a78bfa';
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      aiImageMediaType = file.type;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        aiImageBase64 = ev.target.result.split(',')[1];
-        const preview = document.getElementById('aiPreview');
-        preview.src = ev.target.result;
-        preview.style.display = 'block';
-        document.getElementById('aiDropContent').style.display = 'none';
-        const btn = document.getElementById('aiBtnAnalyse');
-        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-      };
-      reader.readAsDataURL(file);
-    }
+    if (file && file.type.startsWith('image/')) loadAIImageFile(file);
   });
 });
 
