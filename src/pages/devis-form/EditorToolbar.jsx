@@ -35,10 +35,10 @@ const EditorToolbar = ({
     lastSaved,
     loading,
     openCsvPasteModal,
+    openPdfOverview,
     renderDocumentActions,
     saving,
     setFormData,
-    setPdfOverviewMode,
     setReviewNavigateOnClose,
     setShowActionsMenu,
     setShowReviewRequestModal,
@@ -153,7 +153,7 @@ const EditorToolbar = ({
                 {isEditing && formData.status && formData.status !== 'draft' && (
                     <button
                         type="button"
-                        onClick={() => setPdfOverviewMode(true)}
+                        onClick={openPdfOverview}
                         className="flex items-center px-3 sm:px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                         title="Revenir à l'aperçu PDF"
                     >

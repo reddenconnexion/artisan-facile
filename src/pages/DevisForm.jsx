@@ -121,6 +121,10 @@ const DevisForm = () => {
     // finalisé (envoyé, signé, facturé, payé…), on présente d'abord le PDF pour
     // une vue d'ensemble claire, avec un bouton « Modifier » vers l'éditeur.
     const [pdfOverviewMode, setPdfOverviewMode] = useState(false);
+    // Aperçu ouvert depuis l'éditeur (bouton « Aperçu ») : « Retour » ramène
+    // alors à l'éditeur, pas à la liste — sinon fermer un simple aperçu
+    // faisait quitter le devis en cours.
+    const [overviewFromEditor, setOverviewFromEditor] = useState(false);
     const [overviewPdfUrl, setOverviewPdfUrl] = useState(null);
     // Aperçu rastérisé page par page : sur mobile (iOS/iPadOS, Android), une
     // <iframe> n'affiche pas un PDF blob:, d'où un cadre vide qui obligeait à
@@ -1586,7 +1590,24 @@ const DevisForm = () => {
             return null;
         });
         setOverviewError(null);
+        setOverviewFromEditor(true);
         setPdfOverviewMode(true);
+    };
+
+    // Retour à l'aperçu PDF déjà généré depuis l'éditeur d'un document finalisé.
+    const openPdfOverviewFromEditor = () => {
+        setOverviewFromEditor(true);
+        setPdfOverviewMode(true);
+    };
+
+    // « Retour » de l'aperçu : vers l'éditeur s'il en vient, sinon vers la liste
+    // (document finalisé ouvert directement en aperçu depuis la liste).
+    const handleOverviewBack = () => {
+        if (overviewFromEditor) {
+            setPdfOverviewMode(false);
+            return;
+        }
+        handleBack();
     };
 
     // Génère (en mémoire) le PDF affiché dans la vue « aperçu » d'un devis finalisé.
@@ -1898,7 +1919,7 @@ const DevisForm = () => {
                     displayPdfUrl={displayPdfUrl}
                     formData={formData}
                     generateOverviewPdf={generateOverviewPdf}
-                    handleBack={handleBack}
+                    handleBack={handleOverviewBack}
                     handleDownloadPDF={handleDownloadPDF}
                     hasDocumentActions={hasDocumentActions}
                     id={id}
@@ -2018,7 +2039,7 @@ const DevisForm = () => {
                 renderDocumentActions={renderDocumentActions}
                 saving={saving}
                 setFormData={setFormData}
-                setPdfOverviewMode={setPdfOverviewMode}
+                openPdfOverview={openPdfOverviewFromEditor}
                 setReviewNavigateOnClose={setReviewNavigateOnClose}
                 setShowActionsMenu={setShowActionsMenu}
                 setShowReviewRequestModal={setShowReviewRequestModal}
