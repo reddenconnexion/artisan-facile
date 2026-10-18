@@ -269,7 +269,7 @@ const Outils = () => {
                     src="/plan-electrique.html"
                     title="Plan électrique"
                     className="w-full h-full border-0"
-                    allow="clipboard-write"
+                    allow="clipboard-read; clipboard-write"
                     onLoad={injectConfig}
                 />
             </div>
