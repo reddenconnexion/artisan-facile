@@ -62,7 +62,7 @@ const ClientPlans = ({ clientId, clientName }) => {
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Plans électriques sauvegardés pour ce client.</p>
                 <button
-                    onClick={() => navigate('/app/outils')}
+                    onClick={() => navigate(`/app/outils?client_id=${clientId}`)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500 text-black rounded-lg text-sm font-semibold hover:bg-yellow-400 transition-colors"
                 >
                     <Zap className="w-4 h-4" />
@@ -75,7 +75,7 @@ const ClientPlans = ({ clientId, clientName }) => {
                     <Zap className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                     <p className="text-sm text-gray-400 dark:text-gray-500">Aucun plan sauvegardé pour ce client.</p>
                     <button
-                        onClick={() => navigate('/app/outils')}
+                        onClick={() => navigate(`/app/outils?client_id=${clientId}`)}
                         className="mt-3 text-sm text-yellow-600 font-medium hover:underline"
                     >
                         Créer le premier plan →
