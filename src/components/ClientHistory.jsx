@@ -110,6 +110,7 @@ const ClientHistory = ({ clientId }) => {
                             {lastContact.type === 'sms' && <><MessageSquare className="w-3 h-3" /> SMS</>}
                             {lastContact.type === 'meeting' && <><Calendar className="w-3 h-3" /> RDV</>}
                             {lastContact.type === 'other' && 'Autre'}
+                            {lastContact.type === 'manual' && <><Clock className="w-3 h-3" /> Relance hors appli</>}
                             {lastContact.details ? ` - ${lastContact.details}` : ''}
                         </p>
                     </div>
@@ -168,12 +169,12 @@ const ClientHistory = ({ clientId }) => {
                                     {log.type === 'call' && <Phone className="w-4 h-4 text-gray-400" />}
                                     {log.type === 'sms' && <MessageSquare className="w-4 h-4 text-gray-400" />}
                                     {log.type === 'meeting' && <Calendar className="w-4 h-4 text-gray-400" />}
-                                    {log.type === 'other' && <Clock className="w-4 h-4 text-gray-400" />}
+                                    {(log.type === 'other' || log.type === 'manual') && <Clock className="w-4 h-4 text-gray-400" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between">
                                         <p className="text-sm font-medium text-gray-900 dark:text-white capitalize truncate">
-                                            {log.type === 'email' ? 'Email' : log.type === 'call' ? 'Appel' : log.type === 'sms' ? 'SMS' : log.type}
+                                            {log.type === 'email' ? 'Email' : log.type === 'call' ? 'Appel' : log.type === 'sms' ? 'SMS' : log.type === 'manual' ? 'Relance hors appli' : log.type}
                                         </p>
                                         <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">{formatDate(log.date)}</span>
                                     </div>

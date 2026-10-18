@@ -294,6 +294,7 @@ Deno.serve(async (req) => {
             ? `${cfg.from_name} <${cfg.from_email}>`
             : cfg.from_email;
 
+        const smtpStartedAt = Date.now();
         await client.send({
             from: fromHeader,
             to: toList,
@@ -305,6 +306,19 @@ Deno.serve(async (req) => {
             html: finalHtml,
             attachments: resolvedAttachments,
         });
+
+        console.log(`send-document-email: accepté par le SMTP en ${Date.now() - smtpStartedAt} ms`);
+
+        // Le mail est parti : on répond tout de suite. Fermer la connexion
+        // SMTP (QUIT) peut prendre une dizaine de secondes chez certains
+        // hébergeurs ; l'attendre retardait la réponse d'autant, et une
+        // réponse coupée en route faisait croire à un échec alors que le
+        // client avait bien reçu le mail. La fermeture se fait en arrière-plan.
+        const sentClient = client;
+        client = null;
+        const closing = sentClient.close().catch(() => { /* ignore */ });
+        // deno-lint-ignore no-explicit-any
+        (globalThis as any).EdgeRuntime?.waitUntil?.(closing);
 
         return json({ success: true, sent_to: toList, email_send_id: emailSendId });
     } catch (err) {

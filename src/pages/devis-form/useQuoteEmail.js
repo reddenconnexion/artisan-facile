@@ -8,6 +8,7 @@ import { isOffline } from '../../utils/offlineSave';
 import { blobToBase64 } from '../../utils/mediaConverters';
 import { formatDate } from '../../utils/format';
 import { buildDocumentEmailHtml } from './quoteEmailHtml';
+import { sendDocumentEmail, probablySentMessage } from '../../utils/sendDocumentEmail';
 
 /**
  * Envoi du document au client : préparation du mail (fr / en, lien de
@@ -531,65 +532,54 @@ export const useQuoteEmail = ({
         } else if (smtpConfigured && recipientEmail) {
             // Envoi direct depuis l'adresse pro de l'artisan via Edge Function
             const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                // Version HTML où le lien du document devient un bouton (« Signer »
-                // pour un devis, « Voir ma facture » sinon). Le texte brut (avec l'URL) reste
-                // le fallback pour les clients mail sans HTML. Le lien du portail
-                // client devient un encart avec bouton « Espace client ».
-                const htmlBody = (emailPreview.actionUrl || emailPreview.portalUrl)
-                    ? buildDocumentEmailHtml(body, {
-                        actionUrl: emailPreview.actionUrl,
-                        actionLabel: emailPreview.actionLabel,
-                        actionIcon: emailPreview.actionIcon,
-                        portalUrl: emailPreview.portalUrl,
-                        portalLabelLine: emailPreview.portalLabelLine,
-                        portalTitle: emailPreview.portalTitle,
-                        portalCaption: emailPreview.portalCaption,
-                        portalButtonLabel: emailPreview.portalButtonLabel,
-                    })
-                    : undefined;
+            // Version HTML où le lien du document devient un bouton (« Signer »
+            // pour un devis, « Voir ma facture » sinon). Le texte brut (avec l'URL) reste
+            // le fallback pour les clients mail sans HTML. Le lien du portail
+            // client devient un encart avec bouton « Espace client ».
+            const htmlBody = (emailPreview.actionUrl || emailPreview.portalUrl)
+                ? buildDocumentEmailHtml(body, {
+                    actionUrl: emailPreview.actionUrl,
+                    actionLabel: emailPreview.actionLabel,
+                    actionIcon: emailPreview.actionIcon,
+                    portalUrl: emailPreview.portalUrl,
+                    portalLabelLine: emailPreview.portalLabelLine,
+                    portalTitle: emailPreview.portalTitle,
+                    portalCaption: emailPreview.portalCaption,
+                    portalButtonLabel: emailPreview.portalButtonLabel,
+                })
+                : undefined;
 
-                let attachmentsPayload = [];
-                if (attachmentFiles.length > 0) {
-                    try {
-                        attachmentsPayload = await Promise.all(attachmentFiles.map(async (file) => ({
-                            filename: file.name,
-                            contentType: file.type || 'application/octet-stream',
-                            content_base64: await blobToBase64(file),
-                        })));
-                    } catch (attachErr) {
-                        console.error('Attachment read failed:', attachErr);
-                        toast.error("Erreur lors de la lecture d'une pièce jointe — envoi sans celle-ci");
-                        attachmentsPayload = [];
-                    }
+            let attachmentsPayload = [];
+            if (attachmentFiles.length > 0) {
+                try {
+                    attachmentsPayload = await Promise.all(attachmentFiles.map(async (file) => ({
+                        filename: file.name,
+                        contentType: file.type || 'application/octet-stream',
+                        content_base64: await blobToBase64(file),
+                    })));
+                } catch (attachErr) {
+                    console.error('Attachment read failed:', attachErr);
+                    toast.error("Erreur lors de la lecture d'une pièce jointe — envoi sans celle-ci");
+                    attachmentsPayload = [];
                 }
+            }
 
-                const res = await fetch(`${supabaseUrl}/functions/v1/send-document-email`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                        to: recipientEmail,
-                        subject,
-                        text: body,
-                        ...(htmlBody ? { html: htmlBody } : {}),
-                        quote_id: id,
-                        client_id: formData.client_id,
-                        ...(attachmentsPayload.length > 0 ? { attachments: attachmentsPayload } : {}),
-                    }),
-                });
-                const result = await res.json();
-                toast.dismiss(sendingToast);
-                if (!res.ok) throw new Error(result.error || 'Échec de l\'envoi');
+            const { status, error } = await sendDocumentEmail({
+                to: recipientEmail,
+                subject,
+                text: body,
+                ...(htmlBody ? { html: htmlBody } : {}),
+                quote_id: id,
+                client_id: formData.client_id,
+                ...(attachmentsPayload.length > 0 ? { attachments: attachmentsPayload } : {}),
+            });
+            toast.dismiss(sendingToast);
+            if (status === 'sent') {
                 toast.success(`Email envoyé à ${recipientEmail}`);
-            } catch (err) {
-                toast.dismiss(sendingToast);
-                console.error('Direct email send failed:', err);
-                toast.error(err.message || 'Échec de l\'envoi direct — ouverture du client mail');
+            } else if (status === 'probably_sent') {
+                toast.warning(probablySentMessage(recipientEmail), { duration: 12000 });
+            } else {
+                toast.error(error || 'Échec de l\'envoi direct — ouverture du client mail');
                 window.location.href = mailtoUrl;
             }
         } else {
