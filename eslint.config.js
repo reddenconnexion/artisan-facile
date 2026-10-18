@@ -37,6 +37,15 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
   {
+    // Éditeur de plan : script classique, ses fonctions globales sont appelées
+    // depuis les attributs data-on* du HTML.
+    files: ['public/plan-electrique.js'],
+    languageOptions: { sourceType: 'script' },
+    rules: {
+      'no-unused-vars': ['error', { vars: 'local', varsIgnorePattern: '^(_|[A-Z][A-Z0-9_]*$)' }],
+    },
+  },
+  {
     files: ['public/push-handler.js'],
     languageOptions: { globals: globals.serviceworker },
   },

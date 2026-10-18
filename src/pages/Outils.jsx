@@ -31,8 +31,15 @@ const Outils = () => {
     const [copyPlans, setCopyPlans] = useState([]);
     const [loadingCopyPlans, setLoadingCopyPlans] = useState(false);
 
+    // Client d'où l'on vient (?client_id=X ou client du plan ouvert) :
+    // présélectionné dans la fenêtre de sauvegarde
+    const [linkedClient, setLinkedClient] = useState(null);
+    // Ignoré quand l'URL ne désigne plus ni client ni plan (copie d'un plan)
+    const activeClient = (searchParams.get('client_id') || searchParams.get('plan_id')) ? linkedClient : null;
+
     // Ref pour synchroniser l'envoi du plan avec la disponibilité de l'iframe
     const pendingPlanRef = useRef(null);
+    const pendingNameRef = useRef(null);
     const iframeReadyRef = useRef(false);
     const pdfImportRef = useRef(null);
 
@@ -42,6 +49,27 @@ const Outils = () => {
         iframe.contentWindow.postMessage({ type: 'planelec-load', plan }, '*');
     }, []);
 
+    // Nouveau plan depuis une fiche client (?client_id=X) : nom pré-rempli
+    useEffect(() => {
+        const clientId = searchParams.get('client_id');
+        if (!clientId || !user) return;
+        supabase
+            .from('clients')
+            .select('id, name')
+            .eq('id', clientId)
+            .single()
+            .then(({ data }) => {
+                if (!data) return;
+                setLinkedClient(data);
+                const name = `Plan électrique — ${data.name}`;
+                if (iframeReadyRef.current) {
+                    iframeRef.current?.contentWindow?.postMessage({ type: 'planelec-set-name', name }, '*');
+                } else {
+                    pendingNameRef.current = name;
+                }
+            });
+    }, [searchParams, user]);
+
     // Chargement d'un plan depuis URL ?plan_id=X
     useEffect(() => {
         const planId = searchParams.get('plan_id');
@@ -50,12 +78,13 @@ const Outils = () => {
         pendingPlanRef.current = null;
         supabase
             .from('client_plans')
-            .select('plan_data, name')
+            .select('plan_data, name, client_id, clients(id, name)')
             .eq('id', planId)
             .eq('user_id', user.id)
             .single()
             .then(({ data }) => {
                 if (!data) return;
+                if (data.clients) setLinkedClient(data.clients);
                 const plan = { ...data.plan_data, name: data.name };
                 if (iframeReadyRef.current) {
                     sendPlanToIframe(plan);
@@ -126,6 +155,10 @@ const Outils = () => {
                     sendPlanToIframe(pendingPlanRef.current);
                     pendingPlanRef.current = null;
                 }
+                if (pendingNameRef.current) {
+                    iframeRef.current?.contentWindow?.postMessage({ type: 'planelec-set-name', name: pendingNameRef.current }, '*');
+                    pendingNameRef.current = null;
+                }
                 return;
             }
             if (e.data?.type === 'planelec-render-pdf') {
@@ -138,15 +171,31 @@ const Outils = () => {
                 .select('id, name')
                 .order('name');
             setClients(data || []);
-            setSelectedClientId('');
-            setClientSearch('');
+            setSelectedClientId(activeClient ? String(activeClient.id) : '');
+            setClientSearch(activeClient?.name || '');
             setPlanName(e.data.planName || 'Plan électrique');
             setPendingSave({ planData: e.data.planData, thumbnail: e.data.thumbnail });
             setShowSaveModal(true);
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [injectConfig, sendPlanToIframe]);
+    }, [injectConfig, sendPlanToIframe, activeClient]);
+
+    // Image collée alors que le focus est sur la page (hors éditeur) :
+    // transmise à l'éditeur, qui ouvre la fenêtre « Transformer une image ».
+    useEffect(() => {
+        const handlePaste = (e) => {
+            if (showSaveModal || showCopyModal) return;
+            if (e.target.closest?.('input, textarea, [contenteditable="true"]')) return;
+            const items = [...(e.clipboardData?.items || [])];
+            const file = items.find(i => i.kind === 'file' && i.type.startsWith('image/'))?.getAsFile();
+            if (!file) return;
+            e.preventDefault();
+            iframeRef.current?.contentWindow?.postMessage({ type: 'planelec-paste-image', file }, '*');
+        };
+        document.addEventListener('paste', handlePaste);
+        return () => document.removeEventListener('paste', handlePaste);
+    }, [showSaveModal, showCopyModal]);
 
     const handleSave = async () => {
         if (!selectedClientId || !planName.trim()) return;
