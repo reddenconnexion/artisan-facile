@@ -47,7 +47,7 @@ CREATE POLICY "Users can log interactions on own clients"
         (SELECT auth.uid()) = user_id
         AND EXISTS (
             SELECT 1 FROM public.clients c
-            WHERE c.id = client_id AND c.user_id = (SELECT auth.uid())
+            WHERE c.id = client_interactions.client_id AND c.user_id = (SELECT auth.uid())
         )
     );
 
