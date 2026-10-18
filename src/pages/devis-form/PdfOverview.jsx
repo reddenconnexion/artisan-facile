@@ -1,5 +1,7 @@
-import { ArrowLeft, Download, FileText, Loader2, ExternalLink, Clock, Lock, ChevronDown, Pencil, RefreshCw, FilePlus } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Download, FileText, Loader2, ExternalLink, Clock, Lock, ChevronDown, Pencil, RefreshCw, FilePlus, Maximize2, Minimize2 } from 'lucide-react';
 import { publicLinkValidityLabel } from '../../constants/publicLink';
+import { useFullscreen } from '../../hooks/useFullscreen';
 
 /**
  * Vue « aperçu PDF » d'un devis finalisé : barre d'outils et visionneuse.
@@ -58,6 +60,133 @@ const PdfOverview = ({
     }[formData.status] || null;
 
     const goToEditor = () => setPdfOverviewMode(false);
+
+    // Plein écran de la visionneuse : API du navigateur quand elle existe,
+    // sinon (iPhone) overlay fixe par-dessus toute l'app.
+    const { ref: viewerRef, mode: fullscreenMode, isFullscreen, enter: enterFullscreen, exit: exitFullscreen } = useFullscreen();
+
+    const viewer = (
+        <div
+            ref={viewerRef}
+            className={isFullscreen
+                ? 'fixed inset-0 z-[10000] w-full h-[100dvh] flex flex-col bg-[#525659]'
+                : 'rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px] flex flex-col'}
+            role={isFullscreen ? 'dialog' : undefined}
+            aria-modal={isFullscreen ? 'true' : undefined}
+            aria-label={isFullscreen ? `Aperçu plein écran — ${docRef}` : undefined}
+        >
+            {isFullscreen && (
+                <div className="safe-area-top flex-shrink-0 bg-gray-900 text-white">
+                    <div className="flex items-center justify-between gap-3 pl-4 pr-2 py-1">
+                        <p className="min-w-0 truncate text-sm font-semibold">{docRef}</p>
+                        <button
+                            type="button"
+                            onClick={exitFullscreen}
+                            className="flex-shrink-0 inline-flex items-center gap-2 min-h-[44px] px-3 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+                            title="Quitter le plein écran (Échap)"
+                            autoFocus
+                        >
+                            <Minimize2 className="w-5 h-5" />
+                            <span>Quitter le plein écran</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+            <div className="flex-1 min-h-0">
+                {showImagePreview ? (
+                    overviewPageImages.length > 0 ? (
+                        // Aperçu image multi-pages (mobile) : l'<iframe> n'affiche
+                        // pas un PDF blob: sur iOS/Android.
+                        <div className={`w-full h-full overflow-y-auto p-3 space-y-3 ${isFullscreen ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))]' : ''}`} style={{ background: '#525659' }}>
+                            {overviewPageImages.map((src, i) => (
+                                <img
+                                    key={i}
+                                    src={src}
+                                    alt={`Page ${i + 1}`}
+                                    className="w-full rounded-lg shadow bg-white"
+                                    loading={i === 0 ? 'eager' : 'lazy'}
+                                />
+                            ))}
+                        </div>
+                    ) : overviewImagesFailed ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
+                            <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                Aperçu indisponible sur cet appareil
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleDownloadPDF()}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Télécharger
+                                </button>
+                                <a
+                                    href={overviewSrc}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    Ouvrir le PDF
+                                </a>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
+                            <Loader2 className="w-8 h-8 animate-spin" />
+                            <span className="text-sm">Préparation de l'aperçu…</span>
+                        </div>
+                    )
+                ) : overviewSrc ? (
+                    <iframe
+                        src={overviewSrc}
+                        title="Aperçu du document"
+                        className="w-full h-full border-0"
+                        style={{ background: '#525659' }}
+                    />
+                ) : overviewError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
+                        <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                        <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                Impossible d'afficher l'aperçu PDF
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
+                                {overviewError === 'client'
+                                    ? "Le client associé est introuvable. Ouvrez l'éditeur pour vérifier le document."
+                                    : "Une erreur est survenue pendant la génération du PDF."}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {overviewError !== 'client' && (
+                                <button
+                                    onClick={() => { setOverviewError(null); generateOverviewPdf(); }}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Réessayer
+                                </button>
+                            )}
+                            <button
+                                onClick={goToEditor}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
+                            >
+                                <Pencil className="w-4 h-4" />
+                                Ouvrir l'éditeur
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
+                        <Loader2 className="w-8 h-8 animate-spin" />
+                        <span className="text-sm">Génération de l'aperçu…</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     return (
         <>
@@ -118,6 +247,18 @@ const PdfOverview = ({
                         >
                             <ExternalLink className="w-4 h-4" />
                         </a>
+                    )}
+                    {overviewSrc && (
+                        <button
+                            type="button"
+                            onClick={enterFullscreen}
+                            className="tap-target flex items-center justify-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            title="Afficher l'aperçu en plein écran"
+                            aria-label="Plein écran"
+                        >
+                            <Maximize2 className="w-4 h-4 lg:mr-2" />
+                            <span className="hidden lg:inline">Plein écran</span>
+                        </button>
                     )}
                     <button
                         type="button"
@@ -195,112 +336,26 @@ const PdfOverview = ({
 
             {affaireLink}
 
-            {/* Visionneuse PDF */}
-            <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-950 h-[75vh] min-h-[420px]">
-                {showImagePreview ? (
-                    overviewPageImages.length > 0 ? (
-                        // Aperçu image multi-pages (mobile) : l'<iframe> n'affiche
-                        // pas un PDF blob: sur iOS/Android.
-                        <div className="w-full h-full overflow-y-auto p-3 space-y-3" style={{ background: '#525659' }}>
-                            {overviewPageImages.map((src, i) => (
-                                <img
-                                    key={i}
-                                    src={src}
-                                    alt={`Page ${i + 1}`}
-                                    className="w-full rounded-lg shadow bg-white"
-                                    loading={i === 0 ? 'eager' : 'lazy'}
-                                />
-                            ))}
-                        </div>
-                    ) : overviewImagesFailed ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
-                            <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                Aperçu indisponible sur cet appareil
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handleDownloadPDF()}
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Télécharger
-                                </button>
-                                <a
-                                    href={overviewSrc}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                    Plein écran
-                                </a>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
-                            <Loader2 className="w-8 h-8 animate-spin" />
-                            <span className="text-sm">Préparation de l'aperçu…</span>
-                        </div>
-                    )
-                ) : overviewSrc ? (
-                    <iframe
-                        src={overviewSrc}
-                        title="Aperçu du document"
-                        className="w-full h-full border-0"
-                        style={{ background: '#525659' }}
-                    />
-                ) : overviewError ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6 bg-white dark:bg-gray-900">
-                        <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600" />
-                        <div>
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                Impossible d'afficher l'aperçu PDF
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
-                                {overviewError === 'client'
-                                    ? "Le client associé est introuvable. Ouvrez l'éditeur pour vérifier le document."
-                                    : "Une erreur est survenue pendant la génération du PDF."}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {overviewError !== 'client' && (
-                                <button
-                                    onClick={() => { setOverviewError(null); generateOverviewPdf(); }}
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                    Réessayer
-                                </button>
-                            )}
-                            <button
-                                onClick={goToEditor}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
-                            >
-                                <Pencil className="w-4 h-4" />
-                                Ouvrir l'éditeur
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                        <span className="text-sm">Génération de l'aperçu…</span>
-                    </div>
-                )}
-            </div>
+            {/* Visionneuse PDF — en overlay, elle est rendue dans <body> :
+                l'animation d'entrée de la page laisse un transform qui
+                piégerait un position: fixed. Une réserve de même taille garde
+                la page en place derrière. */}
+            {fullscreenMode === 'overlay' && (
+                <div className="h-[75vh] min-h-[420px]" aria-hidden="true" />
+            )}
+            {fullscreenMode === 'overlay' ? createPortal(viewer, document.body) : viewer}
 
-            {/* Repli mobile : ouvrir le PDF en plein écran */}
+            {/* Repli mobile : ouvrir le PDF dans le lecteur du téléphone */}
             {overviewSrc && (
                 <div className="mt-3 text-center sm:hidden">
                     <a
                         href={overviewSrc}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg"
+                        className="tap-target inline-flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg"
                     >
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        Ouvrir en plein écran
+                        Ouvrir dans le lecteur PDF
                     </a>
                 </div>
             )}
