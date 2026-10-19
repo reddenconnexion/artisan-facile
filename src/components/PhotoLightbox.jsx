@@ -5,6 +5,7 @@ import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, RotateCcwSqua
 import { toast } from 'sonner';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { normalizeQuarterTurn, rotationPreviewStyle } from '../utils/imageRotation';
+import { fetchStoredPhoto } from '../utils/storagePhoto';
 
 /**
  * Visionneuse plein écran pour les photos de chantier.
@@ -55,12 +56,11 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete, onRotate }
     const fileName = photo.name || `photo-${index + 1}.jpg`;
 
     // L'image peut être un fichier local (photo pas encore envoyée) ou une URL
-    // publique. Le fichier, quand l'appelant le fournit, évite tout aller-retour.
+    // publique. Le fichier, quand l'appelant le fournit, évite tout aller-retour ;
+    // une photo du stockage passe par fetchStoredPhoto (voir pourquoi là-bas).
     const fetchBlob = async () => {
         if (photo.blob) return photo.blob;
-        const res = await fetch(photo.src);
-        if (!res.ok) throw new Error('Image inaccessible');
-        return res.blob();
+        return fetchStoredPhoto(photo.src);
     };
 
     // Le presse-papier n'accepte que du PNG sur la plupart des navigateurs :

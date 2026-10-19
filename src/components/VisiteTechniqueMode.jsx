@@ -10,6 +10,7 @@ import { answeredPairs, buildSitePhotoPrompts } from '../utils/quoteMethod';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { generateQuoteFromSiteVisit, extractSurveyFromVisit, summarizeVisitForQuote } from '../utils/aiService';
 import { imageFileToBase64, compressImageFile } from '../utils/mediaConverters';
+import { fetchStoredPhoto } from '../utils/storagePhoto';
 import { transcribeBlob } from '../utils/transcribeAudio';
 import { assertWithinQuota } from '../utils/storageQuota';
 import { buildVisitRecord, buildClientPhotoRows, visitPhotoPath, visitAudioPath, visitReportNumber } from '../utils/visitArchive';
@@ -75,7 +76,7 @@ const buildPhotos = (files) => Array.from(files).map((file, i) => ({
 // recharge depuis le stockage quand l'analyse en a besoin.
 const photoAsFile = async (photo) => {
     if (photo.file) return photo.file;
-    const blob = await (await fetch(photo.url)).blob();
+    const blob = await fetchStoredPhoto(photo.url);
     return new File([blob], photo.name || 'photo.jpg', { type: blob.type || 'image/jpeg' });
 };
 

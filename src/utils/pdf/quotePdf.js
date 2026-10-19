@@ -1221,7 +1221,8 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
                     // Ideally we fetch blob.
 
                     try {
-                        const imgBlob = await fetch(montageUrl).then(r => r.blob());
+                        const { fetchStoredPhoto } = await import('../storagePhoto');
+                        const imgBlob = await fetchStoredPhoto(montageUrl);
                         const reader = new FileReader();
                         const base64data = await new Promise((resolve) => {
                             reader.onloadend = () => resolve(reader.result);

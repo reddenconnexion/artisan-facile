@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatDate, formatDateTime } from '../format';
 import { buildRoundedLogoDataUrl } from './logo';
+import { fetchStoredPhoto } from '../storagePhoto';
 
 // ---------------------------------------------------------------
 // Génération PDF pour les rapports d'intervention
@@ -222,8 +223,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         };
 
         const fetchDataUrl = async (url) => {
-            const res = await fetch(url);
-            const blob = await res.blob();
+            const blob = await fetchStoredPhoto(url);
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = e => resolve(e.target.result);
@@ -281,8 +281,7 @@ export const generateInterventionReportPDF = async (report, userProfile = {}, re
         );
 
         const fetchMilestonePhoto = async (url) => {
-            const res = await fetch(url);
-            const blob = await res.blob();
+            const blob = await fetchStoredPhoto(url);
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = e => resolve(e.target.result);
