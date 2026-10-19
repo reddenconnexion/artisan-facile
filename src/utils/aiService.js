@@ -6,6 +6,7 @@ import {
     parseQuoteResponse,
 } from './quoteValidation';
 import { SURVEY_AI_INSTRUCTION } from './surveyText';
+import { untranscribedLine } from './devisBrief';
 import {
     buildSiteVisitMethod,
     buildPriceLibraryPrompt,
@@ -510,21 +511,30 @@ const visitNotesBlock = (notes) => (Array.isArray(notes) ? notes : [])
     .filter(Boolean)
     .join('\n');
 
-const SURVEY_EXTRACTION_RULES = `Tu remplis la fiche de relevé d'une visite avant devis, à la place de l'artisan qui parlait avec son client.
+const SURVEY_EXTRACTION_RULES = `Tu remplis la fiche de relevé d'une visite avant devis, à la place de l'artisan électricien qui parlait avec son client. Lis la visite comme lui : un collègue de métier qui sait ce qui sert au chiffrage.
 
 TU REÇOIS :
-- la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage). Entre crochets, la pièce où l'artisan se trouvait quand il parlait ;
+- la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage, deux personnes qui parlent). Entre crochets, la pièce où l'artisan se trouvait quand il parlait ;
 - éventuellement ses notes tapées et les constats lus sur ses photos (entre crochets, la pièce de la photo).
 
+COMMENT LIRE LA CONVERSATION :
+- Repère ce que le client DEMANDE et ce que l'artisan CONSTATE ou CONSEILLE. Le bavardage, les anecdotes et les idées écartées ne vont nulle part.
+- Quand l'artisan ou le client se corrige ou change d'avis, garde la DERNIÈRE version.
+- Les mots mal reconnus se lisent avec le sens du métier (« cour-jus » = court-jus, « bûche » peut être une gaine ou un câble). Dans le doute, garde le mot entre guillemets plutôt que d'inventer.
+- Les pièces se déduisent aussi de la conversation (« dans la chambre », « en haut ») quand les crochets manquent.
+
 COMMENT REMPLIR :
-1. Remplis TOUT ce que la visite permet de remplir. Un champ vide oblige l'artisan à le ressaisir : c'est ce qu'on veut éviter.
-2. Pour les champs à choix, choisis l'option qui correspond à ce qui est dit, même avec d'autres mots : « on refait tout » → "Rénovation totale" ; « c'est du placo » → "Placo" ; « ils vivent dedans pendant les travaux » → "Logement occupé" ; « compteur Linky » → "Linky" ; « pas de terre » → "Absente — à créer". Recopie l'option EXACTEMENT telle qu'écrite dans le schéma.
-3. Les photos complètent l'existant : tableau (état, rangées, places libres, différentiels, disjoncteurs), terre, nature des murs, mode de pose, état du compteur. Une information lisible sur une photo se reporte dans la fiche.
-4. Pièces : une entrée par pièce évoquée, avec le nom le plus simple (« Cuisine », « Chambre 1 »…). Rattache chaque demande à sa pièce grâce aux crochets ou au contexte. Réutilise exactement les noms de pièces déjà créées quand c'est la même pièce.
-5. Compteurs : nombre d'éléments À POSER ou À REMPLACER dans la pièce, tel que dit (« trois prises » → 3, « une prise de chaque côté du lit » → 2). Les circuits spécialisés (four, plaque, lave-linge, chauffe-eau, VMC, borne…) vont dans le champ texte prévu, avec calibre et longueur si dits.
-6. Quand l'artisan ou le client se corrige, garde la DERNIÈRE version. Ignore ce que le client a écarté.
-7. Ne fabrique AUCUNE quantité, dimension, puissance ou valeur qui n'est ni dite ni lisible : dans ce cas omets le champ. Mieux vaut un champ vide qu'un chiffre inventé.
-8. Non-conformités : uniquement celles constatées (dites ou visibles), en phrases courtes. Notes libres : ce qui compte pour le devis et ne rentre nulle part ailleurs (marque ou gamme voulue, accès, horaires, animaux, matériel fourni par le client…).`;
+1. Remplis tout ce que la visite permet de remplir de façon sûre. Un champ juste fait gagner du temps ; un champ faux fait un devis faux. Dans le doute, laisse vide.
+2. Champs à choix : prends l'option qui correspond à ce qui est dit, même avec d'autres mots (« on refait tout » → "Rénovation totale" ; « c'est du placo » → "Placo" ; « ils vivent dedans » → "Logement occupé" ; « pas de terre » → "Absente — à créer"). Recopie l'option EXACTEMENT telle qu'écrite dans le schéma, et seulement dans le champ qui la propose (un mode de pose ne va jamais dans la nature des murs).
+3. Pièces : une entrée par pièce où il y a quelque chose à faire ou à constater, avec le nom le plus simple (« Cuisine », « Chambre 1 », « Couloir étage »). Réutilise exactement les noms des pièces déjà créées quand c'est la même pièce ; une pièce déjà créée sous un nom provisoire (« Pièce 1 ») ne se recrée pas sous un autre nom.
+4. Compteurs = appareils À CRÉER ou À REMPLACER, comptés comme ils sont dits (« trois prises » → 3 ; « une de chaque côté du lit » → 2). Ne va PAS dans les compteurs : une réparation (lustre, douille, spot à refixer), un déplacement, une dépose, un contrôle. Ces travaux s'écrivent dans le champ texte de la pièce en commençant par leur nature : « Réparation : … », « Dépose : … », « Déplacement : … », « Remplacement : … ».
+5. Nombre non dit (« les spots », « des prises ») : pas de compteur. Écris le travail dans le champ texte avec « (nombre à confirmer) ».
+6. Pour chaque appareil à poser, note qui le fournit quand c'est dit : « fourni par le client », « propositions à faire au client », « à fournir par l'artisan ».
+7. Circuits spécialisés (four, plaque, lave-linge, chauffe-eau, VMC, borne…) : dans le champ « Circuits dédiés », avec calibre et longueur si dits. Ce champ ne sert qu'à ça.
+8. Tableau : remplis l'état, les rangées, les places, les différentiels seulement si c'est dit ou lisible sur une photo. Ne déduis pas un état du tableau d'une simple mention.
+9. Ne fabrique AUCUNE quantité, dimension, puissance ou valeur qui n'est ni dite ni lisible. Mieux vaut un champ vide qu'un chiffre inventé.
+10. Non-conformités : uniquement celles constatées (dites ou visibles), en phrases courtes et factuelles, avec la pièce.
+11. Notes libres : ce qui compte pour le devis et ne rentre nulle part ailleurs — temps ou prix annoncés au client pendant la visite (« ~1 h annoncée pour le lustre, 60 €/h »), matériel fourni par le client, propositions promises, travaux reportés à plus tard, accès, horaires, disponibilités.`;
 
 /**
  * Extrait un relevé structuré (trame) à partir de la conversation retranscrite
@@ -565,7 +575,9 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
     const systemPrompt = `${SURVEY_EXTRACTION_RULES}\n\nFiche : ${template?.label || 'relevé de visite'}.\n\n`
         + `Rappel : n'invente et ne devine jamais une quantité non dite.\n\n${surveySchemaPrompt(template || {})}`;
 
-    const rawResponse = await callAiProxy({ systemPrompt, userMessage: parts.join('\n\n') });
+    // Le preset ne change pas la consigne : il fait lire la visite par Claude
+    // côté serveur, au lieu du modèle léger par défaut.
+    const rawResponse = await callAiProxy({ preset: 'visit-survey', systemPrompt, userMessage: parts.join('\n\n') });
     const parsed = extractJsonObject(rawResponse);
     return parsed && typeof parsed === 'object' ? parsed : null;
 };
@@ -576,19 +588,25 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
  * ce projet attend — une liste de travaux et de matériel, pièce par pièce,
  * sans prix — et rien de ce qui n'aide pas à chiffrer.
  */
-const DEVIS_BRIEF_PROMPT = `Tu prépares, pour un artisan électricien, le résumé de sa visite avant devis. Ce résumé sera collé tel quel dans l'outil qui rédige ses devis : il doit contenir tout ce qui sert à chiffrer, et rien d'autre.
+const DEVIS_BRIEF_PROMPT = `Tu prépares, pour un artisan électricien, le résumé de sa visite avant devis. Ce résumé sera collé tel quel dans l'outil qui rédige ses devis : il doit contenir tout ce qui sert à chiffrer, et rien d'autre. Écris-le comme un collègue électricien qui aurait fait la visite avec lui.
 
-SOURCES (par ordre de priorité) :
-1. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix.
-2. La conversation retranscrite (fautes de reconnaissance vocale, bavardage, hésitations) : entre crochets, la pièce où elle a été dite.
+SOURCES :
+1. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix. Mais il a pu être pré-rempli automatiquement : quand la conversation le contredit clairement (une réparation comptée comme un point à créer, un nombre qui n'est jamais dit), suis la conversation et signale l'écart dans POINTS À CONFIRMER.
+2. La conversation retranscrite (fautes de reconnaissance vocale, bavardage, deux personnes qui parlent) : entre crochets, la pièce où elle a été dite.
 3. Les notes tapées et les constats lus sur les photos.
 
 RÈGLES :
-- N'invente RIEN : aucune quantité, longueur, calibre ou marque qui ne soit dit, relevé ou visible. Aucun prix.
-- Quand l'artisan ou le client se corrige, garde la dernière version ; ignore ce qui a été écarté.
-- Quantités chiffrées et regroupées par pièce. Vocabulaire du métier, désignations génériques (pas de références fabricant, sauf si le client a imposé une marque : dis-le dans CHOIX DU CLIENT).
+- N'invente RIEN : aucune quantité, longueur, calibre ou marque qui ne soit dit, relevé ou visible.
+- Pas de prix de ton cru. Mais un temps ou un prix ANNONCÉ au client pendant la visite se reporte dans ANNONCÉ AU CLIENT : le devis doit rester cohérent avec ce qui a été dit.
+- Chaque travail commence par sa nature, parce qu'elle change tout au chiffrage : Création, Remplacement, Réparation, Dépose, Déplacement, Mise en sécurité. Une réparation n'est jamais une création.
+- Pour chaque appareil à poser, dis qui le fournit quand c'est connu (artisan, client, propositions à faire au client).
+- Quand l'artisan ou le client se corrige, garde la dernière version ; ignore ce qui a été écarté. Ce qui est reporté à plus tard va dans OPTIONS / PLUS TARD, pas dans les travaux.
+- Recopie chaque information sous la bonne étiquette : un mode de pose n'est pas une nature de mur. Une information absente s'omet, elle ne se remplace pas par « aucun ».
+- Vocabulaire du métier, désignations génériques (pas de références fabricant, sauf marque imposée par le client).
 - Phrases courtes, listes à tirets, pas de markdown (ni #, ni **).
 - Une rubrique sans information est omise, sauf POINTS À CONFIRMER.
+
+POINTS À CONFIRMER : liste tout ce qui manque et change le prix — nombre non dit, modèle ou fourniture d'un luminaire non choisi, origine d'un circuit à identifier, accès ou hauteur incertains, écart entre relevé et conversation, enregistrements non transcrits (à réécouter). « Aucun » seulement si vraiment tout est clair.
 
 FORMAT EXACT :
 Fais-moi le devis à partir de cette visite.
@@ -597,25 +615,28 @@ CLIENT : nom — adresse du chantier (si connus)
 OBJET : la demande du client en une phrase
 
 TRAVAUX DEMANDÉS (pièce par pièce)
-- Pièce : quantité + désignation ; quantité + désignation…
+- Pièce : Nature — quantité + désignation (fourniture) ; Nature — …
 
 TABLEAU, ALIMENTATION, TERRE
 - existant constaté et travaux demandés (rangées, places libres, différentiels, compteur, puissance, distance compteur-tableau, terre, GTL)
 
 CONDITIONS DE CHANTIER (temps de main d'œuvre)
-- murs, mode de pose, saignées et rebouchage, hauteur sous plafond, accès, logement occupé ou vide
+- murs, mode de pose, saignées et rebouchage, hauteur sous plafond et matériel d'accès, logement occupé ou vide, disponibilités
 
 CHOIX DU CLIENT
 - gamme d'appareillage, marque imposée, matériel fourni par le client, délai, budget évoqué
 
-NON-CONFORMITÉS ET RÉSERVES À ÉCRIRE SUR LE DEVIS
-- …
+ANNONCÉ AU CLIENT PENDANT LA VISITE
+- temps, taux horaire ou prix dits, propositions promises (catalogue de luminaires…)
 
-OPTIONS ÉVOQUÉES (hors total)
-- ce dont le client a parlé sans le décider
+NON-CONFORMITÉS ET RÉSERVES À ÉCRIRE SUR LE DEVIS
+- constat factuel, avec la pièce
+
+OPTIONS / PLUS TARD (hors total)
+- ce dont le client a parlé sans le décider, ou qu'il repousse
 
 POINTS À CONFIRMER AVANT CHIFFRAGE
-- ce qui manque ou reste flou et change le prix (ou « Aucun »)`;
+- …`;
 
 /**
  * Résumé de la visite prêt à coller dans le projet de chiffrage de l'artisan.
@@ -626,11 +647,12 @@ POINTS À CONFIRMER AVANT CHIFFRAGE
  * @param {Array<string|{zone: string, text: string}>} [input.photoAnalyses]
  * @param {string} [input.textNotes]
  * @param {string[]} [input.missing] - points essentiels non relevés
+ * @param {{zone?: string, seconds?: number}[]} [input.untranscribed] - enregistrements sans transcription
  * @param {object} [input.meta] - { clientName, address }
  * @returns {Promise<string>} texte brut
  */
 export const summarizeVisitForQuote = async ({
-    surveyText = '', transcripts = [], photoAnalyses = [], textNotes = '', missing = [], meta = {},
+    surveyText = '', transcripts = [], photoAnalyses = [], textNotes = '', missing = [], untranscribed = [], meta = {},
 } = {}) => {
     const parts = [];
     const entete = [
@@ -647,8 +669,10 @@ export const summarizeVisitForQuote = async ({
     if (!parts.some((p) => p !== entete)) throw new Error('Rien à résumer : la visite ne contient encore ni relevé, ni note, ni photo analysée.');
     const gaps = (missing || []).map((m) => (typeof m === 'string' ? m : m?.label)).filter(Boolean);
     if (gaps.length) parts.push('NON RELEVÉ PENDANT LA VISITE : ' + gaps.join(' ; '));
+    const lost = untranscribedLine(untranscribed);
+    if (lost) parts.push(lost);
 
-    const rawResponse = await callAiProxy({ systemPrompt: DEVIS_BRIEF_PROMPT, userMessage: parts.join('\n\n') });
+    const rawResponse = await callAiProxy({ preset: 'visit-brief', systemPrompt: DEVIS_BRIEF_PROMPT, userMessage: parts.join('\n\n') });
     const text = String(rawResponse ?? '')
         .replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '')
         .replace(/\*\*/g, '')

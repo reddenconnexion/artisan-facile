@@ -18,6 +18,85 @@ const readErrorMessage = async (response: Response, fallback: string) => {
   }
 };
 
+// Situer la conversation aide le modèle à reconnaître le vocabulaire du
+// métier au lieu de le déformer (« cour-jus » pour court-jus…).
+const VISIT_CONTEXT = "Contexte : visite de chantier. Un artisan du bâtiment (souvent électricien) parle avec son client en parcourant le logement. "
+  + 'Vocabulaire fréquent : tableau électrique, disjoncteur, différentiel 30 mA, fusible, interrupteur, va-et-vient, prise 2P+T, terre, Linky, GTL, '
+  + 'goulotte, moulure, boîte de dérivation, douille, court-jus, spot, plafonnier, applique, lustre, réglette LED, VMC, chauffe-eau, placo, saignée.';
+
+const VERBATIM_PROMPT = `${VISIT_CONTEXT}\n\nTranscris cet enregistrement audio en français, mot pour mot. Retourne uniquement la transcription, sans commentaires ni formatage. Si l'enregistrement ne contient aucune parole audible, retourne une chaîne vide.`;
+
+// Consigne de secours : une sortie différente (tours de parole) suffit à
+// passer le filtre anti-citation qui bloque parfois la version mot pour mot.
+const DIALOGUE_PROMPT = `${VISIT_CONTEXT}\n\nÉcris la transcription intégrale de cette conversation en français. Commence chaque prise de parole par « Artisan : » ou « Client : » quand on peut le déduire, sinon par « — ». Garde tout ce qui est dit sur les pièces, les travaux, les quantités et les constats. Aucun commentaire. Si personne ne parle, retourne une chaîne vide.`;
+
+type GeminiAttempt = { model: string; temperature: number; prompt: string };
+const GEMINI_ATTEMPTS: GeminiAttempt[] = [
+  { model: 'gemini-2.5-flash', temperature: 0, prompt: VERBATIM_PROMPT },
+  { model: 'gemini-2.5-flash', temperature: 0.4, prompt: DIALOGUE_PROMPT },
+  { model: 'gemini-2.5-pro', temperature: 0.4, prompt: DIALOGUE_PROMPT },
+];
+
+// La passerelle Supabase coupe à 150 s : toutes les tentatives tiennent dans
+// ce budget, et une tentative qui traîne ne mange pas celui des suivantes.
+const TRANSCRIBE_BUDGET_MS = 135_000;
+const MAX_ATTEMPT_MS = 70_000;
+const MIN_ATTEMPT_MS = 15_000;
+
+type GeminiOutcome = {
+  transcript: string;
+  finishReason?: string;
+  blockReason?: string;
+  httpError?: { status: number; message: string };
+};
+
+async function geminiTranscribe(
+  apiKey: string,
+  attempt: GeminiAttempt,
+  mimeType: string,
+  audioBase64: string,
+  timeoutMs: number,
+): Promise<GeminiOutcome> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType, data: audioBase64 } },
+              { text: attempt.prompt },
+            ],
+          }],
+          generationConfig: { temperature: attempt.temperature },
+        }),
+      },
+    );
+    if (!response.ok) {
+      const message = await readErrorMessage(response, `Erreur Gemini (${response.status})`);
+      return { transcript: '', httpError: { status: response.status, message } };
+    }
+    const data = await response.json();
+    const candidate = data.candidates?.[0];
+    // Le texte peut être réparti sur plusieurs parties : on les assemble
+    // toutes au lieu de ne lire que la première.
+    const transcript = (candidate?.content?.parts || [])
+      .filter((p: { thought?: boolean }) => !p?.thought)
+      .map((p: { text?: string }) => p?.text || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return { transcript, finishReason: candidate?.finishReason, blockReason: data.promptFeedback?.blockReason };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
 
@@ -104,58 +183,58 @@ Deno.serve(async (req) => {
     let emptyReason = '';
 
     if (aiProvider === 'gemini') {
-      // Gemini audio transcription via inlineData
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: audioMimeType,
-                    data: audioBase64
-                  }
-                },
-                {
-                  text: "Transcris cet enregistrement audio en français, mot pour mot. Retourne uniquement la transcription, sans commentaires ni formatage. Si l'enregistrement ne contient aucune parole audible, retourne une chaîne vide."
-                }
-              ]
-            }],
-            generationConfig: { temperature: 0 },
-          })
+      // Plusieurs tentatives : Gemini renvoie parfois une transcription vide
+      // sur un enregistrement parfaitement audible — coupée par son filtre
+      // anti-citation (finishReason RECITATION, systématique à consigne
+      // égale : la relance côté client échouait à l'identique) ou sans raison
+      // (STOP vide, qui passe à la tentative suivante). Une visite perdait
+      // ainsi 8 minutes de conversation.
+      let silentAnswers = 0;
+      for (let i = 0; i < GEMINI_ATTEMPTS.length; i += 1) {
+        const remaining = TRANSCRIBE_BUDGET_MS - (Date.now() - startedAt);
+        if (i > 0 && remaining < MIN_ATTEMPT_MS) break;
+        const attempt = GEMINI_ATTEMPTS[i];
+        let outcome: GeminiOutcome;
+        try {
+          outcome = await geminiTranscribe(apiKey, attempt, audioMimeType, audioBase64, Math.min(remaining, MAX_ATTEMPT_MS));
+        } catch (err) {
+          const timedOut = (err as Error).name === 'AbortError';
+          emptyReason = timedOut ? 'La transcription a pris trop de temps.' : `Erreur Gemini : ${(err as Error).message}`;
+          console.warn(`${logPrefix} gemini attempt=${i + 1} model=${attempt.model} ${timedOut ? 'timeout' : `error=${(err as Error).message}`}`);
+          continue;
         }
-      );
 
-      if (!geminiResponse.ok) {
-        const errMsg = await readErrorMessage(geminiResponse, `Erreur Gemini (${geminiResponse.status})`);
-        console.error(`${logPrefix} gemini status=${geminiResponse.status} error=${errMsg}`);
-        await markMemo({ status: 'error' });
-        return json({ error: errMsg }, 502);
+        if (outcome.httpError) {
+          const { status, message } = outcome.httpError;
+          console.error(`${logPrefix} gemini attempt=${i + 1} model=${attempt.model} status=${status} error=${message}`);
+          // Clé refusée, fichier invalide… : une autre tentative n'y changera rien.
+          if (status !== 429 && status < 500) {
+            await markMemo({ status: 'error' });
+            return json({ error: message }, 502);
+          }
+          emptyReason = message;
+          continue;
+        }
+
+        if (outcome.transcript) {
+          transcript = outcome.transcript;
+          if (i > 0) console.log(`${logPrefix} gemini rattrapé attempt=${i + 1} model=${attempt.model}`);
+          break;
+        }
+
+        const { finishReason, blockReason } = outcome;
+        console.warn(`${logPrefix} gemini empty attempt=${i + 1} model=${attempt.model} finish=${finishReason ?? '-'} block=${blockReason ?? '-'}`);
+        if (!blockReason && (!finishReason || finishReason === 'STOP')) {
+          // Deux réponses « rien d'audible » d'affilée : c'est un vrai silence.
+          silentAnswers += 1;
+          emptyReason = '';
+          if (silentAnswers >= 2) break;
+        } else {
+          emptyReason = blockReason
+            ? `Gemini a refusé l'enregistrement (${blockReason}).`
+            : `Gemini n'a pas terminé la transcription (${finishReason}).`;
+        }
       }
-
-      const geminiData = await geminiResponse.json();
-      const candidate = geminiData.candidates?.[0];
-      // Le texte peut être réparti sur plusieurs parties : on les assemble
-      // toutes au lieu de ne lire que la première.
-      transcript = (candidate?.content?.parts || [])
-        .map((p: { text?: string }) => p?.text || '')
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      const finishReason = candidate?.finishReason;
-      const blockReason = geminiData.promptFeedback?.blockReason;
-      if (!transcript) {
-        emptyReason = blockReason
-          ? `Gemini a refusé l'enregistrement (${blockReason}).`
-          : finishReason && finishReason !== 'STOP'
-            ? `Gemini n'a pas terminé la transcription (${finishReason}).`
-            : '';
-        console.warn(`${logPrefix} gemini empty finish=${finishReason ?? '-'} block=${blockReason ?? '-'}`);
-      }
-
     } else {
       // OpenAI Whisper transcription
       const binaryString = atob(audioBase64);
@@ -170,6 +249,8 @@ Deno.serve(async (req) => {
       formData.append('model', 'whisper-1');
       formData.append('language', 'fr');
       formData.append('response_format', 'json');
+      // Whisper s'appuie sur ce texte pour l'orthographe des termes du métier.
+      formData.append('prompt', VISIT_CONTEXT);
 
       const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
