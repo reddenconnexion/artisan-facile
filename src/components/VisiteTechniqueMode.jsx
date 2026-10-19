@@ -19,7 +19,7 @@ import { getSurveyTemplate } from '../constants/surveyTemplates';
 import {
     createEmptySurvey, buildSurveyText, hasSurveyContent, mergeSurveyFill, extractVisitIdentity, countSurveyValues,
 } from '../utils/surveyText';
-import { zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes } from '../utils/devisBrief';
+import { zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes, untranscribedNotes } from '../utils/devisBrief';
 import DevisBriefSheet from './DevisBriefSheet';
 import SurveyForm from './SurveyForm';
 import VisitQuestionsCard from './VisitQuestionsCard';
@@ -940,7 +940,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                     : 'Les notes vocales sont encore en cours de transcription — réessayez dans un instant.');
                 return;
             }
-            setFillStage('Remplissage du relevé…');
+            setFillStage('Lecture de la visite et remplissage du relevé (jusqu’à une minute)…');
             const extracted = await extractSurveyFromVisit(transcripts, findings, surveyTemplate, typed, {
                 knownZones: (current.zones || []).map((z) => z.name),
             });
@@ -1007,6 +1007,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 photoAnalyses: findings,
                 textNotes: typed,
                 missing: findMissingEssentials(current, surveyTemplate),
+                untranscribed: untranscribedNotes(voiceNotesRef.current, voiceTranscriptsRef.current),
                 meta: { clientName: name, address: addr },
             });
             setDevisBrief(text);

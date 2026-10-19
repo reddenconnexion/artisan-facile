@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes, isClaudeProjectUrl } from './devisBrief';
+import {
+    zonedTranscripts, photoFindings, zonedLine, keepPhotoNotes, isClaudeProjectUrl, untranscribedNotes, untranscribedLine,
+} from './devisBrief';
 
 describe('zonedTranscripts', () => {
     it('garde l\'ordre de la visite et la pièce, sans les notes vides', () => {
@@ -39,5 +41,30 @@ describe('isClaudeProjectUrl', () => {
         expect(isClaudeProjectUrl('http://claude.ai/project/x')).toBe(false);
         expect(isClaudeProjectUrl('https://evil.com/claude.ai')).toBe(false);
         expect(isClaudeProjectUrl('pas un lien')).toBe(false);
+    });
+});
+
+describe('untranscribedNotes', () => {
+    it('garde les notes sans transcription, mais pas celles transcrites vides (silence)', () => {
+        const notes = [
+            { id: 'a', zone: 'Salon', duration: 480.4 },
+            { id: 'b', zone: 'Chambre', duration: 86 },
+            { id: 'c', duration: 30 },
+        ];
+        expect(untranscribedNotes(notes, { b: '' })).toEqual([
+            { zone: 'Salon', seconds: 480 },
+            { zone: '', seconds: 30 },
+        ]);
+    });
+});
+
+describe('untranscribedLine', () => {
+    it('ne dit rien quand tout est transcrit', () => {
+        expect(untranscribedLine([])).toBe('');
+    });
+
+    it('donne le nombre, la durée et la pièce de chaque enregistrement manquant', () => {
+        expect(untranscribedLine([{ zone: 'Salon', seconds: 480 }, { seconds: 45 }, { zone: '', seconds: 0 }]))
+            .toBe('ENREGISTREMENTS NON TRANSCRITS (contenu absent de ce résumé, à réécouter) : 3 — 8 min, Salon ; 45 s');
     });
 });

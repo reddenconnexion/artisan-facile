@@ -68,6 +68,9 @@ describe('extractSurveyFromVisit', () => {
         expect(body.systemPrompt).toContain('"prises"');
         expect(body.systemPrompt).toContain('"parafoudre_t2"');
         expect(body.systemPrompt).toMatch(/n'invente et ne devine jamais/i);
+        // Une réparation n'est pas un point à créer : elle ne va pas dans les compteurs.
+        expect(body.systemPrompt).toMatch(/Ne va PAS dans les compteurs : une réparation/);
+        expect(body.preset).toBe('visit-survey');
         expect(body.userMessage).toContain('Dans la cuisine il faut six prises');
 
         expect(result).toMatchObject({
@@ -152,6 +155,19 @@ describe('summarizeVisitForQuote', () => {
         expect(body.userMessage).toContain('Client pressé');
         expect(body.userMessage).toContain('NON RELEVÉ PENDANT LA VISITE : État du tableau électrique');
         expect(text).toBe('Fais-moi le devis à partir de cette visite.\n\nCLIENT : M. Martin');
+        // Lu par Claude côté serveur, et non par le modèle léger par défaut.
+        expect(body.preset).toBe('visit-brief');
+    });
+
+    it('signale les enregistrements non transcrits, pour qu\'ils finissent en points à confirmer', async () => {
+        invokeMock.mockResolvedValue(okResponse('Fais-moi le devis à partir de cette visite.'));
+        await summarizeVisitForQuote({
+            transcripts: [{ zone: 'Salon', text: 'réparer le lustre' }],
+            untranscribed: [{ zone: 'Chambre', seconds: 480 }],
+        });
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain('ENREGISTREMENTS NON TRANSCRITS (contenu absent de ce résumé, à réécouter) : 1 — 8 min, Chambre');
+        expect(body.systemPrompt).toContain('enregistrements non transcrits');
     });
 
     it('refuse de résumer une visite vide, sans appel IA', async () => {

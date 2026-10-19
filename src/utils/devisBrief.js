@@ -25,6 +25,36 @@ export const photoFindings = (photos = [], notesById = {}, zonesById = {}) => (p
     .map((p) => ({ zone: zonesById?.[p?.id] || '', text: String(notesById?.[p?.id] ?? '').trim() }))
     .filter((p) => p.text);
 
+/**
+ * Notes vocales sans transcription (échec, ou encore en cours), avec leur
+ * durée et leur pièce : leur contenu manque à tout ce que l'IA lit ensuite.
+ * @param {{id: string, zone?: string, duration?: number}[]} voiceNotes
+ * @param {Record<string, string>} transcripts - { [idNote]: texte } ; une clé
+ *   présente, même vide, vaut « transcrite »
+ * @returns {{zone: string, seconds: number}[]}
+ */
+export const untranscribedNotes = (voiceNotes = [], transcripts = {}) => (voiceNotes || [])
+    .filter((n) => n?.id && !Object.prototype.hasOwnProperty.call(transcripts || {}, n.id))
+    .map((n) => ({ zone: n.zone || '', seconds: Math.round(Number(n.duration) || 0) }));
+
+/**
+ * Enregistrements dont le contenu manque au résumé : sans cette ligne, l'IA
+ * concluait « Aucun point à confirmer » sur une visite amputée de 8 minutes.
+ * @param {{zone?: string, seconds?: number}[]} notes
+ * @returns {string}
+ */
+export const untranscribedLine = (notes = []) => {
+    const list = (Array.isArray(notes) ? notes : []).filter(Boolean);
+    if (!list.length) return '';
+    const details = list.map((n) => {
+        const seconds = Math.round(Number(n.seconds) || 0);
+        const length = seconds >= 60 ? `${Math.round(seconds / 60)} min` : seconds ? `${seconds} s` : '';
+        return [length, n.zone].filter(Boolean).join(', ');
+    }).filter(Boolean);
+    return `ENREGISTREMENTS NON TRANSCRITS (contenu absent de ce résumé, à réécouter) : ${list.length}`
+        + (details.length ? ` — ${details.join(' ; ')}` : '');
+};
+
 /** « [Cuisine] texte » — forme texte d'une note rattachée à sa pièce. */
 export const zonedLine = ({ zone, text }) => `${zone ? `[${zone}] ` : ''}${text}`;
 

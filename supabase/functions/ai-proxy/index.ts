@@ -35,7 +35,10 @@ const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, wo
 // d'une conversation de chantier décousue. Sans clé personnelle, un compte Pro
 // passe donc par Claude, le même moteur que la skill « devis électrique » qui,
 // elle, colle à la réalité. Repli sur Gemini si Claude ne répond pas à temps.
-const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit']);
+// Même chose pour la lecture de la visite (remplissage du relevé, résumé pour
+// devis) : Gemini Flash sans réflexion confondait les champs, comptait des
+// réparations comme des points à créer et inventait des quantités.
+const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit', 'visit-survey', 'visit-brief']);
 // La passerelle Supabase coupe à 150 s : on laisse la marge du repli Gemini.
 const CLAUDE_TIMEOUT_MS = 100_000;
 

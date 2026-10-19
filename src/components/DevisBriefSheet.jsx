@@ -110,7 +110,7 @@ const DevisBriefSheet = ({
                     {loading && !hasText ? (
                         <div className="flex flex-col items-center gap-3 py-12 text-violet-700">
                             <Loader2 className="w-7 h-7 animate-spin" />
-                            <p className="text-sm font-semibold">Rédaction du résumé…</p>
+                            <p className="text-sm font-semibold">Rédaction du résumé (jusqu’à une minute)…</p>
                             <p className="text-xs text-gray-500 text-center">Relevé, notes vocales et photos sont relus pour ne garder que ce qui sert au devis.</p>
                         </div>
                     ) : (
