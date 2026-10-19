@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Copy, Share2, Download, Trash2, Loader2, Check } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, RotateCcwSquare, RotateCwSquare, Copy, Share2, Download, Trash2, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { normalizeQuarterTurn, rotationPreviewStyle } from '../utils/imageRotation';
 
 /**
  * Visionneuse plein écran pour les photos de chantier.
@@ -19,15 +20,22 @@ import { useModalA11y } from '../hooks/useModalA11y';
  * @param {number|null} props.index - photo ouverte ; null = fermée
  * @param {(index: number|null) => void} props.onIndexChange
  * @param {(photo: object, index: number) => (void|Promise<void>)} [props.onDelete] - absent = pas de suppression
+ * @param {(photo: object, index: number, rotation: number) => (boolean|Promise<boolean>)} [props.onRotate]
+ *   enregistre la photo tournée de `rotation` degrés (sens horaire) ; absent = pas de rotation
  */
-const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete }) => {
+const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete, onRotate }) => {
     const open = index !== null && index !== undefined && Boolean(photos[index]);
     const close = () => onIndexChange?.(null);
     const containerRef = useModalA11y(open, close);
-    const [busy, setBusy] = useState(null); // 'copy' | 'share' | 'download' | 'delete'
+    const [busy, setBusy] = useState(null); // 'copy' | 'share' | 'download' | 'delete' | 'rotate'
     const [copied, setCopied] = useState(false);
+    // Rotation en attente : l'aperçu tourne tout de suite, le fichier n'est
+    // remplacé qu'à « Enregistrer ». Repart de zéro à chaque photo.
+    const [turn, setTurn] = useState(0);
 
     const photo = open ? photos[index] : null;
+    const photoSrc = photo?.src;
+    useEffect(() => { setTurn(0); }, [photoSrc]);
     const hasPrev = open && index > 0;
     const hasNext = open && index < photos.length - 1;
 
@@ -142,6 +150,19 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete }) => {
         }
     };
 
+    const turnBy = (deg) => setTurn((t) => normalizeQuarterTurn(t + deg));
+
+    const handleSaveRotation = async () => {
+        if (!onRotate || !turn) return;
+        setBusy('rotate');
+        try {
+            const saved = await onRotate(photo, index, turn);
+            if (saved !== false) setTurn(0);
+        } finally {
+            setBusy(null);
+        }
+    };
+
     const actionClass = 'flex flex-col items-center gap-1 px-3 py-2 text-white/85 hover:text-white disabled:opacity-40 text-[11px] font-semibold';
 
     return createPortal(
@@ -175,6 +196,7 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete }) => {
                                     src={photo.src}
                                     alt={photo.name || `Photo ${index + 1}`}
                                     className="max-w-full max-h-full object-contain"
+                                    style={rotationPreviewStyle(turn)}
                                     draggable="false"
                                 />
                             </TransformComponent>
@@ -182,7 +204,35 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete }) => {
                                 <button type="button" onClick={() => zoomOut()} className="p-2 text-white/80" aria-label="Dézoomer"><ZoomOut className="w-5 h-5" /></button>
                                 <button type="button" onClick={() => resetTransform()} className="p-2 text-white/80" aria-label="Taille d'origine"><RotateCcw className="w-4 h-4" /></button>
                                 <button type="button" onClick={() => zoomIn()} className="p-2 text-white/80" aria-label="Zoomer"><ZoomIn className="w-5 h-5" /></button>
+                                {onRotate && (
+                                    <>
+                                        <span className="w-px h-5 bg-white/20 mx-1" aria-hidden="true" />
+                                        <button type="button" onClick={() => turnBy(-90)} disabled={Boolean(busy)} className="p-2 text-white/80 disabled:opacity-40" aria-label="Pivoter vers la gauche"><RotateCcwSquare className="w-5 h-5" /></button>
+                                        <button type="button" onClick={() => turnBy(90)} disabled={Boolean(busy)} className="p-2 text-white/80 disabled:opacity-40" aria-label="Pivoter vers la droite"><RotateCwSquare className="w-5 h-5" /></button>
+                                    </>
+                                )}
                             </div>
+                            {turn !== 0 && (
+                                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTurn(0)}
+                                        disabled={busy === 'rotate'}
+                                        className="px-3 py-2 rounded-full bg-white/15 text-white text-sm font-semibold disabled:opacity-40"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveRotation}
+                                        disabled={Boolean(busy)}
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold disabled:opacity-60"
+                                    >
+                                        {busy === 'rotate' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                        Enregistrer la rotation
+                                    </button>
+                                </div>
+                            )}
                         </>
                     )}
                 </TransformWrapper>
