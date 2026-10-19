@@ -14,22 +14,9 @@
 import { supabase } from './supabase';
 import { assertWithinQuota } from './storageQuota';
 import { rotateImageBlob, normalizeQuarterTurn } from './imageRotation';
+import { PHOTO_BUCKET, fetchStoredPhoto, storagePathFromUrl } from './storagePhoto';
 
-const BUCKET = 'project-photos';
-const PUBLIC_MARKER = `/storage/v1/object/public/${BUCKET}/`;
-
-/** Chemin dans le bucket d'après l'URL publique (null si hors bucket). */
-export const storagePathFromUrl = (url) => {
-    const value = String(url ?? '');
-    const idx = value.indexOf(PUBLIC_MARKER);
-    if (idx === -1) return null;
-    const path = value.slice(idx + PUBLIC_MARKER.length).split(/[?#]/)[0];
-    try {
-        return decodeURIComponent(path) || null;
-    } catch {
-        return path || null;
-    }
-};
+const BUCKET = PHOTO_BUCKET;
 
 /** Emplacement de la version tournée : même dossier que l'original. */
 export const rotatedPhotoPath = (originalPath, userId, id) => {
@@ -53,17 +40,6 @@ export const replacePhotoInList = (photos, oldUrl, next) => {
     return found ? updated : null;
 };
 
-const downloadPhoto = async (url) => {
-    const path = storagePathFromUrl(url);
-    if (path) {
-        const { data, error } = await supabase.storage.from(BUCKET).download(path);
-        if (!error && data) return data;
-    }
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Photo inaccessible');
-    return res.blob();
-};
-
 /**
  * Tourne une photo enregistrée et met à jour ses références.
  * @param {object} args
@@ -77,7 +53,7 @@ export const rotateSavedPhoto = async ({ userId, url, rotation }) => {
     const turn = normalizeQuarterTurn(rotation);
     if (!userId || !url || !turn) throw new Error('Rotation invalide');
 
-    const original = await downloadPhoto(url);
+    const original = await fetchStoredPhoto(url);
     const rotated = await rotateImageBlob(original, turn);
     await assertWithinQuota(rotated.size);
 
