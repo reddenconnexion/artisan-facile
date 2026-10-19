@@ -235,7 +235,7 @@ const InterventionReportForm = () => {
         toast.success('Signature enregistrée');
     };
     // Photos de l'intervention (galerie, appareil photo en rafale, suppression)
-    const { nativePhotoRef, openCamera, camera, handlePhotoUpload, removePhoto } = useReportPhotos({
+    const { nativePhotoRef, openCamera, camera, handlePhotoUpload, removePhoto, rotatePhoto } = useReportPhotos({
         user, id, isEditing,
         formData, setFormData,
         setUploadingPhotos,
@@ -561,6 +561,7 @@ const InterventionReportForm = () => {
                 index={photoViewer}
                 onIndexChange={setPhotoViewer}
                 onDelete={(_, i) => removePhoto((formData.photos || [])[i])}
+                onRotate={(_, i, rotation) => rotatePhoto((formData.photos || [])[i], rotation)}
             />
 
             <SignatureModal

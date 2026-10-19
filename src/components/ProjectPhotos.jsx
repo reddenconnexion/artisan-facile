@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, FolderPlus, Folder, CheckSquare, ArrowLeft, ArrowRight, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy, Download } from 'lucide-react';
+import { Camera, Trash2, Upload, X, Loader2, Maximize2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, RotateCcwSquare, RotateCwSquare, Check, FolderPlus, Folder, CheckSquare, ArrowLeft, ArrowRight, Info, FolderInput, Image as ImageIcon, ClipboardPaste, Copy, Download } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import BeforeAfterBuilder from './BeforeAfterBuilder';
 import { validateFiles, UPLOAD_PRESETS } from '../utils/uploadValidation';
@@ -15,6 +15,8 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { useBurstCamera } from '../hooks/useBurstCamera';
+import { normalizeQuarterTurn, rotationPreviewStyle } from '../utils/imageRotation';
+import { rotateSavedPhoto } from '../utils/rotateSavedPhoto';
 
 // Ordre et libellés des colonnes de classement des photos de chantier.
 // Sert à déplacer une photo d'une colonne à l'autre (Avant → Pendant → Après).
@@ -37,6 +39,11 @@ const ProjectPhotos = ({ clientId }) => {
     const [newProjectName, setNewProjectName] = useState('');
     const [activeTab, setActiveTab] = useState('before'); // 'before', 'during', 'after'
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
+    // Rotation en attente dans le plein écran : l'aperçu tourne tout de
+    // suite, le fichier n'est remplacé qu'à « Enregistrer la rotation ».
+    const [pendingTurn, setPendingTurn] = useState(0);
+    const [savingRotation, setSavingRotation] = useState(false);
+    useEffect(() => { setPendingTurn(0); }, [selectedPhotoIndex]);
 
     // Générateur Avant / Après (null = fermé, sinon photos présélectionnées)
     const [comparisonInit, setComparisonInit] = useState(null);
@@ -664,6 +671,30 @@ const ProjectPhotos = ({ clientId }) => {
         } catch (error) {
             console.error('Error moving photo category:', error);
             toast.error('Erreur lors du déplacement de la photo', { id: toastId });
+        }
+    };
+
+    // Remplace la photo par sa version tournée (voir rotateSavedPhoto).
+    const handleSaveRotation = async (photo) => {
+        if (!photo || !user || !pendingTurn || savingRotation) return;
+        setSavingRotation(true);
+        const toastId = toast.loading('Rotation de la photo…');
+        try {
+            const { url, rows } = await rotateSavedPhoto({ userId: user.id, url: photo.photo_url, rotation: pendingTurn });
+            setPhotos(prev => prev.map(p => {
+                if (p.photo_url !== photo.photo_url) return p;
+                const fresh = rows.find(r => String(r.client_id) === String(p.client_id)
+                    && r.category === p.category
+                    && String(r.project_id) === String(p.project_id));
+                return fresh || { ...p, photo_url: url };
+            }));
+            setPendingTurn(0);
+            toast.success('Photo redressée', { id: toastId });
+        } catch (error) {
+            console.error('Error rotating photo:', error);
+            toast.error(error?.message?.startsWith('Espace de stockage plein') ? error.message : 'Impossible de pivoter la photo', { id: toastId });
+        } finally {
+            setSavingRotation(false);
         }
     };
 
@@ -1524,7 +1555,44 @@ const ProjectPhotos = ({ clientId }) => {
                                             >
                                                 <ZoomIn className="w-5 h-5" />
                                             </button>
+                                            <span className="w-px h-5 bg-white/20" aria-hidden="true" />
+                                            <button
+                                                onClick={() => setPendingTurn(t => normalizeQuarterTurn(t - 90))}
+                                                disabled={savingRotation}
+                                                className="p-1.5 text-white/75 hover:text-white transition-colors disabled:opacity-40"
+                                                title="Pivoter vers la gauche"
+                                            >
+                                                <RotateCcwSquare className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingTurn(t => normalizeQuarterTurn(t + 90))}
+                                                disabled={savingRotation}
+                                                className="p-1.5 text-white/75 hover:text-white transition-colors disabled:opacity-40"
+                                                title="Pivoter vers la droite"
+                                            >
+                                                <RotateCwSquare className="w-5 h-5" />
+                                            </button>
                                         </div>
+
+                                        {pendingTurn !== 0 && (
+                                            <div className="absolute top-20 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
+                                                <button
+                                                    onClick={() => setPendingTurn(0)}
+                                                    disabled={savingRotation}
+                                                    className="px-3 py-2 rounded-full bg-white/15 text-white text-sm font-semibold backdrop-blur-sm disabled:opacity-40"
+                                                >
+                                                    Annuler
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSaveRotation(filteredPhotos[selectedPhotoIndex])}
+                                                    disabled={savingRotation}
+                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg disabled:opacity-60"
+                                                >
+                                                    {savingRotation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                    Enregistrer la rotation
+                                                </button>
+                                            </div>
+                                        )}
 
                                         <TransformComponent
                                             wrapperClass="!w-full !h-full flex items-center justify-center"
@@ -1534,6 +1602,7 @@ const ProjectPhotos = ({ clientId }) => {
                                                 src={filteredPhotos[selectedPhotoIndex].photo_url}
                                                 alt="Plein écran"
                                                 className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl select-none"
+                                                style={rotationPreviewStyle(pendingTurn)}
                                                 draggable="false"
                                             />
                                         </TransformComponent>

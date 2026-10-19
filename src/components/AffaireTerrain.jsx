@@ -18,6 +18,7 @@ import {
 } from '../utils/affaireSite';
 import { Card } from './ui';
 import PhotoLightbox from './PhotoLightbox';
+import { rotateSavedPhoto } from '../utils/rotateSavedPhoto';
 import QuickPhotoCapture from './QuickPhotoCapture';
 
 const PHOTO_PREVIEW = 8;
@@ -192,6 +193,22 @@ const AffaireTerrain = ({ quote, linkedDocs = [] }) => {
 
     const { photos, material, hours, reports, events } = data;
     const nextEvent = events.upcoming[0] || null;
+
+    // Redresse une photo du chantier (voir rotateSavedPhoto), puis recharge.
+    const handleRotatePhoto = async (_, i, rotation) => {
+        const photo = photos[i];
+        if (!photo || !user) return false;
+        const toastId = toast.loading('Rotation de la photo…');
+        try {
+            await rotateSavedPhoto({ userId: user.id, url: photo.photo_url, rotation });
+            await load();
+            toast.success('Photo redressée', { id: toastId });
+            return true;
+        } catch (err) {
+            toast.error(err?.message?.startsWith('Espace de stockage plein') ? err.message : 'Impossible de pivoter la photo', { id: toastId });
+            return false;
+        }
+    };
     const lastEvent = events.past[0] || null;
 
     return (
@@ -363,6 +380,7 @@ const AffaireTerrain = ({ quote, linkedDocs = [] }) => {
                 photos={photos.map(p => ({ src: p.photo_url, name: p.description || '', caption: p.description || '' }))}
                 index={lightboxIndex}
                 onIndexChange={setLightboxIndex}
+                onRotate={handleRotatePhoto}
             />
 
             {capturing && (

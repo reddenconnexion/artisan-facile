@@ -8,6 +8,8 @@
 // Les helpers de calcul sont purs ; le dessin sur canvas vit dans
 // `frameToJpegBlob`, appelé par LiveCameraSheet.
 
+import { applyRotation, rotatedSize } from './imageRotation';
+
 /** Contraintes vidéo : caméra arrière, définition photo raisonnable. */
 export const videoConstraints = (facingMode = 'environment') => ({
     audio: false, // surtout pas : le micro est déjà pris par l'enregistrement
@@ -111,21 +113,15 @@ export const frameToJpegBlob = (video, { maxDim = 2048, quality = 0.85, rotation
         if (!sourceW || !sourceH) return reject(new Error('Aperçu caméra non prêt'));
 
         const { width, height } = scaleToMax(sourceW, sourceH, maxDim);
-        const quarter = rotation === 90 || rotation === 270;
+        // `rotation` compte dans le sens inverse des aiguilles d'une montre
+        // (convention de `screen.orientation.angle`) ; applyRotation, elle,
+        // compte dans le sens horaire.
+        const size = rotatedSize(width, height, -rotation);
         const canvas = document.createElement('canvas');
-        canvas.width = quarter ? height : width;
-        canvas.height = quarter ? width : height;
+        canvas.width = size.width;
+        canvas.height = size.height;
         const ctx = canvas.getContext('2d');
-        if (rotation === 90) {
-            ctx.translate(0, canvas.height);
-            ctx.rotate(-Math.PI / 2);
-        } else if (rotation === 180) {
-            ctx.translate(canvas.width, canvas.height);
-            ctx.rotate(Math.PI);
-        } else if (rotation === 270) {
-            ctx.translate(canvas.width, 0);
-            ctx.rotate(Math.PI / 2);
-        }
+        applyRotation(ctx, width, height, -rotation);
         ctx.drawImage(video, 0, 0, width, height);
         canvas.toBlob(
             (blob) => (blob ? resolve(blob) : reject(new Error('Capture impossible'))),

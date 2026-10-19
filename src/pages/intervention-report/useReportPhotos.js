@@ -5,6 +5,7 @@ import { compressImageFile } from '../../utils/mediaConverters';
 import { assertWithinQuota } from '../../utils/storageQuota';
 import { supabase } from '../../utils/supabase';
 import { useBurstCamera } from '../../hooks/useBurstCamera';
+import { rotateSavedPhoto } from '../../utils/rotateSavedPhoto';
 import { blockIfOffline } from './reportFormUtils';
 
 /**
@@ -131,5 +132,35 @@ export const useReportPhotos = ({
         }
     };
 
-    return { nativePhotoRef, openCamera, camera, handlePhotoUpload, removePhoto };
+    // Redresse une photo : la version tournée remplace l'ancienne dans le
+    // formulaire, et — via rotateSavedPhoto — dans le rapport enregistré et
+    // le dossier du client.
+    const rotatePhoto = async (photo, rotation) => {
+        if (!photo?.url || !user) return false;
+        if (blockIfOffline('la rotation de la photo')) return false;
+        const toastId = toast.loading('Rotation de la photo…');
+        try {
+            const next = await rotateSavedPhoto({ userId: user.id, url: photo.url, rotation });
+            setFormData(prev => ({
+                ...prev,
+                photos: (prev.photos || []).map(p => (p.url === photo.url ? { ...p, url: next.url, path: next.path } : p)),
+            }));
+            if (isEditing) {
+                invalidateInterventionReport(id);
+                if (savedSnapshotRef.current) {
+                    savedSnapshotRef.current = {
+                        ...savedSnapshotRef.current,
+                        photos: savedSnapshotRef.current.photos.map(u => (u === photo.url ? next.url : u)),
+                    };
+                }
+            }
+            toast.success('Photo redressée', { id: toastId });
+            return true;
+        } catch (err) {
+            toast.error(err?.message?.startsWith('Espace de stockage plein') ? err.message : 'Impossible de pivoter la photo', { id: toastId });
+            return false;
+        }
+    };
+
+    return { nativePhotoRef, openCamera, camera, handlePhotoUpload, removePhoto, rotatePhoto };
 };
