@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Zap, ZapOff, Check, AlertTriangle, MapPin, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDuration } from '../utils/siteVisitConfig';
-import { frameToJpegBlob, photoFileName } from '../utils/cameraCapture';
+import { frameToJpegBlob, photoFileName, watchDeviceAngle, captureRotation, currentScreenAngle } from '../utils/cameraCapture';
 
 /**
  * Appareil photo intégré à la page.
@@ -41,6 +41,17 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
         setHasTorch(Boolean(stream.getVideoTracks()[0]?.getCapabilities?.().torch));
     }, [open, stream]);
 
+    // Sens du téléphone, lu sur l'accéléromètre : l'appli installée reste en
+    // portrait, une photo prise téléphone couché doit quand même sortir en
+    // paysage (comme avec l'appareil photo du téléphone).
+    const orientationRef = useRef(null);
+    useEffect(() => {
+        if (!open) return;
+        const watcher = watchDeviceAngle();
+        orientationRef.current = watcher;
+        return () => { watcher.stop(); orientationRef.current = null; };
+    }, [open]);
+
     // Les aperçus ne servent que le temps de la session photo. On les libère
     // à la fermeture — et seulement là, sinon on révoquerait des vignettes
     // encore affichées à chaque nouvelle prise.
@@ -69,7 +80,9 @@ const LiveCameraSheet = ({ open, stream, onClose, onCapture, onUseNativeCamera, 
         setBusy(true);
         try { navigator.vibrate?.(20); } catch { /* vibration non supportée */ }
         try {
-            const blob = await frameToJpegBlob(videoRef.current);
+            const deviceAngle = orientationRef.current?.angle();
+            const rotation = deviceAngle == null ? 0 : captureRotation(deviceAngle, currentScreenAngle());
+            const blob = await frameToJpegBlob(videoRef.current, { rotation });
             const at = Date.now();
             const file = new File([blob], photoFileName(at), { type: 'image/jpeg', lastModified: at });
             setFlash(true);
