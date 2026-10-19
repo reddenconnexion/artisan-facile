@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { videoConstraints, scaleToMax, photoFileName, isInPageCameraSupported, cameraErrorMessage } from './cameraCapture';
+import { videoConstraints, scaleToMax, photoFileName, isInPageCameraSupported, cameraErrorMessage, deviceAngleFromGravity, captureRotation } from './cameraCapture';
 
 describe('videoConstraints', () => {
     it('ne demande jamais le micro : il est déjà pris par l\'enregistrement', () => {
@@ -59,5 +59,39 @@ describe('cameraErrorMessage', () => {
     it('reprend le message du navigateur quand l\'erreur est inconnue', () => {
         expect(cameraErrorMessage({ name: 'BizarreError', message: 'boom' })).toBe('Caméra indisponible (boom).');
         expect(cameraErrorMessage()).toBe('Caméra indisponible sur cet appareil.');
+    });
+});
+
+describe('deviceAngleFromGravity', () => {
+    it('reconnaît les quatre façons de tenir le téléphone', () => {
+        expect(deviceAngleFromGravity(0, 9.8)).toBe(0);    // debout
+        expect(deviceAngleFromGravity(9.8, 0)).toBe(90);   // couché, haut vers la gauche
+        expect(deviceAngleFromGravity(0, -9.8)).toBe(180); // tête en bas
+        expect(deviceAngleFromGravity(-9.8, 0)).toBe(270); // couché, haut vers la droite
+    });
+
+    it('tolère une prise un peu penchée', () => {
+        expect(deviceAngleFromGravity(9, 2.5)).toBe(90);
+        expect(deviceAngleFromGravity(-2, 9.5)).toBe(0);
+    });
+
+    it('garde le sens précédent à plat ou pile entre deux positions', () => {
+        expect(deviceAngleFromGravity(0.5, 0.8, 90)).toBe(90);
+        expect(deviceAngleFromGravity(6.9, 6.9, 270)).toBe(270);
+        expect(deviceAngleFromGravity(undefined, null, 90)).toBe(90);
+    });
+});
+
+describe('captureRotation', () => {
+    it('ne touche à rien quand l\'écran a suivi le téléphone', () => {
+        expect(captureRotation(0, 0)).toBe(0);
+        expect(captureRotation(90, 90)).toBe(0);
+        expect(captureRotation(270, 270)).toBe(0);
+    });
+
+    it('redresse la photo quand l\'écran est resté en portrait', () => {
+        expect(captureRotation(90, 0)).toBe(90);
+        expect(captureRotation(270, 0)).toBe(270);
+        expect(captureRotation(180, 0)).toBe(180);
     });
 });
