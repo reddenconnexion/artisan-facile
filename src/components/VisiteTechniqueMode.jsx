@@ -2058,6 +2058,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
             <PhotoLightbox
                 photos={photos.map(p => ({
                     src: p.preview || p.url,
+                    blob: p.file,
                     name: p.name || p.file?.name || '',
                     caption: photoZonesById[p.id] || '',
                 }))}

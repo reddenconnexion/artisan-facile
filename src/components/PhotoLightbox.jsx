@@ -16,7 +16,8 @@ import { normalizeQuarterTurn, rotationPreviewStyle } from '../utils/imageRotati
  * aucune action n'attend un survol de souris.
  *
  * @param {object} props
- * @param {{ src: string, name?: string, caption?: string }[]} props.photos
+ * @param {{ src: string, name?: string, caption?: string, blob?: Blob }[]} props.photos
+ *   `blob` : fichier local de la photo, s'il est encore là (évite de le relire)
  * @param {number|null} props.index - photo ouverte ; null = fermée
  * @param {(index: number|null) => void} props.onIndexChange
  * @param {(photo: object, index: number) => (void|Promise<void>)} [props.onDelete] - absent = pas de suppression
@@ -53,9 +54,10 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete, onRotate }
 
     const fileName = photo.name || `photo-${index + 1}.jpg`;
 
-    // L'image peut être un blob local ou une URL publique : dans les deux
-    // cas on repasse par un fetch pour obtenir des octets manipulables.
+    // L'image peut être un fichier local (photo pas encore envoyée) ou une URL
+    // publique. Le fichier, quand l'appelant le fournit, évite tout aller-retour.
     const fetchBlob = async () => {
+        if (photo.blob) return photo.blob;
         const res = await fetch(photo.src);
         if (!res.ok) throw new Error('Image inaccessible');
         return res.blob();
@@ -82,16 +84,22 @@ const PhotoLightbox = ({ photos = [], index, onIndexChange, onDelete, onRotate }
         setBusy('copy');
         try {
             if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('unsupported');
-            const png = await toPngBlob(await fetchBlob());
+            // Le ClipboardItem reçoit une promesse et l'écriture part tout de
+            // suite, dans le geste de l'utilisateur : iPhone (Safari) refuse
+            // une écriture lancée après un téléchargement ou une conversion.
+            const png = fetchBlob().then(toPngBlob);
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
             setCopied(true);
             setTimeout(() => setCopied(false), 1800);
             toast.success('Photo copiée — collez-la où vous voulez.');
         } catch {
-            // Repli : le lien de l'image, toujours utilisable dans un message.
+            // Repli : le lien de l'image, toujours utilisable dans un message
+            // — sauf pour une photo locale, dont le lien ne mène nulle part.
+            const shareable = /^https?:/.test(photo.src);
             try {
+                if (!shareable) throw new Error('local');
                 await navigator.clipboard.writeText(photo.src);
-                toast.success('Lien de la photo copié.');
+                toast.success("Image non copiable sur cet appareil — lien de la photo copié à la place.");
             } catch {
                 toast.error('Copie impossible sur cet appareil — utilisez Partager.');
             }
