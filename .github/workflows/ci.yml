@@ -74,3 +74,19 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Informatif pour l'instant ; passer continue-on-error à false (et
+      # --audit-level=high) une fois les alertes existantes résorbées.
+      - name: Audit des dépendances de production
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
