@@ -218,6 +218,65 @@ export const hoursGapPercent = (estimatedHours, spentHours) => {
     return Math.round(((spent - est) / est) * 100);
 };
 
+// ── Types de chantier et coefficients correcteurs ────────────────────────────
+
+/** Types de chantier (colonne `quotes.chantier_type` du devis initial). */
+export const CHANTIER_TYPES = [
+    { id: 'neuf', label: 'Neuf' },
+    { id: 'renovation_partielle', label: 'Rénovation partielle' },
+    { id: 'renovation_complete', label: 'Rénovation complète' },
+    { id: 'depannage', label: 'Dépannage' },
+];
+
+const CHANTIER_TYPE_IDS = CHANTIER_TYPES.map(t => t.id);
+
+/** Clé de type valide, ou null (chantier non classé). */
+export const normalizeChantierType = (value) =>
+    (CHANTIER_TYPE_IDS.includes(value) ? value : null);
+
+/** Nombre de chantiers terminés à partir duquel un coefficient est jugé solide. */
+export const MIN_CHANTIERS_FOR_COEFFICIENT = 4;
+
+/**
+ * Coefficient correcteur par type de chantier : heures pointées ÷ heures
+ * chiffrées, cumulées sur les chantiers TERMINÉS du type (un chantier en cours
+ * n'a pas encore toutes ses heures). Les cumuls pondèrent naturellement par
+ * la taille : un gros chantier pèse plus qu'un petit dépannage.
+ * Un chantier sans heures au devis ou sans pointage n'apprend rien : ignoré.
+ *
+ * @param {Array<{chantierType?:string, completed:boolean, estimated:number, spent:number}>} chantiers
+ * @returns {Array<{id:string, label:string, count:number, estimated:number, spent:number, coefficient:number, reliable:boolean}>}
+ *   dans l'ordre de CHANTIER_TYPES, uniquement les types ayant au moins un chantier exploitable.
+ */
+export const correctionCoefficients = (chantiers) => {
+    const sums = new Map();
+    for (const c of Array.isArray(chantiers) ? chantiers : []) {
+        const type = normalizeChantierType(c?.chantierType);
+        const estimated = Number(c?.estimated) || 0;
+        const spent = Number(c?.spent) || 0;
+        if (!type || !c.completed || estimated <= 0 || spent <= 0) continue;
+        const sum = sums.get(type) || { count: 0, estimated: 0, spent: 0 };
+        sum.count += 1;
+        sum.estimated += estimated;
+        sum.spent += spent;
+        sums.set(type, sum);
+    }
+    return CHANTIER_TYPES
+        .filter(t => sums.has(t.id))
+        .map(t => {
+            const { count, estimated, spent } = sums.get(t.id);
+            return {
+                id: t.id,
+                label: t.label,
+                count,
+                estimated,
+                spent,
+                coefficient: Math.round((spent / estimated) * 100) / 100,
+                reliable: count >= MIN_CHANTIERS_FOR_COEFFICIENT,
+            };
+        });
+};
+
 // ── Rentabilité chantier ─────────────────────────────────────────────────────
 
 /**

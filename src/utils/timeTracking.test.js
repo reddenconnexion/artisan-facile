@@ -21,6 +21,9 @@ import {
     hoursByWorkBlock,
     hoursGapPercent,
     setClockWorkBlock,
+    correctionCoefficients,
+    normalizeChantierType,
+    MIN_CHANTIERS_FOR_COEFFICIENT,
 } from './timeTracking';
 
 describe('estimatedHoursFromItems', () => {
@@ -300,5 +303,40 @@ describe('blocs de travaux', () => {
         expect(setClockWorkBlock('tableau').workBlock).toBe('tableau');
         expect(getRunningClock().workBlock).toBe('tableau');
         expect(setClockWorkBlock('n_importe_quoi').workBlock).toBeNull();
+    });
+});
+
+describe('correctionCoefficients — par type de chantier', () => {
+    it('cumule heures pointées / chiffrées des chantiers terminés par type', () => {
+        const res = correctionCoefficients([
+            { chantierType: 'renovation_complete', completed: true, estimated: 20, spent: 24 },
+            { chantierType: 'renovation_complete', completed: true, estimated: 40, spent: 45 },
+            { chantierType: 'neuf', completed: true, estimated: 30, spent: 27 },
+            // ignorés : en cours, non classé, type inconnu, sans heures au devis, sans pointage
+            { chantierType: 'neuf', completed: false, estimated: 10, spent: 30 },
+            { chantierType: null, completed: true, estimated: 10, spent: 30 },
+            { chantierType: 'piscine', completed: true, estimated: 10, spent: 30 },
+            { chantierType: 'depannage', completed: true, estimated: 0, spent: 3 },
+            { chantierType: 'depannage', completed: true, estimated: 2, spent: 0 },
+        ]);
+        expect(res).toEqual([
+            { id: 'neuf', label: 'Neuf', count: 1, estimated: 30, spent: 27, coefficient: 0.9, reliable: false },
+            { id: 'renovation_complete', label: 'Rénovation complète', count: 2, estimated: 60, spent: 69, coefficient: 1.15, reliable: false },
+        ]);
+    });
+
+    it('juge le coefficient solide à partir de 4 chantiers', () => {
+        const four = Array.from({ length: MIN_CHANTIERS_FOR_COEFFICIENT }, () => (
+            { chantierType: 'depannage', completed: true, estimated: 2, spent: 2.5 }
+        ));
+        const [dep] = correctionCoefficients(four);
+        expect(dep.coefficient).toBe(1.25);
+        expect(dep.reliable).toBe(true);
+    });
+
+    it('tolère une liste absente', () => {
+        expect(correctionCoefficients(undefined)).toEqual([]);
+        expect(normalizeChantierType('neuf')).toBe('neuf');
+        expect(normalizeChantierType('')).toBeNull();
     });
 });
