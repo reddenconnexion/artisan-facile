@@ -314,9 +314,14 @@ Deno.serve(async (req) => {
         // hébergeurs ; l'attendre retardait la réponse d'autant, et une
         // réponse coupée en route faisait croire à un échec alors que le
         // client avait bien reçu le mail. La fermeture se fait en arrière-plan.
+        // `close()` de denomailer ne renvoie pas toujours une promesse (il
+        // renvoie undefined) : on l'enveloppe pour qu'un `.catch` direct ne
+        // fasse plus planter un envoi pourtant réussi.
         const sentClient = client;
         client = null;
-        const closing = sentClient.close().catch(() => { /* ignore */ });
+        const closing = Promise.resolve()
+            .then(() => sentClient.close())
+            .catch(() => { /* ignore */ });
         // deno-lint-ignore no-explicit-any
         (globalThis as any).EdgeRuntime?.waitUntil?.(closing);
 
