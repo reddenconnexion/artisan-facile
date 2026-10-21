@@ -130,6 +130,13 @@ describe('photos et transcriptions dans le brouillon', () => {
         expect(restored[0]).toMatchObject({ id: 'seg-1', dbId: 'm1', path: 'u/seg-1.webm', blob: null, restored: true });
     });
 
+    it("garde la nature « dictée » d'une note à la reprise", async () => {
+        const { draftVoiceNotes, restoreDraftVoiceNotes } = await import('./visitDraft');
+        const notes = [{ id: 'seg-3', dbId: 'm3', path: 'u/seg-3.webm', zone: 'Tableau électrique', duration: 25, kind: 'dictation' }];
+        expect(draftVoiceNotes(notes)[0].kind).toBe('dictation');
+        expect(restoreDraftVoiceNotes(draftVoiceNotes(notes))[0]).toMatchObject({ kind: 'dictation', zone: 'Tableau électrique' });
+    });
+
     it('ignore un brouillon aux notes vocales mal formées', async () => {
         const { restoreDraftVoiceNotes } = await import('./visitDraft');
         expect(restoreDraftVoiceNotes(null)).toEqual([]);

@@ -40,8 +40,14 @@ export const addCount = (capture, { counterKey, delta = 1, at }) =>
  * remonte à sa fermeture, souvent après avoir changé de pièce, il ne faut
  * donc pas le rattacher à la pièce courante.
  */
-export const addVoice = (capture, { mediaId, duration, at, zone = capture.zone }) =>
-    withEntry(capture, { type: 'voice', at, zone, mediaId, duration });
+export const addVoice = (capture, { mediaId, duration, at, zone = capture.zone, kind }) =>
+    withEntry(capture, { type: 'voice', at, zone, mediaId, duration, ...(kind === 'dictation' ? { kind } : {}) });
+
+/** Retire un enregistrement du fil (dictée ratée, refaite). */
+export const removeVoice = (capture, mediaId) => ({
+    ...capture,
+    entries: (capture.entries || []).filter((e) => !(e.type === 'voice' && e.mediaId === mediaId)),
+});
 
 /** Une ou plusieurs photos prises à la volée. */
 export const addPhoto = (capture, { mediaId, at }) =>
@@ -150,11 +156,12 @@ export const buildTimelineLines = (capture, { template, transcripts = {} } = {})
             } else if (entry.type === 'voice') {
                 const text = String(transcripts[entry.mediaId] ?? '').trim();
                 const seconds = Math.round(entry.duration || 0);
-                if (text) lines.push(`- Note vocale : « ${text} »`);
+                const label = entry.kind === 'dictation' ? 'Dictée' : 'Note vocale';
+                if (text) lines.push(`- ${label} : « ${text} »`);
                 // Transcrite mais muette (personne ne parlait) : ce n'est pas
                 // la même chose qu'une note qui reste à transcrire.
-                else if (Object.prototype.hasOwnProperty.call(transcripts, entry.mediaId)) lines.push(`- Note vocale (${seconds} s, rien d'audible)`);
-                else lines.push(`- Note vocale (${seconds} s, non transcrite)`);
+                else if (Object.prototype.hasOwnProperty.call(transcripts, entry.mediaId)) lines.push(`- ${label} (${seconds} s, rien d'audible)`);
+                else lines.push(`- ${label} (${seconds} s, non transcrite)`);
             } else if (entry.type === 'flag') {
                 lines.push(`- POINT SIGNALÉ${entry.label ? ` : ${entry.label}` : ' — à traiter au chiffrage'}`);
             }

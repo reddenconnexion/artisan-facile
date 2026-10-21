@@ -49,6 +49,12 @@ describe('transcribeBlob', () => {
         expect(invoke).toHaveBeenLastCalledWith({ audioBase64: 'QUJD', mimeType: 'audio/webm', memoId: 'memo-1' });
     });
 
+    it('signale une dictée au serveur, qui adapte sa consigne', async () => {
+        const invoke = vi.fn().mockResolvedValue({ data: { transcript: '3 prises' }, error: null });
+        await transcribeBlob(blob(), 'audio/webm', { invoke, wait: noWait, kind: 'dictation' });
+        expect(invoke).toHaveBeenLastCalledWith({ audioBase64: 'QUJD', mimeType: 'audio/webm', kind: 'dictation' });
+    });
+
     it('réessaie une fois sur une erreur transitoire puis réussit', async () => {
         const invoke = vi.fn()
             .mockResolvedValueOnce({ data: null, error: httpError(502, { error: 'Erreur Gemini (503)' }) })

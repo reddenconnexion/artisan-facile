@@ -68,3 +68,15 @@ describe('untranscribedLine', () => {
             .toBe('ENREGISTREMENTS NON TRANSCRITS (contenu absent de ce résumé, à réécouter) : 3 — 8 min, Salon ; 45 s');
     });
 });
+
+describe('dictées dans la matière de la visite', () => {
+    it('garde la nature dictée de la note et la rend lisible', () => {
+        const notes = [{ id: 'd', zone: 'Cuisine', kind: 'dictation' }, { id: 's', zone: 'Séjour' }];
+        const list = zonedTranscripts(notes, { d: '3 prises', s: 'on verra' });
+        expect(list).toEqual([
+            { zone: 'Cuisine', text: '3 prises', kind: 'dictation' },
+            { zone: 'Séjour', text: 'on verra' },
+        ]);
+        expect(list.map(zonedLine)).toEqual(['[Cuisine] Dictée : 3 prises', '[Séjour] on verra']);
+    });
+});

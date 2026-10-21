@@ -7,6 +7,9 @@ import {
     readAudioInput,
     levelFromTimeDomain,
     AUDIO_INPUT_KEY,
+    readCaptureStyle,
+    rememberCaptureStyle,
+    CAPTURE_STYLE_KEY,
 } from './audioInput';
 
 const makeStorage = (initial = {}) => {
@@ -93,5 +96,27 @@ describe('levelFromTimeDomain', () => {
     it('ne casse pas sur une trame vide', () => {
         expect(levelFromTimeDomain(new Uint8Array(0))).toBe(0);
         expect(levelFromTimeDomain(undefined)).toBe(0);
+    });
+});
+
+describe('façon d\'enregistrer la visite', () => {
+    it('dictée par défaut, et sans stockage utilisable', () => {
+        expect(readCaptureStyle({ storage: makeStorage() })).toBe('dictation');
+        expect(readCaptureStyle({ storage: null })).toBe('dictation');
+        expect(readCaptureStyle({ storage: makeStorage({ [CAPTURE_STYLE_KEY]: 'n importe quoi' }) })).toBe('dictation');
+    });
+
+    it('retient le choix de l\'artisan, et seulement un choix valide', () => {
+        const storage = makeStorage();
+        expect(rememberCaptureStyle('continuous', { storage })).toBe(true);
+        expect(readCaptureStyle({ storage })).toBe('continuous');
+        expect(rememberCaptureStyle('autre', { storage })).toBe(false);
+        expect(readCaptureStyle({ storage })).toBe('continuous');
+    });
+
+    it('survit à un stockage qui refuse l\'accès', () => {
+        const storage = { getItem: () => { throw new Error('bloqué'); }, setItem: () => { throw new Error('bloqué'); } };
+        expect(readCaptureStyle({ storage })).toBe('dictation');
+        expect(rememberCaptureStyle('continuous', { storage })).toBe(false);
     });
 });

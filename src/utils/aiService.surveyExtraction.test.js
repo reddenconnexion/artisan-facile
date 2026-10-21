@@ -134,6 +134,29 @@ describe('extractSurveyFromVisit', () => {
     });
 });
 
+describe('dictées', () => {
+    it('sépare les dictées, qui font foi, de la conversation à trier', async () => {
+        invokeMock.mockResolvedValue(okResponse('{}'));
+        await extractSurveyFromVisit([
+            { zone: 'Cuisine', text: '3 prises plan de travail', kind: 'dictation' },
+            { zone: 'Tableau électrique', text: 'tableau 2 rangées, plein', kind: 'dictation' },
+            { zone: 'Séjour', text: 'il fait beau aujourd\'hui' },
+        ], [], TEMPLATE, '');
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain("DICTÉES DE L'ARTISAN (pièce par pièce, elles font foi) :\n1. [Cuisine] 3 prises plan de travail\n2. [Tableau électrique] tableau 2 rangées, plein");
+        expect(body.userMessage).toContain('CONVERSATION DE LA VISITE (retranscrite, peut contenir du bavardage) :\n1. [Séjour]');
+        expect(body.systemPrompt).toMatch(/la dictée l'emporte/);
+    });
+
+    it("n'annonce pas de conversation quand il n'y a que des dictées", async () => {
+        invokeMock.mockResolvedValue(okResponse('Fais-moi le devis à partir de cette visite.'));
+        await summarizeVisitForQuote({ transcripts: [{ zone: 'Cuisine', text: '3 prises', kind: 'dictation' }] });
+        const [, { body }] = invokeMock.mock.calls[0];
+        expect(body.userMessage).toContain("DICTÉES DE L'ARTISAN");
+        expect(body.userMessage).not.toContain('CONVERSATION');
+    });
+});
+
 describe('summarizeVisitForQuote', () => {
     it('envoie relevé, notes, photos et points manquants, et nettoie la réponse', async () => {
         invokeMock.mockResolvedValue(okResponse('```\nFais-moi le devis à partir de cette visite.\n\n**CLIENT** : M. Martin\n```'));

@@ -58,6 +58,31 @@ export const readAudioInput = ({ storage = defaultStorage() } = {}) => {
     }
 };
 
+// Façon d'enregistrer une visite : dictées courtes pièce par pièce (par
+// défaut — courtes, elles se transcrivent bien et ne contiennent que l'utile)
+// ou la conversation entière avec le client.
+export const CAPTURE_STYLE_KEY = 'artisanfacile.visite.mode';
+export const CAPTURE_STYLES = ['dictation', 'continuous'];
+
+export const rememberCaptureStyle = (style, { storage = defaultStorage() } = {}) => {
+    if (!storage || !CAPTURE_STYLES.includes(style)) return false;
+    try {
+        storage.setItem(CAPTURE_STYLE_KEY, style);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const readCaptureStyle = ({ storage = defaultStorage() } = {}) => {
+    try {
+        const stored = storage?.getItem(CAPTURE_STYLE_KEY);
+        return CAPTURE_STYLES.includes(stored) ? stored : 'dictation';
+    } catch {
+        return 'dictation';
+    }
+};
+
 /**
  * Niveau sonore d'une trame temporelle (RMS ramené entre 0 et 1), pour la
  * jauge qui prouve que le micro capte vraiment quelque chose.

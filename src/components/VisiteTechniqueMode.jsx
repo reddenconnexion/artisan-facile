@@ -27,10 +27,10 @@ import VisiteExpressMode, { ExpressActionPad } from './VisiteExpressMode';
 import LiveCameraSheet from './LiveCameraSheet';
 import PhotoLightbox from './PhotoLightbox';
 import { isInPageCameraSupported, openCameraStream, cameraErrorMessage } from '../utils/cameraCapture';
-import { readAudioInput, rememberAudioInput } from '../utils/audioInput';
+import { readAudioInput, rememberAudioInput, readCaptureStyle, rememberCaptureStyle } from '../utils/audioInput';
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
-    createCapture, addZoneChange, addCount, addVoice, addPhoto, addFlag,
+    createCapture, addZoneChange, addCount, addVoice, removeVoice, addPhoto, addFlag,
     undoLast, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
     buildTimelineLines, photoZones,
 } from '../utils/visitCapture';
@@ -438,7 +438,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 if (!voiceNotesRef.current.some(n => n.id === note.id)) continue;
                 setVoiceStatus(s => ({ ...s, [note.id]: { state: 'transcribing' } }));
                 try {
-                    const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId });
+                    const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId, kind: note.kind });
                     setVoiceTranscripts(prev => ({ ...prev, [note.id]: transcript }));
                     setVoiceStatus(s => ({ ...s, [note.id]: { state: 'done' } }));
                     markVoiceNoteDone(note);
@@ -519,14 +519,26 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     const captureZoneRef = useRef('');
     useEffect(() => { captureZoneRef.current = capture.zone; }, [capture.zone]);
 
+    // Dictée pièce par pièce (par défaut) ou conversation entière. En
+    // continu, la transcription charriait surtout du bavardage à filtrer ;
+    // une dictée courte se transcrit bien et ne contient que l'utile.
+    const [captureStyle, setCaptureStyle] = useState(readCaptureStyle);
+    const captureStyleRef = useRef(captureStyle);
+    useEffect(() => { captureStyleRef.current = captureStyle; }, [captureStyle]);
+    const dictationTopics = surveyTemplate.dictationTopics || [];
+    const isDictationTopic = (name) => dictationTopics.some((t) => t.toLowerCase() === String(name ?? '').trim().toLowerCase());
+
     // Segments en cours d'envoi : quitter la visite les attend (voir handleBack).
     const persistingSegmentsRef = useRef(new Set());
     const handleSegment = useCallback(async ({ blob, mimeType, duration, index, startedAt, meta }) => {
         const id = `seg-${startedAt}-${index}`;
         const zone = meta?.zone || '';
-        const note = { id, blob, mimeType, duration, zone };
+        const kind = meta?.kind === 'dictation' ? 'dictation' : undefined;
+        // Tap trop bref sur « Dicter » : rien à transcrire.
+        if (kind && duration < 1) return;
+        const note = { id, blob, mimeType, duration, zone, ...(kind ? { kind } : {}) };
         setVoiceNotes(prev => [...prev, note]);
-        setCapture(c => addVoice(c, { mediaId: id, duration, at: startedAt, zone }));
+        setCapture(c => addVoice(c, { mediaId: id, duration, at: startedAt, zone, kind }));
         // L'audio est mis à l'abri avant d'être transcrit : si l'appli est
         // recyclée pendant l'appel de transcription, le fichier survit sur
         // le serveur et pourra être retransmis plus tard.
@@ -537,7 +549,10 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         enqueueTranscription([persisted]);
     }, [enqueueTranscription, persistVoiceNote]);
 
-    const getSegmentMeta = useCallback(() => ({ zone: captureZoneRef.current }), []);
+    const getSegmentMeta = useCallback(() => ({
+        zone: captureZoneRef.current,
+        ...(captureStyleRef.current === 'dictation' ? { kind: 'dictation' } : {}),
+    }), []);
 
     // Micro retenu d'une visite à l'autre : un micro-cravate branché reste
     // sélectionné, sans avoir à y penser au démarrage suivant.
@@ -552,12 +567,31 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
 
     const startVisit = async () => {
         const started = await visitRecorder.start();
-        if (started) toast.success('Visite enregistrée — prévenez le client.');
+        if (started && captureStyleRef.current !== 'dictation') toast.success('Visite enregistrée — prévenez le client.');
     };
 
     const stopVisit = () => {
         visitRecorder.stop();
-        toast.success('Enregistrement terminé.');
+        if (captureStyleRef.current !== 'dictation') toast.success('Enregistrement terminé.');
+    };
+
+    const handleCaptureStyle = (style) => {
+        if (visitRecorder.isRecording) return;
+        setCaptureStyle(style);
+        rememberCaptureStyle(style);
+    };
+
+    /** Dictée ratée : on la retire pour la refaire. */
+    const handleDeleteDictation = async (id) => {
+        const ok = await confirm({
+            title: 'Supprimer cette dictée ?',
+            message: 'Le texte et l\'enregistrement seront retirés de la visite.',
+            confirmLabel: 'Supprimer',
+            danger: true,
+        });
+        if (!ok) return;
+        handleDeleteVoice(id);
+        setCapture(c => removeVoice(c, id));
     };
 
     // Une pièce doit exister pour porter un comptage : si rien n'a encore été
@@ -566,11 +600,13 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
 
     const handleZoneChange = (name) => {
         visitRecorder.rotateSegment(); // l'audio suivant appartient à la nouvelle pièce
-        setSurvey(s => ensureSurveyZone(s, name));
+        // « Général », « Tableau électrique » : un poste dicté, pas une pièce du relevé.
+        if (!isDictationTopic(name)) setSurvey(s => ensureSurveyZone(s, name));
         setCapture(c => addZoneChange(c, name, nowMs()));
     };
 
     const handleCount = (counterKey, delta) => {
+        if (isDictationTopic(capture.zone)) return;
         const zone = currentZoneName();
         setSurvey(s => bumpSurveyCounter(s, zone, counterKey, delta));
         setCapture(c => {
@@ -1094,7 +1130,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 setActivePhase('voice');
                 for (const note of missingText) {
                     try {
-                        const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId });
+                        const { transcript } = await transcribeBlob(note.blob, note.mimeType, { memoId: note.dbId, kind: note.kind });
                         collected[note.id] = transcript;
                         markVoiceNoteDone(note);
                     } catch (noteErr) {
@@ -1519,6 +1555,10 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                         transcripts={voiceTranscripts}
                         voiceStatus={voiceStatus}
                         onRetryTranscriptions={retryFailedTranscriptions}
+                        captureStyle={captureStyle}
+                        onCaptureStyleChange={handleCaptureStyle}
+                        dictationTopics={dictationTopics}
+                        onDeleteVoice={handleDeleteDictation}
                     />
                 )}
 
@@ -1960,6 +2000,8 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                         isRecording={visitRecorder.isRecording}
                         isSupported={visitRecorder.isSupported}
                         hasCaptured={hasCaptureContent(capture)}
+                        captureStyle={captureStyle}
+                        isTopic={isDictationTopic(capture.zone)}
                         onStart={startVisit}
                         onStop={stopVisit}
                         onCount={handleCount}

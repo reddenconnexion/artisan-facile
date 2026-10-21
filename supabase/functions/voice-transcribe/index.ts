@@ -30,11 +30,25 @@ const VERBATIM_PROMPT = `${VISIT_CONTEXT}\n\nTranscris cet enregistrement audio 
 // passer le filtre anti-citation qui bloque parfois la version mot pour mot.
 const DIALOGUE_PROMPT = `${VISIT_CONTEXT}\n\nÉcris la transcription intégrale de cette conversation en français. Commence chaque prise de parole par « Artisan : » ou « Client : » quand on peut le déduire, sinon par « — ». Garde tout ce qui est dit sur les pièces, les travaux, les quantités et les constats. Aucun commentaire. Si personne ne parle, retourne une chaîne vide.`;
 
+// Dictée : l'artisan décrit seul une pièce ou un poste, au calme. Des chiffres
+// plutôt que des mots, pour que les quantités se lisent sans ambiguïté.
+const DICTATION_CONTEXT = VISIT_CONTEXT.replace(
+  'Un artisan du bâtiment (souvent électricien) parle avec son client en parcourant le logement.',
+  "Un artisan du bâtiment (souvent électricien) dicte son relevé, pièce par pièce : l'existant, les travaux, les quantités, la fourniture.",
+);
+const DICTATION_PROMPT = `${DICTATION_CONTEXT}\n\nTranscris cette dictée en français, mot pour mot, en écrivant les quantités en chiffres (« 3 prises », « 2 x 1,5 mm² »). Retourne uniquement la transcription, sans commentaires ni formatage. Si l'enregistrement ne contient aucune parole audible, retourne une chaîne vide.`;
+const DICTATION_RETRY_PROMPT = `${DICTATION_CONTEXT}\n\nÉcris ce que dit l'artisan dans cette dictée, en français, phrase par phrase, quantités en chiffres. Garde tout : pièces, travaux, quantités, constats. Aucun commentaire. Si personne ne parle, retourne une chaîne vide.`;
+
 type GeminiAttempt = { model: string; temperature: number; prompt: string };
 const GEMINI_ATTEMPTS: GeminiAttempt[] = [
   { model: 'gemini-2.5-flash', temperature: 0, prompt: VERBATIM_PROMPT },
   { model: 'gemini-2.5-flash', temperature: 0.4, prompt: DIALOGUE_PROMPT },
   { model: 'gemini-2.5-pro', temperature: 0.4, prompt: DIALOGUE_PROMPT },
+];
+const DICTATION_ATTEMPTS: GeminiAttempt[] = [
+  { model: 'gemini-2.5-flash', temperature: 0, prompt: DICTATION_PROMPT },
+  { model: 'gemini-2.5-flash', temperature: 0.4, prompt: DICTATION_RETRY_PROMPT },
+  { model: 'gemini-2.5-pro', temperature: 0.4, prompt: DICTATION_RETRY_PROMPT },
 ];
 
 // La passerelle Supabase coupe à 150 s : toutes les tentatives tiennent dans
@@ -168,7 +182,8 @@ Deno.serve(async (req) => {
     } catch {
       return json({ error: 'Enregistrement illisible (corps de requête invalide ou trop volumineux).' }, 400);
     }
-    const { audioBase64, mimeType } = body;
+    const { audioBase64, mimeType, kind } = body;
+    const isDictation = kind === 'dictation';
     memoId = body.memoId;
 
     if (!audioBase64) return json({ error: 'Audio manquant' }, 400);
@@ -178,7 +193,7 @@ Deno.serve(async (req) => {
 
     const audioMimeType = bareMimeType(String(mimeType || 'audio/webm'));
     const audioBytes = Math.round(audioBase64.length * 3 / 4);
-    const logPrefix = `[voice-transcribe] user=${user.id.slice(0, 8)} provider=${aiProvider} mime=${audioMimeType} bytes=${audioBytes}`;
+    const logPrefix = `[voice-transcribe] user=${user.id.slice(0, 8)} provider=${aiProvider} mime=${audioMimeType} bytes=${audioBytes}${isDictation ? ' kind=dictation' : ''}`;
     let transcript = '';
     let emptyReason = '';
 
@@ -190,10 +205,11 @@ Deno.serve(async (req) => {
       // (STOP vide, qui passe à la tentative suivante). Une visite perdait
       // ainsi 8 minutes de conversation.
       let silentAnswers = 0;
-      for (let i = 0; i < GEMINI_ATTEMPTS.length; i += 1) {
+      const attempts = isDictation ? DICTATION_ATTEMPTS : GEMINI_ATTEMPTS;
+      for (let i = 0; i < attempts.length; i += 1) {
         const remaining = TRANSCRIBE_BUDGET_MS - (Date.now() - startedAt);
         if (i > 0 && remaining < MIN_ATTEMPT_MS) break;
-        const attempt = GEMINI_ATTEMPTS[i];
+        const attempt = attempts[i];
         let outcome: GeminiOutcome;
         try {
           outcome = await geminiTranscribe(apiKey, attempt, audioMimeType, audioBase64, Math.min(remaining, MAX_ATTEMPT_MS));
@@ -250,7 +266,7 @@ Deno.serve(async (req) => {
       formData.append('language', 'fr');
       formData.append('response_format', 'json');
       // Whisper s'appuie sur ce texte pour l'orthographe des termes du métier.
-      formData.append('prompt', VISIT_CONTEXT);
+      formData.append('prompt', isDictation ? DICTATION_CONTEXT : VISIT_CONTEXT);
 
       const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
